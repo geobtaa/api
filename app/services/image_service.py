@@ -167,9 +167,9 @@ class ImageService:
                 "/full/full/",
                 "/full/,/",
                 "/full/!/",
-                "/full/\d+,/",
-                "/full/,\d+/",
-                "/full/\d+,\d+/",
+                r"/full/\d+,/",
+                r"/full/,\d+/",
+                r"/full/\d+,\d+/",
                 "/full/full/0/default.jpg",
                 "/full/full/0/default.png",
             ]:
