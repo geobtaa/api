@@ -9,7 +9,7 @@ from sqlalchemy import insert
 
 from app.services.llm_service import LLMService
 from db.database import database
-from db.models import item_ai_enrichments
+from db.models import resource_ai_enrichments
 
 # Load environment variables from .env file
 load_dotenv()
@@ -24,13 +24,13 @@ logger = logging.getLogger(__name__)
     retry_kwargs={"max_retries": 2, "countdown": 5},
     retry_backoff=True,
 )
-def generate_geo_entities(item_id: str, metadata: Dict[str, Any]):
+def generate_geo_entities(resource_id: str, metadata: Dict[str, Any]):
     """
-    Celery task to identify geographic entities in item metadata.
+    Celery task to identify geographic entities in resource metadata.
 
     Args:
-        item_id: The item ID
-        metadata: Item metadata dictionary
+        resource_id: The resource ID
+        metadata: Resource metadata dictionary
     """
     # Create an event loop for the async function
     loop = asyncio.new_event_loop()
@@ -38,24 +38,24 @@ def generate_geo_entities(item_id: str, metadata: Dict[str, Any]):
 
     try:
         # Run the async function
-        return loop.run_until_complete(_identify_geo_entities(item_id, metadata))
+        return loop.run_until_complete(_identify_geo_entities(resource_id, metadata))
     finally:
         # Clean up
         loop.close()
 
 
 async def store_geo_entities_in_db(
-    item_id: str,
+    resource_id: str,
     model: str,
     entities: Dict[str, Any],
     prompt: Dict[str, Any],
     output_parser: Dict[str, Any],
 ):
     """
-    Store the identified geographic entities in the item_ai_enrichments table.
+    Store the identified geographic entities in the resource_ai_enrichments table.
 
     Args:
-        item_id: The ID of the item
+        resource_id: The ID of the resource
         model: The model used for identification
         entities: The identified geographic entities
         prompt: The prompt used for generation
@@ -74,7 +74,7 @@ async def store_geo_entities_in_db(
 
         # Create the enrichment record
         enrichment_data = {
-            "item_id": item_id,
+            "resource_id": resource_id,
             "enrichment_type": "geo_entities",
             "ai_provider": "OpenAI",
             "model": model,
@@ -87,10 +87,10 @@ async def store_geo_entities_in_db(
 
         # Insert the record into the database
         async with database.transaction():
-            query = insert(item_ai_enrichments).values(**enrichment_data)
+            query = insert(resource_ai_enrichments).values(**enrichment_data)
             await database.execute(query)
 
-        logger.info(f"Stored geographic entities for item {item_id} in the database")
+        logger.info(f"Stored geographic entities for resource {resource_id} in the database")
 
     except Exception as e:
         logger.error(f"Error storing geographic entities in database: {str(e)}")
@@ -101,12 +101,12 @@ async def store_geo_entities_in_db(
             await database.disconnect()
 
 
-async def _identify_geo_entities(item_id: str, metadata: Dict[str, Any]):
+async def _identify_geo_entities(resource_id: str, metadata: Dict[str, Any]):
     """
     Async implementation of geographic entity identification.
     """
     try:
-        logger.info(f"Starting geographic entity identification for item {item_id}")
+        logger.info(f"Starting geographic entity identification for resource {resource_id}")
 
         # Initialize LLM service
         llm_service = LLMService()
@@ -119,7 +119,7 @@ async def _identify_geo_entities(item_id: str, metadata: Dict[str, Any]):
                 text_content.append(f"{key}: {value}")
 
         if not text_content:
-            logger.warning(f"No metadata content found for item {item_id}")
+            logger.warning(f"No metadata content found for resource {resource_id}")
             return
 
         combined_text = "\n".join(text_content)
@@ -128,11 +128,15 @@ async def _identify_geo_entities(item_id: str, metadata: Dict[str, Any]):
         entities, prompt, output_parser = await llm_service.identify_geo_entities(combined_text)
 
         # Store results in database
-        await store_geo_entities_in_db(item_id, llm_service.model, entities, prompt, output_parser)
+        await store_geo_entities_in_db(
+            resource_id, llm_service.model, entities, prompt, output_parser
+        )
 
-        logger.info(f"Completed geographic entity identification for item {item_id}")
+        logger.info(f"Completed geographic entity identification for resource {resource_id}")
         return entities
 
     except Exception as e:
-        logger.error(f"Error in geographic entity identification for item {item_id}: {str(e)}")
+        logger.error(
+            f"Error in geographic entity identification for resource {resource_id}: {str(e)}"
+        )
         raise

@@ -7,7 +7,7 @@ from sqlalchemy import inspect
 
 from db.config import DATABASE_URL
 from db.migrations.create_gazetteer_tables import create_gazetteer_tables
-from db.migrations.create_item_relationships import create_relationships_table
+from db.migrations.create_resource_relationships import create_relationships_table
 from db.migrations.create_fast_embeddings import create_fast_embeddings_table
 from db.migrations.create_ai_enrichments import create_ai_enrichments_table
 from db.migrations.add_enrichment_type import add_enrichment_type_column
@@ -16,6 +16,10 @@ from db.migrations.update_fast_gazetteer import update_fast_gazetteer
 from db.migrations.rename_ai_enrichments import rename_ai_enrichments_table
 from db.migrations.rename_document_id_to_item_id import rename_document_id_to_item_id
 from db.migrations.create_item_allmaps_table import create_item_allmaps_table
+from db.migrations.rename_all_item_tables import rename_all_item_tables
+from db.migrations.rename_item_id_to_resource_id import rename_item_id_to_resource_id
+from db.migrations.rename_indexes import rename_indexes
+from db.migrations.rename_remaining_constraints import rename_remaining_constraints
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -68,6 +72,22 @@ async def run_migrations():
         # Create item_allmaps table
         logger.info("Creating item_allmaps table...")
         await create_item_allmaps_table(engine)
+        
+        # Rename all item_* tables to resource_* tables
+        logger.info("Renaming all item_* tables to resource_* tables...")
+        await rename_all_item_tables(engine)
+        
+        # Rename item_id columns to resource_id in relevant tables
+        logger.info("Renaming item_id columns to resource_id...")
+        await rename_item_id_to_resource_id(engine)
+        
+        # Rename indexes that still reference old item_ naming
+        logger.info("Renaming indexes to match new naming...")
+        await rename_indexes(engine)
+        
+        # Rename remaining constraints and indexes
+        logger.info("Renaming remaining constraints and indexes...")
+        await rename_remaining_constraints(engine)
         
     except Exception as e:
         logger.error(f"Error running migrations: {str(e)}")

@@ -12,12 +12,12 @@ client = TestClient(app)
 
 
 @pytest.fixture
-def mock_item():
-    """Return a mock item for testing."""
+def mock_resource():
+    """Return a mock resource for testing."""
     return {
-        "id": "test-item-id",
-        "dct_title_s": "Test Item Title",
-        "dct_description_sm": ["This is a test item description"],
+        "id": "test-resource-id",
+        "dct_title_s": "Test Resource Title",
+        "dct_description_sm": ["This is a test resource description"],
         "dct_creator_sm": ["Test Creator"],
         "dct_publisher_sm": ["Test Publisher"],
         "dct_references_s": json.dumps(
@@ -41,16 +41,16 @@ def mock_relationships():
     return {
         "isPartOf": [
             {
-                "item_id": "related-item-1",
-                "item_title": "Related Item 1",
-                "link": "http://localhost:8000/api/v1/items/related-item-1",
+                "resource_id": "related-resource-1",
+                "resource_title": "Related Resource 1",
+                "link": "http://localhost:8000/api/v1/resources/related-resource-1",
             }
         ],
         "hasPart": [
             {
-                "item_id": "related-item-2",
-                "item_title": "Related Item 2",
-                "link": "http://localhost:8000/api/v1/items/related-item-2",
+                "resource_id": "related-resource-2",
+                "resource_title": "Related Resource 2",
+                "link": "http://localhost:8000/api/v1/resources/related-resource-2",
             }
         ],
     }
@@ -62,7 +62,7 @@ def mock_summaries():
     return [
         {
             "id": 1,
-            "item_id": "test-item-id",
+            "resource_id": "test-resource-id",
             "type": "summary",
             "content": "This is a test AI-generated summary.",
             "created_at": "2023-01-01T00:00:00",
@@ -72,21 +72,21 @@ def mock_summaries():
 
 
 @pytest.mark.asyncio
-@patch("app.services.search_service.SearchService.get_item")
-async def test_get_item(
-    mock_get_item,
-    mock_item,
+@patch("app.services.search_service.SearchService.get_resource")
+async def test_get_resource(
+    mock_get_resource,
+    mock_resource,
     mock_relationships,
     mock_summaries,
 ):
-    """Test the get_item endpoint."""
+    """Test the get_resource endpoint."""
     # Setup mock response from SearchService
-    mock_get_item.return_value = {
+    mock_get_resource.return_value = {
         "data": {
-            "type": "item",
-            "id": mock_item["id"],
+            "type": "resource",
+            "id": mock_resource["id"],
             "attributes": {
-                **mock_item,
+                **mock_resource,
                 "ui_thumbnail_url": "https://example.com/thumbnail.jpg",
                 "ui_citation": "Test Citation",
                 "ui_downloads": {"pdf": "https://example.com/download.pdf"},
@@ -100,13 +100,13 @@ async def test_get_item(
     }
 
     # Call endpoint
-    response = client.get(f"/api/v1/items/{mock_item['id']}")
+    response = client.get(f"/api/v1/resources/{mock_resource['id']}")
 
     # Verify response
     assert response.status_code == 200
     data = response.json()
-    assert data["data"]["id"] == mock_item["id"]
-    assert data["data"]["attributes"]["dct_title_s"] == mock_item["dct_title_s"]
+    assert data["data"]["id"] == mock_resource["id"]
+    assert data["data"]["attributes"]["dct_title_s"] == mock_resource["dct_title_s"]
     assert "ui_thumbnail_url" in data["data"]["attributes"]
     assert "ui_citation" in data["data"]["attributes"]
     assert "ui_downloads" in data["data"]["attributes"]
@@ -116,27 +116,27 @@ async def test_get_item(
 
 
 @pytest.mark.asyncio
-@patch("app.services.search_service.SearchService.get_item")
-async def test_get_item_not_found(mock_get_item):
-    """Test the get_item endpoint with non-existent ID."""
+@patch("app.services.search_service.SearchService.get_resource")
+async def test_get_resource_not_found(mock_get_resource):
+    """Test the get_resource endpoint with non-existent ID."""
 
     # Setup mock to raise NotFoundError
     async def raise_not_found(*args, **kwargs):
-        raise HTTPException(status_code=404, detail="Item not found")
+        raise HTTPException(status_code=404, detail="Resource not found")
 
-    mock_get_item.side_effect = raise_not_found
+    mock_get_resource.side_effect = raise_not_found
 
     # Call endpoint
-    response = client.get("/api/v1/items/non-existent-id")
+    response = client.get("/api/v1/resources/non-existent-id")
 
     # Verify response
     assert response.status_code == 404
-    assert response.json()["detail"] == "Item not found"
+    assert response.json()["detail"] == "Resource not found"
 
 
 @pytest.mark.skip(reason="Requires database setup with test data")
-def test_list_items():
-    """Test the list_items endpoint exists."""
+def test_list_resources():
+    """Test the list_resources endpoint exists."""
     # This test requires database setup with test data
     # For now, just verify the endpoint exists
     pass
@@ -147,4 +147,4 @@ def test_relationship_service_initialization():
     # Simple test that the service can be created
     service = RelationshipService()
     assert service is not None
-    assert hasattr(service, "get_item_relationships")
+    assert hasattr(service, "get_resource_relationships")

@@ -282,7 +282,7 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [ ] Search - advanced/fielded search
 - [ ] Search - spatial search
 - [X] Search Results - thumbnail images (needs improvements)
-- [X] Search Results - bookmarked items
+- [X] Search Results - bookmarked resources
 - [X] Item View - citations
 - [X] Item View - downloads
 - [X] Item View - relations (triplestore)
@@ -294,7 +294,7 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [ ] Item View - data dictionaries
 - [ ] Item View - web services
 - [ ] Item View - metadata
-- [ ] Item View - related items (vector metadata search)
+- [ ] Item View - related resources (vector metadata search)
 - [ ] Item View - similar images (vector imagery search)
 - [ ] Collection View
 - [ ] Place View

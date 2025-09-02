@@ -17,8 +17,8 @@ from sqlalchemy.sql import func
 
 metadata = MetaData()
 
-items = Table(
-    "items",
+resources = Table(
+    "resources",
     metadata,
     Column("id", String, primary_key=True),
     Column("dct_title_s", String),
@@ -64,8 +64,8 @@ items = Table(
     Column("gbl_georeferenced_b", Boolean),
 )
 
-item_relationships = Table(
-    "item_relationships",
+resource_relationships = Table(
+    "resource_relationships",
     metadata,
     Column("id", Integer, primary_key=True),
     Column("subject_id", String, nullable=False),
@@ -243,11 +243,11 @@ gazetteer_fast_embeddings = Table(
 )
 
 # AI Enrichments table
-item_ai_enrichments = Table(
-    "item_ai_enrichments",
+resource_ai_enrichments = Table(
+    "resource_ai_enrichments",
     metadata,
     Column("enrichment_id", Integer, primary_key=True, autoincrement=True),
-    Column("item_id", String, nullable=False, index=True),
+    Column("resource_id", String, nullable=False, index=True),
     Column("ai_provider", String, nullable=False),
     Column("model", String, nullable=False),
     Column("enrichment_type", String(50), nullable=False),
@@ -259,11 +259,11 @@ item_ai_enrichments = Table(
 )
 
 # Allmaps annotation table
-item_allmaps = Table(
-    "item_allmaps",
+resource_allmaps = Table(
+    "resource_allmaps",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("item_id", String, nullable=False, index=True),
+    Column("resource_id", String, nullable=False, index=True),
     Column("allmaps_id", String, nullable=True, index=True),
     Column("iiif_manifest_uri", String, nullable=True),
     Column("annotated", Boolean, server_default="false", nullable=False),

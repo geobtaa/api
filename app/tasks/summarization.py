@@ -12,7 +12,7 @@ from sqlalchemy import insert
 
 from app.services.llm_service import LLMService
 from db.database import database
-from db.models import item_ai_enrichments
+from db.models import resource_ai_enrichments
 
 # Load environment variables from .env file
 load_dotenv()
@@ -35,18 +35,18 @@ class DateTimeEncoder(json.JSONEncoder):
     retry_kwargs={"max_retries": 2, "countdown": 5},
     retry_backoff=True,
 )
-def generate_item_summary(
-    item_id: str,
+def generate_resource_summary(
+    resource_id: str,
     metadata: Dict[str, Any],
     asset_path: Optional[str] = None,
     asset_type: Optional[str] = None,
 ) -> str:
     """
-    Celery task to generate a summary for an item.
+    Celery task to generate a summary for a resource.
 
     Args:
-        item_id: The ID of the item
-        metadata: Dictionary containing the item's metadata
+        resource_id: The ID of the resource
+        metadata: Dictionary containing the resource's metadata
         asset_path: Optional path to the asset file
         asset_type: Optional type of the asset (e.g., 'image', 'shapefile', 'pdf')
 
@@ -60,11 +60,11 @@ def generate_item_summary(
     try:
         # Run the async function
         summary = loop.run_until_complete(
-            _generate_summary(item_id, metadata, asset_path, asset_type)
+            _generate_summary(resource_id, metadata, asset_path, asset_type)
         )
         return summary
     except Exception as e:
-        logger.error(f"Error generating summary for item {item_id}: {str(e)}")
+        logger.error(f"Error generating summary for resource {resource_id}: {str(e)}")
         raise
     finally:
         # Clean up the event loop
@@ -72,7 +72,7 @@ def generate_item_summary(
 
 
 async def _generate_summary(
-    item_id: str,
+    resource_id: str,
     metadata: Dict[str, Any],
     asset_path: Optional[str] = None,
     asset_type: Optional[str] = None,
@@ -83,7 +83,7 @@ async def _generate_summary(
         if not database.is_connected:
             await database.connect()
 
-        logger.info(f"Starting summary generation for item {item_id}")
+        logger.info(f"Starting summary generation for resource {resource_id}")
 
         # Check if OpenAI API key is available
         api_key = os.getenv("OPENAI_API_KEY")
@@ -128,7 +128,7 @@ async def _generate_summary(
         # Store the summary in the database
         logger.info("Storing summary in database")
         await store_summary_in_db(
-            item_id=item_id,
+            resource_id=resource_id,
             model=llm_service.model,
             summary=summary,
             prompt=prompt,
@@ -139,7 +139,7 @@ async def _generate_summary(
         return summary
 
     except Exception as e:
-        logger.error(f"Error in _generate_summary for item {item_id}: {str(e)}")
+        logger.error(f"Error in _generate_summary for resource {resource_id}: {str(e)}")
         logger.exception("Full traceback:")
         raise
     finally:
@@ -149,17 +149,17 @@ async def _generate_summary(
 
 
 async def store_summary_in_db(
-    item_id: str,
+    resource_id: str,
     model: str,
     summary: str,
     prompt: Dict[str, Any],
     output_parser: Dict[str, Any],
 ):
     """
-    Store the generated summary in the itemai_enrichments table.
+    Store the generated summary in the resource_ai_enrichments table.
 
     Args:
-        item_id: The ID of the item
+        resource_id: The ID of the resource
         model: The model used for generation
         summary: The generated summary
         prompt: The prompt used for generation
@@ -183,7 +183,7 @@ async def store_summary_in_db(
 
         # Create the enrichment record with ISO format timestamps
         enrichment_data = {
-            "item_id": item_id,
+            "resource_id": resource_id,
             "ai_provider": "OpenAI",
             "model": model,
             "enrichment_type": "summarization",
@@ -196,10 +196,10 @@ async def store_summary_in_db(
 
         # Insert the record into the database
         async with database.transaction():
-            query = insert(item_ai_enrichments).values(**enrichment_data)
+            query = insert(resource_ai_enrichments).values(**enrichment_data)
             await database.execute(query)
 
-        logger.info(f"Stored summary for item {item_id} in the database")
+        logger.info(f"Stored summary for resource {resource_id} in the database")
 
     except Exception as e:
         logger.error(f"Error storing summary in database: {str(e)}")

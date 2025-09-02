@@ -9,12 +9,12 @@ from sqlalchemy import select
 
 from app.api.v1.auth import verify_credentials
 from app.api.v1.utils import create_response, sanitize_for_json
-from app.elasticsearch.index import reindex_items
+from app.elasticsearch.index import reindex_resources
 from app.services.cache_service import ENDPOINT_CACHE, CacheService, invalidate_cache_with_prefix
 from app.tasks.entities import generate_geo_entities
-from app.tasks.summarization import generate_item_summary
+from app.tasks.summarization import generate_resource_summary
 from db.database import database
-from db.models import items
+from db.models import resources
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +35,8 @@ async def clear_cache(
         if cache_type == "search" or cache_type is None:
             await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
 
-        if cache_type == "item" or cache_type is None:
-            await invalidate_cache_with_prefix("app.api.v1.endpoints:get_item")
+        if cache_type == "resource" or cache_type is None:
+            await invalidate_cache_with_prefix("app.api.v1.endpoints:get_resource")
 
         if cache_type == "suggest" or cache_type is None:
             await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
@@ -61,7 +61,7 @@ async def reindex(
             await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
             await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
 
-        result = await reindex_items()
+        result = await reindex_resources()
         return create_response(
             {"status": "success", "message": "Reindexing completed", "details": result}, callback
         )
@@ -72,54 +72,54 @@ async def reindex(
         ) from e
 
 
-@router.post("/items/{id}/summarize")
-async def summarize_item(
+@router.post("/resources/{id}/summarize")
+async def summarize_resource(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """
-    Trigger the generation of a summary for an item.
+    Trigger the generation of a summary for a resource.
     This endpoint will:
-    1. Fetch the item metadata
+    1. Fetch the resource metadata
     2. Get the asset path and type
     3. Trigger an asynchronous task to generate the summary
     4. Return immediately with task ID
     """
     try:
-        # Fetch the item
+        # Fetch the resource
         async with database.transaction():
-            query = select(items).where(items.c.id == id)
+            query = select(resources).where(resources.c.id == id)
             result = await database.fetch_one(query)
 
             if not result:
-                raise HTTPException(status_code=404, detail="Item not found")
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             # Convert to dict and handle datetime serialization
-            item = dict(result)
-            for key, value in item.items():
+            resource = dict(result)
+            for key, value in resource.items():
                 if isinstance(value, datetime):
-                    item[key] = value.isoformat()
+                    resource[key] = value.isoformat()
 
-            logger.info(f"Processing item {id}")
-            logger.debug(f"Raw item data: {json.dumps(item, indent=2)}")
+            logger.info(f"Processing resource {id}")
+            logger.debug(f"Raw resource data: {json.dumps(resource, indent=2)}")
 
             # Get asset information
             asset_path = None
             asset_type = None
 
             # Parse dct_references_s to identify candidate assets
-            references = item.get("dct_references_s", {})
-            logger.info(f"Raw references for item {id}: {references}")
+            references = resource.get("dct_references_s", {})
+            logger.info(f"Raw references for resource {id}: {references}")
 
             if isinstance(references, str):
                 try:
                     references = json.loads(references)
                     logger.info(
-                        f"Parsed references for item {id}: {json.dumps(references, indent=2)}"
+                        f"Parsed references for resource {id}: {json.dumps(references, indent=2)}"
                     )
                 except json.JSONDecodeError:
-                    logger.error(f"Failed to parse references JSON for item {id}: {references}")
+                    logger.error(f"Failed to parse references JSON for resource {id}: {references}")
                     references = {}
 
             # Define asset type mappings
@@ -136,7 +136,7 @@ async def summarize_item(
                 if ref_type in references:
                     ref_value = references[ref_type]
                     logger.info(
-                        f"Found reference type {ref_type} with value {ref_value} for item {id}"
+                        f"Found reference type {ref_type} with value {ref_value} for resource {id}"
                     )
 
                     # Handle both string and array values
@@ -157,23 +157,23 @@ async def summarize_item(
                         )
                         break
 
-            # If no specific asset type was found, use the item format as fallback
+            # If no specific asset type was found, use the resource format as fallback
             if not asset_type:
-                asset_type = item.get("dc_format_s")
+                asset_type = resource.get("dc_format_s")
                 logger.info(f"No specific asset type found, using format fallback: {asset_type}")
 
             logger.info(
-                f"Final asset determination for item {id}: path={asset_path}, type={asset_type}"
+                f"Final asset determination for resource {id}: path={asset_path}, type={asset_type}"
             )
 
             # Trigger the summarization task
-            summary_task = generate_item_summary.delay(
-                item_id=id, metadata=item, asset_path=asset_path, asset_type=asset_type
+            summary_task = generate_resource_summary.delay(
+                resource_id=id, metadata=resource, asset_path=asset_path, asset_type=asset_type
             )
-            logger.info(f"Started summary task {summary_task.id} for item {id}")
+            logger.info(f"Started summary task {summary_task.id} for resource {id}")
 
-            # Invalidate the item cache since we'll be updating it
-            invalidate_cache_with_prefix(f"item:{id}")
+            # Invalidate the resource cache since we'll be updating it
+            invalidate_cache_with_prefix(f"resource:{id}")
 
             # Create response data and ensure all datetime objects are serialized
             response_data = {
@@ -187,50 +187,50 @@ async def summarize_item(
             return create_response(sanitized_response, callback)
 
     except Exception as e:
-        logger.error(f"Error triggering summary generation for item {id}: {str(e)}")
+        logger.error(f"Error triggering summary generation for resource {id}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
-@router.post("/items/{id}/identify-geo-entities")
+@router.post("/resources/{id}/identify-geo-entities")
 async def identify_geo_entities(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """
-    Trigger the identification of geographic entities in an item.
+    Trigger the identification of geographic entities in a resource.
     This endpoint will:
-    1. Fetch the item metadata
+    1. Fetch the resource metadata
     2. Trigger an asynchronous task to identify geographic entities
     3. Return immediately with task ID
     """
     try:
-        # Fetch the item
+        # Fetch the resource
         async with database.transaction():
-            query = select(items).where(items.c.id == id)
+            query = select(resources).where(resources.c.id == id)
             result = await database.fetch_one(query)
 
             if not result:
-                raise HTTPException(status_code=404, detail="Item not found")
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             # Convert to dict and handle datetime serialization
-            item = dict(result)
-            for key, value in item.items():
+            resource = dict(result)
+            for key, value in resource.items():
                 if isinstance(value, datetime):
-                    item[key] = value.isoformat()
+                    resource[key] = value.isoformat()
 
-            logger.info(f"Processing item {id} for geographic entity identification")
-            logger.debug(f"Raw item data: {json.dumps(item, indent=2)}")
+            logger.info(f"Processing resource {id} for geographic entity identification")
+            logger.debug(f"Raw resource data: {json.dumps(resource, indent=2)}")
 
             # Trigger the geographic entity identification task
-            geo_entities_task = generate_geo_entities.delay(item_id=id, metadata=item)
+            geo_entities_task = generate_geo_entities.delay(resource_id=id, metadata=resource)
             logger.info(
                 f"Started geographic entity identification task {geo_entities_task.id} "
-                f"for item {id}"
+                f"for resource {id}"
             )
 
-            # Invalidate the item cache since we'll be updating it
-            invalidate_cache_with_prefix(f"item:{id}")
+            # Invalidate the resource cache since we'll be updating it
+            invalidate_cache_with_prefix(f"resource:{id}")
 
             # Create response data
             response_data = {
@@ -242,5 +242,7 @@ async def identify_geo_entities(
             return create_response(response_data, callback)
 
     except Exception as e:
-        logger.error(f"Error triggering geographic entity identification for item {id}: {str(e)}")
+        logger.error(
+            f"Error triggering geographic entity identification for resource {id}: {str(e)}"
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e

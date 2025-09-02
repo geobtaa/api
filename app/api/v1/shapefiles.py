@@ -4,7 +4,12 @@ import tempfile
 import zipfile
 from typing import Any, Optional
 
-import duckdb
+try:
+    import duckdb  # type: ignore
+
+    HAS_DUCKDB = True
+except Exception:  # ModuleNotFoundError or other import-time errors
+    HAS_DUCKDB = False
 import pandas as pd
 import requests
 import urllib3
@@ -33,6 +38,9 @@ os.makedirs(os.path.dirname(DUCKDB_DATABASE_PATH), exist_ok=True)
 # Initialize DuckDB connection
 def get_duckdb_connection():
     """Get a DuckDB connection with spatial extension loaded."""
+    if not HAS_DUCKDB:
+        raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
+
     con = duckdb.connect(DUCKDB_DATABASE_PATH)
     # Load the spatial extension for shapefile support
     con.execute("INSTALL spatial")
@@ -46,7 +54,7 @@ class Page(BaseModel):
     rows: list[dict[str, Any]]
 
 
-def ensure_table(con: duckdb.DuckDBPyConnection, s3_uri: str) -> str:
+def ensure_table(con: Any, s3_uri: str) -> str:
     """
     Ensure a table exists for the given S3 URI.
     Creates a table name based on the URI and loads the shapefile if needed.
@@ -189,6 +197,8 @@ async def shapefile_table(
         Paginated shapefile data with metadata
     """
     try:
+        if not HAS_DUCKDB:
+            raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
         con = get_duckdb_connection()
 
         # Ensure the table exists and is loaded
@@ -301,6 +311,8 @@ async def shapefile_info(
         Table metadata including columns, row count, and sample data
     """
     try:
+        if not HAS_DUCKDB:
+            raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
         con = get_duckdb_connection()
 
         # Check if table exists
@@ -357,6 +369,8 @@ async def list_shapefile_tables(
         List of all shapefile tables with their metadata
     """
     try:
+        if not HAS_DUCKDB:
+            raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
         con = get_duckdb_connection()
 
         # Get all tables that start with 'shapefile_'

@@ -13,10 +13,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from db.models import item_allmaps, items
+from db.models import resource_allmaps, resources
 
 # Add the project root directory to Python path
-sys.path.append(str(Path(__file__).parent))
+sys.path.append(str(Path(__file__).parent.parent))
 
 # Set the correct database URL for local scripts
 DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:2345/btaa_ogm_api"
@@ -124,26 +124,26 @@ async def check_allmaps_annotation(
         return None
 
 
-async def process_item(
-    item: any, session: AsyncSession, http_session: aiohttp.ClientSession
+async def process_resource(
+    resource: any, session: AsyncSession, http_session: aiohttp.ClientSession
 ) -> bool:
-    """Process a single item and store its Allmaps data.
+    """Process a single resource and store its Allmaps data.
 
     Args:
-        item: The item to process
+        resource: The resource to process
         session: SQLAlchemy async database session
         http_session: aiohttp client session
 
     Returns:
-        bool: True if the item was processed successfully, False otherwise
+        bool: True if the resource was processed successfully, False otherwise
     """
     try:
         # Parse references JSON
-        references = json.loads(item.dct_references_s)
+        references = json.loads(resource.dct_references_s)
         manifest_url = references.get("http://iiif.io/api/presentation#manifest")
 
         if not manifest_url:
-            logger.error(f"Item {item.id} has no IIIF manifest URL")
+            logger.error(f"Resource {resource.id} has no IIIF manifest URL")
             return False
 
         # Fetch manifest and check for Allmaps annotation concurrently
@@ -153,23 +153,25 @@ async def process_item(
         manifest, annotation = await asyncio.gather(manifest_task, annotation_task)
 
         if not manifest:
-            logger.warning(f"Could not fetch manifest for {item.id}. Skipping.")
+            logger.warning(f"Could not fetch manifest for {resource.id}. Skipping.")
             return False
 
         # Generate Allmaps ID from the manifest
         allmaps_id = generate_allmaps_id(manifest)
         if not allmaps_id:
-            logger.error(f"Could not generate Allmaps ID for {item.id}. Skipping.")
+            logger.error(f"Could not generate Allmaps ID for {resource.id}. Skipping.")
             return False
 
-        # Delete any existing record for this item
-        await session.execute(item_allmaps.delete().where(item_allmaps.c.item_id == item.id))
+        # Delete any existing record for this resource
+        await session.execute(
+            resource_allmaps.delete().where(resource_allmaps.c.resource_id == resource.id)
+        )
         await session.commit()
 
-        # Create new item_allmaps record
+        # Create new resource_allmaps record
         now = datetime.now()
         new_record = {
-            "item_id": item.id,
+            "resource_id": resource.id,
             "allmaps_id": allmaps_id,
             "iiif_manifest_uri": manifest_url,
             "annotated": bool(annotation),
@@ -179,58 +181,58 @@ async def process_item(
             "updated_at": now,
         }
 
-        await session.execute(item_allmaps.insert(), new_record)
+        await session.execute(resource_allmaps.insert(), new_record)
         await session.commit()
 
-        logger.info(f"Processed item {item.id} - Annotated: {bool(annotation)}")
+        logger.info(f"Processed resource {resource.id} - Annotated: {bool(annotation)}")
         return True
 
     except Exception as e:
-        logger.error(f"Error processing item {item.id}: {e}")
+        logger.error(f"Error processing resource {resource.id}: {e}")
         await session.rollback()
         return False
 
 
-async def process_single_item(item_id: str) -> None:
-    """Process a single item by its ID."""
+async def process_single_resource(resource_id: str) -> None:
+    """Process a single resource by its ID."""
     async with async_session() as session:
-        # Query the specific item
-        query = select(items).where(items.c.id == item_id)
+        # Query the specific resource
+        query = select(resources).where(resources.c.id == resource_id)
         result = await session.execute(query)
-        item = result.first()
+        resource = result.first()
 
-        if not item:
-            logger.error(f"Item {item_id} not found")
+        if not resource:
+            logger.error(f"Resource {resource_id} not found")
             return
 
         async with aiohttp.ClientSession() as http_session:
-            await process_item(item, session, http_session)
+            await process_resource(resource, session, http_session)
 
 
-async def process_all_items() -> None:
-    """Process all items with IIIF manifests."""
+async def process_all_resources() -> None:
+    """Process all resources with IIIF manifests."""
     async with async_session() as session:
-        # Query items that have IIIF manifest references
-        query = select(items).where(
-            items.c.dct_references_s.like('%"http://iiif.io/api/presentation#manifest"%')
+        # Query resources that have IIIF manifest references
+        query = select(resources).where(
+            resources.c.dct_references_s.like('%"http://iiif.io/api/presentation#manifest"%')
         )
         results = await session.execute(query)
 
         async with aiohttp.ClientSession() as http_session:
-            for item in results:
-                await process_item(item, session, http_session)
+            for resource in results:
+                await process_resource(resource, session, http_session)
 
 
 async def main():
     """Main entry point for the script."""
     parser = argparse.ArgumentParser(description="Process IIIF manifests and Allmaps annotations")
-    parser.add_argument("--item-id", help="Process a single item by ID")
+    parser.add_argument("--resource-id", help="Process a single resource by ID")
     args = parser.parse_args()
 
-    if args.item_id:
-        await process_single_item(args.item_id)
+    if args.resource_id:
+        await process_single_resource(args.resource_id)
     else:
-        await process_all_items()
+        await process_all_resources()
 
 
 if __name__ == "__main__":

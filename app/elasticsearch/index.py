@@ -6,7 +6,7 @@ import re
 from dotenv import load_dotenv
 
 from db.database import database
-from db.models import items
+from db.models import resources
 
 from .client import es
 
@@ -16,8 +16,8 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 
-async def index_items():
-    """Index all items from PostgreSQL into Elasticsearch."""
+async def index_resources():
+    """Index all resources from PostgreSQL into Elasticsearch."""
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
 
     if await es.indices.exists(index=index_name):
@@ -27,30 +27,30 @@ async def index_items():
 
     await init_elasticsearch()
 
-    item_rows = await database.fetch_all(items.select())
-    bulk_data = await prepare_bulk_data(item_rows, index_name)
+    resource_rows = await database.fetch_all(resources.select())
+    bulk_data = await prepare_bulk_data(resource_rows, index_name)
 
     if bulk_data:
         return await perform_bulk_indexing(bulk_data, index_name)
 
-    return {"message": "No items to index"}
+    return {"message": "No resources to index"}
 
 
-async def prepare_bulk_data(items, index_name):
-    """Prepare items for bulk indexing."""
+async def prepare_bulk_data(resources, index_name):
+    """Prepare resources for bulk indexing."""
     bulk_data = []
-    for item in items:
-        item_dict = await process_item(dict(item))
-        bulk_data.append({"index": {"_index": index_name, "_id": item_dict["id"]}})
-        bulk_data.append(item_dict)
+    for resource in resources:
+        resource_dict = await process_resource(dict(resource))
+        bulk_data.append({"index": {"_index": index_name, "_id": resource_dict["id"]}})
+        bulk_data.append(resource_dict)
     return bulk_data
 
 
-async def process_item(item_dict):
-    """Process a single item for indexing."""
+async def process_resource(resource_dict):
+    """Process a single resource for indexing."""
     processed_dict = {}
 
-    for key, value in item_dict.items():
+    for key, value in resource_dict.items():
         if isinstance(value, (list, tuple)):
             processed_dict[key] = list(value)
         elif key == "dct_references_s" and value:
@@ -107,7 +107,7 @@ async def process_item(item_dict):
             processed_dict[key] = value
 
     # Add summaries to the document
-    processed_dict["ai_summaries"] = await get_item_summaries(processed_dict["id"])
+    processed_dict["ai_summaries"] = await get_resource_summaries(processed_dict["id"])
 
     # Clean and prepare suggestion inputs
     suggestion_inputs = []
@@ -171,16 +171,16 @@ async def process_item(item_dict):
     return processed_dict
 
 
-async def get_item_summaries(item_id):
-    """Get summaries for an item."""
+async def get_resource_summaries(resource_id):
+    """Get summaries for an resource."""
     try:
         query = """
             SELECT enrichment_id, ai_provider, model, response, created_at
-            FROM item_ai_enrichments
-            WHERE item_id = :item_id
+            FROM resource_ai_enrichments
+            WHERE resource_id = :resource_id
             ORDER BY created_at DESC
         """
-        summaries = await database.fetch_all(query, {"item_id": item_id})
+        summaries = await database.fetch_all(query, {"resource_id": resource_id})
 
         # Process summaries
         processed_summaries = []
@@ -203,7 +203,7 @@ async def get_item_summaries(item_id):
 
         return processed_summaries
     except Exception as e:
-        print(f"Error getting summaries for item {item_id}: {str(e)}")
+        print(f"Error getting summaries for resource {resource_id}: {str(e)}")
         return []
 
 
@@ -276,8 +276,8 @@ async def perform_bulk_indexing(bulk_data, index_name, bulk_size=100):
             # Optionally, implement retry logic here
 
 
-async def reindex_items():
-    """Reindex all items from PostgreSQL into Elasticsearch with the new mapping."""
+async def reindex_resources():
+    """Reindex all resources from PostgreSQL into Elasticsearch with the new mapping."""
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geometadata_api")
 
     try:
@@ -298,7 +298,7 @@ async def reindex_items():
 
         while True:
             # Fetch a chunk of documents from the database
-            query = items.select().offset(offset).limit(chunk_size)
+            query = resources.select().offset(offset).limit(chunk_size)
             chunk = await database.fetch_all(query)
 
             if not chunk:
@@ -311,13 +311,13 @@ async def reindex_items():
                 # Index this chunk
                 await perform_bulk_indexing(bulk_data, index_name)
                 total_processed += len(chunk)
-                logger.info(f"Indexed {total_processed} items so far")
+                logger.info(f"Indexed {total_processed} resources so far")
 
             offset += chunk_size
 
         if total_processed > 0:
-            return {"message": f"Successfully indexed {total_processed} items"}
-        return {"message": "No items to index"}
+            return {"message": f"Successfully indexed {total_processed} resources"}
+        return {"message": "No resources to index"}
 
     except Exception as e:
         logger.error(f"Error during reindexing: {str(e)}", exc_info=True)

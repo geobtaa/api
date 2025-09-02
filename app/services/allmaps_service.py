@@ -4,7 +4,7 @@ from typing import Dict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db.models import item_allmaps
+from db.models import resource_allmaps
 
 logger = logging.getLogger(__name__)
 
@@ -12,18 +12,18 @@ logger = logging.getLogger(__name__)
 class AllmapsService:
     """Service for handling Allmaps data and annotations."""
 
-    def __init__(self, item: Dict):
-        """Initialize the service with an item dictionary."""
-        self.item = item
+    def __init__(self, resource: Dict):
+        """Initialize the service with a resource dictionary."""
+        self.resource = resource
         # Handle both direct id and nested id in attributes
-        self.item_id = str(item.get("id") or item.get("attributes", {}).get("id"))
-        if not self.item_id:
-            logger.warning(f"No item ID found in item data: {item}")
+        self.resource_id = str(resource.get("id") or resource.get("attributes", {}).get("id"))
+        if not self.resource_id:
+            logger.warning(f"No resource ID found in resource data: {resource}")
         else:
-            logger.info(f"Initialized AllmapsService for item {self.item_id}")
+            logger.info(f"Initialized AllmapsService for resource {self.resource_id}")
 
     async def get_allmaps_attributes(self, session: AsyncSession) -> Dict:
-        """Get Allmaps attributes for the item.
+        """Get Allmaps attributes for the resource.
 
         Args:
             session: SQLAlchemy async database session
@@ -31,25 +31,27 @@ class AllmapsService:
         Returns:
             Dict containing Allmaps attributes if found, empty dict otherwise
         """
-        if not self.item_id:
-            logger.warning("Cannot get Allmaps attributes: No item ID available")
+        if not self.resource_id:
+            logger.warning("Cannot get Allmaps attributes: No resource ID available")
             return {}
 
         try:
-            # Query the item_allmaps table
-            query = select(item_allmaps).where(item_allmaps.c.item_id == self.item_id)
-            logger.info(f"Executing query for item {self.item_id}: {query}")
+            # Query the resource_allmaps table
+            query = select(resource_allmaps).where(
+                resource_allmaps.c.resource_id == self.resource_id
+            )
+            logger.info(f"Executing query for resource {self.resource_id}: {query}")
 
             result = await session.execute(query)
             row = result.fetchone()
 
             if not row:
-                logger.info(f"No Allmaps data found for item {self.item_id}")
+                logger.info(f"No Allmaps data found for resource {self.resource_id}")
                 return {}
 
             # Convert to dict and extract relevant fields
             allmaps_dict = dict(row._mapping)
-            logger.info(f"Found Allmaps data for item {self.item_id}: {allmaps_dict}")
+            logger.info(f"Found Allmaps data for resource {self.resource_id}: {allmaps_dict}")
 
             attributes = {
                 "ui_allmaps_id": allmaps_dict.get("allmaps_id"),
@@ -61,6 +63,7 @@ class AllmapsService:
 
         except Exception as e:
             logger.error(
-                f"Error getting Allmaps attributes for item {self.item_id}: {e}", exc_info=True
+                f"Error getting Allmaps attributes for resource {self.resource_id}: {e}",
+                exc_info=True,
             )
             return {}
