@@ -27,15 +27,19 @@ db_password = parsed.password
 db_host = parsed.hostname
 db_port = parsed.port
 
-# Create test database engine
-engine = create_engine(DATABASE_URL)
+# Create test database engine for migrations (synchronous)
+SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+engine = create_engine(SYNC_DATABASE_URL)
+
+# Ensure async database URL is set for the tests
+ASYNC_DATABASE_URL = DATABASE_URL if "postgresql+asyncpg://" in DATABASE_URL else DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
 
 def pytest_configure(config):
     """Configure pytest."""
     config.addinivalue_line("addopts", "--cov=app --cov-report=term-missing --cov-report=html")
     
-    # Set test environment variables
-    os.environ["DATABASE_URL"] = DATABASE_URL
+    # Set test environment variables with async database URL
+    os.environ["DATABASE_URL"] = ASYNC_DATABASE_URL
     os.environ["ELASTICSEARCH_INDEX"] = "btaa_ogm_api_test"
     os.environ["LOG_PATH"] = "./test_logs"
     os.environ["ENDPOINT_CACHE"] = "true"
@@ -56,29 +60,10 @@ async def setup_test_database():
     from db.migrations.create_item_relationships import create_relationships_table
     from db.migrations.add_enrichment_type import add_enrichment_type_column
     
-    # Connect to default database to create test database
-    conn = psycopg2.connect(
-        dbname='postgres',
-        user=db_user,
-        password=db_password,
-        host=db_host,
-        port=db_port
-    )
-    conn.autocommit = True  # Required for database creation/deletion
+    # Temporarily set the environment to use synchronous URL for migrations
+    original_database_url = os.environ.get("DATABASE_URL")
+    os.environ["DATABASE_URL"] = SYNC_DATABASE_URL
     
-    try:
-        with conn.cursor() as cur:
-            # Drop database if it exists
-            cur.execute(f'DROP DATABASE IF EXISTS "{db_name}"')
-            # Create database
-            cur.execute(f'CREATE DATABASE "{db_name}"')
-    except Exception as e:
-        print(f"Error creating database: {e}")
-        raise
-    finally:
-        conn.close()
-
-    # Create tables in the correct order
     try:
         # Create base tables
         create_ai_enrichments_table()
@@ -92,33 +77,22 @@ async def setup_test_database():
     except Exception as e:
         print(f"Error creating tables: {e}")
         raise
+    finally:
+        # Restore the async URL for tests
+        if original_database_url:
+            os.environ["DATABASE_URL"] = original_database_url
+        else:
+            os.environ["DATABASE_URL"] = ASYNC_DATABASE_URL
 
     yield
 
-    # Cleanup after all tests are done
+@pytest_asyncio.fixture(autouse=True)
+async def setup_async_database():
+    """Set up async database connection for each test."""
+    from db.database import database
+    
     try:
-        conn = psycopg2.connect(
-            dbname='postgres',
-            user=db_user,
-            password=db_password,
-            host=db_host,
-            port=db_port
-        )
-        conn.autocommit = True
-        
-        with conn.cursor() as cur:
-            # Terminate all connections to the test database
-            cur.execute(f"""
-                SELECT pg_terminate_backend(pg_stat_activity.pid)
-                FROM pg_stat_activity
-                WHERE pg_stat_activity.datname = '{db_name}'
-                AND pid <> pg_backend_pid()
-            """)
-            
-            # Drop the test database
-            cur.execute(f'DROP DATABASE IF EXISTS "{db_name}"')
-    except Exception as e:
-        print(f"Error cleaning up database: {e}")
-        raise
+        await database.connect()
+        yield
     finally:
-        conn.close()
+        await database.disconnect()

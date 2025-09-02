@@ -2,11 +2,10 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-import pytest_asyncio
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from app.main import app
-from db.database import database
 
 
 @pytest.fixture
@@ -15,14 +14,11 @@ def client():
     return TestClient(app)
 
 
-@pytest_asyncio.fixture(autouse=True)
-async def setup_database():
-    """Initialize database connection for tests."""
-    try:
-        await database.connect()
-        yield
-    finally:
-        await database.disconnect()
+@pytest.fixture
+async def async_client():
+    """Return an async HTTP client for testing."""
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        yield ac
 
 
 @pytest.fixture
@@ -74,8 +70,7 @@ def mock_elasticsearch_response():
                     "_id": "test-doc-2",
                     "_source": {
                         "id": "test-doc-2",
-                        "dct_title_s": "Test Document 2",
-                        "dct_description_sm": ["Test description 2"],
+                        "dct_title_s": "Test description 2",
                     },
                 },
             ],
