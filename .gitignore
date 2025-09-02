@@ -185,6 +185,5 @@ data/postgres_test/*
 # Redis data
 data/redis/*
 
-
-
-
+# DuckDB data
+data/duckdb/*
