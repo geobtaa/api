@@ -12,7 +12,7 @@ from PIL import Image
 from sqlalchemy import insert
 
 from db.database import database
-from db.models import item_ai_enrichments
+from db.models import resource_ai_enrichments
 
 logger = logging.getLogger(__name__)
 
@@ -355,7 +355,7 @@ async def store_ocr_in_db(
 
         # Insert the record into the database
         async with database.transaction():
-            query = insert(item_ai_enrichments).values(**enrichment_data)
+            query = insert(resource_ai_enrichments).values(**enrichment_data)
             await database.execute(query)
 
         logger.info(f"Stored OCR text for item {item_id} in the database")

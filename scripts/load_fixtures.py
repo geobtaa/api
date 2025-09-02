@@ -1,251 +1,199 @@
 #!/usr/bin/env python3
-import asyncio
+import csv
 import logging
 import os
 import sys
 from pathlib import Path
 
-import pandas as pd
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
-from tqdm import tqdm
-
-from app.elasticsearch.index import index_items
-from db.database import database
-from db.models import items
 
 # Add the project root directory to Python path
-project_root = Path(__file__).parent.parent
-sys.path.append(str(project_root))
+sys.path.append(str(Path(__file__).parent.parent))
+
+from app.elasticsearch.index import index_resources
+from db.models import resources
 
 # Load environment variables
 load_dotenv()
 
-# Configure logging
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def get_fixture_files():
-    """Get list of CSV files in the fixtures directory."""
-    fixtures_dir = Path("data/fixtures")
-    if not fixtures_dir.exists():
-        logger.error("Fixtures directory not found: data/fixtures")
-        sys.exit(1)
-
-    csv_files = list(fixtures_dir.glob("*.csv"))
-    if not csv_files:
-        logger.error("No CSV files found in data/fixtures")
-        sys.exit(1)
-
-    return csv_files
-
-
-def select_fixture_file():
-    """Show interactive list of CSV files and let user select one."""
-    csv_files = get_fixture_files()
-
-    print("\nAvailable fixture files:")
-    for i, file in enumerate(csv_files, 1):
-        size_mb = file.stat().st_size / (1024 * 1024)
-        print(f"{i}. {file.name} ({size_mb:.1f} MB)")
-
-    while True:
-        try:
-            choice = int(input("\nSelect a file number: "))
-            if 1 <= choice <= len(csv_files):
-                return csv_files[choice - 1]
-            print(f"Please enter a number between 1 and {len(csv_files)}")
-        except ValueError:
-            print("Please enter a valid number")
-
-
-def truncate_items_table(engine):
-    """Truncate the items table."""
-    logger.info("Truncating items table...")
+def truncate_resources_table(engine):
+    """Truncate the resources table."""
+    logger.info("Truncating resources table...")
     with engine.connect() as conn:
-        conn.execute(text("TRUNCATE TABLE items CASCADE"))
+        conn.execute(text("TRUNCATE TABLE resources CASCADE"))
         conn.commit()
 
 
-def load_csv_data(csv_path, engine):
-    """Load data from CSV file into items table."""
-    logger.info(f"Loading data from {csv_path}...")
+def load_csv_data(engine, csv_file_path):
+    """Load data from CSV file into resources table."""
+    logger.info(f"Loading data from {csv_file_path}")
 
-    # Read CSV in chunks to handle large files
-    chunk_size = 1000
-    total_rows = sum(1 for _ in open(csv_path)) - 1  # Subtract header row
-    skipped_records = 0
+    with engine.connect() as conn:
+        # Read CSV file
+        with open(csv_file_path, "r", encoding="utf-8") as file:
+            csv_reader = csv.DictReader(file)
 
-    for chunk in tqdm(
-        pd.read_csv(csv_path, chunksize=chunk_size), total=total_rows // chunk_size + 1
-    ):
-        # Convert DataFrame to list of dictionaries
-        records = chunk.to_dict("records")
-
-        # Insert records into database
-        with engine.connect() as conn:
-            for record in records:
+            # Process each row
+            for row_num, record in enumerate(csv_reader, start=1):
                 try:
-                    # Skip records with missing required fields
-                    if not record.get("id"):
-                        title = record.get("dct_title_s", "Unknown Title")
-                        logger.warning(f"Skipping record with missing ID: {title}")
-                        skipped_records += 1
-                        continue
-
-                    # Process each field
+                    # Clean the record data
+                    cleaned_record = {}
                     for key, value in record.items():
-                        if pd.isna(value):
-                            record[key] = None
-                        elif key.endswith("_sm"):
-                            # Split multivalued string fields on pipe
-                            record[key] = [v.strip() for v in str(value).split("|")]
-                        elif key == "gbl_indexyear_im":
-                            # Handle integer array field
-                            if isinstance(value, str):
-                                # Try to parse as integer if it's a single value
-                                try:
-                                    record[key] = [int(value)]
-                                except ValueError:
-                                    # If it contains pipes, split and convert each part
-                                    record[key] = [
-                                        int(v.strip())
-                                        for v in value.split("|")
-                                        if v.strip().isdigit()
-                                    ]
-                            elif isinstance(value, (list, tuple)):
-                                # If it's already a list, convert each item to int
-                                record[key] = [int(v) for v in value if str(v).strip().isdigit()]
+                        if value == "":
+                            cleaned_record[key] = None
+                        elif key in [
+                            "dct_alternative_sm",
+                            "dct_description_sm",
+                            "dct_language_sm",
+                            "gbl_displaynote_sm",
+                            "dct_creator_sm",
+                            "dct_publisher_sm",
+                            "gbl_resourceclass_sm",
+                            "gbl_resourcetype_sm",
+                            "dct_subject_sm",
+                            "dcat_theme_sm",
+                            "dcat_keyword_sm",
+                            "dct_temporal_sm",
+                            "gbl_indexyear_im",
+                            "gbl_daterange_drsim",
+                            "dct_spatial_sm",
+                            "dct_relation_sm",
+                            "pcdm_memberof_sm",
+                            "dct_ispartof_sm",
+                            "dct_source_sm",
+                            "dct_isversionof_sm",
+                            "dct_replaces_sm",
+                            "dct_isreplacedby_sm",
+                            "dct_rights_sm",
+                            "dct_rightsholder_sm",
+                            "dct_license_sm",
+                            "dct_identifier_sm",
+                        ]:
+                            # Handle array fields
+                            if value and value.strip():
+                                # Split by semicolon and clean each value
+                                values = [v.strip() for v in value.split(";") if v.strip()]
+                                cleaned_record[key] = values if values else None
                             else:
-                                record[key] = None
-                        elif key == "gbl_daterange_drsim":
-                            # Handle date range field
-                            if isinstance(value, str):
-                                record[key] = [value.strip()]
-                            elif isinstance(value, (list, tuple)):
-                                record[key] = [str(v).strip() for v in value]
+                                cleaned_record[key] = None
+                        elif key in ["gbl_suppressed_b", "gbl_georeferenced_b"]:
+                            # Handle boolean fields
+                            if value and value.lower() in ["true", "1", "yes"]:
+                                cleaned_record[key] = True
+                            elif value and value.lower() in ["false", "0", "no"]:
+                                cleaned_record[key] = False
                             else:
-                                record[key] = None
+                                cleaned_record[key] = None
                         else:
-                            # Keep other fields as is
-                            record[key] = value
+                            cleaned_record[key] = value.strip() if value else None
 
-                    conn.execute(items.insert(), record)
-                    conn.commit()
+                    # Insert the record
+                    conn.execute(resources.insert(), cleaned_record)
+
+                    if row_num % 100 == 0:
+                        logger.info(f"Processed {row_num} records")
 
                 except Exception as e:
-                    logger.warning(f"Error processing record: {str(e)}")
-                    logger.warning(
-                        f"Problematic record: {record.get('dct_title_s', 'Unknown Title')}"
-                    )
-                    skipped_records += 1
+                    logger.error(f"Error processing row {row_num}: {e}")
+                    logger.error(f"Record: {record}")
                     continue
 
-    if skipped_records > 0:
-        logger.warning(f"Skipped {skipped_records} records due to errors")
-    logger.info(f"Successfully loaded {total_rows - skipped_records} records")
-
-
-def rebuild_relationships(engine):
-    """Rebuild item relationships."""
-    logger.info("Rebuilding item relationships...")
-
-    # First, clear existing relationships
-    with engine.connect() as conn:
-        conn.execute(text("TRUNCATE TABLE item_relationships"))
         conn.commit()
+        logger.info("Data loading completed")
 
-    # SQL to rebuild relationships based on dct_relation_sm field
-    relationship_sql = """
-    WITH RECURSIVE split_relations AS (
-        SELECT DISTINCT  -- Add DISTINCT to avoid duplicates
-            id,
-            unnest(dct_relation_sm) as relation
-        FROM items
-        WHERE dct_relation_sm IS NOT NULL
-    )
-    INSERT INTO item_relationships (subject_id, predicate, object_id)
-    SELECT DISTINCT  -- Add DISTINCT to avoid duplicates
-        id as subject_id,
-        'dct:relation' as predicate,
-        relation as object_id
-    FROM split_relations;
-    """
+
+def load_relationships(engine, csv_file_path):
+    """Load relationships from CSV file."""
+    logger.info(f"Loading relationships from {csv_file_path}")
 
     with engine.connect() as conn:
-        conn.execute(text(relationship_sql))
+        # Truncate existing relationships
+        conn.execute(text("TRUNCATE TABLE resource_relationships"))
+
+        # Read CSV file
+        with open(csv_file_path, "r", encoding="utf-8") as file:
+            csv_reader = csv.DictReader(file)
+
+            for row_num, record in enumerate(csv_reader, start=1):
+                try:
+                    # Extract relationship data
+                    subject_id = record.get("subject_id")
+                    predicate = record.get("predicate")
+                    object_id = record.get("object_id")
+
+                    if subject_id and predicate and object_id:
+                        # Insert relationship
+                        conn.execute(
+                            text("""
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """),
+                            {
+                                "subject_id": subject_id,
+                                "predicate": predicate,
+                                "object_id": object_id,
+                            },
+                        )
+
+                    if row_num % 100 == 0:
+                        logger.info(f"Processed {row_num} relationship records")
+
+                except Exception as e:
+                    logger.error(f"Error processing relationship row {row_num}: {e}")
+                    continue
+
         conn.commit()
+        logger.info("Relationship loading completed")
 
-    logger.info("Relationships rebuilt successfully")
 
-
-async def async_reindex():
-    """Async function to handle reindexing."""
+async def main():
+    """Main function to load fixtures and reindex."""
     try:
-        # Connect to database
-        await database.connect()
-        logger.info("Connected to database")
+        # Get database URL from environment
+        database_url = os.getenv(
+            "DATABASE_URL", "postgresql://postgres:postgres@localhost:2345/btaa_ogm_api_test"
+        )
+        sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
 
-        # Run the indexing
-        result = await index_items()
+        # Create engine
+        engine = create_engine(sync_database_url)
+
+        # Check if CSV file exists
+        csv_file_path = "data/fixtures/gbl_fixtures_data.csv"
+        if not os.path.exists(csv_file_path):
+            logger.error(f"CSV file not found: {csv_file_path}")
+            return
+
+        # Truncate resources table
+        truncate_resources_table(engine)
+
+        # Load data from CSV
+        load_csv_data(engine, csv_file_path)
+
+        # Load relationships if the file exists
+        relationships_file = "data/fixtures/relationships.csv"
+        if os.path.exists(relationships_file):
+            load_relationships(engine, relationships_file)
+
+        # Reindex in Elasticsearch
+        logger.info("Starting Elasticsearch indexing...")
+        result = await index_resources()
         logger.info(f"Indexing result: {result}")
-
-    finally:
-        # Always disconnect from database
-        await database.disconnect()
-        logger.info("Disconnected from database")
-
-
-def reindex_elasticsearch():
-    """Reindex Elasticsearch."""
-    logger.info("Reindexing Elasticsearch...")
-    asyncio.run(async_reindex())
-    logger.info("Elasticsearch reindexing completed")
-
-
-def main():
-    # Create database engine
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        logger.error("DATABASE_URL environment variable not set")
-        sys.exit(1)
-
-    # Convert async URL to sync URL
-    if database_url.startswith("postgresql+asyncpg://"):
-        database_url = database_url.replace("postgresql+asyncpg://", "postgresql://", 1)
-
-    engine = create_engine(database_url)
-
-    try:
-        # Let user select a CSV file
-        csv_path = select_fixture_file()
-
-        # Confirm with user
-        print(f"\nSelected file: {csv_path.name}")
-        confirm = input("Proceed with loading this file? (y/N): ").lower()
-        if confirm != "y":
-            print("Operation cancelled")
-            sys.exit(0)
-
-        # Truncate items table
-        truncate_items_table(engine)
-
-        # Load CSV data
-        load_csv_data(csv_path, engine)
-
-        # Rebuild relationships
-        rebuild_relationships(engine)
-
-        # Reindex Elasticsearch
-        reindex_elasticsearch()
 
         logger.info("Fixture loading completed successfully!")
 
     except Exception as e:
-        logger.error(f"Error loading fixtures: {str(e)}")
-        sys.exit(1)
+        logger.error(f"Error in main: {e}", exc_info=True)
+        raise
 
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+
+    asyncio.run(main())

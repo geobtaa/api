@@ -10,7 +10,7 @@ from fastapi import HTTPException
 
 from app.api.v1.shared import SORT_MAPPINGS
 from app.api.v1.utils import sanitize_for_json
-from app.elasticsearch import search_items
+from app.elasticsearch import search_resources
 from app.elasticsearch.client import es
 from app.services.citation_service import CitationService
 from app.services.download_service import DownloadService
@@ -54,7 +54,7 @@ class SearchService:
 
             # Elasticsearch query
             es_start = time.time()
-            results = await search_items(
+            results = await search_resources(
                 query=q,
                 fq=filter_query,
                 skip=skip,
@@ -64,40 +64,40 @@ class SearchService:
             es_time = (time.time() - es_start) * 1000
             timings["elasticsearch"] = f"{es_time:.0f}ms"
 
-            # Process each item
+            # Process each resource
             process_start = time.time()
             docs_processed = 0
             citation_time = 0
             thumbnail_time = 0
             viewer_time = 0
 
-            for item in results.get("data", []):
+            for resource in results.get("data", []):
                 doc_start = time.time()
 
                 # Add thumbnail URL
                 thumb_start = time.time()
-                image_service = ImageService(item["attributes"])
-                item["attributes"]["ui_thumbnail_url"] = image_service.get_thumbnail_url()
+                image_service = ImageService(resource["attributes"])
+                resource["attributes"]["ui_thumbnail_url"] = image_service.get_thumbnail_url()
                 thumbnail_time += time.time() - thumb_start
 
                 # Add citation
                 cite_start = time.time()
-                citation_service = CitationService(item["attributes"])
-                item["attributes"]["ui_citation"] = citation_service.get_citation()
+                citation_service = CitationService(resource["attributes"])
+                resource["attributes"]["ui_citation"] = citation_service.get_citation()
                 citation_time += time.time() - cite_start
 
                 # Add viewer attributes
                 viewer_start = time.time()
-                viewer_attrs = create_viewer_attributes(item["attributes"])
-                item["attributes"].update(viewer_attrs)
+                viewer_attrs = create_viewer_attributes(resource["attributes"])
+                resource["attributes"].update(viewer_attrs)
                 viewer_time += time.time() - viewer_start
 
                 docs_processed += 1
 
             process_time = time.time() - process_start
-            timings["item_processing"] = {
+            timings["resource_processing"] = {
                 "total": f"{(process_time * 1000):.0f}ms",
-                "per_item": (
+                "per_resource": (
                     f"{((process_time / docs_processed) * 1000):.0f}ms"
                     if docs_processed > 0
                     else "0ms"
@@ -132,22 +132,22 @@ class SearchService:
             }
             return error_response
 
-    async def get_item(
+    async def get_resource(
         self,
         id: str,
         callback: Optional[str] = None,
         include_relationships: bool = True,
         include_summaries: bool = True,
     ) -> Dict:
-        """Get a single item by ID."""
+        """Get a single resource by ID."""
         try:
-            # Get the item from Elasticsearch
+            # Get the resource from Elasticsearch
             try:
                 result = await self.es.get(index=self.index_name, id=id)
             except NotFoundError:
-                raise HTTPException(status_code=404, detail="Item not found") from None
+                raise HTTPException(status_code=404, detail="Resource not found") from None
             except Exception as e:
-                logger.error(f"Elasticsearch error getting item {id}: {str(e)}", exc_info=True)
+                logger.error(f"Elasticsearch error getting resource {id}: {str(e)}", exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e)) from e
 
             source_data = result["_source"]
@@ -162,7 +162,7 @@ class SearchService:
                 try:
                     source_data["dct_references_s"] = json.loads(source_data["dct_references_s"])
                 except json.JSONDecodeError:
-                    logger.warning(f"Could not parse dct_references_s for item {id}")
+                    logger.warning(f"Could not parse dct_references_s for resource {id}")
 
             # Add UI attributes in the same order as the original code
             source_data["ui_thumbnail_url"] = source_data.get("thumbnail_url")
@@ -177,7 +177,7 @@ class SearchService:
             if include_relationships:
                 try:
                     relationship_service = RelationshipService()
-                    relationships = await relationship_service.get_item_relationships(id)
+                    relationships = await relationship_service.get_resource_relationships(id)
                     source_data["ui_relationships"] = relationships
                 except Exception as e:
                     logger.error(f"Error getting relationships: {e}", exc_info=True)
@@ -187,11 +187,11 @@ class SearchService:
             if include_summaries:
                 try:
                     summaries_query = """
-                        SELECT * FROM item_ai_enrichments 
-                        WHERE item_id = :item_id 
+                        SELECT * FROM resource_ai_enrichments 
+                        WHERE resource_id = :resource_id 
                         ORDER BY created_at DESC
                     """
-                    summaries = await database.fetch_all(summaries_query, {"item_id": id})
+                    summaries = await database.fetch_all(summaries_query, {"resource_id": id})
                     source_data["ui_summaries"] = [
                         sanitize_for_json(dict(summary)) for summary in summaries
                     ]
@@ -202,7 +202,7 @@ class SearchService:
             # Create the response structure
             response = {
                 "data": {
-                    "type": "item",
+                    "type": "resource",
                     "id": id,
                     "attributes": source_data,
                 }
@@ -213,7 +213,7 @@ class SearchService:
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error getting item {id}: {str(e)}", exc_info=True)
+            logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
             raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def suggest(self, q: str, resource_class: Optional[str] = None, size: int = 5) -> Dict:

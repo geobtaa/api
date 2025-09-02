@@ -57,7 +57,7 @@ async def setup_test_database():
     """Set up test database tables before running tests."""
     from db.migrations.create_ai_enrichments import create_ai_enrichments_table
     from db.migrations.create_gazetteer_tables import create_gazetteer_tables
-    from db.migrations.create_item_relationships import create_relationships_table
+    from db.migrations.create_resource_relationships import create_relationships_table
     from db.migrations.add_enrichment_type import add_enrichment_type_column
     
     # Temporarily set the environment to use synchronous URL for migrations

@@ -10,7 +10,7 @@ from sqlalchemy.sql import text
 
 from app.services.viewer_service import create_viewer_attributes  # Updated import
 from db.database import database
-from db.models import items
+from db.models import resources
 
 from .client import es
 
@@ -30,10 +30,10 @@ def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list 
     }
 
 
-async def search_items(
+async def search_resources(
     query: str = None, fq: dict = None, skip: int = 0, limit: int = 20, sort: list = None
 ):
-    """Search items in Elasticsearch with optional filters, sorting, and spelling
+    """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
     # Ensure limit is not zero to avoid division by zero errors
     if limit <= 0:
@@ -307,22 +307,24 @@ async def process_search_response(response, limit, skip, search_criteria):
             + " END"
         )
 
-        query = items.select().where(items.c.id.in_(document_ids)).order_by(text(order_case))
+        query = (
+            resources.select().where(resources.c.id.in_(document_ids)).order_by(text(order_case))
+        )
 
-        item_rows = await database.fetch_all(query)
-        processed_items = []
+        resource_rows = await database.fetch_all(query)
+        processed_resources = []
 
-        for item in item_rows:
-            processed_items.append(
+        for resource in resource_rows:
+            processed_resources.append(
                 {
                     "type": "document",
-                    "id": item["id"],
+                    "id": resource["id"],
                     "score": next(
                         hit["_score"]
                         for hit in response["hits"]["hits"]
-                        if hit["_source"]["id"] == item["id"]
+                        if hit["_source"]["id"] == resource["id"]
                     ),
-                    "attributes": {**item, **create_viewer_attributes(item)},
+                    "attributes": {**resource, **create_viewer_attributes(resource)},
                 }
             )
 
@@ -357,7 +359,7 @@ async def process_search_response(response, limit, skip, search_criteria):
                 },
                 "suggestions": suggestions,  # Add suggestions to meta
             },
-            "data": processed_items,
+            "data": processed_resources,
             "included": included,
         }
 

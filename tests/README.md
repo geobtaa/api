@@ -22,10 +22,10 @@ To run specific tests:
 
 ```bash
 # Run a specific test file
-pytest tests/api/v1/test_document_endpoints.py -v
+pytest tests/api/v1/test_resource_endpoints.py -v
 
 # Run a specific test function
-pytest tests/api/v1/test_document_endpoints.py::test_get_document -v
+pytest tests/api/v1/test_resource_endpoints.py::test_get_resource -v
 
 # Run tests with a specific marker
 pytest -m "asyncio" -v

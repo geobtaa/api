@@ -1,4 +1,4 @@
-from app.elasticsearch.index import index_items
+from app.elasticsearch.index import index_resources
 from db.database import database
 from app.elasticsearch.client import es
 import asyncio
@@ -53,7 +53,7 @@ async def main():
         await database.connect()
         
         logger.info("Starting indexing process...")
-        await index_items()
+        await index_resources()
         
         logger.info("Verifying index...")
         if await verify_index():

@@ -10,13 +10,13 @@ The `scripts/` directory contains various utility scripts for managing the appli
 
 ### 1. `process_allmaps.py`
 
-**Purpose**: Processes and generates Allmaps annotations for items in the database.
+**Purpose**: Processes and generates Allmaps annotations for resources in the database.
 
 **Key Features**:
-- Processes individual items or all items in the database
+- Processes individual resources or all resources in the database
 - Generates Allmaps IDs and annotations
 - Updates item records with Allmaps attributes
-- Supports reprocessing of existing items
+- Supports reprocessing of existing resources
 - Implements logging and error handling
 
 **Usage**:

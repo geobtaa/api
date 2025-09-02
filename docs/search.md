@@ -40,7 +40,7 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 |-------------------|----------|----------|--------------------------------------------------------------------------------------------------|---------------------------------------------------|
 | `q`               | string   | No       | Search query string                                                                              | `roads minnesota`                                 |
 | `page`            | integer  | No       | Page number (1-based)                                                                            | `1`, `2`                                          |
-| `per_page`        | integer  | No       | Number of items per page                                                                         | `10`, `25`                                        |
+| `per_page`        | integer  | No       | Number of resources per page                                                                         | `10`, `25`                                        |
 | `sort`            | string   | No       | Sort option: `relevance`, `year_desc`, `year_asc`, `title_asc`, `title_desc`                     | `year_desc`                                       |
 | `callback`        | string   | No       | JSONP callback name (for JSONP support)                                                          | `myCallback`                                      |
 | `fq[spatial_agg][]`         | string[] | No       | Filter by spatial location (maps to `dct_spatial_sm`)                                            | `fq[spatial_agg][]=Minnesota`                     |

@@ -1,148 +1,252 @@
 #!/usr/bin/env python
 """
-Script to populate item relationships in the database.
+This script processes resource relationships from the resources table
+and populates the resource_relationships table with both primary and inverse relationships.
 
-This script processes item relationships from the items table
-and populates the item_relationships table with both primary and inverse relationships.
-It handles various types of relationships like isPartOf, hasMember, isVersionOf, etc.
-
-Environment Variables:
-    LOG_PATH: Optional path for log files (default: logs)
+The script:
+1. Reads the resources table
+2. Extracts relationship information from dct_relation_sm field
+3. Populates the resource_relationships table with relationships from resources.
+4. Creates inverse relationships for bidirectional navigation
+5. Handles different relationship types and formats
 
 Usage:
     python scripts/populate_relationships.py
+
+Requirements:
+    - PostgreSQL database with resources table
+    - resource_relationships table created
+    - DATABASE_URL environment variable set
 """
 
 import asyncio
 import logging
-import os
 import sys
 from pathlib import Path
 
-from databases import Database
 from dotenv import load_dotenv
 
-from db.config import ASYNC_DATABASE_URL
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Add the project root directory to Python path to allow importing app modules
+# Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-# Setup logging with both console and file output
-log_path = os.getenv("LOG_PATH", "logs")
-os.makedirs(log_path, exist_ok=True)
+from db.database import database
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),  # Print to console
-        logging.FileHandler(f"{log_path}/relationships.log"),  # Write to file
-    ],
-)
+# Load environment variables
+load_dotenv()
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-# Create database instance
-database = Database(ASYNC_DATABASE_URL)
-
-# Define relationship mappings with their inverse relationships
-RELATIONSHIP_MAPPINGS = {
-    "dct_relation_sm": ("relation", "relation"),  # Bidirectional
-    "pcdm_memberof_sm": ("memberOf", "hasMember"),
-    "dct_ispartof_sm": ("isPartOf", "hasPart"),
-    "dct_source_sm": ("source", "isSourceOf"),
-    "dct_isversionof_sm": ("isVersionOf", "hasVersion"),
-    "dct_replaces_sm": ("replaces", "isReplacedBy"),
-    "dct_isreplacedby_sm": ("isReplacedBy", "replaces"),
-}
 
 
 async def populate_relationships():
-    """
-    Populate the item_relationships table with relationships from items.
-
-    This function:
-    1. Connects to the database
-    2. Clears existing relationships
-    3. Fetches all items with relationship fields
-    4. Processes each item and creates both primary and inverse relationships
-    5. Tracks and logs the total number of relationships created
-
-    Raises:
-        Exception: If there's an error during the population process
-    """
+    """Populate the resource_relationships table with relationships from resources."""
     try:
-        # Connect to database if not already connected
-        if not database.is_connected:
-            await database.connect()
+        # Connect to database
+        await database.connect()
+        logger.info("Connected to database")
 
-        # Clear existing relationships to ensure clean state
-        logger.info("Clearing existing relationships...")
-        await database.execute("TRUNCATE TABLE item_relationships")
+        # Clear existing relationships
+        await database.execute("TRUNCATE TABLE resource_relationships")
+        logger.info("Cleared existing relationships")
 
-        # Fetch all items with their relationship fields
-        logger.info("Fetching items...")
-        query = """
-            SELECT id, dct_relation_sm, pcdm_memberof_sm, dct_ispartof_sm, 
-                   dct_source_sm, dct_isversionof_sm, dct_replaces_sm, 
-                   dct_isreplacedby_sm 
-            FROM items
+        # Fetch all resources with relationship fields
+        logger.info("Fetching resources...")
+        resources_query = """
+            SELECT id, dct_relation_sm, dct_ispartof_sm, dct_source_sm, 
+                   dct_isversionof_sm, dct_replaces_sm, dct_isreplacedby_sm
+            FROM resources
+            WHERE dct_relation_sm IS NOT NULL 
+               OR dct_ispartof_sm IS NOT NULL 
+               OR dct_source_sm IS NOT NULL
+               OR dct_isversionof_sm IS NOT NULL
+               OR dct_replaces_sm IS NOT NULL
+               OR dct_isreplacedby_sm IS NOT NULL
         """
-        items = await database.fetch_all(query)
-        logger.info(f"Processing {len(items)} items...")
+        resources = await database.fetch_all(resources_query)
+        logger.info(f"Found {len(resources)} resources with relationships")
 
-        # Process each document and create relationships
-        relationship_count = 0
-        for item in items:
-            for field, (predicate, inverse_predicate) in RELATIONSHIP_MAPPINGS.items():
-                values = getattr(item, field, None)
+        # Process each resource
+        total_relationships = 0
+        for resource in resources:
+            resource_id = resource["id"]
+            relationships_added = 0
 
-                if not values:
-                    continue
+            # Process dct_relation_sm (general relationships)
+            if resource["dct_relation_sm"]:
+                for related_id in resource["dct_relation_sm"]:
+                    if related_id and related_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "dct:relation",
+                                "object_id": related_id,
+                            },
+                        )
+                        relationships_added += 1
 
-                # Handle both single values and lists
-                if isinstance(values, str):
-                    values = [values]
+            # Process dct_ispartof_sm (is part of)
+            if resource["dct_ispartof_sm"]:
+                for parent_id in resource["dct_ispartof_sm"]:
+                    if parent_id and parent_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "dct:isPartOf",
+                                "object_id": parent_id,
+                            },
+                        )
+                        relationships_added += 1
 
-                # Create relationships for each value
-                for target_id in values:
-                    # Insert the primary relationship
+            # Process dct_source_sm (source)
+            if resource["dct_source_sm"]:
+                for source_id in resource["dct_source_sm"]:
+                    if source_id and source_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "dct:source",
+                                "object_id": source_id,
+                            },
+                        )
+                        relationships_added += 1
+
+            # Process dct_isversionof_sm (is version of)
+            if resource["dct_isversionof_sm"]:
+                for version_id in resource["dct_isversionof_sm"]:
+                    if version_id and version_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "dct:isVersionOf",
+                                "object_id": version_id,
+                            },
+                        )
+                        relationships_added += 1
+
+            # Process dct_replaces_sm (replaces)
+            if resource["dct_replaces_sm"]:
+                for replaced_id in resource["dct_replaces_sm"]:
+                    if replaced_id and replaced_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "dct:replaces",
+                                "object_id": replaced_id,
+                            },
+                        )
+                        relationships_added += 1
+
+            # Process dct_isreplacedby_sm (is replaced by)
+            if resource["dct_isreplacedby_sm"]:
+                for replacement_id in resource["dct_isreplacedby_sm"]:
+                    if replacement_id and replacement_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "dct:isReplacedBy",
+                                "object_id": replacement_id,
+                            },
+                        )
+                        relationships_added += 1
+
+            total_relationships += relationships_added
+            if relationships_added > 0:
+                logger.info(f"Added {relationships_added} relationships for resource {resource_id}")
+
+        logger.info(f"Total relationships added: {total_relationships}")
+
+        # Create inverse relationships for bidirectional navigation
+        logger.info("Creating inverse relationships...")
+        inverse_relationships = await database.fetch_all("""
+            SELECT subject_id, predicate, object_id FROM resource_relationships
+        """)
+
+        inverse_count = 0
+        for rel in inverse_relationships:
+            # Create inverse relationship
+            inverse_predicate = get_inverse_predicate(rel["predicate"])
+            if inverse_predicate:
+                # Check if inverse relationship already exists
+                existing = await database.fetch_one(
+                    """
+                    SELECT id FROM resource_relationships 
+                    WHERE subject_id = :subject_id 
+                    AND predicate = :predicate 
+                    AND object_id = :object_id
+                """,
+                    {
+                        "subject_id": rel["object_id"],
+                        "predicate": inverse_predicate,
+                        "object_id": rel["subject_id"],
+                    },
+                )
+
+                if not existing:
                     await database.execute(
                         """
-                        INSERT INTO item_relationships (subject_id, predicate, object_id) 
-                        VALUES (:subject, :predicate, :object)
-                        """,
-                        {"subject": item.id, "predicate": predicate, "object": target_id},
-                    )
-
-                    # Insert the inverse relationship
-                    await database.execute(
-                        """
-                        INSERT INTO item_relationships (subject_id, predicate, object_id) 
-                        VALUES (:subject, :predicate, :object)
-                        """,
+                        INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                        VALUES (:subject_id, :predicate, :object_id)
+                    """,
                         {
-                            "subject": target_id,
+                            "subject_id": rel["object_id"],
                             "predicate": inverse_predicate,
-                            "object": item.id,
+                            "object_id": rel["subject_id"],
                         },
                     )
-                    relationship_count += 2
+                    inverse_count += 1
 
-        logger.info(f"Created {relationship_count} relationships")
+        logger.info(f"Added {inverse_count} inverse relationships")
+
+        logger.info("Relationship population completed successfully!")
 
     except Exception as e:
-        logger.error(f"Error populating relationships: {e}")
+        logger.error(f"Error populating relationships: {e}", exc_info=True)
         raise
     finally:
-        # Ensure database connection is closed
-        if database.is_connected:
-            await database.disconnect()
+        await database.disconnect()
+        logger.info("Disconnected from database")
+
+
+def get_inverse_predicate(predicate):
+    """Get the inverse predicate for a given relationship."""
+    inverse_mapping = {
+        "dct:relation": "dct:relation",
+        "dct:isPartOf": "dct:hasPart",
+        "dct:hasPart": "dct:isPartOf",
+        "dct:source": "dct:isSourceOf",
+        "dct:isSourceOf": "dct:source",
+        "dct:isVersionOf": "dct:hasVersion",
+        "dct:hasVersion": "dct:isVersionOf",
+        "dct:replaces": "dct:isReplacedBy",
+        "dct:isReplacedBy": "dct:replaces",
+    }
+    return inverse_mapping.get(predicate)
 
 
 if __name__ == "__main__":
-    # Set logging level and run the population process
-    logger.setLevel(logging.DEBUG)
     asyncio.run(populate_relationships())
