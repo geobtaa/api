@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI application
 app = FastAPI(
-    title="BTAA OpenGeoMetadata API",
+    title="GeoBTAA API",
     version="0.1.0",
     lifespan=lifespan,
     docs_url="/api/docs",
