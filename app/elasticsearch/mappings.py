@@ -34,6 +34,28 @@ INDEX_MAPPING = {
             "dcat_centroid": {"type": "geo_point"},
             "dct_references_s": {"type": "object", "enabled": False},
             "gbl_mdmodified_dt": {"type": "date"},
+            
+            # BTAA-specific OGM Aardvark fields
+            "b1g_code_s": {"type": "keyword"},
+            "b1g_status_s": {"type": "keyword"},
+            "b1g_dct_accrualMethod_s": {"type": "keyword"},
+            "b1g_dct_accrualPeriodicity_s": {"type": "keyword"},
+            "b1g_dateAccessioned_s": {"type": "date"},
+            "b1g_dateRetired_s": {"type": "date"},
+            "b1g_child_record_b": {"type": "boolean"},
+            "b1g_dct_mediator_sm": {"type": "keyword"},
+            "b1g_access_s": {"type": "object", "enabled": False},
+            "b1g_image_ss": {"type": "keyword"},
+            "b1g_geonames_sm": {"type": "keyword"},
+            "b1g_publication_state_s": {"type": "keyword"},
+            "b1g_language_sm": {"type": "keyword"},
+            "b1g_creatorID_sm": {"type": "keyword"},
+            "b1g_dct_conformsTo_sm": {"type": "keyword"},
+            "b1g_dcat_spatialResolutionInMeters_sm": {"type": "keyword"},
+            "b1g_geodcat_spatialResolutionAsText_sm": {"type": "keyword"},
+            "b1g_dct_provenanceStatement_sm": {"type": "keyword"},
+            "b1g_adminTags_sm": {"type": "keyword"},
+            
             "summary": {"type": "text"},
             "suggest": {
                 "type": "completion",

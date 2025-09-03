@@ -220,7 +220,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
     return resource
 
 
-async def process_resource(resource_dict, session):
+async def process_resource(resource_dict, session, apply_field_mapping=True):
     """
     Process a resource to add UI fields and prepare it for JSON:API response.
     This function is shared between resources and search endpoints.
@@ -228,6 +228,7 @@ async def process_resource(resource_dict, session):
     Args:
         resource_dict: The resource data from the database
         session: Database session for Allmaps queries
+        apply_field_mapping: Whether to apply OGM field mapping (default: True)
 
     Returns:
         JSON:API compliant resource object
@@ -236,6 +237,11 @@ async def process_resource(resource_dict, session):
     from app.services.citation_service import CitationService
     from app.services.download_service import DownloadService
     from app.services.viewer_service import ViewerService
+    from app.services.ogm_field_mapper import OGMFieldMapper
+
+    # Map database column names to proper OGM field names (only if requested)
+    if apply_field_mapping:
+        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
 
     # Add thumbnail URL
     resource_dict = add_thumbnail_url(resource_dict)
