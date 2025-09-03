@@ -39,16 +39,12 @@ def create_response(
 
 
 def add_thumbnail_url(item: Dict) -> Dict:
-    """Add the ui_thumbnail_url to the item attributes."""
-    # Ensure 'attributes' key exists
-    if "attributes" not in item:
-        item["attributes"] = {}
-
+    """Add the ui_thumbnail_url to the item."""
     from app.services.image_service import ImageService
 
     image_service = ImageService(item)
     thumbnail_url = image_service.get_thumbnail_url()
-    item["attributes"]["ui_thumbnail_url"] = thumbnail_url
+    item["ui_thumbnail_url"] = thumbnail_url
     return item
 
 
@@ -102,3 +98,184 @@ def add_ui_attributes(item: Dict) -> Dict:
     item["ui_downloads"] = download_service.get_download_options()
 
     return item
+
+
+def create_jsonapi_response(data, request_url=None, callback=None):
+    """
+    Create a JSON:API compliant response.
+
+    Args:
+        data: The data to include in the response
+        request_url: The full URL of the request for self link
+        callback: JSONP callback name if provided
+
+    Returns:
+        JSON:API compliant response structure
+    """
+    response = {
+        "jsonapi": {
+            "version": "1.1",
+            "profile": [
+                "https://opengeometadata.org/profile/aardvark",
+                "https://opengeometadata.org/profile/ui-hints",
+                "https://opengeometadata.org/profile/mcp/search",
+            ],
+        }
+    }
+
+    # Add links if request_url is provided
+    if request_url:
+        response["links"] = {"self": request_url}
+
+    # Add data
+    response["data"] = data
+
+    # Handle JSONP callback
+    if callback:
+        return f"{callback}({json.dumps(response)})"
+
+    return response
+
+
+def create_jsonapi_resource(resource_data, request_url=None):
+    """
+    Create a JSON:API compliant resource object.
+
+    Args:
+        resource_data: The resource data from the database
+        request_url: The full URL of the request for self link
+
+    Returns:
+        JSON:API compliant resource structure
+    """
+    # Extract UI-related fields to move to meta.ui
+    ui_fields = {}
+    core_attributes = {}
+
+    # Fields that should go to meta.ui
+    ui_field_names = [
+        "ui_thumbnail_url",
+        "ui_citation",
+        "ui_downloads",
+        "ui_viewer_protocol",
+        "ui_viewer_endpoint",
+        "ui_viewer_geometry",
+        "ui_relationships",
+        "ui_summaries",
+        "ai_summaries",
+        "suggest",
+    ]
+
+    for key, value in resource_data.items():
+        if key in ui_field_names:
+            ui_fields[key] = value
+        else:
+            # Only include non-null values in attributes
+            if value is not None:
+                core_attributes[key] = value
+
+    # Restructure UI fields to remove prefixes and organize viewer
+    restructured_ui = {}
+
+    # Simple field mappings (remove ui_ prefix)
+    if "ui_thumbnail_url" in ui_fields:
+        restructured_ui["thumbnail_url"] = ui_fields["ui_thumbnail_url"]
+    if "ui_citation" in ui_fields:
+        restructured_ui["citation"] = ui_fields["ui_citation"]
+    if "ui_downloads" in ui_fields:
+        restructured_ui["downloads"] = ui_fields["ui_downloads"]
+    if "ui_relationships" in ui_fields:
+        restructured_ui["relationships"] = ui_fields["ui_relationships"]
+    if "ui_summaries" in ui_fields:
+        restructured_ui["summaries"] = ui_fields["ui_summaries"]
+    if "ai_summaries" in ui_fields:
+        restructured_ui["ai_summaries"] = ui_fields["ai_summaries"]
+    if "suggest" in ui_fields:
+        restructured_ui["suggest"] = ui_fields["suggest"]
+
+    # Group viewer-related fields into a nested viewer object
+    viewer_fields = {}
+    if "ui_viewer_protocol" in ui_fields:
+        viewer_fields["protocol"] = ui_fields["ui_viewer_protocol"]
+    if "ui_viewer_endpoint" in ui_fields:
+        viewer_fields["endpoint"] = ui_fields["ui_viewer_endpoint"]
+    if "ui_viewer_geometry" in ui_fields:
+        viewer_fields["geometry"] = ui_fields["ui_viewer_geometry"]
+
+    if viewer_fields:
+        restructured_ui["viewer"] = viewer_fields
+
+    # Create the resource structure
+    resource = {
+        "type": "resource",
+        "id": str(resource_data.get("id", "")),
+        "attributes": core_attributes,
+        "meta": {
+            "@context": "https://static.opengeometadata.org/contexts/aardvark-1.0.jsonld",
+            "@type": "AardvarkRecord",
+            "ui": restructured_ui,
+        },
+    }
+
+    return resource
+
+
+async def process_resource(resource_dict, session):
+    """
+    Process a resource to add UI fields and prepare it for JSON:API response.
+    This function is shared between resources and search endpoints.
+
+    Args:
+        resource_dict: The resource data from the database
+        session: Database session for Allmaps queries
+
+    Returns:
+        JSON:API compliant resource object
+    """
+    from app.services.allmaps_service import AllmapsService
+    from app.services.citation_service import CitationService
+    from app.services.download_service import DownloadService
+    from app.services.viewer_service import ViewerService
+
+    # Add thumbnail URL
+    resource_dict = add_thumbnail_url(resource_dict)
+
+    # Generate citation using CitationService
+    citation_service = CitationService(resource_dict)
+    ui_citation = citation_service.get_citation()
+
+    # Use ViewerService to get viewer attributes
+    viewer_service = ViewerService(resource_dict)
+    viewer_attributes = viewer_service.get_viewer_attributes()
+
+    # Use DownloadService to get download options
+    download_service = DownloadService(resource_dict)
+    ui_downloads = download_service.get_download_options()
+
+    # Get Allmaps attributes
+    allmaps_service = AllmapsService(resource_dict)
+    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+
+    # Create the attributes dictionary
+    attributes = {
+        **resource_dict,
+        "ui_citation": ui_citation,  # Use generated citation
+        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
+        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
+        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
+        "ui_downloads": ui_downloads,
+    }
+
+    # Add viewer attributes
+    for key, value in viewer_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    # Add Allmaps attributes
+    for key, value in allmaps_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    # Create JSON:API compliant resource
+    return create_jsonapi_resource(attributes)

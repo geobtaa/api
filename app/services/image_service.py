@@ -161,6 +161,10 @@ class ImageService:
             if not any(x in url.lower() for x in ["/iiif/", "info.json", "/i/image/api/image/"]):
                 return url
 
+            # Don't modify Stanford URLs that already have proper sizing
+            if "stacks.stanford.edu" in url and ("/full/!" in url or "/full/400," in url):
+                return url
+
             # Remove any existing size parameters
             base_url = url
             for pattern in [
@@ -265,11 +269,23 @@ class ImageService:
             elif (
                 "https://iiif.io/api/presentation/2/context.json" in references
                 or "http://iiif.io/api/presentation#manifest" in references
+                or any(key.endswith("/iiif3/manifest") for key in references.keys())
+                or any(key.endswith("/iiif/manifest") for key in references.keys())
             ):
-                manifest_url = references.get(
-                    "https://iiif.io/api/presentation/2/context.json"
-                ) or references.get("http://iiif.io/api/presentation#manifest")
-                thumbnail_url = self.get_iiif_manifest_thumbnail(manifest_url)
+                manifest_url = (
+                    references.get("https://iiif.io/api/presentation/2/context.json")
+                    or references.get("http://iiif.io/api/presentation#manifest")
+                    or next(
+                        (
+                            key
+                            for key in references.keys()
+                            if key.endswith(("/iiif3/manifest", "/iiif/manifest"))
+                        ),
+                        None,
+                    )
+                )
+                if manifest_url:
+                    thumbnail_url = self.get_iiif_manifest_thumbnail(manifest_url)
 
             # Check for ESRI services
             elif "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:

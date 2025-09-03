@@ -3,7 +3,7 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -11,15 +11,13 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import (
-    add_thumbnail_url,
-    create_response,
+    create_jsonapi_response,
+    process_resource,
     sanitize_for_json,
 )
 from app.services.allmaps_service import AllmapsService
 from app.services.cache_service import cached_endpoint
-from app.services.download_service import DownloadService
 from app.services.search_service import SearchService
-from app.services.viewer_service import ViewerService
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -46,6 +44,7 @@ LIST_CACHE_TTL = int(os.getenv("LIST_CACHE_TTL", 43200))  # 12 hours
 async def get_resource(
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
+    request: Request = None,
 ):
     """Get a single resource by ID."""
     try:
@@ -68,7 +67,20 @@ async def get_resource(
             # Update the attributes dictionary
             response["data"]["attributes"].update(allmaps_attributes)
 
-        return create_response(response, callback)
+            # Extract the resource data and process it using the shared function
+            resource_data = response["data"]["attributes"]
+            resource_data["id"] = id  # Ensure ID is set
+
+            # Process the resource using the shared function
+            jsonapi_resource = await process_resource(resource_data, session)
+
+        # Create JSON:API compliant response
+        request_url = str(request.url) if request else None
+        jsonapi_response = create_jsonapi_response(
+            data=jsonapi_resource, request_url=request_url, callback=callback
+        )
+
+        return JSONResponse(content=jsonapi_response)
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
         raise
@@ -83,6 +95,7 @@ async def list_resources(
     skip: int = 0,
     limit: int = 10,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
+    request: Request = None,
 ):
     try:
         async with async_session() as session:
@@ -99,58 +112,24 @@ async def list_resources(
                     # Convert to dict and sanitize datetime objects
                     resource_dict = sanitize_for_json(dict(row._mapping))
                     logger.info(f"Resource dict: {resource_dict}")
-                    resource_dict = add_thumbnail_url(resource_dict)
 
-                    # Use ViewerService to get viewer attributes
-                    viewer_service = ViewerService(resource_dict)
-                    viewer_attributes = viewer_service.get_viewer_attributes()
-                    logger.info(f"Viewer attributes: {viewer_attributes}")
-
-                    # Use DownloadService to get download options
-                    download_service = DownloadService(resource_dict)
-                    ui_downloads = download_service.get_download_options()
-                    logger.info(f"Download options: {ui_downloads}")
-
-                    # Get Allmaps attributes
-                    allmaps_service = AllmapsService(resource_dict)
-                    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
-                    logger.info(f"Allmaps attributes: {allmaps_attributes}")
-
-                    # Create the attributes dictionary
-                    attributes = {
-                        **resource_dict,
-                        "ui_citation": resource_dict.get("ui_citation"),
-                        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
-                        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
-                        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
-                        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
-                        "ui_downloads": ui_downloads,
-                    }
-
-                    # Add viewer attributes
-                    for key, value in viewer_attributes.items():
-                        if key not in attributes:
-                            attributes[key] = value
-
-                    # Add Allmaps attributes
-                    for key, value in allmaps_attributes.items():
-                        if key not in attributes:
-                            attributes[key] = value
-
-                    processed_resources.append(
-                        {
-                            "type": "resource",
-                            "id": str(resource_dict["id"]),
-                            "attributes": attributes,
-                        }
-                    )
+                    # Process the resource using the shared function
+                    jsonapi_resource = await process_resource(resource_dict, session)
+                    processed_resources.append(jsonapi_resource)
                     logger.info(f"Successfully processed resource {resource_dict['id']}")
                 except Exception as e:
                     logger.error(f"Error processing resource: {str(e)}", exc_info=True)
                     continue
 
             logger.info(f"Returning {len(processed_resources)} processed resources")
-            return create_response({"data": processed_resources}, callback)
+
+            # Create JSON:API compliant response
+            request_url = str(request.url) if request else None
+            jsonapi_response = create_jsonapi_response(
+                data=processed_resources, request_url=request_url, callback=callback
+            )
+
+            return JSONResponse(content=jsonapi_response)
     except Exception as e:
         logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -160,6 +139,7 @@ async def list_resources(
 async def get_resource_summaries(
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
+    request: Request = None,
 ):
     """Get all summaries for a resource."""
     try:
@@ -176,12 +156,15 @@ async def get_resource_summaries(
             # Convert to list of dicts and sanitize
             summaries_list = [sanitize_for_json(dict(summary)) for summary in summaries]
 
-            # Create response
-            response_data = {
-                "data": {"type": "summaries", "id": id, "attributes": {"summaries": summaries_list}}
-            }
+            # Create JSON:API compliant response
+            request_url = str(request.url) if request else None
+            jsonapi_response = create_jsonapi_response(
+                data={"type": "summaries", "id": id, "attributes": {"summaries": summaries_list}},
+                request_url=request_url,
+                callback=callback,
+            )
 
-            return create_response(response_data, callback)
+            return JSONResponse(content=jsonapi_response)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
