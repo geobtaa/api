@@ -34,7 +34,6 @@ INDEX_MAPPING = {
             "dcat_centroid": {"type": "geo_point"},
             "dct_references_s": {"type": "object", "enabled": False},
             "gbl_mdmodified_dt": {"type": "date"},
-            
             # BTAA-specific OGM Aardvark fields
             "b1g_code_s": {"type": "keyword"},
             "b1g_status_s": {"type": "keyword"},
@@ -55,7 +54,6 @@ INDEX_MAPPING = {
             "b1g_geodcat_spatialResolutionAsText_sm": {"type": "keyword"},
             "b1g_dct_provenanceStatement_sm": {"type": "keyword"},
             "b1g_adminTags_sm": {"type": "keyword"},
-            
             "summary": {"type": "text"},
             "suggest": {
                 "type": "completion",

@@ -5,18 +5,18 @@ This service handles mapping between database column names (which are downcased)
 and proper OGM Aardvark field names for BTAA flavored records.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 class OGMFieldMapper:
     """
     Maps database column names to proper OGM Aardvark field names.
-    
+
     The database downcases most element names as column names, so we get
     gbl_resourceclass_sm back from the database instead of gbl_resourceClass_sm.
     This mapper converts them back to the correct OGM field names.
     """
-    
+
     # Mapping from database column names to proper OGM field names
     # Based on the BTAA OGM Aardvark schema
     FIELD_MAPPING = {
@@ -32,7 +32,6 @@ class OGMFieldMapper:
         "gbl_suppressed_b": "gbl_suppressed_b",
         "gbl_georeferenced_b": "gbl_georeferenced_b",
         "gbl_displaynote_sm": "gbl_displayNote_sm",
-        
         # BTAA-specific fields (these may not exist in current DB but are in schema)
         "b1g_code_s": "b1g_code_s",
         "b1g_status_s": "b1g_status_s",
@@ -53,7 +52,6 @@ class OGMFieldMapper:
         "b1g_geodcat_spatialresolutionastext_sm": "b1g_geodcat_spatialResolutionAsText_sm",
         "b1g_dct_provenancestatement_sm": "b1g_dct_provenanceStatement_sm",
         "b1g_admintags_sm": "b1g_adminTags_sm",
-        
         # Other fields that might be downcased
         "dct_accessrights_s": "dct_accessRights_s",
         "dct_rightsholder_sm": "dct_rightsHolder_sm",
@@ -66,32 +64,32 @@ class OGMFieldMapper:
         "layer_id_s": "layer_id_s",
         "suppressed_b": "suppressed_b",
     }
-    
+
     @classmethod
     def map_resource_fields(cls, resource_dict: Dict[str, Any]) -> Dict[str, Any]:
         """
         Maps database column names to proper OGM field names in a resource dictionary.
-        
+
         Args:
             resource_dict: The resource data from the database
-            
+
         Returns:
             Resource dictionary with proper OGM field names
         """
         mapped_dict = {}
-        
+
         for db_field, value in resource_dict.items():
             # Map to proper OGM field name if it exists in our mapping
             ogm_field = cls.FIELD_MAPPING.get(db_field, db_field)
             mapped_dict[ogm_field] = value
-        
+
         return mapped_dict
-    
+
     @classmethod
     def get_required_fields(cls) -> list:
         """
         Returns the list of required fields according to the BTAA OGM Aardvark schema.
-        
+
         Returns:
             List of required field names
         """
@@ -108,14 +106,14 @@ class OGMFieldMapper:
             "b1g_dct_accrualMethod_s",
             "b1g_dateAccessioned_s",
             "b1g_publication_state_s",
-            "b1g_language_sm"
+            "b1g_language_sm",
         ]
-    
+
     @classmethod
     def get_all_schema_fields(cls) -> list:
         """
         Returns the list of all fields defined in the BTAA OGM Aardvark schema.
-        
+
         Returns:
             List of all schema field names
         """

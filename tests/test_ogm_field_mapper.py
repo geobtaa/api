@@ -2,7 +2,6 @@
 Tests for the OGM Field Mapper service.
 """
 
-import pytest
 from app.services.ogm_field_mapper import OGMFieldMapper
 
 
@@ -144,27 +143,40 @@ class TestOGMFieldMapper:
     def test_get_required_fields(self):
         """Test getting required fields list."""
         required_fields = OGMFieldMapper.get_required_fields()
-        
+
         # Check that all required fields are present
         expected_required = [
-            "id", "gbl_mdVersion_s", "schema_provider_s", "dct_title_s",
-            "dct_description_sm", "dct_language_sm", "dct_accessRights_s",
-            "dct_license_sm", "b1g_code_s", "b1g_dct_accrualMethod_s",
-            "b1g_dateAccessioned_s", "b1g_publication_state_s", "b1g_language_sm"
+            "id",
+            "gbl_mdVersion_s",
+            "schema_provider_s",
+            "dct_title_s",
+            "dct_description_sm",
+            "dct_language_sm",
+            "dct_accessRights_s",
+            "dct_license_sm",
+            "b1g_code_s",
+            "b1g_dct_accrualMethod_s",
+            "b1g_dateAccessioned_s",
+            "b1g_publication_state_s",
+            "b1g_language_sm",
         ]
-        
+
         for field in expected_required:
             assert field in required_fields
 
     def test_get_all_schema_fields(self):
         """Test getting all schema fields list."""
         all_fields = OGMFieldMapper.get_all_schema_fields()
-        
+
         # Check that some key fields are present
         expected_fields = [
-            "gbl_mdVersion_s", "gbl_resourceClass_sm", "b1g_code_s",
-            "b1g_status_s", "dct_title_s", "dct_description_sm"
+            "gbl_mdVersion_s",
+            "gbl_resourceClass_sm",
+            "b1g_code_s",
+            "b1g_status_s",
+            "dct_title_s",
+            "dct_description_sm",
         ]
-        
+
         for field in expected_fields:
             assert field in all_fields

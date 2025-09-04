@@ -100,13 +100,20 @@ async def search(
                         logger.info(f"Processing search result resource: {resource_id}")
 
                         # Process the resource using the same logic as other endpoints
-                        # First process without field mapping to preserve database field names for internal processing
-                        resource_object = await process_resource(resource_dict, session, apply_field_mapping=False)
-                        
-                        # Now apply field mapping to the final attributes for proper OGM field names in API response
+                        # First process without field mapping to preserve database field names
+                        # for internal processing
+                        resource_object = await process_resource(
+                            resource_dict, session, apply_field_mapping=False
+                        )
+
+                        # Now apply field mapping to the final attributes for proper OGM field names
+                        # in API response
                         from app.services.ogm_field_mapper import OGMFieldMapper
+
                         if "attributes" in resource_object:
-                            resource_object["attributes"] = OGMFieldMapper.map_resource_fields(resource_object["attributes"])
+                            resource_object["attributes"] = OGMFieldMapper.map_resource_fields(
+                                resource_object["attributes"]
+                            )
 
                         # Add the Elasticsearch score to the resource's meta section
                         if score is not None:

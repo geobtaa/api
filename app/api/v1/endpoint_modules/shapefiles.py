@@ -1,7 +1,6 @@
 import logging
 import os
 import tempfile
-import zipfile
 from typing import Any, Optional
 
 try:
@@ -10,14 +9,13 @@ try:
     HAS_DUCKDB = True
 except Exception:  # ModuleNotFoundError or other import-time errors
     HAS_DUCKDB = False
-import pandas as pd
 import requests
 import urllib3
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
-from app.api.v1.utils import create_response, sanitize_for_json
+from app.api.v1.utils import create_response
 
 # Load environment variables
 load_dotenv()
@@ -122,7 +120,7 @@ def ensure_table(con: Any, s3_uri: str) -> str:
             logger.error(f"Failed to load shapefile {s3_uri}: {str(e)}")
             raise HTTPException(
                 status_code=500, detail=f"Failed to load shapefile: {str(e)}"
-            )
+            ) from e
 
     return table_name
 
@@ -194,9 +192,7 @@ async def query_shapefile(
         raise
     except Exception as e:
         logger.error(f"Error querying shapefile: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to query shapefile: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Failed to query shapefile: {str(e)}") from e
 
 
 @router.get("/shapefiles/schema")
@@ -220,14 +216,16 @@ async def get_shapefile_schema(
             # Convert schema to list of dicts
             schema = []
             for row in schema_rows:
-                schema.append({
-                    "column": row[0],
-                    "type": row[1],
-                    "null": row[2],
-                    "key": row[3],
-                    "default": row[4],
-                    "extra": row[5],
-                })
+                schema.append(
+                    {
+                        "column": row[0],
+                        "type": row[1],
+                        "null": row[2],
+                        "key": row[3],
+                        "default": row[4],
+                        "extra": row[5],
+                    }
+                )
 
             # Get table info
             info_query = f"SELECT COUNT(*) FROM {table_name}"
@@ -320,6 +318,4 @@ async def preview_shapefile(
         raise
     except Exception as e:
         logger.error(f"Error previewing shapefile: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Failed to preview shapefile: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail=f"Failed to preview shapefile: {str(e)}") from e
