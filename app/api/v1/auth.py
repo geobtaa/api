@@ -14,11 +14,8 @@ logger = logging.getLogger(__name__)
 security = HTTPBasic()
 
 
-def verify_credentials(credentials: HTTPBasicCredentials = None):
+def verify_credentials(credentials: HTTPBasicCredentials = Depends(security)):  # noqa: B008
     """Verify admin credentials."""
-    if credentials is None:
-        credentials = Depends(security)
-
     correct_username = credentials.username == ADMIN_USERNAME
     correct_password = credentials.password == ADMIN_PASSWORD
 

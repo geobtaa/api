@@ -4,15 +4,11 @@ import sys
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPBasic
 
-from app.api.v1.admin import router as admin_router
 from app.api.v1.endpoints import router as public_router
-from app.api.v1.gazetteer import router as gazetteer_router
-from app.api.v1.shapefiles import router as shapefiles_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
 from db.database import database
 
@@ -35,9 +31,6 @@ logger = logging.getLogger(__name__)
 
 # Get CORS origins from environment variable
 cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
-
-# Create security scheme
-security = HTTPBasic()
 
 
 @asynccontextmanager
@@ -97,9 +90,6 @@ app.add_middleware(
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
-app.include_router(admin_router, prefix="/api/v1/admin", dependencies=[Depends(security)])
-app.include_router(gazetteer_router, prefix="/api/v1")
-app.include_router(shapefiles_router, prefix="/api/v1")
 
 
 @app.exception_handler(Exception)

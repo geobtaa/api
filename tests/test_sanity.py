@@ -40,6 +40,8 @@ def test_api_version():
     response = client.get("/api/v1")
     assert response.status_code == 200
     data = response.json()
-    assert "version" in data
-    assert "api" in data
-    assert data["api"] == "BTAA Geodata API"
+    assert "data" in data
+    assert "attributes" in data["data"]
+    assert "version" in data["data"]["attributes"]
+    assert "api" in data["data"]["attributes"]
+    assert data["data"]["attributes"]["api"] == "GeoBTAA API"
