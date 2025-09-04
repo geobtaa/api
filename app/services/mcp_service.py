@@ -44,13 +44,13 @@ def get_async_session():
 
 
 class OGMMCPService:
-    """MCP service for OpenGeoMetadata API endpoints."""
+    """MCP service for GeoBTAA API endpoints."""
 
     def __init__(self):
-        logger.info("Initializing OGM MCP Service")
-        self.server = Server("ogm-api")
+        logger.info("Initializing GeoBTAA MCP Service")
+        self.server = Server("geo-btaa-api")
         self._register_tools()
-        logger.info("OGM MCP Service initialized successfully")
+        logger.info("GeoBTAA MCP Service initialized successfully")
 
     def _register_tools(self):
         """Register all API endpoints as MCP tools."""
@@ -114,7 +114,7 @@ class OGMMCPService:
                     Tool(
                         name="get_resource_ogm",
                         description=(
-                            "Get just the OpenGeoMetadata Aardvark record for a resource by ID"
+                            "Get just the GeoBTAA Aardvark record for a resource by ID"
                         ),
                         inputSchema={
                             "type": "object",
@@ -124,7 +124,7 @@ class OGMMCPService:
                     ),
                     Tool(
                         name="list_resources",
-                        description="List all geospatial resources with pagination",
+                        description="List all GeoBTAA resources with pagination",
                         inputSchema={
                             "type": "object",
                             "properties": {
@@ -143,13 +143,13 @@ class OGMMCPService:
                     ),
                     Tool(
                         name="get_suggestions",
-                        description="Get search suggestions for autocomplete",
+                        description="Get search suggestions for GeoBTAA autocomplete",
                         inputSchema={
                             "type": "object",
                             "properties": {
                                 "query": {
                                     "type": "string",
-                                    "description": "Search query for suggestions",
+                                    "description": "Search query for GeoBTAA suggestions",
                                 }
                             },
                             "required": ["query"],
@@ -177,14 +177,14 @@ class OGMMCPService:
                         name="validate_aardvark_record",
                         description=(
                             "Validate a single Aardvark JSON record against "
-                            "the OpenGeoMetadata schema"
+                            "the GeoBTAA schema"
                         ),
                         inputSchema={
                             "type": "object",
                             "properties": {
                                 "record": {
                                     "type": "object",
-                                    "description": "The Aardvark JSON record to validate",
+                                    "description": "The GeoBTAA Aardvark JSON record to validate",
                                 }
                             },
                             "required": ["record"],

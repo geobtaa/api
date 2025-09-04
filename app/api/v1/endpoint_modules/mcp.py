@@ -12,9 +12,9 @@ async def mcp_endpoint():
     """Return MCP service information and connection details."""
     return JSONResponse(
         content={
-            "name": "ogm-api",
+            "name": "geo-btaa-api",
             "version": "0.1.0",
-            "description": "OpenGeoMetadata API MCP Service",
+            "description": "GeoBTAA API MCP Service",
             "protocol": "mcp",
             "transports": ["stdio", "websocket"],
             "capabilities": {
@@ -39,23 +39,23 @@ async def mcp_endpoint():
             "documentation": {
                 "tools": {
                     "search_resources": (
-                        "Search for geospatial resources using text queries, "
+                        "Search for GeoBTAA geospatial resources using text queries, "
                         "filters, and sorting options"
                     ),
                     "get_resource": (
-                        "Get a single geospatial resource by ID with full "
+                        "Get a single GeoBTAA geospatial resource by ID with full "
                         "metadata and UI enhancements"
                     ),
                     "get_resource_ogm": (
-                        "Get just the OpenGeoMetadata Aardvark record for a resource by ID"
+                        "Get just the GeoBTAA Aardvark record for a resource by ID"
                     ),
-                    "list_resources": ("List all geospatial resources with pagination"),
-                    "get_suggestions": ("Get search suggestions for autocomplete"),
+                    "list_resources": ("List all GeoBTAA geospatial resources with pagination"),
+                    "get_suggestions": ("Get search suggestions for GeoBTAA autocomplete"),
                     "get_resource_viewer": (
                         "Get an HTML page with the embedded OGM viewer for a specific resource"
                     ),
                     "validate_aardvark_record": (
-                        "Validate a single Aardvark JSON record against the OpenGeoMetadata schema"
+                        "Validate a single GeoBTAA Aardvark JSON record against the GeoBTAA schema"
                     ),
                 }
             },
