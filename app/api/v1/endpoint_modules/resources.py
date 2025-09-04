@@ -4,20 +4,23 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import select
+from sqlalchemy import or_
 
 from app.api.v1.utils import (
     create_jsonapi_response,
+    create_response,
     process_resource,
     sanitize_for_json,
 )
 from app.services.allmaps_service import AllmapsService
 from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
+from app.services.ogm_field_mapper import OGMFieldMapper
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -133,6 +136,111 @@ async def list_resources(
     except Exception as e:
         logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/resources/{id}/ogm")
+async def get_resource_ogm(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+):
+    """Get just the OpenGeoMetadata Aardvark record for a resource by ID."""
+    try:
+        async with async_session() as session:
+            query = select(resources).where(resources.c.id == id)
+            result = await session.execute(query)
+            row = result.fetchone()
+            if not row:
+                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+
+            # Convert to dict and sanitize datetime objects
+            resource_dict = sanitize_for_json(dict(row._mapping))
+
+            # Map database column names to official Aardvark field names
+            aardvark_attributes = OGMFieldMapper.map_resource_fields(resource_dict)
+
+            # Filter out null values and empty arrays
+            aardvark_record = {}
+            for key, value in aardvark_attributes.items():
+                if value is not None and value != "":
+                    # Handle empty arrays
+                    if isinstance(value, list) and len(value) == 0:
+                        continue
+                    # Handle arrays with only None/empty values
+                    if isinstance(value, list) and all(item is None or item == "" for item in value):
+                        continue
+                    aardvark_record[key] = value
+
+            # Return just the cleaned attributes (the Aardvark record)
+            return create_response(aardvark_record, callback)
+    except HTTPException:
+        # Re-raise HTTP exceptions to maintain their status code
+        raise
+    except Exception as e:
+        logger.error(f"Error getting Aardvark record for resource {id}: {str(e)}", exc_info=True)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+@router.get("/resources/{id}/viewer")
+async def get_resource_viewer(
+    id: str,
+    embed: bool = Query(False, description="Embedded mode for iframe usage"),
+):
+    """Get an HTML page with the embedded OGM viewer for a specific resource."""
+    try:
+        # First check if the resource exists
+        async with async_session() as session:
+            query = select(resources).where(resources.c.id == id)
+            result = await session.execute(query)
+            row = result.fetchone()
+
+            if not row:
+                raise HTTPException(status_code=404, detail="Resource not found")
+
+        # Build the record URL for the viewer
+        base_url = os.getenv("APPLICATION_URL", "http://localhost:8000")
+        record_url = f"{base_url}/api/v1/resources/{id}/ogm"
+
+        # Create the HTML content
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OGM Viewer - Resource {id}</title>
+    <style>
+        body {{
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }}
+        .viewer-container {{
+            width: 100vw;
+            height: 100vh;
+        }}
+        {".viewer-container { height: 600px; }" if embed else ""}
+    </style>
+</head>
+<body>
+    <div class="viewer-container">
+        <ogm-viewer 
+            record-url="{record_url}"
+            >
+        </ogm-viewer>
+    </div>
+    
+    <!-- Load the OGM Viewer web component -->
+    <script type="module" src="https://unpkg.com/ogm-viewer"></script>
+</body>
+</html>
+"""
+
+        return HTMLResponse(content=html_content)
+    except HTTPException:
+        # Re-raise HTTPExceptions (like 404) without modification
+        raise
+    except Exception as e:
+        logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 @router.get("/resources/{id}/summaries")
