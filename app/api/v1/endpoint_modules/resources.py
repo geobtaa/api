@@ -42,6 +42,52 @@ RESOURCE_CACHE_TTL = int(os.getenv("RESOURCE_CACHE_TTL", 86400))  # 24 hours
 LIST_CACHE_TTL = int(os.getenv("LIST_CACHE_TTL", 43200))  # 12 hours
 
 
+@router.get("/resources/")
+@cached_endpoint(ttl=LIST_CACHE_TTL)
+async def list_resources(
+    skip: int = 0,
+    limit: int = 10,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+    request: Request = None,
+):
+    try:
+        async with async_session() as session:
+            query = select(resources).offset(skip).limit(limit)
+            logger.info(f"Executing query: {query}")
+            result = await session.execute(query)
+            results = result.fetchall()  # Get full rows instead of scalars
+            logger.info(f"Found {len(results)} resources")
+
+            processed_resources = []
+            for row in results:
+                try:
+                    logger.info(f"Processing resource: {row}")
+                    # Convert to dict and sanitize datetime objects
+                    resource_dict = sanitize_for_json(dict(row._mapping))
+                    logger.info(f"Resource dict: {resource_dict}")
+
+                    # Process the resource using the shared function
+                    jsonapi_resource = await process_resource(resource_dict, session)
+                    processed_resources.append(jsonapi_resource)
+                    logger.info(f"Successfully processed resource {resource_dict['id']}")
+                except Exception as e:
+                    logger.error(f"Error processing resource: {str(e)}", exc_info=True)
+                    continue
+
+            logger.info(f"Returning {len(processed_resources)} processed resources")
+
+            # Create JSON:API compliant response
+            request_url = str(request.url) if request else None
+            jsonapi_response = create_jsonapi_response(
+                data=processed_resources, request_url=request_url, callback=callback
+            )
+
+            return JSONResponse(content=jsonapi_response)
+    except Exception as e:
+        logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
 @router.get("/resources/{id}")
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource(
@@ -92,52 +138,6 @@ async def get_resource(
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@router.get("/resources/")
-@cached_endpoint(ttl=LIST_CACHE_TTL)
-async def list_resources(
-    skip: int = 0,
-    limit: int = 10,
-    callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
-):
-    try:
-        async with async_session() as session:
-            query = select(resources).offset(skip).limit(limit)
-            logger.info(f"Executing query: {query}")
-            result = await session.execute(query)
-            results = result.fetchall()  # Get full rows instead of scalars
-            logger.info(f"Found {len(results)} resources")
-
-            processed_resources = []
-            for row in results:
-                try:
-                    logger.info(f"Processing resource: {row}")
-                    # Convert to dict and sanitize datetime objects
-                    resource_dict = sanitize_for_json(dict(row._mapping))
-                    logger.info(f"Resource dict: {resource_dict}")
-
-                    # Process the resource using the shared function
-                    jsonapi_resource = await process_resource(resource_dict, session)
-                    processed_resources.append(jsonapi_resource)
-                    logger.info(f"Successfully processed resource {resource_dict['id']}")
-                except Exception as e:
-                    logger.error(f"Error processing resource: {str(e)}", exc_info=True)
-                    continue
-
-            logger.info(f"Returning {len(processed_resources)} processed resources")
-
-            # Create JSON:API compliant response
-            request_url = str(request.url) if request else None
-            jsonapi_response = create_jsonapi_response(
-                data=processed_resources, request_url=request_url, callback=callback
-            )
-
-            return JSONResponse(content=jsonapi_response)
-    except Exception as e:
-        logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
-
-
 @router.get("/resources/{id}/ogm")
 async def get_resource_ogm(
     id: str,
@@ -178,6 +178,41 @@ async def get_resource_ogm(
     except Exception as e:
         logger.error(f"Error getting Aardvark record for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@router.get("/resources/{id}/summaries")
+async def get_resource_summaries(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+    request: Request = None,
+):
+    """Get all summaries for a resource."""
+    try:
+        # Query the database for summaries
+        async with async_session() as session:
+            query = text("""
+                SELECT * FROM resource_ai_enrichments 
+                WHERE resource_id = :resource_id 
+                ORDER BY created_at DESC
+            """)
+            result = await session.execute(query, {"resource_id": id})
+            summaries = result.fetchall()
+
+            # Convert to list of dicts and sanitize
+            summaries_list = [sanitize_for_json(dict(summary)) for summary in summaries]
+
+            # Create JSON:API compliant response
+            request_url = str(request.url) if request else None
+            jsonapi_response = create_jsonapi_response(
+                data={"type": "summaries", "id": id, "attributes": {"summaries": summaries_list}},
+                request_url=request_url,
+                callback=callback,
+            )
+
+            return JSONResponse(content=jsonapi_response)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 @router.get("/resources/{id}/viewer")
 async def get_resource_viewer(
@@ -241,38 +276,3 @@ async def get_resource_viewer(
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-
-@router.get("/resources/{id}/summaries")
-async def get_resource_summaries(
-    id: str,
-    callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
-):
-    """Get all summaries for a resource."""
-    try:
-        # Query the database for summaries
-        async with async_session() as session:
-            query = text("""
-                SELECT * FROM resource_ai_enrichments 
-                WHERE resource_id = :resource_id 
-                ORDER BY created_at DESC
-            """)
-            result = await session.execute(query, {"resource_id": id})
-            summaries = result.fetchall()
-
-            # Convert to list of dicts and sanitize
-            summaries_list = [sanitize_for_json(dict(summary)) for summary in summaries]
-
-            # Create JSON:API compliant response
-            request_url = str(request.url) if request else None
-            jsonapi_response = create_jsonapi_response(
-                data={"type": "summaries", "id": id, "attributes": {"summaries": summaries_list}},
-                request_url=request_url,
-                callback=callback,
-            )
-
-            return JSONResponse(content=jsonapi_response)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
