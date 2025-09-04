@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .endpoint_modules.admin import router as admin_router
 from .endpoint_modules.gazetteer import router as gazetteer_router
+from .endpoint_modules.mcp import router as mcp_router
 from .endpoint_modules.resources import router as resources_router
 
 # Import all endpoint modules
@@ -24,3 +25,4 @@ router.include_router(thumbnails_router, tags=["thumbnails"])
 router.include_router(admin_router, tags=["admin"])
 router.include_router(gazetteer_router, tags=["gazetteers"])
 router.include_router(shapefiles_router, tags=["shapefiles"])
+router.include_router(mcp_router, tags=["mcp"])
