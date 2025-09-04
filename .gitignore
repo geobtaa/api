@@ -124,6 +124,7 @@ celerybeat.pid
 # Environments
 .env
 .env.test
+.env.test.local
 .venv
 env/
 venv/
@@ -177,6 +178,7 @@ data/gazetteers/**/*.zip
 
 # Elasticsearch data
 data/elasticsearch/*
+data/elasticsearch_test/*
 
 # Postgres data
 data/postgres/*

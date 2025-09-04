@@ -62,6 +62,27 @@ resources = Table(
     Column("gbl_mdversion_s", String),
     Column("gbl_suppressed_b", Boolean),
     Column("gbl_georeferenced_b", Boolean),
+    
+    # BTAA-specific fields for OGM Aardvark compliance
+    Column("b1g_code_s", String),
+    Column("b1g_status_s", String),
+    Column("b1g_dct_accrualmethod_s", String),
+    Column("b1g_dct_accrualperiodicity_s", String),
+    Column("b1g_dateaccessioned_s", Date),
+    Column("b1g_dateretired_s", Date),
+    Column("b1g_child_record_b", Boolean),
+    Column("b1g_dct_mediator_sm", ARRAY(String)),
+    Column("b1g_access_s", JSON),  # Object with additionalProperties
+    Column("b1g_image_ss", String),
+    Column("b1g_geonames_sm", ARRAY(String)),
+    Column("b1g_publication_state_s", String),
+    Column("b1g_language_sm", ARRAY(String)),
+    Column("b1g_creatorid_sm", ARRAY(String)),
+    Column("b1g_dct_conformsto_sm", ARRAY(String)),
+    Column("b1g_dcat_spatialresolutioninmeters_sm", ARRAY(String)),
+    Column("b1g_geodcat_spatialresolutionastext_sm", ARRAY(String)),
+    Column("b1g_dct_provenancestatement_sm", ARRAY(String)),
+    Column("b1g_admintags_sm", ARRAY(String)),
 )
 
 resource_relationships = Table(

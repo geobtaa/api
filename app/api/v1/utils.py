@@ -19,6 +19,9 @@ def sanitize_for_json(obj: Any) -> Any:
         return obj.isoformat()
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)
+    # Handle Decimal objects from database
+    elif hasattr(obj, "__float__"):
+        return float(obj)
     return obj
 
 
@@ -39,16 +42,12 @@ def create_response(
 
 
 def add_thumbnail_url(item: Dict) -> Dict:
-    """Add the ui_thumbnail_url to the item attributes."""
-    # Ensure 'attributes' key exists
-    if "attributes" not in item:
-        item["attributes"] = {}
-
+    """Add the ui_thumbnail_url to the item."""
     from app.services.image_service import ImageService
 
     image_service = ImageService(item)
     thumbnail_url = image_service.get_thumbnail_url()
-    item["attributes"]["ui_thumbnail_url"] = thumbnail_url
+    item["ui_thumbnail_url"] = thumbnail_url
     return item
 
 
@@ -102,3 +101,269 @@ def add_ui_attributes(item: Dict) -> Dict:
     item["ui_downloads"] = download_service.get_download_options()
 
     return item
+
+
+def create_jsonapi_response(data, request_url=None, callback=None):
+    """
+    Create a JSON:API compliant response.
+
+    Args:
+        data: The data to include in the response
+        request_url: The full URL of the request for self link
+        callback: JSONP callback name if provided
+
+    Returns:
+        JSON:API compliant response structure
+    """
+    response = {
+        "jsonapi": {
+            "version": "1.1",
+            "profile": [
+                "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
+                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld",
+            ],
+        }
+    }
+
+    # Add links if request_url is provided
+    if request_url:
+        response["links"] = {"self": request_url}
+
+    # Add data
+    response["data"] = data
+
+    # Handle JSONP callback
+    if callback:
+        return f"{callback}({json.dumps(response)})"
+
+    return response
+
+
+def create_jsonapi_resource(resource_data, request_url=None):
+    """
+    Create a JSON:API compliant resource object.
+
+    Args:
+        resource_data: The resource data from the database
+        request_url: The full URL of the request for self link
+
+    Returns:
+        JSON:API compliant resource structure
+    """
+    # Extract UI-related fields to move to meta.ui
+    ui_fields = {}
+    core_attributes = {}
+
+    # Fields that should go to meta.ui
+    ui_field_names = [
+        "ui_thumbnail_url",
+        "ui_citation",
+        "ui_downloads",
+        "ui_viewer_protocol",
+        "ui_viewer_endpoint",
+        "ui_viewer_geometry",
+        "ui_relationships",
+        "ui_summaries",
+        "ai_summaries",
+        "suggest",
+    ]
+
+    for key, value in resource_data.items():
+        if key in ui_field_names:
+            ui_fields[key] = value
+        else:
+            # Only include non-null values in attributes
+            if value is not None:
+                core_attributes[key] = value
+
+    # Restructure UI fields to remove prefixes and organize viewer
+    restructured_ui = {}
+
+    # Simple field mappings (remove ui_ prefix)
+    if "ui_thumbnail_url" in ui_fields:
+        restructured_ui["thumbnail_url"] = ui_fields["ui_thumbnail_url"]
+    if "ui_citation" in ui_fields:
+        restructured_ui["citation"] = ui_fields["ui_citation"]
+    if "ui_downloads" in ui_fields:
+        restructured_ui["downloads"] = ui_fields["ui_downloads"]
+    if "ui_relationships" in ui_fields:
+        restructured_ui["relationships"] = ui_fields["ui_relationships"]
+    if "ui_summaries" in ui_fields:
+        restructured_ui["summaries"] = ui_fields["ui_summaries"]
+    if "ai_summaries" in ui_fields:
+        restructured_ui["ai_summaries"] = ui_fields["ai_summaries"]
+    if "suggest" in ui_fields:
+        restructured_ui["suggest"] = ui_fields["suggest"]
+
+    # Group viewer-related fields into a nested viewer object
+    viewer_fields = {}
+    if "ui_viewer_protocol" in ui_fields:
+        viewer_fields["protocol"] = ui_fields["ui_viewer_protocol"]
+    if "ui_viewer_endpoint" in ui_fields:
+        viewer_fields["endpoint"] = ui_fields["ui_viewer_endpoint"]
+    if "ui_viewer_geometry" in ui_fields:
+        viewer_fields["geometry"] = ui_fields["ui_viewer_geometry"]
+
+    if viewer_fields:
+        restructured_ui["viewer"] = viewer_fields
+
+    # Create the resource structure
+    resource = {
+        "type": "resource",
+        "id": str(resource_data.get("id", "")),
+        "attributes": core_attributes,
+        "meta": {
+            "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
+            "@type": "BtaaAardvarkRecord",
+            "ui": restructured_ui,
+        },
+    }
+
+    return resource
+
+
+def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gazetteer_name):
+    """
+    Create pagination meta information and links for gazetteer endpoints.
+
+    Args:
+        request: FastAPI Request object
+        q: Search query string
+        limit: Number of results per page
+        offset: Number of results to skip
+        total_count: Total number of results
+        gazetteer_name: Name of the gazetteer (geonames, wof, btaa)
+
+    Returns:
+        Tuple of (meta, links) dictionaries
+    """
+    # Calculate pagination info
+    total_pages = (total_count + limit - 1) // limit if limit > 0 else 1
+    current_page = (offset // limit) + 1 if limit > 0 else 1
+
+    # Build pagination links
+    base_url = str(request.url).split("?")[0]  # Get base URL without query params
+    params = {"q": q}
+    if limit != 10:  # Only include if not default
+        params["limit"] = limit
+    if offset > 0:  # Only include if not default
+        params["offset"] = offset
+
+    # Build query string for links
+    query_parts = []
+    for key, value in params.items():
+        query_parts.append(f"{key}={value}")
+    query_string = "&".join(query_parts) if query_parts else ""
+
+    # Create pagination links
+    links = {"self": f"{base_url}?{query_string}"}
+
+    if current_page < total_pages:
+        next_offset = offset + limit
+        next_params = params.copy()
+        next_params["offset"] = next_offset
+        next_query_parts = [f"{key}={value}" for key, value in next_params.items()]
+        next_query_string = "&".join(next_query_parts)
+        links["next"] = f"{base_url}?{next_query_string}"
+
+    if current_page > 1:
+        prev_offset = max(0, offset - limit)
+        prev_params = params.copy()
+        prev_params["offset"] = prev_offset
+        prev_query_parts = [f"{key}={value}" for key, value in prev_params.items()]
+        prev_query_string = "&".join(prev_query_parts)
+        links["prev"] = f"{base_url}?{prev_query_string}"
+
+    if total_pages > 1:
+        first_params = params.copy()
+        first_params["offset"] = 0
+        first_query_parts = [f"{key}={value}" for key, value in first_params.items()]
+        first_query_string = "&".join(first_query_parts)
+        links["first"] = f"{base_url}?{first_query_string}"
+
+        last_offset = (total_pages - 1) * limit
+        last_params = params.copy()
+        last_params["offset"] = last_offset
+        last_query_parts = [f"{key}={value}" for key, value in last_params.items()]
+        last_query_string = "&".join(last_query_parts)
+        links["last"] = f"{base_url}?{last_query_string}"
+
+    # Build comprehensive meta information
+    meta = {
+        "totalCount": total_count,
+        "totalPages": total_pages,
+        "currentPage": current_page,
+        "perPage": limit,
+        "query": q,
+        "offset": offset,
+        "gazetteer": gazetteer_name,
+    }
+
+    return meta, links
+
+
+async def process_resource(resource_dict, session, apply_field_mapping=True):
+    """
+    Process a resource to add UI fields and prepare it for JSON:API response.
+    This function is shared between resources and search endpoints.
+
+    Args:
+        resource_dict: The resource data from the database
+        session: Database session for Allmaps queries
+        apply_field_mapping: Whether to apply OGM field mapping (default: True)
+
+    Returns:
+        JSON:API compliant resource object
+    """
+    from app.services.allmaps_service import AllmapsService
+    from app.services.citation_service import CitationService
+    from app.services.download_service import DownloadService
+    from app.services.ogm_field_mapper import OGMFieldMapper
+    from app.services.viewer_service import ViewerService
+
+    # Map database column names to proper OGM field names (only if requested)
+    if apply_field_mapping:
+        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
+
+    # Add thumbnail URL
+    resource_dict = add_thumbnail_url(resource_dict)
+
+    # Generate citation using CitationService
+    citation_service = CitationService(resource_dict)
+    ui_citation = citation_service.get_citation()
+
+    # Use ViewerService to get viewer attributes
+    viewer_service = ViewerService(resource_dict)
+    viewer_attributes = viewer_service.get_viewer_attributes()
+
+    # Use DownloadService to get download options
+    download_service = DownloadService(resource_dict)
+    ui_downloads = download_service.get_download_options()
+
+    # Get Allmaps attributes
+    allmaps_service = AllmapsService(resource_dict)
+    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+
+    # Create the attributes dictionary
+    attributes = {
+        **resource_dict,
+        "ui_citation": ui_citation,  # Use generated citation
+        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
+        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
+        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
+        "ui_downloads": ui_downloads,
+    }
+
+    # Add viewer attributes
+    for key, value in viewer_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    # Add Allmaps attributes
+    for key, value in allmaps_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    # Create JSON:API compliant resource
+    return create_jsonapi_resource(attributes)
