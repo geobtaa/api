@@ -116,9 +116,8 @@ def create_jsonapi_response(data, request_url=None, callback=None):
         "jsonapi": {
             "version": "1.1",
             "profile": [
-                "https://opengeometadata.org/profile/aardvark",
-                "https://opengeometadata.org/profile/ui-hints",
-                "https://opengeometadata.org/profile/mcp/search",
+                "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
+                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld"
             ],
         }
     }
@@ -211,8 +210,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
         "id": str(resource_data.get("id", "")),
         "attributes": core_attributes,
         "meta": {
-            "@context": "https://static.opengeometadata.org/contexts/aardvark-1.0.jsonld",
-            "@type": "AardvarkRecord",
+            "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
+            "@type": "BtaaAardvarkRecord",
             "ui": restructured_ui,
         },
     }
