@@ -120,7 +120,7 @@ def create_jsonapi_response(data, request_url=None, callback=None):
             "version": "1.1",
             "profile": [
                 "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
-                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld"
+                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld",
             ],
         }
     }
@@ -225,7 +225,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
 def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gazetteer_name):
     """
     Create pagination meta information and links for gazetteer endpoints.
-    
+
     Args:
         request: FastAPI Request object
         q: Search query string
@@ -233,7 +233,7 @@ def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gaze
         offset: Number of results to skip
         total_count: Total number of results
         gazetteer_name: Name of the gazetteer (geonames, wof, btaa)
-    
+
     Returns:
         Tuple of (meta, links) dictionaries
     """
@@ -296,7 +296,7 @@ def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gaze
         "perPage": limit,
         "query": q,
         "offset": offset,
-        "gazetteer": gazetteer_name
+        "gazetteer": gazetteer_name,
     }
 
     return meta, links
@@ -318,8 +318,8 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     from app.services.allmaps_service import AllmapsService
     from app.services.citation_service import CitationService
     from app.services.download_service import DownloadService
-    from app.services.viewer_service import ViewerService
     from app.services.ogm_field_mapper import OGMFieldMapper
+    from app.services.viewer_service import ViewerService
 
     # Map database column names to proper OGM field names (only if requested)
     if apply_field_mapping:

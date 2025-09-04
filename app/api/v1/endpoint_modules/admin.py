@@ -1,4 +1,3 @@
-import json
 import logging
 from datetime import datetime
 from typing import Optional
@@ -7,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import select
 
 from app.api.v1.auth import verify_credentials
-from app.api.v1.utils import create_response, sanitize_for_json
+from app.api.v1.utils import create_response
 from app.elasticsearch.index import reindex_resources
 from app.services.cache_service import ENDPOINT_CACHE, CacheService, invalidate_cache_with_prefix
 from app.tasks.entities import generate_geo_entities
@@ -25,7 +24,7 @@ async def clear_cache(
     cache_type: Optional[str] = Query(
         None, description="Type of cache to clear (search, item, suggest, all)"
     ),
-    credentials=Depends(verify_credentials),
+    credentials=Depends(verify_credentials),  # noqa: B008
 ):
     """Clear specified cache or all cache if not specified."""
     try:
@@ -51,7 +50,7 @@ async def clear_cache(
 @router.post("/reindex")
 async def reindex(
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    credentials=Depends(verify_credentials),
+    credentials=Depends(verify_credentials),  # noqa: B008
 ):
     """Trigger reindexing of all items in Elasticsearch."""
     try:
@@ -77,7 +76,7 @@ async def summarize_resource(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    credentials=Depends(verify_credentials),
+    credentials=Depends(verify_credentials),  # noqa: B008
 ):
     """
     Trigger the generation of a summary for a resource.
@@ -118,7 +117,9 @@ async def summarize_resource(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to start summary generation for resource {id}: {str(e)}", exc_info=True)
+        logger.error(
+            f"Failed to start summary generation for resource {id}: {str(e)}", exc_info=True
+        )
         raise HTTPException(
             status_code=500,
             detail={"message": "Failed to start summary generation", "error": str(e)},
@@ -130,7 +131,7 @@ async def identify_geo_entities(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    credentials=Depends(verify_credentials),
+    credentials=Depends(verify_credentials),  # noqa: B008
 ):
     """
     Trigger the identification of geographic entities for a resource.

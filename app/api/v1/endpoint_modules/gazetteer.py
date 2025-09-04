@@ -7,7 +7,11 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import and_, func, or_, select
 
-from app.api.v1.utils import create_jsonapi_response, sanitize_for_json, create_gazetteer_meta_and_links
+from app.api.v1.utils import (
+    create_gazetteer_meta_and_links,
+    create_jsonapi_response,
+    sanitize_for_json,
+)
 from app.services.cache_service import cached_endpoint
 from db.database import database
 from db.models import (
@@ -112,7 +116,7 @@ async def list_gazetteers(
         return JSONResponse(content=jsonapi_response)
     except Exception as e:
         logger.error(f"Error listing gazetteers: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to list gazetteers")
+        raise HTTPException(status_code=500, detail="Failed to list gazetteers") from e
 
 
 @router.get("/gazetteers/geonames/search")
@@ -154,17 +158,19 @@ async def search_geonames(
             row_dict = dict(row)
             # Sanitize the data for JSON serialization
             row_dict = sanitize_for_json(row_dict)
-            
+
             # Format as JSON:API resource
             formatted_row = {
                 "id": str(row_dict.get("geonameid", row_dict.get("id", ""))),
                 "type": "geoname",
-                "attributes": row_dict
+                "attributes": row_dict,
             }
             data.append(formatted_row)
 
         # Create meta and links using utility function
-        meta, links = create_gazetteer_meta_and_links(request, q, limit, offset, len(data), "geonames")
+        meta, links = create_gazetteer_meta_and_links(
+            request, q, limit, offset, len(data), "geonames"
+        )
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None
@@ -186,7 +192,7 @@ async def search_geonames(
 
     except Exception as e:
         logger.error(f"Error searching GeoNames: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search GeoNames")
+        raise HTTPException(status_code=500, detail="Failed to search GeoNames") from e
 
 
 @router.get("/gazetteers/wof/search")
@@ -227,12 +233,12 @@ async def search_wof(
             row_dict = dict(row)
             # Sanitize the data for JSON serialization
             row_dict = sanitize_for_json(row_dict)
-            
+
             # Format as JSON:API resource
             formatted_row = {
                 "id": str(row_dict.get("wok_id", row_dict.get("id", ""))),
                 "type": "wof",
-                "attributes": row_dict
+                "attributes": row_dict,
             }
             data.append(formatted_row)
 
@@ -259,7 +265,7 @@ async def search_wof(
 
     except Exception as e:
         logger.error(f"Error searching WOF: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search WOF")
+        raise HTTPException(status_code=500, detail="Failed to search WOF") from e
 
 
 @router.get("/gazetteers/btaa/search")
@@ -299,12 +305,12 @@ async def search_btaa(
             row_dict = dict(row)
             # Sanitize the data for JSON serialization
             row_dict = sanitize_for_json(row_dict)
-            
+
             # Format as JSON:API resource
             formatted_row = {
                 "id": str(row_dict.get("id", "")),
                 "type": "btaa",
-                "attributes": row_dict
+                "attributes": row_dict,
             }
             data.append(formatted_row)
 
@@ -331,7 +337,7 @@ async def search_btaa(
 
     except Exception as e:
         logger.error(f"Error searching BTAA: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search BTAA")
+        raise HTTPException(status_code=500, detail="Failed to search BTAA") from e
 
 
 @router.get("/gazetteers/search")
@@ -364,9 +370,10 @@ async def search_all_gazetteers(
         # Extract data from JSONResponse objects for the combined response
         combined_results = {}
         for gazetteer_name, response in results.items():
-            if hasattr(response, 'body'):
+            if hasattr(response, "body"):
                 # Extract the JSON content from the response
                 import json
+
                 response_data = json.loads(response.body.decode())
                 combined_results[gazetteer_name] = response_data
             else:
@@ -378,4 +385,4 @@ async def search_all_gazetteers(
         raise
     except Exception as e:
         logger.error(f"Error searching all gazetteers: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Failed to search gazetteers")
+        raise HTTPException(status_code=500, detail="Failed to search gazetteers") from e

@@ -2,15 +2,15 @@ import logging
 
 from fastapi import APIRouter
 
+from .endpoint_modules.admin import router as admin_router
+from .endpoint_modules.gazetteer import router as gazetteer_router
 from .endpoint_modules.resources import router as resources_router
 
 # Import all endpoint modules
 from .endpoint_modules.root import router as root_router
 from .endpoint_modules.search import router as search_router
-from .endpoint_modules.thumbnails import router as thumbnails_router
-from .endpoint_modules.admin import router as admin_router
-from .endpoint_modules.gazetteer import router as gazetteer_router
 from .endpoint_modules.shapefiles import router as shapefiles_router
+from .endpoint_modules.thumbnails import router as thumbnails_router
 
 logger = logging.getLogger(__name__)
 

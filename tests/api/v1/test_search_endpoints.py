@@ -1,4 +1,3 @@
-import json
 import pytest
 from fastapi.testclient import TestClient
 
@@ -46,14 +45,14 @@ async def test_search_endpoint_with_real_data():
     # Verify the response
     assert response.status_code == 200
     data = response.json()
-    
+
     # Check that we have the expected structure
     assert "meta" in data
     assert "data" in data
-    
+
     # The response should contain data (actual results depend on test data)
     assert isinstance(data["data"], list)
-    
+
     # Check that meta contains expected fields
     meta = data["meta"]
     assert "totalCount" in meta
@@ -70,7 +69,7 @@ async def test_search_with_sort():
     # Verify the response
     assert response.status_code == 200
     data = response.json()
-    
+
     # Should have the expected structure
     assert "meta" in data
     assert "data" in data
@@ -87,7 +86,7 @@ async def test_search_with_filters():
     # Verify the response
     assert response.status_code == 200
     data = response.json()
-    
+
     # Should have the expected structure
     assert "meta" in data
     assert "data" in data
@@ -113,12 +112,12 @@ async def test_search_pagination():
     response1 = client.get("/api/v1/search?q=test&page=1&limit=5")
     assert response1.status_code == 200
     data1 = response1.json()
-    
+
     # Test second page
     response2 = client.get("/api/v1/search?q=test&page=2&limit=5")
     assert response2.status_code == 200
     data2 = response2.json()
-    
+
     # Both should have the expected structure
     assert "meta" in data1
     assert "data" in data1
@@ -132,7 +131,7 @@ async def test_search_empty_query():
     response = client.get("/api/v1/search")
     assert response.status_code == 200
     data = response.json()
-    
+
     # Should still return valid structure
     assert "meta" in data
     assert "data" in data
