@@ -19,6 +19,9 @@ def sanitize_for_json(obj: Any) -> Any:
         return obj.isoformat()
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)
+    # Handle Decimal objects from database
+    elif hasattr(obj, "__float__"):
+        return float(obj)
     return obj
 
 
@@ -217,6 +220,86 @@ def create_jsonapi_resource(resource_data, request_url=None):
     }
 
     return resource
+
+
+def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gazetteer_name):
+    """
+    Create pagination meta information and links for gazetteer endpoints.
+    
+    Args:
+        request: FastAPI Request object
+        q: Search query string
+        limit: Number of results per page
+        offset: Number of results to skip
+        total_count: Total number of results
+        gazetteer_name: Name of the gazetteer (geonames, wof, btaa)
+    
+    Returns:
+        Tuple of (meta, links) dictionaries
+    """
+    # Calculate pagination info
+    total_pages = (total_count + limit - 1) // limit if limit > 0 else 1
+    current_page = (offset // limit) + 1 if limit > 0 else 1
+
+    # Build pagination links
+    base_url = str(request.url).split("?")[0]  # Get base URL without query params
+    params = {"q": q}
+    if limit != 10:  # Only include if not default
+        params["limit"] = limit
+    if offset > 0:  # Only include if not default
+        params["offset"] = offset
+
+    # Build query string for links
+    query_parts = []
+    for key, value in params.items():
+        query_parts.append(f"{key}={value}")
+    query_string = "&".join(query_parts) if query_parts else ""
+
+    # Create pagination links
+    links = {"self": f"{base_url}?{query_string}"}
+
+    if current_page < total_pages:
+        next_offset = offset + limit
+        next_params = params.copy()
+        next_params["offset"] = next_offset
+        next_query_parts = [f"{key}={value}" for key, value in next_params.items()]
+        next_query_string = "&".join(next_query_parts)
+        links["next"] = f"{base_url}?{next_query_string}"
+
+    if current_page > 1:
+        prev_offset = max(0, offset - limit)
+        prev_params = params.copy()
+        prev_params["offset"] = prev_offset
+        prev_query_parts = [f"{key}={value}" for key, value in prev_params.items()]
+        prev_query_string = "&".join(prev_query_parts)
+        links["prev"] = f"{base_url}?{prev_query_string}"
+
+    if total_pages > 1:
+        first_params = params.copy()
+        first_params["offset"] = 0
+        first_query_parts = [f"{key}={value}" for key, value in first_params.items()]
+        first_query_string = "&".join(first_query_parts)
+        links["first"] = f"{base_url}?{first_query_string}"
+
+        last_offset = (total_pages - 1) * limit
+        last_params = params.copy()
+        last_params["offset"] = last_offset
+        last_query_parts = [f"{key}={value}" for key, value in last_params.items()]
+        last_query_string = "&".join(last_query_parts)
+        links["last"] = f"{base_url}?{last_query_string}"
+
+    # Build comprehensive meta information
+    meta = {
+        "totalCount": total_count,
+        "totalPages": total_pages,
+        "currentPage": current_page,
+        "perPage": limit,
+        "query": q,
+        "offset": offset,
+        "gazetteer": gazetteer_name
+    }
+
+    return meta, links
 
 
 async def process_resource(resource_dict, session, apply_field_mapping=True):
