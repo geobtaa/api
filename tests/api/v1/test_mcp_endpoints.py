@@ -29,9 +29,9 @@ class TestMCPEndpoints:
         data = response.json()
 
         # Check basic service information
-        assert data["name"] == "ogm-api"
+        assert data["name"] == "geo-btaa-api"
         assert data["version"] == "0.1.0"
-        assert data["description"] == "OpenGeoMetadata API MCP Service"
+        assert data["description"] == "GeoBTAA API MCP Service"
         assert data["protocol"] == "mcp"
         assert "stdio" in data["transports"]
         assert "websocket" in data["transports"]

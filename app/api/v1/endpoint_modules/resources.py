@@ -16,7 +16,6 @@ from app.api.v1.utils import (
     process_resource,
     sanitize_for_json,
 )
-from app.services.allmaps_service import AllmapsService
 from app.services.cache_service import cached_endpoint
 from app.services.ogm_field_mapper import OGMFieldMapper
 from app.services.search_service import SearchService
@@ -104,22 +103,14 @@ async def get_resource(
         # Sanitize the resource data for JSON serialization
         response = sanitize_for_json(response)
 
-        # Add Allmaps data
+        # Process the resource data using the shared function (includes Allmaps)
         logger.info(f"Processing resource data: {response}")
         async with async_session() as session:
-            allmaps_service = AllmapsService(
-                {"id": id, "attributes": response["data"]["attributes"]}
-            )
-            allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
-            logger.info(f"Got Allmaps attributes: {allmaps_attributes}")
-            # Update the attributes dictionary
-            response["data"]["attributes"].update(allmaps_attributes)
-
             # Extract the resource data and process it using the shared function
             resource_data = response["data"]["attributes"]
             resource_data["id"] = id  # Ensure ID is set
 
-            # Process the resource using the shared function
+            # Process the resource using the shared function (this will add Allmaps to meta.ui)
             jsonapi_resource = await process_resource(resource_data, session)
 
         # Create JSON:API compliant response
