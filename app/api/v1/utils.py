@@ -367,3 +367,68 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
 
     # Create JSON:API compliant resource
     return create_jsonapi_resource(attributes)
+
+
+async def process_resource_optimized(resource_dict, allmaps_attributes, apply_field_mapping=True):
+    """
+    Optimized version of process_resource for search results that uses pre-fetched Allmaps data.
+    This eliminates the need for individual database queries during resource processing.
+
+    Args:
+        resource_dict: The resource data from the database
+        allmaps_attributes: Pre-fetched Allmaps attributes (dict)
+        apply_field_mapping: Whether to apply OGM field mapping (default: True)
+
+    Returns:
+        JSON:API compliant resource object
+    """
+    from app.services.citation_service import CitationService
+    from app.services.download_service import DownloadService
+    from app.services.ogm_field_mapper import OGMFieldMapper
+    from app.services.viewer_service import ViewerService
+
+    # Map database column names to proper OGM field names (only if requested)
+    if apply_field_mapping:
+        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
+
+    # Add thumbnail URL
+    resource_dict = add_thumbnail_url(resource_dict)
+
+    # Generate citation using CitationService
+    citation_service = CitationService(resource_dict)
+    ui_citation = citation_service.get_citation()
+
+    # Use ViewerService to get viewer attributes
+    viewer_service = ViewerService(resource_dict)
+    viewer_attributes = viewer_service.get_viewer_attributes()
+
+    # Use DownloadService to get download options
+    download_service = DownloadService(resource_dict)
+    ui_downloads = download_service.get_download_options()
+
+    # Use pre-fetched Allmaps attributes (no database query needed!)
+    # allmaps_attributes is passed in as a parameter
+
+    # Create the attributes dictionary
+    attributes = {
+        **resource_dict,
+        "ui_citation": ui_citation,  # Use generated citation
+        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
+        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
+        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
+        "ui_downloads": ui_downloads,
+    }
+
+    # Add viewer attributes
+    for key, value in viewer_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    # Add pre-fetched Allmaps attributes
+    for key, value in allmaps_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    # Create JSON:API compliant resource
+    return create_jsonapi_resource(attributes)

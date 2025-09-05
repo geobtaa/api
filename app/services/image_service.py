@@ -188,33 +188,15 @@ class ImageService:
             self.logger.error(f"Error standardizing IIIF URL {url}: {e}")
             return url
 
-    def _validate_thumbnail_url(self, url: str) -> bool:
-        """
-        Validate that a thumbnail URL is accessible.
-
-        Args:
-            url: The thumbnail URL to validate
-
-        Returns:
-            bool: True if URL is accessible, False otherwise
-        """
-        try:
-            response = requests.head(url, timeout=2.0, allow_redirects=True)
-            if response.status_code == 200:
-                content_type = response.headers.get("content-type", "").lower()
-                return content_type.startswith("image/")
-            self.logger.warning(f"Thumbnail URL returned status {response.status_code}: {url}")
-            return False
-        except Exception as e:
-            self.logger.error(f"Error validating thumbnail URL {url}: {e}")
-            return False
-
     def get_thumbnail_url(self) -> Optional[str]:
         """
         Get the thumbnail URL from document metadata with caching support.
+        This method is now truly async - it only checks cache and queues background jobs.
+        No external HTTP calls are made during this method execution.
 
         Returns:
-            Thumbnail URL if available, None otherwise
+            Cached thumbnail URL if available, placeholder URL if queued,
+            None if no thumbnail source
         """
         try:
             # Check for restricted access rights
@@ -238,87 +220,8 @@ class ImageService:
             if not isinstance(references, dict):
                 return None
 
-            thumbnail_url = None
-
-            # Check for direct thumbnail URL first
-            if "http://schema.org/thumbnailUrl" in references:
-                thumbnail_url = references["http://schema.org/thumbnailUrl"]
-                if isinstance(thumbnail_url, list) and thumbnail_url:
-                    thumbnail_url = thumbnail_url[0]
-
-            # Check for IIIF thumbnail URL
-            elif "http://iiif.io/api/image" in references:
-                iiif_url = references["http://iiif.io/api/image"]
-                if isinstance(iiif_url, list) and iiif_url:
-                    iiif_url = iiif_url[0]
-
-                # Transform ContentDM IIIF URLs
-                if "contentdm.oclc.org" in iiif_url:
-                    # Extract collection and item ID from the URL
-                    match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
-                    if match:
-                        collection, item_id = match.groups()
-                        # Construct the correct IIIF URL format
-                        thumbnail_url = f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}/full/200,/0/default.jpg"
-
-                # For non-ContentDM IIIF URLs, use standard format
-                if not thumbnail_url:
-                    thumbnail_url = f"{iiif_url}/full/200,/0/default.jpg"
-
-            # Check for IIIF Manifest
-            elif (
-                "https://iiif.io/api/presentation/2/context.json" in references
-                or "http://iiif.io/api/presentation#manifest" in references
-                or any(key.endswith("/iiif3/manifest") for key in references.keys())
-                or any(key.endswith("/iiif/manifest") for key in references.keys())
-            ):
-                manifest_url = (
-                    references.get("https://iiif.io/api/presentation/2/context.json")
-                    or references.get("http://iiif.io/api/presentation#manifest")
-                    or next(
-                        (
-                            key
-                            for key in references.keys()
-                            if key.endswith(("/iiif3/manifest", "/iiif/manifest"))
-                        ),
-                        None,
-                    )
-                )
-                if manifest_url:
-                    thumbnail_url = self.get_iiif_manifest_thumbnail(manifest_url)
-
-            # Check for ESRI services
-            elif "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:
-                viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#ImageMapLayer"]
-                thumbnail_url = f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-            elif "urn:x-esri:serviceType:ArcGIS#TiledMapLayer" in references:
-                viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#TiledMapLayer"]
-                thumbnail_url = f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-            elif "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer" in references:
-                viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#DynamicMapLayer"]
-                thumbnail_url = f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-
-            # Check for WMS
-            elif "http://www.opengis.net/def/serviceType/ogc/wms" in references:
-                wms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/wms"]
-                width = 200
-                height = 200
-                layers = self.metadata.get("gbl_wxsidentifier_s", "")
-                thumbnail_url = (
-                    f"{wms_endpoint}/reflect?"
-                    f"FORMAT=image/png&"
-                    f"TRANSPARENT=TRUE&"
-                    f"WIDTH={width}&"
-                    f"HEIGHT={height}&"
-                    f"LAYERS={layers}"
-                )
-
-            # Check for TMS
-            elif "http://www.opengis.net/def/serviceType/ogc/tms" in references:
-                tms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/tms"]
-                thumbnail_url = (
-                    f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
-                )
+            # Determine the source thumbnail URL without making external calls
+            thumbnail_url = self._get_thumbnail_source_url(references)
 
             if thumbnail_url:
                 # Standardize IIIF URLs to ensure consistent size
@@ -332,24 +235,123 @@ class ImageService:
                     self.logger.info(f"🚀 Cache HIT for image {doc_id}")
                     return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
 
-                # Validate the thumbnail URL before queueing for caching
-                if not self._validate_thumbnail_url(thumbnail_url):
-                    self.logger.warning(f"Invalid thumbnail URL for {doc_id}: {thumbnail_url}")
-                    return None
+                # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
+                # The Celery worker will handle validation and caching
+                self.logger.info(f"🚀 Queueing image fetch for {doc_id}: {thumbnail_url}")
+                self._queue_thumbnail_processing(thumbnail_url, doc_id)
 
-                # If not cached, queue for background processing and return original URL
-                self.logger.info(f"🐌 Queueing image fetch for {doc_id}: {thumbnail_url}")
-                from app.tasks.worker import fetch_and_cache_image
-
-                task = fetch_and_cache_image.delay(thumbnail_url)
-                self.logger.info(f"Task ID: {task.id}")
-                return thumbnail_url
+                # Return placeholder image URL - this ensures fast response times
+                return f"{self.application_url}/api/v1/thumbnails/placeholder"
 
             return None
 
         except Exception as e:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
             return None
+
+    def _get_thumbnail_source_url(self, references: Dict) -> Optional[str]:
+        """
+        Extract thumbnail source URL from references without making external calls.
+        This method only does local string processing - no HTTP requests.
+        """
+        # Check for direct thumbnail URL first
+        if "http://schema.org/thumbnailUrl" in references:
+            thumbnail_url = references["http://schema.org/thumbnailUrl"]
+            if isinstance(thumbnail_url, list) and thumbnail_url:
+                return thumbnail_url[0]
+            return thumbnail_url
+
+        # Check for IIIF thumbnail URL
+        elif "http://iiif.io/api/image" in references:
+            iiif_url = references["http://iiif.io/api/image"]
+            if isinstance(iiif_url, list) and iiif_url:
+                iiif_url = iiif_url[0]
+
+            # Transform ContentDM IIIF URLs
+            if "contentdm.oclc.org" in iiif_url:
+                # Extract collection and item ID from the URL
+                match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
+                if match:
+                    collection, item_id = match.groups()
+                    # Construct the correct IIIF URL format
+                    return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}/full/200,/0/default.jpg"
+
+            # For non-ContentDM IIIF URLs, use standard format
+            return f"{iiif_url}/full/200,/0/default.jpg"
+
+        # Check for IIIF Manifest - only extract URL, don't fetch manifest
+        elif (
+            "https://iiif.io/api/presentation/2/context.json" in references
+            or "http://iiif.io/api/presentation#manifest" in references
+            or any(key.endswith("/iiif3/manifest") for key in references.keys())
+            or any(key.endswith("/iiif/manifest") for key in references.keys())
+        ):
+            manifest_url = (
+                references.get("https://iiif.io/api/presentation/2/context.json")
+                or references.get("http://iiif.io/api/presentation#manifest")
+                or next(
+                    (
+                        key
+                        for key in references.keys()
+                        if key.endswith(("/iiif3/manifest", "/iiif/manifest"))
+                    ),
+                    None,
+                )
+            )
+            if manifest_url:
+                # For manifests, we'll need to fetch them in the background task
+                # Just return the manifest URL for now
+                return manifest_url
+
+        # Check for ESRI services
+        elif "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:
+            viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#ImageMapLayer"]
+            return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
+        elif "urn:x-esri:serviceType:ArcGIS#TiledMapLayer" in references:
+            viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#TiledMapLayer"]
+            return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
+        elif "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer" in references:
+            viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#DynamicMapLayer"]
+            return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
+
+        # Check for WMS
+        elif "http://www.opengis.net/def/serviceType/ogc/wms" in references:
+            wms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/wms"]
+            width = 200
+            height = 200
+            layers = self.metadata.get("gbl_wxsidentifier_s", "")
+            return (
+                f"{wms_endpoint}/reflect?"
+                f"FORMAT=image/png&"
+                f"TRANSPARENT=TRUE&"
+                f"WIDTH={width}&"
+                f"HEIGHT={height}&"
+                f"LAYERS={layers}"
+            )
+
+        # Check for TMS
+        elif "http://www.opengis.net/def/serviceType/ogc/tms" in references:
+            tms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/tms"]
+            return f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
+
+        return None
+
+    def _queue_thumbnail_processing(self, thumbnail_url: str, doc_id: str) -> None:
+        """
+        Queue thumbnail processing in the background without blocking.
+        This method is fire-and-forget.
+        """
+        try:
+            # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
+            # The Celery worker will handle validation and caching
+            from app.tasks.worker import fetch_and_cache_image
+
+            task = fetch_and_cache_image.delay(thumbnail_url)
+            self.logger.info(f"Task queued for {doc_id}: {task.id}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to queue thumbnail processing for {doc_id}: {e}")
+            # Don't raise - this is a background operation that shouldn't fail the main request
 
     async def get_cached_image(self, image_hash: str) -> Optional[bytes]:
         """Retrieve a cached image by its hash."""
