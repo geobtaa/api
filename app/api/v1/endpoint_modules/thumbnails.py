@@ -10,6 +10,34 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.get("/thumbnails/placeholder")
+async def get_placeholder_thumbnail():
+    """Serve a placeholder thumbnail image for resources that don't have cached thumbnails yet."""
+    # Create a simple SVG placeholder image
+    placeholder_svg = """
+    <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
+        <rect width="200" height="200" fill="#f0f0f0" stroke="#cccccc" stroke-width="1"/>
+        <text x="100" y="100" font-family="Arial, sans-serif" font-size="14" 
+              text-anchor="middle" fill="#666666">
+            Thumbnail
+        </text>
+        <text x="100" y="120" font-family="Arial, sans-serif" font-size="12" 
+              text-anchor="middle" fill="#999999">
+            Processing...
+        </text>
+    </svg>
+    """.strip()
+
+    return Response(
+        content=placeholder_svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+            "X-Placeholder": "true",
+        },
+    )
+
+
 @router.get("/thumbnails/{image_hash}")
 async def get_thumbnail(image_hash: str):
     """Serve a cached thumbnail image."""
