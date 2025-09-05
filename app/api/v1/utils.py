@@ -222,7 +222,129 @@ def create_jsonapi_resource(resource_data, request_url=None):
     return resource
 
 
-def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gazetteer_name):
+def strong_params(request, allowed_params):
+    """
+    Rails-style strong parameters for FastAPI.
+    Whitelist and sanitize query parameters to prevent mass assignment vulnerabilities.
+
+    Args:
+        request: FastAPI Request object
+        allowed_params: List of allowed parameter names
+
+    Returns:
+        Dictionary containing only whitelisted parameters
+    """
+    from urllib.parse import parse_qs
+
+    if not request.query_params:
+        return {}
+
+    # Parse the query string to preserve all parameters including arrays
+    raw_params = parse_qs(str(request.query_params))
+
+    # Filter to only allowed parameters
+    filtered_params = {}
+    for key, values in raw_params.items():
+        if key in allowed_params:
+            if len(values) == 1:
+                filtered_params[key] = values[0]
+            else:
+                # For multiple values, preserve as list
+                filtered_params[key] = values
+
+    return filtered_params
+
+
+def create_pagination_links(
+    request, current_page, total_pages, pagination_type="page", allowed_params=None
+):
+    """
+    Create pagination links that preserve whitelisted query parameters from the original request.
+
+    Args:
+        request: FastAPI Request object
+        current_page: Current page number (1-based for page type, 0-based for offset type)
+        total_pages: Total number of pages
+        pagination_type: Either "page" or "offset" to determine pagination style
+        allowed_params: List of allowed parameter names (if None, allows all)
+
+    Returns:
+        Dictionary of pagination links
+    """
+    from urllib.parse import urlencode
+
+    # Get base URL without query params
+    base_url = str(request.url).split("?")[0]
+
+    # Use strong parameters if allowed_params is specified
+    if allowed_params is not None:
+        params = strong_params(request, allowed_params)
+    else:
+        # Fallback to allowing all parameters (for backward compatibility)
+        from urllib.parse import parse_qs
+
+        if request.query_params:
+            raw_params = parse_qs(str(request.query_params))
+            params = {}
+            for key, values in raw_params.items():
+                if len(values) == 1:
+                    params[key] = values[0]
+                else:
+                    params[key] = values
+        else:
+            params = {}
+
+    def build_url(page_param_value):
+        """Build URL with updated pagination parameter."""
+        updated_params = params.copy()
+
+        if pagination_type == "page":
+            updated_params["page"] = page_param_value
+        else:  # offset type
+            updated_params["offset"] = page_param_value
+
+        # Use urlencode to properly handle arrays and special characters
+        query_string = urlencode(updated_params, doseq=True)
+        return f"{base_url}?{query_string}" if query_string else base_url
+
+    # Create pagination links
+    links = {"self": build_url(current_page)}
+
+    if current_page < total_pages:
+        if pagination_type == "page":
+            links["next"] = build_url(current_page + 1)
+        else:  # offset type
+            # For offset, we need to calculate the next offset
+            # Assuming limit is in params, default to 10
+            limit = int(params.get("limit", 10))
+            next_offset = current_page + limit
+            links["next"] = build_url(next_offset)
+
+    if current_page > (1 if pagination_type == "page" else 0):
+        if pagination_type == "page":
+            links["prev"] = build_url(current_page - 1)
+        else:  # offset type
+            # For offset, we need to calculate the previous offset
+            limit = int(params.get("limit", 10))
+            prev_offset = max(0, current_page - limit)
+            links["prev"] = build_url(prev_offset)
+
+    if total_pages > 1:
+        if pagination_type == "page":
+            links["first"] = build_url(1)
+            links["last"] = build_url(total_pages)
+        else:  # offset type
+            links["first"] = build_url(0)
+            limit = int(params.get("limit", 10))
+            last_offset = (total_pages - 1) * limit
+            links["last"] = build_url(last_offset)
+
+    return links
+
+
+def create_gazetteer_meta_and_links(
+    request, q, limit, offset, total_count, gazetteer_name, allowed_params=None
+):
     """
     Create pagination meta information and links for gazetteer endpoints.
 
@@ -233,6 +355,7 @@ def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gaze
         offset: Number of results to skip
         total_count: Total number of results
         gazetteer_name: Name of the gazetteer (geonames, wof, btaa)
+        allowed_params: List of allowed parameter names for strong parameters
 
     Returns:
         Tuple of (meta, links) dictionaries
@@ -241,52 +364,10 @@ def create_gazetteer_meta_and_links(request, q, limit, offset, total_count, gaze
     total_pages = (total_count + limit - 1) // limit if limit > 0 else 1
     current_page = (offset // limit) + 1 if limit > 0 else 1
 
-    # Build pagination links
-    base_url = str(request.url).split("?")[0]  # Get base URL without query params
-    params = {"q": q}
-    if limit != 10:  # Only include if not default
-        params["limit"] = limit
-    if offset > 0:  # Only include if not default
-        params["offset"] = offset
-
-    # Build query string for links
-    query_parts = []
-    for key, value in params.items():
-        query_parts.append(f"{key}={value}")
-    query_string = "&".join(query_parts) if query_parts else ""
-
-    # Create pagination links
-    links = {"self": f"{base_url}?{query_string}"}
-
-    if current_page < total_pages:
-        next_offset = offset + limit
-        next_params = params.copy()
-        next_params["offset"] = next_offset
-        next_query_parts = [f"{key}={value}" for key, value in next_params.items()]
-        next_query_string = "&".join(next_query_parts)
-        links["next"] = f"{base_url}?{next_query_string}"
-
-    if current_page > 1:
-        prev_offset = max(0, offset - limit)
-        prev_params = params.copy()
-        prev_params["offset"] = prev_offset
-        prev_query_parts = [f"{key}={value}" for key, value in prev_params.items()]
-        prev_query_string = "&".join(prev_query_parts)
-        links["prev"] = f"{base_url}?{prev_query_string}"
-
-    if total_pages > 1:
-        first_params = params.copy()
-        first_params["offset"] = 0
-        first_query_parts = [f"{key}={value}" for key, value in first_params.items()]
-        first_query_string = "&".join(first_query_parts)
-        links["first"] = f"{base_url}?{first_query_string}"
-
-        last_offset = (total_pages - 1) * limit
-        last_params = params.copy()
-        last_params["offset"] = last_offset
-        last_query_parts = [f"{key}={value}" for key, value in last_params.items()]
-        last_query_string = "&".join(last_query_parts)
-        links["last"] = f"{base_url}?{last_query_string}"
+    # Use the enhanced pagination links function with strong parameters
+    links = create_pagination_links(
+        request, offset, total_pages, pagination_type="offset", allowed_params=allowed_params
+    )
 
     # Build comprehensive meta information
     meta = {

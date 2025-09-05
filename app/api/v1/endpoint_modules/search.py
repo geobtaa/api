@@ -311,34 +311,17 @@ async def search(
         total_pages = pages_info.get("total_pages", 0)
         current_page = page
 
-        # Build pagination links
-        base_url = str(request.url).split("?")[0]  # Get base URL without query params
-        params = {}
-        if q:
-            params["q"] = q
-        if sort:
-            params["sort"] = sort
-        if per_page != 10:  # Only include if not default
-            params["per_page"] = per_page
+        # Build pagination links using strong parameters (Rails-style whitelisting)
+        from app.api.v1.strong_params import SEARCH_ALLOWED_PARAMS
+        from app.api.v1.utils import create_pagination_links
 
-        # Build query string for links
-        query_parts = []
-        for key, value in params.items():
-            query_parts.append(f"{key}={value}")
-        query_string = "&".join(query_parts) if query_parts else ""
-
-        # Create pagination links
-        links = {"self": f"{base_url}?page={current_page}&{query_string}".rstrip("&")}
-
-        if current_page < total_pages:
-            links["next"] = f"{base_url}?page={current_page + 1}&{query_string}".rstrip("&")
-
-        if current_page > 1:
-            links["prev"] = f"{base_url}?page={current_page - 1}&{query_string}".rstrip("&")
-
-        if total_pages > 1:
-            links["first"] = f"{base_url}?page=1&{query_string}".rstrip("&")
-            links["last"] = f"{base_url}?page={total_pages}&{query_string}".rstrip("&")
+        links = create_pagination_links(
+            request,
+            current_page,
+            total_pages,
+            pagination_type="page",
+            allowed_params=SEARCH_ALLOWED_PARAMS,
+        )
 
         # Build comprehensive meta information
         meta = {

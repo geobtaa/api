@@ -94,7 +94,7 @@ async def get_resource(
 ):
     """Get a single resource by ID."""
     try:
-        # Get resource data directly from database (not Elasticsearch) 
+        # Get resource data directly from database (not Elasticsearch)
         # to ensure clean Aardvark fields
         async with async_session() as session:
             query = select(resources).where(resources.c.id == id)
