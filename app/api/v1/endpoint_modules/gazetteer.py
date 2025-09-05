@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import and_, func, or_, select
 
+from app.api.v1.strong_params import GAZETTEER_ALLOWED_PARAMS
 from app.api.v1.utils import (
     create_gazetteer_meta_and_links,
     create_jsonapi_response,
@@ -213,8 +214,10 @@ async def search_btaa(
             }
             data.append(formatted_row)
 
-        # Create meta and links using utility function
-        meta, links = create_gazetteer_meta_and_links(request, q, limit, offset, len(data), "btaa")
+        # Create meta and links using utility function with strong parameters
+        meta, links = create_gazetteer_meta_and_links(
+            request, q, limit, offset, len(data), "btaa", allowed_params=GAZETTEER_ALLOWED_PARAMS
+        )
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None
@@ -287,9 +290,15 @@ async def search_geonames(
             }
             data.append(formatted_row)
 
-        # Create meta and links using utility function
+        # Create meta and links using utility function with strong parameters
         meta, links = create_gazetteer_meta_and_links(
-            request, q, limit, offset, len(data), "geonames"
+            request,
+            q,
+            limit,
+            offset,
+            len(data),
+            "geonames",
+            allowed_params=GAZETTEER_ALLOWED_PARAMS,
         )
 
         # Create JSON:API compliant response
@@ -362,8 +371,10 @@ async def search_wof(
             }
             data.append(formatted_row)
 
-        # Create meta and links using utility function
-        meta, links = create_gazetteer_meta_and_links(request, q, limit, offset, len(data), "wof")
+        # Create meta and links using utility function with strong parameters
+        meta, links = create_gazetteer_meta_and_links(
+            request, q, limit, offset, len(data), "wof", allowed_params=GAZETTEER_ALLOWED_PARAMS
+        )
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None
