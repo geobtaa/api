@@ -44,6 +44,12 @@ class ItemViewer:
         "https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames": "xyz_tiles",
     }
 
+    # LIGHTNING SPEED OPTIMIZATION: Class-level geometry cache
+    # This avoids re-processing identical geometry strings across different resources
+    _geometry_cache = {}
+    _cache_hits = 0
+    _cache_misses = 0
+
     def __init__(self, references: Dict[str, str]):
         self.references = references
 
@@ -86,11 +92,21 @@ class ItemViewer:
 
         geometry = self.references["locn_geometry"]
 
+        # LIGHTNING SPEED OPTIMIZATION: Check cache first
+        # Many resources share identical geometry strings - avoid re-processing
+        if geometry in self._geometry_cache:
+            self._cache_hits += 1
+            return self._geometry_cache[geometry]
+
+        self._cache_misses += 1
+
         # If geometry is already a dictionary, return it if it's valid GeoJSON
         if isinstance(geometry, dict):
             if "type" in geometry and "coordinates" in geometry:
                 # Ensure type is properly capitalized
                 geometry["type"] = geometry["type"].capitalize()
+                # LIGHTNING SPEED OPTIMIZATION: Cache the result
+                self._geometry_cache[self.references["locn_geometry"]] = geometry
                 return geometry
             return None
 
@@ -98,16 +114,21 @@ class ItemViewer:
         if not isinstance(geometry, str):
             return None
 
-        # Check if it's an ENVELOPE format
-        envelope_match = re.match(
-            r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)", geometry
-        )
+        # LIGHTNING SPEED OPTIMIZATION: Pre-compile regex patterns for reuse
+        # This eliminates the overhead of recompiling patterns on every call
+        if not hasattr(self, "_envelope_pattern"):
+            self._envelope_pattern = re.compile(
+                r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)"
+            )
+            self._polygon_pattern = re.compile(r"POLYGON\(\(\s*([-\d.\s,]+)\s*\)\)")
 
+        # Check if it's an ENVELOPE format using pre-compiled pattern
+        envelope_match = self._envelope_pattern.match(geometry)
         if envelope_match:
             # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
             minx, maxx, maxy, miny = map(float, envelope_match.groups())
             # Create a polygon from the envelope coordinates
-            return {
+            result = {
                 "type": "Polygon",  # Ensure proper capitalization
                 "coordinates": [
                     [
@@ -119,10 +140,12 @@ class ItemViewer:
                     ]
                 ],
             }
+            # LIGHTNING SPEED OPTIMIZATION: Cache the result
+            self._geometry_cache[geometry] = result
+            return result
 
-        # Check if it's a POLYGON format
-        polygon_match = re.match(r"POLYGON\(\(\s*([-\d.\s,]+)\s*\)\)", geometry)
-
+        # Check if it's a POLYGON format using pre-compiled pattern
+        polygon_match = self._polygon_pattern.match(geometry)
         if polygon_match:
             # Extract coordinates from POLYGON((x1 y1, x2 y2, ..., xn yn))
             coordinates_str = polygon_match.group(1)
@@ -131,7 +154,13 @@ class ItemViewer:
             # Ensure the polygon is closed by repeating the first point at the end
             if coordinates[0] != coordinates[-1]:
                 coordinates.append(coordinates[0])
-            return {"type": "Polygon", "coordinates": [coordinates]}  # Ensure proper capitalization
+            result = {
+                "type": "Polygon",
+                "coordinates": [coordinates],
+            }  # Ensure proper capitalization
+            # LIGHTNING SPEED OPTIMIZATION: Cache the result
+            self._geometry_cache[geometry] = result
+            return result
 
         # Try parsing as JSON (handling escaped quotes)
         try:
@@ -140,6 +169,23 @@ class ItemViewer:
             geojson = json.loads(clean_geometry)
             if isinstance(geojson, dict) and "type" in geojson:
                 geojson["type"] = geojson["type"].capitalize()
+
+            # LIGHTNING SPEED OPTIMIZATION: Cache the result
+            self._geometry_cache[geometry] = geojson
             return geojson
         except json.JSONDecodeError:
+            # Cache None results too to avoid re-trying failed parses
+            self._geometry_cache[geometry] = None
             return None
+
+    @classmethod
+    def get_cache_stats(cls) -> Dict[str, int]:
+        """Get cache statistics for monitoring performance."""
+        return {
+            "cache_size": len(cls._geometry_cache),
+            "cache_hits": cls._cache_hits,
+            "cache_misses": cls._cache_misses,
+            "hit_rate": cls._cache_hits / (cls._cache_hits + cls._cache_misses)
+            if (cls._cache_hits + cls._cache_misses) > 0
+            else 0,
+        }
