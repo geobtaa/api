@@ -26,4 +26,3 @@ router.include_router(mcp_router, tags=["mcp"])
 router.include_router(admin_router, tags=["admin"])
 router.include_router(gazetteer_router, tags=["gazetteers"])
 router.include_router(shapefiles_router, tags=["shapefiles"])
-
