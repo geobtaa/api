@@ -113,9 +113,7 @@ class OGMMCPService:
                     ),
                     Tool(
                         name="get_resource_ogm",
-                        description=(
-                            "Get just the GeoBTAA Aardvark record for a resource by ID"
-                        ),
+                        description=("Get just the GeoBTAA Aardvark record for a resource by ID"),
                         inputSchema={
                             "type": "object",
                             "properties": {"id": {"type": "string", "description": "Resource ID"}},
@@ -176,8 +174,7 @@ class OGMMCPService:
                     Tool(
                         name="validate_aardvark_record",
                         description=(
-                            "Validate a single Aardvark JSON record against "
-                            "the GeoBTAA schema"
+                            "Validate a single Aardvark JSON record against the GeoBTAA schema"
                         ),
                         inputSchema={
                             "type": "object",
