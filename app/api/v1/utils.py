@@ -360,13 +360,20 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         if key not in attributes:
             attributes[key] = value
 
-    # Add Allmaps attributes
-    for key, value in allmaps_attributes.items():
-        if key not in attributes:
-            attributes[key] = value
+    # Create JSON:API compliant resource first
+    resource = create_jsonapi_resource(attributes)
 
-    # Create JSON:API compliant resource
-    return create_jsonapi_resource(attributes)
+    # Add Allmaps attributes to meta.ui.allmaps section
+    if allmaps_attributes:
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
+
+        # Wrap Allmaps attributes in an allmaps object
+        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+
+    return resource
 
 
 async def process_resource_optimized(resource_dict, allmaps_attributes, apply_field_mapping=True):
@@ -425,10 +432,17 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
         if key not in attributes:
             attributes[key] = value
 
-    # Add pre-fetched Allmaps attributes
-    for key, value in allmaps_attributes.items():
-        if key not in attributes:
-            attributes[key] = value
+    # Create JSON:API compliant resource first
+    resource = create_jsonapi_resource(attributes)
 
-    # Create JSON:API compliant resource
-    return create_jsonapi_resource(attributes)
+    # Add pre-fetched Allmaps attributes to meta.ui.allmaps section
+    if allmaps_attributes:
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
+
+        # Wrap Allmaps attributes in an allmaps object
+        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+
+    return resource

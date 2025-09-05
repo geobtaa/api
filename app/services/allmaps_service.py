@@ -54,9 +54,9 @@ class AllmapsService:
             logger.info(f"Found Allmaps data for resource {self.resource_id}: {allmaps_dict}")
 
             attributes = {
-                "ui_allmaps_id": allmaps_dict.get("allmaps_id"),
-                "ui_allmaps_annotated": allmaps_dict.get("annotated"),
-                "ui_allmaps_manifest_uri": allmaps_dict.get("iiif_manifest_uri"),
+                "allmaps_id": allmaps_dict.get("allmaps_id"),
+                "allmaps_annotated": allmaps_dict.get("annotated"),
+                "allmaps_manifest_uri": allmaps_dict.get("iiif_manifest_uri"),
             }
             logger.info(f"Returning Allmaps attributes: {attributes}")
             return attributes
