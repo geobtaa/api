@@ -18,7 +18,6 @@ from app.api.v1.utils import (
 )
 from app.services.cache_service import cached_endpoint
 from app.services.ogm_field_mapper import OGMFieldMapper
-from app.services.search_service import SearchService
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -95,23 +94,22 @@ async def get_resource(
 ):
     """Get a single resource by ID."""
     try:
-        search_service = SearchService()
-        response = await search_service.get_resource(id)
-        if not response:
-            return JSONResponse(content={"error": "Resource not found"}, status_code=404)
-
-        # Sanitize the resource data for JSON serialization
-        response = sanitize_for_json(response)
-
-        # Process the resource data using the shared function (includes Allmaps)
-        logger.info(f"Processing resource data: {response}")
+        # Get resource data directly from database (not Elasticsearch) 
+        # to ensure clean Aardvark fields
         async with async_session() as session:
-            # Extract the resource data and process it using the shared function
-            resource_data = response["data"]["attributes"]
-            resource_data["id"] = id  # Ensure ID is set
+            query = select(resources).where(resources.c.id == id)
+            result = await session.execute(query)
+            row = result.fetchone()
+
+            if not row:
+                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+
+            # Convert to dict and sanitize for JSON serialization
+            resource_dict = sanitize_for_json(dict(row._mapping))
+            resource_dict["id"] = id  # Ensure ID is set
 
             # Process the resource using the shared function (this will add Allmaps to meta.ui)
-            jsonapi_resource = await process_resource(resource_data, session)
+            jsonapi_resource = await process_resource(resource_dict, session)
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None
