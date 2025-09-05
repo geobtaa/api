@@ -238,6 +238,7 @@ async def search_btaa(
         logger.error(f"Error searching BTAA: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to search BTAA") from e
 
+
 @router.get("/gazetteers/geonames/search")
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_geonames(
@@ -385,4 +386,3 @@ async def search_wof(
     except Exception as e:
         logger.error(f"Error searching WOF: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to search WOF") from e
-

@@ -4,12 +4,11 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql import select
-from sqlalchemy import or_
 
 from app.api.v1.utils import (
     create_jsonapi_response,
@@ -19,8 +18,8 @@ from app.api.v1.utils import (
 )
 from app.services.allmaps_service import AllmapsService
 from app.services.cache_service import cached_endpoint
-from app.services.search_service import SearchService
 from app.services.ogm_field_mapper import OGMFieldMapper
+from app.services.search_service import SearchService
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -166,7 +165,9 @@ async def get_resource_ogm(
                     if isinstance(value, list) and len(value) == 0:
                         continue
                     # Handle arrays with only None/empty values
-                    if isinstance(value, list) and all(item is None or item == "" for item in value):
+                    if isinstance(value, list) and all(
+                        item is None or item == "" for item in value
+                    ):
                         continue
                     aardvark_record[key] = value
 
@@ -213,6 +214,7 @@ async def get_resource_summaries(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
 
 @router.get("/resources/{id}/viewer")
 async def get_resource_viewer(

@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Optional
 
@@ -7,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api.v1.utils import create_jsonapi_response, process_resource, sanitize_for_json
+from app.api.v1.utils import create_jsonapi_response, process_resource_optimized, sanitize_for_json
 from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
 from db.config import DATABASE_URL
@@ -39,8 +40,21 @@ async def search(
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """Search resources."""
+    import time
+
+    start_time = time.time()
+
     try:
+        logger.info(
+            f"🔍 Starting search request: q='{q}', page={page}, per_page={per_page}, sort='{sort}'"
+        )
+
+        # Step 1: Call SearchService
+        step1_start = time.time()
         search_service = SearchService()
+        logger.info(f"⏱️  Step 1: Creating SearchService - {time.time() - step1_start:.3f}s")
+
+        step2_start = time.time()
         results = await search_service.search(
             q=q,
             page=page,
@@ -49,13 +63,33 @@ async def search(
             request_query_params=str(request.query_params),
             callback=callback,
         )
+        step2_duration = time.time() - step2_start
+        logger.info(f"⏱️  Step 2: Elasticsearch search completed - {step2_duration:.3f}s")
 
-        # Sanitize the results for JSON serialization
-        results = sanitize_for_json(results)
+        # Debug: Log the structure of results
+        logger.info(f"🔍 Search results type: {type(results)}")
+        if isinstance(results, dict):
+            logger.info(f"🔍 Search results keys: {list(results.keys())}")
+        elif isinstance(results, list):
+            logger.info(f"🔍 Search results length: {len(results)}")
+            if results:
+                logger.info(f"🔍 First result type: {type(results[0])}")
+                if isinstance(results[0], dict):
+                    logger.info(f"🔍 First result keys: {list(results[0].keys())}")
+
+        if step2_duration > 2.0:
+            logger.warning(f"⚠️  Elasticsearch search took {step2_duration:.3f}s - this is slow!")
+
+        # Step 3: Sanitize and extract resource data
+        step3_start = time.time()
+        sanitized_results = sanitize_for_json(results)
 
         # Extract resource IDs and scores from search results
         resource_data = []
-        for item in results.get("data", []):
+        data_count = len(sanitized_results.get("data", []))
+        logger.info(f"📊 Found {data_count} search results to process")
+
+        for i, item in enumerate(sanitized_results.get("data", [])):
             try:
                 # Extract the resource ID and score from the search result
                 resource_id = None
@@ -77,77 +111,199 @@ async def search(
 
                 if resource_id:
                     resource_data.append({"id": resource_id, "score": score})
+                    if i < 3:  # Log first few for debugging
+                        logger.debug(f"  📝 Extracted: {resource_id} (score: {score})")
             except Exception as e:
                 logger.error(f"Error extracting resource data from search result: {str(e)}")
                 continue
 
-        # Load full resource data from database using the same logic as /resources
+        step3_duration = time.time() - step3_start
+        logger.info(f"⏱️  Step 3: Data extraction completed - {step3_duration:.3f}s")
+        logger.info(f"📋 Extracted {len(resource_data)} valid resource IDs")
+
+        # Step 4: Database queries and resource processing (likely bottleneck)
+        step4_start = time.time()
+        logger.info(f"🗄️  Starting database queries for {len(resource_data)} resources...")
+
+        # OPTIMIZATION: Pre-fetch Allmaps data for all resources in a single query
+        async def fetch_allmaps_data_batch(session, resource_ids):
+            """Fetch Allmaps data for multiple resources in a single query."""
+            try:
+                from sqlalchemy import select
+
+                from db.models import resource_allmaps
+
+                # Query all resources at once
+                query = select(resource_allmaps).where(
+                    resource_allmaps.c.resource_id.in_(resource_ids)
+                )
+                result = await session.execute(query)
+                rows = result.fetchall()
+
+                # Create a lookup dictionary
+                allmaps_lookup = {}
+                for row in rows:
+                    allmaps_dict = dict(row._mapping)
+                    resource_id = allmaps_dict["resource_id"]
+                    allmaps_lookup[resource_id] = {
+                        "ui_allmaps_id": allmaps_dict.get("allmaps_id"),
+                        "ui_allmaps_annotated": allmaps_dict.get("annotated"),
+                        "ui_allmaps_manifest_uri": allmaps_dict.get("iiif_manifest_uri"),
+                    }
+
+                logger.info(f"📊 Pre-fetched Allmaps data for {len(allmaps_lookup)} resources")
+                return allmaps_lookup
+            except Exception as e:
+                logger.error(f"Error fetching Allmaps data batch: {e}")
+                return {}
+
+        # OPTIMIZATION: Pre-fetch all resource data in a single query
+        async def fetch_resources_batch(session, resource_ids):
+            """Fetch all resource data in a single database query."""
+            try:
+                # Query all resources at once
+                query = select(resources).where(resources.c.id.in_(resource_ids))
+                result = await session.execute(query)
+                rows = result.fetchall()
+
+                # Create a lookup dictionary
+                resources_lookup = {}
+                for row in rows:
+                    resource_dict = sanitize_for_json(dict(row._mapping))
+                    resource_id = resource_dict["id"]
+                    resources_lookup[resource_id] = resource_dict
+
+                logger.info(f"📊 Pre-fetched resource data for {len(resources_lookup)} resources")
+                return resources_lookup
+            except Exception as e:
+                logger.error(f"Error fetching resources batch: {e}")
+                return {}
+
+        # Process resources in parallel for much better performance
+        async def process_single_resource(resource_info, session, allmaps_lookup, resources_lookup):
+            """Process a single resource asynchronously using pre-fetched data."""
+            resource_start = time.time()
+            try:
+                resource_id = resource_info["id"]
+                score = resource_info["score"]
+
+                # OPTIMIZATION: Use pre-fetched resource data instead of individual database query
+                resource_dict = resources_lookup.get(resource_id)
+                if not resource_dict:
+                    logger.warning(f"❌ Resource {resource_id} not found in pre-fetched data")
+                    return None
+
+                # No more individual database queries - data is already in memory!
+                db_query_duration = 0.0  # Set to 0 since we're not querying individually
+
+                # OPTIMIZATION: Use pre-fetched Allmaps data instead of individual queries
+                allmaps_attributes = allmaps_lookup.get(resource_id, {})
+
+                # Process the resource with optimized Allmaps handling
+                process_start = time.time()
+                resource_object = await process_resource_optimized(
+                    resource_dict, allmaps_attributes, apply_field_mapping=False
+                )
+                process_duration = time.time() - process_start
+
+                if process_duration > 0.5:  # Log slow processing
+                    logger.warning(
+                        f"🐌 Slow resource processing for {resource_id}: {process_duration:.3f}s"
+                    )
+
+                # Now apply field mapping to the final attributes for proper OGM field names
+                # in API response
+                from app.services.ogm_field_mapper import OGMFieldMapper
+
+                if "attributes" in resource_object:
+                    resource_object["attributes"] = OGMFieldMapper.map_resource_fields(
+                        resource_object["attributes"]
+                    )
+
+                # Add the Elasticsearch score to the resource's meta section
+                if score is not None:
+                    if "meta" not in resource_object:
+                        resource_object["meta"] = {}
+
+                    # Reorder meta fields: @context, @type, score, ui
+                    reordered_meta = {}
+
+                    # Add standard JSON-LD fields first
+                    if "@context" in resource_object["meta"]:
+                        reordered_meta["@context"] = resource_object["meta"]["@context"]
+                    if "@type" in resource_object["meta"]:
+                        reordered_meta["@type"] = resource_object["meta"]["@type"]
+
+                    # Add score prominently
+                    reordered_meta["score"] = score
+
+                    # Add UI section last
+                    if "ui" in resource_object["meta"]:
+                        reordered_meta["ui"] = resource_object["meta"]["ui"]
+
+                    resource_object["meta"] = reordered_meta
+
+                resource_duration = time.time() - resource_start
+                if process_duration > 0.5:  # Log slow ones
+                    logger.info(
+                        f"✅ Processed {resource_id} in {resource_duration:.3f}s "
+                        f"(DB: {db_query_duration:.3f}s, Process: {process_duration:.3f}s)"
+                    )
+                else:
+                    logger.debug(f"✅ Processed {resource_id} in {resource_duration:.3f}s")
+
+                return resource_object
+            except Exception as e:
+                resource_duration = time.time() - resource_start
+                logger.error(
+                    f"💥 Error processing search result resource {resource_id} "
+                    f"after {resource_duration:.3f}s: {str(e)}",
+                    exc_info=True,
+                )
+                return None
+
+        # Process all resources in parallel
         processed_resources = []
         async with async_session() as session:
-            for resource_info in resource_data:
-                try:
-                    resource_id = resource_info["id"]
-                    score = resource_info["score"]
+            # OPTIMIZATION: Pre-fetch Allmaps data for all resources
+            resource_ids = [r["id"] for r in resource_data]
+            allmaps_lookup = await fetch_allmaps_data_batch(session, resource_ids)
 
-                    # Query the database for the full resource
-                    query = select(resources).where(resources.c.id == resource_id)
-                    result = await session.execute(query)
-                    row = result.fetchone()
+            # OPTIMIZATION: Pre-fetch all resource data in a single query
+            resources_lookup = await fetch_resources_batch(session, resource_ids)
 
-                    if row:
-                        # Convert to dict and sanitize datetime objects
-                        resource_dict = sanitize_for_json(dict(row._mapping))
-                        logger.info(f"Processing search result resource: {resource_id}")
+            # Create tasks for all resources
+            tasks = [
+                process_single_resource(resource_info, session, allmaps_lookup, resources_lookup)
+                for resource_info in resource_data
+            ]
 
-                        # Process the resource using the same logic as other endpoints
-                        # First process without field mapping to preserve database field names
-                        # for internal processing
-                        resource_object = await process_resource(
-                            resource_dict, session, apply_field_mapping=False
-                        )
+            # Execute all tasks concurrently
+            task_results = await asyncio.gather(*tasks, return_exceptions=True)
 
-                        # Now apply field mapping to the final attributes for proper OGM field names
-                        # in API response
-                        from app.services.ogm_field_mapper import OGMFieldMapper
+            # Filter out None results and exceptions
+            for i, result in enumerate(task_results):
+                if isinstance(result, Exception):
+                    logger.error(f"Task {i} failed with exception: {result}")
+                elif result is not None:
+                    processed_resources.append(result)
 
-                        if "attributes" in resource_object:
-                            resource_object["attributes"] = OGMFieldMapper.map_resource_fields(
-                                resource_object["attributes"]
-                            )
+        step4_duration = time.time() - step4_start
+        logger.info(
+            f"⏱️  Step 4: Database queries and resource processing completed - {step4_duration:.3f}s"
+        )
+        logger.info(
+            f"📦 Successfully processed {len(processed_resources)}/{len(resource_data)} resources"
+        )
 
-                        # Add the Elasticsearch score to the resource's meta section
-                        if score is not None:
-                            if "meta" not in resource_object:
-                                resource_object["meta"] = {}
+        if step4_duration > 5.0:
+            logger.warning(
+                f"⚠️  Database processing took {step4_duration:.3f}s - this is very slow!"
+            )
 
-                            # Reorder meta fields: @context, @type, score, ui
-                            reordered_meta = {}
-
-                            # Add standard JSON-LD fields first
-                            if "@context" in resource_object["meta"]:
-                                reordered_meta["@context"] = resource_object["meta"]["@context"]
-                            if "@type" in resource_object["meta"]:
-                                reordered_meta["@type"] = resource_object["meta"]["@type"]
-
-                            # Add score prominently
-                            reordered_meta["score"] = score
-
-                            # Add UI section last
-                            if "ui" in resource_object["meta"]:
-                                reordered_meta["ui"] = resource_object["meta"]["ui"]
-
-                            resource_object["meta"] = reordered_meta
-
-                        processed_resources.append(resource_object)
-                        logger.info(f"Successfully processed search result resource {resource_id}")
-                    else:
-                        logger.warning(f"Resource {resource_id} not found in database")
-                except Exception as e:
-                    logger.error(
-                        f"Error processing search result resource {resource_id}: {str(e)}",
-                        exc_info=True,
-                    )
-                    continue
+        # Step 5: Build final response
+        step5_start = time.time()
+        logger.info("🔧 Building final response...")
 
         # Extract pagination info from existing meta
         pages_info = results.get("meta", {}).get("pages", {})
@@ -197,10 +353,13 @@ async def search(
         }
 
         # Create JSON:API compliant response
+        jsonapi_start = time.time()
         request_url = str(request.url) if request else None
         jsonapi_response = create_jsonapi_response(
             data=processed_resources, request_url=request_url, callback=callback
         )
+        jsonapi_duration = time.time() - jsonapi_start
+        logger.debug(f"📄 JSON:API response creation took {jsonapi_duration:.3f}s")
 
         # Add our custom links and meta BEFORE the data section
         jsonapi_response["links"] = links
@@ -222,10 +381,40 @@ async def search(
         if "included" in jsonapi_response:
             reordered_response["included"] = jsonapi_response["included"]
 
+        step5_duration = time.time() - step5_start
+        logger.info(f"⏱️  Step 5: Response building completed - {step5_duration:.3f}s")
+
+        # Final timing summary
+        total_duration = time.time() - start_time
+        logger.info(f"🎯 Total search request completed in {total_duration:.3f}s")
+        logger.info("📊 Performance breakdown:")
+        logger.info(
+            f"   - Elasticsearch: {step2_duration:.3f}s "
+            f"({step2_duration / total_duration * 100:.1f}%)"
+        )
+        logger.info(
+            f"   - Data extraction: {step3_duration:.3f}s "
+            f"({step3_duration / total_duration * 100:.1f}%)"
+        )
+        logger.info(
+            f"   - Database processing: {step4_duration:.3f}s "
+            f"({step4_duration / total_duration * 100:.1f}%)"
+        )
+        logger.info(
+            f"   - Response building: {step5_duration:.3f}s "
+            f"({step5_duration / total_duration * 100:.1f}%)"
+        )
+
+        if total_duration > 5.0:
+            logger.warning(f"⚠️  Total search request took {total_duration:.3f}s - this is slow!")
+
         # Return the response
         return JSONResponse(content=reordered_response)
     except Exception as e:
-        logger.error(f"Error performing search: {str(e)}", exc_info=True)
+        total_duration = time.time() - start_time
+        logger.error(
+            f"💥 Search request failed after {total_duration:.3f}s: {str(e)}", exc_info=True
+        )
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
