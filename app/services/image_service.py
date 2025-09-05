@@ -100,7 +100,15 @@ class ImageService:
                 self.logger.debug("Image: Stanford-style thumbnail array")
                 thumbnail = manifest_json["thumbnail"][0]
                 if isinstance(thumbnail, dict) and thumbnail.get("id"):
-                    return thumbnail["id"]
+                    thumbnail_id = thumbnail["id"]
+                    if isinstance(thumbnail_id, str):
+                        return thumbnail_id
+                    else:
+                        self.logger.error(
+                            f"Expected string thumbnail.id but got {type(thumbnail_id)}: "
+                            f"{thumbnail_id}"
+                        )
+                        return manifest_url
 
             # Sequences - Return the first image if it exists
             if manifest_json.get("sequences"):
@@ -115,9 +123,17 @@ class ImageService:
                     if service_id:
                         return f"{service_id}/full/400,/0/default.jpg"
 
-                # Standard sequence image
+                # Standard sequence image - ensure we return a string URL
                 if image.get("@id"):
-                    return image["@id"]
+                    image_url = image["@id"]
+                    # Ensure we return a string, not an object
+                    if isinstance(image_url, str):
+                        return image_url
+                    else:
+                        self.logger.error(
+                            f"Expected string URL but got {type(image_url)}: {image_url}"
+                        )
+                        return manifest_url
 
             # Items - Northwestern style
             elif manifest_json.get("items"):
@@ -128,20 +144,48 @@ class ImageService:
                 # Try body.id first
                 if items_path.get("body", {}).get("id"):
                     self.logger.debug("Image: items body id")
-                    return items_path["body"]["id"]
+                    body_id = items_path["body"]["id"]
+                    if isinstance(body_id, str):
+                        return body_id
+                    else:
+                        self.logger.error(
+                            f"Expected string body.id but got {type(body_id)}: {body_id}"
+                        )
+                        return manifest_url
 
                 # Try direct id
                 elif items_path.get("id"):
                     self.logger.debug("Image: items id")
-                    return items_path["id"]
+                    direct_id = items_path["id"]
+                    if isinstance(direct_id, str):
+                        return direct_id
+                    else:
+                        self.logger.error(
+                            f"Expected string id but got {type(direct_id)}: {direct_id}"
+                        )
+                        return manifest_url
 
             # Thumbnail - Try various thumbnail formats
             elif manifest_json.get("thumbnail"):
                 self.logger.debug("Image: thumbnail")
                 thumbnail = manifest_json["thumbnail"]
                 if isinstance(thumbnail, dict):
-                    return thumbnail.get("@id") or thumbnail.get("id")
-                return thumbnail
+                    thumbnail_url = thumbnail.get("@id") or thumbnail.get("id")
+                    if isinstance(thumbnail_url, str):
+                        return thumbnail_url
+                    else:
+                        self.logger.error(
+                            f"Expected string thumbnail URL but got {type(thumbnail_url)}: "
+                            f"{thumbnail_url}"
+                        )
+                        return manifest_url
+                elif isinstance(thumbnail, str):
+                    return thumbnail
+                else:
+                    self.logger.error(
+                        f"Expected string or dict thumbnail but got {type(thumbnail)}: {thumbnail}"
+                    )
+                    return manifest_url
 
             # Fallback to viewer endpoint
             self.logger.debug("Image: failed to find thumbnail")

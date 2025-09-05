@@ -22,7 +22,7 @@ router = APIRouter()
 @router.post("/cache/clear")
 async def clear_cache(
     cache_type: Optional[str] = Query(
-        None, description="Type of cache to clear (search, item, suggest, all)"
+        None, description="Type of cache to clear (search, item, suggest, images, all)"
     ),
     credentials=Depends(verify_credentials),  # noqa: B008
 ):
@@ -38,6 +38,24 @@ async def clear_cache(
 
         if cache_type == "suggest" or cache_type is None:
             await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
+
+        if cache_type == "images" or cache_type == "all" or cache_type is None:
+            # Clear image cache (DB 1) used by ImageService
+            import redis.asyncio as redis
+            import os
+            
+            redis_host = os.getenv("REDIS_HOST", "redis")
+            redis_port = int(os.getenv("REDIS_PORT", 6379))
+            
+            image_cache = redis.Redis(
+                host=redis_host,
+                port=redis_port,
+                db=1,  # ImageService uses DB 1 for images
+                decode_responses=False,
+            )
+            await image_cache.flushdb()
+            await image_cache.close()
+            logger.info("Image cache (DB 1) cleared successfully")
 
         if cache_type == "all" or cache_type is None:
             await cache_service.flush_all()
