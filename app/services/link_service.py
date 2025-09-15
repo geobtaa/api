@@ -112,34 +112,6 @@ class LinkService:
                     "url": iiif_annotation_url
                 })
             
-            # ArcGIS Services
-            arcgis_dynamic_url = references.get("urn:x-esri:serviceType:ArcGIS#DynamicMapLayer")
-            if arcgis_dynamic_url:
-                links.append({
-                    "label": "ArcGIS Dynamic Map Layer",
-                    "url": arcgis_dynamic_url
-                })
-            
-            arcgis_feature_url = references.get("urn:x-esri:serviceType:ArcGIS#FeatureLayer")
-            if arcgis_feature_url:
-                links.append({
-                    "label": "ArcGIS Feature Layer",
-                    "url": arcgis_feature_url
-                })
-            
-            arcgis_image_url = references.get("urn:x-esri:serviceType:ArcGIS#ImageMapLayer")
-            if arcgis_image_url:
-                links.append({
-                    "label": "ArcGIS Image Map Layer",
-                    "url": arcgis_image_url
-                })
-            
-            arcgis_tiled_url = references.get("urn:x-esri:serviceType:ArcGIS#TiledMapLayer")
-            if arcgis_tiled_url:
-                links.append({
-                    "label": "ArcGIS Tiled Map Layer",
-                    "url": arcgis_tiled_url
-                })
             
             # OGC Services
             wms_url = references.get("http://www.opengis.net/def/serviceType/ogc/wms")
@@ -301,14 +273,23 @@ class LinkService:
         try:
             references = self._parse_references()
             
-            # Look for ArcGIS Online related URLs
-            # This could be expanded to look for specific ArcGIS patterns
-            arcgis_url = references.get("https://www.arcgis.com/")
-            if arcgis_url:
-                links.append({
-                    "label": "Open in ArcGIS Online",
-                    "url": arcgis_url
-                })
+            # Look for ArcGIS service types
+            arcgis_service_types = [
+                "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer",
+                "urn:x-esri:serviceType:ArcGIS#FeatureLayer", 
+                "urn:x-esri:serviceType:ArcGIS#ImageMapLayer",
+                "urn:x-esri:serviceType:ArcGIS#TiledMapLayer"
+            ]
+            
+            for service_type in arcgis_service_types:
+                arcgis_url = references.get(service_type)
+                if arcgis_url:
+                    # Extract the service type name for a cleaner label
+                    service_name = service_type.split("#")[-1] if "#" in service_type else service_type
+                    links.append({
+                        "label": f"Open in ArcGIS Online ({service_name})",
+                        "url": arcgis_url
+                    })
                 
         except Exception as e:
             logger.error(f"Error getting ArcGIS links: {e}", exc_info=True)
