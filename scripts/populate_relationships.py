@@ -53,11 +53,12 @@ async def populate_relationships():
         # Fetch all resources with relationship fields
         logger.info("Fetching resources...")
         resources_query = """
-            SELECT id, dct_relation_sm, dct_ispartof_sm, dct_source_sm, 
+            SELECT id, dct_relation_sm, dct_ispartof_sm, pcdm_memberof_sm, dct_source_sm, 
                    dct_isversionof_sm, dct_replaces_sm, dct_isreplacedby_sm
             FROM resources
             WHERE dct_relation_sm IS NOT NULL 
                OR dct_ispartof_sm IS NOT NULL 
+               OR pcdm_memberof_sm IS NOT NULL
                OR dct_source_sm IS NOT NULL
                OR dct_isversionof_sm IS NOT NULL
                OR dct_replaces_sm IS NOT NULL
@@ -102,6 +103,23 @@ async def populate_relationships():
                                 "subject_id": resource_id,
                                 "predicate": "dct:isPartOf",
                                 "object_id": parent_id,
+                            },
+                        )
+                        relationships_added += 1
+
+            # Process pcdm_memberof_sm (member of)
+            if resource["pcdm_memberof_sm"]:
+                for collection_id in resource["pcdm_memberof_sm"]:
+                    if collection_id and collection_id != resource_id:
+                        await database.execute(
+                            """
+                            INSERT INTO resource_relationships (subject_id, predicate, object_id)
+                            VALUES (:subject_id, :predicate, :object_id)
+                        """,
+                            {
+                                "subject_id": resource_id,
+                                "predicate": "pcdm:memberOf",
+                                "object_id": collection_id,
                             },
                         )
                         relationships_added += 1
@@ -238,6 +256,8 @@ def get_inverse_predicate(predicate):
         "dct:relation": "dct:relation",
         "dct:isPartOf": "dct:hasPart",
         "dct:hasPart": "dct:isPartOf",
+        "pcdm:memberOf": "pcdm:hasMember",
+        "pcdm:hasMember": "pcdm:memberOf",
         "dct:source": "dct:isSourceOf",
         "dct:isSourceOf": "dct:source",
         "dct:isVersionOf": "dct:hasVersion",

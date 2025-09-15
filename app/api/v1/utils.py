@@ -159,6 +159,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
         "ui_thumbnail_url",
         "ui_citation",
         "ui_downloads",
+        "ui_links",
         "ui_viewer_protocol",
         "ui_viewer_endpoint",
         "ui_viewer_geometry",
@@ -186,6 +187,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
         restructured_ui["citation"] = ui_fields["ui_citation"]
     if "ui_downloads" in ui_fields:
         restructured_ui["downloads"] = ui_fields["ui_downloads"]
+    if "ui_links" in ui_fields:
+        restructured_ui["links"] = ui_fields["ui_links"]
     if "ui_relationships" in ui_fields:
         restructured_ui["relationships"] = ui_fields["ui_relationships"]
     if "ui_summaries" in ui_fields:
@@ -399,8 +402,10 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     from app.services.allmaps_service import AllmapsService
     from app.services.citation_service import CitationService
     from app.services.download_service import DownloadService
+    from app.services.link_service import LinkService
     from app.services.ogm_field_mapper import OGMFieldMapper
     from app.services.viewer_service import ViewerService
+    from app.services.relationship_service import RelationshipService
 
     # Map database column names to proper OGM field names (only if requested)
     if apply_field_mapping:
@@ -421,6 +426,13 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     download_service = DownloadService(resource_dict)
     ui_downloads = download_service.get_download_options()
 
+    # Use LinkService to get links
+    link_service = LinkService(resource_dict)
+    ui_links = link_service.get_links()
+
+    # Use RelationshipService to get relationships
+    ui_relationships = await RelationshipService.get_resource_relationships(resource_dict["id"])
+
     # Get Allmaps attributes
     allmaps_service = AllmapsService(resource_dict)
     allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
@@ -434,6 +446,8 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
         "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
         "ui_downloads": ui_downloads,
+        "ui_links": ui_links,
+        "ui_relationships": ui_relationships,
     }
 
     # Add viewer attributes
@@ -472,7 +486,9 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     """
     from app.services.citation_service import CitationService
     from app.services.download_service import DownloadService
+    from app.services.link_service import LinkService
     from app.services.ogm_field_mapper import OGMFieldMapper
+    from app.services.relationship_service import RelationshipService
     from app.services.viewer_service import ViewerService
 
     # Map database column names to proper OGM field names (only if requested)
@@ -494,6 +510,13 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     download_service = DownloadService(resource_dict)
     ui_downloads = download_service.get_download_options()
 
+    # Use LinkService to get links
+    link_service = LinkService(resource_dict)
+    ui_links = link_service.get_links()
+
+    # Use RelationshipService to get relationships
+    ui_relationships = await RelationshipService.get_resource_relationships(resource_dict["id"])
+
     # Use pre-fetched Allmaps attributes (no database query needed!)
     # allmaps_attributes is passed in as a parameter
 
@@ -506,6 +529,8 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
         "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
         "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
         "ui_downloads": ui_downloads,
+        "ui_links": ui_links,
+        "ui_relationships": ui_relationships,
     }
 
     # Add viewer attributes
