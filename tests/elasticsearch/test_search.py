@@ -2,10 +2,11 @@
 Tests for the Elasticsearch search functionality.
 """
 
-import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from app.elasticsearch.search import search_resources, get_search_criteria
+import pytest
+
+from app.elasticsearch.search import get_search_criteria, search_resources
 
 
 class TestElasticsearchSearch:
@@ -18,9 +19,9 @@ class TestElasticsearchSearch:
             fq={"dct_spatial_sm": ["Minnesota"]},
             skip=10,
             limit=20,
-            sort=[{"_score": "desc"}]
+            sort=[{"_score": "desc"}],
         )
-        
+
         assert criteria["query"] == "test query"
         assert criteria["filters"] == {"dct_spatial_sm": ["Minnesota"]}
         assert criteria["sort"] == [{"_score": "desc"}]
@@ -32,49 +33,42 @@ class TestElasticsearchSearch:
         mock_es = AsyncMock()
         mock_response = MagicMock()
         mock_response.body = {
-            "hits": {
-                "total": {"value": 0},
-                "hits": []
-            },
+            "hits": {"total": {"value": 0}, "hits": []},
             "took": 1,
-            "aggregations": {}
+            "aggregations": {},
         }
         mock_es.search.return_value = mock_response
-        
+
         # Mock the database fetch_all
-        with patch('app.elasticsearch.search.database.fetch_all') as mock_fetch:
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
             mock_fetch.return_value = []
-            
+
             # Mock the es client
-            with patch('app.elasticsearch.search.es', mock_es):
+            with patch("app.elasticsearch.search.es", mock_es):
                 # Call search_resources with a query
-                result = await search_resources(
-                    query="test-resource-id",
-                    fq=None,
-                    skip=0,
-                    limit=10,
-                    sort=None
+                await search_resources(
+                    query="test-resource-id", fq=None, skip=0, limit=10, sort=None
                 )
-                
+
                 # Verify that es.search was called
                 mock_es.search.assert_called_once()
-                
+
                 # Get the search query that was passed
                 call_args = mock_es.search.call_args
-                search_query = call_args.kwargs.get('query')
-                
+                search_query = call_args.kwargs.get("query")
+
                 # Verify the query structure
                 assert search_query is not None
                 assert "bool" in search_query
                 assert "must" in search_query["bool"]
-                
+
                 # Find the multi_match query in the must clause
                 multi_match_found = False
                 for clause in search_query["bool"]["must"]:
                     if "multi_match" in clause:
                         multi_match_found = True
                         multi_match = clause["multi_match"]
-                        
+
                         # Verify that the id field is included with boost
                         fields = multi_match["fields"]
                         id_field_found = False
@@ -84,10 +78,10 @@ class TestElasticsearchSearch:
                                 # Verify it has a high boost (^5)
                                 assert field == "id^5"
                                 break
-                        
+
                         assert id_field_found, "ID field with boost not found in multi_match fields"
                         break
-                
+
                 assert multi_match_found, "multi_match query not found in search"
 
     @pytest.mark.asyncio
@@ -97,37 +91,28 @@ class TestElasticsearchSearch:
         mock_es = AsyncMock()
         mock_response = MagicMock()
         mock_response.body = {
-            "hits": {
-                "total": {"value": 0},
-                "hits": []
-            },
+            "hits": {"total": {"value": 0}, "hits": []},
             "took": 1,
-            "aggregations": {}
+            "aggregations": {},
         }
         mock_es.search.return_value = mock_response
-        
+
         # Mock the database fetch_all
-        with patch('app.elasticsearch.search.database.fetch_all') as mock_fetch:
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
             mock_fetch.return_value = []
-            
+
             # Mock the es client
-            with patch('app.elasticsearch.search.es', mock_es):
+            with patch("app.elasticsearch.search.es", mock_es):
                 # Call search_resources without a query
-                result = await search_resources(
-                    query=None,
-                    fq=None,
-                    skip=0,
-                    limit=10,
-                    sort=None
-                )
-                
+                await search_resources(query=None, fq=None, skip=0, limit=10, sort=None)
+
                 # Verify that es.search was called
                 mock_es.search.assert_called_once()
-                
+
                 # Get the search query that was passed
                 call_args = mock_es.search.call_args
-                search_query = call_args.kwargs.get('query')
-                
+                search_query = call_args.kwargs.get("query")
+
                 # Verify the query structure for match_all
                 assert search_query is not None
                 assert "bool" in search_query
@@ -141,42 +126,39 @@ class TestElasticsearchSearch:
         mock_es = AsyncMock()
         mock_response = MagicMock()
         mock_response.body = {
-            "hits": {
-                "total": {"value": 0},
-                "hits": []
-            },
+            "hits": {"total": {"value": 0}, "hits": []},
             "took": 1,
-            "aggregations": {}
+            "aggregations": {},
         }
         mock_es.search.return_value = mock_response
-        
+
         # Mock the database fetch_all
-        with patch('app.elasticsearch.search.database.fetch_all') as mock_fetch:
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
             mock_fetch.return_value = []
-            
+
             # Mock the es client
-            with patch('app.elasticsearch.search.es', mock_es):
+            with patch("app.elasticsearch.search.es", mock_es):
                 # Call search_resources with filters
-                result = await search_resources(
+                await search_resources(
                     query="test",
                     fq={"dct_spatial_sm": ["Minnesota", "Wisconsin"]},
                     skip=0,
                     limit=10,
-                    sort=None
+                    sort=None,
                 )
-                
+
                 # Verify that es.search was called
                 mock_es.search.assert_called_once()
-                
+
                 # Get the search query that was passed
                 call_args = mock_es.search.call_args
-                search_query = call_args.kwargs.get('query')
-                
+                search_query = call_args.kwargs.get("query")
+
                 # Verify the query structure includes filters
                 assert search_query is not None
                 assert "bool" in search_query
                 assert "filter" in search_query["bool"]
-                
+
                 # Verify the filter clause
                 filter_clauses = search_query["bool"]["filter"]
                 assert len(filter_clauses) == 1
@@ -189,19 +171,13 @@ class TestElasticsearchSearch:
         # Mock the Elasticsearch client to raise an exception
         mock_es = AsyncMock()
         mock_es.search.side_effect = Exception("Elasticsearch connection error")
-        
+
         # Mock the es client
-        with patch('app.elasticsearch.search.es', mock_es):
+        with patch("app.elasticsearch.search.es", mock_es):
             # Call search_resources and expect an exception
             with pytest.raises(Exception) as exc_info:
-                await search_resources(
-                    query="test",
-                    fq=None,
-                    skip=0,
-                    limit=10,
-                    sort=None
-                )
-            
+                await search_resources(query="test", fq=None, skip=0, limit=10, sort=None)
+
             assert "Elasticsearch connection error" in str(exc_info.value)
 
     @pytest.mark.asyncio
@@ -211,10 +187,7 @@ class TestElasticsearchSearch:
         mock_es = AsyncMock()
         mock_response = MagicMock()
         mock_response.body = {
-            "hits": {
-                "total": {"value": 0},
-                "hits": []
-            },
+            "hits": {"total": {"value": 0}, "hits": []},
             "took": 1,
             "aggregations": {},
             "suggest": {
@@ -223,37 +196,26 @@ class TestElasticsearchSearch:
                         "text": "test",
                         "offset": 0,
                         "length": 4,
-                        "options": [
-                            {
-                                "text": "testing",
-                                "score": 0.8
-                            }
-                        ]
+                        "options": [{"text": "testing", "score": 0.8}],
                     }
                 ]
-            }
+            },
         }
         mock_es.search.return_value = mock_response
-        
+
         # Mock the database fetch_all
-        with patch('app.elasticsearch.search.database.fetch_all') as mock_fetch:
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
             mock_fetch.return_value = []
-            
+
             # Mock the es client
-            with patch('app.elasticsearch.search.es', mock_es):
+            with patch("app.elasticsearch.search.es", mock_es):
                 # Call search_resources with a query
-                result = await search_resources(
-                    query="test",
-                    fq=None,
-                    skip=0,
-                    limit=10,
-                    sort=None
-                )
-                
+                await search_resources(query="test", fq=None, skip=0, limit=10, sort=None)
+
                 # Verify that es.search was called with suggest parameter
                 mock_es.search.assert_called_once()
                 call_args = mock_es.search.call_args
-                
+
                 # Verify suggest was included in the call
                 assert "suggest" in call_args.kwargs
                 suggest = call_args.kwargs["suggest"]

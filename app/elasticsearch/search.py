@@ -67,7 +67,7 @@ async def search_resources(
                                 "multi_match": {
                                     "query": search_criteria["query"],
                                     "fields": [
-                                        "id^5",  # Boost ID matches highest - exact ID searches should be most relevant
+                                        "id^5",  # Boost ID matches highest - exact ID searches
                                         "dct_title_s^3",  # Boost title matches
                                         "dct_description_sm^2",  # Boost description matches
                                         "summary^2",  # Add summary field with boost

@@ -17,9 +17,9 @@ from app.api.v1.utils import (
     sanitize_for_json,
 )
 from app.services.cache_service import cached_endpoint
+from app.services.link_service import LinkService
 from app.services.ogm_field_mapper import OGMFieldMapper
 from app.services.relationship_service import RelationshipService
-from app.services.link_service import LinkService
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -180,6 +180,7 @@ async def get_resource_links(
     """Get all links for a resource."""
     return await LinkService.get_resource_links(id)
 
+
 @router.get("/resources/{id}/relationships")
 async def get_resource_relationships(
     id: str,
@@ -187,6 +188,7 @@ async def get_resource_relationships(
 ):
     """Get all relationships for a resource."""
     return await RelationshipService.get_resource_relationships(id)
+
 
 @router.get("/resources/{id}/summaries")
 async def get_resource_summaries(

@@ -404,8 +404,8 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     from app.services.download_service import DownloadService
     from app.services.link_service import LinkService
     from app.services.ogm_field_mapper import OGMFieldMapper
-    from app.services.viewer_service import ViewerService
     from app.services.relationship_service import RelationshipService
+    from app.services.viewer_service import ViewerService
 
     # Map database column names to proper OGM field names (only if requested)
     if apply_field_mapping:

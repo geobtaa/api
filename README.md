@@ -313,3 +313,4 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [ ] API - Analytics (PostHog?)
 - [ ] API - Authentication/Authorization for "Admin" endpoints
 - [ ] API - Throttling
+- [ ] Heirarchical Faceting > Spatial, ex: https://geo.btaa.org/catalog/p16022coll230:1750
