@@ -15,15 +15,16 @@ class SpatialFacetService:
     def __init__(self, resource_dict: Dict[str, Any]):
         self.resource_dict = resource_dict
 
-    async def get_spatial_facets(self, session=None) -> Dict[str, Any]:
+    async def get_spatial_facets(self, session=None, debug=False) -> Dict[str, Any]:
         """
         Get spatial hierarchical facets (country, state, county) from dcat_bbox.
         
         Args:
             session: Optional database session to use for queries
+            debug: If True, include overlap ratios in results
         
         Returns:
-            Dictionary with geo.country, geo.state, geo.county keys
+            Dictionary with geo.country, geo.region, geo.county keys
         """
         facets = {}
         
@@ -44,11 +45,11 @@ class SpatialFacetService:
             if country:
                 facets["geo.country"] = country
             
-            regions = await self._get_regions_from_bbox(bbox_geom, session)
+            regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
             if regions:
                 facets["geo.region"] = regions
             
-            counties = await self._get_counties_from_bbox(bbox_geom, session=session)
+            counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
             if counties:
                 facets["geo.county"] = counties
                 
@@ -162,93 +163,153 @@ class SpatialFacetService:
             logger.error(f"Error getting country from bbox {bbox_coords}: {e}", exc_info=True)
             return None
 
-    async def _get_regions_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None) -> Optional[List[str]]:
+    async def _get_regions_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None, debug=False) -> Optional[List[str]]:
         """
         Get all regions/states that overlap with the bounding box.
         
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
+            debug: If True, include overlap ratios in results
             
         Returns:
-            List of region names or None
+            List of region names (with overlap ratios if debug=True) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
             
             # Optimized query using spatial index and pre-computed geometry
-            query = """
-            WITH bbox AS (
-                SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
-            )
-            SELECT wof.name
-            FROM gazetteer_wof_spr wof
-            JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
-            CROSS JOIN bbox
-            WHERE wof.placetype = 'region'
-              AND wof.country = 'US'
-              AND geojson.source = 'quattroshapes'
-              AND geojson.alt_label IS NULL
-              AND geojson.geometry IS NOT NULL
-              AND ST_Intersects(geojson.geometry, bbox.geom)
-            ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC;
-            """
+            if debug:
+                query = """
+                WITH bbox AS (
+                    SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
+                ),
+                bbox_area AS (
+                    SELECT ST_Area(bbox.geom::geography) AS total_area
+                    FROM bbox
+                )
+                SELECT wof.name,
+                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area) * 100) AS overlap_percent
+                FROM gazetteer_wof_spr wof
+                JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
+                CROSS JOIN bbox, bbox_area
+                WHERE wof.placetype = 'region'
+                  AND wof.country = 'US'
+                  AND geojson.source = 'quattroshapes'
+                  AND geojson.alt_label IS NULL
+                  AND geojson.geometry IS NOT NULL
+                  AND ST_Intersects(geojson.geometry, bbox.geom)
+                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC;
+                """
+            else:
+                query = """
+                WITH bbox AS (
+                    SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
+                )
+                SELECT wof.name
+                FROM gazetteer_wof_spr wof
+                JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
+                CROSS JOIN bbox
+                WHERE wof.placetype = 'region'
+                  AND wof.country = 'US'
+                  AND geojson.source = 'quattroshapes'
+                  AND geojson.alt_label IS NULL
+                  AND geojson.geometry IS NOT NULL
+                  AND ST_Intersects(geojson.geometry, bbox.geom)
+                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC;
+                """
             
             if session:
                 result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
                 rows = result.fetchall()
-                return [row[0] for row in rows] if rows else None
+                if debug and rows:
+                    return [f"{row[0]}|{int(row[1])}" for row in rows]
+                else:
+                    return [row[0] for row in rows] if rows else None
             else:
                 results = await database.fetch_all(query, (xmin, ymin, xmax, ymax))
-                return [row["name"] for row in results] if results else None
+                if debug and results:
+                    return [f"{row['name']}|{int(row['overlap_percent'])}" for row in results]
+                else:
+                    return [row["name"] for row in results] if results else None
             
         except Exception as e:
             logger.error(f"Error getting regions from bbox {bbox_coords}: {e}", exc_info=True)
             return None
 
     async def _get_counties_from_bbox(self, bbox_coords: Tuple[float, float, float, float], 
-                                    threshold: float = 0.001, session=None) -> Optional[List[str]]:
+                                    threshold: float = 0.001, session=None, debug=False) -> Optional[List[str]]:
         """
         Get counties using multi-value rule with overlap threshold.
         
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
             threshold: Minimum overlap percentage (default 0.001 = 0.1%)
+            debug: If True, include overlap ratios in results
             
         Returns:
-            List of county names or None
+            List of county names with state prefixes (and overlap ratios if debug=True) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
             
             # Highly optimized query using materialized view and spatial indexes
-            query = """
-            WITH bbox AS (
-                SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
-            ),
-            bbox_area AS (
-                SELECT ST_Area(bbox.geom::geography) AS total_area
-                FROM bbox
-            )
-            SELECT csr.state_abbrev || '|' || csr.county_name as county_with_state
-            FROM county_state_relationships csr
-            JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
-            CROSS JOIN bbox, bbox_area
-            WHERE geojson.source = 'quattroshapes'
-              AND geojson.alt_label IS NULL
-              AND geojson.geometry IS NOT NULL
-              AND ST_Intersects(geojson.geometry, bbox.geom)
-              AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area >= :threshold
-            ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
-            LIMIT 100;
-            """
+            if debug:
+                query = """
+                WITH bbox AS (
+                    SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
+                ),
+                bbox_area AS (
+                    SELECT ST_Area(bbox.geom::geography) AS total_area
+                    FROM bbox
+                )
+                SELECT csr.state_abbrev || '|' || csr.county_name as county_with_state,
+                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area) * 100) AS overlap_percent
+                FROM county_state_relationships csr
+                JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
+                CROSS JOIN bbox, bbox_area
+                WHERE geojson.source = 'quattroshapes'
+                  AND geojson.alt_label IS NULL
+                  AND geojson.geometry IS NOT NULL
+                  AND ST_Intersects(geojson.geometry, bbox.geom)
+                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area >= :threshold
+                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
+                LIMIT 100;
+                """
+            else:
+                query = """
+                WITH bbox AS (
+                    SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
+                ),
+                bbox_area AS (
+                    SELECT ST_Area(bbox.geom::geography) AS total_area
+                    FROM bbox
+                )
+                SELECT csr.state_abbrev || '|' || csr.county_name as county_with_state
+                FROM county_state_relationships csr
+                JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
+                CROSS JOIN bbox, bbox_area
+                WHERE geojson.source = 'quattroshapes'
+                  AND geojson.alt_label IS NULL
+                  AND geojson.geometry IS NOT NULL
+                  AND ST_Intersects(geojson.geometry, bbox.geom)
+                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area >= :threshold
+                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
+                LIMIT 100;
+                """
             
             if session:
                 result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax, "threshold": threshold})
                 rows = result.fetchall()
-                return [row[0] for row in rows] if rows else None
+                if debug and rows:
+                    return [f"{row[0]}|{int(row[1])}" for row in rows]
+                else:
+                    return [row[0] for row in rows] if rows else None
             else:
                 results = await database.fetch_all(query, (xmin, ymin, xmax, ymax, threshold))
-                return [row["name"] for row in results] if results else None
+                if debug and results:
+                    return [f"{row['county_with_state']}|{int(row['overlap_percent'])}" for row in results]
+                else:
+                    return [row["county_with_state"] for row in results] if results else None
             
         except Exception as e:
             logger.error(f"Error getting counties from bbox {bbox_coords}: {e}", exc_info=True)
