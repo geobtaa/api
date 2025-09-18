@@ -62,44 +62,16 @@ async def process_resource(resource_dict):
         elif key in ["locn_geometry", "dcat_bbox", "dcat_centroid"]:
             # Store original string value
             processed_dict[f"{key}_original"] = value
-            # Convert to GeoJSON for Elasticsearch
+            # Convert to GeoJSON for Elasticsearch using validated processing
             if value:
-                try:
-                    # Check if it's an ENVELOPE format (case insensitive)
-                    envelope_match = re.match(
-                        r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)",
-                        value,
-                        re.IGNORECASE,
-                    )
-                    if envelope_match:
-                        # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
-                        minx, maxx, maxy, miny = map(float, envelope_match.groups())
-                        # Create a polygon from the envelope coordinates in counterclockwise order
-                        processed_dict[key] = {
-                            "type": "Polygon",
-                            "coordinates": [
-                                [
-                                    [minx, miny],  # bottom left
-                                    [maxx, miny],  # bottom right
-                                    [maxx, maxy],  # top right
-                                    [minx, maxy],  # top left
-                                    [minx, miny],  # close the polygon
-                                ]
-                            ],
-                        }
-                    else:
-                        # Try to parse as JSON if it's not an ENVELOPE
-                        try:
-                            geom = json.loads(value)
-                            if isinstance(geom, dict) and "type" in geom:
-                                # Ensure type is capitalized
-                                geom["type"] = geom["type"].capitalize()
-                                processed_dict[key] = geom
-                            else:
-                                processed_dict[key] = None
-                        except json.JSONDecodeError:
-                            processed_dict[key] = None
-                except Exception:
+                processed_geometry = process_geometry(value)
+                if processed_geometry:
+                    # Ensure type is capitalized for consistency
+                    if "type" in processed_geometry:
+                        processed_geometry["type"] = processed_geometry["type"].capitalize()
+                    processed_dict[key] = processed_geometry
+                else:
+                    # If geometry processing failed, store None to avoid indexing invalid geometries
                     processed_dict[key] = None
             else:
                 processed_dict[key] = None
@@ -227,22 +199,45 @@ async def get_spatial_facets(resource_id):
         if result:
             spatial_facets = dict(result)
             
-            # Parse JSON fields (all are now JSONB with WOF identifiers)
+            # Parse JSON fields and format as pipe-delimited strings for faceting
             if spatial_facets.get("geo_country"):
                 try:
-                    spatial_facets["geo_country"] = json.loads(spatial_facets["geo_country"])
+                    country_data = json.loads(spatial_facets["geo_country"])
+                    if isinstance(country_data, dict) and all(key in country_data for key in ["wok_id", "parent_id", "name"]):
+                        # Format: wok_id|parent_id|name
+                        spatial_facets["geo_country"] = f"{country_data['wok_id']}|{country_data['parent_id']}|{country_data['name']}"
+                    else:
+                        spatial_facets["geo_country"] = None
                 except (json.JSONDecodeError, TypeError):
                     spatial_facets["geo_country"] = None
             
             if spatial_facets.get("geo_region"):
                 try:
-                    spatial_facets["geo_region"] = json.loads(spatial_facets["geo_region"])
+                    region_data = json.loads(spatial_facets["geo_region"])
+                    if isinstance(region_data, list):
+                        # Format each region as: wok_id|parent_id|name
+                        region_strings = []
+                        for region in region_data:
+                            if isinstance(region, dict) and all(key in region for key in ["wok_id", "parent_id", "name"]):
+                                region_strings.append(f"{region['wok_id']}|{region['parent_id']}|{region['name']}")
+                        spatial_facets["geo_region"] = region_strings if region_strings else None
+                    else:
+                        spatial_facets["geo_region"] = None
                 except (json.JSONDecodeError, TypeError):
                     spatial_facets["geo_region"] = None
             
             if spatial_facets.get("geo_county"):
                 try:
-                    spatial_facets["geo_county"] = json.loads(spatial_facets["geo_county"])
+                    county_data = json.loads(spatial_facets["geo_county"])
+                    if isinstance(county_data, list):
+                        # Format each county as: wok_id|parent_id|state_abbrev|name
+                        county_strings = []
+                        for county in county_data:
+                            if isinstance(county, dict) and all(key in county for key in ["wok_id", "parent_id", "state_abbrev", "name"]):
+                                county_strings.append(f"{county['wok_id']}|{county['parent_id']}|{county['state_abbrev']}|{county['name']}")
+                        spatial_facets["geo_county"] = county_strings if county_strings else None
+                    else:
+                        spatial_facets["geo_county"] = None
                 except (json.JSONDecodeError, TypeError):
                     spatial_facets["geo_county"] = None
             
@@ -254,7 +249,7 @@ async def get_spatial_facets(resource_id):
 
 
 def process_geometry(geometry):
-    """Process geometry for Elasticsearch."""
+    """Process geometry for Elasticsearch with validation."""
     if not geometry:
         return None
 
@@ -270,6 +265,12 @@ def process_geometry(geometry):
             if envelope_match:
                 # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
                 minx, maxx, maxy, miny = map(float, envelope_match.groups())
+                
+                # Validate the envelope coordinates
+                if not _is_valid_envelope(minx, maxx, maxy, miny):
+                    logger.warning(f"Invalid envelope coordinates: {geometry} - skipping")
+                    return None
+                
                 # Create a polygon from the envelope coordinates in counterclockwise order
                 return {
                     "type": "polygon",
@@ -294,16 +295,115 @@ def process_geometry(geometry):
         if isinstance(geometry, dict):
             geom_type = geometry.get("type", "").lower()
             if geom_type == "point":
-                return {"type": "point", "coordinates": geometry.get("coordinates", [0, 0])}
+                coords = geometry.get("coordinates", [0, 0])
+                if not _is_valid_point(coords):
+                    logger.warning(f"Invalid point coordinates: {coords} - skipping")
+                    return None
+                return {"type": "point", "coordinates": coords}
             elif geom_type in ["polygon", "multipolygon"]:
-                return {"type": geom_type, "coordinates": geometry["coordinates"]}
+                coords = geometry.get("coordinates")
+                if not _is_valid_polygon_coordinates(coords, geom_type):
+                    logger.warning(f"Invalid {geom_type} coordinates: {coords} - skipping")
+                    return None
+                return {"type": geom_type, "coordinates": coords}
             else:
                 return None
         else:
             return None
 
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Error processing geometry {geometry}: {e} - skipping")
         return None
+
+
+def _is_valid_envelope(minx, maxx, maxy, miny):
+    """Validate envelope coordinates."""
+    # Check for valid coordinate ranges
+    if not (-180 <= minx <= 180) or not (-180 <= maxx <= 180):
+        return False
+    if not (-90 <= miny <= 90) or not (-90 <= maxy <= 90):
+        return False
+    
+    # Check for valid envelope bounds (minx <= maxx, miny <= maxy)
+    if minx > maxx or miny > maxy:
+        return False
+    
+    # Check for zero-area polygons (at least one dimension must have non-zero area)
+    if minx == maxx and miny == maxy:
+        return False
+    
+    # Check for very small areas that might cause precision issues
+    if abs(maxx - minx) < 1e-10 or abs(maxy - miny) < 1e-10:
+        return False
+    
+    return True
+
+
+def _is_valid_point(coords):
+    """Validate point coordinates."""
+    if not isinstance(coords, (list, tuple)) or len(coords) < 2:
+        return False
+    
+    lon, lat = coords[0], coords[1]
+    return -180 <= lon <= 180 and -90 <= lat <= 90
+
+
+def _is_valid_polygon_coordinates(coords, geom_type):
+    """Validate polygon or multipolygon coordinates."""
+    if not coords:
+        return False
+    
+    if geom_type == "polygon":
+        return _is_valid_single_polygon(coords)
+    elif geom_type == "multipolygon":
+        return all(_is_valid_single_polygon(poly) for poly in coords)
+    
+    return False
+
+
+def _is_valid_single_polygon(coords):
+    """Validate a single polygon coordinates."""
+    if not isinstance(coords, list) or len(coords) == 0:
+        return False
+    
+    # Check the outer ring
+    outer_ring = coords[0]
+    if not isinstance(outer_ring, list) or len(outer_ring) < 4:
+        return False
+    
+    # Check that the polygon is closed (first and last points are the same)
+    if outer_ring[0] != outer_ring[-1]:
+        return False
+    
+    # Check that all coordinates are valid
+    for coord in outer_ring:
+        if not _is_valid_point(coord):
+            return False
+    
+    # Check for minimum area (at least 3 non-collinear points)
+    if len(outer_ring) < 4:  # 3 unique points + closing point
+        return False
+    
+    # Check for collinear points (simplified check)
+    if _are_points_collinear(outer_ring[:3]):
+        return False
+    
+    return True
+
+
+def _are_points_collinear(points):
+    """Check if three points are collinear."""
+    if len(points) < 3:
+        return False
+    
+    p1, p2, p3 = points[0], points[1], points[2]
+    
+    # Calculate the cross product to check if points are collinear
+    # If cross product is 0, points are collinear
+    cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
+    
+    # Use a small epsilon for floating point comparison
+    return abs(cross_product) < 1e-10
 
 
 async def perform_bulk_indexing(bulk_data, index_name, bulk_size=100):
