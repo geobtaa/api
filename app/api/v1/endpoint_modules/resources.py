@@ -320,7 +320,7 @@ async def get_resource_spatial_facets(
             
             # Get spatial facets using the SpatialFacetService with the resource data
             service = SpatialFacetService(resource_dict)
-            spatial_facets = await service.get_spatial_facets(session, debug=debug)
+            spatial_facets = await service.get_spatial_facets_with_wof_ids(session, debug=debug)
             
             # Prepare attributes with dcat_bbox first, then spatial facets
             attributes = {}

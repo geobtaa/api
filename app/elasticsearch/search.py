@@ -102,6 +102,10 @@ async def search_resources(
                     "provider_agg": {"terms": {"field": "schema_provider_s"}},
                     "access_rights_agg": {"terms": {"field": "dct_accessrights_sm"}},
                     "georeferenced_agg": {"terms": {"field": "gbl_georeferenced_b"}},
+                    # Spatial facet aggregations
+                    "geo_country_agg": {"terms": {"field": "geo_country"}},
+                    "geo_region_agg": {"terms": {"field": "geo_region"}},
+                    "geo_county_agg": {"terms": {"field": "geo_county"}},
                 },
             }
 
@@ -140,6 +144,10 @@ async def search_resources(
                     "provider_agg": {"terms": {"field": "schema_provider_s"}},
                     "access_rights_agg": {"terms": {"field": "dct_accessrights_sm"}},
                     "georeferenced_agg": {"terms": {"field": "gbl_georeferenced_b"}},
+                    # Spatial facet aggregations
+                    "geo_country_agg": {"terms": {"field": "geo_country"}},
+                    "geo_region_agg": {"terms": {"field": "geo_region"}},
+                    "geo_county_agg": {"terms": {"field": "geo_county"}},
                 },
             }
 
@@ -379,12 +387,29 @@ async def process_search_response(response, limit, skip, search_criteria):
 
 def process_aggregations(aggregations, search_criteria):
     """Transform Elasticsearch aggregations into JSON:API includes."""
+    # Define custom labels for aggregations
+    agg_labels = {
+        "id_agg": "ID",
+        "spatial_agg": "Spatial Coverage",
+        "resource_class_agg": "Resource Class",
+        "resource_type_agg": "Resource Type",
+        "index_year_agg": "Index Year",
+        "language_agg": "Language",
+        "creator_agg": "Creator",
+        "provider_agg": "Provider",
+        "access_rights_agg": "Access Rights",
+        "georeferenced_agg": "Georeferenced",
+        "geo_country_agg": "Country",
+        "geo_region_agg": "Region",
+        "geo_county_agg": "County",
+    }
+    
     return [
         {
             "type": "facet",
             "id": agg_name,
             "attributes": {
-                "label": agg_name.replace("_sm", "").replace("_", " ").title(),
+                "label": agg_labels.get(agg_name, agg_name.replace("_sm", "").replace("_", " ").title()),
                 "items": [
                     {
                         "attributes": {

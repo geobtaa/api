@@ -108,6 +108,13 @@ async def process_resource(resource_dict):
 
     # Add summaries to the document
     processed_dict["ai_summaries"] = await get_resource_summaries(processed_dict["id"])
+    
+    # Add spatial facet data
+    spatial_facets = await get_spatial_facets(processed_dict["id"])
+    if spatial_facets:
+        processed_dict["geo_country"] = spatial_facets.get("geo_country")
+        processed_dict["geo_region"] = spatial_facets.get("geo_region")
+        processed_dict["geo_county"] = spatial_facets.get("geo_county")
 
     # Clean and prepare suggestion inputs
     suggestion_inputs = []
@@ -205,6 +212,45 @@ async def get_resource_summaries(resource_id):
     except Exception as e:
         print(f"Error getting summaries for resource {resource_id}: {str(e)}")
         return []
+
+
+async def get_spatial_facets(resource_id):
+    """Get spatial facets for a resource."""
+    try:
+        query = """
+            SELECT geo_country, geo_region, geo_county
+            FROM resource_spatial_facets
+            WHERE resource_id = :resource_id
+        """
+        result = await database.fetch_one(query, {"resource_id": resource_id})
+        
+        if result:
+            spatial_facets = dict(result)
+            
+            # Parse JSON fields (all are now JSONB with WOF identifiers)
+            if spatial_facets.get("geo_country"):
+                try:
+                    spatial_facets["geo_country"] = json.loads(spatial_facets["geo_country"])
+                except (json.JSONDecodeError, TypeError):
+                    spatial_facets["geo_country"] = None
+            
+            if spatial_facets.get("geo_region"):
+                try:
+                    spatial_facets["geo_region"] = json.loads(spatial_facets["geo_region"])
+                except (json.JSONDecodeError, TypeError):
+                    spatial_facets["geo_region"] = None
+            
+            if spatial_facets.get("geo_county"):
+                try:
+                    spatial_facets["geo_county"] = json.loads(spatial_facets["geo_county"])
+                except (json.JSONDecodeError, TypeError):
+                    spatial_facets["geo_county"] = None
+            
+            return spatial_facets
+        return None
+    except Exception as e:
+        logger.error(f"Error getting spatial facets for resource {resource_id}: {str(e)}")
+        return None
 
 
 def process_geometry(geometry):

@@ -9,6 +9,7 @@ Available Migrations:
     add_fast_gazetteer: Adds FAST gazetteer data to the database
     optimize_spatial_queries: Optimizes spatial queries with indexes and materialized views
     rollback_spatial_optimizations: Rolls back spatial query optimizations (WARNING: makes queries slower)
+    create_resource_spatial_facets_table: Creates table for storing pre-computed spatial facets
 
 Usage:
     python scripts/run_migration.py [migration_name]
@@ -26,6 +27,8 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from db.migrations.add_fast_gazetteer import add_fast_gazetteer
 from db.migrations.optimize_spatial_queries import optimize_spatial_queries
 from db.migrations.rollback_spatial_optimizations import rollback_spatial_optimizations
+from db.migrations.create_resource_spatial_facets_table import create_resource_spatial_facets_table
+from db.migrations.update_spatial_facets_for_wof_ids import update_spatial_facets_for_wof_ids
 
 # Configure logging with standard format
 logging.basicConfig(
@@ -53,7 +56,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run database migrations")
     parser.add_argument(
         "migration",
-        choices=["add_fast_gazetteer", "optimize_spatial_queries", "rollback_spatial_optimizations"],
+        choices=["add_fast_gazetteer", "optimize_spatial_queries", "rollback_spatial_optimizations", "create_resource_spatial_facets_table", "update_spatial_facets_for_wof_ids"],
         help="The migration to run",
     )
 
@@ -74,6 +77,14 @@ def main():
             logger.warning("Running rollback_spatial_optimizations migration")
             rollback_spatial_optimizations()
             logger.warning("Rollback completed successfully")
+        elif args.migration == "create_resource_spatial_facets_table":
+            logger.info("Running create_resource_spatial_facets_table migration")
+            create_resource_spatial_facets_table()
+            logger.info("Migration completed successfully")
+        elif args.migration == "update_spatial_facets_for_wof_ids":
+            logger.info("Running update_spatial_facets_for_wof_ids migration")
+            update_spatial_facets_for_wof_ids()
+            logger.info("Migration completed successfully")
         else:
             logger.error(f"Unknown migration: {args.migration}")
             return 1

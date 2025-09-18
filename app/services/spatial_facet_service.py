@@ -24,7 +24,62 @@ class SpatialFacetService:
             debug: If True, include overlap ratios in results
         
         Returns:
-            Dictionary with geo.country, geo.region, geo.county keys
+            Dictionary with geo.country, geo.region, geo.county keys (backward compatible format)
+        """
+        facets = {}
+        
+        try:
+            bbox = self.resource_dict.get("dcat_bbox")
+            if not bbox:
+                logger.debug(f"No dcat_bbox found for resource {self.resource_dict.get('id', 'unknown')}")
+                return facets
+            
+            # Parse the bounding box
+            bbox_geom = self._parse_bbox_to_geometry(bbox)
+            if not bbox_geom:
+                logger.debug(f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}")
+                return facets
+            
+            # Get spatial facets using PostGIS and Who's on First data
+            country = await self._get_country_from_bbox(bbox_geom, session)
+            if country:
+                # Convert to backward compatible format
+                if debug and isinstance(country, dict):
+                    facets["geo.country"] = f"{country['name']}|{country.get('overlap_percent', 0)}"
+                else:
+                    facets["geo.country"] = country["name"] if isinstance(country, dict) else country
+            
+            regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
+            if regions:
+                # Convert to backward compatible format
+                if debug:
+                    facets["geo.region"] = [f"{region['name']}|{region.get('overlap_percent', 0)}" for region in regions]
+                else:
+                    facets["geo.region"] = [region["name"] for region in regions]
+            
+            counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
+            if counties:
+                # Convert to backward compatible format
+                if debug:
+                    facets["geo.county"] = [f"{county['state_abbrev']}|{county['name']}|{county.get('overlap_percent', 0)}" for county in counties]
+                else:
+                    facets["geo.county"] = [f"{county['state_abbrev']}|{county['name']}" for county in counties]
+                
+        except Exception as e:
+            logger.error(f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}", exc_info=True)
+        
+        return facets
+
+    async def get_spatial_facets_with_wof_ids(self, session=None, debug=False) -> Dict[str, Any]:
+        """
+        Get spatial hierarchical facets with Who's on First identifiers for map visualization.
+        
+        Args:
+            session: Optional database session to use for queries
+            debug: If True, include overlap ratios in results
+        
+        Returns:
+            Dictionary with geo.country, geo.region, geo.county keys containing WOF identifiers
         """
         facets = {}
         
@@ -106,6 +161,12 @@ class SpatialFacetService:
             envelope_match = re.match(r'ENVELOPE\(([^,]+),([^,]+),([^,]+),([^)]+)\)', bbox.strip())
             if envelope_match:
                 xmin, xmax, ymax, ymin = map(float, envelope_match.groups())
+                
+                # Validate bounding box
+                if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
+                    logger.warning(f"Invalid bounding box: {bbox} - skipping")
+                    return None
+                
                 return (xmin, ymin, xmax, ymax)
             
             # Handle other bbox formats if needed
@@ -116,7 +177,41 @@ class SpatialFacetService:
             logger.error(f"Error parsing bbox {bbox}: {e}")
             return None
 
-    async def _get_country_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None) -> Optional[str]:
+    def _is_valid_bbox(self, xmin: float, ymin: float, xmax: float, ymax: float) -> bool:
+        """
+        Validate that a bounding box is reasonable for spatial processing.
+        
+        Args:
+            xmin, ymin, xmax, ymax: Bounding box coordinates
+            
+        Returns:
+            True if the bounding box is valid, False otherwise
+        """
+        # Check for valid coordinate ranges
+        if not (-180 <= xmin <= 180) or not (-180 <= xmax <= 180):
+            return False
+        if not (-90 <= ymin <= 90) or not (-90 <= ymax <= 90):
+            return False
+        
+        # Check for valid min/max relationships
+        if xmin >= xmax or ymin >= ymax:
+            return False
+        
+        # Check for antipodal edges (spans 180 degrees longitude)
+        if abs(xmax - xmin) >= 180:
+            return False
+        
+        # Check for extremely large bounding boxes (likely data errors)
+        if (xmax - xmin) > 90 or (ymax - ymin) > 90:
+            return False
+        
+        # Check for zero-area bounding boxes
+        if (xmax - xmin) < 0.001 or (ymax - ymin) < 0.001:
+            return False
+        
+        return True
+
+    async def _get_country_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None) -> Optional[Dict[str, Any]]:
         """
         Get country using centroid rule.
         
@@ -124,7 +219,7 @@ class SpatialFacetService:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
             
         Returns:
-            Country name or None
+            Dictionary with country info (name, wok_id, parent_id) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
@@ -138,7 +233,7 @@ class SpatialFacetService:
                 SELECT ST_PointOnSurface(bbox.geom) AS point
                 FROM bbox
             )
-            SELECT wof.name
+            SELECT wof.name, wof.wok_id, wof.parent_id
             FROM gazetteer_wof_spr wof
             JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
             CROSS JOIN centroid
@@ -154,16 +249,20 @@ class SpatialFacetService:
             if session:
                 result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
                 row = result.fetchone()
-                return row[0] if row else None
+                if row:
+                    return {"name": row[0], "wok_id": row[1], "parent_id": row[2]}
+                return None
             else:
-                result = await database.fetch_one(query, (xmin, ymin, xmax, ymax))
-                return result["name"] if result else None
+                result = await database.fetch_one(query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
+                if result:
+                    return {"name": result["name"], "wok_id": result["wok_id"], "parent_id": result["parent_id"]}
+                return None
             
         except Exception as e:
             logger.error(f"Error getting country from bbox {bbox_coords}: {e}", exc_info=True)
             return None
 
-    async def _get_regions_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None, debug=False) -> Optional[List[str]]:
+    async def _get_regions_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None, debug=False) -> Optional[List[Dict[str, Any]]]:
         """
         Get all regions/states that overlap with the bounding box.
         
@@ -172,7 +271,7 @@ class SpatialFacetService:
             debug: If True, include overlap ratios in results
             
         Returns:
-            List of region names (with overlap ratios if debug=True) or None
+            List of region info dictionaries (name, wok_id, parent_id, overlap_percent if debug) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
@@ -187,7 +286,7 @@ class SpatialFacetService:
                     SELECT ST_Area(bbox.geom::geography) AS total_area
                     FROM bbox
                 )
-                SELECT wof.name,
+                SELECT wof.name, wof.wok_id, wof.parent_id,
                        ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area) * 100) AS overlap_percent
                 FROM gazetteer_wof_spr wof
                 JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
@@ -205,7 +304,7 @@ class SpatialFacetService:
                 WITH bbox AS (
                     SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
                 )
-                SELECT wof.name
+                SELECT wof.name, wof.wok_id, wof.parent_id
                 FROM gazetteer_wof_spr wof
                 JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
                 CROSS JOIN bbox
@@ -221,23 +320,27 @@ class SpatialFacetService:
             if session:
                 result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
                 rows = result.fetchall()
-                if debug and rows:
-                    return [f"{row[0]}|{int(row[1])}" for row in rows]
-                else:
-                    return [row[0] for row in rows] if rows else None
+                if rows:
+                    if debug:
+                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2], "overlap_percent": int(row[3])} for row in rows]
+                    else:
+                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2]} for row in rows]
+                return None
             else:
-                results = await database.fetch_all(query, (xmin, ymin, xmax, ymax))
-                if debug and results:
-                    return [f"{row['name']}|{int(row['overlap_percent'])}" for row in results]
-                else:
-                    return [row["name"] for row in results] if results else None
+                results = await database.fetch_all(query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
+                if results:
+                    if debug:
+                        return [{"name": row["name"], "wok_id": row["wok_id"], "parent_id": row["parent_id"], "overlap_percent": int(row["overlap_percent"])} for row in results]
+                    else:
+                        return [{"name": row["name"], "wok_id": row["wok_id"], "parent_id": row["parent_id"]} for row in results]
+                return None
             
         except Exception as e:
             logger.error(f"Error getting regions from bbox {bbox_coords}: {e}", exc_info=True)
             return None
 
     async def _get_counties_from_bbox(self, bbox_coords: Tuple[float, float, float, float], 
-                                    threshold: float = 0.001, session=None, debug=False) -> Optional[List[str]]:
+                                    threshold: float = 0.001, session=None, debug=False) -> Optional[List[Dict[str, Any]]]:
         """
         Get counties using multi-value rule with overlap threshold.
         
@@ -247,7 +350,7 @@ class SpatialFacetService:
             debug: If True, include overlap ratios in results
             
         Returns:
-            List of county names with state prefixes (and overlap ratios if debug=True) or None
+            List of county info dictionaries (name, wok_id, parent_id, state_abbrev, overlap_percent if debug) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
@@ -262,7 +365,7 @@ class SpatialFacetService:
                     SELECT ST_Area(bbox.geom::geography) AS total_area
                     FROM bbox
                 )
-                SELECT csr.state_abbrev || '|' || csr.county_name as county_with_state,
+                SELECT csr.county_name, csr.county_wok_id, csr.state_wok_id, csr.state_abbrev,
                        ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area) * 100) AS overlap_percent
                 FROM county_state_relationships csr
                 JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
@@ -284,7 +387,7 @@ class SpatialFacetService:
                     SELECT ST_Area(bbox.geom::geography) AS total_area
                     FROM bbox
                 )
-                SELECT csr.state_abbrev || '|' || csr.county_name as county_with_state
+                SELECT csr.county_name, csr.county_wok_id, csr.state_wok_id, csr.state_abbrev
                 FROM county_state_relationships csr
                 JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
                 CROSS JOIN bbox, bbox_area
@@ -300,16 +403,20 @@ class SpatialFacetService:
             if session:
                 result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax, "threshold": threshold})
                 rows = result.fetchall()
-                if debug and rows:
-                    return [f"{row[0]}|{int(row[1])}" for row in rows]
-                else:
-                    return [row[0] for row in rows] if rows else None
+                if rows:
+                    if debug:
+                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2], "state_abbrev": row[3], "overlap_percent": int(row[4])} for row in rows]
+                    else:
+                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2], "state_abbrev": row[3]} for row in rows]
+                return None
             else:
-                results = await database.fetch_all(query, (xmin, ymin, xmax, ymax, threshold))
-                if debug and results:
-                    return [f"{row['county_with_state']}|{int(row['overlap_percent'])}" for row in results]
-                else:
-                    return [row["county_with_state"] for row in results] if results else None
+                results = await database.fetch_all(query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax, "threshold": threshold})
+                if results:
+                    if debug:
+                        return [{"name": row["county_name"], "wok_id": row["county_wok_id"], "parent_id": row["state_wok_id"], "state_abbrev": row["state_abbrev"], "overlap_percent": int(row["overlap_percent"])} for row in results]
+                    else:
+                        return [{"name": row["county_name"], "wok_id": row["county_wok_id"], "parent_id": row["state_wok_id"], "state_abbrev": row["state_abbrev"]} for row in results]
+                return None
             
         except Exception as e:
             logger.error(f"Error getting counties from bbox {bbox_coords}: {e}", exc_info=True)

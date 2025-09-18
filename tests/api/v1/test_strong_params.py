@@ -342,6 +342,9 @@ class TestStrongParamsConfiguration:
             "fq[access_rights_agg][]",
             "fq[georeferenced_agg][]",
             "fq[id_agg][]",
+            "fq[geo_country_agg][]",
+            "fq[geo_region_agg][]",
+            "fq[geo_county_agg][]",
         ]
 
         for param in expected_params:

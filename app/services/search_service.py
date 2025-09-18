@@ -295,6 +295,10 @@ class SearchService:
             "provider_agg": "schema_provider_s",
             "access_rights_agg": "dct_accessrights_sm",
             "georeferenced_agg": "gbl_georeferenced_b",
+            # Spatial facet fields
+            "geo_country_agg": "geo_country",
+            "geo_region_agg": "geo_region",
+            "geo_county_agg": "geo_county",
         }
 
         for key, values in raw_params.items():

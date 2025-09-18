@@ -49,6 +49,7 @@ celery_app.conf.update(
         "app.tasks.entities",
         "app.tasks.summarization",
         "app.tasks.ocr",
+        "app.tasks.spatial_facets",
     ],
 )
 
