@@ -82,24 +82,27 @@ class TestSpatialFacetService:
         }
         service = SpatialFacetService(resource_dict)
         
-        # Mock database responses
-        mock_country = {"name": "United States"}
-        mock_state = {"name": "Oregon"}
-        mock_counties = [{"name": "Multnomah"}, {"name": "Washington"}]
+        # Mock database responses with required WOF fields
+        mock_country = {"name": "United States", "wok_id": 85633793, "parent_id": 0}
+        mock_regions = [{"name": "Oregon", "wok_id": 85688517, "parent_id": 85633793}]
+        mock_counties = [
+            {"county_name": "Multnomah", "county_wok_id": 102081631, "state_wok_id": 85688517, "state_abbrev": "OR"},
+            {"county_name": "Washington", "county_wok_id": 102081632, "state_wok_id": 85688517, "state_abbrev": "OR"}
+        ]
         
         with patch("app.services.spatial_facet_service.database") as mock_db:
             # Create async mock objects
-            mock_db.fetch_one = AsyncMock(side_effect=[mock_country, mock_state])
-            mock_db.fetch_all = AsyncMock(return_value=mock_counties)
+            mock_db.fetch_one = AsyncMock(return_value=mock_country)
+            mock_db.fetch_all = AsyncMock(side_effect=[mock_regions, mock_counties])
             
             facets = await service.get_spatial_facets()
             
             assert "geo.country" in facets
             assert facets["geo.country"] == "United States"
-            assert "geo.state" in facets
-            assert facets["geo.state"] == "Oregon"
+            assert "geo.region" in facets
+            assert facets["geo.region"] == ["Oregon"]
             assert "geo.county" in facets
-            assert facets["geo.county"] == ["Multnomah", "Washington"]
+            assert facets["geo.county"] == ["OR|Multnomah", "OR|Washington"]
 
     @pytest.mark.asyncio
     async def test_get_spatial_facets_database_error(self):
@@ -123,7 +126,7 @@ class TestSpatialFacetService:
         """Test the static get_resource_spatial_facets method."""
         resource_id = "test-resource"
         mock_resource = {"id": resource_id, "dcat_bbox": "ENVELOPE(-123.0, -122.0, 45.0, 44.0)"}
-        mock_facets = {"geo.country": "United States", "geo.state": "Oregon"}
+        mock_facets = {"geo.country": "United States", "geo.region": ["Oregon"]}
         
         with patch("app.services.spatial_facet_service.database") as mock_db:
             mock_db.fetch_one = AsyncMock(return_value=mock_resource)
@@ -155,8 +158,8 @@ class TestSpatialFacetService:
             {"id": "resource1", "dcat_bbox": "ENVELOPE(-123.0, -122.0, 45.0, 44.0)"},
             {"id": "resource2", "dcat_bbox": "ENVELOPE(-124.0, -123.0, 46.0, 45.0)"}
         ]
-        mock_facets1 = {"geo.country": "United States", "geo.state": "Oregon"}
-        mock_facets2 = {"geo.country": "United States", "geo.state": "Washington"}
+        mock_facets1 = {"geo.country": "United States", "geo.region": ["Oregon"]}
+        mock_facets2 = {"geo.country": "United States", "geo.region": ["Washington"]}
         
         with patch("app.services.spatial_facet_service.database") as mock_db:
             mock_db.fetch_all = AsyncMock(return_value=mock_resources)
