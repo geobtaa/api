@@ -101,3 +101,16 @@ curl "http://localhost:8000/api/v1/search?fq[geo_county_agg][]=12345|0|MN|Hennep
 - The `sort` parameter options are: `relevance`, `year_desc`, `year_asc`, `title_asc`, `title_desc`.
 - The endpoint supports JSONP via the `callback` parameter.
 - Spatial facets are generated from resource bounding boxes using PostGIS spatial queries against Who's on First gazetteer data.
+
+## Facet Size Configuration
+
+The number of facet values returned can be configured via environment variables:
+
+| Environment Variable | Default | Description |
+|---------------------|---------|-------------|
+| `GEO_COUNTRY_FACET_SIZE` | 20 | Maximum number of country facets returned |
+| `GEO_REGION_FACET_SIZE` | 50 | Maximum number of region/state facets returned |
+| `GEO_COUNTY_FACET_SIZE` | 100 | Maximum number of county facets returned |
+| `DEFAULT_FACET_SIZE` | 10 | Default size for all other facet types |
+
+These limits help control response size and performance while ensuring relevant geographic diversity is available for filtering.

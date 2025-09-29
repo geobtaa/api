@@ -1,5 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
+from unittest.mock import patch, AsyncMock, MagicMock
 
 from app.main import app
 from app.services.relationship_service import RelationshipService
@@ -516,3 +517,120 @@ async def test_spatial_facets_endpoint_includes_bbox():
     except Exception:
         # If the test fails due to external dependencies, that's acceptable
         pass
+
+
+class TestResourceEndpointsEnhanced:
+    """Enhanced test cases for resource endpoints with better coverage."""
+
+    def test_resource_endpoints_structure(self):
+        """Test that resource endpoints are properly configured."""
+        routes = [route.path for route in app.routes]
+        
+        assert "/api/v1/resources/" in routes
+        assert "/api/v1/resources/{id}" in routes
+        assert "/api/v1/resources/{id}/ogm" in routes
+        assert "/api/v1/resources/{id}/viewer" in routes
+        assert "/api/v1/resources/{id}/summaries" in routes
+        assert "/api/v1/resources/{id}/relationships" in routes
+        assert "/api/v1/resources/{id}/links" in routes
+        assert "/api/v1/resources/{id}/spatial_facets" in routes
+
+    @patch("app.api.v1.endpoint_modules.resources.async_session")
+    def test_list_resources_success(self, mock_session):
+        """Test successful listing of resources with mocked database."""
+        # Mock session and database response
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+        
+        # Mock resource data
+        mock_resource = MagicMock()
+        mock_resource._mapping = {
+            "id": "test-resource-id",
+            "dct_title_s": "Test Resource",
+            "dct_description_sm": "Test description"
+        }
+        
+        mock_result = MagicMock()
+        mock_result.fetchall.return_value = [mock_resource]
+        mock_session_instance.execute.return_value = mock_result
+        
+        response = client.get("/api/v1/resources/")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "data" in data
+        assert "jsonapi" in data
+
+    @patch("app.api.v1.endpoint_modules.resources.async_session")
+    def test_get_resource_success(self, mock_session):
+        """Test successful retrieval of a single resource."""
+        # Mock session and database response
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+        
+        # Mock resource data
+        mock_resource = MagicMock()
+        mock_resource._mapping = {
+            "id": "test-resource-id",
+            "dct_title_s": "Test Resource",
+            "dct_description_sm": "Test description"
+        }
+        
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_resource
+        mock_session_instance.execute.return_value = mock_result
+        
+        response = client.get("/api/v1/resources/test-resource-id")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "data" in data
+        assert "jsonapi" in data
+
+    @patch("app.api.v1.endpoint_modules.resources.async_session")
+    def test_get_resource_not_found(self, mock_session):
+        """Test get resource for non-existent resource."""
+        # Mock session and database response
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+        
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = None
+        mock_session_instance.execute.return_value = mock_result
+        
+        response = client.get("/api/v1/resources/nonexistent-id")
+        
+        assert response.status_code == 404
+        data = response.json()
+        assert "error" in data
+        assert data["error"] == "Resource not found"
+
+    @patch("app.services.link_service.LinkService.get_resource_links")
+    def test_get_resource_links_success(self, mock_get_links):
+        """Test successful retrieval of resource links."""
+        mock_get_links.return_value = {"data": [{"type": "link", "id": "1", "attributes": {"url": "http://example.com"}}]}
+        
+        response = client.get("/api/v1/resources/test-resource-id/links")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "data" in data
+        assert len(data["data"]) == 1
+        assert data["data"][0]["type"] == "link"
+
+    @patch("app.services.relationship_service.RelationshipService.get_resource_relationships")
+    def test_get_resource_relationships_success(self, mock_get_relationships):
+        """Test successful retrieval of resource relationships."""
+        mock_get_relationships.return_value = {"data": [{"type": "relationship", "id": "1", "attributes": {"type": "parent"}}]}
+        
+        response = client.get("/api/v1/resources/test-resource-id/relationships")
+        
+        assert response.status_code == 200
+        data = response.json()
+        
+        assert "data" in data
+        assert len(data["data"]) == 1
+        assert data["data"][0]["type"] == "relationship"
