@@ -8,13 +8,13 @@ from app.api.v1.auth import verify_credentials
 from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.admin_service import (
     AdminService,
-    CacheManagementService,
-    ReindexingService,
-    ResourceProcessingService,
     CacheManagementError,
+    CacheManagementService,
     ReindexingError,
+    ReindexingService,
+    ResourceNotFoundError,
     ResourceProcessingError,
-    ResourceNotFoundError
+    ResourceProcessingService,
 )
 
 logger = logging.getLogger(__name__)
@@ -31,12 +31,16 @@ def get_admin_service() -> AdminService:
     return AdminService(cache_management_service, reindexing_service, resource_processing_service)
 
 
+# Module-level singleton for dependency injection
+_admin_service_dependency = Depends(get_admin_service)
+
+
 @router.post("/cache/clear")
 async def clear_cache(
     cache_type: Optional[str] = Query(
         None, description="Type of cache to clear (search, item, suggest, all)"
     ),
-    service: AdminService = Depends(get_admin_service),
+    service: AdminService = _admin_service_dependency,
 ):
     """Clear specified cache or all cache if not specified."""
     try:
@@ -53,7 +57,7 @@ async def clear_cache(
 @router.post("/reindex")
 async def reindex(
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    service: AdminService = Depends(get_admin_service),
+    service: AdminService = _admin_service_dependency,
 ):
     """Trigger reindexing of all items in Elasticsearch."""
     try:
@@ -61,10 +65,14 @@ async def reindex(
         return create_response(result, callback)
     except ReindexingError as e:
         logger.error(f"Reindexing error: {str(e)}")
-        raise HTTPException(status_code=500, detail={"message": "Reindexing failed", "error": str(e)}) from e
+        raise HTTPException(
+            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
+        ) from e
     except Exception as e:
         logger.error(f"Unexpected error during reindexing: {str(e)}")
-        raise HTTPException(status_code=500, detail={"message": "Reindexing failed", "error": str(e)}) from e
+        raise HTTPException(
+            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
+        ) from e
 
 
 @router.post("/resources/{id}/summarize")
@@ -72,7 +80,7 @@ async def summarize_resource(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    service: AdminService = Depends(get_admin_service),
+    service: AdminService = _admin_service_dependency,
 ):
     """
     Trigger the generation of a summary for a resource.
@@ -84,7 +92,7 @@ async def summarize_resource(
     """
     try:
         result = await service.summarize_resource(id)
-        
+
         # Sanitize the response data before returning
         sanitized_response = sanitize_for_json(result)
         return create_response(sanitized_response, callback)
@@ -104,7 +112,7 @@ async def identify_geo_entities(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    service: AdminService = Depends(get_admin_service),
+    service: AdminService = _admin_service_dependency,
 ):
     """
     Trigger the identification of geographic entities in a resource.
@@ -123,5 +131,8 @@ async def identify_geo_entities(
         logger.error(f"Resource processing error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"Unexpected error triggering geographic entity identification for resource {id}: {str(e)}")
+        logger.error(
+            f"Unexpected error triggering geographic entity identification "
+            f"for resource {id}: {str(e)}"
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e

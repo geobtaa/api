@@ -2,10 +2,8 @@
 Tests for the LLMService.
 """
 
-import base64
-import json
 import os
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -19,7 +17,7 @@ class TestLLMService:
         """Test LLMService initialization with provided API key."""
         with patch.dict(os.environ, {"OPENAI_MODEL": "gpt-3.5-turbo"}):
             service = LLMService(api_key="test-api-key")
-            
+
             assert service.api_key == "test-api-key"
             assert service.model == "gpt-3.5-turbo"
             assert service.api_url == "https://api.openai.com/v1/chat/completions"
@@ -30,7 +28,7 @@ class TestLLMService:
         """Test LLMService initialization from environment variables."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "env-api-key", "OPENAI_MODEL": "gpt-4"}):
             service = LLMService()
-            
+
             assert service.api_key == "env-api-key"
             assert service.model == "gpt-4"
             assert service.api_url == "https://api.openai.com/v1/chat/completions"
@@ -39,7 +37,7 @@ class TestLLMService:
         """Test LLMService initialization with default model."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}, clear=True):
             service = LLMService()
-            
+
             assert service.api_key == "test-key"
             assert service.model == "gpt-4-vision-preview"  # Default model
             assert service.api_url == "https://api.openai.com/v1/chat/completions"
@@ -55,32 +53,38 @@ class TestLLMService:
         """Test successful geo entity identification."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             # Mock the geo entity identifier
             mock_entities = [
                 {"name": "Minnesota", "type": "state", "confidence": 0.95},
-                {"name": "Mississippi River", "type": "river", "confidence": 0.87}
+                {"name": "Mississippi River", "type": "river", "confidence": 0.87},
             ]
-            
-            with patch.object(service.geo_entity_identifier, 'identify_geo_entities', 
-                            new_callable=AsyncMock) as mock_identify:
+
+            with patch.object(
+                service.geo_entity_identifier, "identify_geo_entities", new_callable=AsyncMock
+            ) as mock_identify:
                 mock_identify.return_value = mock_entities
-                
-                result = await service.identify_geo_entities("Minnesota is a state near the Mississippi River")
-                
+
+                result = await service.identify_geo_entities(
+                    "Minnesota is a state near the Mississippi River"
+                )
+
                 assert result == mock_entities
-                mock_identify.assert_called_once_with("Minnesota is a state near the Mississippi River")
+                mock_identify.assert_called_once_with(
+                    "Minnesota is a state near the Mississippi River"
+                )
 
     @pytest.mark.asyncio
     async def test_identify_geo_entities_error(self):
         """Test geo entity identification error handling."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service.geo_entity_identifier, 'identify_geo_entities', 
-                            new_callable=AsyncMock) as mock_identify:
+
+            with patch.object(
+                service.geo_entity_identifier, "identify_geo_entities", new_callable=AsyncMock
+            ) as mock_identify:
                 mock_identify.side_effect = Exception("API Error")
-                
+
                 with pytest.raises(Exception, match="API Error"):
                     await service.identify_geo_entities("test text")
 
@@ -89,13 +93,15 @@ class TestLLMService:
         """Test successful OCR processing."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             # Mock image data
             image_data = b"fake_image_data"
-            
+
             # Mock OpenAI client - the service uses self.client which doesn't exist
             # So we expect this to fail with AttributeError
-            with pytest.raises(AttributeError, match="'LLMService' object has no attribute 'client'"):
+            with pytest.raises(
+                AttributeError, match="'LLMService' object has no attribute 'client'"
+            ):
                 await service.perform_ocr(image_data)
 
     @pytest.mark.asyncio
@@ -103,11 +109,13 @@ class TestLLMService:
         """Test OCR error handling."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             image_data = b"fake_image_data"
-            
+
             # The service has a bug - it uses self.client which doesn't exist
-            with pytest.raises(AttributeError, match="'LLMService' object has no attribute 'client'"):
+            with pytest.raises(
+                AttributeError, match="'LLMService' object has no attribute 'client'"
+            ):
                 await service.perform_ocr(image_data)
 
     @pytest.mark.asyncio
@@ -115,18 +123,19 @@ class TestLLMService:
         """Test successful summary generation."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {"title": "Test Map", "creator": "Test Creator"}
             asset_content = "Test content"
-            
+
             expected_result = ("Generated summary", {"prompt": "test"}, {"parser": "config"})
-            
-            with patch.object(service.summary_generator, 'generate_summary', 
-                            new_callable=AsyncMock) as mock_generate:
+
+            with patch.object(
+                service.summary_generator, "generate_summary", new_callable=AsyncMock
+            ) as mock_generate:
                 mock_generate.return_value = expected_result
-                
+
                 result = await service.generate_summary(metadata, asset_content)
-                
+
                 assert result == expected_result
                 mock_generate.assert_called_once_with(metadata, asset_content)
 
@@ -135,16 +144,17 @@ class TestLLMService:
         """Test summary generation without asset content."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {"title": "Test Map", "creator": "Test Creator"}
             expected_result = ("Generated summary", {"prompt": "test"}, {"parser": "config"})
-            
-            with patch.object(service.summary_generator, 'generate_summary', 
-                            new_callable=AsyncMock) as mock_generate:
+
+            with patch.object(
+                service.summary_generator, "generate_summary", new_callable=AsyncMock
+            ) as mock_generate:
                 mock_generate.return_value = expected_result
-                
+
                 result = await service.generate_summary(metadata, None)
-                
+
                 assert result == expected_result
                 mock_generate.assert_called_once_with(metadata, None)
 
@@ -153,13 +163,14 @@ class TestLLMService:
         """Test processing IIIF image assets."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_iiif_image', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(
+                service, "_process_iiif_image", new_callable=AsyncMock
+            ) as mock_process:
                 mock_process.return_value = "IIIF Image: http://example.com/image"
-                
+
                 result = await service.process_asset("http://example.com/image", "iiif_image")
-                
+
                 assert result == "IIIF Image: http://example.com/image"
                 mock_process.assert_called_once_with("http://example.com/image")
 
@@ -168,13 +179,14 @@ class TestLLMService:
         """Test processing IIIF manifest assets."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_iiif_manifest', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(
+                service, "_process_iiif_manifest", new_callable=AsyncMock
+            ) as mock_process:
                 mock_process.return_value = "IIIF Manifest: http://example.com/manifest"
-                
+
                 result = await service.process_asset("http://example.com/manifest", "iiif_manifest")
-                
+
                 assert result == "IIIF Manifest: http://example.com/manifest"
                 mock_process.assert_called_once_with("http://example.com/manifest")
 
@@ -183,13 +195,12 @@ class TestLLMService:
         """Test processing COG assets."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_cog', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(service, "_process_cog", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = "Cloud Optimized GeoTIFF: http://example.com/cog"
-                
+
                 result = await service.process_asset("http://example.com/cog", "cog")
-                
+
                 assert result == "Cloud Optimized GeoTIFF: http://example.com/cog"
                 mock_process.assert_called_once_with("http://example.com/cog")
 
@@ -198,13 +209,12 @@ class TestLLMService:
         """Test processing PMTiles assets."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_pmtiles', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(service, "_process_pmtiles", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = "PMTiles: http://example.com/tiles"
-                
+
                 result = await service.process_asset("http://example.com/tiles", "pmtiles")
-                
+
                 assert result == "PMTiles: http://example.com/tiles"
                 mock_process.assert_called_once_with("http://example.com/tiles")
 
@@ -213,13 +223,12 @@ class TestLLMService:
         """Test processing download assets."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_download', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(service, "_process_download", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = "Download URL: http://example.com/download"
-                
+
                 result = await service.process_asset("http://example.com/download", "download")
-                
+
                 assert result == "Download URL: http://example.com/download"
                 mock_process.assert_called_once_with("http://example.com/download")
 
@@ -228,13 +237,12 @@ class TestLLMService:
         """Test processing assets with unknown types."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_download', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(service, "_process_download", new_callable=AsyncMock) as mock_process:
                 mock_process.return_value = "Download URL: http://example.com/unknown"
-                
+
                 result = await service.process_asset("http://example.com/unknown", "unknown_type")
-                
+
                 assert result == "Download URL: http://example.com/unknown"
                 mock_process.assert_called_once_with("http://example.com/unknown")
 
@@ -243,9 +251,9 @@ class TestLLMService:
         """Test processing asset with empty path."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             result = await service.process_asset("", "iiif_image")
-            
+
             assert result is None
 
     @pytest.mark.asyncio
@@ -253,13 +261,14 @@ class TestLLMService:
         """Test asset processing error handling."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
-            with patch.object(service, '_process_iiif_image', 
-                            new_callable=AsyncMock) as mock_process:
+
+            with patch.object(
+                service, "_process_iiif_image", new_callable=AsyncMock
+            ) as mock_process:
                 mock_process.side_effect = Exception("Processing error")
-                
+
                 result = await service.process_asset("http://example.com/image", "iiif_image")
-                
+
                 assert result is None
 
     @pytest.mark.asyncio
@@ -267,9 +276,9 @@ class TestLLMService:
         """Test IIIF image processing."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             result = await service._process_iiif_image("http://example.com/image")
-            
+
             assert result == "IIIF Image: http://example.com/image"
 
     @pytest.mark.asyncio
@@ -277,9 +286,9 @@ class TestLLMService:
         """Test IIIF manifest processing."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             result = await service._process_iiif_manifest("http://example.com/manifest")
-            
+
             assert result == "IIIF Manifest: http://example.com/manifest"
 
     @pytest.mark.asyncio
@@ -287,9 +296,9 @@ class TestLLMService:
         """Test COG processing."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             result = await service._process_cog("http://example.com/cog")
-            
+
             assert result == "Cloud Optimized GeoTIFF: http://example.com/cog"
 
     @pytest.mark.asyncio
@@ -297,9 +306,9 @@ class TestLLMService:
         """Test PMTiles processing."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             result = await service._process_pmtiles("http://example.com/tiles")
-            
+
             assert result == "PMTiles: http://example.com/tiles"
 
     @pytest.mark.asyncio
@@ -307,9 +316,9 @@ class TestLLMService:
         """Test download processing."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             result = await service._process_download("http://example.com/download")
-            
+
             assert result == "Download URL: http://example.com/download"
 
     @pytest.mark.asyncio
@@ -317,10 +326,10 @@ class TestLLMService:
         """Test successful OCR generation."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {"title": "Test Map"}
             asset_content = "Image data"
-            
+
             # The service has a bug - it uses self.client which doesn't exist
             with pytest.raises(Exception, match="Error generating OCR text with OpenAI API"):
                 await service.generate_ocr(metadata, asset_content)
@@ -330,13 +339,13 @@ class TestLLMService:
         """Test OCR generation error handling."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {"title": "Test Map"}
             asset_content = "Image data"
-            
-            with patch('app.services.llm_service.openai') as mock_openai:
+
+            with patch("app.services.llm_service.openai") as mock_openai:
                 mock_openai.chat.completions.create = AsyncMock(side_effect=Exception("API Error"))
-                
+
                 with pytest.raises(Exception, match="Error generating OCR text with OpenAI API"):
                     await service.generate_ocr(metadata, asset_content)
 
@@ -344,12 +353,12 @@ class TestLLMService:
         """Test OCR prompt construction with asset content."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {"title": "Test Map", "creator": "Test Creator"}
             asset_content = "Image content data"
-            
+
             prompt, output_parser = service._construct_ocr_prompt(metadata, asset_content)
-            
+
             assert isinstance(prompt, str)
             assert isinstance(output_parser, dict)
             assert "Extract all text from this historical map" in prompt
@@ -363,11 +372,11 @@ class TestLLMService:
         """Test OCR prompt construction without asset content."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {"title": "Test Map", "creator": "Test Creator"}
-            
+
             prompt, output_parser = service._construct_ocr_prompt(metadata, None)
-            
+
             assert isinstance(prompt, str)
             assert isinstance(output_parser, dict)
             assert "Test Map" in prompt
@@ -379,12 +388,12 @@ class TestLLMService:
         """Test OCR prompt construction with empty metadata."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {}
             asset_content = "Test content"
-            
+
             prompt, output_parser = service._construct_ocr_prompt(metadata, asset_content)
-            
+
             assert isinstance(prompt, str)
             assert isinstance(output_parser, dict)
             assert "{}" in prompt  # Empty metadata as JSON
@@ -395,16 +404,16 @@ class TestLLMService:
         """Test OCR prompt construction with complex metadata."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             metadata = {
                 "title": "Complex Map",
                 "creator": ["Creator 1", "Creator 2"],
                 "spatial": {"coordinates": [1, 2, 3, 4]},
-                "description": "A detailed map with multiple creators"
+                "description": "A detailed map with multiple creators",
             }
-            
+
             prompt, output_parser = service._construct_ocr_prompt(metadata, None)
-            
+
             assert isinstance(prompt, str)
             assert "Complex Map" in prompt
             assert "Creator 1" in prompt
@@ -416,13 +425,14 @@ class TestLLMService:
         """Test that logging is properly set up."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             # Verify logger exists and has handlers
-            assert hasattr(service, '__class__')
-            
+            assert hasattr(service, "__class__")
+
             # Check that the logger module is properly configured
             import logging
-            logger = logging.getLogger('app.services.llm_service')
+
+            logger = logging.getLogger("app.services.llm_service")
             assert logger is not None
 
     @pytest.mark.asyncio
@@ -430,19 +440,21 @@ class TestLLMService:
         """Test that OCR properly encodes image data as base64."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             service = LLMService()
-            
+
             # Test with actual base64 encoding
             test_image_data = b"test_image_binary_data"
-            
+
             # The service has a bug - it uses self.client which doesn't exist
-            with pytest.raises(AttributeError, match="'LLMService' object has no attribute 'client'"):
+            with pytest.raises(
+                AttributeError, match="'LLMService' object has no attribute 'client'"
+            ):
                 await service.perform_ocr(test_image_data)
 
     def test_model_configuration(self):
         """Test that the model configuration is properly set."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key", "OPENAI_MODEL": "gpt-4-turbo"}):
             service = LLMService()
-            
+
             assert service.model == "gpt-4-turbo"
             assert service.api_url == "https://api.openai.com/v1/chat/completions"
             assert service.api_key == "test-key"
@@ -450,9 +462,9 @@ class TestLLMService:
     def test_openai_configuration(self):
         """Test that OpenAI is properly configured."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
-            with patch('app.services.llm_service.openai') as mock_openai:
-                service = LLMService()
-                
+            with patch("app.services.llm_service.openai") as mock_openai:
+                LLMService()
+
                 # Verify OpenAI was configured
                 assert mock_openai.api_key == "test-key"
                 assert mock_openai.api_base == "https://api.openai.com/v1/chat/completions"

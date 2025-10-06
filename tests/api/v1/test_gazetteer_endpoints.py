@@ -1,6 +1,6 @@
+from unittest.mock import AsyncMock, patch
+
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-import pytest
 
 from app.main import app
 
@@ -165,7 +165,7 @@ class TestGazetteerEndpointsEnhanced:
     def test_gazetteer_endpoints_structure(self):
         """Test that gazetteer endpoints are properly configured."""
         routes = [route.path for route in app.routes]
-        
+
         assert "/api/v1/gazetteers" in routes
         assert "/api/v1/gazetteers/search" in routes
         assert "/api/v1/gazetteers/geonames/search" in routes
@@ -176,28 +176,30 @@ class TestGazetteerEndpointsEnhanced:
     def test_list_gazetteers_success(self, mock_database):
         """Test successful listing of gazetteers with mocked database."""
         # Mock database responses - these need to be async mocks
-        mock_database.fetch_val = AsyncMock(side_effect=[100, 200, 50, 75, 25, 30, 40])  # Various counts
-        
+        mock_database.fetch_val = AsyncMock(
+            side_effect=[100, 200, 50, 75, 25, 30, 40]
+        )  # Various counts
+
         response = client.get("/api/v1/gazetteers")
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         assert "data" in data
         assert len(data["data"]) == 3
-        
+
         # Verify gazetteer structure
         gazetteers = {g["id"]: g for g in data["data"]}
-        
+
         assert "geonames" in gazetteers
         assert gazetteers["geonames"]["attributes"]["name"] == "GeoNames"
         assert gazetteers["geonames"]["attributes"]["record_count"] == 100
-        
+
         assert "wof" in gazetteers
         assert gazetteers["wof"]["attributes"]["name"] == "Who's on First"
         assert gazetteers["wof"]["attributes"]["record_count"] == 200
         assert "additional_tables" in gazetteers["wof"]["attributes"]
-        
+
         assert "btaa" in gazetteers
         assert gazetteers["btaa"]["attributes"]["name"] == "BTAA"
         assert gazetteers["btaa"]["attributes"]["record_count"] == 50
@@ -206,9 +208,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_list_gazetteers_database_error(self, mock_database):
         """Test list gazetteers with database error."""
         mock_database.fetch_val.side_effect = Exception("Database connection failed")
-        
+
         response = client.get("/api/v1/gazetteers")
-        
+
         assert response.status_code == 500
         data = response.json()
         assert "detail" in data
@@ -217,13 +219,13 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_all_gazetteers_missing_query(self):
         """Test search all gazetteers without required query parameter."""
         response = client.get("/api/v1/gazetteers/search")
-        
+
         assert response.status_code == 422  # Validation error
 
     def test_search_all_gazetteers_invalid_gazetteer(self):
         """Test search with invalid gazetteer parameter."""
         response = client.get("/api/v1/gazetteers/search?q=test&gazetteer=invalid")
-        
+
         assert response.status_code == 400
         data = response.json()
         assert "detail" in data
@@ -232,34 +234,34 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_all_gazetteers_invalid_limit(self):
         """Test search with invalid limit parameter."""
         response = client.get("/api/v1/gazetteers/search?q=test&limit=0")
-        
+
         assert response.status_code == 422  # Validation error
-        
+
         response = client.get("/api/v1/gazetteers/search?q=test&limit=101")
-        
+
         assert response.status_code == 422  # Validation error
 
     def test_search_all_gazetteers_invalid_offset(self):
         """Test search with invalid offset parameter."""
         response = client.get("/api/v1/gazetteers/search?q=test&offset=-1")
-        
+
         assert response.status_code == 422  # Validation error
 
     def test_search_all_gazetteers_success(self):
         """Test successful search across all gazetteers."""
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/search?q=test")
-        
+
         # Handle potential database connection issues gracefully
         assert response.status_code in [200, 500]
         data = response.json()
-        
+
         # Verify the response structure based on status code
         if response.status_code == 200:
             assert "geonames" in data
             assert "wof" in data
             assert "btaa" in data
-            
+
             # Verify each section has the expected structure
             for gazetteer_name in ["geonames", "wof", "btaa"]:
                 gazetteer_data = data[gazetteer_name]
@@ -273,10 +275,10 @@ class TestGazetteerEndpointsEnhanced:
         """Test search with specific gazetteer (geonames)."""
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/search?q=test&gazetteer=geonames")
-        
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             # Should return just the geonames data, not wrapped in a gazetteer key
@@ -289,10 +291,10 @@ class TestGazetteerEndpointsEnhanced:
         """Test successful GeoNames search."""
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/geonames/search?q=test")
-        
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "data" in data
@@ -308,9 +310,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_geonames_database_error(self, mock_database):
         """Test GeoNames search with database error."""
         mock_database.fetch_all.side_effect = Exception("Database error")
-        
+
         response = client.get("/api/v1/gazetteers/geonames/search?q=test")
-        
+
         assert response.status_code == 500
         data = response.json()
         assert "detail" in data
@@ -320,10 +322,10 @@ class TestGazetteerEndpointsEnhanced:
         """Test successful WOF search."""
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/wof/search?q=test")
-        
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "data" in data
@@ -339,9 +341,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_wof_database_error(self, mock_database):
         """Test WOF search with database error."""
         mock_database.fetch_all.side_effect = Exception("Database error")
-        
+
         response = client.get("/api/v1/gazetteers/wof/search?q=test")
-        
+
         assert response.status_code == 500
         data = response.json()
         assert "detail" in data
@@ -351,10 +353,10 @@ class TestGazetteerEndpointsEnhanced:
         """Test successful BTAA search."""
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/btaa/search?q=test")
-        
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "data" in data
@@ -370,9 +372,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_btaa_database_error(self, mock_database):
         """Test BTAA search with database error."""
         mock_database.fetch_all.side_effect = Exception("Database error")
-        
+
         response = client.get("/api/v1/gazetteers/btaa/search?q=test")
-        
+
         assert response.status_code == 500
         data = response.json()
         assert "detail" in data
@@ -382,14 +384,14 @@ class TestGazetteerEndpointsEnhanced:
         """Test search with pagination parameters."""
         # Test with limit and offset
         response = client.get("/api/v1/gazetteers/search?q=test&limit=5&offset=10")
-        
+
         # Should not return validation error for valid pagination
         assert response.status_code in [200, 500]  # Allow database errors in test env
 
     def test_search_with_jsonp_callback(self):
         """Test search with JSONP callback parameter."""
         response = client.get("/api/v1/gazetteers/search?q=test&callback=testCallback")
-        
+
         # Should not return validation error for JSONP callback
         assert response.status_code in [200, 500]  # Allow database errors in test env
 
@@ -397,9 +399,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_geonames_empty_results(self, mock_database):
         """Test GeoNames search with empty results."""
         mock_database.fetch_all = AsyncMock(return_value=[])
-        
+
         response = client.get("/api/v1/gazetteers/geonames/search?q=nonexistent")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
@@ -409,9 +411,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_wof_empty_results(self, mock_database):
         """Test WOF search with empty results."""
         mock_database.fetch_all = AsyncMock(return_value=[])
-        
+
         response = client.get("/api/v1/gazetteers/wof/search?q=nonexistent")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
@@ -421,9 +423,9 @@ class TestGazetteerEndpointsEnhanced:
     def test_search_btaa_empty_results(self, mock_database):
         """Test BTAA search with empty results."""
         mock_database.fetch_all = AsyncMock(return_value=[])
-        
+
         response = client.get("/api/v1/gazetteers/btaa/search?q=nonexistent")
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "data" in data
@@ -433,7 +435,7 @@ class TestGazetteerEndpointsEnhanced:
         """Test error handling in search all gazetteers."""
         # Test with invalid parameters that should cause validation errors
         response = client.get("/api/v1/gazetteers/search?q=test&limit=-1")
-        
+
         # Should return validation error for negative limit
         assert response.status_code == 422
 
@@ -442,10 +444,10 @@ class TestGazetteerEndpointsEnhanced:
         # Test missing required query parameter
         response = client.get("/api/v1/gazetteers/geonames/search")
         assert response.status_code == 422
-        
+
         response = client.get("/api/v1/gazetteers/wof/search")
         assert response.status_code == 422
-        
+
         response = client.get("/api/v1/gazetteers/btaa/search")
         assert response.status_code == 422
 
@@ -454,7 +456,7 @@ class TestGazetteerEndpointsEnhanced:
         # Test limit too low
         response = client.get("/api/v1/gazetteers/geonames/search?q=test&limit=0")
         assert response.status_code == 422
-        
+
         # Test limit too high
         response = client.get("/api/v1/gazetteers/geonames/search?q=test&limit=101")
         assert response.status_code == 422
@@ -468,14 +470,14 @@ class TestGazetteerEndpointsEnhanced:
     def test_list_gazetteers_jsonapi_structure(self):
         """Test that list gazetteers returns proper JSON:API structure."""
         response = client.get("/api/v1/gazetteers")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Should have JSON:API structure
             assert "jsonapi" in data
             assert "data" in data
-            
+
             # Each gazetteer should have proper structure
             for gazetteer in data["data"]:
                 assert "id" in gazetteer
@@ -488,14 +490,14 @@ class TestGazetteerEndpointsEnhanced:
     def test_gazetteer_search_jsonapi_structure(self):
         """Test that gazetteer search returns proper JSON:API structure."""
         response = client.get("/api/v1/gazetteers/geonames/search?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Should have JSON:API structure
             assert "jsonapi" in data
             assert "data" in data
-            
+
             # If there are results, they should have proper structure
             if data["data"]:
                 for result in data["data"]:

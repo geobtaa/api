@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.utils import create_response
 from app.services.shapefile_service import (
-    ShapefileService, 
-    DefaultDownloadService, 
+    DefaultDownloadService,
     DefaultDuckDBService,
     DuckDBConnectionError,
+    ShapefileDownloadError,
     ShapefileProcessingError,
-    ShapefileDownloadError
+    ShapefileService,
 )
 
 # Load environment variables
@@ -35,12 +35,16 @@ def get_shapefile_service() -> ShapefileService:
     return ShapefileService(download_service, duckdb_service)
 
 
+# Module-level singleton for dependency injection
+_shapefile_service_dependency = Depends(get_shapefile_service)
+
+
 @router.get("/shapefiles/query")
 async def query_endpoint(
     s3_uri: str = Query(..., description="S3 URI or URL of the shapefile"),
     sql: str = Query(..., description="SQL WHERE clause to filter the data"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    service: ShapefileService = Depends(get_shapefile_service),
+    service: ShapefileService = _shapefile_service_dependency,
 ):
     """Query a shapefile using SQL WHERE clauses."""
     try:
@@ -50,23 +54,23 @@ async def query_endpoint(
 
     except DuckDBConnectionError as e:
         logger.error(f"DuckDB connection error: {str(e)}")
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except ShapefileDownloadError as e:
         logger.error(f"Shapefile download error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ShapefileProcessingError as e:
         logger.error(f"Shapefile processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Unexpected error querying shapefile: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error querying shapefile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error querying shapefile: {str(e)}") from e
 
 
 @router.get("/shapefiles/schema")
 async def schema_endpoint(
     s3_uri: str = Query(..., description="S3 URI or URL of the shapefile"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    service: ShapefileService = Depends(get_shapefile_service),
+    service: ShapefileService = _shapefile_service_dependency,
 ):
     """Get the schema of a shapefile."""
     try:
@@ -76,16 +80,18 @@ async def schema_endpoint(
 
     except DuckDBConnectionError as e:
         logger.error(f"DuckDB connection error: {str(e)}")
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except ShapefileDownloadError as e:
         logger.error(f"Shapefile download error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ShapefileProcessingError as e:
         logger.error(f"Shapefile processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Unexpected error getting shapefile schema: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error getting shapefile schema: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error getting shapefile schema: {str(e)}"
+        ) from e
 
 
 @router.get("/shapefiles/preview")
@@ -93,7 +99,7 @@ async def preview_endpoint(
     s3_uri: str = Query(..., description="S3 URI or URL of the shapefile"),
     limit: int = Query(10, description="Maximum number of rows to return", ge=1, le=1000),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    service: ShapefileService = Depends(get_shapefile_service),
+    service: ShapefileService = _shapefile_service_dependency,
 ):
     """Preview a shapefile with a limited number of rows."""
     try:
@@ -103,13 +109,13 @@ async def preview_endpoint(
 
     except DuckDBConnectionError as e:
         logger.error(f"DuckDB connection error: {str(e)}")
-        raise HTTPException(status_code=503, detail=str(e))
+        raise HTTPException(status_code=503, detail=str(e)) from e
     except ShapefileDownloadError as e:
         logger.error(f"Shapefile download error: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except ShapefileProcessingError as e:
         logger.error(f"Shapefile processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
         logger.error(f"Unexpected error previewing shapefile: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error previewing shapefile: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error previewing shapefile: {str(e)}") from e

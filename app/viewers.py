@@ -1,6 +1,9 @@
 import json
+import logging
 import re
 from typing import Dict, List, Optional, TypedDict, Union
+
+logger = logging.getLogger(__name__)
 
 
 class Reference(TypedDict):
@@ -127,15 +130,15 @@ class ItemViewer:
         if envelope_match:
             # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
             minx, maxx, maxy, miny = map(float, envelope_match.groups())
-            
+
             # Import validation function from elasticsearch module
             from app.elasticsearch.index import _is_valid_envelope
-            
+
             # Validate the envelope coordinates
             if not _is_valid_envelope(minx, maxx, maxy, miny):
                 logger.warning(f"Invalid envelope coordinates in viewer: {geometry} - skipping")
                 return None
-            
+
             # Create a polygon from the envelope coordinates
             result = {
                 "type": "Polygon",  # Ensure proper capitalization
@@ -163,15 +166,15 @@ class ItemViewer:
             # Ensure the polygon is closed by repeating the first point at the end
             if coordinates[0] != coordinates[-1]:
                 coordinates.append(coordinates[0])
-            
+
             # Import validation function from elasticsearch module
             from app.elasticsearch.index import _is_valid_single_polygon
-            
+
             # Validate the polygon coordinates
             if not _is_valid_single_polygon([coordinates]):
                 logger.warning(f"Invalid polygon coordinates in viewer: {geometry} - skipping")
                 return None
-            
+
             result = {
                 "type": "Polygon",
                 "coordinates": [coordinates],

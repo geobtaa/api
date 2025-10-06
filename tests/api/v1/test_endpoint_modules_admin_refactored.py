@@ -2,19 +2,10 @@
 Tests for the refactored admin endpoint module.
 """
 
-import pytest
-from unittest.mock import Mock, patch, AsyncMock
-from fastapi.testclient import TestClient
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 
 from app.api.v1.endpoint_modules.admin import router
-from app.services.admin_service import (
-    CacheManagementError,
-    ReindexingError,
-    ResourceProcessingError,
-    ResourceNotFoundError
-)
-
 
 # Create test app
 app = FastAPI()
@@ -35,11 +26,12 @@ class TestAdminEndpointsRefactored:
     def test_dependency_injection(self):
         """Test that dependency injection is properly configured."""
         from app.api.v1.endpoint_modules.admin import get_admin_service
+
         assert get_admin_service is not None
 
     def test_endpoint_paths(self):
         """Test that endpoints have correct paths."""
-        paths = [route.path for route in router.routes if hasattr(route, 'path')]
+        paths = [route.path for route in router.routes if hasattr(route, "path")]
         assert "/cache/clear" in paths
         assert "/reindex" in paths
         assert "/resources/{id}/summarize" in paths

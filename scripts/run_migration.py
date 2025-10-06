@@ -8,7 +8,7 @@ It supports multiple migration types and provides logging of the migration proce
 Available Migrations:
     add_fast_gazetteer: Adds FAST gazetteer data to the database
     optimize_spatial_queries: Optimizes spatial queries with indexes and materialized views
-    rollback_spatial_optimizations: Rolls back spatial query optimizations (WARNING: makes queries slower)
+    rollback_spatial_optimizations: Rolls back spatial query optimizations (WARNING: slower)
     create_resource_spatial_facets_table: Creates table for storing pre-computed spatial facets
 
 Usage:
@@ -25,9 +25,9 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 # Import migration modules
 from db.migrations.add_fast_gazetteer import add_fast_gazetteer
+from db.migrations.create_resource_spatial_facets_table import create_resource_spatial_facets_table
 from db.migrations.optimize_spatial_queries import optimize_spatial_queries
 from db.migrations.rollback_spatial_optimizations import rollback_spatial_optimizations
-from db.migrations.create_resource_spatial_facets_table import create_resource_spatial_facets_table
 from db.migrations.update_spatial_facets_for_wof_ids import update_spatial_facets_for_wof_ids
 
 # Configure logging with standard format
@@ -56,7 +56,13 @@ def main():
     parser = argparse.ArgumentParser(description="Run database migrations")
     parser.add_argument(
         "migration",
-        choices=["add_fast_gazetteer", "optimize_spatial_queries", "rollback_spatial_optimizations", "create_resource_spatial_facets_table", "update_spatial_facets_for_wof_ids"],
+        choices=[
+            "add_fast_gazetteer",
+            "optimize_spatial_queries",
+            "rollback_spatial_optimizations",
+            "create_resource_spatial_facets_table",
+            "update_spatial_facets_for_wof_ids",
+        ],
         help="The migration to run",
     )
 

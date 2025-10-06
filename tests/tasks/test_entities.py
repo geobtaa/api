@@ -2,11 +2,11 @@
 Tests for the entities task module.
 """
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
-from datetime import datetime
+from unittest.mock import AsyncMock, patch
 
-from app.tasks.entities import store_geo_entities_in_db, _identify_geo_entities
+import pytest
+
+from app.tasks.entities import _identify_geo_entities, store_geo_entities_in_db
 
 
 class TestStoreGeoEntitiesInDB:
@@ -22,12 +22,16 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
-            assert "database" in str(e).lower() or "connection" in str(e).lower() or "transaction" in str(e).lower()
+            assert (
+                "database" in str(e).lower()
+                or "connection" in str(e).lower()
+                or "transaction" in str(e).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_store_geo_entities_database_not_connected(self):
@@ -39,12 +43,16 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
-            assert "database" in str(e).lower() or "connection" in str(e).lower() or "transaction" in str(e).lower()
+            assert (
+                "database" in str(e).lower()
+                or "connection" in str(e).lower()
+                or "transaction" in str(e).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_store_geo_entities_error_handling(self):
@@ -61,7 +69,11 @@ class TestStoreGeoEntitiesInDB:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
-            assert "database" in str(e).lower() or "connection" in str(e).lower() or "transaction" in str(e).lower()
+            assert (
+                "database" in str(e).lower()
+                or "connection" in str(e).lower()
+                or "transaction" in str(e).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_store_geo_entities_data_structure(self):
@@ -73,12 +85,16 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
-            assert "database" in str(e).lower() or "connection" in str(e).lower() or "transaction" in str(e).lower()
+            assert (
+                "database" in str(e).lower()
+                or "connection" in str(e).lower()
+                or "transaction" in str(e).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_store_geo_entities_timestamp_handling(self):
@@ -90,12 +106,16 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
-            assert "database" in str(e).lower() or "connection" in str(e).lower() or "transaction" in str(e).lower()
+            assert (
+                "database" in str(e).lower()
+                or "connection" in str(e).lower()
+                or "transaction" in str(e).lower()
+            )
 
 
 class TestIdentifyGeoEntities:
@@ -111,22 +131,23 @@ class TestIdentifyGeoEntities:
             return_value=(
                 {"locations": ["Minnesota", "United States"]},
                 {"template": "Identify geographic entities"},
-                {"format": "json"}
+                {"format": "json"},
             )
         )
 
         # Mock database storage function
         mock_store_function = AsyncMock()
 
-        with patch('app.tasks.entities.LLMService', return_value=mock_llm_service), \
-             patch('app.tasks.entities.store_geo_entities_in_db', mock_store_function):
-
+        with (
+            patch("app.tasks.entities.LLMService", return_value=mock_llm_service),
+            patch("app.tasks.entities.store_geo_entities_in_db", mock_store_function),
+        ):
             # Test data
             resource_id = "test-resource-123"
             metadata = {
                 "title": "Map of Minnesota",
                 "description": "A detailed map of Minnesota state",
-                "subject": "Geography"
+                "subject": "Geography",
             }
 
             # Call the function
@@ -143,7 +164,7 @@ class TestIdentifyGeoEntities:
         # Mock LLM service
         mock_llm_service = AsyncMock()
 
-        with patch('app.tasks.entities.LLMService', return_value=mock_llm_service):
+        with patch("app.tasks.entities.LLMService", return_value=mock_llm_service):
             # Test data with empty metadata
             resource_id = "test-resource-123"
             metadata = {}
@@ -165,31 +186,32 @@ class TestIdentifyGeoEntities:
             return_value=(
                 {"locations": ["Minnesota"]},
                 {"template": "Identify geographic entities"},
-                {"format": "json"}
+                {"format": "json"},
             )
         )
 
         # Mock database storage function
         mock_store_function = AsyncMock()
 
-        with patch('app.tasks.entities.LLMService', return_value=mock_llm_service), \
-             patch('app.tasks.entities.store_geo_entities_in_db', mock_store_function):
-
+        with (
+            patch("app.tasks.entities.LLMService", return_value=mock_llm_service),
+            patch("app.tasks.entities.store_geo_entities_in_db", mock_store_function),
+        ):
             # Test data with None values
             resource_id = "test-resource-123"
             metadata = {
                 "title": "Map of Minnesota",
                 "description": None,
                 "subject": "",
-                "creator": "Test Creator"
+                "creator": "Test Creator",
             }
 
             # Call the function
-            result = await _identify_geo_entities(resource_id, metadata)
+            await _identify_geo_entities(resource_id, metadata)
 
             # Verify that only non-None, non-empty values are processed
             mock_llm_service.identify_geo_entities.assert_called_once()
-            
+
             # Check that the call included only valid fields
             call_args = mock_llm_service.identify_geo_entities.call_args[0][0]
             assert "title: Map of Minnesota" in call_args
@@ -206,7 +228,7 @@ class TestIdentifyGeoEntities:
             side_effect=Exception("LLM service error")
         )
 
-        with patch('app.tasks.entities.LLMService', return_value=mock_llm_service):
+        with patch("app.tasks.entities.LLMService", return_value=mock_llm_service):
             # Test data
             resource_id = "test-resource-123"
             metadata = {"title": "Map of Minnesota"}
@@ -225,22 +247,23 @@ class TestIdentifyGeoEntities:
             return_value=(
                 {"locations": ["Minnesota"]},
                 {"template": "Identify geographic entities"},
-                {"format": "json"}
+                {"format": "json"},
             )
         )
 
         # Mock database storage function
         mock_store_function = AsyncMock()
 
-        with patch('app.tasks.entities.LLMService', return_value=mock_llm_service), \
-             patch('app.tasks.entities.store_geo_entities_in_db', mock_store_function):
-
+        with (
+            patch("app.tasks.entities.LLMService", return_value=mock_llm_service),
+            patch("app.tasks.entities.store_geo_entities_in_db", mock_store_function),
+        ):
             # Test data
             resource_id = "test-resource-123"
             metadata = {
                 "title": "Map of Minnesota",
                 "description": "A detailed map",
-                "subject": "Geography"
+                "subject": "Geography",
             }
 
             # Call the function
@@ -248,7 +271,9 @@ class TestIdentifyGeoEntities:
 
             # Verify the text combination
             call_args = mock_llm_service.identify_geo_entities.call_args[0][0]
-            expected_text = "title: Map of Minnesota\ndescription: A detailed map\nsubject: Geography"
+            expected_text = (
+                "title: Map of Minnesota\ndescription: A detailed map\nsubject: Geography"
+            )
             assert call_args == expected_text
 
     @pytest.mark.asyncio
@@ -261,16 +286,17 @@ class TestIdentifyGeoEntities:
             return_value=(
                 {"locations": ["Minnesota"]},
                 {"template": "Identify geographic entities"},
-                {"format": "json"}
+                {"format": "json"},
             )
         )
 
         # Mock database storage function
         mock_store_function = AsyncMock()
 
-        with patch('app.tasks.entities.LLMService', return_value=mock_llm_service), \
-             patch('app.tasks.entities.store_geo_entities_in_db', mock_store_function):
-
+        with (
+            patch("app.tasks.entities.LLMService", return_value=mock_llm_service),
+            patch("app.tasks.entities.store_geo_entities_in_db", mock_store_function),
+        ):
             # Test data
             resource_id = "test-resource-123"
             metadata = {"title": "Map of Minnesota"}
@@ -284,7 +310,7 @@ class TestIdentifyGeoEntities:
                 "gpt-3.5-turbo",
                 {"locations": ["Minnesota"]},
                 {"template": "Identify geographic entities"},
-                {"format": "json"}
+                {"format": "json"},
             )
 
 
@@ -294,9 +320,17 @@ class TestEntitiesTaskStructure:
     def test_task_imports(self):
         """Test that required modules can be imported."""
         try:
-            from app.tasks.entities import generate_geo_entities, store_geo_entities_in_db, _identify_geo_entities
-            from celery import shared_task
-            
+            import importlib.util
+
+            # Test that celery module can be found
+            assert importlib.util.find_spec("celery") is not None
+
+            from app.tasks.entities import (
+                _identify_geo_entities,
+                generate_geo_entities,
+                store_geo_entities_in_db,
+            )
+
             # If we get here, imports succeeded
             assert generate_geo_entities is not None
             assert store_geo_entities_in_db is not None
@@ -307,25 +341,26 @@ class TestEntitiesTaskStructure:
     def test_task_decorator_presence(self):
         """Test that the task function has the shared_task decorator."""
         from app.tasks.entities import generate_geo_entities
-        
+
         # Check if the function has Celery task attributes
-        assert hasattr(generate_geo_entities, 'delay')
-        assert hasattr(generate_geo_entities, 'apply_async')
+        assert hasattr(generate_geo_entities, "delay")
+        assert hasattr(generate_geo_entities, "apply_async")
 
     def test_task_function_signature(self):
         """Test the task function signature."""
-        from app.tasks.entities import generate_geo_entities
         import inspect
-        
+
+        from app.tasks.entities import generate_geo_entities
+
         sig = inspect.signature(generate_geo_entities)
         params = list(sig.parameters.keys())
-        
-        expected_params = ['resource_id', 'metadata']
+
+        expected_params = ["resource_id", "metadata"]
         assert params == expected_params
 
     def test_logger_initialization(self):
         """Test that logger is properly initialized."""
         from app.tasks.entities import logger
-        
+
         assert logger is not None
         assert logger.name == "app.tasks.entities"

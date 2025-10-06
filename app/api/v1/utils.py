@@ -19,6 +19,8 @@ def sanitize_for_json(obj: Any) -> Any:
         return obj.isoformat()
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)
+    elif isinstance(obj, bool):  # Handle boolean objects (before float conversion)
+        return obj
     # Handle Decimal objects from database
     elif hasattr(obj, "__float__"):
         return float(obj)

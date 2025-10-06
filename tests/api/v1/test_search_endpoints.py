@@ -1,6 +1,7 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock, MagicMock
 
 from app.main import app
 
@@ -250,7 +251,7 @@ class TestSearchEndpointsEnhanced:
     def test_search_endpoints_structure(self):
         """Test that search endpoints are properly configured."""
         routes = [route.path for route in app.routes]
-        
+
         assert "/api/v1/search" in routes
         assert "/api/v1/suggest" in routes
 
@@ -260,12 +261,12 @@ class TestSearchEndpointsEnhanced:
         response = client.get("/api/v1/search?page=0")
         # The endpoint might allow page=0, so we'll just check it doesn't crash
         assert response.status_code in [200, 422]  # Either valid or validation error
-        
+
         # Test invalid per_page parameter
         response = client.get("/api/v1/search?per_page=0")
         # The endpoint might allow per_page=0, so we'll just check it doesn't crash
         assert response.status_code in [200, 422]  # Either valid or validation error
-        
+
         response = client.get("/api/v1/search?per_page=101")
         # The endpoint might allow per_page > 100, so we'll just check it doesn't crash
         assert response.status_code in [200, 422]  # Either valid or validation error
@@ -274,7 +275,7 @@ class TestSearchEndpointsEnhanced:
         """Test sort parameter validation."""
         # Test valid sort options
         valid_sorts = ["relevance", "year_desc", "year_asc", "title_asc", "title_desc"]
-        
+
         for sort_option in valid_sorts:
             response = client.get(f"/api/v1/search?sort={sort_option}")
             # Should not return validation error for valid sort options
@@ -283,7 +284,7 @@ class TestSearchEndpointsEnhanced:
     def test_search_with_callback(self):
         """Test search with JSONP callback parameter."""
         response = client.get("/api/v1/search?q=test&callback=testCallback")
-        
+
         # Should not return validation error for JSONP callback
         assert response.status_code in [200, 500]  # Allow database errors in test env
 
@@ -297,10 +298,10 @@ class TestSearchEndpointsEnhanced:
         """Test search endpoint integration with real data."""
         # Use real search service instead of mocks
         response = client.get("/api/v1/search?q=test")
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         assert "data" in data
         assert "meta" in data
         assert isinstance(data["data"], list)
@@ -314,17 +315,19 @@ class TestSearchEndpointsEnhanced:
         mock_service_instance = AsyncMock()
         mock_search_service.return_value = mock_service_instance
         mock_service_instance.search.side_effect = Exception("Search service error")
-        
+
         response = client.get("/api/v1/search?q=test")
-        
+
         # Should handle error gracefully
         assert response.status_code in [200, 500]  # Depending on error handling implementation
 
     def test_search_filter_parameter_parsing(self):
         """Test that filter parameters are properly parsed."""
         # Test with multiple filter values
-        response = client.get("/api/v1/search?q=test&fq[dct_spatial_sm][]=Minnesota&fq[dct_spatial_sm][]=Wisconsin")
-        
+        response = client.get(
+            "/api/v1/search?q=test&fq[dct_spatial_sm][]=Minnesota&fq[dct_spatial_sm][]=Wisconsin"
+        )
+
         # Should not return validation error for valid filter parameters
         assert response.status_code in [200, 500]  # Allow database errors in test env
 
@@ -337,9 +340,9 @@ class TestSearchEndpointsEnhanced:
             "test/query",
             "test?query",
             "test#query",
-            "test%query"
+            "test%query",
         ]
-        
+
         for query in special_queries:
             response = client.get(f"/api/v1/search?q={query}")
             # Should handle special characters gracefully
@@ -348,7 +351,7 @@ class TestSearchEndpointsEnhanced:
     def test_search_empty_results(self):
         """Test search with query that returns no results."""
         response = client.get("/api/v1/search?q=nonexistentquery12345")
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "data" in data
@@ -360,7 +363,7 @@ class TestSearchEndpointsEnhanced:
         """Test search pagination boundary conditions."""
         # Test with very high page number
         response = client.get("/api/v1/search?q=test&page=1000")
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "meta" in data
@@ -370,10 +373,10 @@ class TestSearchEndpointsEnhanced:
     def test_search_per_page_variations(self):
         """Test search with different per_page values."""
         per_page_values = [1, 5, 10, 25, 50, 100]
-        
+
         for per_page in per_page_values:
             response = client.get(f"/api/v1/search?q=test&per_page={per_page}")
-            
+
             if response.status_code == 200:
                 data = response.json()
                 assert "meta" in data
@@ -383,7 +386,7 @@ class TestSearchEndpointsEnhanced:
     def test_suggest_with_empty_query(self):
         """Test suggest endpoint with empty query."""
         response = client.get("/api/v1/suggest?q=")
-        
+
         # Should handle empty query gracefully
         assert response.status_code in [200, 422, 500]  # Depending on validation
 
@@ -391,22 +394,22 @@ class TestSearchEndpointsEnhanced:
         """Test suggest endpoint with very long query."""
         long_query = "a" * 1000  # Very long query string
         response = client.get(f"/api/v1/suggest?q={long_query}")
-        
+
         # Should handle long query gracefully
         assert response.status_code in [200, 422, 500]  # Depending on validation
 
     def test_search_jsonapi_compliance(self):
         """Test that search endpoints return proper JSON:API structure."""
         response = client.get("/api/v1/search?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Should have JSON:API structure
             assert "jsonapi" in data
             assert "data" in data
             assert "meta" in data
-            
+
             # If there are results, they should have proper structure
             if data["data"]:
                 for result in data["data"]:
@@ -418,17 +421,17 @@ class TestSearchEndpointsEnhanced:
     def test_search_meta_structure(self):
         """Test that search meta contains expected fields."""
         response = client.get("/api/v1/search?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
             meta = data["meta"]
-            
+
             # Should contain pagination info
             assert "totalCount" in meta
             assert "currentPage" in meta
             assert "perPage" in meta
             assert "totalPages" in meta
-            
+
             # Values should be reasonable
             assert meta["totalCount"] >= 0
             assert meta["currentPage"] >= 1
@@ -440,31 +443,31 @@ class TestSearchEndpointsEnhanced:
         # This test would need to trigger an error condition
         # For now, just verify the endpoint exists and can handle requests
         response = client.get("/api/v1/search?q=test")
-        
+
         # Should return a valid HTTP response
         assert response.status_code in [200, 422, 500]
-        
+
         if response.status_code != 200:
             # Error responses should have proper structure
             try:
                 data = response.json()
                 # Should have some indication of error
                 assert "detail" in data or "error" in data or "message" in data
-            except:
+            except Exception:
                 # If it's not JSON, that's also acceptable for error responses
                 pass
 
     def test_suggest_response_structure(self):
         """Test that suggest endpoint returns proper structure."""
         response = client.get("/api/v1/suggest?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Should have proper structure
             assert "data" in data
             assert isinstance(data["data"], list)
-            
+
             # If there are suggestions, they should have proper structure
             if data["data"]:
                 for suggestion in data["data"]:
@@ -474,15 +477,8 @@ class TestSearchEndpointsEnhanced:
 
     def test_search_with_unicode_characters(self):
         """Test search with Unicode characters."""
-        unicode_queries = [
-            "café",
-            "naïve",
-            "résumé",
-            "北京",
-            "Москва",
-            "São Paulo"
-        ]
-        
+        unicode_queries = ["café", "naïve", "résumé", "北京", "Москва", "São Paulo"]
+
         for query in unicode_queries:
             response = client.get(f"/api/v1/search?q={query}")
             # Should handle Unicode characters gracefully
@@ -491,7 +487,7 @@ class TestSearchEndpointsEnhanced:
     def test_search_case_sensitivity(self):
         """Test search case sensitivity handling."""
         queries = ["Minnesota", "minnesota", "MINNESOTA", "MiNnEsOtA"]
-        
+
         for query in queries:
             response = client.get(f"/api/v1/search?q={query}")
             # Should handle case variations gracefully

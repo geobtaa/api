@@ -2,13 +2,13 @@
 Tests for the MCP endpoint module.
 """
 
-import pytest
 from unittest.mock import AsyncMock, patch
-from fastapi.testclient import TestClient
-from fastapi import FastAPI
 
-from app.main import app
+import pytest
+from fastapi.testclient import TestClient
+
 from app.api.v1.endpoint_modules.mcp import router
+from app.main import app
 
 client = TestClient(app)
 
@@ -215,21 +215,23 @@ class TestMCPWebSocketEndpoint:
     @pytest.mark.asyncio
     async def test_mcp_websocket_endpoint_accepts_connection(self):
         """Test that WebSocket endpoint accepts connections."""
-        from fastapi import WebSocket
         from unittest.mock import Mock
-        
+
+        from fastapi import WebSocket
+
         # Create a mock WebSocket
         mock_websocket = Mock(spec=WebSocket)
         mock_websocket.accept = AsyncMock()
-        
+
         # Mock the MCP service
-        with patch('app.services.mcp_service.run_mcp_websocket_server') as mock_run_server:
+        with patch("app.services.mcp_service.run_mcp_websocket_server") as mock_run_server:
             mock_run_server.return_value = AsyncMock()
-            
+
             # Import and call the endpoint function
             from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
+
             await mcp_websocket_endpoint(mock_websocket)
-            
+
             # Verify WebSocket was accepted
             mock_websocket.accept.assert_called_once()
             # Verify MCP service was called
@@ -238,47 +240,49 @@ class TestMCPWebSocketEndpoint:
     @pytest.mark.asyncio
     async def test_mcp_websocket_endpoint_handles_disconnect(self):
         """Test that WebSocket endpoint handles client disconnection gracefully."""
-        from fastapi import WebSocket, WebSocketDisconnect
         from unittest.mock import Mock
-        
+
+        from fastapi import WebSocket, WebSocketDisconnect
+
         # Create a mock WebSocket
         mock_websocket = Mock(spec=WebSocket)
         mock_websocket.accept = AsyncMock()
-        
+
         # Mock the MCP service to raise WebSocketDisconnect
-        with patch('app.services.mcp_service.run_mcp_websocket_server') as mock_run_server:
+        with patch("app.services.mcp_service.run_mcp_websocket_server") as mock_run_server:
             mock_run_server.side_effect = WebSocketDisconnect(1000, "Client disconnected")
-            
+
             # Import and call the endpoint function
             from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
-            
+
             # Should not raise an exception
             await mcp_websocket_endpoint(mock_websocket)
-            
+
             # Verify WebSocket was accepted
             mock_websocket.accept.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_mcp_websocket_endpoint_handles_general_exception(self):
         """Test that WebSocket endpoint handles general exceptions."""
-        from fastapi import WebSocket
         from unittest.mock import Mock
-        
+
+        from fastapi import WebSocket
+
         # Create a mock WebSocket
         mock_websocket = Mock(spec=WebSocket)
         mock_websocket.accept = AsyncMock()
         mock_websocket.close = AsyncMock()
-        
+
         # Mock the MCP service to raise a general exception
-        with patch('app.services.mcp_service.run_mcp_websocket_server') as mock_run_server:
+        with patch("app.services.mcp_service.run_mcp_websocket_server") as mock_run_server:
             mock_run_server.side_effect = Exception("Test error")
-            
+
             # Import and call the endpoint function
             from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
-            
+
             # Should not raise an exception
             await mcp_websocket_endpoint(mock_websocket)
-            
+
             # Verify WebSocket was accepted
             mock_websocket.accept.assert_called_once()
             # Verify WebSocket was closed due to error
@@ -287,24 +291,25 @@ class TestMCPWebSocketEndpoint:
     @pytest.mark.asyncio
     async def test_mcp_websocket_endpoint_handles_close_exception(self):
         """Test that WebSocket endpoint handles exceptions when closing connection."""
-        from fastapi import WebSocket
         from unittest.mock import Mock
-        
+
+        from fastapi import WebSocket
+
         # Create a mock WebSocket
         mock_websocket = Mock(spec=WebSocket)
         mock_websocket.accept = AsyncMock()
         mock_websocket.close = AsyncMock(side_effect=Exception("Close failed"))
-        
+
         # Mock the MCP service to raise a general exception
-        with patch('app.services.mcp_service.run_mcp_websocket_server') as mock_run_server:
+        with patch("app.services.mcp_service.run_mcp_websocket_server") as mock_run_server:
             mock_run_server.side_effect = Exception("Test error")
-            
+
             # Import and call the endpoint function
             from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
-            
+
             # Should not raise an exception even if close fails
             await mcp_websocket_endpoint(mock_websocket)
-            
+
             # Verify WebSocket was accepted
             mock_websocket.accept.assert_called_once()
             # Verify close was attempted
@@ -312,22 +317,24 @@ class TestMCPWebSocketEndpoint:
 
     def test_mcp_websocket_endpoint_function_signature(self):
         """Test that WebSocket endpoint has correct function signature."""
-        from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
         import inspect
-        
+
+        from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
+
         # Check function signature
         sig = inspect.signature(mcp_websocket_endpoint)
         params = list(sig.parameters.keys())
-        
+
         # Should have websocket parameter
         assert len(params) == 1
         assert params[0] == "websocket"
 
     def test_mcp_websocket_endpoint_is_async(self):
         """Test that WebSocket endpoint is async."""
-        from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
         import inspect
-        
+
+        from app.api.v1.endpoint_modules.mcp import mcp_websocket_endpoint
+
         # Check that function is async
         assert inspect.iscoroutinefunction(mcp_websocket_endpoint)
 
@@ -335,12 +342,14 @@ class TestMCPWebSocketEndpoint:
         """Test that WebSocket route is properly configured."""
         # Check that the WebSocket route exists in the router
         routes = [route for route in router.routes]
-        websocket_routes = [route for route in routes if hasattr(route, 'path') and route.path == "/mcp/ws"]
-        
+        websocket_routes = [
+            route for route in routes if hasattr(route, "path") and route.path == "/mcp/ws"
+        ]
+
         assert len(websocket_routes) == 1
         websocket_route = websocket_routes[0]
-        
+
         # Check route methods
-        assert hasattr(websocket_route, 'methods') or hasattr(websocket_route, 'endpoint')
+        assert hasattr(websocket_route, "methods") or hasattr(websocket_route, "endpoint")
         # WebSocket routes typically don't have methods, they have endpoint
-        assert hasattr(websocket_route, 'endpoint')
+        assert hasattr(websocket_route, "endpoint")

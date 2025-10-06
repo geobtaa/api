@@ -3,14 +3,12 @@ Production database tests for search endpoint module.
 Uses real database connections and SearchService to achieve higher coverage.
 """
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-import asyncio
 
 # Create test app
 from app.api.v1.endpoint_modules.search import router
+
 app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
@@ -22,10 +20,10 @@ class TestSearchProductionDatabase:
     def test_search_endpoint_with_real_service(self):
         """Test search endpoint with real SearchService."""
         response = client.get("/search?q=test")
-        
+
         # Should return either success or service error
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             assert "data" in data
@@ -40,7 +38,7 @@ class TestSearchProductionDatabase:
     def test_search_endpoint_with_sorting(self):
         """Test search endpoint with sorting options."""
         sort_options = ["relevance", "year_desc", "year_asc", "title_asc", "title_desc"]
-        
+
         for sort in sort_options:
             response = client.get(f"/search?q=test&sort={sort}")
             assert response.status_code in [200, 500]
@@ -102,7 +100,7 @@ class TestSearchProductionDatabase:
         # Make multiple identical requests to test caching
         response1 = client.get("/search?q=test&page=1&per_page=5")
         response2 = client.get("/search?q=test&page=1&per_page=5")
-        
+
         # Both should return the same status
         assert response1.status_code == response2.status_code
 
@@ -121,15 +119,15 @@ class TestSearchProductionDatabase:
     def test_search_endpoint_response_structure(self):
         """Test search endpoint response structure."""
         response = client.get("/search?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Check JSON:API structure
             assert "jsonapi" in data
             assert "data" in data
             assert "links" in data
-            
+
             # Check data structure
             if data["data"]:
                 for item in data["data"]:
@@ -140,10 +138,10 @@ class TestSearchProductionDatabase:
     def test_search_endpoint_meta_information(self):
         """Test search endpoint meta information."""
         response = client.get("/search?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Should have meta information
             if "meta" in data:
                 meta = data["meta"]
@@ -152,10 +150,10 @@ class TestSearchProductionDatabase:
     def test_search_endpoint_links_structure(self):
         """Test search endpoint links structure."""
         response = client.get("/search?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Should have links
             assert "links" in data
             links = data["links"]
@@ -168,9 +166,9 @@ class TestSearchProductionDatabase:
             "climate data",
             "population statistics",
             "geological survey",
-            "satellite imagery"
+            "satellite imagery",
         ]
-        
+
         for query in test_queries:
             response = client.get(f"/search?q={query}")
             assert response.status_code in [200, 500]
@@ -180,7 +178,7 @@ class TestSearchProductionDatabase:
         # Test with reasonable parameters that shouldn't timeout
         response = client.get("/search?q=test&page=1&per_page=10")
         assert response.status_code in [200, 500]
-        
+
         # Test with larger page size
         response = client.get("/search?q=test&page=1&per_page=50")
         assert response.status_code in [200, 500]
@@ -190,7 +188,7 @@ class TestSearchProductionDatabase:
         # Test with very small page
         response = client.get("/search?q=test&page=1&per_page=1")
         assert response.status_code in [200, 500]
-        
+
         # Test with page 1
         response = client.get("/search?q=test&page=1")
         assert response.status_code in [200, 500]
@@ -203,7 +201,7 @@ class TestSearchProductionDatabase:
             {"q": "climate", "sort": "title_asc"},
             {"page": 1, "per_page": 10},  # No query
         ]
-        
+
         for params in combinations:
             response = client.get("/search", params=params)
             assert response.status_code in [200, 422, 500]
@@ -213,7 +211,7 @@ class TestSearchProductionDatabase:
         # This tests the actual SearchService integration
         response = client.get("/search?q=test&per_page=5")
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             # Should have proper search results structure
@@ -225,9 +223,9 @@ class TestSearchProductionDatabase:
         endpoints = [
             "/search?q=test&per_page=1",
             "/search?q=geography&per_page=1",
-            "/search?q=climate&per_page=1"
+            "/search?q=climate&per_page=1",
         ]
-        
+
         for endpoint in endpoints:
             response = client.get(endpoint)
             # Should not crash due to session issues
@@ -238,7 +236,7 @@ class TestSearchProductionDatabase:
         # Test endpoints that use async database operations
         response = client.get("/search?q=test&per_page=5")
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             # Should handle async operations properly
             data = response.json()
@@ -249,7 +247,7 @@ class TestSearchProductionDatabase:
         # Test with parameters that might cause errors
         response = client.get("/search?q=test&page=999999&per_page=1")
         assert response.status_code in [200, 500]
-        
+
         # Should log errors appropriately without crashing
 
     def test_search_endpoint_service_integration(self):
@@ -262,7 +260,7 @@ class TestSearchProductionDatabase:
         """Test search endpoint response processing."""
         response = client.get("/search?q=test&per_page=5")
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             # Should have processed the search results properly
@@ -276,7 +274,7 @@ class TestSuggestProductionDatabase:
     def test_suggest_endpoint_with_real_service(self):
         """Test suggest endpoint with real SearchService."""
         response = client.get("/suggest?q=test")
-        
+
         # Should return either success or service error
         assert response.status_code in [200, 500]
 
@@ -310,17 +308,17 @@ class TestSuggestProductionDatabase:
         # Make multiple identical requests to test caching
         response1 = client.get("/suggest?q=test")
         response2 = client.get("/suggest?q=test")
-        
+
         # Both should return the same status
         assert response1.status_code == response2.status_code
 
     def test_suggest_endpoint_response_structure(self):
         """Test suggest endpoint response structure."""
         response = client.get("/suggest?q=test")
-        
+
         if response.status_code == 200:
             data = response.json()
-            
+
             # Check JSON:API structure
             assert "jsonapi" in data
             assert "data" in data
@@ -328,14 +326,8 @@ class TestSuggestProductionDatabase:
 
     def test_suggest_endpoint_with_different_queries(self):
         """Test suggest endpoint with different types of queries."""
-        test_queries = [
-            "geography",
-            "climate",
-            "population",
-            "geological",
-            "satellite"
-        ]
-        
+        test_queries = ["geography", "climate", "population", "geological", "satellite"]
+
         for query in test_queries:
             response = client.get(f"/suggest?q={query}")
             assert response.status_code in [200, 500]
@@ -344,7 +336,7 @@ class TestSuggestProductionDatabase:
         """Test suggest endpoint integration with real SearchService."""
         response = client.get("/suggest?q=test")
         assert response.status_code in [200, 500]
-        
+
         if response.status_code == 200:
             data = response.json()
             # Should have proper suggest results structure
