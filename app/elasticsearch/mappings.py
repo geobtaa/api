@@ -55,6 +55,10 @@ INDEX_MAPPING = {
             "b1g_dct_provenanceStatement_sm": {"type": "keyword"},
             "b1g_adminTags_sm": {"type": "keyword"},
             "summary": {"type": "text"},
+            # Spatial facet fields for faceting
+            "geo_country": {"type": "keyword"},
+            "geo_region": {"type": "keyword"},
+            "geo_county": {"type": "keyword"},
             "suggest": {
                 "type": "completion",
                 "analyzer": "simple",

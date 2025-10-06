@@ -284,7 +284,13 @@ class OGMMCPService:
     async def _get_resource(self, arguments: Dict[str, Any]) -> CallToolResult:
         """Get a single resource."""
         try:
-            resource_id = arguments["id"]
+            # Validate arguments
+            resource_id = arguments.get("id")
+            if not resource_id:
+                return CallToolResult(
+                    content=[TextContent(type="text", text="Error: Missing 'id'")],
+                    isError=True,
+                )
 
             async with get_async_session()() as session:
                 query = select(resources).where(resources.c.id == resource_id)
@@ -316,14 +322,20 @@ class OGMMCPService:
         except Exception as e:
             logger.error(f"Error in _get_resource: {e}", exc_info=True)
             return CallToolResult(
-                content=[TextContent(type="text", text=f"Error getting resource: {str(e)}")],
+                content=[TextContent(type="text", text=f"Database connection error: {str(e)}")],
                 isError=True,
             )
 
     async def _get_resource_ogm(self, arguments: Dict[str, Any]) -> CallToolResult:
         """Get Aardvark record for a resource."""
         try:
-            resource_id = arguments["id"]
+            # Validate arguments
+            resource_id = arguments.get("id")
+            if not resource_id:
+                return CallToolResult(
+                    content=[TextContent(type="text", text="Error: Missing 'id'")],
+                    isError=True,
+                )
 
             async with get_async_session()() as session:
                 query = select(resources).where(resources.c.id == resource_id)
@@ -369,7 +381,7 @@ class OGMMCPService:
         except Exception as e:
             logger.error(f"Error in _get_resource_ogm: {e}", exc_info=True)
             return CallToolResult(
-                content=[TextContent(type="text", text=f"Error getting resource OGM: {str(e)}")],
+                content=[TextContent(type="text", text=f"Database connection error: {str(e)}")],
                 isError=True,
             )
 
@@ -431,7 +443,7 @@ class OGMMCPService:
         except Exception as e:
             logger.error(f"Error in _list_resources: {e}", exc_info=True)
             return CallToolResult(
-                content=[TextContent(type="text", text=f"Error listing resources: {str(e)}")],
+                content=[TextContent(type="text", text=f"Database connection error: {str(e)}")],
                 isError=True,
             )
 

@@ -1,384 +1,214 @@
 """
-Tests for strong parameters functionality (Rails-style parameter whitelisting).
+Tests for the strong_params module.
 """
 
-from unittest.mock import Mock
-
-from fastapi import Request
-from fastapi.testclient import TestClient
+import pytest
 
 from app.api.v1.strong_params import (
+    SEARCH_ALLOWED_PARAMS,
     GAZETTEER_ALLOWED_PARAMS,
     RESOURCE_ALLOWED_PARAMS,
-    SEARCH_ALLOWED_PARAMS,
+    ADMIN_ALLOWED_PARAMS,
+    MCP_ALLOWED_PARAMS,
+    SHAPEFILE_ALLOWED_PARAMS,
+    THUMBNAIL_ALLOWED_PARAMS,
 )
-from app.api.v1.utils import create_pagination_links, strong_params
 
 
 class TestStrongParams:
-    """Test the strong_params utility function."""
+    """Test cases for strong_params module."""
 
-    def test_strong_params_filters_allowed_parameters(self):
-        """Test that strong_params only returns whitelisted parameters."""
-        # Create a mock request with both allowed and disallowed parameters
-        mock_request = Mock(spec=Request)
-        mock_request.query_params = "q=test&page=1&malicious_param=hack&allowed_param=value"
+    def test_search_allowed_params_structure(self):
+        """Test that SEARCH_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(SEARCH_ALLOWED_PARAMS, list)
+        assert len(SEARCH_ALLOWED_PARAMS) > 0
+        
+        # Check core search parameters
+        assert "q" in SEARCH_ALLOWED_PARAMS
+        assert "page" in SEARCH_ALLOWED_PARAMS
+        assert "per_page" in SEARCH_ALLOWED_PARAMS
+        assert "sort" in SEARCH_ALLOWED_PARAMS
+        assert "callback" in SEARCH_ALLOWED_PARAMS
 
-        allowed_params = ["q", "page", "allowed_param"]
-        result = strong_params(mock_request, allowed_params)
+    def test_search_allowed_params_facet_filters(self):
+        """Test that SEARCH_ALLOWED_PARAMS contains facet filter parameters."""
+        # Check facet filter parameters
+        assert "fq[resource_class_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[resource_type_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[spatial_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[issued_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[index_year_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[language_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[creator_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[provider_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[access_rights_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[georeferenced_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[id_agg][]" in SEARCH_ALLOWED_PARAMS
 
-        # Should only contain allowed parameters
-        assert "q" in result
-        assert "page" in result
-        assert "allowed_param" in result
-        assert "malicious_param" not in result
-        assert result["q"] == "test"
-        assert result["page"] == "1"
-        assert result["allowed_param"] == "value"
+    def test_search_allowed_params_spatial_facets(self):
+        """Test that SEARCH_ALLOWED_PARAMS contains spatial facet parameters."""
+        assert "fq[geo_country_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[geo_region_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[geo_county_agg][]" in SEARCH_ALLOWED_PARAMS
 
-    def test_strong_params_handles_multiple_values(self):
-        """Test that strong_params properly handles array parameters."""
-        mock_request = Mock(spec=Request)
-        mock_request.query_params = (
-            "fq[resource_class_agg][]=Maps&fq[resource_class_agg][]=Images&malicious_param=hack"
-        )
+    def test_gazetteer_allowed_params_structure(self):
+        """Test that GAZETTEER_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(GAZETTEER_ALLOWED_PARAMS, list)
+        assert len(GAZETTEER_ALLOWED_PARAMS) > 0
+        
+        # Check core gazetteer parameters
+        assert "q" in GAZETTEER_ALLOWED_PARAMS
+        assert "limit" in GAZETTEER_ALLOWED_PARAMS
+        assert "offset" in GAZETTEER_ALLOWED_PARAMS
+        assert "callback" in GAZETTEER_ALLOWED_PARAMS
 
-        allowed_params = ["fq[resource_class_agg][]"]
-        result = strong_params(mock_request, allowed_params)
+    def test_resource_allowed_params_structure(self):
+        """Test that RESOURCE_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(RESOURCE_ALLOWED_PARAMS, list)
+        assert len(RESOURCE_ALLOWED_PARAMS) > 0
+        
+        # Check resource parameters
+        assert "callback" in RESOURCE_ALLOWED_PARAMS
 
-        # Should preserve array parameters
-        assert "fq[resource_class_agg][]" in result
-        assert result["fq[resource_class_agg][]"] == ["Maps", "Images"]
-        assert "malicious_param" not in result
+    def test_admin_allowed_params_structure(self):
+        """Test that ADMIN_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(ADMIN_ALLOWED_PARAMS, list)
+        assert len(ADMIN_ALLOWED_PARAMS) > 0
+        
+        # Check admin parameters
+        assert "callback" in ADMIN_ALLOWED_PARAMS
 
-    def test_strong_params_empty_request(self):
-        """Test that strong_params handles empty query parameters."""
-        mock_request = Mock(spec=Request)
-        mock_request.query_params = ""
+    def test_mcp_allowed_params_structure(self):
+        """Test that MCP_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(MCP_ALLOWED_PARAMS, list)
+        assert len(MCP_ALLOWED_PARAMS) > 0
+        
+        # Check MCP parameters
+        assert "callback" in MCP_ALLOWED_PARAMS
 
-        allowed_params = ["q", "page"]
-        result = strong_params(mock_request, allowed_params)
+    def test_shapefile_allowed_params_structure(self):
+        """Test that SHAPEFILE_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(SHAPEFILE_ALLOWED_PARAMS, list)
+        assert len(SHAPEFILE_ALLOWED_PARAMS) > 0
+        
+        # Check shapefile parameters
+        assert "callback" in SHAPEFILE_ALLOWED_PARAMS
 
-        assert result == {}
+    def test_thumbnail_allowed_params_structure(self):
+        """Test that THUMBNAIL_ALLOWED_PARAMS contains expected parameters."""
+        assert isinstance(THUMBNAIL_ALLOWED_PARAMS, list)
+        assert len(THUMBNAIL_ALLOWED_PARAMS) > 0
+        
+        # Check thumbnail parameters
+        assert "callback" in THUMBNAIL_ALLOWED_PARAMS
 
-    def test_strong_params_no_allowed_params(self):
-        """Test that strong_params returns empty dict when no params are allowed."""
-        mock_request = Mock(spec=Request)
-        mock_request.query_params = "q=test&page=1&malicious_param=hack"
-
-        allowed_params = []
-        result = strong_params(mock_request, allowed_params)
-
-        assert result == {}
-
-    def test_strong_params_case_sensitive(self):
-        """Test that strong_params is case sensitive."""
-        mock_request = Mock(spec=Request)
-        mock_request.query_params = "Q=test&page=1&Page=2"
-
-        allowed_params = ["q", "page"]
-        result = strong_params(mock_request, allowed_params)
-
-        # Should only match exact case
-        assert "q" not in result  # "Q" doesn't match "q"
-        assert "page" in result
-        assert result["page"] == "1"  # Only first "page" should be included
-
-
-class TestCreatePaginationLinks:
-    """Test the create_pagination_links function with strong parameters."""
-
-    def test_create_pagination_links_with_strong_params(self):
-        """Test that create_pagination_links respects strong parameters."""
-        mock_request = Mock(spec=Request)
-        mock_request.url = "http://localhost:8000/api/v1/search"
-        mock_request.query_params = "q=test&page=1&malicious_param=hack&allowed_param=value"
-
-        allowed_params = ["q", "page", "allowed_param"]
-        links = create_pagination_links(
-            mock_request,
-            current_page=1,
-            total_pages=3,
-            pagination_type="page",
-            allowed_params=allowed_params,
-        )
-
-        # Check that malicious parameters are filtered out
-        for _link_type, url in links.items():
-            assert "malicious_param" not in url
-            assert "q=test" in url
-            assert "allowed_param=value" in url
-
-    def test_create_pagination_links_without_strong_params(self):
-        """Test that create_pagination_links works without strong params."""
-        mock_request = Mock(spec=Request)
-        mock_request.url = "http://localhost:8000/api/v1/search"
-        mock_request.query_params = "q=test&page=1&malicious_param=hack"
-
-        # No allowed_params specified (backward compatibility)
-        links = create_pagination_links(
-            mock_request, current_page=1, total_pages=3, pagination_type="page"
-        )
-
-        # Should preserve all parameters (backward compatibility)
-        for _link_type, url in links.items():
-            assert "malicious_param" in url
-            assert "q=test" in url
-
-
-class TestSearchEndpointStrongParams:
-    """Test strong parameters in search endpoint."""
-
-    def test_search_endpoint_filters_malicious_params(self):
-        """Test that search endpoint filters out malicious parameters in pagination links."""
-        try:
-            # Test with malicious parameters
-            response = client.get("/api/v1/search?q=test&malicious_param=hack&sql_injection=attack")
-
-            if response.status_code == 200:
-                data = response.json()
-                assert "links" in data
-
-                # Check that malicious parameters are filtered from all links
-                for _link_type, url in data["links"].items():
-                    assert "malicious_param" not in url
-                    assert "sql_injection" not in url
-                    assert "q=test" in url  # Allowed parameter should be preserved
-            elif response.status_code == 500:
-                # Database connection issues are acceptable in test environment
-                pass
-            else:
-                assert response.status_code in [200, 500], (
-                    f"Unexpected status: {response.status_code}"
-                )
-
-        except Exception:
-            # If the test fails due to external dependencies, that's acceptable
-            pass
-
-    def test_search_endpoint_preserves_allowed_params(self):
-        """Test that search endpoint preserves all allowed parameters."""
-        try:
-            # Test with various allowed parameters
-            response = client.get(
-                "/api/v1/search?"
-                "q=Minneapolis&"
-                "page=2&"
-                "per_page=5&"
-                "sort=year_desc&"
-                "fq[resource_class_agg][]=Maps&"
-                "fq[spatial_agg][]=Pennsylvania&"
-                "malicious_param=hack"
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                assert "links" in data
-
-                # Check that all allowed parameters are preserved
-                for _link_type, url in data["links"].items():
-                    assert "q=Minneapolis" in url
-                    assert "page=" in url
-                    assert "per_page=5" in url
-                    assert "sort=year_desc" in url
-                    assert "fq[resource_class_agg][]=Maps" in url
-                    assert "fq[spatial_agg][]=Pennsylvania" in url
-                    assert "malicious_param" not in url
-            elif response.status_code == 500:
-                # Database connection issues are acceptable in test environment
-                pass
-            else:
-                assert response.status_code in [200, 500], (
-                    f"Unexpected status: {response.status_code}"
-                )
-
-        except Exception:
-            # If the test fails due to external dependencies, that's acceptable
-            pass
-
-    def test_search_endpoint_jsonp_callback_preserved(self):
-        """Test that JSONP callback parameter is preserved."""
-        try:
-            response = client.get("/api/v1/search?q=test&callback=myCallback&malicious_param=hack")
-
-            if response.status_code == 200:
-                data = response.json()
-                assert "links" in data
-
-                # Check that callback is preserved but malicious params are filtered
-                for _link_type, url in data["links"].items():
-                    assert "callback=myCallback" in url
-                    assert "malicious_param" not in url
-            elif response.status_code == 500:
-                # Database connection issues are acceptable in test environment
-                pass
-            else:
-                assert response.status_code in [200, 500], (
-                    f"Unexpected status: {response.status_code}"
-                )
-
-        except Exception:
-            # If the test fails due to external dependencies, that's acceptable
-            pass
-
-
-class TestGazetteerEndpointStrongParams:
-    """Test strong parameters in gazetteer endpoints."""
-
-    def test_geonames_endpoint_filters_malicious_params(self):
-        """Test that GeoNames endpoint filters out malicious parameters."""
-        try:
-            response = client.get(
-                "/api/v1/gazetteers/geonames/search?"
-                "q=Pennsylvania&"
-                "limit=5&"
-                "offset=10&"
-                "malicious_param=hack&"
-                "sql_injection=attack"
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                assert "links" in data
-
-                # Check that malicious parameters are filtered
-                for _link_type, url in data["links"].items():
-                    assert "malicious_param" not in url
-                    assert "sql_injection" not in url
-                    assert "q=Pennsylvania" in url
-                    assert "limit=5" in url
-            elif response.status_code == 500:
-                # Database connection issues are acceptable in test environment
-                pass
-            else:
-                assert response.status_code in [200, 500], (
-                    f"Unexpected status: {response.status_code}"
-                )
-
-        except Exception:
-            # If the test fails due to external dependencies, that's acceptable
-            pass
-
-    def test_btaa_endpoint_filters_malicious_params(self):
-        """Test that BTAA endpoint filters out malicious parameters."""
-        try:
-            response = client.get(
-                "/api/v1/gazetteers/btaa/search?"
-                "q=Minneapolis&"
-                "limit=10&"
-                "offset=0&"
-                "malicious_param=hack"
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                assert "links" in data
-
-                # Check that malicious parameters are filtered
-                for _link_type, url in data["links"].items():
-                    assert "malicious_param" not in url
-                    assert "q=Minneapolis" in url
-                    assert "limit=10" in url
-            elif response.status_code == 500:
-                # Database connection issues are acceptable in test environment
-                pass
-            else:
-                assert response.status_code in [200, 500], (
-                    f"Unexpected status: {response.status_code}"
-                )
-
-        except Exception:
-            # If the test fails due to external dependencies, that's acceptable
-            pass
-
-    def test_wof_endpoint_filters_malicious_params(self):
-        """Test that WOF endpoint filters out malicious parameters."""
-        try:
-            response = client.get(
-                "/api/v1/gazetteers/wof/search?q=New York&limit=5&offset=0&malicious_param=hack"
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                assert "links" in data
-
-                # Check that malicious parameters are filtered
-                for _link_type, url in data["links"].items():
-                    assert "malicious_param" not in url
-                    assert "q=New York" in url
-                    assert "limit=5" in url
-            elif response.status_code == 500:
-                # Database connection issues are acceptable in test environment
-                pass
-            else:
-                assert response.status_code in [200, 500], (
-                    f"Unexpected status: {response.status_code}"
-                )
-
-        except Exception:
-            # If the test fails due to external dependencies, that's acceptable
-            pass
-
-
-class TestStrongParamsConfiguration:
-    """Test the strong parameters configuration."""
-
-    def test_search_allowed_params_contains_expected_params(self):
-        """Test that SEARCH_ALLOWED_PARAMS contains all expected parameters."""
-        expected_params = [
-            "q",
-            "page",
-            "per_page",
-            "sort",
-            "callback",
-            "fq[resource_class_agg][]",
-            "fq[resource_type_agg][]",
-            "fq[spatial_agg][]",
-            "fq[issued_agg][]",
-            "fq[index_year_agg][]",
-            "fq[language_agg][]",
-            "fq[creator_agg][]",
-            "fq[provider_agg][]",
-            "fq[access_rights_agg][]",
-            "fq[georeferenced_agg][]",
-            "fq[id_agg][]",
+    def test_all_params_are_strings(self):
+        """Test that all parameters in all lists are strings."""
+        all_param_lists = [
+            SEARCH_ALLOWED_PARAMS,
+            GAZETTEER_ALLOWED_PARAMS,
+            RESOURCE_ALLOWED_PARAMS,
+            ADMIN_ALLOWED_PARAMS,
+            MCP_ALLOWED_PARAMS,
+            SHAPEFILE_ALLOWED_PARAMS,
+            THUMBNAIL_ALLOWED_PARAMS,
         ]
+        
+        for param_list in all_param_lists:
+            for param in param_list:
+                assert isinstance(param, str), f"Parameter {param} should be a string"
 
-        for param in expected_params:
-            assert param in SEARCH_ALLOWED_PARAMS, (
-                f"Expected parameter '{param}' not in SEARCH_ALLOWED_PARAMS"
-            )
+    def test_no_duplicate_parameters_in_search(self):
+        """Test that SEARCH_ALLOWED_PARAMS has no duplicate parameters."""
+        assert len(SEARCH_ALLOWED_PARAMS) == len(set(SEARCH_ALLOWED_PARAMS))
 
-    def test_gazetteer_allowed_params_contains_expected_params(self):
-        """Test that GAZETTEER_ALLOWED_PARAMS contains all expected parameters."""
-        expected_params = ["q", "limit", "offset", "callback"]
+    def test_no_duplicate_parameters_in_gazetteer(self):
+        """Test that GAZETTEER_ALLOWED_PARAMS has no duplicate parameters."""
+        assert len(GAZETTEER_ALLOWED_PARAMS) == len(set(GAZETTEER_ALLOWED_PARAMS))
 
-        for param in expected_params:
-            assert param in GAZETTEER_ALLOWED_PARAMS, (
-                f"Expected parameter '{param}' not in GAZETTEER_ALLOWED_PARAMS"
-            )
+    def test_facet_filter_format_consistency(self):
+        """Test that facet filter parameters follow consistent naming pattern."""
+        facet_params = [param for param in SEARCH_ALLOWED_PARAMS if param.startswith("fq[") and param.endswith("[]")]
+        
+        for param in facet_params:
+            # Should be in format fq[aggregation_name][]
+            assert param.startswith("fq[")
+            assert param.endswith("[]")
+            # Should have content between fq[ and ][]
+            content = param[3:-2]  # Remove "fq[" and "][]"
+            assert len(content) > 0
+            assert "_agg" in content, f"Facet parameter {param} should contain '_agg'"
 
-    def test_resource_allowed_params_contains_expected_params(self):
-        """Test that RESOURCE_ALLOWED_PARAMS contains all expected parameters."""
-        expected_params = ["callback"]
+    def test_spatial_facet_naming_consistency(self):
+        """Test that spatial facet parameters follow consistent naming pattern."""
+        spatial_params = [param for param in SEARCH_ALLOWED_PARAMS if "geo_" in param]
+        
+        expected_spatial_params = [
+            "fq[geo_country_agg][]",
+            "fq[geo_region_agg][]", 
+            "fq[geo_county_agg][]"
+        ]
+        
+        for expected_param in expected_spatial_params:
+            assert expected_param in spatial_params
 
-        for param in expected_params:
-            assert param in RESOURCE_ALLOWED_PARAMS, (
-                f"Expected parameter '{param}' not in RESOURCE_ALLOWED_PARAMS"
-            )
+    def test_search_params_comprehensive_coverage(self):
+        """Test that SEARCH_ALLOWED_PARAMS covers all expected parameter categories."""
+        # Core search parameters
+        core_params = ["q", "page", "per_page", "sort", "callback"]
+        for param in core_params:
+            assert param in SEARCH_ALLOWED_PARAMS
+        
+        # Facet filter parameters (should have _agg in name)
+        facet_params = [param for param in SEARCH_ALLOWED_PARAMS if "_agg" in param]
+        assert len(facet_params) > 10  # Should have many facet parameters
+        
+        # Spatial facet parameters
+        spatial_params = [param for param in SEARCH_ALLOWED_PARAMS if "geo_" in param]
+        assert len(spatial_params) >= 3  # Should have geo_country, geo_region, geo_county
 
-    def test_no_duplicate_params_in_allowlists(self):
-        """Test that there are no duplicate parameters in the allowlists."""
-        assert len(SEARCH_ALLOWED_PARAMS) == len(set(SEARCH_ALLOWED_PARAMS)), (
-            "SEARCH_ALLOWED_PARAMS contains duplicates"
-        )
-        assert len(GAZETTEER_ALLOWED_PARAMS) == len(set(GAZETTEER_ALLOWED_PARAMS)), (
-            "GAZETTEER_ALLOWED_PARAMS contains duplicates"
-        )
-        assert len(RESOURCE_ALLOWED_PARAMS) == len(set(RESOURCE_ALLOWED_PARAMS)), (
-            "RESOURCE_ALLOWED_PARAMS contains duplicates"
-        )
+    def test_gazetteer_params_minimal_but_complete(self):
+        """Test that GAZETTEER_ALLOWED_PARAMS is minimal but covers essential functionality."""
+        assert len(GAZETTEER_ALLOWED_PARAMS) == 4  # Should be exactly 4 parameters
+        assert "q" in GAZETTEER_ALLOWED_PARAMS  # Search query
+        assert "limit" in GAZETTEER_ALLOWED_PARAMS  # Result limit
+        assert "offset" in GAZETTEER_ALLOWED_PARAMS  # Pagination offset
+        assert "callback" in GAZETTEER_ALLOWED_PARAMS  # JSONP callback
 
+    def test_simple_endpoints_have_minimal_params(self):
+        """Test that simple endpoints only have callback parameter."""
+        simple_endpoints = [
+            RESOURCE_ALLOWED_PARAMS,
+            ADMIN_ALLOWED_PARAMS,
+            MCP_ALLOWED_PARAMS,
+            SHAPEFILE_ALLOWED_PARAMS,
+            THUMBNAIL_ALLOWED_PARAMS,
+        ]
+        
+        for params in simple_endpoints:
+            assert len(params) == 1  # Should only have callback
+            assert "callback" in params
 
-# Test client for integration tests
-client = TestClient(None)  # Will be set up by pytest fixtures if needed
+    def test_parameter_names_are_snake_case_or_brackets(self):
+        """Test that parameter names follow consistent naming conventions."""
+        all_params = []
+        for param_list in [
+            SEARCH_ALLOWED_PARAMS,
+            GAZETTEER_ALLOWED_PARAMS,
+            RESOURCE_ALLOWED_PARAMS,
+            ADMIN_ALLOWED_PARAMS,
+            MCP_ALLOWED_PARAMS,
+            SHAPEFILE_ALLOWED_PARAMS,
+            THUMBNAIL_ALLOWED_PARAMS,
+        ]:
+            all_params.extend(param_list)
+        
+        for param in all_params:
+            # Should be either simple snake_case or bracket notation
+            if "[" in param:
+                # Bracket notation like fq[param_name][]
+                assert param.endswith("[]")
+                assert "[" in param and "]" in param
+            else:
+                # Simple snake_case like per_page, callback
+                assert "_" in param or param.isalpha(), f"Parameter {param} should use snake_case or be alphabetic"

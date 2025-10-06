@@ -20,6 +20,7 @@ from app.services.cache_service import cached_endpoint
 from app.services.link_service import LinkService
 from app.services.ogm_field_mapper import OGMFieldMapper
 from app.services.relationship_service import RelationshipService
+from app.services.spatial_facet_service import SpatialFacetService
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -287,3 +288,57 @@ async def get_resource_viewer(
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@router.get("/resources/{id}/spatial_facets")
+async def get_resource_spatial_facets(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+    debug: bool = Query(False, description="Include overlap ratios in results"),
+    request: Request = None,
+):
+    """Get spatial hierarchical facets (country, state, county) and bounding box for a resource."""
+    try:
+        # Fetch the resource data first using the proper async session
+        async with async_session() as session:
+            query = select(resources.c.id, resources.c.dcat_bbox).where(resources.c.id == id)
+            result = await session.execute(query)
+            row = result.fetchone()
+            
+            if not row:
+                # Return empty response for nonexistent resource
+                response_data = {
+                    "id": id,
+                    "type": "spatial_facets",
+                    "attributes": {}
+                }
+                request_url = str(request.url) if request else None
+                return create_jsonapi_response(response_data, request_url, callback)
+            
+            # Convert to dict
+            resource_dict = dict(row._mapping)
+            
+            # Get spatial facets using the SpatialFacetService with the resource data
+            service = SpatialFacetService(resource_dict)
+            spatial_facets = await service.get_spatial_facets_with_wof_ids(session, debug=debug)
+            
+            # Prepare attributes with dcat_bbox first, then spatial facets
+            attributes = {}
+            if resource_dict.get("dcat_bbox"):
+                attributes["dcat_bbox"] = resource_dict["dcat_bbox"]
+            # Add spatial facets after dcat_bbox
+            attributes.update(spatial_facets)
+            
+            # Create JSON:API compliant response
+            response_data = {
+                "id": id,
+                "type": "spatial_facets",
+                "attributes": attributes
+            }
+            
+            request_url = str(request.url) if request else None
+            return create_jsonapi_response(response_data, request_url, callback)
+        
+    except Exception as e:
+        logger.error(f"Error getting spatial facets for resource {id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error retrieving spatial facets: {str(e)}")

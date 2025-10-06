@@ -23,6 +23,10 @@ SEARCH_ALLOWED_PARAMS = [
     "fq[access_rights_agg][]",
     "fq[georeferenced_agg][]",
     "fq[id_agg][]",
+    # Spatial facet filter parameters
+    "fq[geo_country_agg][]",
+    "fq[geo_region_agg][]",
+    "fq[geo_county_agg][]",
 ]
 
 # Gazetteer endpoint allowed parameters

@@ -276,3 +276,21 @@ class TestDownloadService:
         assert options[0]["label"] == "Download PDF"
         assert options[0]["url"] == "https://example.com/download/document.pdf"
         assert options[0]["type"] == "pdf"
+
+    def test_build_download_url_no_service_url(self):
+        """Test building download URL when service URL is not available."""
+        service = DownloadService({"id": "test"})
+        
+        # Create a download option with a service type that won't have a URL
+        option = DownloadOption(
+            label="Test Download",
+            type="test",
+            extension="test",
+            service_type="nonexistent_service",
+            content_type="application/test",
+            request_params={"param": "value"}
+        )
+        
+        # This should return None because _get_service_url returns None for nonexistent_service
+        result = service._build_download_url(option)
+        assert result is None
