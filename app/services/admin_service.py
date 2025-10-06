@@ -109,7 +109,8 @@ class ResourceProcessingService:
             try:
                 references = json.loads(references)
                 logger.info(
-                    f"Parsed references for resource {resource_id}: {json.dumps(references, indent=2)}"
+                    f"Parsed references for resource {resource_id}: "
+                    f"{json.dumps(references, indent=2)}"
                 )
             except json.JSONDecodeError:
                 logger.error(
@@ -140,7 +141,8 @@ class ResourceProcessingService:
             if ref_type in references:
                 ref_value = references[ref_type]
                 logger.info(
-                    f"Found reference type {ref_type} with value {ref_value} for resource {resource_id}"
+                    f"Found reference type {ref_type} with value {ref_value} "
+                    f"for resource {resource_id}"
                 )
 
                 # Handle both string and array values
@@ -149,7 +151,8 @@ class ResourceProcessingService:
                     asset_path = ref_value[0]
                     asset_type = asset_type_name
                     logger.info(
-                        f"Using first item from array: asset_path={asset_path}, asset_type={asset_type}"
+                        f"Using first item from array: asset_path={asset_path}, "
+                        f"asset_type={asset_type}"
                     )
                     break
                 elif isinstance(ref_value, str) and ref_value:
@@ -166,7 +169,8 @@ class ResourceProcessingService:
             logger.info(f"No specific asset type found, using format fallback: {asset_type}")
 
         logger.info(
-            f"Final asset determination for resource {resource_id}: path={asset_path}, type={asset_type}"
+            f"Final asset determination for resource {resource_id}: "
+            f"path={asset_path}, type={asset_type}"
         )
         return asset_path, asset_type
 
@@ -205,7 +209,8 @@ class ResourceProcessingService:
                 resource_id=resource_id, metadata=resource
             )
             logger.info(
-                f"Started geographic entity identification task {geo_entities_task.id} for resource {resource_id}"
+                f"Started geographic entity identification task {geo_entities_task.id} "
+                f"for resource {resource_id}"
             )
 
             # Invalidate the resource cache since we'll be updating it

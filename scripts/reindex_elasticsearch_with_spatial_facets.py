@@ -53,7 +53,8 @@ async def check_spatial_facet_readiness():
         progress = stats.get("indexing_progress", 0)
 
         logger.info(
-            f"Spatial facet indexing progress: {progress:.1f}% ({indexed_resources:,}/{total_resources:,})"
+            f"Spatial facet indexing progress: {progress:.1f}% "
+            f"({indexed_resources:,}/{total_resources:,})"
         )
 
         # Consider ready if at least 50% are indexed or if we have a reasonable number
@@ -62,7 +63,8 @@ async def check_spatial_facet_readiness():
             return True, stats
         else:
             logger.warning(
-                "⚠️ Spatial facets are not ready yet. Consider waiting for more indexing to complete."
+                "⚠️ Spatial facets are not ready yet. "
+                "Consider waiting for more indexing to complete."
             )
             return False, stats
 
@@ -118,7 +120,8 @@ Examples:
         if not is_ready and not args.force:
             logger.error("❌ Spatial facets are not ready for reindexing")
             logger.error(
-                "Use --force to override this check, or wait for more spatial facet indexing to complete"
+                "Use --force to override this check, or wait for more spatial facet "
+                "indexing to complete"
             )
             return 1
 

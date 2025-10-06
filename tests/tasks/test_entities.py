@@ -22,7 +22,7 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
@@ -43,7 +43,7 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
@@ -85,7 +85,7 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
@@ -106,7 +106,7 @@ class TestStoreGeoEntitiesInDB:
         prompt = {"template": "Identify geographic entities"}
         output_parser = {"format": "json"}
 
-        # Test that the function can be called (will fail due to database issues, but that's expected)
+        # Test that the function can be called (will fail due to database issues, but expected)
         try:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
@@ -207,7 +207,7 @@ class TestIdentifyGeoEntities:
             }
 
             # Call the function
-            result = await _identify_geo_entities(resource_id, metadata)
+            await _identify_geo_entities(resource_id, metadata)
 
             # Verify that only non-None, non-empty values are processed
             mock_llm_service.identify_geo_entities.assert_called_once()
@@ -320,7 +320,10 @@ class TestEntitiesTaskStructure:
     def test_task_imports(self):
         """Test that required modules can be imported."""
         try:
-            from celery import shared_task
+            import importlib.util
+
+            # Test that celery module can be found
+            assert importlib.util.find_spec("celery") is not None
 
             from app.tasks.entities import (
                 _identify_geo_entities,

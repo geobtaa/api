@@ -463,7 +463,7 @@ class TestLLMService:
         """Test that OpenAI is properly configured."""
         with patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"}):
             with patch("app.services.llm_service.openai") as mock_openai:
-                service = LLMService()
+                LLMService()
 
                 # Verify OpenAI was configured
                 assert mock_openai.api_key == "test-key"

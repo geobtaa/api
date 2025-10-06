@@ -156,7 +156,8 @@ async def validate_spatial_facets(sample_size: int = 100, verbose: bool = False)
                     logger.info("Mismatch details:")
                     for detail in validation_results["details"]:
                         logger.info(
-                            f"  {detail['resource_id']}: Country={detail['country_match']}, Region={detail['region_match']}, County={detail['county_match']}"
+                            f"  {detail['resource_id']}: Country={detail['country_match']}, "
+                            f"Region={detail['region_match']}, County={detail['county_match']}"
                         )
             else:
                 logger.info("✅ All spatial facets match between database and Elasticsearch!")

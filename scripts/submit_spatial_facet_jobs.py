@@ -75,7 +75,8 @@ Examples:
         if args.dry_run:
             logger.info("🔍 DRY RUN MODE - No jobs will be submitted")
             logger.info(
-                f"Would submit jobs with batch_size={args.batch_size}, max_workers={args.max_workers}"
+                f"Would submit jobs with batch_size={args.batch_size}, "
+                f"max_workers={args.max_workers}"
             )
             return 0
 

@@ -390,7 +390,9 @@ class TestViewerService:
         """Test get_viewer_attributes with complex geometry."""
         document = {
             "dct_references_s": '{"iiif": "http://example.com/iiif"}',
-            "locn_geometry": "POLYGON((-93.3 44.9, -93.2 44.9, -93.2 45.0, -93.3 45.0, -93.3 44.9))",
+            "locn_geometry": (
+                "POLYGON((-93.3 44.9, -93.2 44.9, -93.2 45.0, -93.3 45.0, -93.3 44.9))"
+            ),
         }
 
         service = ViewerService(document)
@@ -433,7 +435,10 @@ class TestViewerService:
     def test_get_viewer_attributes_with_mixed_references(self):
         """Test get_viewer_attributes with mixed reference types."""
         document = {
-            "dct_references_s": '{"iiif": "http://example.com/iiif", "tile": "http://example.com/tile", "download": "http://example.com/download"}',
+            "dct_references_s": (
+                '{"iiif": "http://example.com/iiif", "tile": "http://example.com/tile", '
+                '"download": "http://example.com/download"}'
+            ),
             "locn_geometry": "POINT(-93.2650 44.9778)",
         }
 

@@ -1,6 +1,9 @@
 import json
+import logging
 import re
 from typing import Dict, List, Optional, TypedDict, Union
+
+logger = logging.getLogger(__name__)
 
 
 class Reference(TypedDict):

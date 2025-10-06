@@ -276,7 +276,7 @@ class TestGazetteerEndpointsEnhanced:
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/search?q=test&gazetteer=geonames")
 
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
 
         if response.status_code == 200:
@@ -292,7 +292,7 @@ class TestGazetteerEndpointsEnhanced:
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/geonames/search?q=test")
 
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
 
         if response.status_code == 200:
@@ -323,7 +323,7 @@ class TestGazetteerEndpointsEnhanced:
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/wof/search?q=test")
 
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
 
         if response.status_code == 200:
@@ -354,7 +354,7 @@ class TestGazetteerEndpointsEnhanced:
         # Use real data instead of mocks
         response = client.get("/api/v1/gazetteers/btaa/search?q=test")
 
-        # The endpoint might return 500 due to event loop issues, so we'll check for either success or server error
+        # The endpoint might return 500 due to event loop issues, so check for success or error
         assert response.status_code in [200, 500]
 
         if response.status_code == 200:

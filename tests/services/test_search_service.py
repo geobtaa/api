@@ -549,7 +549,7 @@ class TestSearchService:
 
             try:
                 await service.get_resource("nonexistent-id")
-                assert False, "Should have raised HTTPException"
+                raise AssertionError("Should have raised HTTPException")
             except Exception as e:
                 # Should raise HTTPException with 404, but may get event loop error
                 error_msg = str(e).lower()
@@ -565,7 +565,7 @@ class TestSearchService:
 
             try:
                 await service.get_resource("test-id")
-                assert False, "Should have raised HTTPException"
+                raise AssertionError("Should have raised HTTPException")
             except Exception as e:
                 # Should raise HTTPException with 500
                 assert "connection error" in str(e).lower() or "event loop" in str(e).lower()
@@ -580,7 +580,7 @@ class TestSearchService:
 
             try:
                 await service.get_resource("test-id")
-                assert False, "Should have raised HTTPException"
+                raise AssertionError("Should have raised HTTPException")
             except Exception as e:
                 # Should raise HTTPException with 500
                 assert "general error" in str(e).lower() or "event loop" in str(e).lower()

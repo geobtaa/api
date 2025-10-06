@@ -248,7 +248,7 @@ class TestCacheServiceKeyGeneration:
             ("nested", {"a": {"b": {"c": [1, 2, 3]}}}),
         ]
 
-        for test_name, test_value in test_cases:
+        for _test_name, test_value in test_cases:
             key = CacheService.generate_cache_key("test_prefix", test_value)
             assert key.startswith("cache:")
             assert len(key) == 38
@@ -466,7 +466,7 @@ class TestCachedEndpointDecorator:
 
     @pytest.mark.asyncio
     async def test_cached_endpoint_with_request_parameter(self):
-        """Test cached_endpoint decorator with request parameter (should be excluded from cache key)."""
+        """Test cached_endpoint decorator with request parameter (excluded from cache key)."""
 
         @cached_endpoint(ttl=60)
         async def test_function_with_request(request, param):
@@ -496,7 +496,7 @@ class TestCachedEndpointDecorator:
 
         try:
             await test_error_function()
-            assert False, "Should have raised ValueError"
+            raise AssertionError("Should have raised ValueError")
         except ValueError as e:
             assert str(e) == "Test error"
         except Exception as e:

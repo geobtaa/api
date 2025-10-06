@@ -459,5 +459,5 @@ class TestGeoEntityIdentifier:
             mock_response.json = AsyncMock(return_value=mock_response_data)
             mock_post.return_value.__aenter__.return_value = mock_response
 
-            with pytest.raises(Exception):
+            with pytest.raises(ValueError):
                 await identifier.identify_geo_entities(text)

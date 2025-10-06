@@ -134,7 +134,12 @@ class TestSummaryGenerator:
 
         metadata = {"title": "Test Map"}
 
-        asset_content = "This is a very long description of a historical map that contains detailed information about various geographic features, historical events, and contextual information that would be relevant for understanding the map's significance and content."
+        asset_content = (
+            "This is a very long description of a historical map that contains detailed "
+            "information about various geographic features, historical events, and "
+            "contextual information that would be relevant for understanding the map's "
+            "significance and content."
+        )
 
         prompt, output_parser = generator._construct_summary_prompt(metadata, asset_content)
 
@@ -241,7 +246,12 @@ class TestSummaryGenerator:
             "choices": [
                 {
                     "message": {
-                        "content": "This historical map of Minnesota from 1880 by John Doe shows the state's counties and major geographic features. The map provides valuable insight into the state's development during the late 19th century."
+                        "content": (
+                            "This historical map of Minnesota from 1880 by John Doe shows the "
+                            "state's counties and major geographic features. The map provides "
+                            "valuable insight into the state's development during the late 19th "
+                            "century."
+                        )
                     }
                 }
             ]
@@ -279,7 +289,10 @@ class TestSummaryGenerator:
             "choices": [
                 {
                     "message": {
-                        "content": "A detailed map showing county boundaries and transportation routes, providing comprehensive geographic information."
+                        "content": (
+                            "A detailed map showing county boundaries and transportation routes, "
+                            "providing comprehensive geographic information."
+                        )
                     }
                 }
             ]
@@ -394,7 +407,13 @@ class TestSummaryGenerator:
 
         metadata = {"title": "Test Map"}
 
-        long_content = "This is a very long summary that contains detailed information about the historical map, including its creation date, creator, geographic coverage, notable features, historical context, and significance. The summary provides comprehensive information that would be useful for researchers and historians studying this particular time period and geographic region."
+        long_content = (
+            "This is a very long summary that contains detailed information about the "
+            "historical map, including its creation date, creator, geographic coverage, "
+            "notable features, historical context, and significance. The summary provides "
+            "comprehensive information that would be useful for researchers and historians "
+            "studying this particular time period and geographic region."
+        )
 
         mock_response_data = {"choices": [{"message": {"content": long_content}}]}
 
@@ -443,5 +462,5 @@ class TestSummaryGenerator:
             mock_response.json = AsyncMock(side_effect=json.JSONDecodeError("Invalid JSON", "", 0))
             mock_post.return_value.__aenter__.return_value = mock_response
 
-            with pytest.raises(Exception):
+            with pytest.raises(json.JSONDecodeError):
                 await generator.generate_summary(metadata)

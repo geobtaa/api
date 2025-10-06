@@ -22,7 +22,8 @@ class SpatialFacetIndexingService:
 
         Args:
             batch_size: Number of resources to process in each batch
-            max_workers: Maximum number of concurrent workers (currently unused, for future parallel processing)
+            max_workers: Maximum number of concurrent workers (currently unused,
+                for future parallel processing)
         """
         self.batch_size = batch_size
         self.max_workers = max_workers
@@ -94,7 +95,8 @@ class SpatialFacetIndexingService:
                         break
 
                     logger.info(
-                        f"Processing batch {offset // self.batch_size + 1}: resources {offset + 1}-{offset + len(batch_resources)} of {total_count}"
+                        f"Processing batch {offset // self.batch_size + 1}: "
+                        f"resources {offset + 1}-{offset + len(batch_resources)} of {total_count}"
                     )
 
                     # Process each resource in the batch
@@ -109,7 +111,9 @@ class SpatialFacetIndexingService:
 
                     batch_time = time.time() - batch_start_time
                     logger.info(
-                        f"Batch completed in {batch_time:.2f}s - Success: {batch_stats['successful']}, Failed: {batch_stats['failed']}, Skipped: {batch_stats['skipped']}"
+                        f"Batch completed in {batch_time:.2f}s - Success: "
+                        f"{batch_stats['successful']}, Failed: {batch_stats['failed']}, "
+                        f"Skipped: {batch_stats['skipped']}"
                     )
 
                     offset += self.batch_size
@@ -164,7 +168,8 @@ class SpatialFacetIndexingService:
 
                 # Check if spatial facets already exist
                 existing_query = text(
-                    "SELECT resource_id FROM resource_spatial_facets WHERE resource_id = :resource_id"
+                    "SELECT resource_id FROM resource_spatial_facets "
+                    "WHERE resource_id = :resource_id"
                 )
                 existing_result = await session.execute(
                     existing_query, {"resource_id": resource_id}
@@ -203,7 +208,8 @@ class SpatialFacetIndexingService:
                 if not dry_run:
                     # Insert or update spatial facets
                     upsert_query = text("""
-                        INSERT INTO resource_spatial_facets (resource_id, geo_country, geo_region, geo_county)
+                        INSERT INTO resource_spatial_facets 
+                        (resource_id, geo_country, geo_region, geo_county)
                         VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
                         ON CONFLICT (resource_id) 
                         DO UPDATE SET 
@@ -321,7 +327,8 @@ class SpatialFacetIndexingService:
 
                 # Update database
                 upsert_query = text("""
-                    INSERT INTO resource_spatial_facets (resource_id, geo_country, geo_region, geo_county)
+                    INSERT INTO resource_spatial_facets 
+                    (resource_id, geo_country, geo_region, geo_county)
                     VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
                     ON CONFLICT (resource_id) 
                     DO UPDATE SET 

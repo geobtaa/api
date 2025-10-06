@@ -591,11 +591,7 @@ class TestImageServiceManifestFetching:
 
     def test_get_manifest_cache_key_generation(self):
         """Test manifest cache key generation."""
-        metadata = {"id": "test-doc"}
-
         try:
-            service = ImageService(metadata)
-
             # Test cache key format
             manifest_url = "https://example.com/manifest.json"
             cache_key = f"manifest:{manifest_url}"
@@ -703,7 +699,7 @@ class TestImageServiceManifestParsing:
             service = ImageService(metadata)
 
             for manifest_data in test_cases:
-                service._get_manifest = lambda url: manifest_data
+                service._get_manifest = lambda url, data=manifest_data: data
                 result = service.get_iiif_manifest_thumbnail("http://example.com/manifest.json")
 
                 # Should extract the thumbnail URL correctly
@@ -782,7 +778,7 @@ class TestImageServiceCacheInteractions:
         try:
             service = ImageService(metadata)
 
-            # Test the queue method (will fail due to missing Celery worker, but we can test the logic)
+            # Test the queue method (will fail due to missing Celery worker, but test logic)
             try:
                 service._queue_thumbnail_processing("http://example.com/image.jpg", "doc-123")
                 # If it doesn't raise an exception, that's fine

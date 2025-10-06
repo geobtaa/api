@@ -453,7 +453,7 @@ class TestSearchEndpointsEnhanced:
                 data = response.json()
                 # Should have some indication of error
                 assert "detail" in data or "error" in data or "message" in data
-            except:
+            except Exception:
                 # If it's not JSON, that's also acceptable for error responses
                 pass
 

@@ -11,7 +11,10 @@ class TestSpatialFacetsTaskStructure:
     def test_task_imports(self):
         """Test that required modules can be imported."""
         try:
-            from celery import current_task
+            import importlib.util
+
+            # Test that celery module can be found
+            assert importlib.util.find_spec("celery") is not None
 
             from app.tasks.spatial_facets import (
                 _index_batch_async,

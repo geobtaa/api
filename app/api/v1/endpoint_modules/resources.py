@@ -333,4 +333,6 @@ async def get_resource_spatial_facets(
 
     except Exception as e:
         logger.error(f"Error getting spatial facets for resource {id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error retrieving spatial facets: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving spatial facets: {str(e)}"
+        ) from e

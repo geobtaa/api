@@ -8,7 +8,7 @@ It supports multiple migration types and provides logging of the migration proce
 Available Migrations:
     add_fast_gazetteer: Adds FAST gazetteer data to the database
     optimize_spatial_queries: Optimizes spatial queries with indexes and materialized views
-    rollback_spatial_optimizations: Rolls back spatial query optimizations (WARNING: makes queries slower)
+    rollback_spatial_optimizations: Rolls back spatial query optimizations (WARNING: slower)
     create_resource_spatial_facets_table: Creates table for storing pre-computed spatial facets
 
 Usage:

@@ -85,8 +85,8 @@ class TestSanitizeForJson:
         assert sanitize_for_json("string") == "string"
         assert sanitize_for_json(123) == 123
         assert sanitize_for_json(123.45) == 123.45
-        assert sanitize_for_json(True) == True
-        assert sanitize_for_json(None) == None
+        assert sanitize_for_json(True) is True
+        assert sanitize_for_json(None) is None
 
     def test_sanitize_for_json_empty_structures(self):
         """Test sanitizing empty structures."""

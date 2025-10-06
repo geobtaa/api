@@ -61,7 +61,10 @@ class TestSummarizationTaskStructure:
     def test_task_imports(self):
         """Test that required modules can be imported."""
         try:
-            from celery import shared_task
+            import importlib.util
+
+            # Test that celery module can be found
+            assert importlib.util.find_spec("celery") is not None
 
             from app.tasks.summarization import (
                 _generate_summary,

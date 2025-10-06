@@ -40,7 +40,8 @@ class SpatialFacetService:
             bbox_geom = self._parse_bbox_to_geometry(bbox)
             if not bbox_geom:
                 logger.debug(
-                    f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}"
+                    f"Could not parse bbox {bbox} for resource "
+                    f"{self.resource_dict.get('id', 'unknown')}"
                 )
                 return facets
 
@@ -70,7 +71,8 @@ class SpatialFacetService:
                 # Convert to backward compatible format
                 if debug:
                     facets["geo.county"] = [
-                        f"{county['state_abbrev']}|{county['name']}|{county.get('overlap_percent', 0)}"
+                        f"{county['state_abbrev']}|{county['name']}|"
+                        f"{county.get('overlap_percent', 0)}"
                         for county in counties
                     ]
                 else:
@@ -80,7 +82,8 @@ class SpatialFacetService:
 
         except Exception as e:
             logger.error(
-                f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}",
+                f"Error getting spatial facets for resource "
+                f"{self.resource_dict.get('id', 'unknown')}: {e}",
                 exc_info=True,
             )
 
@@ -111,7 +114,8 @@ class SpatialFacetService:
             bbox_geom = self._parse_bbox_to_geometry(bbox)
             if not bbox_geom:
                 logger.debug(
-                    f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}"
+                    f"Could not parse bbox {bbox} for resource "
+                    f"{self.resource_dict.get('id', 'unknown')}"
                 )
                 return facets
 
@@ -130,7 +134,8 @@ class SpatialFacetService:
 
         except Exception as e:
             logger.error(
-                f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}",
+                f"Error getting spatial facets for resource "
+                f"{self.resource_dict.get('id', 'unknown')}: {e}",
                 exc_info=True,
             )
 
@@ -308,7 +313,8 @@ class SpatialFacetService:
             debug: If True, include overlap ratios in results
 
         Returns:
-            List of region info dictionaries (name, wok_id, parent_id, overlap_percent if debug) or None
+            List of region info dictionaries (name, wok_id, parent_id,
+            overlap_percent if debug) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
@@ -324,7 +330,8 @@ class SpatialFacetService:
                     FROM bbox
                 )
                 SELECT wof.name, wof.wok_id, wof.parent_id,
-                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area) * 100) AS overlap_percent
+                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
+                              bbox_area.total_area) * 100) AS overlap_percent
                 FROM gazetteer_wof_spr wof
                 JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
                 CROSS JOIN bbox, bbox_area
@@ -421,7 +428,8 @@ class SpatialFacetService:
             debug: If True, include overlap ratios in results
 
         Returns:
-            List of county info dictionaries (name, wok_id, parent_id, state_abbrev, overlap_percent if debug) or None
+            List of county info dictionaries (name, wok_id, parent_id,
+            state_abbrev, overlap_percent if debug) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
@@ -437,7 +445,8 @@ class SpatialFacetService:
                     FROM bbox
                 )
                 SELECT csr.county_name, csr.county_wok_id, csr.state_wok_id, csr.state_abbrev,
-                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area) * 100) AS overlap_percent
+                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
+                              bbox_area.total_area) * 100) AS overlap_percent
                 FROM county_state_relationships csr
                 JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
                 CROSS JOIN bbox, bbox_area
@@ -445,7 +454,8 @@ class SpatialFacetService:
                   AND geojson.alt_label IS NULL
                   AND geojson.geometry IS NOT NULL
                   AND ST_Intersects(geojson.geometry, bbox.geom)
-                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area >= :threshold
+                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
+                      bbox_area.total_area >= :threshold
                 ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
                 LIMIT 100;
                 """
@@ -466,7 +476,8 @@ class SpatialFacetService:
                   AND geojson.alt_label IS NULL
                   AND geojson.geometry IS NOT NULL
                   AND ST_Intersects(geojson.geometry, bbox.geom)
-                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / bbox_area.total_area >= :threshold
+                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
+                      bbox_area.total_area >= :threshold
                 ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
                 LIMIT 100;
                 """

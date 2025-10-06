@@ -251,8 +251,6 @@ class TestThumbnailEndpoints:
         content = response.text.strip()
 
         # Verify the exact structure
-        lines = content.split("\n")
-
         # Check SVG opening tag
         assert '<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">' in content
 
@@ -343,7 +341,7 @@ class TestThumbnailEndpoints:
             ("Attribute Error", "Missing attribute"),
         ]
 
-        for error_type, error_message in error_cases:
+        for _error_type, error_message in error_cases:
             with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
                 mock_service = MagicMock()
                 mock_service.get_cached_image = AsyncMock(side_effect=Exception(error_message))

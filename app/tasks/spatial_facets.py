@@ -106,7 +106,8 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
 
                     # Check if spatial facets already exist
                     existing_query = text(
-                        "SELECT resource_id FROM resource_spatial_facets WHERE resource_id = :resource_id"
+                        "SELECT resource_id FROM resource_spatial_facets "
+                        "WHERE resource_id = :resource_id"
                     )
                     existing_result = await session.execute(
                         existing_query, {"resource_id": resource_id}
@@ -132,7 +133,8 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
                     import json
 
                     upsert_query = text("""
-                        INSERT INTO resource_spatial_facets (resource_id, geo_country, geo_region, geo_county)
+                        INSERT INTO resource_spatial_facets 
+                        (resource_id, geo_country, geo_region, geo_county)
                         VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
                         ON CONFLICT (resource_id) 
                         DO UPDATE SET 
@@ -176,7 +178,9 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
         await engine.dispose()
 
     logger.info(
-        f"Completed spatial facet indexing batch {batch_id}: {stats['successful']} successful, {stats['failed']} failed, {stats['skipped']} skipped"
+        f"Completed spatial facet indexing batch {batch_id}: "
+        f"{stats['successful']} successful, {stats['failed']} failed, "
+        f"{stats['skipped']} skipped"
     )
     return stats
 
@@ -194,7 +198,8 @@ def index_all_spatial_facets(self, batch_size: int = 100, max_workers: int = 4) 
         Dictionary with job information and task IDs
     """
     logger.info(
-        f"Starting spatial facet indexing for all resources (batch_size={batch_size}, max_workers={max_workers})"
+        f"Starting spatial facet indexing for all resources "
+        f"(batch_size={batch_size}, max_workers={max_workers})"
     )
 
     try:
@@ -369,7 +374,8 @@ async def _reindex_resource_async(resource_id: str) -> Dict[str, Any]:
             import json
 
             upsert_query = text("""
-                INSERT INTO resource_spatial_facets (resource_id, geo_country, geo_region, geo_county)
+                INSERT INTO resource_spatial_facets 
+                (resource_id, geo_country, geo_region, geo_county)
                 VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
                 ON CONFLICT (resource_id) 
                 DO UPDATE SET 

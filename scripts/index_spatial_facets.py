@@ -93,13 +93,12 @@ async def index_all_resources(dry_run: bool = False, batch_size: int = 100):
     initial_stats = await service.get_indexing_stats()
     if "error" not in initial_stats:
         logger.info(
-            f"Initial state: {initial_stats['indexed_resources']:,}/{initial_stats['total_resources_with_bbox']:,} resources indexed"
+            f"Initial state: {initial_stats['indexed_resources']:,}/"
+            f"{initial_stats['total_resources_with_bbox']:,} resources indexed"
         )
 
     # Run the indexing
-    start_time = asyncio.get_event_loop().time()
     stats = await service.index_all_resources(dry_run=dry_run)
-    end_time = asyncio.get_event_loop().time()
 
     # Show results
     logger.info("=== Spatial Facet Indexing Results ===")
@@ -122,7 +121,8 @@ async def index_all_resources(dry_run: bool = False, batch_size: int = 100):
         final_stats = await service.get_indexing_stats()
         if "error" not in final_stats:
             logger.info(
-                f"Final state: {final_stats['indexed_resources']:,}/{final_stats['total_resources_with_bbox']:,} resources indexed"
+                f"Final state: {final_stats['indexed_resources']:,}/"
+                f"{final_stats['total_resources_with_bbox']:,} resources indexed"
             )
             logger.info(f"Indexing progress: {final_stats['indexing_progress']:.1f}%")
 

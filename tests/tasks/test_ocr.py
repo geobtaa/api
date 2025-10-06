@@ -82,11 +82,14 @@ class TestOCRTaskStructure:
     def test_task_imports(self):
         """Test that required modules can be imported."""
         try:
-            import pytesseract
-            import requests
-            from celery import shared_task
-            from PIL import Image
-            from sqlalchemy import insert
+            import importlib.util
+
+            # Test that modules can be found
+            assert importlib.util.find_spec("pytesseract") is not None
+            assert importlib.util.find_spec("requests") is not None
+            assert importlib.util.find_spec("celery") is not None
+            assert importlib.util.find_spec("PIL") is not None
+            assert importlib.util.find_spec("sqlalchemy") is not None
 
             # If we get here, imports succeeded
             assert True
@@ -161,8 +164,12 @@ class TestOCRTaskStructure:
     def test_error_handling_imports(self):
         """Test that error handling imports are available."""
         try:
-            import pytesseract
-            import requests
+            import importlib.util
+
+            # Test that modules can be found
+            assert importlib.util.find_spec("pytesseract") is not None
+            assert importlib.util.find_spec("requests") is not None
+
             from PIL import Image
 
             # Test that we can create basic instances
@@ -193,7 +200,6 @@ class TestOCRErrorHandling:
 
     def test_datetime_encoder_error_handling(self):
         """Test DateTimeEncoder error handling."""
-        encoder = DateTimeEncoder()
 
         # Test with unsupported type that should fall back to parent
         class CustomObject:
@@ -207,8 +213,6 @@ class TestOCRErrorHandling:
 
     def test_encoder_with_complex_objects(self):
         """Test encoder with complex objects."""
-        encoder = DateTimeEncoder()
-
         # Test with list containing datetime
         test_list = [datetime(2023, 1, 1, 12, 30, 45), "string", 123]
 
@@ -218,8 +222,6 @@ class TestOCRErrorHandling:
 
     def test_encoder_with_none_values(self):
         """Test encoder with None values."""
-        encoder = DateTimeEncoder()
-
         test_data = {"timestamp": datetime(2023, 1, 1, 12, 30, 45), "null_value": None}
 
         result = json.dumps(test_data, cls=DateTimeEncoder)

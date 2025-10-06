@@ -309,8 +309,6 @@ class TestSpatialFacetIndexingService:
 
     def test_spatial_facet_data_validation(self):
         """Test spatial facet data validation and processing."""
-        service = SpatialFacetIndexingService()
-
         # Test various data structures that might come from SpatialFacetService
         test_cases = [
             # Normal case
@@ -423,8 +421,6 @@ class TestSpatialFacetIndexingService:
 
     def test_spatial_facets_json_serialization(self):
         """Test that spatial facets are properly JSON serialized."""
-        service = SpatialFacetIndexingService()
-
         # Test data preparation (this would be done in _process_batch)
         spatial_facets = {
             "geo.country": "United States",
@@ -453,8 +449,6 @@ class TestSpatialFacetIndexingService:
 
     def test_spatial_facets_empty_values(self):
         """Test handling of empty spatial facet values."""
-        service = SpatialFacetIndexingService()
-
         # Test data with empty values
         spatial_facets = {"geo.country": None, "geo.region": [], "geo.county": []}
 
@@ -488,7 +482,7 @@ class TestSpatialFacetIndexingService:
             # If we get here, the engine was properly initialized
             assert True
         except Exception as e:
-            # If there's an error, it should be a connection-related error, not an initialization error
+            # If there's an error, it should be a connection-related error, not an init error
             assert "connection" in str(e).lower() or "database" in str(e).lower()
 
     def test_service_parameter_combinations(self):
@@ -542,8 +536,6 @@ class TestSpatialFacetIndexingService:
 
     def test_spatial_facet_data_structure(self):
         """Test spatial facet data structure handling."""
-        service = SpatialFacetIndexingService()
-
         # Test different spatial facet data structures
         test_cases = [
             {

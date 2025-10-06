@@ -38,9 +38,9 @@ async def test_search_all_gazetteers_combined(monkeypatch):
     async def fake_resp(name):
         return JSONResponse({"data": [{"id": name}]})
 
-    monkeypatch.setattr(gaz, "search_geonames", lambda q, l, o, r: fake_resp("geonames"))
-    monkeypatch.setattr(gaz, "search_wof", lambda q, l, o, r: fake_resp("wof"))
-    monkeypatch.setattr(gaz, "search_btaa", lambda q, l, o, r: fake_resp("btaa"))
+    monkeypatch.setattr(gaz, "search_geonames", lambda q, limit, o, r: fake_resp("geonames"))
+    monkeypatch.setattr(gaz, "search_wof", lambda q, limit, o, r: fake_resp("wof"))
+    monkeypatch.setattr(gaz, "search_btaa", lambda q, limit, o, r: fake_resp("btaa"))
 
     combined = await gaz.search_all_gazetteers(q="x", gazetteer=None, limit=10, offset=0)
     # Function may be cached and return JSONResponse; handle both

@@ -131,9 +131,11 @@ class DefaultDownloadService(DownloadService):
             return temp_file.name
 
         except requests.RequestException as e:
-            raise ShapefileDownloadError(f"Failed to download shapefile from {url}: {str(e)}")
+            raise ShapefileDownloadError(
+                f"Failed to download shapefile from {url}: {str(e)}"
+            ) from e
         except Exception as e:
-            raise ShapefileDownloadError(f"Unexpected error downloading shapefile: {str(e)}")
+            raise ShapefileDownloadError(f"Unexpected error downloading shapefile: {str(e)}") from e
 
 
 class DefaultDuckDBService(DuckDBService):
@@ -155,7 +157,7 @@ class DefaultDuckDBService(DuckDBService):
             con.execute("LOAD spatial")
             return con
         except Exception as e:
-            raise DuckDBConnectionError(f"Failed to create DuckDB connection: {str(e)}")
+            raise DuckDBConnectionError(f"Failed to create DuckDB connection: {str(e)}") from e
 
     def ensure_table(self, con: Any, s3_uri: str) -> str:
         """
@@ -220,7 +222,7 @@ class DefaultDuckDBService(DuckDBService):
             return Page(total_rows=total_rows, columns=columns, rows=rows)
 
         except Exception as e:
-            raise ShapefileProcessingError(f"Failed to execute query: {str(e)}")
+            raise ShapefileProcessingError(f"Failed to execute query: {str(e)}") from e
 
     def get_table_schema(self, con: Any, table_name: str) -> list[dict[str, Any]]:
         """Get schema information for a table."""
@@ -240,7 +242,7 @@ class DefaultDuckDBService(DuckDBService):
                 )
             return schema
         except Exception as e:
-            raise ShapefileProcessingError(f"Failed to get table schema: {str(e)}")
+            raise ShapefileProcessingError(f"Failed to get table schema: {str(e)}") from e
 
 
 class ShapefileService:
@@ -272,7 +274,7 @@ class ShapefileService:
         except (DuckDBConnectionError, ShapefileProcessingError) as e:
             raise e
         except Exception as e:
-            raise ShapefileProcessingError(f"Unexpected error querying shapefile: {str(e)}")
+            raise ShapefileProcessingError(f"Unexpected error querying shapefile: {str(e)}") from e
 
     async def get_shapefile_schema(self, s3_uri: str) -> list[dict[str, Any]]:
         """Get schema information for a shapefile."""
@@ -294,7 +296,9 @@ class ShapefileService:
         except (DuckDBConnectionError, ShapefileProcessingError) as e:
             raise e
         except Exception as e:
-            raise ShapefileProcessingError(f"Unexpected error getting shapefile schema: {str(e)}")
+            raise ShapefileProcessingError(
+                f"Unexpected error getting shapefile schema: {str(e)}"
+            ) from e
 
     async def preview_shapefile(self, s3_uri: str, limit: int = 10) -> Page:
         """Preview a shapefile with a limited number of rows."""
