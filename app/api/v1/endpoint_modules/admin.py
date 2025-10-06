@@ -1,22 +1,34 @@
 import logging
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import select
+from fastapi.security import HTTPBasic
 
 from app.api.v1.auth import verify_credentials
-from app.api.v1.utils import create_response
-from app.elasticsearch.index import reindex_resources
-from app.services.cache_service import ENDPOINT_CACHE, CacheService, invalidate_cache_with_prefix
-from app.tasks.entities import generate_geo_entities
-from app.tasks.summarization import generate_resource_summary
-from db.database import database
-from db.models import resources
+from app.api.v1.utils import create_response, sanitize_for_json
+from app.services.admin_service import (
+    AdminService,
+    CacheManagementService,
+    ReindexingService,
+    ResourceProcessingService,
+    CacheManagementError,
+    ReindexingError,
+    ResourceProcessingError,
+    ResourceNotFoundError
+)
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+security = HTTPBasic()
+router = APIRouter(dependencies=[Depends(verify_credentials)])
+
+
+def get_admin_service() -> AdminService:
+    """Dependency injection for AdminService."""
+    cache_management_service = CacheManagementService()
+    reindexing_service = ReindexingService()
+    resource_processing_service = ResourceProcessingService()
+    return AdminService(cache_management_service, reindexing_service, resource_processing_service)
 
 
 @router.post("/cache/clear")
@@ -24,51 +36,35 @@ async def clear_cache(
     cache_type: Optional[str] = Query(
         None, description="Type of cache to clear (search, item, suggest, all)"
     ),
-    credentials=Depends(verify_credentials),  # noqa: B008
+    service: AdminService = Depends(get_admin_service),
 ):
     """Clear specified cache or all cache if not specified."""
     try:
-        cache_service = CacheService()
-
-        if cache_type == "search" or cache_type is None:
-            await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
-
-        if cache_type == "resource" or cache_type is None:
-            await invalidate_cache_with_prefix("app.api.v1.endpoints:get_resource")
-
-        if cache_type == "suggest" or cache_type is None:
-            await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
-
-        if cache_type == "all" or cache_type is None:
-            await cache_service.flush_all()
-
-        return create_response({"message": f"Cache cleared successfully: {cache_type or 'all'}"})
+        result = await service.clear_cache(cache_type)
+        return create_response(result)
+    except CacheManagementError as e:
+        logger.error(f"Cache management error: {str(e)}")
+        return create_response({"error": str(e)}, status_code=500)
     except Exception as e:
+        logger.error(f"Unexpected error clearing cache: {str(e)}")
         return create_response({"error": f"Failed to clear cache: {str(e)}"}, status_code=500)
 
 
 @router.post("/reindex")
 async def reindex(
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    credentials=Depends(verify_credentials),  # noqa: B008
+    service: AdminService = Depends(get_admin_service),
 ):
     """Trigger reindexing of all items in Elasticsearch."""
     try:
-        # When reindexing, invalidate all search and suggest caches
-        if ENDPOINT_CACHE:
-            logger.info("Invalidating search and suggest caches")
-            await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
-            await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
-
-        result = await reindex_resources()
-        return create_response(
-            {"status": "success", "message": "Reindexing completed", "details": result}, callback
-        )
+        result = await service.reindex_resources()
+        return create_response(result, callback)
+    except ReindexingError as e:
+        logger.error(f"Reindexing error: {str(e)}")
+        raise HTTPException(status_code=500, detail={"message": "Reindexing failed", "error": str(e)}) from e
     except Exception as e:
-        logger.error(f"Reindexing failed: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
-        ) from e
+        logger.error(f"Unexpected error during reindexing: {str(e)}")
+        raise HTTPException(status_code=500, detail={"message": "Reindexing failed", "error": str(e)}) from e
 
 
 @router.post("/resources/{id}/summarize")
@@ -76,7 +72,7 @@ async def summarize_resource(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    credentials=Depends(verify_credentials),  # noqa: B008
+    service: AdminService = Depends(get_admin_service),
 ):
     """
     Trigger the generation of a summary for a resource.
@@ -87,43 +83,20 @@ async def summarize_resource(
     4. Return immediately with task ID
     """
     try:
-        # Fetch the resource
-        async with database.transaction():
-            query = select(resources).where(resources.c.id == id)
-            result = await database.fetch_one(query)
-
-            if not result:
-                raise HTTPException(status_code=404, detail="Resource not found")
-
-            # Convert to dict and handle datetime serialization
-            resource = dict(result)
-            for key, value in resource.items():
-                if isinstance(value, datetime):
-                    resource[key] = value.isoformat()
-
-            # Trigger the background task
-            background_tasks.add_task(generate_resource_summary, id, resource)
-
-            return create_response(
-                {
-                    "status": "success",
-                    "message": "Summary generation started",
-                    "resource_id": id,
-                    "task": "generate_resource_summary",
-                },
-                callback,
-            )
-
-    except HTTPException:
-        raise
+        result = await service.summarize_resource(id)
+        
+        # Sanitize the response data before returning
+        sanitized_response = sanitize_for_json(result)
+        return create_response(sanitized_response, callback)
+    except ResourceNotFoundError as e:
+        logger.error(f"Resource not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ResourceProcessingError as e:
+        logger.error(f"Resource processing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        logger.error(
-            f"Failed to start summary generation for resource {id}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(
-            status_code=500,
-            detail={"message": "Failed to start summary generation", "error": str(e)},
-        ) from e
+        logger.error(f"Unexpected error triggering summary generation for resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/resources/{id}/identify-geo-entities")
@@ -131,50 +104,24 @@ async def identify_geo_entities(
     id: str,
     background_tasks: BackgroundTasks,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    credentials=Depends(verify_credentials),  # noqa: B008
+    service: AdminService = Depends(get_admin_service),
 ):
     """
-    Trigger the identification of geographic entities for a resource.
+    Trigger the identification of geographic entities in a resource.
     This endpoint will:
     1. Fetch the resource metadata
-    2. Trigger an asynchronous task to identify geo entities
+    2. Trigger an asynchronous task to identify geographic entities
     3. Return immediately with task ID
     """
     try:
-        # Fetch the resource
-        async with database.transaction():
-            query = select(resources).where(resources.c.id == id)
-            result = await database.fetch_one(query)
-
-            if not result:
-                raise HTTPException(status_code=404, detail="Resource not found")
-
-            # Convert to dict and handle datetime serialization
-            resource = dict(result)
-            for key, value in resource.items():
-                if isinstance(value, datetime):
-                    resource[key] = value.isoformat()
-
-            # Trigger the background task
-            background_tasks.add_task(generate_geo_entities, id, resource)
-
-            return create_response(
-                {
-                    "status": "success",
-                    "message": "Geographic entity identification started",
-                    "resource_id": id,
-                    "task": "generate_geo_entities",
-                },
-                callback,
-            )
-
-    except HTTPException:
-        raise
+        result = await service.identify_geo_entities(id)
+        return create_response(result, callback)
+    except ResourceNotFoundError as e:
+        logger.error(f"Resource not found: {str(e)}")
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except ResourceProcessingError as e:
+        logger.error(f"Resource processing error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        logger.error(
-            f"Failed to start geo entity identification for resource {id}: {str(e)}", exc_info=True
-        )
-        raise HTTPException(
-            status_code=500,
-            detail={"message": "Failed to start geo entity identification", "error": str(e)},
-        ) from e
+        logger.error(f"Unexpected error triggering geographic entity identification for resource {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e

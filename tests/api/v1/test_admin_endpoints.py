@@ -33,12 +33,13 @@ class TestAdminEndpoints:
         # Should return 404 if endpoint doesn't exist, or 401 if it does
         assert response.status_code in [401, 404]
 
-    @patch("app.api.v1.endpoint_modules.admin.CacheService")
-    def test_clear_cache_all_types(self, mock_cache_service):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_clear_cache_all_types(self, mock_get_service):
         """Test clearing all cache types."""
-        # Mock cache service
-        mock_cache_instance = AsyncMock()
-        mock_cache_service.return_value = mock_cache_instance
+        # Mock admin service
+        mock_service = AsyncMock()
+        mock_service.clear_cache.return_value = {"message": "Cache cleared successfully: all"}
+        mock_get_service.return_value = mock_service
         
         # Test clearing all cache (default behavior)
         response = client.post(
@@ -49,12 +50,13 @@ class TestAdminEndpoints:
         # Should return 404 if endpoint doesn't exist, or 200 if it does
         assert response.status_code in [200, 404]
 
-    @patch("app.api.v1.endpoint_modules.admin.CacheService")
-    def test_clear_cache_search_only(self, mock_cache_service):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_clear_cache_search_only(self, mock_get_service):
         """Test clearing only search cache."""
-        # Mock cache service
-        mock_cache_instance = AsyncMock()
-        mock_cache_service.return_value = mock_cache_instance
+        # Mock admin service
+        mock_service = AsyncMock()
+        mock_service.clear_cache.return_value = {"message": "Cache cleared successfully: search"}
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/cache/clear?cache_type=search",
@@ -63,13 +65,13 @@ class TestAdminEndpoints:
         
         assert response.status_code in [200, 404]
 
-    @patch("app.api.v1.endpoint_modules.admin.CacheService")
-    def test_clear_cache_error_handling(self, mock_cache_service):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_clear_cache_error_handling(self, mock_get_service):
         """Test cache clearing error handling."""
-        # Mock cache service to raise an exception
-        mock_cache_instance = AsyncMock()
-        mock_cache_instance.flush_all.side_effect = Exception("Cache error")
-        mock_cache_service.return_value = mock_cache_instance
+        # Mock admin service to raise an exception
+        mock_service = AsyncMock()
+        mock_service.clear_cache.side_effect = Exception("Cache error")
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/cache/clear",
@@ -78,11 +80,13 @@ class TestAdminEndpoints:
         
         assert response.status_code in [200, 404, 500]
 
-    @patch("app.api.v1.endpoint_modules.admin.reindex_resources")
-    def test_reindex_success(self, mock_reindex):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_reindex_success(self, mock_get_service):
         """Test successful reindexing."""
-        # Mock reindex response
-        mock_reindex.return_value = {"indexed": 100, "errors": 0}
+        # Mock admin service
+        mock_service = AsyncMock()
+        mock_service.reindex_resources.return_value = {"indexed": 100, "errors": 0}
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/reindex",
@@ -91,11 +95,13 @@ class TestAdminEndpoints:
         
         assert response.status_code in [200, 404]
 
-    @patch("app.api.v1.endpoint_modules.admin.reindex_resources")
-    def test_reindex_error_handling(self, mock_reindex):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_reindex_error_handling(self, mock_get_service):
         """Test reindexing error handling."""
-        # Mock reindex to raise an exception
-        mock_reindex.side_effect = Exception("Reindex failed")
+        # Mock admin service to raise an exception
+        mock_service = AsyncMock()
+        mock_service.reindex_resources.side_effect = Exception("Reindex failed")
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/reindex",
@@ -104,18 +110,17 @@ class TestAdminEndpoints:
         
         assert response.status_code in [200, 404, 500]
 
-    @patch("app.api.v1.endpoint_modules.admin.database")
-    def test_summarize_resource_success(self, mock_database):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_summarize_resource_success(self, mock_get_service):
         """Test successful resource summarization."""
-        # Mock database response
-        mock_result = {
-            "id": "test-resource-id",
-            "dct_title_s": "Test Resource",
-            "dct_description_sm": "Test description"
+        # Mock admin service
+        mock_service = AsyncMock()
+        mock_service.summarize_resource.return_value = {
+            "status": "success",
+            "message": "Summary generation started",
+            "task_id": "task-123"
         }
-        mock_database.fetch_one.return_value = mock_result
-        mock_database.transaction.return_value.__aenter__.return_value = None
-        mock_database.transaction.return_value.__aexit__.return_value = None
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/resources/test-resource-id/summarize",
@@ -124,13 +129,14 @@ class TestAdminEndpoints:
         
         assert response.status_code in [200, 404]
 
-    @patch("app.api.v1.endpoint_modules.admin.database")
-    def test_summarize_resource_not_found(self, mock_database):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_summarize_resource_not_found(self, mock_get_service):
         """Test summarization for non-existent resource."""
-        # Mock database to return None (resource not found)
-        mock_database.fetch_one.return_value = None
-        mock_database.transaction.return_value.__aenter__.return_value = None
-        mock_database.transaction.return_value.__aexit__.return_value = None
+        # Mock admin service to raise ResourceNotFoundError
+        mock_service = AsyncMock()
+        from app.services.admin_service import ResourceNotFoundError
+        mock_service.summarize_resource.side_effect = ResourceNotFoundError("Resource not found")
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/resources/nonexistent-id/summarize",
@@ -139,18 +145,17 @@ class TestAdminEndpoints:
         
         assert response.status_code in [200, 404]
 
-    @patch("app.api.v1.endpoint_modules.admin.database")
-    def test_identify_geo_entities_success(self, mock_database):
+    @patch("app.api.v1.endpoint_modules.admin.get_admin_service")
+    def test_identify_geo_entities_success(self, mock_get_service):
         """Test successful geo entity identification."""
-        # Mock database response
-        mock_result = {
-            "id": "test-resource-id",
-            "dct_title_s": "Test Resource",
-            "dct_description_sm": "Test description"
+        # Mock admin service
+        mock_service = AsyncMock()
+        mock_service.identify_geo_entities.return_value = {
+            "status": "success",
+            "message": "Geographic entity identification started",
+            "task_id": "task-456"
         }
-        mock_database.fetch_one.return_value = mock_result
-        mock_database.transaction.return_value.__aenter__.return_value = None
-        mock_database.transaction.return_value.__aexit__.return_value = None
+        mock_get_service.return_value = mock_service
         
         response = client.post(
             "/api/v1/admin/resources/test-resource-id/identify-geo-entities",
