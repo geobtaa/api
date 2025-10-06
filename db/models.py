@@ -293,3 +293,33 @@ resource_allmaps = Table(
     Column("created_at", TIMESTAMP, nullable=False),
     Column("updated_at", TIMESTAMP, nullable=False),
 )
+
+# Distribution types lookup table
+distribution_types = Table(
+    "distribution_types",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("name", String(255), nullable=False, unique=True),
+    Column("distribution_type", String(255), nullable=False),
+    Column("distribution_uri", String(500), nullable=False),
+    Column("label", Boolean, server_default="false", nullable=False),
+    Column("note", Text, nullable=True),
+    Column("position", Integer, server_default="0", nullable=False),
+    Column("created_at", TIMESTAMP, nullable=False),
+    Column("updated_at", TIMESTAMP, nullable=False),
+)
+
+# Resource distributions table
+resource_distributions = Table(
+    "resource_distributions",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("distribution_type_id", Integer, nullable=False),
+    Column("url", Text, nullable=False),
+    Column("label", String(255), nullable=True),
+    Column("position", Integer, server_default="0", nullable=False),
+    Column("created_at", TIMESTAMP, nullable=False),
+    Column("updated_at", TIMESTAMP, nullable=False),
+    Column("import_distribution_id", String(255), nullable=True),
+)

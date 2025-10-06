@@ -76,13 +76,13 @@ async def list_resources(
 
             logger.info(f"Returning {len(processed_resources)} processed resources")
 
-            # Create JSON:API compliant response
-            request_url = str(request.url) if request else None
-            jsonapi_response = create_jsonapi_response(
-                data=processed_resources, request_url=request_url, callback=callback
-            )
+        # Create JSON:API compliant response
+        request_url = str(request.url) if request else None
+        jsonapi_response = create_jsonapi_response(
+            data=processed_resources, request_url=request_url, callback=callback
+        )
 
-            return JSONResponse(content=jsonapi_response)
+        return JSONResponse(content=jsonapi_response)
     except Exception as e:
         logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
@@ -127,6 +127,77 @@ async def get_resource(
     except Exception as e:
         logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@router.get("/resources/{id}/distributions")
+@cached_endpoint(ttl=RESOURCE_CACHE_TTL)
+async def get_resource_distributions(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+    request: Request = None,
+):
+    """Get all distributions for a resource."""
+    try:
+        # First check if the resource exists
+        async with async_session() as session:
+            resource_query = select(resources.c.id).where(resources.c.id == id)
+            resource_result = await session.execute(resource_query)
+            resource_row = resource_result.fetchone()
+
+            if not resource_row:
+                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+
+            # Get distributions with distribution type information
+            distributions_query = text("""
+                SELECT 
+                    rd.id,
+                    rd.resource_id,
+                    rd.url,
+                    rd.label,
+                    rd.position,
+                    rd.created_at,
+                    rd.updated_at,
+                    rd.import_distribution_id,
+                    dt.id as distribution_type_id,
+                    dt.name as distribution_type_name,
+                    dt.distribution_type,
+                    dt.distribution_uri,
+                    dt.note as distribution_note
+                FROM resource_distributions rd
+                JOIN distribution_types dt ON rd.distribution_type_id = dt.id
+                WHERE rd.resource_id = :resource_id
+                ORDER BY rd.position ASC, rd.created_at ASC
+            """)
+
+            result = await session.execute(distributions_query, {"resource_id": id})
+            distributions = result.fetchall()
+
+            # Convert to list of dicts and sanitize
+            distributions_list = []
+            for dist in distributions:
+                dist_dict = sanitize_for_json(dict(dist._mapping))
+                distributions_list.append(dist_dict)
+
+            # Create JSON:API compliant response
+            request_url = str(request.url) if request else None
+            jsonapi_response = create_jsonapi_response(
+                data={
+                    "type": "distributions",
+                    "id": id,
+                    "attributes": {
+                        "distributions": distributions_list,
+                        "count": len(distributions_list),
+                    },
+                },
+                request_url=request_url,
+                callback=callback,
+            )
+
+            return JSONResponse(content=jsonapi_response)
+
+    except Exception as e:
+        logger.error(f"Error getting distributions for resource {id}: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.get("/resources/{id}/ogm")
@@ -189,6 +260,54 @@ async def get_resource_relationships(
 ):
     """Get all relationships for a resource."""
     return await RelationshipService.get_resource_relationships(id)
+
+
+@router.get("/resources/{id}/spatial_facets")
+async def get_resource_spatial_facets(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+    debug: bool = Query(False, description="Include overlap ratios in results"),
+    request: Request = None,
+):
+    """Get spatial hierarchical facets (country, state, county) and bounding box for a resource."""
+    try:
+        # Fetch the resource data first using the proper async session
+        async with async_session() as session:
+            query = select(resources.c.id, resources.c.dcat_bbox).where(resources.c.id == id)
+            result = await session.execute(query)
+            row = result.fetchone()
+
+            if not row:
+                # Return empty response for nonexistent resource
+                response_data = {"id": id, "type": "spatial_facets", "attributes": {}}
+                request_url = str(request.url) if request else None
+                return create_jsonapi_response(response_data, request_url, callback)
+
+            # Convert to dict
+            resource_dict = dict(row._mapping)
+
+            # Get spatial facets using the SpatialFacetService with the resource data
+            service = SpatialFacetService(resource_dict)
+            spatial_facets = await service.get_spatial_facets_with_wof_ids(session, debug=debug)
+
+            # Prepare attributes with dcat_bbox first, then spatial facets
+            attributes = {}
+            if resource_dict.get("dcat_bbox"):
+                attributes["dcat_bbox"] = resource_dict["dcat_bbox"]
+            # Add spatial facets after dcat_bbox
+            attributes.update(spatial_facets)
+
+            # Create JSON:API compliant response
+            response_data = {"id": id, "type": "spatial_facets", "attributes": attributes}
+
+            request_url = str(request.url) if request else None
+            return create_jsonapi_response(response_data, request_url, callback)
+
+    except Exception as e:
+        logger.error(f"Error getting spatial facets for resource {id}: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving spatial facets: {str(e)}"
+        ) from e
 
 
 @router.get("/resources/{id}/summaries")
@@ -288,51 +407,3 @@ async def get_resource_viewer(
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-
-@router.get("/resources/{id}/spatial_facets")
-async def get_resource_spatial_facets(
-    id: str,
-    callback: Optional[str] = Query(None, description="JSONP callback name"),
-    debug: bool = Query(False, description="Include overlap ratios in results"),
-    request: Request = None,
-):
-    """Get spatial hierarchical facets (country, state, county) and bounding box for a resource."""
-    try:
-        # Fetch the resource data first using the proper async session
-        async with async_session() as session:
-            query = select(resources.c.id, resources.c.dcat_bbox).where(resources.c.id == id)
-            result = await session.execute(query)
-            row = result.fetchone()
-
-            if not row:
-                # Return empty response for nonexistent resource
-                response_data = {"id": id, "type": "spatial_facets", "attributes": {}}
-                request_url = str(request.url) if request else None
-                return create_jsonapi_response(response_data, request_url, callback)
-
-            # Convert to dict
-            resource_dict = dict(row._mapping)
-
-            # Get spatial facets using the SpatialFacetService with the resource data
-            service = SpatialFacetService(resource_dict)
-            spatial_facets = await service.get_spatial_facets_with_wof_ids(session, debug=debug)
-
-            # Prepare attributes with dcat_bbox first, then spatial facets
-            attributes = {}
-            if resource_dict.get("dcat_bbox"):
-                attributes["dcat_bbox"] = resource_dict["dcat_bbox"]
-            # Add spatial facets after dcat_bbox
-            attributes.update(spatial_facets)
-
-            # Create JSON:API compliant response
-            response_data = {"id": id, "type": "spatial_facets", "attributes": attributes}
-
-            request_url = str(request.url) if request else None
-            return create_jsonapi_response(response_data, request_url, callback)
-
-    except Exception as e:
-        logger.error(f"Error getting spatial facets for resource {id}: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Error retrieving spatial facets: {str(e)}"
-        ) from e
