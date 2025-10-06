@@ -35,3 +35,25 @@ def configure_admin_auth_env() -> None:
 
     yield
 
+@pytest.fixture(scope="session", autouse=True)
+def flush_redis_between_sessions() -> None:
+    """Flush Redis logical DB used for tests at session start/end."""
+    try:
+        import redis
+        client = redis.Redis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            db=int(os.getenv("REDIS_DB", "1")),
+        )
+        try:
+            client.flushdb()
+        except Exception:
+            pass
+        yield
+        try:
+            client.flushdb()
+        except Exception:
+            pass
+    except Exception:
+        yield
+
