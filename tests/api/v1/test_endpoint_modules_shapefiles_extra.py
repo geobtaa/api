@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import AsyncMock, patch
+
+import pytest
 from fastapi import HTTPException
 
 
@@ -11,7 +12,9 @@ async def test_query_endpoint_duckdb_error():
     mock_service.query_shapefile.side_effect = sh.DuckDBConnectionError("no duckdb")
     with patch.object(sh, "get_shapefile_service", return_value=mock_service):
         with pytest.raises(HTTPException) as exc:
-            await sh.query_endpoint(s3_uri="s3://bucket/file.shp", sql="id > 0", service=mock_service)
+            await sh.query_endpoint(
+                s3_uri="s3://bucket/file.shp", sql="id > 0", service=mock_service
+            )
         assert exc.value.status_code == 503
 
 
@@ -37,4 +40,3 @@ async def test_preview_endpoint_download_error():
         with pytest.raises(HTTPException) as exc:
             await sh.preview_endpoint(s3_uri="s3://bucket/file.shp", limit=5, service=mock_service)
         assert exc.value.status_code == 400
-

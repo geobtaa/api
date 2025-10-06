@@ -1,5 +1,6 @@
-import os
 import importlib
+import os
+
 import pytest
 
 
@@ -28,6 +29,7 @@ def configure_admin_auth_env() -> None:
     # Reload auth module so constants pick up env during tests
     try:
         import app.api.v1.auth as auth
+
         importlib.reload(auth)
     except Exception:
         # If not importable yet, it's fine; later import will read env
@@ -35,11 +37,13 @@ def configure_admin_auth_env() -> None:
 
     yield
 
+
 @pytest.fixture(scope="session", autouse=True)
 def flush_redis_between_sessions() -> None:
     """Flush Redis logical DB used for tests at session start/end."""
     try:
         import redis
+
         client = redis.Redis(
             host=os.getenv("REDIS_HOST", "localhost"),
             port=int(os.getenv("REDIS_PORT", "6379")),
@@ -56,4 +60,3 @@ def flush_redis_between_sessions() -> None:
             pass
     except Exception:
         yield
-

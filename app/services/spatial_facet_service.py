@@ -1,10 +1,10 @@
-import json
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from db.database import database
 from sqlalchemy import text
+
+from db.database import database
 
 logger = logging.getLogger(__name__)
 
@@ -18,28 +18,32 @@ class SpatialFacetService:
     async def get_spatial_facets(self, session=None, debug=False) -> Dict[str, Any]:
         """
         Get spatial hierarchical facets (country, state, county) from dcat_bbox.
-        
+
         Args:
             session: Optional database session to use for queries
             debug: If True, include overlap ratios in results
-        
+
         Returns:
             Dictionary with geo.country, geo.region, geo.county keys (backward compatible format)
         """
         facets = {}
-        
+
         try:
             bbox = self.resource_dict.get("dcat_bbox")
             if not bbox:
-                logger.debug(f"No dcat_bbox found for resource {self.resource_dict.get('id', 'unknown')}")
+                logger.debug(
+                    f"No dcat_bbox found for resource {self.resource_dict.get('id', 'unknown')}"
+                )
                 return facets
-            
+
             # Parse the bounding box
             bbox_geom = self._parse_bbox_to_geometry(bbox)
             if not bbox_geom:
-                logger.debug(f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}")
+                logger.debug(
+                    f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}"
+                )
                 return facets
-            
+
             # Get spatial facets using PostGIS and Who's on First data
             country = await self._get_country_from_bbox(bbox_geom, session)
             if country:
@@ -47,93 +51,114 @@ class SpatialFacetService:
                 if debug and isinstance(country, dict):
                     facets["geo.country"] = f"{country['name']}|{country.get('overlap_percent', 0)}"
                 else:
-                    facets["geo.country"] = country["name"] if isinstance(country, dict) else country
-            
+                    facets["geo.country"] = (
+                        country["name"] if isinstance(country, dict) else country
+                    )
+
             regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
             if regions:
                 # Convert to backward compatible format
                 if debug:
-                    facets["geo.region"] = [f"{region['name']}|{region.get('overlap_percent', 0)}" for region in regions]
+                    facets["geo.region"] = [
+                        f"{region['name']}|{region.get('overlap_percent', 0)}" for region in regions
+                    ]
                 else:
                     facets["geo.region"] = [region["name"] for region in regions]
-            
+
             counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
             if counties:
                 # Convert to backward compatible format
                 if debug:
-                    facets["geo.county"] = [f"{county['state_abbrev']}|{county['name']}|{county.get('overlap_percent', 0)}" for county in counties]
+                    facets["geo.county"] = [
+                        f"{county['state_abbrev']}|{county['name']}|{county.get('overlap_percent', 0)}"
+                        for county in counties
+                    ]
                 else:
-                    facets["geo.county"] = [f"{county['state_abbrev']}|{county['name']}" for county in counties]
-                
+                    facets["geo.county"] = [
+                        f"{county['state_abbrev']}|{county['name']}" for county in counties
+                    ]
+
         except Exception as e:
-            logger.error(f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}", exc_info=True)
-        
+            logger.error(
+                f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}",
+                exc_info=True,
+            )
+
         return facets
 
     async def get_spatial_facets_with_wof_ids(self, session=None, debug=False) -> Dict[str, Any]:
         """
         Get spatial hierarchical facets with Who's on First identifiers for map visualization.
-        
+
         Args:
             session: Optional database session to use for queries
             debug: If True, include overlap ratios in results
-        
+
         Returns:
             Dictionary with geo.country, geo.region, geo.county keys containing WOF identifiers
         """
         facets = {}
-        
+
         try:
             bbox = self.resource_dict.get("dcat_bbox")
             if not bbox:
-                logger.debug(f"No dcat_bbox found for resource {self.resource_dict.get('id', 'unknown')}")
+                logger.debug(
+                    f"No dcat_bbox found for resource {self.resource_dict.get('id', 'unknown')}"
+                )
                 return facets
-            
+
             # Parse the bounding box
             bbox_geom = self._parse_bbox_to_geometry(bbox)
             if not bbox_geom:
-                logger.debug(f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}")
+                logger.debug(
+                    f"Could not parse bbox {bbox} for resource {self.resource_dict.get('id', 'unknown')}"
+                )
                 return facets
-            
+
             # Get spatial facets using PostGIS and Who's on First data
             country = await self._get_country_from_bbox(bbox_geom, session)
             if country:
                 facets["geo.country"] = country
-            
+
             regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
             if regions:
                 facets["geo.region"] = regions
-            
+
             counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
             if counties:
                 facets["geo.county"] = counties
-                
+
         except Exception as e:
-            logger.error(f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}", exc_info=True)
-        
+            logger.error(
+                f"Error getting spatial facets for resource {self.resource_dict.get('id', 'unknown')}: {e}",
+                exc_info=True,
+            )
+
         return facets
 
-    def _get_fallback_spatial_facets(self, bbox_coords: Tuple[float, float, float, float]) -> Dict[str, Any]:
+    def _get_fallback_spatial_facets(
+        self, bbox_coords: Tuple[float, float, float, float]
+    ) -> Dict[str, Any]:
         """
         Fallback method to determine spatial facets using simple coordinate-based logic.
-        
+
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
-            
+
         Returns:
             Dictionary with basic spatial facet data
         """
         facets = {}
         xmin, ymin, xmax, ymax = bbox_coords
-        
+
         # Calculate centroid
         centroid_lon = (xmin + xmax) / 2
         centroid_lat = (ymin + ymax) / 2
-        
+
         # Simple coordinate-based country detection for US
         if -180 <= centroid_lon <= -50 and 18 <= centroid_lat <= 72:
             facets["geo.country"] = "United States"
-            
+
             # Simple state detection based on latitude/longitude ranges
             if 25 <= centroid_lat <= 49 and -125 <= centroid_lon <= -66:
                 # This is a very basic approximation - in reality you'd need proper state boundaries
@@ -143,36 +168,36 @@ class SpatialFacetService:
                     facets["geo.state"] = "Southwestern United States"
                 elif 25 <= centroid_lat <= 49 and -95 <= centroid_lon <= -66:
                     facets["geo.state"] = "Eastern United States"
-        
+
         return facets
 
     def _parse_bbox_to_geometry(self, bbox: str) -> Optional[Tuple[float, float, float, float]]:
         """
         Parse ENVELOPE string to (xmin, ymin, xmax, ymax) tuple.
-        
+
         Args:
             bbox: ENVELOPE string like "ENVELOPE(-123.08286, -121.912937, 45.918689, 45.255769)"
-            
+
         Returns:
             Tuple of (xmin, ymin, xmax, ymax) or None if parsing fails
         """
         try:
             # Handle ENVELOPE format: ENVELOPE(xmin, xmax, ymax, ymin)
-            envelope_match = re.match(r'ENVELOPE\(([^,]+),([^,]+),([^,]+),([^)]+)\)', bbox.strip())
+            envelope_match = re.match(r"ENVELOPE\(([^,]+),([^,]+),([^,]+),([^)]+)\)", bbox.strip())
             if envelope_match:
                 xmin, xmax, ymax, ymin = map(float, envelope_match.groups())
-                
+
                 # Validate bounding box
                 if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
                     logger.warning(f"Invalid bounding box: {bbox} - skipping")
                     return None
-                
+
                 return (xmin, ymin, xmax, ymax)
-            
+
             # Handle other bbox formats if needed
             logger.warning(f"Unrecognized bbox format: {bbox}")
             return None
-            
+
         except (ValueError, AttributeError) as e:
             logger.error(f"Error parsing bbox {bbox}: {e}")
             return None
@@ -180,10 +205,10 @@ class SpatialFacetService:
     def _is_valid_bbox(self, xmin: float, ymin: float, xmax: float, ymax: float) -> bool:
         """
         Validate that a bounding box is reasonable for spatial processing.
-        
+
         Args:
             xmin, ymin, xmax, ymax: Bounding box coordinates
-            
+
         Returns:
             True if the bounding box is valid, False otherwise
         """
@@ -192,38 +217,40 @@ class SpatialFacetService:
             return False
         if not (-90 <= ymin <= 90) or not (-90 <= ymax <= 90):
             return False
-        
+
         # Check for valid min/max relationships
         if xmin >= xmax or ymin >= ymax:
             return False
-        
+
         # Check for antipodal edges (spans 180 degrees longitude)
         if abs(xmax - xmin) >= 180:
             return False
-        
+
         # Check for extremely large bounding boxes (likely data errors)
         if (xmax - xmin) > 90 or (ymax - ymin) > 90:
             return False
-        
+
         # Check for zero-area bounding boxes
         if (xmax - xmin) < 0.001 or (ymax - ymin) < 0.001:
             return False
-        
+
         return True
 
-    async def _get_country_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None) -> Optional[Dict[str, Any]]:
+    async def _get_country_from_bbox(
+        self, bbox_coords: Tuple[float, float, float, float], session=None
+    ) -> Optional[Dict[str, Any]]:
         """
         Get country using centroid rule.
-        
+
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
-            
+
         Returns:
             Dictionary with country info (name, wok_id, parent_id) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
-            
+
             # Optimized query using pre-computed geometry and spatial index
             query = """
             WITH bbox AS (
@@ -245,37 +272,47 @@ class SpatialFacetService:
             ORDER BY ST_Area(geojson.geometry) DESC
             LIMIT 1;
             """
-            
+
             if session:
-                result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
+                result = await session.execute(
+                    text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax}
+                )
                 row = result.fetchone()
                 if row:
                     return {"name": row[0], "wok_id": row[1], "parent_id": row[2]}
                 return None
             else:
-                result = await database.fetch_one(query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
+                result = await database.fetch_one(
+                    query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax}
+                )
                 if result:
-                    return {"name": result["name"], "wok_id": result["wok_id"], "parent_id": result["parent_id"]}
+                    return {
+                        "name": result["name"],
+                        "wok_id": result["wok_id"],
+                        "parent_id": result["parent_id"],
+                    }
                 return None
-            
+
         except Exception as e:
             logger.error(f"Error getting country from bbox {bbox_coords}: {e}", exc_info=True)
             return None
 
-    async def _get_regions_from_bbox(self, bbox_coords: Tuple[float, float, float, float], session=None, debug=False) -> Optional[List[Dict[str, Any]]]:
+    async def _get_regions_from_bbox(
+        self, bbox_coords: Tuple[float, float, float, float], session=None, debug=False
+    ) -> Optional[List[Dict[str, Any]]]:
         """
         Get all regions/states that overlap with the bounding box.
-        
+
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
             debug: If True, include overlap ratios in results
-            
+
         Returns:
             List of region info dictionaries (name, wok_id, parent_id, overlap_percent if debug) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
-            
+
             # Optimized query using spatial index and pre-computed geometry
             if debug:
                 query = """
@@ -316,45 +353,79 @@ class SpatialFacetService:
                   AND ST_Intersects(geojson.geometry, bbox.geom)
                 ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC;
                 """
-            
+
             if session:
-                result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
+                result = await session.execute(
+                    text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax}
+                )
                 rows = result.fetchall()
                 if rows:
                     if debug:
-                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2], "overlap_percent": int(row[3])} for row in rows]
+                        return [
+                            {
+                                "name": row[0],
+                                "wok_id": row[1],
+                                "parent_id": row[2],
+                                "overlap_percent": int(row[3]),
+                            }
+                            for row in rows
+                        ]
                     else:
-                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2]} for row in rows]
+                        return [
+                            {"name": row[0], "wok_id": row[1], "parent_id": row[2]} for row in rows
+                        ]
                 return None
             else:
-                results = await database.fetch_all(query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax})
+                results = await database.fetch_all(
+                    query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax}
+                )
                 if results:
                     if debug:
-                        return [{"name": row["name"], "wok_id": row["wok_id"], "parent_id": row["parent_id"], "overlap_percent": int(row["overlap_percent"])} for row in results]
+                        return [
+                            {
+                                "name": row["name"],
+                                "wok_id": row["wok_id"],
+                                "parent_id": row["parent_id"],
+                                "overlap_percent": int(row["overlap_percent"]),
+                            }
+                            for row in results
+                        ]
                     else:
-                        return [{"name": row["name"], "wok_id": row["wok_id"], "parent_id": row["parent_id"]} for row in results]
+                        return [
+                            {
+                                "name": row["name"],
+                                "wok_id": row["wok_id"],
+                                "parent_id": row["parent_id"],
+                            }
+                            for row in results
+                        ]
                 return None
-            
+
         except Exception as e:
             logger.error(f"Error getting regions from bbox {bbox_coords}: {e}", exc_info=True)
             return None
 
-    async def _get_counties_from_bbox(self, bbox_coords: Tuple[float, float, float, float], 
-                                    threshold: float = 0.001, session=None, debug=False) -> Optional[List[Dict[str, Any]]]:
+    async def _get_counties_from_bbox(
+        self,
+        bbox_coords: Tuple[float, float, float, float],
+        threshold: float = 0.001,
+        session=None,
+        debug=False,
+    ) -> Optional[List[Dict[str, Any]]]:
         """
         Get counties using multi-value rule with overlap threshold.
-        
+
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
             threshold: Minimum overlap percentage (default 0.001 = 0.1%)
             debug: If True, include overlap ratios in results
-            
+
         Returns:
             List of county info dictionaries (name, wok_id, parent_id, state_abbrev, overlap_percent if debug) or None
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
-            
+
             # Highly optimized query using materialized view and spatial indexes
             if debug:
                 query = """
@@ -399,25 +470,77 @@ class SpatialFacetService:
                 ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
                 LIMIT 100;
                 """
-            
+
             if session:
-                result = await session.execute(text(query), {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax, "threshold": threshold})
+                result = await session.execute(
+                    text(query),
+                    {
+                        "xmin": xmin,
+                        "ymin": ymin,
+                        "xmax": xmax,
+                        "ymax": ymax,
+                        "threshold": threshold,
+                    },
+                )
                 rows = result.fetchall()
                 if rows:
                     if debug:
-                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2], "state_abbrev": row[3], "overlap_percent": int(row[4])} for row in rows]
+                        return [
+                            {
+                                "name": row[0],
+                                "wok_id": row[1],
+                                "parent_id": row[2],
+                                "state_abbrev": row[3],
+                                "overlap_percent": int(row[4]),
+                            }
+                            for row in rows
+                        ]
                     else:
-                        return [{"name": row[0], "wok_id": row[1], "parent_id": row[2], "state_abbrev": row[3]} for row in rows]
+                        return [
+                            {
+                                "name": row[0],
+                                "wok_id": row[1],
+                                "parent_id": row[2],
+                                "state_abbrev": row[3],
+                            }
+                            for row in rows
+                        ]
                 return None
             else:
-                results = await database.fetch_all(query, {"xmin": xmin, "ymin": ymin, "xmax": xmax, "ymax": ymax, "threshold": threshold})
+                results = await database.fetch_all(
+                    query,
+                    {
+                        "xmin": xmin,
+                        "ymin": ymin,
+                        "xmax": xmax,
+                        "ymax": ymax,
+                        "threshold": threshold,
+                    },
+                )
                 if results:
                     if debug:
-                        return [{"name": row["county_name"], "wok_id": row["county_wok_id"], "parent_id": row["state_wok_id"], "state_abbrev": row["state_abbrev"], "overlap_percent": int(row["overlap_percent"])} for row in results]
+                        return [
+                            {
+                                "name": row["county_name"],
+                                "wok_id": row["county_wok_id"],
+                                "parent_id": row["state_wok_id"],
+                                "state_abbrev": row["state_abbrev"],
+                                "overlap_percent": int(row["overlap_percent"]),
+                            }
+                            for row in results
+                        ]
                     else:
-                        return [{"name": row["county_name"], "wok_id": row["county_wok_id"], "parent_id": row["state_wok_id"], "state_abbrev": row["state_abbrev"]} for row in results]
+                        return [
+                            {
+                                "name": row["county_name"],
+                                "wok_id": row["county_wok_id"],
+                                "parent_id": row["state_wok_id"],
+                                "state_abbrev": row["state_abbrev"],
+                            }
+                            for row in results
+                        ]
                 return None
-            
+
         except Exception as e:
             logger.error(f"Error getting counties from bbox {bbox_coords}: {e}", exc_info=True)
             return None
@@ -426,10 +549,10 @@ class SpatialFacetService:
     async def get_resource_spatial_facets(resource_id: str) -> Dict[str, Any]:
         """
         Get spatial facets for a specific resource by ID.
-        
+
         Args:
             resource_id: The resource ID to get facets for
-            
+
         Returns:
             Dictionary with spatial facet data
         """
@@ -437,54 +560,58 @@ class SpatialFacetService:
             # Fetch the resource
             resource = await database.fetch_one(
                 "SELECT id, dcat_bbox FROM resources WHERE id = :resource_id",
-                {"resource_id": resource_id}
+                {"resource_id": resource_id},
             )
-            
+
             if not resource:
                 logger.warning(f"Resource {resource_id} not found")
                 return {}
-            
+
             # Create service instance and get facets
             service = SpatialFacetService(dict(resource))
             return await service.get_spatial_facets()
-            
+
         except Exception as e:
-            logger.error(f"Error getting spatial facets for resource {resource_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error getting spatial facets for resource {resource_id}: {e}", exc_info=True
+            )
             return {}
 
     @staticmethod
     async def batch_get_spatial_facets(resource_ids: List[str]) -> Dict[str, Dict[str, Any]]:
         """
         Get spatial facets for multiple resources in batch.
-        
+
         Args:
             resource_ids: List of resource IDs
-            
+
         Returns:
             Dictionary mapping resource_id to spatial facets
         """
         try:
             if not resource_ids:
                 return {}
-            
+
             # Fetch all resources
             placeholders = ",".join([f":id_{i}" for i in range(len(resource_ids))])
             params = {f"id_{i}": resource_id for i, resource_id in enumerate(resource_ids)}
-            
+
             resources = await database.fetch_all(
-                f"SELECT id, dcat_bbox FROM resources WHERE id IN ({placeholders})",
-                params
+                f"SELECT id, dcat_bbox FROM resources WHERE id IN ({placeholders})", params
             )
-            
+
             # Process each resource
             results = {}
             for resource in resources:
                 service = SpatialFacetService(dict(resource))
                 facets = await service.get_spatial_facets()
                 results[resource["id"]] = facets
-            
+
             return results
-            
+
         except Exception as e:
-            logger.error(f"Error getting batch spatial facets for {len(resource_ids)} resources: {e}", exc_info=True)
+            logger.error(
+                f"Error getting batch spatial facets for {len(resource_ids)} resources: {e}",
+                exc_info=True,
+            )
             return {}

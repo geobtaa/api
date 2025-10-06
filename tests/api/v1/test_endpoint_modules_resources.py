@@ -3,13 +3,12 @@ Simple structural tests for resources endpoint module.
 Focus on basic functionality without complex mocking to avoid hanging.
 """
 
-import pytest
-from unittest.mock import Mock, patch
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 # Create test app
 from app.api.v1.endpoint_modules.resources import router
+
 app = FastAPI()
 app.include_router(router)
 client = TestClient(app)
@@ -21,14 +20,23 @@ class TestResourcesModuleStructure:
     def test_module_imports(self):
         """Test that module imports are working."""
         from app.api.v1.endpoint_modules.resources import (
-            router, logger, engine, async_session, base_url,
-            RESOURCE_CACHE_TTL, LIST_CACHE_TTL,
-            list_resources, get_resource, get_resource_ogm,
-            get_resource_links, get_resource_relationships,
-            get_resource_summaries, get_resource_viewer,
-            get_resource_spatial_facets
+            LIST_CACHE_TTL,
+            RESOURCE_CACHE_TTL,
+            async_session,
+            base_url,
+            engine,
+            get_resource,
+            get_resource_links,
+            get_resource_ogm,
+            get_resource_relationships,
+            get_resource_spatial_facets,
+            get_resource_summaries,
+            get_resource_viewer,
+            list_resources,
+            logger,
+            router,
         )
-        
+
         assert router is not None
         assert logger is not None
         assert engine is not None
@@ -48,12 +56,14 @@ class TestResourcesModuleStructure:
     def test_router_configuration(self):
         """Test router configuration."""
         from app.api.v1.endpoint_modules.resources import router
+
         assert router is not None
         assert len(router.routes) >= 7  # Should have multiple resource routes
 
     def test_cache_ttl_configuration(self):
         """Test cache TTL configuration."""
-        from app.api.v1.endpoint_modules.resources import RESOURCE_CACHE_TTL, LIST_CACHE_TTL
+        from app.api.v1.endpoint_modules.resources import LIST_CACHE_TTL, RESOURCE_CACHE_TTL
+
         assert isinstance(RESOURCE_CACHE_TTL, int)
         assert isinstance(LIST_CACHE_TTL, int)
         assert RESOURCE_CACHE_TTL > 0
@@ -62,6 +72,7 @@ class TestResourcesModuleStructure:
     def test_base_url_configuration(self):
         """Test base URL configuration."""
         from app.api.v1.endpoint_modules.resources import base_url
+
         assert base_url is not None
         assert isinstance(base_url, str)
         assert base_url.startswith("http")
@@ -69,18 +80,21 @@ class TestResourcesModuleStructure:
     def test_logger_configuration(self):
         """Test logger configuration."""
         from app.api.v1.endpoint_modules.resources import logger
+
         assert logger is not None
-        assert hasattr(logger, 'name')
+        assert hasattr(logger, "name")
 
     def test_engine_configuration(self):
         """Test database engine configuration."""
         from app.api.v1.endpoint_modules.resources import engine
+
         assert engine is not None
-        assert hasattr(engine, 'url')
+        assert hasattr(engine, "url")
 
     def test_session_configuration(self):
         """Test async session configuration."""
         from app.api.v1.endpoint_modules.resources import async_session
+
         assert async_session is not None
         assert callable(async_session)
 
@@ -174,7 +188,7 @@ class TestResourcesEndpoints:
     def test_endpoint_paths_exist(self):
         """Test that all expected endpoint paths exist."""
         routes = [route.path for route in app.routes]
-        
+
         expected_paths = [
             "/resources/",
             "/resources/{id}",
@@ -183,32 +197,37 @@ class TestResourcesEndpoints:
             "/resources/{id}/relationships",
             "/resources/{id}/summaries",
             "/resources/{id}/viewer",
-            "/resources/{id}/spatial_facets"
+            "/resources/{id}/spatial_facets",
         ]
-        
+
         for path in expected_paths:
             assert path in routes
 
     def test_endpoint_http_methods(self):
         """Test that endpoints use correct HTTP methods."""
-        routes = [route for route in app.routes if hasattr(route, 'methods')]
-        
+        routes = [route for route in app.routes if hasattr(route, "methods")]
+
         # All resource endpoints should be GET methods
         for route in routes:
-            if '/resources' in route.path:
-                assert 'GET' in route.methods
+            if "/resources" in route.path:
+                assert "GET" in route.methods
 
     def test_function_signatures(self):
         """Test function signatures for all endpoint functions."""
-        from app.api.v1.endpoint_modules.resources import (
-            list_resources, get_resource, get_resource_ogm,
-            get_resource_links, get_resource_relationships,
-            get_resource_summaries, get_resource_viewer,
-            get_resource_spatial_facets
-        )
-        
         # Test that functions are async
         import inspect
+
+        from app.api.v1.endpoint_modules.resources import (
+            get_resource,
+            get_resource_links,
+            get_resource_ogm,
+            get_resource_relationships,
+            get_resource_spatial_facets,
+            get_resource_summaries,
+            get_resource_viewer,
+            list_resources,
+        )
+
         assert inspect.iscoroutinefunction(list_resources)
         assert inspect.iscoroutinefunction(get_resource)
         assert inspect.iscoroutinefunction(get_resource_ogm)
@@ -221,30 +240,33 @@ class TestResourcesEndpoints:
     def test_module_docstrings(self):
         """Test that module has proper docstrings."""
         import app.api.v1.endpoint_modules.resources as resources_module
-        
+
         # Check that the module exists and can be imported
         assert resources_module is not None
 
     def test_import_structure(self):
         """Test that all required imports are available."""
         import app.api.v1.endpoint_modules.resources as resources_module
-        
+
         # Check key imports
-        assert hasattr(resources_module, 'logging')
-        assert hasattr(resources_module, 'os')
-        assert hasattr(resources_module, 'APIRouter')
-        assert hasattr(resources_module, 'HTTPException')
-        assert hasattr(resources_module, 'Query')
-        assert hasattr(resources_module, 'Request')
-        assert hasattr(resources_module, 'JSONResponse')
-        assert hasattr(resources_module, 'HTMLResponse')
+        assert hasattr(resources_module, "logging")
+        assert hasattr(resources_module, "os")
+        assert hasattr(resources_module, "APIRouter")
+        assert hasattr(resources_module, "HTTPException")
+        assert hasattr(resources_module, "Query")
+        assert hasattr(resources_module, "Request")
+        assert hasattr(resources_module, "JSONResponse")
+        assert hasattr(resources_module, "HTMLResponse")
 
     def test_service_dependencies(self):
         """Test that service dependencies are properly imported."""
         from app.api.v1.endpoint_modules.resources import (
-            LinkService, OGMFieldMapper, RelationshipService, SpatialFacetService
+            LinkService,
+            OGMFieldMapper,
+            RelationshipService,
+            SpatialFacetService,
         )
-        
+
         assert LinkService is not None
         assert OGMFieldMapper is not None
         assert RelationshipService is not None
@@ -252,10 +274,8 @@ class TestResourcesEndpoints:
 
     def test_database_dependencies(self):
         """Test that database dependencies are properly configured."""
-        from app.api.v1.endpoint_modules.resources import (
-            engine, async_session, resources
-        )
-        
+        from app.api.v1.endpoint_modules.resources import async_session, engine, resources
+
         assert engine is not None
         assert async_session is not None
         assert resources is not None
@@ -263,10 +283,12 @@ class TestResourcesEndpoints:
     def test_utility_dependencies(self):
         """Test that utility functions are properly imported."""
         from app.api.v1.endpoint_modules.resources import (
-            create_jsonapi_response, create_response,
-            process_resource, sanitize_for_json
+            create_jsonapi_response,
+            create_response,
+            process_resource,
+            sanitize_for_json,
         )
-        
+
         assert callable(create_jsonapi_response)
         assert callable(create_response)
         assert callable(process_resource)

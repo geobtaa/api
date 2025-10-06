@@ -2,8 +2,6 @@
 Tests for the elasticsearch mappings module.
 """
 
-import pytest
-
 from app.elasticsearch.mappings import INDEX_MAPPING
 
 
@@ -20,7 +18,7 @@ class TestMappings:
         """Test that mappings.properties has the expected structure."""
         mappings = INDEX_MAPPING["mappings"]
         assert "properties" in mappings
-        
+
         properties = mappings["properties"]
         assert isinstance(properties, dict)
         assert len(properties) > 0
@@ -28,11 +26,11 @@ class TestMappings:
     def test_core_field_mappings(self):
         """Test that core field mappings are present and correctly configured."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Test ID field
         assert "id" in properties
         assert properties["id"]["type"] == "keyword"
-        
+
         # Test title field with text and keyword
         assert "dct_title_s" in properties
         title_field = properties["dct_title_s"]
@@ -45,21 +43,21 @@ class TestMappings:
     def test_spatial_field_mappings(self):
         """Test that spatial field mappings are correctly configured."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Test geometry field
         assert "locn_geometry" in properties
         geometry_field = properties["locn_geometry"]
         assert geometry_field["type"] == "geo_shape"
         assert geometry_field["orientation"] == "counterclockwise"
         assert geometry_field["coerce"] is True
-        
+
         # Test bbox field
         assert "dcat_bbox" in properties
         bbox_field = properties["dcat_bbox"]
         assert bbox_field["type"] == "geo_shape"
         assert bbox_field["orientation"] == "counterclockwise"
         assert bbox_field["coerce"] is True
-        
+
         # Test centroid field
         assert "dcat_centroid" in properties
         centroid_field = properties["dcat_centroid"]
@@ -68,25 +66,25 @@ class TestMappings:
     def test_facet_field_mappings(self):
         """Test that facet field mappings are present."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Test spatial facet fields
         assert "geo_country" in properties
         assert properties["geo_country"]["type"] == "keyword"
-        
+
         assert "geo_region" in properties
         assert properties["geo_region"]["type"] == "keyword"
-        
+
         assert "geo_county" in properties
         assert properties["geo_county"]["type"] == "keyword"
 
     def test_btaa_specific_field_mappings(self):
         """Test that BTAA-specific field mappings are present."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Test BTAA fields
         btaa_fields = [
             "b1g_code_s",
-            "b1g_status_s", 
+            "b1g_status_s",
             "b1g_dct_accrualMethod_s",
             "b1g_dct_accrualPeriodicity_s",
             "b1g_dateAccessioned_s",
@@ -103,16 +101,16 @@ class TestMappings:
             "b1g_dcat_spatialResolutionInMeters_sm",
             "b1g_geodcat_spatialResolutionAsText_sm",
             "b1g_dct_provenanceStatement_sm",
-            "b1g_adminTags_sm"
+            "b1g_adminTags_sm",
         ]
-        
+
         for field in btaa_fields:
             assert field in properties, f"BTAA field {field} should be in mappings"
 
     def test_suggest_field_mapping(self):
         """Test that the suggest field is correctly configured for autocomplete."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         assert "suggest" in properties
         suggest_field = properties["suggest"]
         assert suggest_field["type"] == "completion"
@@ -125,16 +123,16 @@ class TestMappings:
         """Test that index settings are correctly configured."""
         settings = INDEX_MAPPING["settings"]
         assert "index" in settings
-        
+
         index_settings = settings["index"]
         assert index_settings["number_of_shards"] == 1
         assert index_settings["number_of_replicas"] == 0
-        
+
         # Test analysis settings
         assert "analysis" in index_settings
         analysis = index_settings["analysis"]
         assert "normalizer" in analysis
-        
+
         # Test lowercase normalizer
         normalizer = analysis["normalizer"]
         assert "lowercase" in normalizer
@@ -145,36 +143,52 @@ class TestMappings:
     def test_field_type_consistency(self):
         """Test that field types are consistent and appropriate."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Text fields should have appropriate configuration
-        text_fields = ["dct_title_s", "dct_alternative_sm", "dct_description_sm", 
-                      "gbl_displaynote_sm", "dct_publisher_sm", "dct_subject_sm",
-                      "dcat_theme_sm", "dcat_keyword_sm", "dct_temporal_sm", 
-                      "dct_issued_s", "gbl_daterange_drsim", "summary"]
-        
+        text_fields = [
+            "dct_title_s",
+            "dct_alternative_sm",
+            "dct_description_sm",
+            "gbl_displaynote_sm",
+            "dct_publisher_sm",
+            "dct_subject_sm",
+            "dcat_theme_sm",
+            "dcat_keyword_sm",
+            "dct_temporal_sm",
+            "dct_issued_s",
+            "gbl_daterange_drsim",
+            "summary",
+        ]
+
         for field in text_fields:
             if field in properties:
                 assert properties[field]["type"] == "text"
-        
+
         # Keyword fields should be configured as keywords
-        keyword_fields = ["dct_spatial_sm", "gbl_resourceclass_sm", "gbl_resourcetype_sm",
-                         "dct_language_sm", "dct_creator_sm", "schema_provider_s",
-                         "dct_accessrights_sm"]
-        
+        keyword_fields = [
+            "dct_spatial_sm",
+            "gbl_resourceclass_sm",
+            "gbl_resourcetype_sm",
+            "dct_language_sm",
+            "dct_creator_sm",
+            "schema_provider_s",
+            "dct_accessrights_sm",
+        ]
+
         for field in keyword_fields:
             if field in properties:
                 assert properties[field]["type"] == "keyword"
-        
+
         # Boolean fields should be configured as booleans
         boolean_fields = ["gbl_georeferenced_b", "b1g_child_record_b"]
-        
+
         for field in boolean_fields:
             if field in properties:
                 assert properties[field]["type"] == "boolean"
-        
+
         # Integer fields should be configured as integers
         integer_fields = ["gbl_indexyear_im"]
-        
+
         for field in integer_fields:
             if field in properties:
                 assert properties[field]["type"] == "integer"
@@ -182,9 +196,9 @@ class TestMappings:
     def test_date_field_mappings(self):
         """Test that date field mappings are correctly configured."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         date_fields = ["gbl_mdmodified_dt", "b1g_dateAccessioned_s", "b1g_dateRetired_s"]
-        
+
         for field in date_fields:
             if field in properties:
                 assert properties[field]["type"] == "date"
@@ -192,10 +206,10 @@ class TestMappings:
     def test_object_field_mappings(self):
         """Test that object field mappings are correctly configured."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Test object fields that are disabled
         object_fields = ["dct_references_s", "b1g_access_s"]
-        
+
         for field in object_fields:
             if field in properties:
                 assert properties[field]["type"] == "object"
@@ -204,16 +218,20 @@ class TestMappings:
     def test_mapping_completeness(self):
         """Test that all expected fields are present in the mapping."""
         properties = INDEX_MAPPING["mappings"]["properties"]
-        
+
         # Check that we have a reasonable number of fields
         assert len(properties) >= 50  # Should have many fields
-        
+
         # Check for key field categories
         has_text_fields = any(prop.get("type") == "text" for prop in properties.values())
         has_keyword_fields = any(prop.get("type") == "keyword" for prop in properties.values())
-        has_geo_fields = any(prop.get("type") in ["geo_shape", "geo_point"] for prop in properties.values())
-        has_completion_fields = any(prop.get("type") == "completion" for prop in properties.values())
-        
+        has_geo_fields = any(
+            prop.get("type") in ["geo_shape", "geo_point"] for prop in properties.values()
+        )
+        has_completion_fields = any(
+            prop.get("type") == "completion" for prop in properties.values()
+        )
+
         assert has_text_fields
         assert has_keyword_fields
         assert has_geo_fields

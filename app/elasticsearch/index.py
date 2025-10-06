@@ -80,7 +80,7 @@ async def process_resource(resource_dict):
 
     # Add summaries to the document
     processed_dict["ai_summaries"] = await get_resource_summaries(processed_dict["id"])
-    
+
     # Add spatial facet data
     spatial_facets = await get_spatial_facets(processed_dict["id"])
     if spatial_facets:
@@ -195,22 +195,26 @@ async def get_spatial_facets(resource_id):
             WHERE resource_id = :resource_id
         """
         result = await database.fetch_one(query, {"resource_id": resource_id})
-        
+
         if result:
             spatial_facets = dict(result)
-            
+
             # Parse JSON fields and format as pipe-delimited strings for faceting
             if spatial_facets.get("geo_country"):
                 try:
                     country_data = json.loads(spatial_facets["geo_country"])
-                    if isinstance(country_data, dict) and all(key in country_data for key in ["wok_id", "parent_id", "name"]):
+                    if isinstance(country_data, dict) and all(
+                        key in country_data for key in ["wok_id", "parent_id", "name"]
+                    ):
                         # Format: wok_id|parent_id|name
-                        spatial_facets["geo_country"] = f"{country_data['wok_id']}|{country_data['parent_id']}|{country_data['name']}"
+                        spatial_facets["geo_country"] = (
+                            f"{country_data['wok_id']}|{country_data['parent_id']}|{country_data['name']}"
+                        )
                     else:
                         spatial_facets["geo_country"] = None
                 except (json.JSONDecodeError, TypeError):
                     spatial_facets["geo_country"] = None
-            
+
             if spatial_facets.get("geo_region"):
                 try:
                     region_data = json.loads(spatial_facets["geo_region"])
@@ -218,14 +222,18 @@ async def get_spatial_facets(resource_id):
                         # Format each region as: wok_id|parent_id|name
                         region_strings = []
                         for region in region_data:
-                            if isinstance(region, dict) and all(key in region for key in ["wok_id", "parent_id", "name"]):
-                                region_strings.append(f"{region['wok_id']}|{region['parent_id']}|{region['name']}")
+                            if isinstance(region, dict) and all(
+                                key in region for key in ["wok_id", "parent_id", "name"]
+                            ):
+                                region_strings.append(
+                                    f"{region['wok_id']}|{region['parent_id']}|{region['name']}"
+                                )
                         spatial_facets["geo_region"] = region_strings if region_strings else None
                     else:
                         spatial_facets["geo_region"] = None
                 except (json.JSONDecodeError, TypeError):
                     spatial_facets["geo_region"] = None
-            
+
             if spatial_facets.get("geo_county"):
                 try:
                     county_data = json.loads(spatial_facets["geo_county"])
@@ -233,14 +241,19 @@ async def get_spatial_facets(resource_id):
                         # Format each county as: wok_id|parent_id|state_abbrev|name
                         county_strings = []
                         for county in county_data:
-                            if isinstance(county, dict) and all(key in county for key in ["wok_id", "parent_id", "state_abbrev", "name"]):
-                                county_strings.append(f"{county['wok_id']}|{county['parent_id']}|{county['state_abbrev']}|{county['name']}")
+                            if isinstance(county, dict) and all(
+                                key in county
+                                for key in ["wok_id", "parent_id", "state_abbrev", "name"]
+                            ):
+                                county_strings.append(
+                                    f"{county['wok_id']}|{county['parent_id']}|{county['state_abbrev']}|{county['name']}"
+                                )
                         spatial_facets["geo_county"] = county_strings if county_strings else None
                     else:
                         spatial_facets["geo_county"] = None
                 except (json.JSONDecodeError, TypeError):
                     spatial_facets["geo_county"] = None
-            
+
             return spatial_facets
         return None
     except Exception as e:
@@ -265,12 +278,12 @@ def process_geometry(geometry):
             if envelope_match:
                 # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
                 minx, maxx, maxy, miny = map(float, envelope_match.groups())
-                
+
                 # Validate the envelope coordinates
                 if not _is_valid_envelope(minx, maxx, maxy, miny):
                     logger.warning(f"Invalid envelope coordinates: {geometry} - skipping")
                     return None
-                
+
                 # Create a polygon from the envelope coordinates in counterclockwise order
                 return {
                     "type": "polygon",
@@ -323,19 +336,19 @@ def _is_valid_envelope(minx, maxx, maxy, miny):
         return False
     if not (-90 <= miny <= 90) or not (-90 <= maxy <= 90):
         return False
-    
+
     # Check for valid envelope bounds (minx <= maxx, miny <= maxy)
     if minx > maxx or miny > maxy:
         return False
-    
+
     # Check for zero-area polygons (at least one dimension must have non-zero area)
     if minx == maxx and miny == maxy:
         return False
-    
+
     # Check for very small areas that might cause precision issues
     if abs(maxx - minx) < 1e-10 or abs(maxy - miny) < 1e-10:
         return False
-    
+
     return True
 
 
@@ -343,7 +356,7 @@ def _is_valid_point(coords):
     """Validate point coordinates."""
     if not isinstance(coords, (list, tuple)) or len(coords) < 2:
         return False
-    
+
     lon, lat = coords[0], coords[1]
     return -180 <= lon <= 180 and -90 <= lat <= 90
 
@@ -352,12 +365,12 @@ def _is_valid_polygon_coordinates(coords, geom_type):
     """Validate polygon or multipolygon coordinates."""
     if not coords:
         return False
-    
+
     if geom_type == "polygon":
         return _is_valid_single_polygon(coords)
     elif geom_type == "multipolygon":
         return all(_is_valid_single_polygon(poly) for poly in coords)
-    
+
     return False
 
 
@@ -365,29 +378,29 @@ def _is_valid_single_polygon(coords):
     """Validate a single polygon coordinates."""
     if not isinstance(coords, list) or len(coords) == 0:
         return False
-    
+
     # Check the outer ring
     outer_ring = coords[0]
     if not isinstance(outer_ring, list) or len(outer_ring) < 4:
         return False
-    
+
     # Check that the polygon is closed (first and last points are the same)
     if outer_ring[0] != outer_ring[-1]:
         return False
-    
+
     # Check that all coordinates are valid
     for coord in outer_ring:
         if not _is_valid_point(coord):
             return False
-    
+
     # Check for minimum area (at least 3 non-collinear points)
     if len(outer_ring) < 4:  # 3 unique points + closing point
         return False
-    
+
     # Check for collinear points (simplified check)
     if _are_points_collinear(outer_ring[:3]):
         return False
-    
+
     return True
 
 
@@ -395,13 +408,13 @@ def _are_points_collinear(points):
     """Check if three points are collinear."""
     if len(points) < 3:
         return False
-    
+
     p1, p2, p3 = points[0], points[1], points[2]
-    
+
     # Calculate the cross product to check if points are collinear
     # If cross product is 0, points are collinear
     cross_product = (p2[0] - p1[0]) * (p3[1] - p1[1]) - (p2[1] - p1[1]) * (p3[0] - p1[0])
-    
+
     # Use a small epsilon for floating point comparison
     return abs(cross_product) < 1e-10
 

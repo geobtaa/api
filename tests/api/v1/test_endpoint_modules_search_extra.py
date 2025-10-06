@@ -1,6 +1,6 @@
 import json
+
 import pytest
-from unittest.mock import AsyncMock, patch
 
 
 @pytest.mark.asyncio
@@ -27,7 +27,6 @@ async def test_search_error(monkeypatch):
             raise Exception("es error")
 
     monkeypatch.setattr(se, "SearchService", lambda: FakeSearchService())
-    from starlette.requests import Request
     from starlette.datastructures import URL
 
     class DummyScope(dict):
@@ -38,6 +37,7 @@ async def test_search_error(monkeypatch):
         def __init__(self):
             self._url = URL("http://test/")
             self.query_params = ""
+
         @property
         def url(self):
             return self._url
@@ -64,14 +64,16 @@ async def test_search_success(monkeypatch):
             }
 
     # Patch DB session helpers to return simple lookups
-    from app.api.v1.endpoint_modules import search as se_mod
+
     monkeypatch.setattr(se, "SearchService", lambda: FakeSearchService())
 
     class DummyRequest:
         def __init__(self):
             from starlette.datastructures import URL
+
             self._url = URL("http://test/search?q=a")
             self.query_params = "q=a"
+
         @property
         def url(self):
             return self._url
@@ -82,9 +84,12 @@ async def test_search_success(monkeypatch):
             class R:
                 def fetchall(self_inner):
                     return []
+
             return R()
+
         async def __aenter__(self):
             return self
+
         async def __aexit__(self, exc_type, exc, tb):
             pass
 
@@ -107,11 +112,12 @@ async def test_suggest_jsonp(monkeypatch):
     class DummyRequest:
         def __init__(self):
             from starlette.datastructures import URL
+
             self._url = URL("http://test/suggest?q=a&callback=cb")
+
         @property
         def url(self):
             return self._url
 
     resp = await se.suggest(q="a", callback="cb", request=DummyRequest())
     assert hasattr(resp, "body")
-

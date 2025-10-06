@@ -2,9 +2,7 @@
 Tests for the top-level admin API module (app.api.v1.admin).
 """
 
-import json
 import pytest
-from unittest.mock import patch
 
 from app.api.v1.admin import router, security
 
@@ -16,16 +14,18 @@ class TestAdminTopLevelEndpoints:
         """Test that admin endpoints are properly defined."""
         # Check that router has the expected routes
         route_paths = [route.path for route in router.routes]
-        
+
         expected_paths = [
             "/cache/clear",
             "/reindex",
-            "/resources/{id}/summarize", 
-            "/resources/{id}/identify-geo-entities"
+            "/resources/{id}/summarize",
+            "/resources/{id}/identify-geo-entities",
         ]
-        
+
         for expected_path in expected_paths:
-            assert any(expected_path in path for path in route_paths), f"Expected path {expected_path} not found"
+            assert any(expected_path in path for path in route_paths), (
+                f"Expected path {expected_path} not found"
+            )
 
 
 class TestAdminTopLevelModuleStructure:
@@ -36,7 +36,7 @@ class TestAdminTopLevelModuleStructure:
         try:
             from app.api.v1.admin import router, security
             from app.api.v1.auth import verify_credentials
-            
+
             assert router is not None
             assert security is not None
             assert verify_credentials is not None
@@ -47,18 +47,20 @@ class TestAdminTopLevelModuleStructure:
         """Test that the router is properly configured."""
         # Check that router has routes
         assert len(router.routes) > 0
-        
+
         # Check that routes are properly configured
         route_paths = [route.path for route in router.routes]
         expected_paths = [
             "/cache/clear",
-            "/reindex", 
+            "/reindex",
             "/resources/{id}/summarize",
-            "/resources/{id}/identify-geo-entities"
+            "/resources/{id}/identify-geo-entities",
         ]
-        
+
         for expected_path in expected_paths:
-            assert any(expected_path in path for path in route_paths), f"Expected path {expected_path} not found in routes"
+            assert any(expected_path in path for path in route_paths), (
+                f"Expected path {expected_path} not found in routes"
+            )
 
     def test_dependencies(self):
         """Test that dependencies are properly configured."""
@@ -69,23 +71,28 @@ class TestAdminTopLevelModuleStructure:
     def test_security_configuration(self):
         """Test that security is properly configured."""
         from fastapi.security import HTTPBasic
-        
+
         # Check that security is HTTPBasic
         assert isinstance(security, HTTPBasic)
 
     def test_route_methods(self):
         """Test that routes have the correct HTTP methods."""
         for route in router.routes:
-            if hasattr(route, 'methods'):
+            if hasattr(route, "methods"):
                 # All admin routes should be POST methods
-                assert 'POST' in route.methods, f"Route {route.path} should support POST method"
+                assert "POST" in route.methods, f"Route {route.path} should support POST method"
 
     def test_function_signatures(self):
         """Test that endpoint functions exist and are callable."""
         # Import the endpoint functions to test they exist
         try:
-            from app.api.v1.admin import clear_cache, reindex, summarize_resource, identify_geo_entities
-            
+            from app.api.v1.admin import (
+                clear_cache,
+                identify_geo_entities,
+                reindex,
+                summarize_resource,
+            )
+
             assert callable(clear_cache)
             assert callable(reindex)
             assert callable(summarize_resource)
@@ -96,6 +103,6 @@ class TestAdminTopLevelModuleStructure:
     def test_logger_initialization(self):
         """Test that logger is properly initialized."""
         from app.api.v1.admin import logger
-        
+
         assert logger is not None
         assert logger.name == "app.api.v1.admin"

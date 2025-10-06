@@ -7,12 +7,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.v1.utils import create_response
 from app.services.shapefile_service import (
-    ShapefileService, 
-    DefaultDownloadService, 
+    DefaultDownloadService,
     DefaultDuckDBService,
     DuckDBConnectionError,
+    ShapefileDownloadError,
     ShapefileProcessingError,
-    ShapefileDownloadError
+    ShapefileService,
 )
 
 # Load environment variables

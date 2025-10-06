@@ -1,8 +1,8 @@
 """
 Tests for CitationService - comprehensive coverage using real fixtures and data.
 """
+
 import json
-import pytest
 
 from app.services.citation_service import CitationService
 
@@ -15,16 +15,16 @@ class TestCitationService:
         document = {
             "id": "test-document-123",
             "dct_title_s": "Test Document",
-            "dct_creator_sm": ["Test Author"]
+            "dct_creator_sm": ["Test Author"],
         }
-        
+
         service = CitationService(document)
         assert service.document == document
 
     def test_init_with_empty_document(self):
         """Test CitationService initialization with empty document."""
         document = {}
-        
+
         service = CitationService(document)
         assert service.document == document
 
@@ -38,9 +38,9 @@ class TestCitationService:
             {"gbl_resourcetype_sm": ["datasets"]},
             {"dct_publisher_sm": ["Publisher Name"]},
             {"dct_issued_s": "2023-01-01"},
-            {"schema_provider_s": "Provider Name"}
+            {"schema_provider_s": "Provider Name"},
         ]
-        
+
         for document in test_cases:
             service = CitationService(document)
             assert service.document == document
@@ -52,114 +52,102 @@ class TestCitationServiceURLMethods:
     def test_get_url_with_schema_url(self):
         """Test getting URL from schema.org/url reference."""
         document = {
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            })
+            "dct_references_s": json.dumps({"http://schema.org/url": "http://example.com/document"})
         }
-        
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url == "http://example.com/document"
 
     def test_get_url_with_download_url(self):
         """Test getting URL from schema.org/downloadUrl reference."""
         document = {
-            "dct_references_s": json.dumps({
-                "http://schema.org/downloadUrl": "http://example.com/download"
-            })
+            "dct_references_s": json.dumps(
+                {"http://schema.org/downloadUrl": "http://example.com/download"}
+            )
         }
-        
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url == "http://example.com/download"
 
     def test_get_url_with_both_urls(self):
         """Test getting URL when both schema.org/url and downloadUrl exist."""
         document = {
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document",
-                "http://schema.org/downloadUrl": "http://example.com/download"
-            })
+            "dct_references_s": json.dumps(
+                {
+                    "http://schema.org/url": "http://example.com/document",
+                    "http://schema.org/downloadUrl": "http://example.com/download",
+                }
+            )
         }
-        
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         # Should prefer schema.org/url
         assert url == "http://example.com/document"
 
     def test_get_url_with_dict_references(self):
         """Test getting URL when references is already a dictionary."""
-        document = {
-            "dct_references_s": {
-                "http://schema.org/url": "http://example.com/document"
-            }
-        }
-        
+        document = {"dct_references_s": {"http://schema.org/url": "http://example.com/document"}}
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         # The current implementation only handles JSON strings, not dictionaries
         # So this should return None
         assert url is None
 
     def test_get_url_with_invalid_json(self):
         """Test getting URL with invalid JSON in references."""
-        document = {
-            "dct_references_s": "invalid json string"
-        }
-        
+        document = {"dct_references_s": "invalid json string"}
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url is None
 
     def test_get_url_with_no_urls(self):
         """Test getting URL when no URLs exist in references."""
         document = {
-            "dct_references_s": json.dumps({
-                "http://iiif.io/api/image": "http://example.com/iiif/image"
-            })
+            "dct_references_s": json.dumps(
+                {"http://iiif.io/api/image": "http://example.com/iiif/image"}
+            )
         }
-        
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url is None
 
     def test_get_url_with_empty_references(self):
         """Test getting URL with empty references."""
-        document = {
-            "dct_references_s": json.dumps({})
-        }
-        
+        document = {"dct_references_s": json.dumps({})}
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url is None
 
     def test_get_url_with_missing_references(self):
         """Test getting URL when references field is missing."""
-        document = {
-            "dct_title_s": "Test Document"
-        }
-        
+        document = {"dct_title_s": "Test Document"}
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url is None
 
     def test_get_url_with_none_references(self):
         """Test getting URL when references is None."""
-        document = {
-            "dct_references_s": None
-        }
-        
+        document = {"dct_references_s": None}
+
         service = CitationService(document)
         url = service._get_url()
-        
+
         assert url is None
 
 
@@ -168,68 +156,56 @@ class TestCitationServiceResourceTypeMethods:
 
     def test_get_resource_type_with_list(self):
         """Test getting resource type from list."""
-        document = {
-            "gbl_resourcetype_sm": ["datasets", "web services"]
-        }
-        
+        document = {"gbl_resourcetype_sm": ["datasets", "web services"]}
+
         service = CitationService(document)
         resource_type = service._get_resource_type()
-        
+
         assert resource_type == "datasets"
 
     def test_get_resource_type_with_single_item_list(self):
         """Test getting resource type from single-item list."""
-        document = {
-            "gbl_resourcetype_sm": ["maps"]
-        }
-        
+        document = {"gbl_resourcetype_sm": ["maps"]}
+
         service = CitationService(document)
         resource_type = service._get_resource_type()
-        
+
         assert resource_type == "maps"
 
     def test_get_resource_type_with_empty_list(self):
         """Test getting resource type from empty list."""
-        document = {
-            "gbl_resourcetype_sm": []
-        }
-        
+        document = {"gbl_resourcetype_sm": []}
+
         service = CitationService(document)
         resource_type = service._get_resource_type()
-        
+
         assert resource_type == ""
 
     def test_get_resource_type_with_non_list(self):
         """Test getting resource type when field is not a list."""
-        document = {
-            "gbl_resourcetype_sm": "datasets"
-        }
-        
+        document = {"gbl_resourcetype_sm": "datasets"}
+
         service = CitationService(document)
         resource_type = service._get_resource_type()
-        
+
         assert resource_type == ""
 
     def test_get_resource_type_with_missing_field(self):
         """Test getting resource type when field is missing."""
-        document = {
-            "dct_title_s": "Test Document"
-        }
-        
+        document = {"dct_title_s": "Test Document"}
+
         service = CitationService(document)
         resource_type = service._get_resource_type()
-        
+
         assert resource_type == ""
 
     def test_get_resource_type_with_none_value(self):
         """Test getting resource type when field is None."""
-        document = {
-            "gbl_resourcetype_sm": None
-        }
-        
+        document = {"gbl_resourcetype_sm": None}
+
         service = CitationService(document)
         resource_type = service._get_resource_type()
-        
+
         assert resource_type == ""
 
 
@@ -238,68 +214,56 @@ class TestCitationServiceCreatorMethods:
 
     def test_get_creators_with_list(self):
         """Test getting creators from list."""
-        document = {
-            "dct_creator_sm": ["Author 1", "Author 2", "Author 3"]
-        }
-        
+        document = {"dct_creator_sm": ["Author 1", "Author 2", "Author 3"]}
+
         service = CitationService(document)
         creators = service._get_creators()
-        
+
         assert creators == ["Author 1", "Author 2", "Author 3"]
 
     def test_get_creators_with_single_creator(self):
         """Test getting single creator from list."""
-        document = {
-            "dct_creator_sm": ["Single Author"]
-        }
-        
+        document = {"dct_creator_sm": ["Single Author"]}
+
         service = CitationService(document)
         creators = service._get_creators()
-        
+
         assert creators == ["Single Author"]
 
     def test_get_creators_with_empty_list(self):
         """Test getting creators from empty list."""
-        document = {
-            "dct_creator_sm": []
-        }
-        
+        document = {"dct_creator_sm": []}
+
         service = CitationService(document)
         creators = service._get_creators()
-        
+
         assert creators == []
 
     def test_get_creators_with_non_list(self):
         """Test getting creators when field is not a list."""
-        document = {
-            "dct_creator_sm": "Single Author"
-        }
-        
+        document = {"dct_creator_sm": "Single Author"}
+
         service = CitationService(document)
         creators = service._get_creators()
-        
+
         assert creators == []
 
     def test_get_creators_with_missing_field(self):
         """Test getting creators when field is missing."""
-        document = {
-            "dct_title_s": "Test Document"
-        }
-        
+        document = {"dct_title_s": "Test Document"}
+
         service = CitationService(document)
         creators = service._get_creators()
-        
+
         assert creators == []
 
     def test_get_creators_with_none_value(self):
         """Test getting creators when field is None."""
-        document = {
-            "dct_creator_sm": None
-        }
-        
+        document = {"dct_creator_sm": None}
+
         service = CitationService(document)
         creators = service._get_creators()
-        
+
         assert creators == []
 
 
@@ -308,68 +272,56 @@ class TestCitationServicePublisherMethods:
 
     def test_get_publishers_with_list(self):
         """Test getting publishers from list."""
-        document = {
-            "dct_publisher_sm": ["Publisher 1", "Publisher 2"]
-        }
-        
+        document = {"dct_publisher_sm": ["Publisher 1", "Publisher 2"]}
+
         service = CitationService(document)
         publishers = service._get_publishers()
-        
+
         assert publishers == ["Publisher 1", "Publisher 2"]
 
     def test_get_publishers_with_single_publisher(self):
         """Test getting single publisher from list."""
-        document = {
-            "dct_publisher_sm": ["Single Publisher"]
-        }
-        
+        document = {"dct_publisher_sm": ["Single Publisher"]}
+
         service = CitationService(document)
         publishers = service._get_publishers()
-        
+
         assert publishers == ["Single Publisher"]
 
     def test_get_publishers_with_empty_list(self):
         """Test getting publishers from empty list."""
-        document = {
-            "dct_publisher_sm": []
-        }
-        
+        document = {"dct_publisher_sm": []}
+
         service = CitationService(document)
         publishers = service._get_publishers()
-        
+
         assert publishers == []
 
     def test_get_publishers_with_non_list(self):
         """Test getting publishers when field is not a list."""
-        document = {
-            "dct_publisher_sm": "Single Publisher"
-        }
-        
+        document = {"dct_publisher_sm": "Single Publisher"}
+
         service = CitationService(document)
         publishers = service._get_publishers()
-        
+
         assert publishers == []
 
     def test_get_publishers_with_missing_field(self):
         """Test getting publishers when field is missing."""
-        document = {
-            "dct_title_s": "Test Document"
-        }
-        
+        document = {"dct_title_s": "Test Document"}
+
         service = CitationService(document)
         publishers = service._get_publishers()
-        
+
         assert publishers == []
 
     def test_get_publishers_with_none_value(self):
         """Test getting publishers when field is None."""
-        document = {
-            "dct_publisher_sm": None
-        }
-        
+        document = {"dct_publisher_sm": None}
+
         service = CitationService(document)
         publishers = service._get_publishers()
-        
+
         assert publishers == []
 
 
@@ -383,15 +335,15 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Document Title",
             "dct_publisher_sm": ["Test Publisher"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            }),
-            "gbl_resourcetype_sm": ["maps"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/document"}
+            ),
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "John Doe, Jane Smith." in citation
         assert "(2023-01-01)." in citation
         assert "Test Document Title." in citation
@@ -406,15 +358,13 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Dataset",
             "schema_provider_s": "Data Provider",
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/dataset"
-            }),
-            "gbl_resourcetype_sm": ["datasets"]
+            "dct_references_s": json.dumps({"http://schema.org/url": "http://example.com/dataset"}),
+            "gbl_resourcetype_sm": ["datasets"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Data Creator." in citation
         assert "(2023-01-01)." in citation
         assert "Test Dataset." in citation
@@ -429,15 +379,13 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Web Service",
             "schema_provider_s": "Service Provider",
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/service"
-            }),
-            "gbl_resourcetype_sm": ["web services"]
+            "dct_references_s": json.dumps({"http://schema.org/url": "http://example.com/service"}),
+            "gbl_resourcetype_sm": ["web services"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Service Creator." in citation
         assert "(2023-01-01)." in citation
         assert "Test Web Service." in citation
@@ -451,15 +399,15 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Document",
             "dct_publisher_sm": ["Test Publisher"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            }),
-            "gbl_resourcetype_sm": ["maps"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/document"}
+            ),
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "[Creator not found]," in citation
         assert "(2023-01-01)." in citation
         assert "Test Document." in citation
@@ -470,15 +418,15 @@ class TestCitationServiceGetCitation:
             "dct_creator_sm": ["Test Author"],
             "dct_title_s": "Test Document",
             "dct_publisher_sm": ["Test Publisher"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            }),
-            "gbl_resourcetype_sm": ["maps"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/document"}
+            ),
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Test Author." in citation
         assert "(n.d.)." in citation
         assert "Test Document." in citation
@@ -489,15 +437,15 @@ class TestCitationServiceGetCitation:
             "dct_creator_sm": ["Test Author"],
             "dct_issued_s": "2023-01-01",
             "dct_publisher_sm": ["Test Publisher"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            }),
-            "gbl_resourcetype_sm": ["maps"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/document"}
+            ),
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Test Author." in citation
         assert "(2023-01-01)." in citation
         # Title should not be in citation
@@ -509,15 +457,15 @@ class TestCitationServiceGetCitation:
             "dct_creator_sm": ["Test Author"],
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Document",
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            }),
-            "gbl_resourcetype_sm": ["maps"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/document"}
+            ),
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Test Author." in citation
         assert "(2023-01-01)." in citation
         assert "Test Document." in citation
@@ -530,12 +478,12 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Document",
             "dct_publisher_sm": ["Test Publisher"],
-            "gbl_resourcetype_sm": ["maps"]
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Test Author." in citation
         assert "(2023-01-01)." in citation
         assert "Test Document." in citation
@@ -549,14 +497,14 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Document",
             "dct_publisher_sm": ["Test Publisher"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/document"
-            })
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/document"}
+            ),
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Test Author." in citation
         assert "(2023-01-01)." in citation
         assert "Test Document." in citation
@@ -565,13 +513,11 @@ class TestCitationServiceGetCitation:
 
     def test_get_citation_minimal_document(self):
         """Test generating citation with minimal document data."""
-        document = {
-            "dct_title_s": "Minimal Document"
-        }
-        
+        document = {"dct_title_s": "Minimal Document"}
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "[Creator not found]," in citation
         assert "(n.d.)." in citation
         assert "Minimal Document." in citation
@@ -579,10 +525,10 @@ class TestCitationServiceGetCitation:
     def test_get_citation_empty_document(self):
         """Test generating citation with empty document."""
         document = {}
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "[Creator not found]," in citation
         assert "(n.d.)." in citation
 
@@ -594,20 +540,20 @@ class TestCitationServiceGetCitation:
             ("web services", "web service"),
             ("images", "image"),
             ("documents", "document"),
-            ("reports", "report")
+            ("reports", "report"),
         ]
-        
+
         for plural_type, expected_singular in test_cases:
             document = {
                 "dct_creator_sm": ["Test Author"],
                 "dct_issued_s": "2023-01-01",
                 "dct_title_s": "Test Document",
-                "gbl_resourcetype_sm": [plural_type]
+                "gbl_resourcetype_sm": [plural_type],
             }
-            
+
             service = CitationService(document)
             citation = service.get_citation()
-            
+
             assert f"({expected_singular})" in citation
 
     def test_get_citation_error_handling(self):
@@ -618,12 +564,12 @@ class TestCitationServiceGetCitation:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Test Document",
             "dct_references_s": "invalid json",
-            "gbl_resourcetype_sm": ["maps"]
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         # Should still generate a citation despite JSON error
         assert "Test Author." in citation
         assert "(2023-01-01)." in citation
@@ -640,15 +586,15 @@ class TestCitationServiceEdgeCases:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Documento con Acentos y Ñ",
             "dct_publisher_sm": ["Éditeur Français"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/unicode-document"
-            }),
-            "gbl_resourcetype_sm": ["maps"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/unicode-document"}
+            ),
+            "gbl_resourcetype_sm": ["maps"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "José García, François Müller." in citation
         assert "Documento con Acentos y Ñ." in citation
         assert "Éditeur Français." in citation
@@ -660,15 +606,15 @@ class TestCitationServiceEdgeCases:
             "dct_issued_s": "2023-01-01",
             "dct_title_s": "Document with Special Characters: A Study",
             "dct_publisher_sm": ["Publisher & Associates"],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/special-chars"
-            }),
-            "gbl_resourcetype_sm": ["reports"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/special-chars"}
+            ),
+            "gbl_resourcetype_sm": ["reports"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "Author & Co., Smith, Jr." in citation
         assert "Document with Special Characters: A Study." in citation
         assert "Publisher & Associates." in citation
@@ -678,21 +624,21 @@ class TestCitationServiceEdgeCases:
         long_title = "A" * 500
         long_creator = "B" * 200
         long_publisher = "C" * 200
-        
+
         document = {
             "dct_creator_sm": [long_creator],
             "dct_issued_s": "2023-01-01",
             "dct_title_s": long_title,
             "dct_publisher_sm": [long_publisher],
-            "dct_references_s": json.dumps({
-                "http://schema.org/url": "http://example.com/long-document"
-            }),
-            "gbl_resourcetype_sm": ["documents"]
+            "dct_references_s": json.dumps(
+                {"http://schema.org/url": "http://example.com/long-document"}
+            ),
+            "gbl_resourcetype_sm": ["documents"],
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert long_creator in citation
         assert long_title in citation
         assert long_publisher in citation
@@ -705,12 +651,12 @@ class TestCitationServiceEdgeCases:
             "dct_title_s": None,
             "dct_publisher_sm": None,
             "dct_references_s": None,
-            "gbl_resourcetype_sm": None
+            "gbl_resourcetype_sm": None,
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         assert "[Creator not found]," in citation
         assert "(n.d.)." in citation
 
@@ -722,12 +668,12 @@ class TestCitationServiceEdgeCases:
             "dct_title_s": ["Title as List"],  # Should be string
             "dct_publisher_sm": "Single Publisher String",  # Should be list
             "gbl_resourcetype_sm": "Single Resource Type",  # Should be list
-            "schema_provider_s": ["Provider as List"]  # Should be string
+            "schema_provider_s": ["Provider as List"],  # Should be string
         }
-        
+
         service = CitationService(document)
         citation = service.get_citation()
-        
+
         # Should handle mixed types gracefully
         assert "[Creator not found]," in citation
         # The date 2023 is treated as truthy, so it gets included as "(2023)."

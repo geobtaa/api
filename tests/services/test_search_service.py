@@ -160,30 +160,34 @@ class TestSearchService:
         # This should hit the actual Elasticsearch and process real resources
         try:
             result = await service.search(q="map", page=1, limit=5)
-            
+
             # Verify the structure
             assert "data" in result
             assert "meta" in result
             assert "query_time" in result
-            
+
             # If we have data, verify the processing worked
             if result["data"]:
                 first_resource = result["data"][0]
                 assert "attributes" in first_resource
                 attributes = first_resource["attributes"]
-                
+
                 # These should be added by the processing loop
                 assert "ui_thumbnail_url" in attributes
                 assert "ui_citation" in attributes
-                
+
                 # Verify timing information
                 assert "elasticsearch" in result["query_time"]
                 assert "resource_processing" in result["query_time"]
                 assert "total_response_time" in result["query_time"]
-                
+
         except Exception as e:
             # Handle connection errors gracefully
-            assert "connection" in str(e).lower() or "event loop" in str(e).lower() or "nodename" in str(e).lower()
+            assert (
+                "connection" in str(e).lower()
+                or "event loop" in str(e).lower()
+                or "nodename" in str(e).lower()
+            )
 
     @pytest.mark.asyncio
     async def test_search_with_suggestions_handling(self):
@@ -194,10 +198,7 @@ class TestSearchService:
             # Mock response with suggestions
             mock_response = {
                 "data": [],
-                "meta": {
-                    "totalCount": 0,
-                    "suggestions": ["map", "mapping", "maps"]
-                }
+                "meta": {"totalCount": 0, "suggestions": ["map", "mapping", "maps"]},
             }
             mock_search.return_value = mock_response
 
@@ -217,7 +218,7 @@ class TestSearchService:
         try:
             # Try to get a resource that might exist in production
             result = await service.get_resource("test-id")
-            
+
             # If successful, verify structure
             assert "data" in result
             assert "type" in result["data"]
@@ -225,11 +226,13 @@ class TestSearchService:
             assert "attributes" in result["data"]
             assert result["data"]["type"] == "resource"
             assert result["data"]["id"] == "test-id"
-            
+
         except Exception as e:
             # Handle cases where resource doesn't exist or connection issues
             error_msg = str(e).lower()
-            assert any(term in error_msg for term in ["not found", "connection", "event loop", "nodename"])
+            assert any(
+                term in error_msg for term in ["not found", "connection", "event loop", "nodename"]
+            )
 
     @pytest.mark.asyncio
     async def test_get_resource_with_relationships(self):
@@ -238,14 +241,16 @@ class TestSearchService:
 
         try:
             result = await service.get_resource("test-id", include_relationships=True)
-            
+
             if "data" in result:
                 attributes = result["data"]["attributes"]
                 assert "ui_relationships" in attributes
-                
+
         except Exception as e:
             error_msg = str(e).lower()
-            assert any(term in error_msg for term in ["not found", "connection", "event loop", "nodename"])
+            assert any(
+                term in error_msg for term in ["not found", "connection", "event loop", "nodename"]
+            )
 
     @pytest.mark.asyncio
     async def test_get_resource_with_summaries(self):
@@ -254,15 +259,17 @@ class TestSearchService:
 
         try:
             result = await service.get_resource("test-id", include_summaries=True)
-            
+
             if "data" in result:
                 attributes = result["data"]["attributes"]
                 assert "ui_summaries" in attributes
                 assert isinstance(attributes["ui_summaries"], list)
-                
+
         except Exception as e:
             error_msg = str(e).lower()
-            assert any(term in error_msg for term in ["not found", "connection", "event loop", "nodename"])
+            assert any(
+                term in error_msg for term in ["not found", "connection", "event loop", "nodename"]
+            )
 
     @pytest.mark.asyncio
     async def test_get_resource_without_relationships_or_summaries(self):
@@ -270,17 +277,21 @@ class TestSearchService:
         service = SearchService()
 
         try:
-            result = await service.get_resource("test-id", include_relationships=False, include_summaries=False)
-            
+            result = await service.get_resource(
+                "test-id", include_relationships=False, include_summaries=False
+            )
+
             if "data" in result:
                 attributes = result["data"]["attributes"]
                 # Should not have these fields
                 assert "ui_relationships" not in attributes
                 assert "ui_summaries" not in attributes
-                
+
         except Exception as e:
             error_msg = str(e).lower()
-            assert any(term in error_msg for term in ["not found", "connection", "event loop", "nodename"])
+            assert any(
+                term in error_msg for term in ["not found", "connection", "event loop", "nodename"]
+            )
 
     @pytest.mark.asyncio
     async def test_get_resource_json_parsing(self):
@@ -292,23 +303,28 @@ class TestSearchService:
             mock_es.get.return_value = {
                 "_source": {
                     "id": "test-id",
-                    "dct_references_s": '{"download": "http://example.com/download"}'
+                    "dct_references_s": '{"download": "http://example.com/download"}',
                 }
             }
-            
+
             # Mock other services
-            with patch("app.services.search_service.DownloadService"), \
-                 patch("app.services.search_service.ViewerService"), \
-                 patch("app.services.search_service.CitationService"):
-                
+            with (
+                patch("app.services.search_service.DownloadService"),
+                patch("app.services.search_service.ViewerService"),
+                patch("app.services.search_service.CitationService"),
+            ):
                 try:
-                    result = await service.get_resource("test-id", include_relationships=False, include_summaries=False)
-                    
+                    result = await service.get_resource(
+                        "test-id", include_relationships=False, include_summaries=False
+                    )
+
                     assert "data" in result
                     attributes = result["data"]["attributes"]
                     # Should be parsed as dict, not string
                     assert isinstance(attributes["dct_references_s"], dict)
-                    assert attributes["dct_references_s"]["download"] == "http://example.com/download"
+                    assert (
+                        attributes["dct_references_s"]["download"] == "http://example.com/download"
+                    )
                 except Exception as e:
                     # Handle event loop issues gracefully
                     assert "event loop" in str(e).lower() or "connection" in str(e).lower()
@@ -321,20 +337,20 @@ class TestSearchService:
         with patch("app.services.search_service.es") as mock_es:
             # Mock Elasticsearch response with invalid JSON
             mock_es.get.return_value = {
-                "_source": {
-                    "id": "test-id",
-                    "dct_references_s": "invalid json{"
-                }
+                "_source": {"id": "test-id", "dct_references_s": "invalid json{"}
             }
-            
+
             # Mock other services
-            with patch("app.services.search_service.DownloadService"), \
-                 patch("app.services.search_service.ViewerService"), \
-                 patch("app.services.search_service.CitationService"):
-                
+            with (
+                patch("app.services.search_service.DownloadService"),
+                patch("app.services.search_service.ViewerService"),
+                patch("app.services.search_service.CitationService"),
+            ):
                 try:
-                    result = await service.get_resource("test-id", include_relationships=False, include_summaries=False)
-                    
+                    result = await service.get_resource(
+                        "test-id", include_relationships=False, include_summaries=False
+                    )
+
                     assert "data" in result
                     attributes = result["data"]["attributes"]
                     # Should remain as string when JSON parsing fails
@@ -350,7 +366,7 @@ class TestSearchService:
 
         try:
             result = await service.suggest("map", size=3)
-            
+
             # Verify structure
             assert "data" in result
             assert "meta" in result
@@ -359,7 +375,7 @@ class TestSearchService:
             assert result["meta"]["query"] == "map"
             assert "es_query" in result["meta"]
             assert "es_response" in result["meta"]
-            
+
         except Exception as e:
             error_msg = str(e).lower()
             assert any(term in error_msg for term in ["connection", "event loop", "nodename"])
@@ -371,10 +387,10 @@ class TestSearchService:
 
         try:
             result = await service.suggest("map", resource_class="Dataset", size=5)
-            
+
             assert "meta" in result
             assert result["meta"]["resource_class"] == "Dataset"
-            
+
         except Exception as e:
             error_msg = str(e).lower()
             # The suggest method catches all exceptions and returns empty data with error in meta
@@ -391,9 +407,9 @@ class TestSearchService:
 
         with patch("app.services.search_service.es") as mock_es:
             mock_es.search.side_effect = Exception("Elasticsearch error")
-            
+
             result = await service.suggest("test")
-            
+
             assert "data" in result
             assert result["data"] == []
             assert "meta" in result
@@ -408,38 +424,42 @@ class TestSearchService:
         with patch("app.services.search_service.es") as mock_es:
             # Mock response with suggestions - make it awaitable
             async def mock_search(*args, **kwargs):
-                return type('MockResponse', (), {
-                    'body': {
-                        "suggest": {
-                            "my-suggestion": [
-                                {
-                                    "options": [
-                                        {
-                                            "_id": "doc1",
-                                            "_source": {"dct_title_s": "Test Map"},
-                                            "text": "test map",
-                                            "_score": 1.0
-                                        },
-                                        {
-                                            "_id": "doc2", 
-                                            "_source": {"dct_title_s": "Another Map"},
-                                            "text": "another map",
-                                            "_score": 0.8
-                                        }
-                                    ]
-                                }
-                            ]
+                return type(
+                    "MockResponse",
+                    (),
+                    {
+                        "body": {
+                            "suggest": {
+                                "my-suggestion": [
+                                    {
+                                        "options": [
+                                            {
+                                                "_id": "doc1",
+                                                "_source": {"dct_title_s": "Test Map"},
+                                                "text": "test map",
+                                                "_score": 1.0,
+                                            },
+                                            {
+                                                "_id": "doc2",
+                                                "_source": {"dct_title_s": "Another Map"},
+                                                "text": "another map",
+                                                "_score": 0.8,
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
                         }
-                    }
-                })()
-            
+                    },
+                )()
+
             mock_es.search = mock_search
-            
+
             result = await service.suggest("test")
-            
+
             assert "data" in result
             assert len(result["data"]) == 2
-            
+
             # Check first suggestion
             suggestion1 = result["data"][0]
             assert suggestion1["type"] == "suggestion"
@@ -455,15 +475,15 @@ class TestSearchService:
 
         try:
             result = await service.search(q="test", page=1, limit=2)
-            
+
             if "query_time" in result:
                 timings = result["query_time"]
-                
+
                 # Should have all timing fields
                 assert "elasticsearch" in timings
                 assert "resource_processing" in timings
                 assert "total_response_time" in timings
-                
+
                 # Resource processing should have detailed breakdown
                 processing = timings["resource_processing"]
                 assert "total" in processing
@@ -471,7 +491,7 @@ class TestSearchService:
                 assert "thumbnail_service" in processing
                 assert "citation_service" in processing
                 assert "viewer_service" in processing
-                
+
         except Exception as e:
             error_msg = str(e).lower()
             assert any(term in error_msg for term in ["connection", "event loop", "nodename"])
@@ -496,9 +516,9 @@ class TestSearchService:
             "fq[geo_region_agg][]=Midwest&"
             "fq[geo_county_agg][]=Hennepin"
         )
-        
+
         result = service.extract_filter_queries(params)
-        
+
         # Verify all fields are mapped correctly
         assert result["id"] == ["1"]
         assert result["dct_spatial_sm"] == ["Minnesota"]
@@ -521,13 +541,12 @@ class TestSearchService:
 
         with patch("app.services.search_service.es") as mock_es:
             from elasticsearch.exceptions import NotFoundError
+
             # Create a proper NotFoundError with required arguments
             mock_es.get.side_effect = NotFoundError(
-                message="Document not found",
-                meta=None,
-                body={"found": False}
+                message="Document not found", meta=None, body={"found": False}
             )
-            
+
             try:
                 await service.get_resource("nonexistent-id")
                 assert False, "Should have raised HTTPException"
@@ -543,7 +562,7 @@ class TestSearchService:
 
         with patch("app.services.search_service.es") as mock_es:
             mock_es.get.side_effect = Exception("Elasticsearch connection error")
-            
+
             try:
                 await service.get_resource("test-id")
                 assert False, "Should have raised HTTPException"
@@ -558,7 +577,7 @@ class TestSearchService:
 
         with patch("app.services.search_service.es") as mock_es:
             mock_es.get.side_effect = Exception("General error")
-            
+
             try:
                 await service.get_resource("test-id")
                 assert False, "Should have raised HTTPException"
@@ -575,7 +594,7 @@ class TestSearchService:
             # Mock response without suggestions
             mock_response = {
                 "data": [{"id": "1", "attributes": {"title": "Test"}}],
-                "meta": {"totalCount": 1}
+                "meta": {"totalCount": 1},
             }
             mock_search.return_value = mock_response
 
@@ -592,10 +611,7 @@ class TestSearchService:
 
         with patch("app.services.search_service.search_resources") as mock_search:
             # Mock response with empty suggestions
-            mock_response = {
-                "data": [],
-                "meta": {"totalCount": 0, "suggestions": []}
-            }
+            mock_response = {"data": [], "meta": {"totalCount": 0, "suggestions": []}}
             mock_search.return_value = mock_response
 
             result = await service.search(q="test", page=1, limit=10)
@@ -613,20 +629,14 @@ class TestSearchService:
         with patch("app.services.search_service.es") as mock_es:
             # Mock response without options
             async def mock_search(*args, **kwargs):
-                return type('MockResponse', (), {
-                    'body': {
-                        "suggest": {
-                            "my-suggestion": [
-                                {"options": []}
-                            ]
-                        }
-                    }
-                })()
-            
+                return type(
+                    "MockResponse", (), {"body": {"suggest": {"my-suggestion": [{"options": []}]}}}
+                )()
+
             mock_es.search = mock_search
-            
+
             result = await service.suggest("test")
-            
+
             assert "data" in result
             assert result["data"] == []
 
@@ -638,14 +648,12 @@ class TestSearchService:
         with patch("app.services.search_service.es") as mock_es:
             # Mock response without suggest field
             async def mock_search(*args, **kwargs):
-                return type('MockResponse', (), {
-                    'body': {}
-                })()
-            
+                return type("MockResponse", (), {"body": {}})()
+
             mock_es.search = mock_search
-            
+
             result = await service.suggest("test")
-            
+
             assert "data" in result
             assert result["data"] == []
 
@@ -657,35 +665,39 @@ class TestSearchService:
         with patch("app.services.search_service.es") as mock_es:
             # Mock response with duplicate IDs
             async def mock_search(*args, **kwargs):
-                return type('MockResponse', (), {
-                    'body': {
-                        "suggest": {
-                            "my-suggestion": [
-                                {
-                                    "options": [
-                                        {
-                                            "_id": "doc1",
-                                            "_source": {"dct_title_s": "Test Map"},
-                                            "text": "test map",
-                                            "_score": 1.0
-                                        },
-                                        {
-                                            "_id": "doc1",  # Duplicate ID
-                                            "_source": {"dct_title_s": "Test Map Duplicate"},
-                                            "text": "test map duplicate",
-                                            "_score": 0.9
-                                        }
-                                    ]
-                                }
-                            ]
+                return type(
+                    "MockResponse",
+                    (),
+                    {
+                        "body": {
+                            "suggest": {
+                                "my-suggestion": [
+                                    {
+                                        "options": [
+                                            {
+                                                "_id": "doc1",
+                                                "_source": {"dct_title_s": "Test Map"},
+                                                "text": "test map",
+                                                "_score": 1.0,
+                                            },
+                                            {
+                                                "_id": "doc1",  # Duplicate ID
+                                                "_source": {"dct_title_s": "Test Map Duplicate"},
+                                                "text": "test map duplicate",
+                                                "_score": 0.9,
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
                         }
-                    }
-                })()
-            
+                    },
+                )()
+
             mock_es.search = mock_search
-            
+
             result = await service.suggest("test")
-            
+
             assert "data" in result
             assert len(result["data"]) == 1  # Should deduplicate
             assert result["data"][0]["id"] == "doc1"
@@ -697,7 +709,7 @@ class TestSearchService:
         # Test with empty values - parse_qs behavior may vary
         params = "fq[spatial_agg][]=&fq[spatial_agg][]=Minnesota"
         result = service.extract_filter_queries(params)
-        
+
         assert "dct_spatial_sm" in result
         # The result should contain Minnesota, empty values may or may not be included
         assert "Minnesota" in result["dct_spatial_sm"]
@@ -710,6 +722,6 @@ class TestSearchService:
         # Test with None values (should be handled gracefully)
         params = "fq[spatial_agg][]=Minnesota"
         result = service.extract_filter_queries(params)
-        
+
         assert "dct_spatial_sm" in result
         assert result["dct_spatial_sm"] == ["Minnesota"]

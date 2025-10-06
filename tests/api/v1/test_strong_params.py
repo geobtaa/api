@@ -2,14 +2,12 @@
 Tests for the strong_params module.
 """
 
-import pytest
-
 from app.api.v1.strong_params import (
-    SEARCH_ALLOWED_PARAMS,
-    GAZETTEER_ALLOWED_PARAMS,
-    RESOURCE_ALLOWED_PARAMS,
     ADMIN_ALLOWED_PARAMS,
+    GAZETTEER_ALLOWED_PARAMS,
     MCP_ALLOWED_PARAMS,
+    RESOURCE_ALLOWED_PARAMS,
+    SEARCH_ALLOWED_PARAMS,
     SHAPEFILE_ALLOWED_PARAMS,
     THUMBNAIL_ALLOWED_PARAMS,
 )
@@ -22,7 +20,7 @@ class TestStrongParams:
         """Test that SEARCH_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(SEARCH_ALLOWED_PARAMS, list)
         assert len(SEARCH_ALLOWED_PARAMS) > 0
-        
+
         # Check core search parameters
         assert "q" in SEARCH_ALLOWED_PARAMS
         assert "page" in SEARCH_ALLOWED_PARAMS
@@ -55,7 +53,7 @@ class TestStrongParams:
         """Test that GAZETTEER_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(GAZETTEER_ALLOWED_PARAMS, list)
         assert len(GAZETTEER_ALLOWED_PARAMS) > 0
-        
+
         # Check core gazetteer parameters
         assert "q" in GAZETTEER_ALLOWED_PARAMS
         assert "limit" in GAZETTEER_ALLOWED_PARAMS
@@ -66,7 +64,7 @@ class TestStrongParams:
         """Test that RESOURCE_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(RESOURCE_ALLOWED_PARAMS, list)
         assert len(RESOURCE_ALLOWED_PARAMS) > 0
-        
+
         # Check resource parameters
         assert "callback" in RESOURCE_ALLOWED_PARAMS
 
@@ -74,7 +72,7 @@ class TestStrongParams:
         """Test that ADMIN_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(ADMIN_ALLOWED_PARAMS, list)
         assert len(ADMIN_ALLOWED_PARAMS) > 0
-        
+
         # Check admin parameters
         assert "callback" in ADMIN_ALLOWED_PARAMS
 
@@ -82,7 +80,7 @@ class TestStrongParams:
         """Test that MCP_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(MCP_ALLOWED_PARAMS, list)
         assert len(MCP_ALLOWED_PARAMS) > 0
-        
+
         # Check MCP parameters
         assert "callback" in MCP_ALLOWED_PARAMS
 
@@ -90,7 +88,7 @@ class TestStrongParams:
         """Test that SHAPEFILE_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(SHAPEFILE_ALLOWED_PARAMS, list)
         assert len(SHAPEFILE_ALLOWED_PARAMS) > 0
-        
+
         # Check shapefile parameters
         assert "callback" in SHAPEFILE_ALLOWED_PARAMS
 
@@ -98,7 +96,7 @@ class TestStrongParams:
         """Test that THUMBNAIL_ALLOWED_PARAMS contains expected parameters."""
         assert isinstance(THUMBNAIL_ALLOWED_PARAMS, list)
         assert len(THUMBNAIL_ALLOWED_PARAMS) > 0
-        
+
         # Check thumbnail parameters
         assert "callback" in THUMBNAIL_ALLOWED_PARAMS
 
@@ -113,7 +111,7 @@ class TestStrongParams:
             SHAPEFILE_ALLOWED_PARAMS,
             THUMBNAIL_ALLOWED_PARAMS,
         ]
-        
+
         for param_list in all_param_lists:
             for param in param_list:
                 assert isinstance(param, str), f"Parameter {param} should be a string"
@@ -128,8 +126,12 @@ class TestStrongParams:
 
     def test_facet_filter_format_consistency(self):
         """Test that facet filter parameters follow consistent naming pattern."""
-        facet_params = [param for param in SEARCH_ALLOWED_PARAMS if param.startswith("fq[") and param.endswith("[]")]
-        
+        facet_params = [
+            param
+            for param in SEARCH_ALLOWED_PARAMS
+            if param.startswith("fq[") and param.endswith("[]")
+        ]
+
         for param in facet_params:
             # Should be in format fq[aggregation_name][]
             assert param.startswith("fq[")
@@ -142,13 +144,13 @@ class TestStrongParams:
     def test_spatial_facet_naming_consistency(self):
         """Test that spatial facet parameters follow consistent naming pattern."""
         spatial_params = [param for param in SEARCH_ALLOWED_PARAMS if "geo_" in param]
-        
+
         expected_spatial_params = [
             "fq[geo_country_agg][]",
-            "fq[geo_region_agg][]", 
-            "fq[geo_county_agg][]"
+            "fq[geo_region_agg][]",
+            "fq[geo_county_agg][]",
         ]
-        
+
         for expected_param in expected_spatial_params:
             assert expected_param in spatial_params
 
@@ -158,11 +160,11 @@ class TestStrongParams:
         core_params = ["q", "page", "per_page", "sort", "callback"]
         for param in core_params:
             assert param in SEARCH_ALLOWED_PARAMS
-        
+
         # Facet filter parameters (should have _agg in name)
         facet_params = [param for param in SEARCH_ALLOWED_PARAMS if "_agg" in param]
         assert len(facet_params) > 10  # Should have many facet parameters
-        
+
         # Spatial facet parameters
         spatial_params = [param for param in SEARCH_ALLOWED_PARAMS if "geo_" in param]
         assert len(spatial_params) >= 3  # Should have geo_country, geo_region, geo_county
@@ -184,7 +186,7 @@ class TestStrongParams:
             SHAPEFILE_ALLOWED_PARAMS,
             THUMBNAIL_ALLOWED_PARAMS,
         ]
-        
+
         for params in simple_endpoints:
             assert len(params) == 1  # Should only have callback
             assert "callback" in params
@@ -202,7 +204,7 @@ class TestStrongParams:
             THUMBNAIL_ALLOWED_PARAMS,
         ]:
             all_params.extend(param_list)
-        
+
         for param in all_params:
             # Should be either simple snake_case or bracket notation
             if "[" in param:
@@ -211,4 +213,6 @@ class TestStrongParams:
                 assert "[" in param and "]" in param
             else:
                 # Simple snake_case like per_page, callback
-                assert "_" in param or param.isalpha(), f"Parameter {param} should use snake_case or be alphabetic"
+                assert "_" in param or param.isalpha(), (
+                    f"Parameter {param} should use snake_case or be alphabetic"
+                )

@@ -8,13 +8,13 @@ from app.api.v1.auth import verify_credentials
 from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.admin_service import (
     AdminService,
-    CacheManagementService,
-    ReindexingService,
-    ResourceProcessingService,
     CacheManagementError,
+    CacheManagementService,
     ReindexingError,
+    ReindexingService,
+    ResourceNotFoundError,
     ResourceProcessingError,
-    ResourceNotFoundError
+    ResourceProcessingService,
 )
 
 logger = logging.getLogger(__name__)
@@ -61,10 +61,14 @@ async def reindex(
         return create_response(result, callback)
     except ReindexingError as e:
         logger.error(f"Reindexing error: {str(e)}")
-        raise HTTPException(status_code=500, detail={"message": "Reindexing failed", "error": str(e)}) from e
+        raise HTTPException(
+            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
+        ) from e
     except Exception as e:
         logger.error(f"Unexpected error during reindexing: {str(e)}")
-        raise HTTPException(status_code=500, detail={"message": "Reindexing failed", "error": str(e)}) from e
+        raise HTTPException(
+            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
+        ) from e
 
 
 @router.post("/resources/{id}/summarize")
@@ -84,7 +88,7 @@ async def summarize_resource(
     """
     try:
         result = await service.summarize_resource(id)
-        
+
         # Sanitize the response data before returning
         sanitized_response = sanitize_for_json(result)
         return create_response(sanitized_response, callback)
@@ -123,5 +127,7 @@ async def identify_geo_entities(
         logger.error(f"Resource processing error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e
     except Exception as e:
-        logger.error(f"Unexpected error triggering geographic entity identification for resource {id}: {str(e)}")
+        logger.error(
+            f"Unexpected error triggering geographic entity identification for resource {id}: {str(e)}"
+        )
         raise HTTPException(status_code=500, detail=str(e)) from e

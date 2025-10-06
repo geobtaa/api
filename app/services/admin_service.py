@@ -6,9 +6,8 @@ Provides abstraction for cache management, reindexing, and resource processing.
 import json
 import logging
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from fastapi import BackgroundTasks, HTTPException
 from sqlalchemy import select
 
 from app.elasticsearch.index import reindex_resources
@@ -23,10 +22,10 @@ logger = logging.getLogger(__name__)
 
 class CacheManagementService:
     """Service for managing cache operations."""
-    
+
     def __init__(self, cache_service: Optional[CacheService] = None):
         self.cache_service = cache_service or CacheService()
-    
+
     async def clear_cache_by_type(self, cache_type: Optional[str] = None) -> Dict[str, Any]:
         """Clear cache by type or all cache if not specified."""
         try:
@@ -49,7 +48,7 @@ class CacheManagementService:
 
 class ReindexingService:
     """Service for managing reindexing operations."""
-    
+
     async def reindex_all_resources(self) -> Dict[str, Any]:
         """Trigger reindexing of all items in Elasticsearch."""
         try:
@@ -60,11 +59,7 @@ class ReindexingService:
                 await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
 
             result = await reindex_resources()
-            return {
-                "status": "success", 
-                "message": "Reindexing completed", 
-                "details": result
-            }
+            return {"status": "success", "message": "Reindexing completed", "details": result}
         except Exception as e:
             logger.error(f"Reindexing failed: {str(e)}", exc_info=True)
             raise ReindexingError(f"Reindexing failed: {str(e)}") from e
@@ -72,10 +67,10 @@ class ReindexingService:
 
 class ResourceProcessingService:
     """Service for processing resource operations."""
-    
+
     def __init__(self, cache_service: Optional[CacheService] = None):
         self.cache_service = cache_service or CacheService()
-    
+
     async def get_resource_by_id(self, resource_id: str) -> Dict[str, Any]:
         """Fetch a resource by ID from the database."""
         try:
@@ -94,14 +89,18 @@ class ResourceProcessingService:
 
                 logger.info(f"Retrieved resource {resource_id}")
                 logger.debug(f"Raw resource data: {json.dumps(resource, indent=2)}")
-                
+
                 return resource
         except ResourceNotFoundError:
             raise
         except Exception as e:
-            raise ResourceProcessingError(f"Failed to fetch resource {resource_id}: {str(e)}") from e
-    
-    def parse_resource_references(self, resource: Dict[str, Any], resource_id: str) -> Dict[str, Any]:
+            raise ResourceProcessingError(
+                f"Failed to fetch resource {resource_id}: {str(e)}"
+            ) from e
+
+    def parse_resource_references(
+        self, resource: Dict[str, Any], resource_id: str
+    ) -> Dict[str, Any]:
         """Parse resource references from dct_references_s field."""
         references = resource.get("dct_references_s", {})
         logger.info(f"Raw references for resource {resource_id}: {references}")
@@ -109,14 +108,20 @@ class ResourceProcessingService:
         if isinstance(references, str):
             try:
                 references = json.loads(references)
-                logger.info(f"Parsed references for resource {resource_id}: {json.dumps(references, indent=2)}")
+                logger.info(
+                    f"Parsed references for resource {resource_id}: {json.dumps(references, indent=2)}"
+                )
             except json.JSONDecodeError:
-                logger.error(f"Failed to parse references JSON for resource {resource_id}: {references}")
+                logger.error(
+                    f"Failed to parse references JSON for resource {resource_id}: {references}"
+                )
                 references = {}
-        
+
         return references
-    
-    def determine_asset_info(self, resource: Dict[str, Any], references: Dict[str, Any], resource_id: str) -> Tuple[Optional[str], Optional[str]]:
+
+    def determine_asset_info(
+        self, resource: Dict[str, Any], references: Dict[str, Any], resource_id: str
+    ) -> Tuple[Optional[str], Optional[str]]:
         """Determine asset path and type from resource references."""
         asset_path = None
         asset_type = None
@@ -134,19 +139,25 @@ class ResourceProcessingService:
         for ref_type, asset_type_name in asset_type_mappings.items():
             if ref_type in references:
                 ref_value = references[ref_type]
-                logger.info(f"Found reference type {ref_type} with value {ref_value} for resource {resource_id}")
+                logger.info(
+                    f"Found reference type {ref_type} with value {ref_value} for resource {resource_id}"
+                )
 
                 # Handle both string and array values
                 if isinstance(ref_value, list) and ref_value:
                     # For arrays, take the first item for now
                     asset_path = ref_value[0]
                     asset_type = asset_type_name
-                    logger.info(f"Using first item from array: asset_path={asset_path}, asset_type={asset_type}")
+                    logger.info(
+                        f"Using first item from array: asset_path={asset_path}, asset_type={asset_type}"
+                    )
                     break
                 elif isinstance(ref_value, str) and ref_value:
                     asset_path = ref_value
                     asset_type = asset_type_name
-                    logger.info(f"Using string value: asset_path={asset_path}, asset_type={asset_type}")
+                    logger.info(
+                        f"Using string value: asset_path={asset_path}, asset_type={asset_type}"
+                    )
                     break
 
         # If no specific asset type was found, use the resource format as fallback
@@ -154,90 +165,118 @@ class ResourceProcessingService:
             asset_type = resource.get("dc_format_s")
             logger.info(f"No specific asset type found, using format fallback: {asset_type}")
 
-        logger.info(f"Final asset determination for resource {resource_id}: path={asset_path}, type={asset_type}")
+        logger.info(
+            f"Final asset determination for resource {resource_id}: path={asset_path}, type={asset_type}"
+        )
         return asset_path, asset_type
-    
-    async def start_summarization_task(self, resource_id: str, resource: Dict[str, Any], asset_path: Optional[str], asset_type: Optional[str]) -> str:
+
+    async def start_summarization_task(
+        self,
+        resource_id: str,
+        resource: Dict[str, Any],
+        asset_path: Optional[str],
+        asset_type: Optional[str],
+    ) -> str:
         """Start the summarization task for a resource."""
         try:
             # Trigger the summarization task
             summary_task = generate_resource_summary.delay(
-                resource_id=resource_id, 
-                metadata=resource, 
-                asset_path=asset_path, 
-                asset_type=asset_type
+                resource_id=resource_id,
+                metadata=resource,
+                asset_path=asset_path,
+                asset_type=asset_type,
             )
             logger.info(f"Started summary task {summary_task.id} for resource {resource_id}")
 
             # Invalidate the resource cache since we'll be updating it
             invalidate_cache_with_prefix(f"resource:{resource_id}")
-            
+
             return summary_task.id
         except Exception as e:
-            raise ResourceProcessingError(f"Failed to start summarization task for resource {resource_id}: {str(e)}") from e
-    
+            raise ResourceProcessingError(
+                f"Failed to start summarization task for resource {resource_id}: {str(e)}"
+            ) from e
+
     async def start_geo_entities_task(self, resource_id: str, resource: Dict[str, Any]) -> str:
         """Start the geographic entity identification task for a resource."""
         try:
             # Trigger the geographic entity identification task
-            geo_entities_task = generate_geo_entities.delay(resource_id=resource_id, metadata=resource)
-            logger.info(f"Started geographic entity identification task {geo_entities_task.id} for resource {resource_id}")
+            geo_entities_task = generate_geo_entities.delay(
+                resource_id=resource_id, metadata=resource
+            )
+            logger.info(
+                f"Started geographic entity identification task {geo_entities_task.id} for resource {resource_id}"
+            )
 
             # Invalidate the resource cache since we'll be updating it
             invalidate_cache_with_prefix(f"resource:{resource_id}")
-            
+
             return geo_entities_task.id
         except Exception as e:
-            raise ResourceProcessingError(f"Failed to start geo entities task for resource {resource_id}: {str(e)}") from e
+            raise ResourceProcessingError(
+                f"Failed to start geo entities task for resource {resource_id}: {str(e)}"
+            ) from e
 
 
 class AdminService:
     """Main service for admin operations."""
-    
-    def __init__(self, 
-                 cache_management_service: Optional[CacheManagementService] = None,
-                 reindexing_service: Optional[ReindexingService] = None,
-                 resource_processing_service: Optional[ResourceProcessingService] = None):
+
+    def __init__(
+        self,
+        cache_management_service: Optional[CacheManagementService] = None,
+        reindexing_service: Optional[ReindexingService] = None,
+        resource_processing_service: Optional[ResourceProcessingService] = None,
+    ):
         self.cache_management_service = cache_management_service or CacheManagementService()
         self.reindexing_service = reindexing_service or ReindexingService()
-        self.resource_processing_service = resource_processing_service or ResourceProcessingService()
-    
+        self.resource_processing_service = (
+            resource_processing_service or ResourceProcessingService()
+        )
+
     async def clear_cache(self, cache_type: Optional[str] = None) -> Dict[str, Any]:
         """Clear cache by type."""
         return await self.cache_management_service.clear_cache_by_type(cache_type)
-    
+
     async def reindex_resources(self) -> Dict[str, Any]:
         """Reindex all resources."""
         return await self.reindexing_service.reindex_all_resources()
-    
+
     async def summarize_resource(self, resource_id: str) -> Dict[str, Any]:
         """Start summarization for a resource."""
         # Get resource
         resource = await self.resource_processing_service.get_resource_by_id(resource_id)
-        
+
         # Parse references
-        references = self.resource_processing_service.parse_resource_references(resource, resource_id)
-        
+        references = self.resource_processing_service.parse_resource_references(
+            resource, resource_id
+        )
+
         # Determine asset info
-        asset_path, asset_type = self.resource_processing_service.determine_asset_info(resource, references, resource_id)
-        
+        asset_path, asset_type = self.resource_processing_service.determine_asset_info(
+            resource, references, resource_id
+        )
+
         # Start task
-        task_id = await self.resource_processing_service.start_summarization_task(resource_id, resource, asset_path, asset_type)
-        
+        task_id = await self.resource_processing_service.start_summarization_task(
+            resource_id, resource, asset_path, asset_type
+        )
+
         return {
             "status": "success",
             "message": "Summary generation started",
             "task_id": task_id,
         }
-    
+
     async def identify_geo_entities(self, resource_id: str) -> Dict[str, Any]:
         """Start geographic entity identification for a resource."""
         # Get resource
         resource = await self.resource_processing_service.get_resource_by_id(resource_id)
-        
+
         # Start task
-        task_id = await self.resource_processing_service.start_geo_entities_task(resource_id, resource)
-        
+        task_id = await self.resource_processing_service.start_geo_entities_task(
+            resource_id, resource
+        )
+
         return {
             "status": "success",
             "message": "Geographic entity identification started",
@@ -248,19 +287,23 @@ class AdminService:
 # Custom exceptions
 class CacheManagementError(Exception):
     """Raised when cache management operations fail."""
+
     pass
 
 
 class ReindexingError(Exception):
     """Raised when reindexing operations fail."""
+
     pass
 
 
 class ResourceProcessingError(Exception):
     """Raised when resource processing operations fail."""
+
     pass
 
 
 class ResourceNotFoundError(Exception):
     """Raised when a resource is not found."""
+
     pass
