@@ -67,6 +67,7 @@ class SpatialFacetIndexingService:
                 
                 if total_count == 0:
                     logger.info("No resources to process")
+                    stats["processing_time"] = time.time() - start_time
                     return stats
                 
                 # Process resources in batches
