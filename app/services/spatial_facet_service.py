@@ -48,7 +48,7 @@ class SpatialFacetService:
             # Check if this is a global dataset (entire world)
             if self._is_global_bbox(bbox_geom):
                 facets["geo.global"] = True
-                resource_id = self.resource_dict.get('id', 'unknown')
+                resource_id = self.resource_dict.get("id", "unknown")
                 logger.debug(f"Global dataset detected for resource {resource_id}")
                 return facets
 

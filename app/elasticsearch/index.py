@@ -204,13 +204,10 @@ async def get_spatial_facets(resource_id):
             if spatial_facets.get("geo_country"):
                 try:
                     country_data = json.loads(spatial_facets["geo_country"])
-                    if isinstance(country_data, list):
-                        # Simple string array format: ["United States"]
-                        spatial_facets["geo_country"] = country_data
-                    elif isinstance(country_data, dict) and all(
+                    if isinstance(country_data, dict) and all(
                         key in country_data for key in ["wok_id", "parent_id", "name"]
                     ):
-                        # Legacy format: wok_id|parent_id|name
+                        # Format: wok_id|parent_id|name
                         spatial_facets["geo_country"] = (
                             f"{country_data['wok_id']}|{country_data['parent_id']}|{country_data['name']}"
                         )
