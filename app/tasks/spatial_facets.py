@@ -65,8 +65,7 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
     Returns:
         Dictionary with processing results
     """
-    engine = create_async_engine(DATABASE_URL)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
 
     stats = {
         "status": "success",
@@ -79,8 +78,12 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
     }
 
     try:
-        async with async_session() as session:
-            for resource_id in resource_ids:
+        for resource_id in resource_ids:
+            # Create a new session for each resource to avoid transaction errors
+            async_session_factory = sessionmaker(
+                engine, class_=AsyncSession, expire_on_commit=False
+            )
+            async with async_session_factory() as session:
                 try:
                     stats["processed"] += 1
 
@@ -146,7 +149,9 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
 
                     insert_data = {
                         "resource_id": resource_id,
-                        "geo_country": spatial_facets.get("geo.country"),
+                        "geo_country": json.dumps(spatial_facets.get("geo.country"))
+                        if spatial_facets.get("geo.country")
+                        else None,
                         "geo_region": json.dumps(spatial_facets.get("geo.region", []))
                         if spatial_facets.get("geo.region")
                         else None,
@@ -156,18 +161,17 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
                     }
 
                     await session.execute(upsert_query, insert_data)
+                    await session.commit()
                     stats["successful"] += 1
 
                     logger.debug(f"Successfully indexed spatial facets for {resource_id}")
 
                 except Exception as e:
+                    await session.rollback()
                     stats["failed"] += 1
                     error_msg = f"Error processing {resource_id}: {str(e)}"
                     stats["errors"].append(error_msg)
                     logger.error(error_msg, exc_info=True)
-
-            # Commit the batch
-            await session.commit()
 
     except Exception as e:
         logger.error(f"Error in batch processing: {e}", exc_info=True)

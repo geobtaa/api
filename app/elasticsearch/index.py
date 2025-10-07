@@ -138,7 +138,7 @@ async def process_resource(resource_dict):
     suggestion_inputs = [s for s in suggestion_inputs if s and str(s).strip()]
 
     # Get resource classes, ensuring it's a list and has at least one value
-    resource_classes = processed_dict.get("gbl_resourceclass_sm", [])
+    resource_classes = processed_dict.get("gbl_resourceClass_sm", [])
     if isinstance(resource_classes, str):
         resource_classes = [resource_classes]
     if not resource_classes:

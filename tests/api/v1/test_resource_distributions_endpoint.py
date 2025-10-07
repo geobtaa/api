@@ -31,14 +31,14 @@ class TestResourceDistributionsEndpoint:
         # that could conflict with other tests in the suite
         routes = [route.path for route in app.routes]
         assert "/api/v1/resources/{id}/distributions" in routes
-        
+
         # Verify it's a GET endpoint
         distributions_route = None
         for route in app.routes:
-            if hasattr(route, 'path') and route.path == "/api/v1/resources/{id}/distributions":
+            if hasattr(route, "path") and route.path == "/api/v1/resources/{id}/distributions":
                 distributions_route = route
                 break
-        
+
         assert distributions_route is not None
-        assert hasattr(distributions_route, 'methods')
+        assert hasattr(distributions_route, "methods")
         assert "GET" in distributions_route.methods

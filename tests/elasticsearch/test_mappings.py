@@ -167,12 +167,12 @@ class TestMappings:
         # Keyword fields should be configured as keywords
         keyword_fields = [
             "dct_spatial_sm",
-            "gbl_resourceclass_sm",
-            "gbl_resourcetype_sm",
+            "gbl_resourceClass_sm",
+            "gbl_resourceType_sm",
             "dct_language_sm",
             "dct_creator_sm",
             "schema_provider_s",
-            "dct_accessrights_sm",
+            "dct_accessRights_s",
         ]
 
         for field in keyword_fields:
@@ -187,7 +187,7 @@ class TestMappings:
                 assert properties[field]["type"] == "boolean"
 
         # Integer fields should be configured as integers
-        integer_fields = ["gbl_indexyear_im"]
+        integer_fields = ["gbl_indexYear_im"]
 
         for field in integer_fields:
             if field in properties:

@@ -98,18 +98,17 @@ async def search_resources(
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
                 "aggs": {
-                    "id_agg": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
                     "spatial_agg": {
                         "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
                     },
                     "resource_class_agg": {
-                        "terms": {"field": "gbl_resourceclass_sm", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
                     },
                     "resource_type_agg": {
-                        "terms": {"field": "gbl_resourcetype_sm", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
                     },
                     "index_year_agg": {
-                        "terms": {"field": "gbl_indexyear_im", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
                     },
                     "language_agg": {
                         "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
@@ -121,7 +120,7 @@ async def search_resources(
                         "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
                     },
                     "access_rights_agg": {
-                        "terms": {"field": "dct_accessrights_sm", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
                     },
                     "georeferenced_agg": {
                         "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
@@ -169,13 +168,13 @@ async def search_resources(
                         "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
                     },
                     "resource_class_agg": {
-                        "terms": {"field": "gbl_resourceclass_sm", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
                     },
                     "resource_type_agg": {
-                        "terms": {"field": "gbl_resourcetype_sm", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
                     },
                     "index_year_agg": {
-                        "terms": {"field": "gbl_indexyear_im", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
                     },
                     "language_agg": {
                         "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
@@ -187,7 +186,7 @@ async def search_resources(
                         "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
                     },
                     "access_rights_agg": {
-                        "terms": {"field": "dct_accessrights_sm", "size": DEFAULT_FACET_SIZE}
+                        "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
                     },
                     "georeferenced_agg": {
                         "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
