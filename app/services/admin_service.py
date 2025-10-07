@@ -49,9 +49,41 @@ class CacheManagementService:
 class ReindexingService:
     """Service for managing reindexing operations."""
 
+    async def check_spatial_facet_readiness(self) -> Dict[str, Any]:
+        """Check if spatial facets are ready for reindexing."""
+        try:
+            from app.services.spatial_facet_indexing_service import SpatialFacetIndexingService
+
+            service = SpatialFacetIndexingService()
+            stats = await service.get_indexing_stats()
+
+            if "error" in stats:
+                return {"ready": False, "stats": stats}
+
+            total_resources = stats.get("total_resources_with_bbox", 0)
+            indexed_resources = stats.get("indexed_resources", 0)
+            progress = stats.get("indexing_progress", 0)
+
+            # Consider ready if at least 50% are indexed or if we have a reasonable number
+            ready = progress >= 50 or indexed_resources >= 1000
+
+            return {
+                "ready": ready,
+                "progress": progress,
+                "indexed_resources": indexed_resources,
+                "total_resources": total_resources,
+                "stats": stats,
+            }
+        except Exception as e:
+            logger.error(f"Error checking spatial facet readiness: {e}")
+            return {"ready": False, "error": str(e)}
+
     async def reindex_all_resources(self) -> Dict[str, Any]:
         """Trigger reindexing of all items in Elasticsearch."""
         try:
+            # Check spatial facet readiness
+            spatial_readiness = await self.check_spatial_facet_readiness()
+
             # When reindexing, invalidate all search and suggest caches
             if ENDPOINT_CACHE:
                 logger.info("Invalidating search and suggest caches")
@@ -59,7 +91,14 @@ class ReindexingService:
                 await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
 
             result = await reindex_resources()
-            return {"status": "success", "message": "Reindexing completed", "details": result}
+
+            # Include spatial facet status in response
+            return {
+                "status": "success",
+                "message": "Reindexing completed",
+                "details": result,
+                "spatial_facets": spatial_readiness,
+            }
         except Exception as e:
             logger.error(f"Reindexing failed: {str(e)}", exc_info=True)
             raise ReindexingError(f"Reindexing failed: {str(e)}") from e
