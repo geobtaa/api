@@ -36,7 +36,8 @@ def create_resource_spatial_facets_table():
             conn.execute(text("""
                 CREATE TABLE IF NOT EXISTS resource_spatial_facets (
                     resource_id VARCHAR(255) PRIMARY KEY,
-                    geo_country VARCHAR(255),
+                    geo_global BOOLEAN DEFAULT FALSE,
+                    geo_country JSONB,
                     geo_region JSONB,
                     geo_county JSONB,
                     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -50,10 +51,16 @@ def create_resource_spatial_facets_table():
         # Create indexes for fast querying
         logger.info("Creating indexes...")
         with engine.connect() as conn:
-            # Index on geo_country for faceting
+            # Index on geo_global for filtering global datasets
             conn.execute(text("""
-                CREATE INDEX IF NOT EXISTS idx_resource_spatial_facets_geo_country 
-                ON resource_spatial_facets (geo_country);
+                CREATE INDEX IF NOT EXISTS idx_resource_spatial_facets_geo_global 
+                ON resource_spatial_facets (geo_global);
+            """))
+            
+            # GIN index on geo_country JSONB for array operations
+            conn.execute(text("""
+                CREATE INDEX IF NOT EXISTS idx_resource_spatial_facets_geo_country_gin 
+                ON resource_spatial_facets USING GIN (geo_country);
             """))
             
             # GIN index on geo_region JSONB for array operations
@@ -115,8 +122,9 @@ def create_resource_spatial_facets_table():
         logger.info("🎉 resource_spatial_facets table created successfully!")
         logger.info("Table structure:")
         logger.info("  - resource_id: Primary key, foreign key to resources")
-        logger.info("  - geo_country: Single country name")
-        logger.info("  - geo_region: JSONB array of region names")
+        logger.info("  - geo_global: Boolean flag for global datasets (entire world)")
+        logger.info("  - geo_country: JSONB array of country names")
+        logger.info("  - geo_region: JSONB array of region/state names")
         logger.info("  - geo_county: JSONB array of county names with state prefixes")
         logger.info("  - created_at/updated_at: Timestamps with auto-update trigger")
 

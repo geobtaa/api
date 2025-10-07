@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Script to submit spatial facet indexing jobs to Celery.
+Populate Spatial Facets
 
 This script submits all resources with dcat_bbox to the Celery queue for
-background processing of spatial facets.
+background processing of spatial facets (country, region, county).
 
 Usage:
-    python scripts/submit_spatial_facet_jobs.py [options]
+    python scripts/populate_spatial_facets.py [options]
 
 Options:
     --batch-size: Number of resources per batch (default: 100)
@@ -19,10 +19,18 @@ import logging
 import os
 import sys
 
-# Add the app directory to the Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "app"))
+from celery import Celery
+from dotenv import load_dotenv
 
-from app.tasks.spatial_facets import index_all_spatial_facets
+# Load environment variables
+load_dotenv()
+
+# Configure Celery to connect to Docker Redis
+celery_app = Celery(
+    "tasks",
+    broker=f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0",
+    backend=f"redis://{os.getenv('REDIS_HOST', 'localhost')}:{os.getenv('REDIS_PORT', 6379)}/0",
+)
 
 # Configure logging
 logging.basicConfig(
@@ -37,18 +45,18 @@ logger = logging.getLogger(__name__)
 def main():
     """Main function to handle command line arguments and submit jobs."""
     parser = argparse.ArgumentParser(
-        description="Submit spatial facet indexing jobs to Celery",
+        description="Populate spatial facets for resources with bounding boxes",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
   # Submit jobs with default settings
-  python scripts/submit_spatial_facet_jobs.py
+  python scripts/populate_spatial_facets.py
   
   # Submit with custom batch size
-  python scripts/submit_spatial_facet_jobs.py --batch-size 50
+  python scripts/populate_spatial_facets.py --batch-size 50
   
   # Dry run to see what would be submitted
-  python scripts/submit_spatial_facet_jobs.py --dry-run
+  python scripts/populate_spatial_facets.py --dry-run
         """,
     )
 
@@ -84,8 +92,10 @@ Examples:
         logger.info(f"Batch size: {args.batch_size}")
         logger.info(f"Max workers: {args.max_workers}")
 
-        # Submit the job
-        result = index_all_spatial_facets.delay(args.batch_size, args.max_workers)
+        # Submit the job using send_task
+        result = celery_app.send_task(
+            "index_all_spatial_facets", args=[args.batch_size, args.max_workers]
+        )
 
         logger.info("✅ Successfully submitted spatial facet indexing job!")
         logger.info(f"Task ID: {result.id}")

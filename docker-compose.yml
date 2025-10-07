@@ -112,6 +112,7 @@ services:
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
     volumes:
       - ./logs:/app/logs
+      - .:/app
     depends_on:
       - redis
       - paradedb

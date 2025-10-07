@@ -65,8 +65,7 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
     Returns:
         Dictionary with processing results
     """
-    engine = create_async_engine(DATABASE_URL)
-    async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
 
     stats = {
         "status": "success",
@@ -78,9 +77,13 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
         "errors": [],
     }
 
+    # Create session factory once for the batch (reuse engine, create new sessions)
+    async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
     try:
-        async with async_session() as session:
-            for resource_id in resource_ids:
+        for resource_id in resource_ids:
+            # Create a new session for each resource to avoid transaction errors
+            async with async_session_factory() as session:
                 try:
                     stats["processed"] += 1
 
@@ -134,10 +137,11 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
 
                     upsert_query = text("""
                         INSERT INTO resource_spatial_facets 
-                        (resource_id, geo_country, geo_region, geo_county)
-                        VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
+                        (resource_id, geo_global, geo_country, geo_region, geo_county)
+                        VALUES (:resource_id, :geo_global, :geo_country, :geo_region, :geo_county)
                         ON CONFLICT (resource_id) 
                         DO UPDATE SET 
+                            geo_global = EXCLUDED.geo_global,
                             geo_country = EXCLUDED.geo_country,
                             geo_region = EXCLUDED.geo_region,
                             geo_county = EXCLUDED.geo_county,
@@ -146,28 +150,30 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
 
                     insert_data = {
                         "resource_id": resource_id,
-                        "geo_country": spatial_facets.get("geo.country"),
-                        "geo_region": json.dumps(spatial_facets.get("geo.region", []))
+                        "geo_global": spatial_facets.get("geo.global", False),
+                        "geo_country": json.dumps(spatial_facets.get("geo.country"))
+                        if spatial_facets.get("geo.country")
+                        else None,
+                        "geo_region": json.dumps(spatial_facets.get("geo.region"))
                         if spatial_facets.get("geo.region")
                         else None,
-                        "geo_county": json.dumps(spatial_facets.get("geo.county", []))
+                        "geo_county": json.dumps(spatial_facets.get("geo.county"))
                         if spatial_facets.get("geo.county")
                         else None,
                     }
 
                     await session.execute(upsert_query, insert_data)
+                    await session.commit()
                     stats["successful"] += 1
 
                     logger.debug(f"Successfully indexed spatial facets for {resource_id}")
 
                 except Exception as e:
+                    await session.rollback()
                     stats["failed"] += 1
                     error_msg = f"Error processing {resource_id}: {str(e)}"
                     stats["errors"].append(error_msg)
                     logger.error(error_msg, exc_info=True)
-
-            # Commit the batch
-            await session.commit()
 
     except Exception as e:
         logger.error(f"Error in batch processing: {e}", exc_info=True)
@@ -375,10 +381,11 @@ async def _reindex_resource_async(resource_id: str) -> Dict[str, Any]:
 
             upsert_query = text("""
                 INSERT INTO resource_spatial_facets 
-                (resource_id, geo_country, geo_region, geo_county)
-                VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
+                (resource_id, geo_global, geo_country, geo_region, geo_county)
+                VALUES (:resource_id, :geo_global, :geo_country, :geo_region, :geo_county)
                 ON CONFLICT (resource_id) 
                 DO UPDATE SET 
+                    geo_global = EXCLUDED.geo_global,
                     geo_country = EXCLUDED.geo_country,
                     geo_region = EXCLUDED.geo_region,
                     geo_county = EXCLUDED.geo_county,
@@ -387,11 +394,14 @@ async def _reindex_resource_async(resource_id: str) -> Dict[str, Any]:
 
             insert_data = {
                 "resource_id": resource_id,
-                "geo_country": spatial_facets.get("geo.country"),
-                "geo_region": json.dumps(spatial_facets.get("geo.region", []))
+                "geo_global": spatial_facets.get("geo.global", False),
+                "geo_country": json.dumps(spatial_facets.get("geo.country"))
+                if spatial_facets.get("geo.country")
+                else None,
+                "geo_region": json.dumps(spatial_facets.get("geo.region"))
                 if spatial_facets.get("geo.region")
                 else None,
-                "geo_county": json.dumps(spatial_facets.get("geo.county", []))
+                "geo_county": json.dumps(spatial_facets.get("geo.county"))
                 if spatial_facets.get("geo.county")
                 else None,
             }

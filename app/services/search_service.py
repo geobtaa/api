@@ -287,13 +287,13 @@ class SearchService:
         agg_to_field = {
             "id_agg": "id",
             "spatial_agg": "dct_spatial_sm",
-            "resource_type_agg": "gbl_resourcetype_sm",
-            "resource_class_agg": "gbl_resourceclass_sm",
-            "index_year_agg": "gbl_indexyear_im",
+            "resource_type_agg": "gbl_resourceType_sm",
+            "resource_class_agg": "gbl_resourceClass_sm",
+            "index_year_agg": "gbl_indexYear_im",
             "language_agg": "dct_language_sm",
             "creator_agg": "dct_creator_sm",
             "provider_agg": "schema_provider_s",
-            "access_rights_agg": "dct_accessrights_sm",
+            "access_rights_agg": "dct_accessRights_s",
             "georeferenced_agg": "gbl_georeferenced_b",
             # Spatial facet fields
             "geo_country_agg": "geo_country",

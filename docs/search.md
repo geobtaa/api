@@ -44,13 +44,13 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `sort`            | string   | No       | Sort option: `relevance`, `year_desc`, `year_asc`, `title_asc`, `title_desc`                     | `year_desc`                                       |
 | `callback`        | string   | No       | JSONP callback name (for JSONP support)                                                          | `myCallback`                                      |
 | `fq[spatial_agg][]`         | string[] | No       | Filter by spatial location (maps to `dct_spatial_sm`)                                            | `fq[spatial_agg][]=Minnesota`                     |
-| `fq[resource_type_agg][]`   | string[] | No       | Filter by resource type (maps to `gbl_resourcetype_sm`)                                          | `fq[resource_type_agg][]=Map`                     |
-| `fq[resource_class_agg][]`  | string[] | No       | Filter by resource class (maps to `gbl_resourceclass_sm`)                                        | `fq[resource_class_agg][]=Datasets`               |
-| `fq[index_year_agg][]`      | string[] | No       | Filter by index year (maps to `gbl_indexyear_im`)                                                | `fq[index_year_agg][]=2020`                       |
+| `fq[resource_type_agg][]`   | string[] | No       | Filter by resource type (maps to `gbl_resourceType_sm`)                                          | `fq[resource_type_agg][]=Map`                     |
+| `fq[resource_class_agg][]`  | string[] | No       | Filter by resource class (maps to `gbl_resourceClass_sm`)                                        | `fq[resource_class_agg][]=Datasets`               |
+| `fq[index_year_agg][]`      | string[] | No       | Filter by index year (maps to `gbl_indexYear_im`)                                                | `fq[index_year_agg][]=2020`                       |
 | `fq[language_agg][]`        | string[] | No       | Filter by language (maps to `dct_language_sm`)                                                   | `fq[language_agg][]=English`                      |
 | `fq[creator_agg][]`         | string[] | No       | Filter by creator (maps to `dct_creator_sm`)                                                     | `fq[creator_agg][]=University of Minnesota`        |
 | `fq[provider_agg][]`        | string[] | No       | Filter by provider (maps to `schema_provider_s`)                                                 | `fq[provider_agg][]=Test Provider`                |
-| `fq[access_rights_agg][]`   | string[] | No       | Filter by access rights (maps to `dct_accessrights_sm`)                                          | `fq[access_rights_agg][]=Public`                  |
+| `fq[access_rights_agg][]`   | string[] | No       | Filter by access rights (maps to `dct_accessRights_s`)                                           | `fq[access_rights_agg][]=Public`                  |
 | `fq[georeferenced_agg][]`   | string[] | No       | Filter by georeferenced status (maps to `gbl_georeferenced_b`)                                   | `fq[georeferenced_agg][]=true`                    |
 | `fq[id_agg][]`              | string[] | No       | Filter by item ID (maps to `id`)                                                                 | `fq[id_agg][]=abc123`                             |
 | `fq[geo_country_agg][]`     | string[] | No       | Filter by country using spatial facets (maps to `geo_country`)                                   | `fq[geo_country_agg][]=12345|0|United States`     |

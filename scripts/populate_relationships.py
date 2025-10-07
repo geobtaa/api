@@ -53,16 +53,16 @@ async def populate_relationships():
         # Fetch all resources with relationship fields
         logger.info("Fetching resources...")
         resources_query = """
-            SELECT id, dct_relation_sm, dct_ispartof_sm, pcdm_memberof_sm, dct_source_sm, 
-                   dct_isversionof_sm, dct_replaces_sm, dct_isreplacedby_sm
+            SELECT id, dct_relation_sm, "dct_isPartOf_sm", "pcdm_memberOf_sm", dct_source_sm, 
+                   "dct_isVersionOf_sm", dct_replaces_sm, "dct_isReplacedBy_sm"
             FROM resources
             WHERE dct_relation_sm IS NOT NULL 
-               OR dct_ispartof_sm IS NOT NULL 
-               OR pcdm_memberof_sm IS NOT NULL
+               OR "dct_isPartOf_sm" IS NOT NULL 
+               OR "pcdm_memberOf_sm" IS NOT NULL
                OR dct_source_sm IS NOT NULL
-               OR dct_isversionof_sm IS NOT NULL
+               OR "dct_isVersionOf_sm" IS NOT NULL
                OR dct_replaces_sm IS NOT NULL
-               OR dct_isreplacedby_sm IS NOT NULL
+               OR "dct_isReplacedBy_sm" IS NOT NULL
         """
         resources = await database.fetch_all(resources_query)
         logger.info(f"Found {len(resources)} resources with relationships")
@@ -90,9 +90,9 @@ async def populate_relationships():
                         )
                         relationships_added += 1
 
-            # Process dct_ispartof_sm (is part of)
-            if resource["dct_ispartof_sm"]:
-                for parent_id in resource["dct_ispartof_sm"]:
+            # Process dct_isPartOf_sm (is part of)
+            if resource["dct_isPartOf_sm"]:
+                for parent_id in resource["dct_isPartOf_sm"]:
                     if parent_id and parent_id != resource_id:
                         await database.execute(
                             """
@@ -107,9 +107,9 @@ async def populate_relationships():
                         )
                         relationships_added += 1
 
-            # Process pcdm_memberof_sm (member of)
-            if resource["pcdm_memberof_sm"]:
-                for collection_id in resource["pcdm_memberof_sm"]:
+            # Process pcdm_memberOf_sm (member of)
+            if resource["pcdm_memberOf_sm"]:
+                for collection_id in resource["pcdm_memberOf_sm"]:
                     if collection_id and collection_id != resource_id:
                         await database.execute(
                             """
@@ -141,9 +141,9 @@ async def populate_relationships():
                         )
                         relationships_added += 1
 
-            # Process dct_isversionof_sm (is version of)
-            if resource["dct_isversionof_sm"]:
-                for version_id in resource["dct_isversionof_sm"]:
+            # Process dct_isVersionOf_sm (is version of)
+            if resource["dct_isVersionOf_sm"]:
+                for version_id in resource["dct_isVersionOf_sm"]:
                     if version_id and version_id != resource_id:
                         await database.execute(
                             """
@@ -175,9 +175,9 @@ async def populate_relationships():
                         )
                         relationships_added += 1
 
-            # Process dct_isreplacedby_sm (is replaced by)
-            if resource["dct_isreplacedby_sm"]:
-                for replacement_id in resource["dct_isreplacedby_sm"]:
+            # Process dct_isReplacedBy_sm (is replaced by)
+            if resource["dct_isReplacedBy_sm"]:
+                for replacement_id in resource["dct_isReplacedBy_sm"]:
                     if replacement_id and replacement_id != resource_id:
                         await database.execute(
                             """

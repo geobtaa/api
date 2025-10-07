@@ -24,7 +24,7 @@ class SpatialFacetService:
             debug: If True, include overlap ratios in results
 
         Returns:
-            Dictionary with geo.country, geo.region, geo.county keys (backward compatible format)
+            Dictionary with geo.global, geo.country, geo.region, geo.county keys
         """
         facets = {}
 
@@ -45,40 +45,30 @@ class SpatialFacetService:
                 )
                 return facets
 
+            # Check if this is a global dataset (entire world)
+            if self._is_global_bbox(bbox_geom):
+                facets["geo.global"] = True
+                resource_id = self.resource_dict.get('id', 'unknown')
+                logger.debug(f"Global dataset detected for resource {resource_id}")
+                return facets
+
             # Get spatial facets using PostGIS and Who's on First data
             country = await self._get_country_from_bbox(bbox_geom, session)
             if country:
-                # Convert to backward compatible format
-                if debug and isinstance(country, dict):
-                    facets["geo.country"] = f"{country['name']}|{country.get('overlap_percent', 0)}"
-                else:
-                    facets["geo.country"] = (
-                        country["name"] if isinstance(country, dict) else country
-                    )
+                # Store as dict to preserve WOF IDs for indexing
+                facets["geo.country"] = country
 
             regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
             if regions:
-                # Convert to backward compatible format
-                if debug:
-                    facets["geo.region"] = [
-                        f"{region['name']}|{region.get('overlap_percent', 0)}" for region in regions
-                    ]
-                else:
-                    facets["geo.region"] = [region["name"] for region in regions]
+                # Store full dict array to preserve WOF IDs for indexing
+                # (debug mode adds overlap_percent to each dict)
+                facets["geo.region"] = regions
 
             counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
             if counties:
-                # Convert to backward compatible format
-                if debug:
-                    facets["geo.county"] = [
-                        f"{county['state_abbrev']}|{county['name']}|"
-                        f"{county.get('overlap_percent', 0)}"
-                        for county in counties
-                    ]
-                else:
-                    facets["geo.county"] = [
-                        f"{county['state_abbrev']}|{county['name']}" for county in counties
-                    ]
+                # Store full dict array to preserve WOF IDs for indexing
+                # (debug mode adds overlap_percent to each dict)
+                facets["geo.county"] = counties
 
         except Exception as e:
             logger.error(
@@ -176,6 +166,46 @@ class SpatialFacetService:
 
         return facets
 
+    def _is_global_bbox(self, bbox_coords: Tuple[float, float, float, float]) -> bool:
+        """
+        Check if a bounding box represents a global dataset (entire world).
+
+        Allows some tolerance for catalogers who might use near-global extents
+        to work around validation constraints.
+
+        Args:
+            bbox_coords: (xmin, ymin, xmax, ymax) tuple
+
+        Returns:
+            True if the bbox covers the entire world (or very close to it), False otherwise
+        """
+        xmin, ymin, xmax, ymax = bbox_coords
+
+        # Allow 1 degree of tolerance on each edge for near-global datasets
+        # This catches catalogers who fudge the bbox slightly to validate against Solr
+        tolerance = 1.0
+
+        lon_span = xmax - xmin
+        lat_span = ymax - ymin
+
+        # Check if longitude span is close to 360 degrees (within tolerance)
+        # and latitude span is close to 180 degrees (within tolerance)
+        # and the bounds are close to world extent
+        is_near_global = (
+            lon_span >= (360 - tolerance * 2)  # At least 358 degrees wide
+            and lat_span >= (180 - tolerance * 2)  # At least 178 degrees tall
+            and xmin >= (-180 - tolerance)
+            and xmin <= (-180 + tolerance)  # Western edge near -180
+            and xmax <= (180 + tolerance)
+            and xmax >= (180 - tolerance)  # Eastern edge near 180
+            and ymin >= (-90 - tolerance)
+            and ymin <= (-90 + tolerance)  # Southern edge near -90
+            and ymax <= (90 + tolerance)
+            and ymax >= (90 - tolerance)  # Northern edge near 90
+        )
+
+        return is_near_global
+
     def _parse_bbox_to_geometry(self, bbox: str) -> Optional[Tuple[float, float, float, float]]:
         """
         Parse ENVELOPE string to (xmin, ymin, xmax, ymax) tuple.
@@ -191,6 +221,28 @@ class SpatialFacetService:
             envelope_match = re.match(r"ENVELOPE\(([^,]+),([^,]+),([^,]+),([^)]+)\)", bbox.strip())
             if envelope_match:
                 xmin, xmax, ymax, ymin = map(float, envelope_match.groups())
+
+                # Check if this is a point location (zero-area bbox)
+                # If so, add a small buffer to make it processable
+                buffer = 0.001  # ~100 meters at the equator
+
+                if xmin == xmax and ymin == ymax:
+                    # Point location - expand in all directions
+                    logger.debug(f"Point location detected in {bbox}, adding buffer")
+                    xmin -= buffer
+                    xmax += buffer
+                    ymin -= buffer
+                    ymax += buffer
+                elif xmin == xmax:
+                    # Vertical line - expand horizontally
+                    logger.debug(f"Vertical line detected in {bbox}, adding horizontal buffer")
+                    xmin -= buffer
+                    xmax += buffer
+                elif ymin == ymax:
+                    # Horizontal line - expand vertically
+                    logger.debug(f"Horizontal line detected in {bbox}, adding vertical buffer")
+                    ymin -= buffer
+                    ymax += buffer
 
                 # Validate bounding box
                 if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
@@ -227,12 +279,31 @@ class SpatialFacetService:
         if xmin >= xmax or ymin >= ymax:
             return False
 
+        # Allow global/near-global extent for global datasets
+        # Use the same detection logic as _is_global_bbox
+        if self._is_global_bbox((xmin, ymin, xmax, ymax)):
+            return True
+
         # Check for antipodal edges (spans 180 degrees longitude)
         if abs(xmax - xmin) >= 180:
             return False
 
         # Check for extremely large bounding boxes (likely data errors)
-        if (xmax - xmin) > 90 or (ymax - ymin) > 90:
+        # For latitude, 90 degrees is still a reasonable limit
+        if (ymax - ymin) > 90:
+            return False
+
+        # For longitude, use latitude-dependent threshold
+        # At high latitudes (near poles), wider longitude spans are legitimate
+        # because lines of longitude converge
+        avg_lat = abs((ymin + ymax) / 2)
+
+        # At the equator (lat=0), limit to 90 degrees
+        # At the poles (lat=90), allow up to 180 degrees
+        # Linear interpolation between these extremes
+        max_lon_span = 90 + (avg_lat / 90) * 90  # ranges from 90 to 180
+
+        if (xmax - xmin) > max_lon_span:
             return False
 
         # Check for zero-area bounding boxes

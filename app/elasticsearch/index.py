@@ -84,6 +84,7 @@ async def process_resource(resource_dict):
     # Add spatial facet data
     spatial_facets = await get_spatial_facets(processed_dict["id"])
     if spatial_facets:
+        processed_dict["geo_global"] = spatial_facets.get("geo_global", False)
         processed_dict["geo_country"] = spatial_facets.get("geo_country")
         processed_dict["geo_region"] = spatial_facets.get("geo_region")
         processed_dict["geo_county"] = spatial_facets.get("geo_county")
@@ -138,7 +139,7 @@ async def process_resource(resource_dict):
     suggestion_inputs = [s for s in suggestion_inputs if s and str(s).strip()]
 
     # Get resource classes, ensuring it's a list and has at least one value
-    resource_classes = processed_dict.get("gbl_resourceclass_sm", [])
+    resource_classes = processed_dict.get("gbl_resourceClass_sm", [])
     if isinstance(resource_classes, str):
         resource_classes = [resource_classes]
     if not resource_classes:
@@ -190,7 +191,7 @@ async def get_spatial_facets(resource_id):
     """Get spatial facets for a resource."""
     try:
         query = """
-            SELECT geo_country, geo_region, geo_county
+            SELECT geo_global, geo_country, geo_region, geo_county
             FROM resource_spatial_facets
             WHERE resource_id = :resource_id
         """
@@ -203,10 +204,13 @@ async def get_spatial_facets(resource_id):
             if spatial_facets.get("geo_country"):
                 try:
                     country_data = json.loads(spatial_facets["geo_country"])
-                    if isinstance(country_data, dict) and all(
+                    if isinstance(country_data, list):
+                        # Simple string array format: ["United States"]
+                        spatial_facets["geo_country"] = country_data
+                    elif isinstance(country_data, dict) and all(
                         key in country_data for key in ["wok_id", "parent_id", "name"]
                     ):
-                        # Format: wok_id|parent_id|name
+                        # Legacy format: wok_id|parent_id|name
                         spatial_facets["geo_country"] = (
                             f"{country_data['wok_id']}|{country_data['parent_id']}|{country_data['name']}"
                         )

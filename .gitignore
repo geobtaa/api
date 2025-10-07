@@ -189,3 +189,6 @@ data/redis/*
 
 # DuckDB data
 data/duckdb/*
+
+# OpenGeoMetadata data
+data/opengeometadata/*
