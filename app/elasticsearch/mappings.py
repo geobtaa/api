@@ -56,6 +56,7 @@ INDEX_MAPPING = {
             "b1g_adminTags_sm": {"type": "keyword"},
             "summary": {"type": "text"},
             # Spatial facet fields for faceting
+            "geo_global": {"type": "boolean"},
             "geo_country": {"type": "keyword"},
             "geo_region": {"type": "keyword"},
             "geo_county": {"type": "keyword"},

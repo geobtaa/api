@@ -79,7 +79,7 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
 
     # Create session factory once for the batch (reuse engine, create new sessions)
     async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-    
+
     try:
         for resource_id in resource_ids:
             # Create a new session for each resource to avoid transaction errors
@@ -154,10 +154,10 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
                         "geo_country": json.dumps(spatial_facets.get("geo.country"))
                         if spatial_facets.get("geo.country")
                         else None,
-                        "geo_region": json.dumps(spatial_facets.get("geo.region", []))
+                        "geo_region": json.dumps(spatial_facets.get("geo.region"))
                         if spatial_facets.get("geo.region")
                         else None,
-                        "geo_county": json.dumps(spatial_facets.get("geo.county", []))
+                        "geo_county": json.dumps(spatial_facets.get("geo.county"))
                         if spatial_facets.get("geo.county")
                         else None,
                     }
@@ -398,10 +398,10 @@ async def _reindex_resource_async(resource_id: str) -> Dict[str, Any]:
                 "geo_country": json.dumps(spatial_facets.get("geo.country"))
                 if spatial_facets.get("geo.country")
                 else None,
-                "geo_region": json.dumps(spatial_facets.get("geo.region", []))
+                "geo_region": json.dumps(spatial_facets.get("geo.region"))
                 if spatial_facets.get("geo.region")
                 else None,
-                "geo_county": json.dumps(spatial_facets.get("geo.county", []))
+                "geo_county": json.dumps(spatial_facets.get("geo.county"))
                 if spatial_facets.get("geo.county")
                 else None,
             }
