@@ -196,3 +196,6 @@ data/opengeometadata/*
 # Kamal secrets
 .kamal/secrets
 .kamal/secrets
+
+# Temp files
+tmp/
