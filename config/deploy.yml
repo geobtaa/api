@@ -1,17 +1,31 @@
 # Name of your application. Used to uniquely configure containers.
-service: my-app
+service: btaa-data-api
 
 # Name of the container image.
-image: my-user/my-app
+image: ghcr.io/ewlarson/btaa-data-api
+
+builder:
+  arch: amd64
+
+ssh:
+  user: <%= ENV['KAMAL_SSH_USER'] %>
 
 # Deploy to these servers.
 servers:
   web:
-    - 192.168.0.1
-  # job:
-  #   hosts:
-  #     - 192.168.0.1
-  #   cmd: bin/jobs
+    hosts:
+      - <%= ENV['KAMAL_HOST'] %>
+    cmd: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  worker:
+    hosts:
+      - <%= ENV['KAMAL_HOST'] %>
+    cmd: celery -A app.tasks.worker worker --loglevel=INFO
+
+  flower:
+    hosts:
+      - <%= ENV['KAMAL_HOST'] %>
+    cmd: celery -A app.tasks.worker flower --port=5555
 
 # Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
 # Remove this section when using multiple web servers and ensure you terminate SSL at your load balancer.
@@ -19,83 +33,82 @@ servers:
 # Note: If using Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
 proxy:
   ssl: true
-  host: app.example.com
-  # Proxy connects to your container on port 80 by default.
-  # app_port: 3000
+  host: <%= ENV['KAMAL_HOST'] %>
+  app_port: 8000
+  healthcheck:
+    path: /api/docs
 
 # Credentials for your image host.
 registry:
-  # Specify the registry server, if you're not using Docker Hub
-  # server: registry.digitalocean.com / ghcr.io / ...
-  username: my-user
-
-  # Always use an access token rather than real password (pulled from .kamal/secrets).
+  server: ghcr.io
+  username: <%= ENV['KAMAL_REGISTRY_USERNAME'] %>
   password:
     - KAMAL_REGISTRY_PASSWORD
 
-# Configure builder setup.
-builder:
-  arch: amd64
-  # Pass in additional build args needed for your Dockerfile.
-  # args:
-  #   RUBY_VERSION: <%= ENV["RBENV_VERSION"] || ENV["rvm_ruby_string"] || "#{RUBY_ENGINE}-#{RUBY_ENGINE_VERSION}" %>
+# ───────────────── ENV passed into *every* container ────────────────
+env:
+  clear:
+    ELASTICSEARCH_URL:     http://btaa-data-api-elasticsearch:9200
+    REDIS_URL:             redis://btaa-data-api-redis:6379/0
+    CELERY_BROKER_URL:     redis://btaa-data-api-redis:6379/0
+    CELERY_RESULT_BACKEND: redis://btaa-data-api-redis:6379/1
+    ELASTICSEARCH_INDEX:   btaa_data_api
+    REDIS_TTL:             "604800"
+    LOG_LEVEL:             DEBUG
+    ENDPOINT_CACHE:        "true"
+    GAZETTEER_CACHE_TTL:   "3600"
+    APP_MODE:              production
+    APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
+    PYTHONUNBUFFERED:      "1"
+    PYTHONPATH:            /app
 
-# Inject ENV variables into containers (secrets come from .kamal/secrets).
-#
-# env:
-#   clear:
-#     DB_HOST: 192.168.0.2
-#   secret:
-#     - RAILS_MASTER_KEY
+  secret:
+    - POSTGRES_PASSWORD
+    - DATABASE_URL
+    - OPENAI_API_KEY
+    - OPENAI_MODEL
+    - ADMIN_USERNAME
+    - ADMIN_PASSWORD
 
-# Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
-# "bin/kamal app logs -r job" will tail logs from the first server in the job section.
-#
-# aliases:
-#   shell: app exec --interactive --reuse "bash"
+# ────────────── Accessories (one per Compose service) ──────────────
+accessories:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
+    roles: [web, worker, flower]
+    env:
+      clear:
+        discovery.type: single-node
+        xpack.security.enabled: "false"
+        ES_JAVA_OPTS: "-Xms2g -Xmx2g"
+        cluster.routing.allocation.disk.threshold_enabled: "true"
+    # only listen on localhost
+    port: "127.0.0.1:9200:9200"
+    directories:
+      - esdata:/usr/share/elasticsearch/data
 
-# Use a different ssh user than root
-#
-# ssh:
-#   user: app
+  paradedb:
+    image: paradedb/paradedb:0.18.11
+    roles: [web, worker, flower]
+    env:
+      clear:
+        POSTGRES_USER: postgres
+        POSTGRES_DB:   btaa_ogm_api
+      secret:
+        - POSTGRES_PASSWORD
 
-# Use a persistent storage volume.
-#
-# volumes:
-#   - "app_storage:/app/storage"
+    # only listen on localhost
+    port: "127.0.0.1:5432:5432"
+    directories:
+      - pgdata:/var/lib/postgresql/data
 
-# Bridge fingerprinted assets, like JS and CSS, between versions to avoid
-# hitting 404 on in-flight requests. Combines all files from new and old
-# version inside the asset_path.
-#
-# asset_path: /app/public/assets
+  redis:
+    image: redis:7.4.6-alpine
+    roles: [web, worker, flower]
+    cmd: redis-server --appendonly yes
+    directories:
+      - redisdata:/data
 
-# Configure rolling deploys by setting a wait time between batches of restarts.
-#
-# boot:
-#   limit: 10 # Can also specify as a percentage of total hosts, such as "25%"
-#   wait: 2
-
-# Use accessory services (secrets come from .kamal/secrets).
-#
-# accessories:
-#   db:
-#     image: mysql:8.0
-#     host: 192.168.0.2
-#     port: 3306
-#     env:
-#       clear:
-#         MYSQL_ROOT_HOST: '%'
-#       secret:
-#         - MYSQL_ROOT_PASSWORD
-#     files:
-#       - config/mysql/production.cnf:/etc/mysql/my.cnf
-#       - db/production.sql:/docker-entrypoint-initdb.d/setup.sql
-#     directories:
-#       - data:/var/lib/mysql
-#   redis:
-#     image: valkey/valkey:8
-#     host: 192.168.0.2
-#     port: 6379
-#     directories:
-#       - data:/data
+volumes:
+  - esdata
+  - pgdata
+  - redisdata

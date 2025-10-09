@@ -6,7 +6,7 @@ services:
     image: ewlarson/btaa-ogm-api:0.1.1
     container_name: btaa-ogm-api-app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@paradedb:5432/btaa_ogm_api
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX=btaa_ogm_api
       - LOG_PATH=/app/logs
@@ -14,15 +14,18 @@ services:
       - CORS_ORIGINS=http://localhost:5173,https://ewlarson.github.io,https://btaa-ogm-api.ngrok.io
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_TTL=604800  # 7 days in seconds
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_TTL=604800
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - LOG_LEVEL=DEBUG
-      - ENDPOINT_CACHE=true  # Enable endpoint caching
-      - GAZETTEER_CACHE_TTL=3600  # 1 hour in seconds
+      - ENDPOINT_CACHE=true
+      - GAZETTEER_CACHE_TTL=3600
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=changeme
       - IS_DOCKER=true
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -33,9 +36,8 @@ services:
     volumes:
       - ./logs:/app/logs
       - .:/app
-    networks:
-      - elastic
-    command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+    networks: [elastic]
+    command: ["uvicorn","main:app","--host","0.0.0.0","--port","8000","--reload","--log-level","debug"]
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
@@ -43,70 +45,74 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+      - ES_JAVA_OPTS=-Xms2g -Xmx2g
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.routing.allocation.disk.watermark.low=85%
       - cluster.routing.allocation.disk.watermark.high=90%
       - cluster.routing.allocation.disk.watermark.flood_stage=95%
     ports:
-      - "9200:9200"
+      - "127.0.0.1:9200:9200"
     volumes:
       - ./data/elasticsearch:/usr/share/elasticsearch/data
-    networks:
-      - elastic
+    networks: [elastic]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      test: ["CMD","curl","-f","http://localhost:9200/_cluster/health"]
       interval: 30s
       timeout: 10s
       retries: 5
 
   paradedb:
-    image: paradedb/paradedb:0.15.14
+    image: paradedb/paradedb:0.18.11
     container_name: btaa-ogm-api-paradedb
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=btaa_ogm_api
     ports:
-      - "2345:5432"
+      - "127.0.0.1:2345:5432"
     volumes:
       - ./data/postgres:/var/lib/postgresql/data
-    networks:
-      - elastic
+    networks: [elastic]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d btaa_ogm_api"]
+      test: ["CMD-SHELL","pg_isready -U postgres -d btaa_ogm_api"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
-    image: redis:7.2
+    image: redis:7.4.6-alpine
     container_name: btaa-ogm-api-redis
-    command: redis-server --appendonly yes  # Enable persistence
-    ports:
-      - "6379:6379"
+    command: >
+      redis-server
+      --appendonly yes
+      --protected-mode yes
+      --bind 0.0.0.0
+      --requirepass ${REDIS_PASSWORD}
     volumes:
-      - ./data/redis:/data
-    networks:
-      - elastic
+      - redis-data:/data
+    networks: [elastic]
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD","sh","-lc","redis-cli -a \"$REDIS_PASSWORD\" ping | grep PONG"]
       interval: 5s
       timeout: 3s
       retries: 5
+    restart: unless-stopped
 
   celery_worker:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: btaa-ogm-api-celery
-    command: celery -A app.tasks.worker worker --loglevel=INFO
+    # pass broker/backend explicitly in case your app doesn't read envs:
+    command: >
+      celery -A app.tasks.worker worker --loglevel=INFO
+      -b redis://:${REDIS_PASSWORD}@redis:6379/0
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@paradedb:5432/btaa_ogm_api
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - REDIS_TTL=604800
-      - PYTHONUNBUFFERED=1  # Important for logging
+      - PYTHONUNBUFFERED=1
       - LOG_LEVEL=DEBUG
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
@@ -114,33 +120,34 @@ services:
       - ./logs:/app/logs
       - .:/app
     depends_on:
-      - redis
-      - paradedb
-    networks:
-      - elastic
+      redis:
+        condition: service_healthy
+      paradedb:
+        condition: service_healthy
+    networks: [elastic]
 
   flower:
     build:
       context: .
-      dockerfile: Dockerfile
     container_name: btaa-ogm-api-flower
-    command: >
-      bash -c "cd /app && celery -A app.tasks.worker flower --port=5555"
+    # tell Flower where the broker is
+    command: bash -lc "cd /app && celery -A app.tasks.worker flower --port=5555 --broker=${CELERY_BROKER_URL}"
     ports:
-      - "5555:5555"
+      - "127.0.0.1:5555:5555"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@paradedb:5432/btaa_ogm_api
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_TTL=604800
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
+      - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - PYTHONPATH=/app
       - LOG_LEVEL=DEBUG
-    networks:
-      - elastic
+    networks: [elastic]
     depends_on:
-      - redis
-      - paradedb
-      - celery_worker
+      redis:
+        condition: service_healthy
+      paradedb:
+        condition: service_healthy
+      celery_worker:
+        condition: service_started
 
 volumes:
   elasticsearch-data:
@@ -149,4 +156,4 @@ volumes:
 
 networks:
   elastic:
-    driver: bridge 
+    driver: bridge
