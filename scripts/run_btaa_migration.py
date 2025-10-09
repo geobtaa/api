@@ -7,7 +7,6 @@ to support BTAA flavored OGM Aardvark records.
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add the project root directory to Python path
@@ -19,7 +18,7 @@ from db.migrations.add_btaa_ogm_fields import add_btaa_ogm_fields
 def main():
     """Run the BTAA migration."""
     print("Starting BTAA OGM Aardvark migration...")
-    
+
     try:
         add_btaa_ogm_fields()
         print("✅ BTAA migration completed successfully!")

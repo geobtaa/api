@@ -15,8 +15,8 @@ import asyncio
 import logging
 import os
 import sys
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -35,27 +35,30 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(),  # Print to console
-        logging.FileHandler(f"{log_path}/gazetteers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"),  # Write to file
+        logging.FileHandler(
+            f"{log_path}/gazetteers_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+        ),  # Write to file
     ],
 )
 logger = logging.getLogger(__name__)
 
-# Import the gazetteer modules
-from app.gazetteer.download import download_gazetteer
-from app.gazetteer.import_all import import_all
+# Import the gazetteer modules (after sys.path manipulation)
+from app.gazetteer.download import download_gazetteer  # noqa: E402
+from app.gazetteer.import_all import import_all  # noqa: E402
+
 
 def check_gazetteer_data_exists(gazetteer: str) -> bool:
     """
     Check if data already exists for a given gazetteer.
-    
+
     Args:
         gazetteer: Name of the gazetteer to check
-        
+
     Returns:
         bool: True if data exists, False otherwise
     """
     data_dir = Path("data/gazetteers")
-    
+
     if gazetteer == "geonames":
         # Check for US.txt file
         return (data_dir / "geonames" / "US.txt").exists()
@@ -64,9 +67,9 @@ def check_gazetteer_data_exists(gazetteer: str) -> bool:
         wof_dir = data_dir / "wof"
         csv_dir = wof_dir / "csv"
         return (
-            (wof_dir / "whosonfirst-data-admin-us-latest.db").exists() and
-            csv_dir.exists() and
-            any(csv_dir.glob("*.csv"))
+            (wof_dir / "whosonfirst-data-admin-us-latest.db").exists()
+            and csv_dir.exists()
+            and any(csv_dir.glob("*.csv"))
         )
     elif gazetteer == "fast":
         # Check for MARCXML file
@@ -74,8 +77,9 @@ def check_gazetteer_data_exists(gazetteer: str) -> bool:
     elif gazetteer == "btaa":
         # BTAA data is not downloaded, it's created from other sources
         return True
-    
+
     return False
+
 
 async def run_gazetteers():
     """Run the complete gazetteer download and import process."""
@@ -91,10 +95,10 @@ async def run_gazetteers():
                 logger.info(f"Data already exists for {gazetteer}, skipping download")
                 download_results[gazetteer] = {
                     "status": "success",
-                    "message": "Data already exists, skipped download"
+                    "message": "Data already exists, skipped download",
                 }
                 continue
-                
+
             logger.info(f"Downloading {gazetteer} data...")
             result = download_gazetteer(gazetteer, download=True, export=True, all_ops=True)
             download_results[gazetteer] = result
@@ -106,7 +110,7 @@ async def run_gazetteers():
         # Step 2: Import gazetteer data
         logger.info("Step 2: Importing gazetteer data...")
         import_results = await import_all()
-        
+
         # Log results
         logger.info("\nDownload Results:")
         for gazetteer, result in download_results.items():
@@ -123,9 +127,9 @@ async def run_gazetteers():
         logger.info(f"Total Errors: {import_results['total_errors']}")
         logger.info(f"Total Time: {import_results['elapsed_time']:.2f} seconds")
         logger.info(f"Records per second: {import_results['records_per_second']:.2f}")
-        
+
         logger.info("\nGazetteer-specific Results:")
-        for gazetteer, result in import_results['gazetteer_results'].items():
+        for gazetteer, result in import_results["gazetteer_results"].items():
             status = "Success" if result.get("status") != "error" else "Failed"
             logger.info(f"{gazetteer}: {status}")
             if result.get("status") == "error":
@@ -142,5 +146,6 @@ async def run_gazetteers():
         logger.error(f"Error in gazetteer process: {str(e)}", exc_info=True)
         raise
 
+
 if __name__ == "__main__":
-    asyncio.run(run_gazetteers()) 
+    asyncio.run(run_gazetteers())
