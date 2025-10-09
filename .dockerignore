@@ -1,27 +1,75 @@
-.git
-.gitignore
-.env
-__pycache__
-*.pyc
-*.pyo
-*.pyd
-.Python
-env
-pip-log.txt
-pip-delete-this-directory.txt
-.tox
+# --- Caches (recursive) ---
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+**/.ipynb_checkpoints/
+
+# --- Python envs & builds ---
+.venv/
+env/
+dist/
+build/
+.eggs/
+*.egg-info/
+
+# --- Node/JS ---
+node_modules/
+*.tsbuildinfo
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
+
+# --- Test / coverage ---
 .coverage
 .coverage.*
 .cache
 nosetests.xml
 coverage.xml
 *.cover
+.hypothesis/
+
+# --- VCS & env files ---
+.git
+.gitignore
+.env
+.env.*
+
+# --- Databases & data dumps (can be huge) ---
+*.sqlite*
+*.db
+*.parquet
+*.feather
+*.arrow
+*.csv
+*.tsv
+*.ndjson
+*.gz
+*.zip
+*.tar
+*.tar.gz
+
+# --- Geospatial heavies ---
+*.tif
+*.tiff
+*.gpkg
+*.mbtiles
+*.shp
+*.prj
+*.shx
+*.dbf
+*.geojson
+
+# --- Logs ---
 *.log
-.pytest_cache
-.mypy_cache
-.hypothesis
-.idea
-.vscode
 logs/
+
+# --- Local runtime data dirs (don’t bake into image) ---
 elasticsearch-data/
-paradedb-data/ 
+paradedb-data/
+data/
+
+# --- Optional: keep small in-repo samples available to builds ---
+#!samples/**
