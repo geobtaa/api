@@ -1,6 +1,7 @@
 import argparse
 import logging
-from app.gazetteer.downloaders import GeonamesDownloader, WofDownloader, FastDownloader
+
+from app.gazetteer.downloaders import FastDownloader, GeonamesDownloader, WofDownloader
 
 # Setup logging
 logging.basicConfig(
@@ -9,6 +10,7 @@ logging.basicConfig(
     handlers=[logging.StreamHandler()],
 )
 logger = logging.getLogger(__name__)
+
 
 def download_gazetteer(gazetteer_name):
     """
@@ -36,12 +38,15 @@ def download_gazetteer(gazetteer_name):
             logger.info(f"Successfully downloaded {gazetteer_name} data")
             return True
         else:
-            logger.error(f"Failed to download {gazetteer_name} data: {result.get('error', 'Unknown error')}")
+            logger.error(
+                f"Failed to download {gazetteer_name} data: {result.get('error', 'Unknown error')}"
+            )
             return False
 
     except Exception as e:
         logger.error(f"Error downloading {gazetteer_name} data: {e}")
         return False
+
 
 def main():
     parser = argparse.ArgumentParser(description="Download gazetteer data")
@@ -67,12 +72,14 @@ def main():
                 downloader = WofDownloader()
             elif args.gazetteer == "fast":
                 downloader = FastDownloader()
-            
+
             result = downloader.export()
             if result["status"] == "success":
                 logger.info(f"Successfully exported {args.gazetteer} data")
             else:
-                logger.error(f"Failed to export {args.gazetteer} data: {result.get('error', 'Unknown error')}")
+                error_msg = result.get("error", "Unknown error")
+                logger.error(f"Failed to export {args.gazetteer} data: {error_msg}")
+
 
 if __name__ == "__main__":
-    main() 
+    main()
