@@ -61,6 +61,7 @@ env:
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
+    CORS_ORIGINS:          "*"
 
   secret:
     - POSTGRES_PASSWORD

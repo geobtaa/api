@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
@@ -29,8 +30,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Get CORS origins from environment variable
-cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
+# Get CORS configuration from environment variable
+# For production public APIs, we allow all origins
+cors_origins_env = os.getenv("CORS_ORIGINS", "*")
+cors_origins = cors_origins_env.split(",") if cors_origins_env != "*" else ["*"]
 
 
 @asynccontextmanager
@@ -70,23 +73,52 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="GeoBTAA API",
-    version="0.1.0",
+    version="0.1.1",
     lifespan=lifespan,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
 
-# Add CORS middleware
+
+# Custom middleware to add security headers for cross-origin access
+class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Allow cross-origin resource loading
+        response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
+        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+        response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+        return response
+
+
+# Add CORS middleware - Permissive for public API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Content-Type",
+        "Authorization",
+        "Accept",
+        "Origin",
+        "User-Agent",
+        "DNT",
+        "Cache-Control",
+        "X-Requested-With",
+    ],
+    expose_headers=[
+        "Content-Type",
+        "Content-Length",
+        "X-Total-Count",
+        "Link",
+    ],
+    max_age=3600,  # Cache preflight requests for 1 hour
 )
+
+# Add cross-origin headers middleware
+app.add_middleware(CrossOriginHeadersMiddleware)
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")

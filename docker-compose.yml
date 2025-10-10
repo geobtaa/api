@@ -11,7 +11,7 @@ services:
       - ELASTICSEARCH_INDEX=btaa_ogm_api
       - LOG_PATH=/app/logs
       - APPLICATION_URL=http://localhost:8000
-      - CORS_ORIGINS=http://localhost:5173,https://ewlarson.github.io,https://btaa-ogm-api.ngrok.io
+      - CORS_ORIGINS=*
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
