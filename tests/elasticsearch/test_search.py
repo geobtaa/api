@@ -27,8 +27,8 @@ class TestElasticsearchSearch:
         assert criteria["sort"] == [{"_score": "desc"}]
 
     @pytest.mark.asyncio
-    async def test_search_resources_with_id_field_in_multi_match(self):
-        """Test that search_resources includes id field in multi_match query."""
+    async def test_search_resources_with_id_field_in_query_string(self):
+        """Test that search_resources includes id field in query_string query."""
         # Mock the Elasticsearch client
         mock_es = AsyncMock()
         mock_response = MagicMock()
@@ -62,15 +62,15 @@ class TestElasticsearchSearch:
                 assert "bool" in search_query
                 assert "must" in search_query["bool"]
 
-                # Find the multi_match query in the must clause
-                multi_match_found = False
+                # Find the query_string query in the must clause
+                query_string_found = False
                 for clause in search_query["bool"]["must"]:
-                    if "multi_match" in clause:
-                        multi_match_found = True
-                        multi_match = clause["multi_match"]
+                    if "query_string" in clause:
+                        query_string_found = True
+                        query_string = clause["query_string"]
 
                         # Verify that the id field is included with boost
-                        fields = multi_match["fields"]
+                        fields = query_string["fields"]
                         id_field_found = False
                         for field in fields:
                             if field.startswith("id^"):
@@ -79,10 +79,12 @@ class TestElasticsearchSearch:
                                 assert field == "id^5"
                                 break
 
-                        assert id_field_found, "ID field with boost not found in multi_match fields"
+                        assert id_field_found, (
+                            "ID field with boost not found in query_string fields"
+                        )
                         break
 
-                assert multi_match_found, "multi_match query not found in search"
+                assert query_string_found, "query_string query not found in search"
 
     @pytest.mark.asyncio
     async def test_search_resources_without_query(self):
@@ -221,3 +223,147 @@ class TestElasticsearchSearch:
                 suggest = call_args.kwargs["suggest"]
                 assert "text" in suggest
                 assert "simple_phrase" in suggest
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_or_operator(self):
+        """Test that OR operator is properly passed to query_string."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                # Test OR query
+                await search_resources(
+                    query="Lake Superior OR Lake Erie", fq=None, skip=0, limit=10, sort=None
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+
+                # Verify query_string receives the OR operator
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == "Lake Superior OR Lake Erie"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_not_operator(self):
+        """Test that NOT operator is properly passed to query_string."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                # Test NOT query
+                await search_resources(
+                    query="Lake Superior NOT Michigan", fq=None, skip=0, limit=10, sort=None
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+
+                # Verify query_string receives the NOT operator
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == "Lake Superior NOT Michigan"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_grouping(self):
+        """Test that parentheses grouping is properly passed to query_string."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                # Test grouped query
+                await search_resources(
+                    query="(Lake Superior OR Lake Erie) AND Map",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+
+                # Verify query_string receives the grouped query
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == "(Lake Superior OR Lake Erie) AND Map"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_phrase_query(self):
+        """Test that phrase queries with quotes are properly passed to query_string."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                # Test phrase query
+                await search_resources(
+                    query='"Lake Superior"', fq=None, skip=0, limit=10, sort=None
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+
+                # Verify query_string receives the phrase query with quotes
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == '"Lake Superior"'
+
+    @pytest.mark.asyncio
+    async def test_query_string_has_correct_parameters(self):
+        """Test that query_string has the correct configuration parameters."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(query="test query", fq=None, skip=0, limit=10, sort=None)
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+
+                # Verify configuration
+                assert query_string_clause["default_operator"] == "AND"
+                assert query_string_clause["analyze_wildcard"] is True
+                assert query_string_clause["allow_leading_wildcard"] is True

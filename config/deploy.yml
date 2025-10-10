@@ -49,6 +49,8 @@ registry:
 env:
   clear:
     ELASTICSEARCH_URL:     http://btaa-data-api-elasticsearch:9200
+    REDIS_HOST:            btaa-data-api-redis
+    REDIS_PORT:            "6379"
     REDIS_URL:             redis://btaa-data-api-redis:6379/0
     CELERY_BROKER_URL:     redis://btaa-data-api-redis:6379/0
     CELERY_RESULT_BACKEND: redis://btaa-data-api-redis:6379/1

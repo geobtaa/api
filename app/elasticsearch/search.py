@@ -64,13 +64,13 @@ async def search_resources(
 
         # Build the search query
         if search_criteria.get("query"):
-            # Create a multi-match query that searches across multiple fields
+            # Use query_string to support full boolean operators (OR, AND, NOT, etc.)
             search_query = {
                 "query": {
                     "bool": {
                         "must": [
                             {
-                                "multi_match": {
+                                "query_string": {
                                     "query": search_criteria["query"],
                                     "fields": [
                                         "id^5",  # Boost ID matches highest - exact ID searches
@@ -85,8 +85,9 @@ async def search_resources(
                                         "dct_spatial_sm",  # Include spatial name
                                         "gbl_displaynote_sm",  # Include display notes
                                     ],
-                                    "type": "best_fields",
-                                    "operator": "and",
+                                    "default_operator": "AND",
+                                    "analyze_wildcard": True,
+                                    "allow_leading_wildcard": True,
                                 }
                             }
                         ],
