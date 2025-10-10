@@ -406,8 +406,10 @@ async def get_resource_viewer(
         # Allow iframe embedding from any domain
         response.headers["X-Frame-Options"] = "ALLOWALL"
         response.headers["Content-Security-Policy"] = "frame-ancestors *"
-        # Override the global COEP header for this endpoint
-        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+
+        # Use credentialless COEP for maximum compatibility with parent pages
+        # This allows embedding in pages with strict COEP policies
+        response.headers["Cross-Origin-Embedder-Policy"] = "credentialless"
 
         return response
     except HTTPException:
