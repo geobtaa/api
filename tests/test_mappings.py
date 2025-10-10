@@ -30,8 +30,8 @@ def test_required_fields():
         "id",
         "dct_title_s",
         "dct_spatial_sm",
-        "gbl_resourceclass_sm",
-        "gbl_resourcetype_sm",
+        "gbl_resourceClass_sm",  # Capital C to match actual field name
+        "gbl_resourceType_sm",  # Capital T to match actual field name
         "locn_geometry",
         "dct_references_s",
     ]

@@ -2,10 +2,16 @@
 Tests for the admin API endpoints.
 """
 
+import os
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.v1.endpoint_modules.admin import router
+
+# Set admin credentials for testing
+os.environ["ADMIN_USERNAME"] = "admin"
+os.environ["ADMIN_PASSWORD"] = "changeme"
 
 # Create test app
 app = FastAPI()
