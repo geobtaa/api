@@ -112,6 +112,7 @@ app.add_middleware(
         "DNT",
         "Cache-Control",
         "X-Requested-With",
+        "X-CSRF-Token",
     ],
     expose_headers=[
         "Content-Type",

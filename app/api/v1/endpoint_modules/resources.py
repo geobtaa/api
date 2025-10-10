@@ -48,6 +48,7 @@ async def list_resources(
     skip: int = 0,
     limit: int = 10,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
+    format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     request: Request = None,
 ):
     try:
@@ -93,6 +94,7 @@ async def list_resources(
 async def get_resource(
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
+    format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     request: Request = None,
 ):
     """Get a single resource by ID."""

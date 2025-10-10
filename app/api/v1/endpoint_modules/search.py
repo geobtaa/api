@@ -32,11 +32,13 @@ async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False
 async def search(
     request: Request,
     q: Optional[str] = Query(None, description="Search query"),
-    page: int = Query(1, description="Page number"),
-    per_page: int = Query(10, description="Resources per page"),
+    page: int = Query(1, ge=1, description="Page number (minimum: 1)"),
+    per_page: int = Query(10, ge=1, le=100, description="Resources per page (1-100)"),
     sort: Optional[str] = Query(
         None, description="Sort option (relevance, year_desc, year_asc, title_asc, title_desc)"
     ),
+    search_field: Optional[str] = Query(None, description="Search field (all_fields, etc.)"),
+    format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """Search resources."""
