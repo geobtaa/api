@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
@@ -152,8 +153,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         },
     )
 
-# Static files - React app built with /rui/ base path
-from fastapi.staticfiles import StaticFiles
+
+# Static files - serve React app from frontend/dist
 app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
 
 # Add uvicorn configuration for running the application directly
