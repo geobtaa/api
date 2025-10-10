@@ -1,2 +1,22 @@
+# Block all search engine bots from indexing
 User-agent: *
+Disallow: /
+
+# Explicitly block major bots
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
 Disallow: /

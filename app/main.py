@@ -94,6 +94,9 @@ class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
         if "Cross-Origin-Opener-Policy" not in response.headers:
             response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
 
+        # Prevent search engine indexing - app is in development
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, nosnippet"
+
         return response
 
 
