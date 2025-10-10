@@ -280,24 +280,14 @@ def process_geometry(geometry):
                 # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
                 minx, maxx, maxy, miny = map(float, envelope_match.groups())
 
-                # Validate the envelope coordinates
-                if not _is_valid_envelope(minx, maxx, maxy, miny):
-                    logger.warning(f"Invalid envelope coordinates: {geometry} - skipping")
+                # Normalize and validate the envelope coordinates
+                normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
+                
+                if normalized_geom is None:
+                    logger.error(f"Invalid envelope {geometry}: {error_msg} - skipping")
                     return None
-
-                # Create a polygon from the envelope coordinates in counterclockwise order
-                return {
-                    "type": "polygon",
-                    "coordinates": [
-                        [
-                            [minx, miny],  # bottom left
-                            [maxx, miny],  # bottom right
-                            [maxx, maxy],  # top right
-                            [minx, maxy],  # top left
-                            [minx, miny],  # close the polygon
-                        ]
-                    ],
-                }
+                
+                return normalized_geom
 
             # Try to parse as JSON
             try:
@@ -330,27 +320,74 @@ def process_geometry(geometry):
         return None
 
 
-def _is_valid_envelope(minx, maxx, maxy, miny):
-    """Validate envelope coordinates."""
-    # Check for valid coordinate ranges
+def _normalize_envelope(minx, maxx, maxy, miny):
+    """
+    Normalize and validate envelope coordinates.
+    
+    Returns:
+        tuple: (geometry_dict, error_msg) where geometry_dict is None if invalid
+    """
+    # Check for valid coordinate ranges first
     if not (-180 <= minx <= 180) or not (-180 <= maxx <= 180):
-        return False
+        return None, f"X coordinates out of range: minx={minx}, maxx={maxx}"
     if not (-90 <= miny <= 90) or not (-90 <= maxy <= 90):
-        return False
+        return None, f"Y coordinates out of range: miny={miny}, maxy={maxy}"
 
-    # Check for valid envelope bounds (minx <= maxx, miny <= maxy)
-    if minx > maxx or miny > maxy:
-        return False
+    # Auto-correct inverted coordinates
+    if minx > maxx:
+        logger.debug(f"Auto-correcting inverted X coordinates: swapping {minx} and {maxx}")
+        minx, maxx = maxx, minx
+    
+    if miny > maxy:
+        logger.debug(f"Auto-correcting inverted Y coordinates: swapping {miny} and {maxy}")
+        miny, maxy = maxy, miny
 
-    # Check for zero-area polygons (at least one dimension must have non-zero area)
+    # Check if this is actually a point (zero-area envelope)
     if minx == maxx and miny == maxy:
-        return False
+        logger.debug(f"Converting zero-area envelope to POINT: ({minx}, {miny})")
+        return {
+            "type": "point",
+            "coordinates": [minx, miny]
+        }, None
 
-    # Check for very small areas that might cause precision issues
-    if abs(maxx - minx) < 1e-10 or abs(maxy - miny) < 1e-10:
-        return False
+    # Check for very thin envelopes (essentially lines or near-points)
+    epsilon = 1e-6  # ~0.11 meters at equator
+    
+    if abs(maxx - minx) < epsilon and abs(maxy - miny) < epsilon:
+        # Both dimensions tiny - treat as point
+        center_x = (minx + maxx) / 2
+        center_y = (miny + maxy) / 2
+        logger.debug(f"Converting near-point envelope to POINT: ({center_x}, {center_y})")
+        return {
+            "type": "point",
+            "coordinates": [center_x, center_y]
+        }, None
+    
+    elif abs(maxx - minx) < epsilon:
+        # Width tiny but height OK - expand width slightly
+        center_x = (minx + maxx) / 2
+        minx = center_x - epsilon
+        maxx = center_x + epsilon
+        logger.debug(f"Expanding thin envelope width: {minx} to {maxx}")
+    
+    elif abs(maxy - miny) < epsilon:
+        # Height tiny but width OK - expand height slightly
+        center_y = (miny + maxy) / 2
+        miny = center_y - epsilon
+        maxy = center_y + epsilon
+        logger.debug(f"Expanding thin envelope height: {miny} to {maxy}")
 
-    return True
+    # Create valid polygon from normalized envelope
+    return {
+        "type": "polygon",
+        "coordinates": [[
+            [minx, maxy],  # top-left
+            [maxx, maxy],  # top-right
+            [maxx, miny],  # bottom-right
+            [minx, miny],  # bottom-left
+            [minx, maxy],  # close the ring
+        ]]
+    }, None
 
 
 def _is_valid_point(coords):
@@ -421,19 +458,92 @@ def _are_points_collinear(points):
 
 
 async def perform_bulk_indexing(bulk_data, index_name, bulk_size=100):
-    """Perform bulk indexing in smaller chunks."""
-    # Split the bulk_data into smaller chunks
-    for i in range(0, len(bulk_data), bulk_size):
-        chunk = bulk_data[i : i + bulk_size]
+    """Perform bulk indexing in smaller chunks.
+    
+    Args:
+        bulk_data: List of alternating action/document pairs
+        index_name: Elasticsearch index name
+        bulk_size: Number of OPERATIONS (not items) per chunk
+    """
+    # Each bulk operation consists of 2 items (action + document)
+    # So we need to step by bulk_size * 2 to avoid splitting operations
+    chunk_step = bulk_size * 2
+    
+    total_operations = len(bulk_data) // 2
+    total_indexed = 0
+    total_errors = 0
+    
+    for i in range(0, len(bulk_data), chunk_step):
+        chunk = bulk_data[i : i + chunk_step]
+        
+        # Skip incomplete chunks (shouldn't happen, but be safe)
+        if len(chunk) % 2 != 0:
+            logger.warning(f"Skipping incomplete bulk chunk at offset {i}")
+            continue
+        
         try:
             # Perform the bulk operation for the current chunk
-            response = await es.bulk(operations=chunk, index=index_name, refresh=True)
+            response = await es.bulk(operations=chunk, index=index_name, refresh=False)
+            
             # Check for errors in the response
-            if response.get("errors"):
-                print(f"Errors occurred during bulk indexing: {response['items']}")
+            error_count = 0  # Initialize for this chunk
+            success_count = 0  # Actually count successes
+            
+            if response.get("items"):
+                for item in response.get("items", []):
+                    # Each item is a dict with a single key (the operation type)
+                    for op_type, op_result in item.items():
+                        status = op_result.get("status", 0)
+                        if status >= 200 and status < 300:
+                            success_count += 1
+                        else:
+                            error_count += 1
+                            total_errors += 1
+                            # Log first few errors in detail
+                            if error_count <= 10:
+                                logger.error(
+                                    f"Bulk indexing error for ID {op_result.get('_id')}: "
+                                    f"Status {status}, "
+                                    f"Error: {op_result.get('error')}"
+                                )
+                
+                if error_count > 10:
+                    logger.error(f"... and {error_count - 10} more errors in this chunk")
+                
+                if error_count > 0:
+                    logger.error(f"Chunk had {error_count} failed operations out of {len(chunk)//2}")
+            else:
+                # No items in response - this is a problem
+                logger.error(f"Bulk response has no items! Response keys: {list(response.keys())}")
+                error_count = len(chunk) // 2
+                total_errors += error_count
+            
+            total_indexed += success_count
+            
+            if (i // chunk_step) % 10 == 0:  # Log every 10 chunks
+                logger.info(
+                    f"Progress: {total_indexed}/{total_operations} operations "
+                    f"({total_errors} errors)"
+                )
+                
         except Exception as e:
-            print(f"Exception during bulk indexing: {str(e)}")
-            # Optionally, implement retry logic here
+            logger.error(f"Exception during bulk indexing chunk at offset {i}: {str(e)}", exc_info=True)
+            total_errors += len(chunk) // 2
+            # Continue with next chunk instead of failing completely
+    
+    # Final refresh to make all indexed documents searchable
+    if total_indexed > 0:
+        try:
+            await es.indices.refresh(index=index_name)
+        except Exception as e:
+            logger.warning(f"Failed to refresh index: {e}")
+    
+    logger.info(
+        f"Bulk indexing complete: {total_indexed} successful, "
+        f"{total_errors} errors out of {total_operations} total operations"
+    )
+    
+    return {"indexed": total_indexed, "errors": total_errors, "total": total_operations}
 
 
 async def reindex_resources():
