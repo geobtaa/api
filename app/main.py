@@ -149,6 +149,9 @@ async def global_exception_handler(request: Request, exc: Exception):
         },
     )
 
+# Static files - React app built with /rui/ base path
+from fastapi.staticfiles import StaticFiles
+app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
 
 # Add uvicorn configuration for running the application directly
 if __name__ == "__main__":

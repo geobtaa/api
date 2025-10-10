@@ -30,6 +30,9 @@ ENV PATH="/root/.local/bin:$PATH"
 # Copy pyproject.toml and uv.lock first to leverage Docker cache
 COPY pyproject.toml uv.lock ./
 
+# Copy the frontend files
+COPY frontend/dist ./frontend/dist
+
 # Copy the rest of the application
 COPY . .
 
