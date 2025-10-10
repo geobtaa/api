@@ -92,9 +92,8 @@ def add_ui_attributes(item: Dict) -> Dict:
     # Add viewer attributes
     item.update(create_viewer_attributes(item))
 
-    # Add thumbnail URL if available
-    if thumbnail_url := image_service.get_thumbnail_url():
-        item["ui_thumbnail_url"] = thumbnail_url
+    # Add thumbnail URL (always add, even if None)
+    item["ui_thumbnail_url"] = image_service.get_thumbnail_url()
 
     # Add citation
     item["ui_citation"] = citation_service.get_citation()
