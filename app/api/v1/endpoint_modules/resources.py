@@ -400,7 +400,16 @@ async def get_resource_viewer(
 </html>
 """
 
-        return HTMLResponse(content=html_content)
+        # Create response with iframe-friendly headers
+        response = HTMLResponse(content=html_content)
+
+        # Allow iframe embedding from any domain
+        response.headers["X-Frame-Options"] = "ALLOWALL"
+        response.headers["Content-Security-Policy"] = "frame-ancestors *"
+        # Override the global COEP header for this endpoint
+        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+
+        return response
     except HTTPException:
         # Re-raise HTTPExceptions (like 404) without modification
         raise

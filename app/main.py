@@ -87,8 +87,13 @@ class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         # Allow cross-origin resource loading
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
-        response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
-        response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+
+        # Only set COEP/COOP if not already set by endpoint
+        if "Cross-Origin-Embedder-Policy" not in response.headers:
+            response.headers["Cross-Origin-Embedder-Policy"] = "unsafe-none"
+        if "Cross-Origin-Opener-Policy" not in response.headers:
+            response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
+
         return response
 
 
