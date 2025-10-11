@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,31 @@ from .client import es
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+
+def _get_failure_logger():
+    """Return a dedicated logger that writes indexing failures to a file.
+
+    The file path can be customized via the INDEX_FAILURE_LOG env var. Defaults to
+    logs/index_failures.log relative to the project/app working directory.
+    """
+    failure_log_path = os.getenv("INDEX_FAILURE_LOG", "logs/index_failures.log")
+    # Ensure directory exists
+    try:
+        Path(failure_log_path).parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        # If we cannot create the directory, fall back to stdout logging only
+        return logger
+
+    failure_logger = logging.getLogger("elasticsearch_index_failures")
+    if not any(isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) and str(h.baseFilename) == str(Path(failure_log_path)) for h in failure_logger.handlers):
+        file_handler = logging.FileHandler(failure_log_path)
+        file_handler.setLevel(logging.INFO)
+        file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        failure_logger.addHandler(file_handler)
+        failure_logger.propagate = False
+        failure_logger.setLevel(logging.INFO)
+    return failure_logger
 
 
 async def index_resources():
@@ -62,19 +88,25 @@ async def process_resource(resource_dict):
         elif key in ["locn_geometry", "dcat_bbox", "dcat_centroid"]:
             # Store original string value
             processed_dict[f"{key}_original"] = value
-            # Convert to GeoJSON for Elasticsearch using validated processing
-            if value:
-                processed_geometry = process_geometry(value)
-                if processed_geometry:
-                    # Ensure type is capitalized for consistency
-                    if "type" in processed_geometry:
-                        processed_geometry["type"] = processed_geometry["type"].capitalize()
-                    processed_dict[key] = processed_geometry
-                else:
-                    # If geometry processing failed, store None to avoid indexing invalid geometries
-                    processed_dict[key] = None
-            else:
+            if not value:
                 processed_dict[key] = None
+            else:
+                processed_geometry = process_geometry(value)
+                if key == "dcat_centroid":
+                    # Mapping is geo_point: must be [lon, lat] or {"lon":..,"lat":..}
+                    if processed_geometry and isinstance(processed_geometry, dict) and processed_geometry.get("type", "").lower() == "point":
+                        coords = processed_geometry.get("coordinates")
+                        processed_dict[key] = coords if isinstance(coords, (list, tuple)) and len(coords) >= 2 else None
+                    else:
+                        processed_dict[key] = None
+                else:
+                    # geo_shape fields expect a GeoJSON-like dict
+                    if processed_geometry:
+                        if "type" in processed_geometry:
+                            processed_geometry["type"] = processed_geometry["type"].capitalize()
+                        processed_dict[key] = processed_geometry
+                    else:
+                        processed_dict[key] = None
         else:
             processed_dict[key] = value
 
@@ -282,11 +314,11 @@ def process_geometry(geometry):
 
                 # Normalize and validate the envelope coordinates
                 normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
-                
+
                 if normalized_geom is None:
                     logger.error(f"Invalid envelope {geometry}: {error_msg} - skipping")
                     return None
-                
+
                 return normalized_geom
 
             # Try to parse as JSON
@@ -323,7 +355,7 @@ def process_geometry(geometry):
 def _normalize_envelope(minx, maxx, maxy, miny):
     """
     Normalize and validate envelope coordinates.
-    
+
     Returns:
         tuple: (geometry_dict, error_msg) where geometry_dict is None if invalid
     """
@@ -337,7 +369,7 @@ def _normalize_envelope(minx, maxx, maxy, miny):
     if minx > maxx:
         logger.debug(f"Auto-correcting inverted X coordinates: swapping {minx} and {maxx}")
         minx, maxx = maxx, minx
-    
+
     if miny > maxy:
         logger.debug(f"Auto-correcting inverted Y coordinates: swapping {miny} and {maxy}")
         miny, maxy = maxy, miny
@@ -345,31 +377,25 @@ def _normalize_envelope(minx, maxx, maxy, miny):
     # Check if this is actually a point (zero-area envelope)
     if minx == maxx and miny == maxy:
         logger.debug(f"Converting zero-area envelope to POINT: ({minx}, {miny})")
-        return {
-            "type": "point",
-            "coordinates": [minx, miny]
-        }, None
+        return {"type": "point", "coordinates": [minx, miny]}, None
 
     # Check for very thin envelopes (essentially lines or near-points)
     epsilon = 1e-6  # ~0.11 meters at equator
-    
+
     if abs(maxx - minx) < epsilon and abs(maxy - miny) < epsilon:
         # Both dimensions tiny - treat as point
         center_x = (minx + maxx) / 2
         center_y = (miny + maxy) / 2
         logger.debug(f"Converting near-point envelope to POINT: ({center_x}, {center_y})")
-        return {
-            "type": "point",
-            "coordinates": [center_x, center_y]
-        }, None
-    
+        return {"type": "point", "coordinates": [center_x, center_y]}, None
+
     elif abs(maxx - minx) < epsilon:
         # Width tiny but height OK - expand width slightly
         center_x = (minx + maxx) / 2
         minx = center_x - epsilon
         maxx = center_x + epsilon
         logger.debug(f"Expanding thin envelope width: {minx} to {maxx}")
-    
+
     elif abs(maxy - miny) < epsilon:
         # Height tiny but width OK - expand height slightly
         center_y = (miny + maxy) / 2
@@ -380,13 +406,15 @@ def _normalize_envelope(minx, maxx, maxy, miny):
     # Create valid polygon from normalized envelope
     return {
         "type": "polygon",
-        "coordinates": [[
-            [minx, maxy],  # top-left
-            [maxx, maxy],  # top-right
-            [maxx, miny],  # bottom-right
-            [minx, miny],  # bottom-left
-            [minx, maxy],  # close the ring
-        ]]
+        "coordinates": [
+            [
+                [minx, maxy],  # top-left
+                [maxx, maxy],  # top-right
+                [maxx, miny],  # bottom-right
+                [minx, miny],  # bottom-left
+                [minx, maxy],  # close the ring
+            ]
+        ],
     }, None
 
 
@@ -459,7 +487,7 @@ def _are_points_collinear(points):
 
 async def perform_individual_indexing(resources_data, index_name, batch_size=100):
     """Index resources individually (slower but 100% reliable).
-    
+
     Args:
         resources_data: List of processed resource dicts ready to index
         index_name: Elasticsearch index name
@@ -468,41 +496,65 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
     total_resources = len(resources_data)
     total_indexed = 0
     total_errors = 0
-    
+    failure_logger = _get_failure_logger()
+
     logger.info(f"Starting individual indexing of {total_resources} resources...")
-    
+
     for i, resource_dict in enumerate(resources_data):
         try:
             doc_id = resource_dict.get("id")
-            
+
             # Index this document individually
             response = await es.index(
                 index=index_name,
                 id=doc_id,
                 document=resource_dict,
-                refresh=False  # Don't refresh after each doc (performance)
+                refresh=False,  # Don't refresh after each doc (performance)
             )
-            
+
             # Check if successful
             if response.get("result") in ["created", "updated"]:
                 total_indexed += 1
             else:
                 logger.warning(f"Unexpected result for {doc_id}: {response.get('result')}")
+                # Log a structured line with the full response for post-mortem
+                try:
+                    failure_logger.info(json.dumps({
+                        "id": doc_id,
+                        "index": index_name,
+                        "stage": "index",
+                        "reason": "unexpected_result",
+                        "response": response,
+                    }))
+                except Exception:
+                    # Best-effort logging; do not fail indexing due to logging errors
+                    pass
                 total_errors += 1
-            
+
             # Log progress every batch_size documents
             if (i + 1) % batch_size == 0:
                 logger.info(
                     f"Progress: {total_indexed}/{total_resources} indexed "
-                    f"({total_errors} errors, {i+1} processed)"
+                    f"({total_errors} errors, {i + 1} processed)"
                 )
-                
+
         except Exception as e:
             total_errors += 1
             doc_id = resource_dict.get("id", "unknown")
             logger.error(f"Error indexing document {doc_id}: {str(e)}")
+            # Persist failure details for later triage
+            try:
+                failure_logger.info(json.dumps({
+                    "id": doc_id,
+                    "index": index_name,
+                    "stage": "index",
+                    "reason": "exception",
+                    "error": str(e),
+                }))
+            except Exception:
+                pass
             # Continue with next document instead of failing completely
-    
+
     # Final refresh to make all indexed documents searchable
     logger.info("Refreshing index to make all documents searchable...")
     if total_indexed > 0:
@@ -511,12 +563,12 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
             logger.info("Index refresh complete")
         except Exception as e:
             logger.warning(f"Failed to refresh index: {e}")
-    
+
     logger.info(
         f"Individual indexing complete: {total_indexed} successful, "
         f"{total_errors} errors out of {total_resources} total resources"
     )
-    
+
     return {"indexed": total_indexed, "errors": total_errors, "total": total_resources}
 
 
@@ -538,7 +590,9 @@ async def reindex_resources():
         # Process items in chunks
         chunk_size = 1000  # Adjust this based on your needs
         offset = 0
-        total_processed = 0
+        total_processed = 0  # number of items fetched/attempted this run
+        total_indexed = 0
+        total_errors = 0
 
         while True:
             # Fetch a chunk of documents from the database
@@ -553,15 +607,24 @@ async def reindex_resources():
 
             if processed_resources:
                 # Index this chunk
-                await perform_individual_indexing(processed_resources, index_name)
-                total_processed += len(chunk)
-                logger.info(f"Indexed {total_processed} resources so far")
+                result = await perform_individual_indexing(processed_resources, index_name)
+                total_processed += result.get("total", len(processed_resources))
+                total_indexed += result.get("indexed", 0)
+                total_errors += result.get("errors", 0)
+                logger.info(
+                    f"Progress: attempted={total_processed}, indexed={total_indexed}, errors={total_errors}"
+                )
 
             offset += chunk_size
 
         if total_processed > 0:
-            return {"message": f"Successfully indexed {total_processed} resources"}
-        return {"message": "No resources to index"}
+            return {
+                "attempted": total_processed,
+                "indexed": total_indexed,
+                "errors": total_errors,
+                "message": f"Indexing finished: {total_indexed} indexed, {total_errors} errors out of {total_processed} attempted",
+            }
+        return {"message": "No resources to index", "attempted": 0, "indexed": 0, "errors": 0}
 
     except Exception as e:
         logger.error(f"Error during reindexing: {str(e)}", exc_info=True)

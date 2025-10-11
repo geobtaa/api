@@ -136,17 +136,17 @@ class ItemViewer:
 
             # Normalize and validate the envelope coordinates
             normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
-            
+
             if normalized_geom is None:
                 logger.error(f"Invalid envelope in viewer {geometry}: {error_msg} - skipping")
                 return None
-            
+
             # Return the normalized geometry (already properly formatted)
             result = {
                 "type": "Polygon" if normalized_geom["type"] == "polygon" else "Point",
-                "coordinates": normalized_geom["coordinates"]
+                "coordinates": normalized_geom["coordinates"],
             }
-            
+
             # Cache the result for performance
             self._geometry_cache[geometry] = result
             return result

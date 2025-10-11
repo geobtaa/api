@@ -2,6 +2,7 @@
 """
 Reindex all resources from PostgreSQL to Elasticsearch with the fixed bulk indexing logic.
 """
+
 import asyncio
 import logging
 import os
@@ -30,22 +31,22 @@ logger = logging.getLogger(__name__)
 async def main():
     """Main reindex function."""
     try:
-        logger.info("="*70)
+        logger.info("=" * 70)
         logger.info("Starting full reindex of all resources")
-        logger.info("="*70)
-        
+        logger.info("=" * 70)
+
         # Connect to database
         await database.connect()
         logger.info("Connected to database")
-        
+
         # Run the reindex
         result = await reindex_resources()
-        
-        logger.info("="*70)
+
+        logger.info("=" * 70)
         logger.info("Reindex complete!")
         logger.info(f"Result: {result}")
-        logger.info("="*70)
-        
+        logger.info("=" * 70)
+
     except Exception as e:
         logger.error(f"Reindex failed: {str(e)}", exc_info=True)
         sys.exit(1)
@@ -53,10 +54,9 @@ async def main():
         # Cleanup
         try:
             await database.disconnect()
-        except:
+        except Exception:
             pass
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-
