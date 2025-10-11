@@ -3,6 +3,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -42,6 +43,79 @@ def _get_failure_logger():
     return failure_logger
 
 
+def _coerce_date(value):
+    """Return an ISO8601 date string acceptable to Elasticsearch or None.
+
+    Accepts common variants: YYYY, YYYY-MM, YYYY-MM-DD, full ISO datetimes.
+    Falls back to None if parsing fails.
+    """
+    if value in (None, ""):
+        return None
+    if isinstance(value, (int, float)):
+        # Interpret as year if reasonable
+        try:
+            if 1000 <= int(value) <= 3000:
+                return f"{int(value):04d}-01-01"
+        except Exception:
+            return None
+        return None
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    # Pure year
+    if text.isdigit() and 4 <= len(text) <= 4:
+        return f"{int(text):04d}-01-01"
+    # YYYY-MM
+    try:
+        if len(text) == 7 and text[4] == "-":
+            dt = datetime.strptime(text, "%Y-%m")
+            return dt.strftime("%Y-%m-01")
+    except Exception:
+        pass
+    # YYYY-MM-DD (or full ISO)
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S%z", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S"):
+        try:
+            dt = datetime.strptime(text, fmt)
+            return dt.strftime("%Y-%m-%d")
+        except Exception:
+            continue
+    # Last resort: fromisoformat without tz
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", ""))
+        return dt.strftime("%Y-%m-%d")
+    except Exception:
+        return None
+
+
+def _coerce_integer_or_list(value):
+    """Coerce a value or list of values to integers; drop invalids; return None if empty."""
+    def to_int(v):
+        try:
+            if isinstance(v, bool):
+                return None
+            return int(str(v).strip())
+        except Exception:
+            return None
+
+    if isinstance(value, list):
+        ints = [iv for iv in (to_int(v) for v in value) if iv is not None]
+        return ints if ints else None
+    iv = to_int(value)
+    return iv if iv is not None else None
+
+
+def _coerce_boolean(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        t = value.strip().lower()
+        if t in ("true", "t", "1", "yes", "y"): return True
+        if t in ("false", "f", "0", "no", "n"): return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return None
+
+
 async def index_resources():
     """Index all resources from PostgreSQL into Elasticsearch."""
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
@@ -76,9 +150,19 @@ async def process_resource(resource_dict):
     """Process a single resource for indexing."""
     processed_dict = {}
 
+    date_fields = {"gbl_mdmodified_dt", "b1g_dateAccessioned_s", "b1g_dateRetired_s"}
+    integer_fields = {"gbl_indexYear_im"}
+    boolean_fields = {"gbl_georeferenced_b", "b1g_child_record_b"}
+
     for key, value in resource_dict.items():
         if isinstance(value, (list, tuple)):
             processed_dict[key] = list(value)
+        elif key in date_fields:
+            processed_dict[key] = _coerce_date(value)
+        elif key in integer_fields:
+            processed_dict[key] = _coerce_integer_or_list(value)
+        elif key in boolean_fields:
+            processed_dict[key] = _coerce_boolean(value)
         elif key == "dct_references_s" and value:
             try:
                 processed_dict[key] = json.loads(value)
