@@ -483,7 +483,8 @@ async def perform_bulk_indexing(bulk_data, index_name, bulk_size=100):
         
         try:
             # Perform the bulk operation for the current chunk
-            response = await es.bulk(operations=chunk, index=index_name, refresh=False)
+            # Note: index is specified in each operation's action dict, not here
+            response = await es.bulk(operations=chunk, refresh=False)
             
             # Check for errors in the response
             error_count = 0  # Initialize for this chunk
