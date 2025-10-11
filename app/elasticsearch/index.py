@@ -253,6 +253,16 @@ async def process_resource(resource_dict):
 
     # Filter out None values and empty strings
     suggestion_inputs = [s for s in suggestion_inputs if s and str(s).strip()]
+    # Coerce to strings and truncate to match completion max_input_length (50)
+    suggestion_inputs = [str(s).strip()[:50] for s in suggestion_inputs]
+    # Remove empties after truncation and de-duplicate while preserving order
+    seen = set()
+    deduped = []
+    for s in suggestion_inputs:
+        if s and s not in seen:
+            seen.add(s)
+            deduped.append(s)
+    suggestion_inputs = deduped
 
     # Get resource classes, ensuring it's a list and has at least one value
     resource_classes = processed_dict.get("gbl_resourceClass_sm", [])
