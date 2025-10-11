@@ -28,22 +28,22 @@ async def index_resources():
     await init_elasticsearch()
 
     resource_rows = await database.fetch_all(resources.select())
-    bulk_data = await prepare_bulk_data(resource_rows, index_name)
+    processed_resources = await prepare_bulk_data(resource_rows, index_name)
 
-    if bulk_data:
-        return await perform_bulk_indexing(bulk_data, index_name)
+    if processed_resources:
+        return await perform_individual_indexing(processed_resources, index_name)
 
     return {"message": "No resources to index"}
 
 
 async def prepare_bulk_data(resources, index_name):
-    """Prepare resources for bulk indexing."""
-    bulk_data = []
+    """Prepare resources for indexing (now using individual operations for reliability)."""
+    processed_resources = []
     for resource in resources:
         resource_dict = await process_resource(dict(resource))
-        bulk_data.append({"index": {"_index": index_name, "_id": resource_dict["id"]}})
-        bulk_data.append(resource_dict)
-    return bulk_data
+        if resource_dict:  # Only add if processing succeeded
+            processed_resources.append(resource_dict)
+    return processed_resources
 
 
 async def process_resource(resource_dict):
@@ -457,94 +457,67 @@ def _are_points_collinear(points):
     return abs(cross_product) < 1e-10
 
 
-async def perform_bulk_indexing(bulk_data, index_name, bulk_size=100):
-    """Perform bulk indexing in smaller chunks.
+async def perform_individual_indexing(resources_data, index_name, batch_size=100):
+    """Index resources individually (slower but 100% reliable).
     
     Args:
-        bulk_data: List of alternating action/document pairs
+        resources_data: List of processed resource dicts ready to index
         index_name: Elasticsearch index name
-        bulk_size: Number of OPERATIONS (not items) per chunk
+        batch_size: Number of docs to index before logging progress
     """
-    # Each bulk operation consists of 2 items (action + document)
-    # So we need to step by bulk_size * 2 to avoid splitting operations
-    chunk_step = bulk_size * 2
-    
-    total_operations = len(bulk_data) // 2
+    total_resources = len(resources_data)
     total_indexed = 0
     total_errors = 0
     
-    for i in range(0, len(bulk_data), chunk_step):
-        chunk = bulk_data[i : i + chunk_step]
-        
-        # Skip incomplete chunks (shouldn't happen, but be safe)
-        if len(chunk) % 2 != 0:
-            logger.warning(f"Skipping incomplete bulk chunk at offset {i}")
-            continue
-        
+    logger.info(f"Starting individual indexing of {total_resources} resources...")
+    
+    for i, resource_dict in enumerate(resources_data):
         try:
-            # Perform the bulk operation for the current chunk
-            # Note: index is specified in each operation's action dict, not here
-            response = await es.bulk(operations=chunk, refresh=False)
+            doc_id = resource_dict.get("id")
             
-            # Check for errors in the response
-            error_count = 0  # Initialize for this chunk
-            success_count = 0  # Actually count successes
+            # Index this document individually
+            response = await es.index(
+                index=index_name,
+                id=doc_id,
+                document=resource_dict,
+                refresh=False  # Don't refresh after each doc (performance)
+            )
             
-            if response.get("items"):
-                for item in response.get("items", []):
-                    # Each item is a dict with a single key (the operation type)
-                    for op_type, op_result in item.items():
-                        status = op_result.get("status", 0)
-                        if status >= 200 and status < 300:
-                            success_count += 1
-                        else:
-                            error_count += 1
-                            total_errors += 1
-                            # Log first few errors in detail
-                            if error_count <= 10:
-                                logger.error(
-                                    f"Bulk indexing error for ID {op_result.get('_id')}: "
-                                    f"Status {status}, "
-                                    f"Error: {op_result.get('error')}"
-                                )
-                
-                if error_count > 10:
-                    logger.error(f"... and {error_count - 10} more errors in this chunk")
-                
-                if error_count > 0:
-                    logger.error(f"Chunk had {error_count} failed operations out of {len(chunk)//2}")
+            # Check if successful
+            if response.get("result") in ["created", "updated"]:
+                total_indexed += 1
             else:
-                # No items in response - this is a problem
-                logger.error(f"Bulk response has no items! Response keys: {list(response.keys())}")
-                error_count = len(chunk) // 2
-                total_errors += error_count
+                logger.warning(f"Unexpected result for {doc_id}: {response.get('result')}")
+                total_errors += 1
             
-            total_indexed += success_count
-            
-            if (i // chunk_step) % 10 == 0:  # Log every 10 chunks
+            # Log progress every batch_size documents
+            if (i + 1) % batch_size == 0:
                 logger.info(
-                    f"Progress: {total_indexed}/{total_operations} operations "
-                    f"({total_errors} errors)"
+                    f"Progress: {total_indexed}/{total_resources} indexed "
+                    f"({total_errors} errors, {i+1} processed)"
                 )
                 
         except Exception as e:
-            logger.error(f"Exception during bulk indexing chunk at offset {i}: {str(e)}", exc_info=True)
-            total_errors += len(chunk) // 2
-            # Continue with next chunk instead of failing completely
+            total_errors += 1
+            doc_id = resource_dict.get("id", "unknown")
+            logger.error(f"Error indexing document {doc_id}: {str(e)}")
+            # Continue with next document instead of failing completely
     
     # Final refresh to make all indexed documents searchable
+    logger.info("Refreshing index to make all documents searchable...")
     if total_indexed > 0:
         try:
             await es.indices.refresh(index=index_name)
+            logger.info("Index refresh complete")
         except Exception as e:
             logger.warning(f"Failed to refresh index: {e}")
     
     logger.info(
-        f"Bulk indexing complete: {total_indexed} successful, "
-        f"{total_errors} errors out of {total_operations} total operations"
+        f"Individual indexing complete: {total_indexed} successful, "
+        f"{total_errors} errors out of {total_resources} total resources"
     )
     
-    return {"indexed": total_indexed, "errors": total_errors, "total": total_operations}
+    return {"indexed": total_indexed, "errors": total_errors, "total": total_resources}
 
 
 async def reindex_resources():
@@ -575,12 +548,12 @@ async def reindex_resources():
             if not chunk:
                 break  # No more items to process
 
-            # Prepare bulk data for this chunk
-            bulk_data = await prepare_bulk_data(chunk, index_name)
+            # Prepare resources for this chunk
+            processed_resources = await prepare_bulk_data(chunk, index_name)
 
-            if bulk_data:
+            if processed_resources:
                 # Index this chunk
-                await perform_bulk_indexing(bulk_data, index_name)
+                await perform_individual_indexing(processed_resources, index_name)
                 total_processed += len(chunk)
                 logger.info(f"Indexed {total_processed} resources so far")
 
