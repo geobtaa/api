@@ -194,8 +194,11 @@ async def process_resource(resource_dict):
         else:
             processed_dict[key] = value
 
-    # Add summaries to the document
-    processed_dict["ai_summaries"] = await get_resource_summaries(processed_dict["id"])
+    # Add top-level summary only to avoid dynamic mapping conflicts
+    summaries = await get_resource_summaries(processed_dict["id"])
+    if summaries:
+        first = summaries[0]
+        processed_dict["summary"] = first.get("summary") or None
 
     # Add spatial facet data
     spatial_facets = await get_spatial_facets(processed_dict["id"])
