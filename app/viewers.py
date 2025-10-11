@@ -131,28 +131,23 @@ class ItemViewer:
             # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
             minx, maxx, maxy, miny = map(float, envelope_match.groups())
 
-            # Import validation function from elasticsearch module
-            from app.elasticsearch.index import _is_valid_envelope
+            # Import normalization function from elasticsearch module
+            from app.elasticsearch.index import _normalize_envelope
 
-            # Validate the envelope coordinates
-            if not _is_valid_envelope(minx, maxx, maxy, miny):
-                logger.warning(f"Invalid envelope coordinates in viewer: {geometry} - skipping")
+            # Normalize and validate the envelope coordinates
+            normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
+            
+            if normalized_geom is None:
+                logger.error(f"Invalid envelope in viewer {geometry}: {error_msg} - skipping")
                 return None
-
-            # Create a polygon from the envelope coordinates
+            
+            # Return the normalized geometry (already properly formatted)
             result = {
-                "type": "Polygon",  # Ensure proper capitalization
-                "coordinates": [
-                    [
-                        [minx, maxy],  # top left
-                        [minx, miny],  # bottom left
-                        [maxx, miny],  # bottom right
-                        [maxx, maxy],  # top right
-                        [minx, maxy],  # close the polygon
-                    ]
-                ],
+                "type": "Polygon" if normalized_geom["type"] == "polygon" else "Point",
+                "coordinates": normalized_geom["coordinates"]
             }
-            # LIGHTNING SPEED OPTIMIZATION: Cache the result
+            
+            # Cache the result for performance
             self._geometry_cache[geometry] = result
             return result
 
