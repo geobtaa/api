@@ -2,8 +2,8 @@ import json
 import logging
 import os
 import re
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -33,7 +33,12 @@ def _get_failure_logger():
         return logger
 
     failure_logger = logging.getLogger("elasticsearch_index_failures")
-    if not any(isinstance(h, logging.FileHandler) and getattr(h, "baseFilename", None) and str(h.baseFilename) == str(Path(failure_log_path)) for h in failure_logger.handlers):
+    if not any(
+        isinstance(h, logging.FileHandler)
+        and getattr(h, "baseFilename", None)
+        and str(h.baseFilename) == str(Path(failure_log_path))
+        for h in failure_logger.handlers
+    ):
         file_handler = logging.FileHandler(failure_log_path)
         file_handler.setLevel(logging.INFO)
         file_handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
@@ -89,6 +94,7 @@ def _coerce_date(value):
 
 def _coerce_integer_or_list(value):
     """Coerce a value or list of values to integers; drop invalids; return None if empty."""
+
     def to_int(v):
         try:
             if isinstance(v, bool):
@@ -109,8 +115,10 @@ def _coerce_boolean(value):
         return value
     if isinstance(value, str):
         t = value.strip().lower()
-        if t in ("true", "t", "1", "yes", "y"): return True
-        if t in ("false", "f", "0", "no", "n"): return False
+        if t in ("true", "t", "1", "yes", "y"):
+            return True
+        if t in ("false", "f", "0", "no", "n"):
+            return False
     if isinstance(value, (int, float)):
         return bool(value)
     return None
@@ -178,9 +186,17 @@ async def process_resource(resource_dict):
                 processed_geometry = process_geometry(value)
                 if key == "dcat_centroid":
                     # Mapping is geo_point: must be [lon, lat] or {"lon":..,"lat":..}
-                    if processed_geometry and isinstance(processed_geometry, dict) and processed_geometry.get("type", "").lower() == "point":
+                    if (
+                        processed_geometry
+                        and isinstance(processed_geometry, dict)
+                        and processed_geometry.get("type", "").lower() == "point"
+                    ):
                         coords = processed_geometry.get("coordinates")
-                        processed_dict[key] = coords if isinstance(coords, (list, tuple)) and len(coords) >= 2 else None
+                        processed_dict[key] = (
+                            coords
+                            if isinstance(coords, (list, tuple)) and len(coords) >= 2
+                            else None
+                        )
                     else:
                         processed_dict[key] = None
                 else:
@@ -616,13 +632,17 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
                 logger.warning(f"Unexpected result for {doc_id}: {response.get('result')}")
                 # Log a structured line with the full response for post-mortem
                 try:
-                    failure_logger.info(json.dumps({
-                        "id": doc_id,
-                        "index": index_name,
-                        "stage": "index",
-                        "reason": "unexpected_result",
-                        "response": response,
-                    }))
+                    failure_logger.info(
+                        json.dumps(
+                            {
+                                "id": doc_id,
+                                "index": index_name,
+                                "stage": "index",
+                                "reason": "unexpected_result",
+                                "response": response,
+                            }
+                        )
+                    )
                 except Exception:
                     # Best-effort logging; do not fail indexing due to logging errors
                     pass
@@ -641,13 +661,17 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
             logger.error(f"Error indexing document {doc_id}: {str(e)}")
             # Persist failure details for later triage
             try:
-                failure_logger.info(json.dumps({
-                    "id": doc_id,
-                    "index": index_name,
-                    "stage": "index",
-                    "reason": "exception",
-                    "error": str(e),
-                }))
+                failure_logger.info(
+                    json.dumps(
+                        {
+                            "id": doc_id,
+                            "index": index_name,
+                            "stage": "index",
+                            "reason": "exception",
+                            "error": str(e),
+                        }
+                    )
+                )
             except Exception:
                 pass
             # Continue with next document instead of failing completely
@@ -709,7 +733,8 @@ async def reindex_resources():
                 total_indexed += result.get("indexed", 0)
                 total_errors += result.get("errors", 0)
                 logger.info(
-                    f"Progress: attempted={total_processed}, indexed={total_indexed}, errors={total_errors}"
+                    f"Progress: attempted={total_processed}, "
+                    f"indexed={total_indexed}, errors={total_errors}"
                 )
 
             offset += chunk_size
@@ -719,7 +744,10 @@ async def reindex_resources():
                 "attempted": total_processed,
                 "indexed": total_indexed,
                 "errors": total_errors,
-                "message": f"Indexing finished: {total_indexed} indexed, {total_errors} errors out of {total_processed} attempted",
+                "message": (
+                    f"Indexing finished: {total_indexed} indexed, "
+                    f"{total_errors} errors out of {total_processed} attempted"
+                ),
             }
         return {"message": "No resources to index", "attempted": 0, "indexed": 0, "errors": 0}
 
