@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -154,8 +154,53 @@ async def global_exception_handler(request: Request, exc: Exception):
     )
 
 
-# Static files - serve React app from frontend/dist
-app.mount("/", StaticFiles(directory="frontend/dist", html=True), name="frontend")
+# Frontend directory path
+FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+# Serve static assets directly (CSS, JS, images, etc.)
+app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="assets")
+
+# Optional: serve common static files
+@app.get("/robots.txt")
+async def robots():
+    robots_path = os.path.join(FRONTEND_DIR, "robots.txt")
+    if os.path.isfile(robots_path):
+        return FileResponse(robots_path)
+    return JSONResponse(content={"message": "robots.txt not found"}, status_code=404)
+
+@app.get("/favicon.ico")
+async def favicon():
+    favicon_path = os.path.join(FRONTEND_DIR, "favicon.ico")
+    if os.path.isfile(favicon_path):
+        return FileResponse(favicon_path)
+    return JSONResponse(content={"message": "favicon.ico not found"}, status_code=404)
+
+# SPA fallback: any other path → index.html unless a file exists
+@app.get("/{full_path:path}")
+async def spa_fallback(full_path: str):
+    """
+    SPA history fallback handler.
+    Serves static files if they exist, otherwise returns index.html for client-side routing.
+    """
+    # Skip API routes (they should be handled by the API router above)
+    if full_path.startswith("api/"):
+        return JSONResponse(content={"message": "API endpoint not found"}, status_code=404)
+    
+    # Check if the requested path is a file that exists
+    candidate_path = os.path.join(FRONTEND_DIR, full_path)
+    if os.path.isfile(candidate_path):
+        return FileResponse(candidate_path)
+    
+    # For any other path (including root), serve index.html for SPA routing
+    index_path = os.path.join(FRONTEND_DIR, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path)
+    
+    # Fallback if index.html doesn't exist
+    return JSONResponse(
+        content={"message": "Frontend not found. Please build the React app."}, 
+        status_code=404
+    )
 
 # Add uvicorn configuration for running the application directly
 if __name__ == "__main__":
