@@ -85,7 +85,8 @@ async def get_spatial_facets(resource_id):
                         formatted_counties = []
                         for county in county_data:
                             if isinstance(county, dict) and all(
-                                key in county for key in ["wok_id", "parent_id", "state_abbrev", "name"]
+                                key in county
+                                for key in ["wok_id", "parent_id", "state_abbrev", "name"]
                             ):
                                 formatted_counties.append(
                                     f"{county['wok_id']}|{county['parent_id']}|{county['state_abbrev']}|{county['name']}"
@@ -99,7 +100,7 @@ async def get_spatial_facets(resource_id):
             return spatial_facets
     except Exception as e:
         logger.warning(f"Error getting spatial facets for {resource_id}: {e}")
-    
+
     return {}
 
 
@@ -198,8 +199,8 @@ async def main():
         async def actions():
             for i, row in enumerate(all_rows):
                 if i % 1000 == 0:
-                    logger.info(f"Processing resource {i+1:,}/{total:,}")
-                
+                    logger.info(f"Processing resource {i + 1:,}/{total:,}")
+
                 doc = dict(row)
 
                 # Fix array fields: normalize strings to arrays AND fix character-split arrays
