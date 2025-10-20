@@ -5,6 +5,7 @@ With ignore_malformed=true in mappings, this should index all resources.
 """
 
 import asyncio
+import json
 import logging
 import os
 import sys
@@ -26,6 +27,143 @@ logging.basicConfig(
     handlers=[logging.StreamHandler(sys.stdout)],
 )
 logger = logging.getLogger(__name__)
+
+
+async def get_spatial_facets(resource_id):
+    """Get spatial facets for a resource."""
+    try:
+        query = """
+            SELECT geo_global, geo_country, geo_region, geo_county
+            FROM resource_spatial_facets
+            WHERE resource_id = :resource_id
+        """
+        result = await database.fetch_one(query, {"resource_id": resource_id})
+
+        if result:
+            spatial_facets = dict(result)
+
+            # Parse JSON fields and format as pipe-delimited strings for faceting
+            if spatial_facets.get("geo_country"):
+                try:
+                    country_data = json.loads(spatial_facets["geo_country"])
+                    if isinstance(country_data, dict) and all(
+                        key in country_data for key in ["wok_id", "parent_id", "name"]
+                    ):
+                        # Format: wok_id|parent_id|name
+                        spatial_facets["geo_country"] = (
+                            f"{country_data['wok_id']}|{country_data['parent_id']}|{country_data['name']}"
+                        )
+                    else:
+                        spatial_facets["geo_country"] = None
+                except (json.JSONDecodeError, TypeError):
+                    spatial_facets["geo_country"] = None
+
+            if spatial_facets.get("geo_region"):
+                try:
+                    region_data = json.loads(spatial_facets["geo_region"])
+                    if isinstance(region_data, list):
+                        # Format as pipe-delimited strings
+                        formatted_regions = []
+                        for region in region_data:
+                            if isinstance(region, dict) and all(
+                                key in region for key in ["wok_id", "parent_id", "name"]
+                            ):
+                                formatted_regions.append(
+                                    f"{region['wok_id']}|{region['parent_id']}|{region['name']}"
+                                )
+                        spatial_facets["geo_region"] = formatted_regions
+                    else:
+                        spatial_facets["geo_region"] = None
+                except (json.JSONDecodeError, TypeError):
+                    spatial_facets["geo_region"] = None
+
+            if spatial_facets.get("geo_county"):
+                try:
+                    county_data = json.loads(spatial_facets["geo_county"])
+                    if isinstance(county_data, list):
+                        # Format as pipe-delimited strings: wok_id|parent_id|state_abbrev|name
+                        formatted_counties = []
+                        for county in county_data:
+                            if isinstance(county, dict) and all(
+                                key in county for key in ["wok_id", "parent_id", "state_abbrev", "name"]
+                            ):
+                                formatted_counties.append(
+                                    f"{county['wok_id']}|{county['parent_id']}|{county['state_abbrev']}|{county['name']}"
+                                )
+                        spatial_facets["geo_county"] = formatted_counties
+                    else:
+                        spatial_facets["geo_county"] = None
+                except (json.JSONDecodeError, TypeError):
+                    spatial_facets["geo_county"] = None
+
+            return spatial_facets
+    except Exception as e:
+        logger.warning(f"Error getting spatial facets for {resource_id}: {e}")
+    
+    return {}
+
+
+def build_suggest_field(doc):
+    """Build the suggest field for autocomplete."""
+    suggestion_inputs = []
+
+    # Add title if it exists
+    if title := doc.get("dct_title_s"):
+        suggestion_inputs.append(title)
+
+    # Add creators
+    if creators := doc.get("dct_creator_sm"):
+        if isinstance(creators, list):
+            suggestion_inputs.extend(creators)
+        else:
+            suggestion_inputs.append(creators)
+
+    # Add publishers
+    if publishers := doc.get("dct_publisher_sm"):
+        if isinstance(publishers, list):
+            suggestion_inputs.extend(publishers)
+        else:
+            suggestion_inputs.append(publishers)
+
+    # Add provider
+    if provider := doc.get("schema_provider_s"):
+        suggestion_inputs.append(provider)
+
+    # Add subjects
+    if subjects := doc.get("dct_subject_sm"):
+        if isinstance(subjects, list):
+            suggestion_inputs.extend(subjects)
+        else:
+            suggestion_inputs.append(subjects)
+
+    # Add spatial
+    if spatial := doc.get("dct_spatial_sm"):
+        if isinstance(spatial, list):
+            suggestion_inputs.extend(spatial)
+        else:
+            suggestion_inputs.append(spatial)
+
+    # Add keywords
+    if keywords := doc.get("dcat_keyword_sm"):
+        if isinstance(keywords, list):
+            suggestion_inputs.extend(keywords)
+        else:
+            suggestion_inputs.append(keywords)
+
+    # Filter out None values and empty strings
+    suggestion_inputs = [s for s in suggestion_inputs if s and str(s).strip()]
+    # Coerce to strings and truncate to match completion max_input_length (50)
+    suggestion_inputs = [str(s).strip()[:50] for s in suggestion_inputs]
+    # Remove empties after truncation and de-duplicate while preserving order
+    seen = set()
+    deduped = []
+    for s in suggestion_inputs:
+        if s and s not in seen:
+            seen.add(s)
+            deduped.append(s)
+    suggestion_inputs = deduped
+
+    return {"input": suggestion_inputs}
 
 
 async def main():
@@ -56,9 +194,12 @@ async def main():
         total = len(all_rows)
         logger.info(f"Fetched {total:,} resources")
 
-        # Prepare bulk actions with array normalization
-        def actions():
-            for row in all_rows:
+        # Prepare bulk actions with array normalization, suggestions, and spatial facets
+        async def actions():
+            for i, row in enumerate(all_rows):
+                if i % 1000 == 0:
+                    logger.info(f"Processing resource {i+1:,}/{total:,}")
+                
                 doc = dict(row)
 
                 # Fix array fields: normalize strings to arrays AND fix character-split arrays
@@ -86,6 +227,17 @@ async def main():
                             and all(isinstance(v, str) and len(v) == 1 for v in val)
                         ):
                             doc[field] = ["".join(val)]
+
+                # Add autocomplete suggestions
+                doc["suggest"] = build_suggest_field(doc)
+
+                # Add spatial facets
+                spatial_facets = await get_spatial_facets(doc["id"])
+                if spatial_facets:
+                    doc["geo_global"] = spatial_facets.get("geo_global", False)
+                    doc["geo_country"] = spatial_facets.get("geo_country")
+                    doc["geo_region"] = spatial_facets.get("geo_region")
+                    doc["geo_county"] = spatial_facets.get("geo_county")
 
                 yield {
                     "_op_type": "index",
