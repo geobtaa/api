@@ -64,9 +64,13 @@ def pytest_configure(config):
     os.environ.setdefault("REDIS_HOST", os.getenv("REDIS_HOST", "localhost"))
     os.environ.setdefault("REDIS_PORT", os.getenv("REDIS_PORT", "6379"))
     os.environ["REDIS_DB"] = os.getenv("REDIS_DB", "1")
-    os.environ["ENDPOINT_CACHE"] = os.getenv("ENDPOINT_CACHE", "true")
+    os.environ["ENDPOINT_CACHE"] = os.getenv("ENDPOINT_CACHE", "false")
 
     os.environ["LOG_PATH"] = "./test_logs"
+    
+    # Set admin credentials for tests
+    os.environ["ADMIN_USERNAME"] = "admin"
+    os.environ["ADMIN_PASSWORD"] = "changeme"
 
     # Filter out pytesseract deprecation warnings
     warnings.filterwarnings(

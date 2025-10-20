@@ -120,8 +120,12 @@ class CacheService:
             if isinstance(arg, (str, int, float, bool, type(None))):
                 key_parts.append(str(arg))
             else:
-                # For complex types, use their JSON representation
-                key_parts.append(json.dumps(arg, sort_keys=True))
+                # Handle FastAPI Query objects and other non-serializable types
+                try:
+                    key_parts.append(json.dumps(arg, sort_keys=True))
+                except (TypeError, ValueError):
+                    # For non-serializable objects, use their string representation
+                    key_parts.append(str(arg))
 
         # Add keyword args (sorted for consistency)
         for k in sorted(kwargs.keys()):
@@ -129,8 +133,12 @@ class CacheService:
             if isinstance(v, (str, int, float, bool, type(None))):
                 key_parts.append(f"{k}={v}")
             else:
-                # For complex types, use their JSON representation
-                key_parts.append(f"{k}={json.dumps(v, sort_keys=True)}")
+                # Handle FastAPI Query objects and other non-serializable types
+                try:
+                    key_parts.append(f"{k}={json.dumps(v, sort_keys=True)}")
+                except (TypeError, ValueError):
+                    # For non-serializable objects, use their string representation
+                    key_parts.append(f"{k}={str(v)}")
 
         # Join all parts and hash them
         key_string = ":".join(key_parts)
