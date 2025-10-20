@@ -182,16 +182,15 @@ class OGMImporter:
                     cleaned[key] = value
                 elif isinstance(value, str):
                     logger.debug("      -> String: checking for semicolon splitting")
-                    # Don't split strings - they should already be arrays
-                    # Only split if it looks like a semicolon-separated list
+                    # Split if semicolon-separated, otherwise wrap in array
                     if ";" in value and not value.startswith("[") and not value.startswith("'"):
                         values = [v.strip() for v in value.split(";") if v.strip()]
                         cleaned[key] = values if values else None
                         logger.debug(f"      -> Split by semicolon: {repr(cleaned[key])}")
                     else:
-                        # Keep as single string, not array
-                        cleaned[key] = value.strip() if value.strip() else None
-                        logger.debug(f"      -> Keep as string: {repr(cleaned[key])}")
+                        # Wrap single string in array for PostgreSQL array column
+                        cleaned[key] = [value.strip()] if value.strip() else None
+                        logger.debug(f"      -> Wrapped string in array: {repr(cleaned[key])}")
                 else:
                     cleaned[key] = [str(value)] if value else None
                     logger.debug(f"      -> Convert to list: {repr(cleaned[key])}")

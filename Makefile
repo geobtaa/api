@@ -32,6 +32,15 @@ lint-check:
 
 # Run just the tests with coverage threshold
 test:
+	@echo "Setting up test database..."
+	@echo "Checking if test database exists..."
+	@if docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -lqt | cut -d \| -f 1 | grep -qw btaa_ogm_api_test'; then \
+		echo "Test database already exists, skipping clone..."; \
+	else \
+		echo "Test database does not exist, cloning from production..."; \
+		docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '"'"'btaa_ogm_api'"'"' AND pid <> pg_backend_pid();"' || true; \
+		docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "CREATE DATABASE btaa_ogm_api_test WITH TEMPLATE btaa_ogm_api OWNER postgres;"'; \
+	fi
 	@echo "Running tests with coverage threshold of $(COVERAGE_THRESHOLD)%..."
 	pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD)
 
@@ -39,6 +48,14 @@ test:
 test-no-coverage:
 	@echo "Running tests without coverage threshold..."
 	pytest --full-trace
+
+# Force a fresh clone of the test database
+test-fresh-db:
+	@echo "Force cloning fresh test database..."
+	@docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '"'"'btaa_ogm_api'"'"' AND pid <> pg_backend_pid();"' || true
+	@docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "DROP DATABASE IF EXISTS btaa_ogm_api_test;"' || true
+	@docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "CREATE DATABASE btaa_ogm_api_test WITH TEMPLATE btaa_ogm_api OWNER postgres;"'
+	@echo "Fresh test database created!"
 
 # Run tests and compare coverage against previous run (fails if coverage drops)
 test-coverage-compare:
