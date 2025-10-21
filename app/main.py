@@ -6,11 +6,10 @@ from contextlib import asynccontextmanager
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
-from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
