@@ -16,11 +16,26 @@
           <a id="btaa-logo" href="/"><img height="80px" alt="Big Ten Academic Alliance" style="margin:0.25rem 0px" src="/static/btaa-logo-white.png"></a>
         </div>
         <h1><a class="navbar-brand" href="/api/docs">BTAA GeoAPI</a></h1>
+        <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#user-util-collapse" aria-controls="user-util-collapse" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-md-end" id="user-util-collapse">
+          <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" href="https://gin.btaa.org/ld/api">API Documentation</a></li>
+            <li class="nav-item"><a class="nav-link" href="https://geo.btaa.org/feedback">Feedback</a></li>
+          </ul>
+        </div>
       </nav>
     </div>
   </header>
 
   <main class="docs-wrap">
+
+    <div class="admonition warning">
+      <p class="admonition-title">DRAFT Specification / Work in Progress</p>
+      <p class="admonition-content">This portion of the BTAA GIN site, our GeoBTAA API, and our Linked Data offerings are a <strong><em>WORK IN PROGRESS</em></strong>. Please <a href="https://geo.btaa.org/feedback">reach out</a> if you have questions or wish to participate in bringing these resources to public release.</p>
+    </div>
+
     <div id="swagger-ui"></div>
   </main>
 
@@ -141,6 +156,20 @@
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
   <script>
+    // Navbar toggle functionality
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggler = document.querySelector('.navbar-toggler');
+      const collapse = document.querySelector('.navbar-collapse');
+      
+      if (toggler && collapse) {
+        toggler.addEventListener('click', function() {
+          collapse.classList.toggle('show');
+          const isExpanded = collapse.classList.contains('show');
+          toggler.setAttribute('aria-expanded', isExpanded);
+        });
+      }
+    });
+
     window.ui = SwaggerUIBundle({
       url: "{{ openapi_url }}",
       dom_id: '#swagger-ui',
