@@ -75,7 +75,7 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI application
 app = FastAPI(
-    title="BTAA GeoAPI",
+    title="BTAA Geospatial API",
     version="0.1.1",
     lifespan=lifespan,
     docs_url=None,
@@ -177,7 +177,7 @@ async def custom_docs(request: Request) -> HTMLResponse:
         "docs.html",
         {
             "request": request,
-            "title": "BTAA GeoAPI — Docs",
+            "title": "BTAA Geospatial API — Endpoints",
             "openapi_url": app.openapi_url,
         },
     )
