@@ -27,6 +27,38 @@ from db.models import resources
 # Load environment variables from .env file
 load_dotenv()
 
+
+def filter_resource_fields(resource_dict: dict, fields_param: Optional[str]) -> dict:
+    """
+    Filter resource fields based on the fields parameter.
+    Always includes 'id' field even if not specified.
+
+    Args:
+        resource_dict: The resource dictionary to filter
+        fields_param: Comma-separated string of field names to include
+
+    Returns:
+        Filtered resource dictionary
+    """
+    if not fields_param:
+        return resource_dict
+
+    # Parse the fields parameter
+    requested_fields = [field.strip() for field in fields_param.split(",") if field.strip()]
+
+    # Always include 'id' field
+    if "id" not in requested_fields:
+        requested_fields.append("id")
+
+    # Filter the resource dictionary to only include requested fields
+    filtered_resource = {}
+    for field in requested_fields:
+        if field in resource_dict:
+            filtered_resource[field] = resource_dict[field]
+
+    return filtered_resource
+
+
 router = APIRouter()
 
 logger = logging.getLogger(__name__)
@@ -47,6 +79,7 @@ LIST_CACHE_TTL = int(os.getenv("LIST_CACHE_TTL", 43200))  # 12 hours
 async def list_resources(
     skip: int = 0,
     limit: int = 10,
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     request: Request = None,
@@ -66,6 +99,11 @@ async def list_resources(
                     # Convert to dict and sanitize datetime objects
                     resource_dict = sanitize_for_json(dict(row._mapping))
                     logger.info(f"Resource dict: {resource_dict}")
+
+                    # Apply field filtering if fields parameter is provided
+                    if fields:
+                        resource_dict = filter_resource_fields(resource_dict, fields)
+                        logger.info(f"Filtered resource dict: {resource_dict}")
 
                     # Process the resource using the shared function
                     jsonapi_resource = await process_resource(resource_dict, session)
@@ -93,6 +131,7 @@ async def list_resources(
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource(
     id: str,
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     request: Request = None,
@@ -112,6 +151,11 @@ async def get_resource(
             # Convert to dict and sanitize for JSON serialization
             resource_dict = sanitize_for_json(dict(row._mapping))
             resource_dict["id"] = id  # Ensure ID is set
+
+            # Apply field filtering if fields parameter is provided
+            if fields:
+                resource_dict = filter_resource_fields(resource_dict, fields)
+                logger.info(f"Filtered resource dict: {resource_dict}")
 
             # Process the resource using the shared function (this will add Allmaps to meta.ui)
             jsonapi_resource = await process_resource(resource_dict, session)
@@ -205,6 +249,7 @@ async def get_resource_distributions(
 @router.get("/resources/{id}/ogm")
 async def get_resource_ogm(
     id: str,
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """Get just the OpenGeoMetadata Aardvark record for a resource by ID."""
@@ -235,6 +280,11 @@ async def get_resource_ogm(
                     ):
                         continue
                     aardvark_record[key] = value
+
+            # Apply field filtering if fields parameter is provided
+            if fields:
+                aardvark_record = filter_resource_fields(aardvark_record, fields)
+                logger.info(f"Filtered OGM record: {aardvark_record}")
 
             # Return just the cleaned attributes (the Aardvark record)
             return create_response(aardvark_record, callback)
