@@ -10,6 +10,8 @@ SEARCH_ALLOWED_PARAMS = [
     "page",  # Page number
     "per_page",  # Results per page
     "sort",  # Sort option
+    "fields",  # Field filtering for response attributes
+    "meta",  # Include per-resource meta
     "callback",  # JSONP callback
     # Facet filter parameters (fq[aggregation_name][])
     "fq[resource_class_agg][]",

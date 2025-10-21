@@ -38,6 +38,8 @@ async def search(
         None, description="Sort option (relevance, year_desc, year_asc, title_asc, title_desc)"
     ),
     search_field: Optional[str] = Query(None, description="Search field (all_fields, etc.)"),
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
+    meta: bool = Query(True, description="Include per-resource meta block (default: true)"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
@@ -206,6 +208,21 @@ async def search(
                 resource_object = await process_resource_optimized(
                     resource_dict, allmaps_attributes, apply_field_mapping=False
                 )
+                # Apply fields filter if requested (after mapping to OGM names)
+                if fields and isinstance(resource_object, dict):
+                    try:
+                        from app.services.ogm_field_mapper import OGMFieldMapper
+                        if "attributes" in resource_object and isinstance(resource_object["attributes"], dict):
+                            mapped_attrs = OGMFieldMapper.map_resource_fields(resource_object["attributes"])
+                            requested = [f.strip() for f in fields.split(",") if f.strip()]
+                            if "id" not in requested:
+                                requested.append("id")
+                            filtered_attrs = {k: v for k, v in mapped_attrs.items() if k in requested}
+                            # Ensure id remains top-level only
+                            filtered_attrs.pop("id", None)
+                            resource_object["attributes"] = filtered_attrs
+                    except Exception as e:
+                        logger.error(f"Error applying fields filter: {e}")
                 process_duration = time.time() - process_start
 
                 if process_duration > 0.5:  # Log slow processing
@@ -222,28 +239,33 @@ async def search(
                         resource_object["attributes"]
                     )
 
-                # Add the Elasticsearch score to the resource's meta section
-                if score is not None:
-                    if "meta" not in resource_object:
-                        resource_object["meta"] = {}
+                # Add the Elasticsearch score to the resource's meta section (if requested)
+                if meta:
+                    if score is not None:
+                        if "meta" not in resource_object:
+                            resource_object["meta"] = {}
 
-                    # Reorder meta fields: @context, @type, score, ui
-                    reordered_meta = {}
+                        # Reorder meta fields: @context, @type, score, ui
+                        reordered_meta = {}
 
-                    # Add standard JSON-LD fields first
-                    if "@context" in resource_object["meta"]:
-                        reordered_meta["@context"] = resource_object["meta"]["@context"]
-                    if "@type" in resource_object["meta"]:
-                        reordered_meta["@type"] = resource_object["meta"]["@type"]
+                        # Add standard JSON-LD fields first
+                        if "@context" in resource_object["meta"]:
+                            reordered_meta["@context"] = resource_object["meta"]["@context"]
+                        if "@type" in resource_object["meta"]:
+                            reordered_meta["@type"] = resource_object["meta"]["@type"]
 
-                    # Add score prominently
-                    reordered_meta["score"] = score
+                        # Add score prominently
+                        reordered_meta["score"] = score
 
-                    # Add UI section last
-                    if "ui" in resource_object["meta"]:
-                        reordered_meta["ui"] = resource_object["meta"]["ui"]
+                        # Add UI section last
+                        if "ui" in resource_object["meta"]:
+                            reordered_meta["ui"] = resource_object["meta"]["ui"]
 
-                    resource_object["meta"] = reordered_meta
+                        resource_object["meta"] = reordered_meta
+                else:
+                    # Remove per-resource meta if not requested
+                    if "meta" in resource_object:
+                        resource_object.pop("meta", None)
 
                 resource_duration = time.time() - resource_start
                 if process_duration > 0.5:  # Log slow ones
