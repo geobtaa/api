@@ -1,43 +1,83 @@
-/* BTAA Geoportal Brand CSS per https://geo.btaa.org/brand */
+/* ==========================================================================
+   BTAA Geoportal Brand CSS
+   ========================================================================== */
+
+/* Font Imports */
 @import url('https://fonts.googleapis.com/css2?family=Lora:wght@400;500;600&family=Work+Sans:wght@600;700&display=swap');
 
-:root{
-  --btaa-dark-blue:#003C5B; /* header */
-  --btaa-blue:#005E8E;      /* accent */
-  --btaa-gray:#939598;      /* neutral */
-  --btaa-black:#000000;
-  --btaa-white:#ffffff;
+/* ==========================================================================
+   CSS Custom Properties (Variables)
+   ========================================================================== */
+:root {
+  /* BTAA Brand Colors */
+  --btaa-dark-blue: #003C5B;  /* Primary header color */
+  --btaa-blue: #005E8E;       /* Accent color */
+  --btaa-gray: #939598;       /* Neutral color */
+  --btaa-black: #000000;      /* Text color */
+  --btaa-white: #ffffff;      /* Background color */
 }
 
-body.institutional{ font-family:'Lora', serif; color:var(--btaa-black); margin:0; }
-h1,h2,h3,h4,h5,h6,.swagger-ui .info .title{ font-family:'Work Sans',sans-serif; font-weight:700; }
-
-
-.brand-bar{background:var(--btaa-blue);} .brand-bar .wrap{display:flex;align-items:center;gap:16px}
-.inst-header,.inst-footer{ background:var(--btaa-blue); color:#fff; }
-
-header { display: block}
-
-div#application-header {
-  background-color: #005E8E
+/* ==========================================================================
+   Base Styles
+   ========================================================================== */
+body.institutional {
+  font-family: 'Lora', serif;
+  color: var(--btaa-black);
+  margin: 0;
 }
 
-div#application-header a {
+h1, h2, h3, h4, h5, h6, .swagger-ui .info .title {
+  font-family: 'Work Sans', sans-serif;
+  font-weight: 700;
+}
+
+
+/* ==========================================================================
+   Header & Navigation Styles
+   ========================================================================== */
+
+/* Brand Bar */
+.brand-bar {
+  background: var(--btaa-blue);
+}
+
+.brand-bar .wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+/* Header & Footer Base */
+.inst-header, .inst-footer {
+  background: var(--btaa-blue);
+  color: #fff;
+}
+
+header {
+  display: block;
+}
+
+/* Application Header */
+#application-header {
+  background-color: #005E8E;
+}
+
+#application-header a {
   color: #FFFFFF;
-  text-decoration: none
+  text-decoration: none;
 }
 
-div#application-header a:hover {
+#application-header a:hover {
   color: #cccccc;
-  border-bottom: 1px solid #cccccc
+  border-bottom: 1px solid #cccccc;
 }
 
-div#application-header a:visited {
+#application-header a:visited {
   color: white;
-  border-color: white
+  border-color: white;
 }
 
-div#application-header .navbar-brand {
+#application-header .navbar-brand {
   margin-top: -1rem;
   font-weight: bold;
   font-size: 36px;
@@ -47,41 +87,23 @@ div#application-header .navbar-brand {
   height: 50px;
   margin-left: 1rem;
   border: none !important;
-  text-decoration: none !important
+  text-decoration: none !important;
 }
 
-div#application-header .navbar-brand:hover {
+#application-header .navbar-brand:hover {
   color: #FFFFFF !important;
-  text-decoration: none !important
+  text-decoration: none !important;
 }
 
-div#application-header .navbar-brand:visited {
+#application-header .navbar-brand:visited {
   color: white !important;
   text-decoration: none !important;
-  border: none !important
+  border: none !important;
 }
 
-
+/* Header Navbar */
 #header-navbar {
   height: 94px;
-}
-
-#header-navbar h1 {
-  margin-top: 0 !important;
-}
-
-div#b1g-header-navbar {
-  width: 136px;
-  display: inline-block;
-  margin-bottom: 0;
-  background-color: #003c5b;
-  padding-left: 0.5rem;
-  padding-right: 0.5rem
-}
-
-div#b1g-header-navbar a#btaa-logo:hover {
-  border-bottom: none !important;
-  text-decoration: none !important
 }
 
 #header-navbar h1 {
@@ -91,10 +113,26 @@ div#b1g-header-navbar a#btaa-logo:hover {
   display: inline-block;
 }
 
-#btaa-logo {
-  height: 80px
+/* BTAA Header Navbar */
+#b1g-header-navbar {
+  width: 136px;
+  display: inline-block;
+  margin-bottom: 0;
+  background-color: #003c5b;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
 }
 
+#b1g-header-navbar a#btaa-logo:hover {
+  border-bottom: none !important;
+  text-decoration: none !important;
+}
+
+#btaa-logo {
+  height: 80px;
+}
+
+/* Navbar Brand */
 .navbar-brand {
   margin-top: -1rem;
   font-weight: bold;
@@ -105,27 +143,55 @@ div#b1g-header-navbar a#btaa-logo:hover {
   height: 50px;
   margin-left: 1rem;
   border: none !important;
-  text-decoration: none !important
+  text-decoration: none !important;
 }
 
 .navbar-brand:hover {
   color: #FFFFFF !important;
-  text-decoration: none !important
+  text-decoration: none !important;
 }
 
 .navbar-brand:visited {
   color: white !important;
   text-decoration: none !important;
-  border: none !important
+  border: none !important;
 }
 
-.wrap{ max-width:1200px; margin:0 auto; }
-.inst-logo img{ height:28px; vertical-align:middle; }
-.inst-nav a{ color:#fff; text-decoration:none; margin-left:16px; font-family:'Work Sans',sans-serif; }
+/* ==========================================================================
+   Layout & Container Styles
+   ========================================================================== */
 
-.docs-wrap{ max-width:1200px; margin:0 auto; padding:16px 20px; }
+.wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+}
 
-/* Grid System - Bootstrap-like */
+.docs-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 16px 20px;
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
+.inst-logo img {
+  height: 28px;
+  vertical-align: middle;
+}
+
+.inst-nav a {
+  color: #fff;
+  text-decoration: none;
+  margin-left: 16px;
+  font-family: 'Work Sans', sans-serif;
+}
+
+/* ==========================================================================
+   Grid System (Bootstrap-like)
+   ========================================================================== */
+
 .container-fluid {
   width: 100%;
   padding-right: 15px;
@@ -142,6 +208,7 @@ div#b1g-header-navbar a#btaa-logo:hover {
   align-items: flex-start;
 }
 
+/* Column Classes */
 .col-xs-12 {
   flex: 0 0 100%;
   max-width: 100%;
@@ -166,7 +233,7 @@ div#b1g-header-navbar a#btaa-logo:hover {
   box-sizing: border-box;
 }
 
-/* Responsive adjustments */
+/* Responsive Grid Adjustments */
 @media (max-width: 991.98px) {
   .col-lg-6 {
     flex: 0 0 100%;
@@ -174,13 +241,18 @@ div#b1g-header-navbar a#btaa-logo:hover {
   }
 }
 
+/* ==========================================================================
+   Navigation Components
+   ========================================================================== */
+
+/* User Utility Collapse */
 #user-util-collapse {
   position: relative;
   top: -7rem;
   right: 2rem;
 }
 
-/* Navbar Components */
+/* Navbar Toggle Button */
 .navbar-toggler {
   display: none;
   background: none;
@@ -209,6 +281,7 @@ div#b1g-header-navbar a#btaa-logo:hover {
   background-size: 100%;
 }
 
+/* Navbar Collapse */
 .navbar-collapse {
   flex-basis: 100%;
   flex-grow: 1;
@@ -223,6 +296,7 @@ div#b1g-header-navbar a#btaa-logo:hover {
   display: block;
 }
 
+/* Navbar Navigation */
 .navbar-nav {
   display: flex;
   flex-direction: column;
@@ -253,11 +327,16 @@ div#b1g-header-navbar a#btaa-logo:hover {
   color: rgba(255, 255, 255, 0.55);
 }
 
+/* Navbar Utilities */
 .justify-content-md-end {
   justify-content: flex-end;
 }
 
-/* Mobile navbar toggle */
+/* ==========================================================================
+   Responsive Navigation
+   ========================================================================== */
+
+/* Mobile Navigation (< 768px) */
 @media (max-width: 767.98px) {
   .navbar-toggler {
     display: block;
@@ -282,6 +361,7 @@ div#b1g-header-navbar a#btaa-logo:hover {
   }
 }
 
+/* Desktop Navigation (≥ 768px) */
 @media (min-width: 768px) {
   .navbar-nav {
     flex-direction: row;
@@ -302,7 +382,30 @@ div#b1g-header-navbar a#btaa-logo:hover {
   }
 }
 
-/* Utility classes */
+/* ==========================================================================
+   Typography
+   ========================================================================== */
+
+h1, .h1 {
+  font-size: 2.5rem;
+}
+
+h2, .h2 {
+  font-size: 2rem;
+}
+
+h3, .h3 {
+  font-size: 1.75rem;
+}
+
+h4, .h4, .facets-heading {
+  font-size: 1.5rem;
+}
+
+/* ==========================================================================
+   Utility Classes
+   ========================================================================== */
+
 .mt-3 {
   margin-top: 1rem;
 }
@@ -316,21 +419,9 @@ div#b1g-header-navbar a#btaa-logo:hover {
   list-style: none;
 }
 
-h1,.h1 {
-  font-size: 2.5rem
-}
-
-h2,.h2 {
-  font-size: 2rem
-}
-
-h3,.h3 {
-  font-size: 1.75rem
-}
-
-h4,.h4,.facets-heading {
-  font-size: 1.5rem
-}
+/* ==========================================================================
+   Footer Styles
+   ========================================================================== */
 
 section#footer-app {
   color: #FFFFFF;
@@ -338,40 +429,61 @@ section#footer-app {
   background-color: #005E8E;
   border-top: 1rem solid #003c5b;
   border-bottom: 0.5rem solid #003c5b;
-  background: linear-gradient(to top, #003c5b, #004c6b)
+  background: linear-gradient(to top, #003c5b, #004c6b);
 }
 
 section#footer-app a {
   color: #FFFFFF;
-  text-decoration: none
+  text-decoration: none;
 }
 
 section#footer-app a:hover {
   color: #cccccc;
-  border-bottom: 1px solid #cccccc
+  border-bottom: 1px solid #cccccc;
 }
 
 section#footer-app a:visited {
   color: white;
-  border-color: white
+  border-color: white;
 }
 
 section#footer-app #footer-title {
-  padding-top: 1.5rem
+  padding-top: 1.5rem;
 }
 
 section#footer-app #footer-title a:hover {
-  border-bottom: none
+  border-bottom: none;
 }
 
-/* Swagger tweaks */
-.swagger-ui .topbar{ display:none; }
-.swagger-ui a{ color:var(--btaa-blue); }
-.swagger-ui .btn{ border-color:var(--btaa-dark-blue); }
-.swagger-ui .btn:hover{ background:var(--btaa-dark-blue); color:#fff; }
-.swagger-ui .opblock-summary-method{ background:var(--btaa-blue); color:#000; }
+/* ==========================================================================
+   Swagger UI Customizations
+   ========================================================================== */
 
-/* Admonition tweaks */
+.swagger-ui .topbar {
+  display: none;
+}
+
+.swagger-ui a {
+  color: var(--btaa-blue);
+}
+
+.swagger-ui .btn {
+  border-color: var(--btaa-dark-blue);
+}
+
+.swagger-ui .btn:hover {
+  background: var(--btaa-dark-blue);
+  color: #fff;
+}
+
+.swagger-ui .opblock-summary-method {
+  background: var(--btaa-blue);
+  color: #000;
+}
+
+/* ==========================================================================
+   Admonition Styles (Warning/Alert Components)
+   ========================================================================== */
 
 .admonition.warning {
   text-size-adjust: none;
@@ -702,3 +814,7 @@ section#footer-app #footer-title a:hover {
   border-top-left-radius: 0.1rem;
   border-top-right-radius: 0.1rem;
 }
+
+/* ==========================================================================
+   End of BTAA Geoportal Brand CSS
+   ========================================================================== */
