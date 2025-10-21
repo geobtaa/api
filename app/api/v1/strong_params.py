@@ -10,6 +10,7 @@ SEARCH_ALLOWED_PARAMS = [
     "page",  # Page number
     "per_page",  # Results per page
     "sort",  # Sort option
+    "search_field",  # Restrict search to specific ES fields
     "fields",  # Field filtering for response attributes
     "meta",  # Include per-resource meta
     "callback",  # JSONP callback

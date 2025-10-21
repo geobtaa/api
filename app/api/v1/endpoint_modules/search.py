@@ -64,6 +64,7 @@ async def search(
             page=page,
             limit=per_page,
             sort=sort,
+            search_fields=search_field,
             request_query_params=str(request.query_params),
             callback=callback,
         )
@@ -212,12 +213,19 @@ async def search(
                 if fields and isinstance(resource_object, dict):
                     try:
                         from app.services.ogm_field_mapper import OGMFieldMapper
-                        if "attributes" in resource_object and isinstance(resource_object["attributes"], dict):
-                            mapped_attrs = OGMFieldMapper.map_resource_fields(resource_object["attributes"])
+
+                        if "attributes" in resource_object and isinstance(
+                            resource_object["attributes"], dict
+                        ):
+                            mapped_attrs = OGMFieldMapper.map_resource_fields(
+                                resource_object["attributes"]
+                            )
                             requested = [f.strip() for f in fields.split(",") if f.strip()]
                             if "id" not in requested:
                                 requested.append("id")
-                            filtered_attrs = {k: v for k, v in mapped_attrs.items() if k in requested}
+                            filtered_attrs = {
+                                k: v for k, v in mapped_attrs.items() if k in requested
+                            }
                             # Ensure id remains top-level only
                             filtered_attrs.pop("id", None)
                             resource_object["attributes"] = filtered_attrs

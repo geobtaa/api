@@ -33,6 +33,7 @@ class SearchService:
         page: int = 1,
         limit: int = 10,
         sort: Optional[str] = None,
+        search_fields: Optional[str] = None,
         request_query_params: Optional[str] = None,
         callback: Optional[str] = None,
     ) -> Dict:
@@ -60,6 +61,7 @@ class SearchService:
                 skip=skip,
                 limit=limit,
                 sort=sort_mapping,
+                search_fields=search_fields,
             )
             es_time = (time.time() - es_start) * 1000
             timings["elasticsearch"] = f"{es_time:.0f}ms"

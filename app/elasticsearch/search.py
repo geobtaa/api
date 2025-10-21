@@ -37,7 +37,12 @@ def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list 
 
 
 async def search_resources(
-    query: str = None, fq: dict = None, skip: int = 0, limit: int = 20, sort: list = None
+    query: str = None,
+    fq: dict = None,
+    skip: int = 0,
+    limit: int = 20,
+    sort: list = None,
+    search_fields: str | None = None,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -64,36 +69,76 @@ async def search_resources(
 
         # Build the search query
         if search_criteria.get("query"):
-            # Use query_string to support full boolean operators (OR, AND, NOT, etc.)
-            search_query = {
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "query_string": {
-                                    "query": search_criteria["query"],
-                                    "fields": [
-                                        "id^5",  # Boost ID matches highest - exact ID searches
-                                        "dct_title_s^3",  # Boost title matches
-                                        "dct_description_sm^2",  # Boost description matches
-                                        "summary^2",  # Add summary field with boost
-                                        "dct_creator_sm^2",  # Boost creator name matches
-                                        "dct_subject_sm^1.5",  # Boost subject matches
-                                        "dcat_keyword_sm^1.5",  # Boost keyword matches
-                                        "dct_publisher_sm",  # Include publisher name
-                                        "schema_provider_s",  # Include provider name
-                                        "dct_spatial_sm",  # Include spatial name
-                                        "gbl_displaynote_sm",  # Include display notes
-                                    ],
-                                    "default_operator": "AND",
-                                    "analyze_wildcard": True,
-                                    "allow_leading_wildcard": True,
+            query_text = search_criteria["query"] or ""
+            is_phrase = (
+                len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
+            )
+            phrase = query_text[1:-1] if is_phrase else query_text
+
+            # If specific fields are requested (and not 'all_fields'),
+            # use multi_match across provided fields
+            scoped = bool(search_fields) and search_fields.strip().lower() != "all_fields"
+            if scoped:
+                requested_fields = [f.strip() for f in search_fields.split(",") if f.strip()]
+                # Prefer exact matches via .keyword when available,
+                # but also search the analyzed field
+                expanded_fields = []
+                for f in requested_fields:
+                    expanded_fields.append(f)
+                    expanded_fields.append(f"{f}.keyword")
+
+                base_query = {
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "multi_match": {
+                                        "query": phrase,
+                                        "type": "best_fields" if not is_phrase else "phrase",
+                                        "operator": "AND",
+                                        "fields": expanded_fields,
+                                    }
                                 }
-                            }
-                        ],
-                        "filter": filter_clauses,
+                            ],
+                            "filter": filter_clauses,
+                        }
                     }
-                },
+                }
+            else:
+                # Default behavior across boosted fields using query_string
+                base_query = {
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "query_string": {
+                                        "query": query_text,
+                                        "fields": [
+                                            "id^5",
+                                            "dct_title_s^3",
+                                            "dct_description_sm^2",
+                                            "summary^2",
+                                            "dct_creator_sm^2",
+                                            "dct_subject_sm^1.5",
+                                            "dcat_keyword_sm^1.5",
+                                            "dct_publisher_sm",
+                                            "schema_provider_s",
+                                            "dct_spatial_sm",
+                                            "gbl_displaynote_sm",
+                                        ],
+                                        "default_operator": "AND",
+                                        "analyze_wildcard": True,
+                                        "allow_leading_wildcard": True,
+                                    }
+                                }
+                            ],
+                            "filter": filter_clauses,
+                        }
+                    },
+                }
+
+            search_query = {
+                **base_query,
                 "from": skip,
                 "size": limit,
                 "sort": sort or [{"_score": "desc"}],
