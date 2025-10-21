@@ -8,6 +8,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
@@ -73,11 +76,11 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI application
 app = FastAPI(
-    title="GeoBTAA API",
+    title="BTAA GeoAPI",
     version="0.1.1",
     lifespan=lifespan,
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
+    docs_url=None,
+    redoc_url=None,
     openapi_url="/api/openapi.json",
 )
 
@@ -159,6 +162,31 @@ FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
 # Serve static assets directly (CSS, JS, images, etc.)
 app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIR, "assets")), name="assets")
+
+# Institution-branded docs assets
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "..", "static")
+TEMPLATES_DIR = os.path.join(os.path.dirname(__file__), "..", "templates")
+os.makedirs(STATIC_DIR, exist_ok=True)
+os.makedirs(TEMPLATES_DIR, exist_ok=True)
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+templates = Jinja2Templates(directory=TEMPLATES_DIR)
+
+
+@app.get("/api/docs", include_in_schema=False)
+async def custom_docs(request: Request) -> HTMLResponse:
+    return templates.TemplateResponse(
+        "docs.html",
+        {
+            "request": request,
+            "title": "BTAA GeoAPI — Docs",
+            "openapi_url": app.openapi_url,
+        },
+    )
+
+
+@app.get("/api/docs/oauth2-redirect", include_in_schema=False)
+async def swagger_oauth2_redirect() -> HTMLResponse:
+    return HTMLResponse(get_swagger_ui_oauth2_redirect_html())
 
 
 # Optional: serve common static files
