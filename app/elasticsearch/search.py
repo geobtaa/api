@@ -50,7 +50,7 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
         return None
     
     geo_type = geo_params.get("type")
-    geo_field = geo_params.get("field", "location")
+    geo_field = geo_params.get("field", "dcat_centroid")
     
     if geo_type == "bbox":
         top_left = geo_params.get("top_left", {})
