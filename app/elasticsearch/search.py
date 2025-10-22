@@ -37,6 +37,105 @@ def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list 
     }
 
 
+def _normalize_geo_params(geo_params: dict) -> dict:
+    """Normalize flattened bracket keys into nested geo params structure.
+
+    Examples of flattened keys this handles:
+    - center][lat, center][lon
+    - top_left][lat, bottom_right][lon
+    - points][0][lat, points][1][lon
+    - shape][type, shape][coordinates][0][0]
+    """
+    if not isinstance(geo_params, dict):
+        return {}
+
+    normalized: dict = {}
+
+    def ensure_dict(parent: dict, key: str) -> dict:
+        if key not in parent or not isinstance(parent[key], dict):
+            parent[key] = {}
+        return parent[key]
+
+    def ensure_list(parent: dict, key: str, size: int) -> list:
+        if key not in parent or not isinstance(parent[key], list):
+            parent[key] = []
+        lst = parent[key]
+        while len(lst) <= size:
+            lst.append(None)
+        return lst
+
+    for raw_key, raw_value in geo_params.items():
+        # Values may come as lists from parse_qs; take the first
+        value = raw_value[0] if isinstance(raw_value, list) and raw_value else raw_value
+
+        # Simple top-level keys
+        if raw_key in {"type", "field", "distance", "relation"}:
+            normalized[raw_key] = value
+            continue
+
+        # Tokenize keys like 'center][lat' or 'points][0][lat' or 'shape][coordinates][0][0]'
+        tokens = (
+            raw_key.replace("][", "|").replace("[", "|").replace("]", "").split("|")
+        )
+        tokens = [t for t in tokens if t]
+        if not tokens:
+            continue
+
+        head = tokens[0]
+
+        if head in {"center", "top_left", "bottom_right"}:
+            target = ensure_dict(normalized, head)
+            if len(tokens) >= 2 and tokens[1] in {"lat", "lon"}:
+                try:
+                    target[tokens[1]] = float(value) if value is not None else None
+                except (TypeError, ValueError):
+                    target[tokens[1]] = value
+            continue
+
+        if head == "points":
+            if len(tokens) >= 3 and tokens[1].isdigit():
+                idx = int(tokens[1])
+                lst = ensure_list(normalized, "points", idx)
+                if lst[idx] is None or not isinstance(lst[idx], dict):
+                    lst[idx] = {}
+                key = tokens[2]
+                try:
+                    lst[idx][key] = float(value) if value is not None else None
+                except (TypeError, ValueError):
+                    lst[idx][key] = value
+            continue
+
+        if head == "shape":
+            shape_dict = ensure_dict(normalized, "shape")
+            if len(tokens) >= 2 and tokens[1] == "type":
+                shape_dict["type"] = value
+                continue
+            if len(tokens) >= 2 and tokens[1] == "coordinates":
+                # coordinates might be e.g. [0][0] and [1][1]
+                if len(tokens) >= 4 and tokens[2].isdigit() and tokens[3].isdigit():
+                    outer_idx = int(tokens[2])
+                    inner_idx = int(tokens[3])
+                    # Ensure 2D list
+                    if "coordinates" not in shape_dict or not isinstance(
+                        shape_dict.get("coordinates"), list
+                    ):
+                        shape_dict["coordinates"] = []
+                    coords = shape_dict["coordinates"]
+                    while len(coords) <= outer_idx:
+                        coords.append([])
+                    while len(coords[outer_idx]) <= inner_idx:
+                        coords[outer_idx].append(None)
+                    try:
+                        coords[outer_idx][inner_idx] = (
+                            float(value) if value is not None else None
+                        )
+                    except (TypeError, ValueError):
+                        coords[outer_idx][inner_idx] = value
+                continue
+
+    return normalized or geo_params
+
+
 def _build_geospatial_filter(geo_params: dict) -> dict | None:
     """Build Elasticsearch geospatial filter from geo parameters.
     
@@ -49,6 +148,9 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
     if not isinstance(geo_params, dict):
         return None
     
+    # Normalize any flattened keys into nested structures
+    geo_params = _normalize_geo_params(geo_params)
+
     geo_type = geo_params.get("type")
     geo_field = geo_params.get("field", "dcat_centroid")
     
