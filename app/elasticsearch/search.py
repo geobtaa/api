@@ -37,6 +37,128 @@ def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list 
     }
 
 
+def _build_geospatial_filter(geo_params: dict) -> dict | None:
+    """Build Elasticsearch geospatial filter from geo parameters.
+    
+    Supports:
+    - bbox: bounding box with top_left and bottom_right coordinates
+    - distance: radius search with center point and distance
+    - polygon: polygon search with array of points
+    - shape: shape search with relation and shape definition
+    """
+    if not isinstance(geo_params, dict):
+        return None
+    
+    geo_type = geo_params.get("type")
+    geo_field = geo_params.get("field", "location")
+    
+    if geo_type == "bbox":
+        top_left = geo_params.get("top_left", {})
+        bottom_right = geo_params.get("bottom_right", {})
+        
+        if not all([top_left.get("lat"), top_left.get("lon"), 
+                   bottom_right.get("lat"), bottom_right.get("lon")]):
+            logger.warning("Invalid bbox parameters: missing lat/lon coordinates")
+            return None
+            
+        return {
+            "geo_bounding_box": {
+                geo_field: {
+                    "top_left": {
+                        "lat": float(top_left["lat"]),
+                        "lon": float(top_left["lon"])
+                    },
+                    "bottom_right": {
+                        "lat": float(bottom_right["lat"]),
+                        "lon": float(bottom_right["lon"])
+                    }
+                }
+            }
+        }
+    
+    elif geo_type == "distance":
+        center = geo_params.get("center", {})
+        distance = geo_params.get("distance", "10km")
+        
+        if not all([center.get("lat"), center.get("lon")]):
+            logger.warning("Invalid distance parameters: missing center coordinates")
+            return None
+            
+        return {
+            "geo_distance": {
+                "distance": distance,
+                geo_field: {
+                    "lat": float(center["lat"]),
+                    "lon": float(center["lon"])
+                }
+            }
+        }
+    
+    elif geo_type == "polygon":
+        points = geo_params.get("points", [])
+        
+        if not points or len(points) < 3:
+            logger.warning("Invalid polygon parameters: need at least 3 points")
+            return None
+            
+        # Convert points to Elasticsearch polygon format
+        coordinates = []
+        for point in points:
+            if not all([point.get("lat"), point.get("lon")]):
+                logger.warning("Invalid polygon point: missing lat/lon")
+                return None
+            coordinates.append([float(point["lon"]), float(point["lat"])])
+        
+        # Close the polygon by adding the first point at the end
+        if coordinates[0] != coordinates[-1]:
+            coordinates.append(coordinates[0])
+            
+        return {
+            "geo_polygon": {
+                geo_field: {
+                    "points": coordinates
+                }
+            }
+        }
+    
+    elif geo_type == "shape":
+        relation = geo_params.get("relation", "intersects")
+        shape = geo_params.get("shape", {})
+        
+        if not shape:
+            logger.warning("Invalid shape parameters: missing shape definition")
+            return None
+            
+        shape_type = shape.get("type")
+        coordinates = shape.get("coordinates", [])
+        
+        if shape_type == "envelope" and len(coordinates) == 2:
+            # Convert envelope coordinates to proper format
+            envelope_coords = [
+                [float(coordinates[0][0]), float(coordinates[0][1])],  # top_left
+                [float(coordinates[1][0]), float(coordinates[1][1])]   # bottom_right
+            ]
+            
+            return {
+                "geo_shape": {
+                    geo_field: {
+                        "shape": {
+                            "type": "envelope",
+                            "coordinates": envelope_coords
+                        },
+                        "relation": relation
+                    }
+                }
+            }
+        else:
+            logger.warning(f"Unsupported shape type: {shape_type}")
+            return None
+    
+    else:
+        logger.warning(f"Unsupported geo type: {geo_type}")
+        return None
+
+
 async def search_resources(
     query: str = None,
     fq: dict = None,
@@ -74,7 +196,12 @@ async def search_resources(
 
         if include_filters:
             for field, values in include_filters.items():
-                if isinstance(values, list):
+                # Handle geospatial queries
+                if field == "geo" and isinstance(values, dict):
+                    geo_filter = _build_geospatial_filter(values)
+                    if geo_filter:
+                        filter_clauses.append(geo_filter)
+                elif isinstance(values, list):
                     # Use terms_set to ensure all specified values must be present
                     # when the field is an array
                     filter_clauses.append(
@@ -203,9 +330,7 @@ async def search_resources(
                     "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
                 },
                 # Spatial facet aggregations with configurable sizes
-                "geo_country": {
-                    "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-                },
+                "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
                 "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
                 "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
             }
@@ -277,9 +402,7 @@ async def search_resources(
                     "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
                 },
                 # Spatial facet aggregations with configurable sizes
-                "geo_country": {
-                    "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-                },
+                "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
                 "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
                 "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
             }
