@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import time
+from typing import Optional
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -45,6 +46,7 @@ async def search_resources(
     search_fields: str | None = None,
     include_filters: dict | None = None,
     exclude_filters: dict | None = None,
+    facets: Optional[str] = None,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
