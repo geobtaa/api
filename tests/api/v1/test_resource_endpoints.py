@@ -43,7 +43,7 @@ def test_resource_endpoint_structure():
 
     # Verify the main app structure
     assert hasattr(app, "title")
-    assert app.title == "GeoBTAA API"
+    assert app.title == "BTAA Geospatial API"
 
 
 @pytest.mark.asyncio
