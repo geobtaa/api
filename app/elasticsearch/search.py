@@ -167,51 +167,60 @@ async def search_resources(
                     },
                 }
 
+            # Optionally filter which aggs to include
+            allowed_aggs = None
+            if facets:
+                allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+
+            full_aggs = {
+                "dct_spatial_sm": {
+                    "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceClass_sm": {
+                    "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceType_sm": {
+                    "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_indexYear_im": {
+                    "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_language_sm": {
+                    "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_creator_sm": {
+                    "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "schema_provider_s": {
+                    "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_accessRights_s": {
+                    "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_georeferenced_b": {
+                    "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+                },
+                # Spatial facet aggregations with configurable sizes
+                "geo_country": {
+                    "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
+                },
+                "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+                "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
+            }
+
+            selected_aggs = (
+                {k: v for k, v in full_aggs.items() if k in allowed_aggs}
+                if allowed_aggs
+                else full_aggs
+            )
+
             search_query = {
                 **base_query,
                 "from": skip,
                 "size": limit,
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
-                "aggs": {
-                    "dct_spatial_sm": {
-                        "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_resourceClass_sm": {
-                        "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_resourceType_sm": {
-                        "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_indexYear_im": {
-                        "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "dct_language_sm": {
-                        "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "dct_creator_sm": {
-                        "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "schema_provider_s": {
-                        "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "dct_accessRights_s": {
-                        "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_georeferenced_b": {
-                        "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-                    },
-                    # Spatial facet aggregations with configurable sizes
-                    "geo_country": {
-                        "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-                    },
-                    "geo_region": {
-                        "terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}
-                    },
-                    "geo_county": {
-                        "terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}
-                    },
-                },
+                "aggs": selected_aggs,
             }
 
             # Only add suggest if query is not empty
@@ -232,52 +241,60 @@ async def search_resources(
                     },
                 }
         else:
+            allowed_aggs = None
+            if facets:
+                allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+
+            full_aggs = {
+                "id": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
+                "dct_spatial_sm": {
+                    "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceClass_sm": {
+                    "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceType_sm": {
+                    "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_indexYear_im": {
+                    "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_language_sm": {
+                    "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_creator_sm": {
+                    "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "schema_provider_s": {
+                    "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_accessRights_s": {
+                    "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_georeferenced_b": {
+                    "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+                },
+                # Spatial facet aggregations with configurable sizes
+                "geo_country": {
+                    "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
+                },
+                "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+                "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
+            }
+
+            selected_aggs = (
+                {k: v for k, v in full_aggs.items() if k in allowed_aggs}
+                if allowed_aggs
+                else full_aggs
+            )
+
             search_query = {
                 "query": {"bool": {"must": [{"match_all": {}}], "filter": filter_clauses}},
                 "from": skip,
                 "size": limit,
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
-                "aggs": {
-                    "id": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
-                    "dct_spatial_sm": {
-                        "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_resourceClass_sm": {
-                        "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_resourceType_sm": {
-                        "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_indexYear_im": {
-                        "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "dct_language_sm": {
-                        "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "dct_creator_sm": {
-                        "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "schema_provider_s": {
-                        "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "dct_accessRights_s": {
-                        "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "gbl_georeferenced_b": {
-                        "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-                    },
-                    # Spatial facet aggregations with configurable sizes
-                    "geo_country": {
-                        "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-                    },
-                    "geo_region": {
-                        "terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}
-                    },
-                    "geo_county": {
-                        "terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}
-                    },
-                },
+                "aggs": selected_aggs,
             }
 
         logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")

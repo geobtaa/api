@@ -39,6 +39,7 @@ async def search(
     ),
     search_field: Optional[str] = Query(None, description="Search field (all_fields, etc.)"),
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
+    facets: Optional[str] = Query(None, description="Comma-separated list of facets to return"),
     meta: bool = Query(True, description="Include per-resource meta block (default: true)"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
@@ -67,6 +68,7 @@ async def search(
             search_fields=search_field,
             request_query_params=str(request.query_params),
             callback=callback,
+            facets=facets,
         )
         step2_duration = time.time() - step2_start
         logger.info(f"⏱️  Step 2: Elasticsearch search completed - {step2_duration:.3f}s")

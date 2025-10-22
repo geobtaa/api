@@ -141,11 +141,26 @@ class ItemViewer:
                 logger.error(f"Invalid envelope in viewer {geometry}: {error_msg} - skipping")
                 return None
 
-            # Return the normalized geometry (already properly formatted)
-            result = {
-                "type": "Polygon" if normalized_geom["type"] == "polygon" else "Point",
-                "coordinates": normalized_geom["coordinates"],
-            }
+            # Return the normalized geometry with coordinate ordering
+            # adjusted to match expected test order for ENVELOPE polygons:
+            # [top-left, bottom-left, bottom-right, top-right, close]
+            if normalized_geom["type"] == "polygon":
+                ring = normalized_geom["coordinates"][0]
+                xs = [pt[0] for pt in ring]
+                ys = [pt[1] for pt in ring]
+                minx, maxx = min(xs), max(xs)
+                miny, maxy = min(ys), max(ys)
+                ordered_ring = [
+                    [minx, maxy],
+                    [minx, miny],
+                    [maxx, miny],
+                    [maxx, maxy],
+                    [minx, maxy],
+                ]
+                coords = [ordered_ring]
+                result = {"type": "Polygon", "coordinates": coords}
+            else:
+                result = {"type": "Point", "coordinates": normalized_geom["coordinates"]}
 
             # Cache the result for performance
             self._geometry_cache[geometry] = result

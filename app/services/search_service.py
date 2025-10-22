@@ -36,6 +36,7 @@ class SearchService:
         search_fields: Optional[str] = None,
         request_query_params: Optional[str] = None,
         callback: Optional[str] = None,
+        facets: Optional[str] = None,
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
@@ -65,6 +66,7 @@ class SearchService:
                 search_fields=search_fields,
                 include_filters=include_filters,
                 exclude_filters=exclude_filters,
+                facets=facets,
             )
             es_time = (time.time() - es_start) * 1000
             timings["elasticsearch"] = f"{es_time:.0f}ms"

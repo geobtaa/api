@@ -12,6 +12,7 @@ SEARCH_ALLOWED_PARAMS = [
     "sort",  # Sort option
     "search_field",  # Restrict search to specific ES fields
     "fields",  # Field filtering for response attributes
+    "facets",  # Facet filtering for response aggregations
     "meta",  # Include per-resource meta
     "callback",  # JSONP callback
     # Facet filter parameters (allow any fq[field] or fq[field][]) via wildcard
