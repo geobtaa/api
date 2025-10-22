@@ -255,6 +255,16 @@ def strong_params(request, allowed_params):
             else:
                 # For multiple values, preserve as list
                 filtered_params[key] = values
+            continue
+
+        # Support dynamic filter params like include_filters[field][]=
+        # ... and exclude_filters[field][]=
+        if any(marker in allowed_params for marker in ("include_filters[*]", "exclude_filters[*]")):
+            if key.startswith("include_filters[") or key.startswith("exclude_filters["):
+                if len(values) == 1:
+                    filtered_params[key] = values[0]
+                else:
+                    filtered_params[key] = values
 
     return filtered_params
 

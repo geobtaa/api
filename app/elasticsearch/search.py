@@ -43,6 +43,8 @@ async def search_resources(
     limit: int = 20,
     sort: list = None,
     search_fields: str | None = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -57,8 +59,9 @@ async def search_resources(
         search_criteria = get_search_criteria(query, fq, skip, limit, sort)
         logger.debug(f"Search criteria: {search_criteria}")
 
-        # Construct the filter query
+        # Construct the filter query (legacy fq + new include/exclude)
         filter_clauses = []
+        must_not_clauses = []
         if fq:
             for field, values in fq.items():
                 logger.debug(f"Processing filter - Field: {field}, Values: {values}")
@@ -66,6 +69,31 @@ async def search_resources(
                     filter_clauses.append({"terms": {field: values}})
                 else:
                     filter_clauses.append({"term": {field: values}})
+
+        if include_filters:
+            for field, values in include_filters.items():
+                if isinstance(values, list):
+                    # Use terms_set to ensure all specified values must be present
+                    # when the field is an array
+                    filter_clauses.append(
+                        {
+                            "terms_set": {
+                                field: {
+                                    "terms": values,
+                                    "minimum_should_match_script": {"source": "params.num_terms"},
+                                }
+                            }
+                        }
+                    )
+                else:
+                    filter_clauses.append({"term": {field: values}})
+
+        if exclude_filters:
+            for field, values in exclude_filters.items():
+                if isinstance(values, list):
+                    must_not_clauses.append({"terms": {field: values}})
+                else:
+                    must_not_clauses.append({"term": {field: values}})
 
         # Build the search query
         if search_criteria.get("query"):
@@ -101,6 +129,7 @@ async def search_resources(
                                 }
                             ],
                             "filter": filter_clauses,
+                            "must_not": must_not_clauses,
                         }
                     }
                 }
@@ -133,6 +162,7 @@ async def search_resources(
                                 }
                             ],
                             "filter": filter_clauses,
+                            "must_not": must_not_clauses,
                         }
                     },
                 }
@@ -144,41 +174,41 @@ async def search_resources(
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
                 "aggs": {
-                    "spatial_agg": {
+                    "dct_spatial_sm": {
                         "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "resource_class_agg": {
+                    "gbl_resourceClass_sm": {
                         "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "resource_type_agg": {
+                    "gbl_resourceType_sm": {
                         "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "index_year_agg": {
+                    "gbl_indexYear_im": {
                         "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
                     },
-                    "language_agg": {
+                    "dct_language_sm": {
                         "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "creator_agg": {
+                    "dct_creator_sm": {
                         "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "provider_agg": {
+                    "schema_provider_s": {
                         "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
                     },
-                    "access_rights_agg": {
+                    "dct_accessRights_s": {
                         "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
                     },
-                    "georeferenced_agg": {
+                    "gbl_georeferenced_b": {
                         "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
                     },
                     # Spatial facet aggregations with configurable sizes
-                    "geo_country_agg": {
+                    "geo_country": {
                         "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
                     },
-                    "geo_region_agg": {
+                    "geo_region": {
                         "terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}
                     },
-                    "geo_county_agg": {
+                    "geo_county": {
                         "terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}
                     },
                 },
@@ -209,42 +239,42 @@ async def search_resources(
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
                 "aggs": {
-                    "id_agg": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
-                    "spatial_agg": {
+                    "id": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
+                    "dct_spatial_sm": {
                         "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "resource_class_agg": {
+                    "gbl_resourceClass_sm": {
                         "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "resource_type_agg": {
+                    "gbl_resourceType_sm": {
                         "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "index_year_agg": {
+                    "gbl_indexYear_im": {
                         "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
                     },
-                    "language_agg": {
+                    "dct_language_sm": {
                         "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "creator_agg": {
+                    "dct_creator_sm": {
                         "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
                     },
-                    "provider_agg": {
+                    "schema_provider_s": {
                         "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
                     },
-                    "access_rights_agg": {
+                    "dct_accessRights_s": {
                         "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
                     },
-                    "georeferenced_agg": {
+                    "gbl_georeferenced_b": {
                         "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
                     },
                     # Spatial facet aggregations with configurable sizes
-                    "geo_country_agg": {
+                    "geo_country": {
                         "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
                     },
-                    "geo_region_agg": {
+                    "geo_region": {
                         "terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}
                     },
-                    "geo_county_agg": {
+                    "geo_county": {
                         "terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}
                     },
                 },

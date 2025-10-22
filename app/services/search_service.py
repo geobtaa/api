@@ -49,6 +49,7 @@ class SearchService:
             filter_query = (
                 self.extract_filter_queries(request_query_params) if request_query_params else {}
             )
+            include_filters, exclude_filters = self.extract_new_style_filters(request_query_params)
 
             # Get sort mapping
             sort_mapping = SORT_MAPPINGS.get(sort, None)
@@ -62,6 +63,8 @@ class SearchService:
                 limit=limit,
                 sort=sort_mapping,
                 search_fields=search_fields,
+                include_filters=include_filters,
+                exclude_filters=exclude_filters,
             )
             es_time = (time.time() - es_start) * 1000
             timings["elasticsearch"] = f"{es_time:.0f}ms"
@@ -305,10 +308,35 @@ class SearchService:
 
         for key, values in raw_params.items():
             if key.startswith("fq[") and key.endswith("][]"):
-                field = key[3:-3]  # Remove 'fq[' and '[]'
-                if field in agg_to_field:
-                    es_field = agg_to_field[field]
-                    if values:  # values is already a list from parse_qs
-                        filter_query[es_field] = values
+                # Allow both aggregation aliases and direct ES fields
+                name = key[3:-3]  # Remove 'fq[' and '[]'
+                es_field = agg_to_field.get(name, name)
+                if values:
+                    filter_query[es_field] = values
+            elif key.startswith("fq[") and key.endswith("]"):
+                # Single value form fq[field]=value
+                name = key[3:-1]
+                es_field = agg_to_field.get(name, name)
+                if values:
+                    filter_query[es_field] = values[0]
 
         return filter_query
+
+    def extract_new_style_filters(self, params: Optional[str]) -> tuple[Dict, Dict]:
+        """
+        Extract include/exclude filters passed as
+        include_filters[field][]= and exclude_filters[field][].
+        """
+        include_filters: Dict[str, list] = {}
+        exclude_filters: Dict[str, list] = {}
+        if not params:
+            return include_filters, exclude_filters
+        raw_params = parse_qs(str(params))
+        for key, values in raw_params.items():
+            if key.startswith("include_filters[") and key.endswith("][]"):
+                field = key[len("include_filters[") : -len("][]")]
+                include_filters[field] = values
+            if key.startswith("exclude_filters[") and key.endswith("][]"):
+                field = key[len("exclude_filters[") : -len("][]")]
+                exclude_filters[field] = values
+        return include_filters, exclude_filters
