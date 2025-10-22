@@ -500,7 +500,11 @@ async def search_post(
             ids = [r["id"] for r in resource_data]
             result = await session.execute(select(resources).where(resources.c.id.in_(ids)))
             rows = result.fetchall()
-            lookup = {dict(row._mapping)["id"]: dict(row._mapping) for row in rows}
+            lookup = {}
+            for row in rows:
+                raw = dict(row._mapping)
+                sanitized = sanitize_for_json(raw)
+                lookup[sanitized["id"]] = sanitized
 
             processed = []
             from app.services.ogm_field_mapper import OGMFieldMapper
@@ -555,7 +559,7 @@ async def search_post(
         if "included" in results:
             response["included"] = results["included"]
 
-        return JSONResponse(content=response)
+        return JSONResponse(content=sanitize_for_json(response))
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
