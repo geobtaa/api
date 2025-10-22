@@ -37,6 +37,9 @@ class SearchService:
         request_query_params: Optional[str] = None,
         callback: Optional[str] = None,
         facets: Optional[str] = None,
+        include_filters: Optional[Dict] = None,
+        exclude_filters: Optional[Dict] = None,
+        fq_direct: Optional[Dict] = None,
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
@@ -46,11 +49,22 @@ class SearchService:
             # Calculate skip from page/limit
             skip = (page - 1) * limit
 
-            # Get filter queries from request
-            filter_query = (
-                self.extract_filter_queries(request_query_params) if request_query_params else {}
-            )
-            include_filters, exclude_filters = self.extract_new_style_filters(request_query_params)
+            # Get filter queries either from direct input (POST) or from request params (GET)
+            if fq_direct is not None:
+                filter_query = fq_direct
+            else:
+                filter_query = (
+                    self.extract_filter_queries(request_query_params)
+                    if request_query_params
+                    else {}
+                )
+
+            if include_filters is None or exclude_filters is None:
+                parsed_include, parsed_exclude = self.extract_new_style_filters(
+                    request_query_params
+                )
+                include_filters = include_filters if include_filters is not None else parsed_include
+                exclude_filters = exclude_filters if exclude_filters is not None else parsed_exclude
 
             # Get sort mapping
             sort_mapping = SORT_MAPPINGS.get(sort, None)

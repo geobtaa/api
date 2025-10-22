@@ -2,7 +2,7 @@ import asyncio
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, Query, Request, Body
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -432,6 +432,131 @@ async def search(
         logger.error(
             f"💥 Search request failed after {total_duration:.3f}s: {str(e)}", exc_info=True
         )
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@router.post("/search")
+@cached_endpoint(ttl=SEARCH_CACHE_TTL)
+async def search_post(
+    request: Request,
+    payload: dict = Body(..., description="Search body. Same fields as GET but in JSON."),
+):
+    """POST variant of search. Accepts JSON body.
+
+    Supported keys:
+      - q, page, per_page, sort, search_field, fields, facets, meta
+      - include_filters, exclude_filters, fq (object of field->values)
+    """
+    import time
+
+    start_time = time.time()
+
+    # Extract parameters with defaults matching GET
+    q = payload.get("q")
+    page = int(payload.get("page", 1))
+    per_page = int(payload.get("per_page", 10))
+    sort = payload.get("sort")
+    search_field = payload.get("search_field")
+    fields = payload.get("fields")
+    facets = payload.get("facets")
+    meta = payload.get("meta", True)
+    callback = payload.get("callback")
+
+    include_filters = payload.get("include_filters")
+    exclude_filters = payload.get("exclude_filters")
+    fq = payload.get("fq")
+
+    # Reuse GET logic by calling the service directly with provided filters
+    try:
+        search_service = SearchService()
+        results = await search_service.search(
+            q=q,
+            page=page,
+            limit=per_page,
+            sort=sort,
+            search_fields=search_field,
+            request_query_params=None,
+            callback=callback,
+            facets=facets,
+            include_filters=include_filters,
+            exclude_filters=exclude_filters,
+            fq_direct=fq,
+        )
+
+        # Build response using the same flow as GET
+        sanitized_results = sanitize_for_json(results)
+        resource_data = []
+        for item in sanitized_results.get("data", []):
+            rid = item.get("id") or item.get("attributes", {}).get("id")
+            score = item.get("score") or item.get("attributes", {}).get("score")
+            if rid:
+                resource_data.append({"id": rid, "score": score})
+
+        async with async_session() as session:
+            from sqlalchemy import select
+            from db.models import resources
+
+            # Fetch resources in batch
+            ids = [r["id"] for r in resource_data]
+            result = await session.execute(select(resources).where(resources.c.id.in_(ids)))
+            rows = result.fetchall()
+            lookup = {dict(row._mapping)["id"]: dict(row._mapping) for row in rows}
+
+            processed = []
+            from app.services.ogm_field_mapper import OGMFieldMapper
+            for rd in resource_data:
+                d = lookup.get(rd["id"]) or {}
+                obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
+                # Map to OGM names
+                mapped_attrs = OGMFieldMapper.map_resource_fields(obj.get("attributes", {}))
+                # Apply fields filter if requested
+                if isinstance(fields, str) and fields.strip():
+                    requested = [f.strip() for f in fields.split(",") if f.strip()]
+                    if "id" not in requested:
+                        requested.append("id")
+                    filtered_attrs = {k: v for k, v in mapped_attrs.items() if k in requested}
+                    filtered_attrs.pop("id", None)
+                    obj["attributes"] = filtered_attrs
+                else:
+                    obj["attributes"] = mapped_attrs
+                if not meta and "meta" in obj:
+                    obj.pop("meta", None)
+                processed.append(obj)
+
+        pages_info = results.get("meta", {}).get("pages", {})
+        total_count = pages_info.get("total_count", 0)
+        total_pages = pages_info.get("total_pages", 0)
+
+        from app.api.v1.utils import create_pagination_links
+        from app.api.v1.strong_params import SEARCH_ALLOWED_PARAMS
+
+        links = create_pagination_links(
+            request,
+            page,
+            total_pages,
+            pagination_type="page",
+            allowed_params=SEARCH_ALLOWED_PARAMS,
+        )
+
+        meta_block = {
+            "totalCount": total_count,
+            "totalPages": total_pages,
+            "currentPage": page,
+            "perPage": per_page,
+            "query": q,
+            "sort": sort,
+            "query_time": results.get("meta", {}).get("query_time", {}),
+            "spelling_suggestions": results.get("meta", {}).get("spelling_suggestions", []),
+        }
+
+        response = create_jsonapi_response(data=processed, request_url=str(request.url))
+        response["links"] = links
+        response["meta"] = meta_block
+        if "included" in results:
+            response["included"] = results["included"]
+
+        return JSONResponse(content=response)
+    except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
