@@ -43,7 +43,7 @@ async def api_root(request: Request = None):
                 "/gazetteers/wof/search",
                 "/shapefiles/query",
                 "/shapefiles/schema",
-                "/shapefiles/preview"
+                "/shapefiles/preview",
             ],
         },
     }

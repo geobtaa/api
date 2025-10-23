@@ -1,8 +1,7 @@
-import asyncio
 import logging
-from typing import Optional, Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, Query, Request, Body
+from fastapi import APIRouter, Body, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -10,9 +9,9 @@ from sqlalchemy.orm import sessionmaker
 
 from app.api.v1.utils import (
     create_jsonapi_response,
+    create_pagination_links,
     process_resource_optimized,
     sanitize_for_json,
-    create_pagination_links,
 )
 from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
@@ -30,6 +29,8 @@ SUGGEST_CACHE_TTL = int(7200)  # 2 hours
 # Create async engine and session for search results processing
 engine = create_async_engine(DATABASE_URL)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
 async def _handle_search(request: Request, params: dict) -> JSONResponse:
     """Shared search executor and response builder for GET and POST.
 
@@ -98,6 +99,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         # Process resources
         processed_resources = []
         from app.services.ogm_field_mapper import OGMFieldMapper
+
         for rd in resource_data:
             d = lookup.get(rd["id"]) or {}
             obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
@@ -121,6 +123,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     total_pages = pages_info.get("total_pages", 0)
 
     from app.api.v1.strong_params import SEARCH_ALLOWED_PARAMS
+
     links = create_pagination_links(
         request,
         page,
@@ -209,12 +212,12 @@ async def search_post(
             ...,
             description="Search body. Same fields as GET but in JSON.",
             examples=[
-                {       
+                {
                     "q": "seattle",
                     "include_filters": {"dct_spatial_sm": ["Washington"]},
                     "exclude_filters": {"dct_spatial_sm": ["Iowa"]},
                 }
-            ]
+            ],
         ),
     ],
 ):

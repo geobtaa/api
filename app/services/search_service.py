@@ -349,13 +349,13 @@ class SearchService:
         if not params:
             return include_filters, exclude_filters
         raw_params = parse_qs(str(params))
-        
+
         # Handle geospatial filters
         geo_filters = {}
         for key, values in raw_params.items():
             if key.startswith("include_filters[geo]["):
                 # Extract the geospatial parameter (e.g., "type", "field", "top_left[lat]")
-                geo_param = key[len("include_filters[geo]["):-1]  # Remove brackets
+                geo_param = key[len("include_filters[geo][") : -1]  # Remove brackets
                 if geo_param not in geo_filters:
                     geo_filters[geo_param] = values[0] if values else None
                 else:
@@ -369,14 +369,18 @@ class SearchService:
                         geo_filters[parent_key][child_key] = values[0] if values else None
                     else:
                         geo_filters[geo_param] = values[0] if values else None
-        
+
         # If we have geospatial filters, add them to include_filters
         if geo_filters:
             include_filters["geo"] = geo_filters
-        
+
         # Handle regular field filters
         for key, values in raw_params.items():
-            if key.startswith("include_filters[") and key.endswith("][]") and not key.startswith("include_filters[geo]["):
+            if (
+                key.startswith("include_filters[")
+                and key.endswith("][]")
+                and not key.startswith("include_filters[geo][")
+            ):
                 field = key[len("include_filters[") : -len("][]")]
                 include_filters[field] = values
             if key.startswith("exclude_filters[") and key.endswith("][]"):

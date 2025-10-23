@@ -74,9 +74,7 @@ def _normalize_geo_params(geo_params: dict) -> dict:
             continue
 
         # Tokenize keys like 'center][lat' or 'points][0][lat' or 'shape][coordinates][0][0]'
-        tokens = (
-            raw_key.replace("][", "|").replace("[", "|").replace("]", "").split("|")
-        )
+        tokens = raw_key.replace("][", "|").replace("[", "|").replace("]", "").split("|")
         tokens = [t for t in tokens if t]
         if not tokens:
             continue
@@ -126,9 +124,7 @@ def _normalize_geo_params(geo_params: dict) -> dict:
                     while len(coords[outer_idx]) <= inner_idx:
                         coords[outer_idx].append(None)
                     try:
-                        coords[outer_idx][inner_idx] = (
-                            float(value) if value is not None else None
-                        )
+                        coords[outer_idx][inner_idx] = float(value) if value is not None else None
                     except (TypeError, ValueError):
                         coords[outer_idx][inner_idx] = value
                 continue
@@ -138,7 +134,7 @@ def _normalize_geo_params(geo_params: dict) -> dict:
 
 def _build_geospatial_filter(geo_params: dict) -> dict | None:
     """Build Elasticsearch geospatial filter from geo parameters.
-    
+
     Supports:
     - bbox: bounding box with top_left and bottom_right coordinates
     - distance: radius search with center point and distance
@@ -147,62 +143,62 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
     """
     if not isinstance(geo_params, dict):
         return None
-    
+
     # Normalize any flattened keys into nested structures
     geo_params = _normalize_geo_params(geo_params)
 
     geo_type = geo_params.get("type")
     geo_field = geo_params.get("field", "dcat_centroid")
-    
+
     if geo_type == "bbox":
         top_left = geo_params.get("top_left", {})
         bottom_right = geo_params.get("bottom_right", {})
-        
-        if not all([top_left.get("lat"), top_left.get("lon"), 
-                   bottom_right.get("lat"), bottom_right.get("lon")]):
+
+        if not all(
+            [
+                top_left.get("lat"),
+                top_left.get("lon"),
+                bottom_right.get("lat"),
+                bottom_right.get("lon"),
+            ]
+        ):
             logger.warning("Invalid bbox parameters: missing lat/lon coordinates")
             return None
-            
+
         return {
             "geo_bounding_box": {
                 geo_field: {
-                    "top_left": {
-                        "lat": float(top_left["lat"]),
-                        "lon": float(top_left["lon"])
-                    },
+                    "top_left": {"lat": float(top_left["lat"]), "lon": float(top_left["lon"])},
                     "bottom_right": {
                         "lat": float(bottom_right["lat"]),
-                        "lon": float(bottom_right["lon"])
-                    }
+                        "lon": float(bottom_right["lon"]),
+                    },
                 }
             }
         }
-    
+
     elif geo_type == "distance":
         center = geo_params.get("center", {})
         distance = geo_params.get("distance", "10km")
-        
+
         if not all([center.get("lat"), center.get("lon")]):
             logger.warning("Invalid distance parameters: missing center coordinates")
             return None
-            
+
         return {
             "geo_distance": {
                 "distance": distance,
-                geo_field: {
-                    "lat": float(center["lat"]),
-                    "lon": float(center["lon"])
-                }
+                geo_field: {"lat": float(center["lat"]), "lon": float(center["lon"])},
             }
         }
-    
+
     elif geo_type == "polygon":
         points = geo_params.get("points", [])
-        
+
         if not points or len(points) < 3:
             logger.warning("Invalid polygon parameters: need at least 3 points")
             return None
-            
+
         # Convert points to Elasticsearch polygon format
         coordinates = []
         for point in points:
@@ -210,52 +206,43 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
                 logger.warning("Invalid polygon point: missing lat/lon")
                 return None
             coordinates.append([float(point["lon"]), float(point["lat"])])
-        
+
         # Close the polygon by adding the first point at the end
         if coordinates[0] != coordinates[-1]:
             coordinates.append(coordinates[0])
-            
-        return {
-            "geo_polygon": {
-                geo_field: {
-                    "points": coordinates
-                }
-            }
-        }
-    
+
+        return {"geo_polygon": {geo_field: {"points": coordinates}}}
+
     elif geo_type == "shape":
         relation = geo_params.get("relation", "intersects")
         shape = geo_params.get("shape", {})
-        
+
         if not shape:
             logger.warning("Invalid shape parameters: missing shape definition")
             return None
-            
+
         shape_type = shape.get("type")
         coordinates = shape.get("coordinates", [])
-        
+
         if shape_type == "envelope" and len(coordinates) == 2:
             # Convert envelope coordinates to proper format
             envelope_coords = [
                 [float(coordinates[0][0]), float(coordinates[0][1])],  # top_left
-                [float(coordinates[1][0]), float(coordinates[1][1])]   # bottom_right
+                [float(coordinates[1][0]), float(coordinates[1][1])],  # bottom_right
             ]
-            
+
             return {
                 "geo_shape": {
                     geo_field: {
-                        "shape": {
-                            "type": "envelope",
-                            "coordinates": envelope_coords
-                        },
-                        "relation": relation
+                        "shape": {"type": "envelope", "coordinates": envelope_coords},
+                        "relation": relation,
                     }
                 }
             }
         else:
             logger.warning(f"Unsupported shape type: {shape_type}")
             return None
-    
+
     else:
         logger.warning(f"Unsupported geo type: {geo_type}")
         return None
