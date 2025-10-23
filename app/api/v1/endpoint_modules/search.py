@@ -143,9 +143,14 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         "spelling_suggestions": results.get("meta", {}).get("spelling_suggestions", []),
     }
 
-    response = create_jsonapi_response(data=processed_resources, request_url=str(request.url))
-    response["links"] = links
-    response["meta"] = meta_block
+    # Build response with desired key order: jsonapi -> links -> meta -> data -> included
+    base = create_jsonapi_response(data=[], request_url=str(request.url))
+    response = {
+        "jsonapi": base.get("jsonapi", {}),
+        "links": links,
+        "meta": meta_block,
+        "data": processed_resources,
+    }
     if "included" in results:
         response["included"] = results["included"]
 
