@@ -18,7 +18,7 @@ async def api_root(request: Request = None):
         "id": "root",
         "attributes": {
             "api": "BTAA Geospatial API",
-            "version": "0.2.0",
+            "version": "0.2.0-pre-release>",
             "description": ("API for accessing BTAA Geospatial data."),
             "endpoints": [
                 "/",
