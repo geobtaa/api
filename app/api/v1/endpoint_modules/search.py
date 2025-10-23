@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Optional
+from typing import Optional, Annotated
 
 from fastapi import APIRouter, Query, Request, Body
 from fastapi.responses import JSONResponse
@@ -435,11 +435,24 @@ async def search(
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
-@router.post("/search")
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
+@router.post("/search")
 async def search_post(
     request: Request,
-    payload: dict = Body(..., description="Search body. Same fields as GET but in JSON."),
+    payload: Annotated[
+        dict,
+        Body(
+            ...,
+            description="Search body. Same fields as GET but in JSON.",
+            examples=[
+                {       
+                    "q": "seattle",
+                    "include_filters": {"dct_spatial_sm": ["Washington"]},
+                    "exclude_filters": {"dct_spatial_sm": ["Iowa"]},
+                }
+            ]
+        ),
+    ],
 ):
     """POST variant of search. Accepts JSON body.
 
