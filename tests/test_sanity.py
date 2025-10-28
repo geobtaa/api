@@ -44,4 +44,4 @@ def test_api_version():
     assert "attributes" in data["data"]
     assert "version" in data["data"]["attributes"]
     assert "api" in data["data"]["attributes"]
-    assert data["data"]["attributes"]["api"] == "GeoBTAA API"
+    assert data["data"]["attributes"]["api"] == "BTAA Geospatial API"

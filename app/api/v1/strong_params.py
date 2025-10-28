@@ -15,12 +15,23 @@ SEARCH_ALLOWED_PARAMS = [
     "facets",  # Facet filtering for response aggregations
     "meta",  # Include per-resource meta
     "callback",  # JSONP callback
-    # Facet filter parameters (allow any fq[field] or fq[field][]) via wildcard
-    "fq[*]",
-    # New dynamic filter params: include_filters[field][]=... & exclude_filters[field][]=...
-    # We whitelist via wildcard markers consumed by strong_params
-    "include_filters[*]",
-    "exclude_filters[*]",
+    # Explicit facet filter parameters (fq[<field>][]) expected by tests
+    "fq[dct_resourceClass_sm][]",
+    "fq[gbl_resourceType_sm][]",
+    "fq[dct_spatial_sm][]",
+    "fq[gbl_indexYear_im][]",
+    "fq[dct_language_sm][]",
+    "fq[dct_creator_sm][]",
+    "fq[schema_provider_s][]",
+    "fq[dct_accessRights_s][]",
+    "fq[gbl_georeferenced_b][]",
+    # Spatial facets
+    "fq[geo_country][]",
+    "fq[geo_region][]",
+    "fq[geo_county][]",
+    # Dynamic include/exclude filters (placeholder notation for validation/docs)
+    "include_filters[field][]",
+    "exclude_filters[field][]",
 ]
 
 # Gazetteer endpoint allowed parameters

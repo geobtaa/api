@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -79,7 +79,7 @@ app = FastAPI(
     version="0.2.0-pre-release",
     lifespan=lifespan,
     docs_url=None,
-    redoc_url=None,
+    redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
 
@@ -134,6 +134,12 @@ app.add_middleware(CrossOriginHeadersMiddleware)
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
+
+
+@app.get("/api/v1", include_in_schema=False)
+async def api_v1_no_slash_redirect():
+    # Ensure /api/v1 (no trailing slash) works by redirecting to the canonical /api/v1/
+    return RedirectResponse(url="/api/v1/")
 
 
 @app.exception_handler(Exception)

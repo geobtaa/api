@@ -6,6 +6,7 @@ from typing import Optional
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
+from elasticsearch.exceptions import NotFoundError
 from fastapi import HTTPException
 from sqlalchemy.sql import text
 
@@ -514,6 +515,7 @@ async def search_resources(
         logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
 
         try:
+            # Call ES using keyword args so tests can inspect 'query' and 'suggest'
             response = await es.search(
                 index=index_name,
                 query=search_query["query"],
@@ -522,8 +524,18 @@ async def search_resources(
                 sort=sort or [{"_score": "desc"}],
                 track_total_hits=True,
                 aggs=search_query["aggs"],
-                suggest=search_query.get("suggest"),  # Only include suggest if it exists
+                suggest=search_query.get("suggest"),
             )
+            response_dict = response.body if hasattr(response, "body") else response
+        except NotFoundError:
+            # Index missing: return empty result structure instead of 500
+            logger.warning(f"Elasticsearch index '{index_name}' not found; returning empty results")
+            empty_response = {
+                "hits": {"total": {"value": 0}, "hits": []},
+                "took": 0,
+                "aggregations": {},
+            }
+            return await process_search_response(empty_response, limit, skip, search_criteria)
         except Exception as es_error:
             logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
             error_detail = {
@@ -538,9 +550,7 @@ async def search_resources(
                 error_detail["status_code"] = es_error.status_code
             raise HTTPException(status_code=500, detail=error_detail) from es_error
 
-        logger.info(f"ES Response status: {response.meta.status}")
-
-        return await process_search_response(response, limit, skip, search_criteria)
+        return await process_search_response(response_dict, limit, skip, search_criteria)
 
     except Exception as e:
         logger.error(f"Search documents error: {str(e)}", exc_info=True)

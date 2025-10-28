@@ -38,9 +38,6 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     facets, meta, callback, request_query_params (for GET only), include_filters,
     exclude_filters, fq.
     """
-    import time
-
-    start_time = time.time()
 
     # Defaults
     q = params.get("q")
@@ -75,6 +72,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
 
     # Step 2: Extract resource IDs and scores
     sanitized_results = sanitize_for_json(results)
+    result_obj = sanitized_results if isinstance(sanitized_results, dict) else {}
     resource_data = []
     for item in sanitized_results.get("data", []):
         rid = None
@@ -118,7 +116,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             processed_resources.append(obj)
 
     # Step 4: Build JSON:API response
-    pages_info = results.get("meta", {}).get("pages", {})
+    pages_info = result_obj.get("meta", {}).get("pages", {})
     total_count = pages_info.get("total_count", 0)
     total_pages = pages_info.get("total_pages", 0)
 
@@ -151,8 +149,8 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         "meta": meta_block,
         "data": processed_resources,
     }
-    if "included" in results:
-        response["included"] = results["included"]
+    if isinstance(result_obj, dict) and "included" in result_obj:
+        response["included"] = result_obj["included"]
 
     return JSONResponse(content=sanitize_for_json(response))
 
@@ -175,6 +173,7 @@ async def search(
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """Search resources."""
+
     import time
 
     start_time = time.time()
@@ -232,9 +231,6 @@ async def search_post(
       - q, page, per_page, sort, search_field, fields, facets, meta
       - include_filters, exclude_filters, fq (object of field->values)
     """
-    import time
-
-    start_time = time.time()
 
     # Extract parameters with defaults matching GET
     q = payload.get("q")

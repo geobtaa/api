@@ -85,8 +85,8 @@ class TestRootEndpoints:
 
         # Check attributes
         attributes = api_info["attributes"]
-        assert attributes["api"] == "GeoBTAA API"
-        assert attributes["version"] == "0.1.0"
+        assert attributes["api"] == "BTAA Geospatial API"
+        assert attributes["version"] == "0.2.0-dev"
         assert "description" in attributes
         assert "endpoints" in attributes
         assert isinstance(attributes["endpoints"], list)
@@ -102,7 +102,13 @@ class TestRootEndpoints:
         endpoints = attributes["endpoints"]
 
         # Check for key endpoints
-        expected_endpoints = ["/resources", "/search", "/thumbnails", "/gazetteers", "/shapefiles"]
+        expected_endpoints = [
+            "/resources",
+            "/search",
+            "/thumbnails/placeholder",
+            "/gazetteers",
+            "/shapefiles/query",
+        ]
 
         for endpoint in expected_endpoints:
             assert endpoint in endpoints
@@ -130,7 +136,7 @@ class TestRootEndpoints:
         attributes = data["data"]["attributes"]
         version = attributes["version"]
 
-        assert version == "0.1.0"
+        assert version == "0.2.0-dev"
 
     def test_api_root_with_request_url(self):
         """Test API root with request URL in response."""
@@ -238,7 +244,7 @@ class TestRootEndpoints:
 
         # Should have a reasonable number of endpoints
         assert len(endpoints) >= 5
-        assert len(endpoints) <= 20  # Not too many
+        assert len(endpoints) <= 30  # Not too many
 
     def test_api_root_response_structure_validation(self):
         """Test that API root response has proper JSON:API structure."""

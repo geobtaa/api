@@ -106,6 +106,9 @@ services:
     # pass broker/backend explicitly in case your app doesn't read envs:
     command: celery -A app.tasks.worker worker --loglevel=INFO
     environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1

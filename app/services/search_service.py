@@ -82,6 +82,9 @@ class SearchService:
                 exclude_filters=exclude_filters,
                 facets=facets,
             )
+            # Defensive: ensure results is a dict
+            if not isinstance(results, dict):
+                results = {}
             es_time = (time.time() - es_start) * 1000
             timings["elasticsearch"] = f"{es_time:.0f}ms"
 
@@ -134,7 +137,7 @@ class SearchService:
             results["query_time"] = timings
 
             # Extract and add suggestions to meta if they exist
-            if "meta" in results and "suggestions" in results["meta"]:
+            if isinstance(results, dict) and "meta" in results and "suggestions" in results["meta"]:
                 results["meta"]["spelling_suggestions"] = results["meta"].pop("suggestions")
 
             # Sanitize the entire results object for JSON
@@ -322,17 +325,30 @@ class SearchService:
             "geo_county_agg": "geo_county",
         }
 
+        # Define allowed direct fields (the mapping values)
+        allowed_direct_fields = set(agg_to_field.values())
+
         for key, values in raw_params.items():
             if key.startswith("fq[") and key.endswith("][]"):
-                # Allow both aggregation aliases and direct ES fields
+                # Allow aggregation aliases or direct ES fields; ignore unknown
                 name = key[3:-3]  # Remove 'fq[' and '[]'
-                es_field = agg_to_field.get(name, name)
+                if name in agg_to_field:
+                    es_field = agg_to_field[name]
+                elif name in allowed_direct_fields:
+                    es_field = name
+                else:
+                    continue
                 if values:
                     filter_query[es_field] = values
             elif key.startswith("fq[") and key.endswith("]"):
                 # Single value form fq[field]=value
                 name = key[3:-1]
-                es_field = agg_to_field.get(name, name)
+                if name in agg_to_field:
+                    es_field = agg_to_field[name]
+                elif name in allowed_direct_fields:
+                    es_field = name
+                else:
+                    continue
                 if values:
                     filter_query[es_field] = values[0]
 

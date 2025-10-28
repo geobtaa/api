@@ -1,5 +1,6 @@
 import json
 import logging
+from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from fastapi.responses import JSONResponse
@@ -21,8 +22,8 @@ def sanitize_for_json(obj: Any) -> Any:
         return sanitize_for_json(obj.__dict__)
     elif isinstance(obj, bool):  # Handle boolean objects (before float conversion)
         return obj
-    # Handle Decimal objects from database
-    elif hasattr(obj, "__float__"):
+    # Handle Decimal objects from database explicitly (do not coerce ints to float)
+    elif isinstance(obj, Decimal):
         return float(obj)
     return obj
 
@@ -257,10 +258,24 @@ def strong_params(request, allowed_params):
                 filtered_params[key] = values
             continue
 
-        # Support dynamic filter params like include_filters[field][]=
-        # ... and exclude_filters[field][]=
-        if any(marker in allowed_params for marker in ("include_filters[*]", "exclude_filters[*]")):
-            if key.startswith("include_filters[") or key.startswith("exclude_filters["):
+        # Support dynamic filter params when placeholders like include_filters[field][] are allowed
+        has_include_placeholder = any(
+            p.startswith("include_filters[") and p.endswith("][]") for p in allowed_params
+        )
+        has_exclude_placeholder = any(
+            p.startswith("exclude_filters[") and p.endswith("][]") for p in allowed_params
+        )
+        if (has_include_placeholder and key.startswith("include_filters[")) or (
+            has_exclude_placeholder and key.startswith("exclude_filters[")
+        ):
+            if len(values) == 1:
+                filtered_params[key] = values[0]
+            else:
+                filtered_params[key] = values
+
+        # Support fq[field] and fq[field][] style when any explicit fq[...][] is present
+        if any(p.startswith("fq[") for p in allowed_params):
+            if key.startswith("fq["):
                 if len(values) == 1:
                     filtered_params[key] = values[0]
                 else:

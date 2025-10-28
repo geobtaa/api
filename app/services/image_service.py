@@ -33,7 +33,11 @@ class ImageService:
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
         self.cache = redis.Redis(
-            host=self.redis_host, port=self.redis_port, db=0, decode_responses=True
+            host=self.redis_host,
+            port=self.redis_port,
+            password=os.getenv("REDIS_PASSWORD"),
+            db=0,
+            decode_responses=True,
         )
         self.cache_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days in seconds
 
@@ -41,6 +45,7 @@ class ImageService:
         self.image_cache = redis.Redis(
             host=self.redis_host,
             port=self.redis_port,
+            password=os.getenv("REDIS_PASSWORD"),
             db=1,  # Use different DB for images
             decode_responses=False,
         )
@@ -95,40 +100,53 @@ class ImageService:
             return manifest_url
 
         try:
-            # Check for Stanford-style thumbnail array
-            if isinstance(manifest_json.get("thumbnail"), list) and manifest_json["thumbnail"]:
-                self.logger.debug("Image: Stanford-style thumbnail array")
-                thumbnail = manifest_json["thumbnail"][0]
-                if isinstance(thumbnail, dict) and thumbnail.get("id"):
-                    return thumbnail["id"]
+            # Prefer explicit thumbnail when present (array or object)
+            if manifest_json.get("thumbnail"):
+                self.logger.debug("Image: manifest.thumbnail present")
+                thumb = manifest_json["thumbnail"]
+                if isinstance(thumb, list) and thumb:
+                    thumb = thumb[0]
+                if isinstance(thumb, dict):
+                    # IIIF v2 may use @id; v3 may use id
+                    candidate = thumb.get("@id") or thumb.get("id")
+                else:
+                    candidate = thumb
+                if candidate:
+                    return self._standardize_iiif_url(candidate)
 
-            # Sequences - Return the first image if it exists
+            # Sequences - Prefer direct resource @id, then service @id
             if manifest_json.get("sequences"):
                 self.logger.debug("Image: sequences")
                 canvas = manifest_json.get("sequences", [{}])[0].get("canvases", [{}])[0]
                 image = canvas.get("images", [{}])[0].get("resource", {})
 
-                # Handle OSU variant
-                if image.get("@id", "").find("osu") != -1:
-                    self.logger.debug("Image: sequences - OSU variant")
-                    service_id = image.get("service", {}).get("@id")
-                    if service_id:
-                        return f"{service_id}/full/400,/0/default.jpg"
-
-                # Standard sequence image
+                # Prefer direct image ID when present
                 if image.get("@id"):
                     return image["@id"]
 
-            # Items - Northwestern style
+                # Fallback to image service @id to construct consistent size
+                service_id = image.get("service", {}).get("@id")
+                if service_id:
+                    return f"{service_id}/full/400,/0/default.jpg"
+
+            # Items - IIIF v3 style
             elif manifest_json.get("items"):
                 items_path = (
                     manifest_json.get("items", [{}])[0].get("items", [{}])[0].get("items", [{}])[0]
                 )
 
-                # Try body.id first
-                if items_path.get("body", {}).get("id"):
+                # Try body.service.@id first (prefer constructing consistent size)
+                body = items_path.get("body", {})
+                body_service_id = (
+                    body.get("service", {}).get("@id") if isinstance(body, dict) else None
+                )
+                if body_service_id:
+                    return f"{body_service_id}/full/400,/0/default.jpg"
+
+                # Next try body.id (prefer direct ID unmodified)
+                if isinstance(body, dict) and body.get("id"):
                     self.logger.debug("Image: items body id")
-                    return items_path["body"]["id"]
+                    return body["id"]
 
                 # Try direct id
                 elif items_path.get("id"):
@@ -137,11 +155,13 @@ class ImageService:
 
             # Thumbnail - Try various thumbnail formats
             elif manifest_json.get("thumbnail"):
-                self.logger.debug("Image: thumbnail")
+                # Already handled above, but keep for safety
                 thumbnail = manifest_json["thumbnail"]
                 if isinstance(thumbnail, dict):
-                    return thumbnail.get("@id") or thumbnail.get("id")
-                return thumbnail
+                    candidate = thumbnail.get("@id") or thumbnail.get("id")
+                else:
+                    candidate = thumbnail
+                return self._standardize_iiif_url(candidate) if candidate else None
 
             # Fallback to viewer endpoint
             self.logger.debug("Image: failed to find thumbnail")
@@ -157,32 +177,24 @@ class ImageService:
         Converts various IIIF image URLs to a standard 400px wide version.
         """
         try:
-            # Skip if not a IIIF URL
-            if not any(x in url.lower() for x in ["/iiif/", "info.json", "/i/image/api/image/"]):
+            # Skip if not a likely IIIF URL
+            if not any(x in url.lower() for x in ["/iiif/", "/image/", "info.json"]):
                 return url
 
-            # Don't modify Stanford URLs that already have proper sizing
+            # If URL points to info.json, convert to a standard image URL
+            if url.endswith("/info.json"):
+                return url[:-10] + "/full/400,/0/default.jpg"
+
+            # Preserve Stanford IIIF URLs that already include sizing or '!'
             if "stacks.stanford.edu" in url and ("/full/!" in url or "/full/400," in url):
                 return url
 
-            # Remove any existing size parameters
-            base_url = url
-            for pattern in [
-                "/full/full/",
-                "/full/,/",
-                "/full/!/",
-                r"/full/\d+,/",
-                r"/full/,\d+/",
-                r"/full/\d+,\d+/",
-                "/full/full/0/default.jpg",
-                "/full/full/0/default.png",
-            ]:
-                base_url = re.sub(pattern, "/full/", base_url, flags=re.IGNORECASE)
+            # If URL already contains /full/, replace everything after it with our standard path
+            if "/full/" in url:
+                prefix = url.split("/full/")[0]
+                return f"{prefix}/full/400,/0/default.jpg"
 
-            # Add our standard size
-            if "/full/" in base_url:
-                return base_url.replace("/full/", "/full/400,/")
-
+            # As a final fallback, return original URL
             return url
         except Exception as e:
             self.logger.error(f"Error standardizing IIIF URL {url}: {e}")
@@ -231,9 +243,13 @@ class ImageService:
                 image_hash = hashlib.sha256(thumbnail_url.encode()).hexdigest()
                 image_key = f"image:{image_hash}"
 
-                if self.image_cache.exists(image_key):
-                    self.logger.info(f"🚀 Cache HIT for image {doc_id}")
-                    return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
+                try:
+                    if self.image_cache.exists(image_key):
+                        self.logger.info(f"🚀 Cache HIT for image {doc_id}")
+                        return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
+                except Exception as e:
+                    # If Redis is unavailable, fall back to non-cached behavior
+                    self.logger.warning(f"Redis unavailable while checking cache for {doc_id}: {e}")
 
                 # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
                 # The Celery worker will handle validation and caching
@@ -254,16 +270,22 @@ class ImageService:
         Extract thumbnail source URL from references without making external calls.
         This method only does local string processing - no HTTP requests.
         """
-        # Check for direct thumbnail URL first
-        if "http://schema.org/thumbnailUrl" in references:
-            thumbnail_url = references["http://schema.org/thumbnailUrl"]
-            if isinstance(thumbnail_url, list) and thumbnail_url:
-                return thumbnail_url[0]
-            return thumbnail_url
+        # Check for direct thumbnail URL first (support http and https keys)
+        for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
+            if thumb_key in references:
+                thumbnail_url = references[thumb_key]
+                if isinstance(thumbnail_url, list) and thumbnail_url:
+                    return thumbnail_url[0]
+                return thumbnail_url
 
         # Check for IIIF thumbnail URL
-        elif "http://iiif.io/api/image" in references:
-            iiif_url = references["http://iiif.io/api/image"]
+        if any(k in references for k in ("http://iiif.io/api/image", "https://iiif.io/api/image")):
+            iiif_key = (
+                "http://iiif.io/api/image"
+                if "http://iiif.io/api/image" in references
+                else "https://iiif.io/api/image"
+            )
+            iiif_url = references[iiif_key]
             if isinstance(iiif_url, list) and iiif_url:
                 iiif_url = iiif_url[0]
 
@@ -280,42 +302,44 @@ class ImageService:
             return f"{iiif_url}/full/200,/0/default.jpg"
 
         # Check for IIIF Manifest - only extract URL, don't fetch manifest
-        elif (
-            "https://iiif.io/api/presentation/2/context.json" in references
-            or "http://iiif.io/api/presentation#manifest" in references
-            or any(key.endswith("/iiif3/manifest") for key in references.keys())
-            or any(key.endswith("/iiif/manifest") for key in references.keys())
-        ):
-            manifest_url = (
-                references.get("https://iiif.io/api/presentation/2/context.json")
-                or references.get("http://iiif.io/api/presentation#manifest")
-                or next(
-                    (
-                        key
-                        for key in references.keys()
-                        if key.endswith(("/iiif3/manifest", "/iiif/manifest"))
-                    ),
-                    None,
-                )
-            )
-            if manifest_url:
-                # For manifests, we'll need to fetch them in the background task
-                # Just return the manifest URL for now
-                return manifest_url
+        # Prefer explicit manifest relation keys (http and https)
+        manifest_url = (
+            references.get("http://iiif.io/api/presentation#manifest")
+            or references.get("https://iiif.io/api/presentation#manifest")
+            or references.get("https://iiif.io/api/presentation/2/context.json")
+        )
+
+        # If not found, scan values for common manifest endings
+        if not manifest_url:
+            for value in references.values():
+                if isinstance(value, str) and (
+                    value.endswith(
+                        ("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json")
+                    )
+                    or "/manifest" in value
+                ):
+                    manifest_url = value
+                    break
+
+        if manifest_url:
+            # Resolve manifest to a concrete image URL when possible to avoid
+            # queuing/caching under a manifest key and speed up first render
+            resolved = self.get_iiif_manifest_thumbnail(manifest_url)
+            return resolved or manifest_url
 
         # Check for ESRI services
-        elif "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:
+        if "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:
             viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#ImageMapLayer"]
             return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-        elif "urn:x-esri:serviceType:ArcGIS#TiledMapLayer" in references:
+        if "urn:x-esri:serviceType:ArcGIS#TiledMapLayer" in references:
             viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#TiledMapLayer"]
             return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-        elif "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer" in references:
+        if "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer" in references:
             viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#DynamicMapLayer"]
             return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
 
         # Check for WMS
-        elif "http://www.opengis.net/def/serviceType/ogc/wms" in references:
+        if "http://www.opengis.net/def/serviceType/ogc/wms" in references:
             wms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/wms"]
             width = 200
             height = 200
@@ -330,7 +354,7 @@ class ImageService:
             )
 
         # Check for TMS
-        elif "http://www.opengis.net/def/serviceType/ogc/tms" in references:
+        if "http://www.opengis.net/def/serviceType/ogc/tms" in references:
             tms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/tms"]
             return f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
 

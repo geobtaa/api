@@ -18,8 +18,10 @@ async def api_root(request: Request = None):
         "id": "root",
         "attributes": {
             "api": "BTAA Geospatial API",
-            "version": "0.2.0-pre-release",
-            "description": ("API for accessing BTAA Geospatial data."),
+            "version": "0.2.0-dev",
+            "description": (
+                "API for accessing BTAA geospatial data from the Big Ten Academic Alliance."
+            ),
             "endpoints": [
                 "/",
                 "/search",
@@ -32,6 +34,7 @@ async def api_root(request: Request = None):
                 "/resources/{id}/relationships",
                 "/resources/{id}/spatial_facets",
                 "/resources/{id}/summaries",
+                "/resources/{id}/thumbnails",
                 "/resources/{id}/viewer",
                 "/thumbnails/placeholder",
                 "/thumbnails/{image_hash}",
