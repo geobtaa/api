@@ -73,21 +73,23 @@ def fetch_and_cache_image(self, url: str) -> bool:
     """
     logger.info(f"Starting task to fetch image: {url}")
     try:
-        # Generate consistent key for image (always based on original URL)
-        image_key = f"image:{hashlib.sha256(url.encode()).hexdigest()}"
+        # Determine the actual image URL; handle IIIF manifests by resolving to a thumbnail
+        resolved_url = _resolve_image_url(url)
+        logger.info(f"Resolved URL: {url} -> {resolved_url}")
+        
+        # Generate cache key based on the resolved image URL (not the original manifest URL)
+        image_key = f"image:{hashlib.sha256(resolved_url.encode()).hexdigest()}"
 
         # Check if already cached, but tolerate Redis outages
         redis_available = True
         try:
             if redis_client.exists(image_key):
-                logger.info(f"Image already cached: {url}")
+                logger.info(f"Image already cached: {resolved_url}")
                 return True
         except Exception as redis_err:
             redis_available = False
-            logger.warning(f"Redis unavailable during exists() for {url}: {redis_err}")
+            logger.warning(f"Redis unavailable during exists() for {resolved_url}: {redis_err}")
 
-        # Determine the actual image URL; handle IIIF manifests by resolving to a thumbnail
-        resolved_url = _resolve_image_url(url)
         logger.info(f"Fetching image: {resolved_url}")
         response = requests.get(resolved_url, timeout=15)
         response.raise_for_status()
@@ -97,13 +99,13 @@ def fetch_and_cache_image(self, url: str) -> bool:
             try:
                 ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
                 redis_client.setex(image_key, ttl, response.content)
-                logger.info(f"Successfully cached image: {url}")
+                logger.info(f"Successfully cached image: {resolved_url}")
                 return True
             except Exception as redis_err:
-                logger.warning(f"Failed to cache image due to Redis error for {url}: {redis_err}")
+                logger.warning(f"Failed to cache image due to Redis error for {resolved_url}: {redis_err}")
                 return False
         else:
-            logger.warning(f"Skipping cache store for {url}: Redis unavailable")
+            logger.warning(f"Skipping cache store for {resolved_url}: Redis unavailable")
             return False
     except requests.RequestException as http_err:
         logger.error(f"HTTP error caching image {url}: {http_err}")

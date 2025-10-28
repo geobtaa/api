@@ -236,20 +236,23 @@ class ImageService:
             thumbnail_url = self._get_thumbnail_source_url(references)
 
             if thumbnail_url:
-                # Standardize IIIF URLs to ensure consistent size
-                thumbnail_url = self._standardize_iiif_url(thumbnail_url)
+                # For manifest URLs, we can't check cache yet since we don't know the resolved URL
+                # For direct image URLs, standardize and check cache
+                if not self._is_manifest_url(thumbnail_url):
+                    # Standardize IIIF URLs to ensure consistent size
+                    thumbnail_url = self._standardize_iiif_url(thumbnail_url)
 
-                # Check if we have the image cached
-                image_hash = hashlib.sha256(thumbnail_url.encode()).hexdigest()
-                image_key = f"image:{image_hash}"
+                    # Check if we have the image cached
+                    image_hash = hashlib.sha256(thumbnail_url.encode()).hexdigest()
+                    image_key = f"image:{image_hash}"
 
-                try:
-                    if self.image_cache.exists(image_key):
-                        self.logger.info(f"🚀 Cache HIT for image {doc_id}")
-                        return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
-                except Exception as e:
-                    # If Redis is unavailable, fall back to non-cached behavior
-                    self.logger.warning(f"Redis unavailable while checking cache for {doc_id}: {e}")
+                    try:
+                        if self.image_cache.exists(image_key):
+                            self.logger.info(f"🚀 Cache HIT for image {doc_id}")
+                            return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
+                    except Exception as e:
+                        # If Redis is unavailable, fall back to non-cached behavior
+                        self.logger.warning(f"Redis unavailable while checking cache for {doc_id}: {e}")
 
                 # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
                 # The Celery worker will handle validation and caching
@@ -322,10 +325,11 @@ class ImageService:
                     break
 
         if manifest_url:
-            # Resolve manifest to a concrete image URL when possible to avoid
-            # queuing/caching under a manifest key and speed up first render
-            resolved = self.get_iiif_manifest_thumbnail(manifest_url)
-            return resolved or manifest_url
+            # For manifests, queue background resolution and return manifest URL
+            # The Celery worker will resolve the manifest and extract the image URL
+            self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
+            self._queue_manifest_processing(manifest_url)
+            return manifest_url
 
         # Check for ESRI services
         if "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:
@@ -360,6 +364,15 @@ class ImageService:
 
         return None
 
+    def _is_manifest_url(self, url: str) -> bool:
+        """Check if URL looks like a IIIF manifest URL."""
+        if not url:
+            return False
+        return (
+            url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json"))
+            or "/manifest" in url
+        )
+
     def _queue_thumbnail_processing(self, thumbnail_url: str, doc_id: str) -> None:
         """
         Queue thumbnail processing in the background without blocking.
@@ -375,6 +388,21 @@ class ImageService:
 
         except Exception as e:
             self.logger.error(f"Failed to queue thumbnail processing for {doc_id}: {e}")
+            # Don't raise - this is a background operation that shouldn't fail the main request
+
+    def _queue_manifest_processing(self, manifest_url: str) -> None:
+        """
+        Queue manifest processing in the background without blocking.
+        This method is fire-and-forget.
+        """
+        try:
+            from app.tasks.worker import fetch_and_cache_image
+
+            task = fetch_and_cache_image.delay(manifest_url)
+            self.logger.info(f"Manifest resolution queued: {task.id}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to queue manifest processing for {manifest_url}: {e}")
             # Don't raise - this is a background operation that shouldn't fail the main request
 
     async def get_cached_image(self, image_hash: str) -> Optional[bytes]:
