@@ -294,12 +294,18 @@ class ImageService:
 
             # Transform ContentDM IIIF URLs
             if "contentdm.oclc.org" in iiif_url:
-                # Extract collection and item ID from the URL
+                # Handle both /digital/iiif/ and /iiif/ patterns
+                # Pattern 1: /digital/iiif/collection/id
                 match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
                 if match:
                     collection, item_id = match.groups()
-                    # Construct the correct IIIF URL format
                     return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}/full/200,/0/default.jpg"
+                
+                # Pattern 2: /iiif/collection:id/manifest.json or /iiif/collection:id/
+                match = re.search(r"/iiif/([^/]+)/", iiif_url)
+                if match:
+                    collection_item = match.group(1)
+                    return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/200,/0/default.jpg"
 
             # For non-ContentDM IIIF URLs, use standard format
             return f"{iiif_url}/full/200,/0/default.jpg"
@@ -321,6 +327,14 @@ class ImageService:
                     )
                     or "/manifest" in value
                 ):
+                    # Special case: ContentDM manifest URLs should be converted to image URLs
+                    if "contentdm.oclc.org" in value and "/iiif/" in value:
+                        # Extract collection:item from ContentDM manifest URL
+                        match = re.search(r"/iiif/([^/]+)/", value)
+                        if match:
+                            collection_item = match.group(1)
+                            return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/200,/0/default.jpg"
+                    
                     manifest_url = value
                     break
 
