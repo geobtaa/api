@@ -17,6 +17,7 @@ from app.api.v1.utils import (
     sanitize_for_json,
 )
 from app.services.cache_service import cached_endpoint
+from app.services.image_service import ImageService
 from app.services.link_service import LinkService
 from app.services.ogm_field_mapper import OGMFieldMapper
 from app.services.relationship_service import RelationshipService
@@ -26,6 +27,38 @@ from db.models import resources
 
 # Load environment variables from .env file
 load_dotenv()
+
+
+def filter_resource_fields(resource_dict: dict, fields_param: Optional[str]) -> dict:
+    """
+    Filter resource fields based on the fields parameter.
+    Always includes 'id' field even if not specified.
+
+    Args:
+        resource_dict: The resource dictionary to filter
+        fields_param: Comma-separated string of field names to include
+
+    Returns:
+        Filtered resource dictionary
+    """
+    if not fields_param:
+        return resource_dict
+
+    # Parse the fields parameter
+    requested_fields = [field.strip() for field in fields_param.split(",") if field.strip()]
+
+    # Always include 'id' field
+    if "id" not in requested_fields:
+        requested_fields.append("id")
+
+    # Filter the resource dictionary to only include requested fields
+    filtered_resource = {}
+    for field in requested_fields:
+        if field in resource_dict:
+            filtered_resource[field] = resource_dict[field]
+
+    return filtered_resource
+
 
 router = APIRouter()
 
@@ -47,6 +80,7 @@ LIST_CACHE_TTL = int(os.getenv("LIST_CACHE_TTL", 43200))  # 12 hours
 async def list_resources(
     skip: int = 0,
     limit: int = 10,
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     request: Request = None,
@@ -66,6 +100,11 @@ async def list_resources(
                     # Convert to dict and sanitize datetime objects
                     resource_dict = sanitize_for_json(dict(row._mapping))
                     logger.info(f"Resource dict: {resource_dict}")
+
+                    # Apply field filtering if fields parameter is provided
+                    if fields:
+                        resource_dict = filter_resource_fields(resource_dict, fields)
+                        logger.info(f"Filtered resource dict: {resource_dict}")
 
                     # Process the resource using the shared function
                     jsonapi_resource = await process_resource(resource_dict, session)
@@ -93,6 +132,7 @@ async def list_resources(
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource(
     id: str,
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     request: Request = None,
@@ -112,6 +152,11 @@ async def get_resource(
             # Convert to dict and sanitize for JSON serialization
             resource_dict = sanitize_for_json(dict(row._mapping))
             resource_dict["id"] = id  # Ensure ID is set
+
+            # Apply field filtering if fields parameter is provided
+            if fields:
+                resource_dict = filter_resource_fields(resource_dict, fields)
+                logger.info(f"Filtered resource dict: {resource_dict}")
 
             # Process the resource using the shared function (this will add Allmaps to meta.ui)
             jsonapi_resource = await process_resource(resource_dict, session)
@@ -205,6 +250,7 @@ async def get_resource_distributions(
 @router.get("/resources/{id}/ogm")
 async def get_resource_ogm(
     id: str,
+    fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
     """Get just the OpenGeoMetadata Aardvark record for a resource by ID."""
@@ -235,6 +281,11 @@ async def get_resource_ogm(
                     ):
                         continue
                     aardvark_record[key] = value
+
+            # Apply field filtering if fields parameter is provided
+            if fields:
+                aardvark_record = filter_resource_fields(aardvark_record, fields)
+                logger.info(f"Filtered OGM record: {aardvark_record}")
 
             # Return just the cleaned attributes (the Aardvark record)
             return create_response(aardvark_record, callback)
@@ -345,6 +396,108 @@ async def get_resource_summaries(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/resources/{id}/thumbnail")
+async def get_resource_thumbnail(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+    debug: bool = Query(False, description="Include debug details about thumbnail resolution"),
+):
+    """Get the current thumbnail URL (or placeholder) for a resource."""
+    try:
+        # Fetch resource to access references and other metadata
+        async with async_session() as session:
+            query = select(resources).where(resources.c.id == id)
+            result = await session.execute(query)
+            row = result.fetchone()
+
+            if not row:
+                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+
+            resource_dict = sanitize_for_json(dict(row._mapping))
+
+        # Compute thumbnail URL using ImageService
+        image_service = ImageService(resource_dict)
+        thumbnail_url = image_service.get_thumbnail_url()
+
+        # Ensure placeholder when none available
+        if not thumbnail_url:
+            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+            thumbnail_url = f"{application_url}/api/v1/thumbnails/placeholder"
+
+        is_placeholder = "/api/v1/thumbnails/placeholder" in thumbnail_url
+
+        response_payload = {
+            "id": id,
+            "thumbnail_url": thumbnail_url,
+            "placeholder": is_placeholder,
+        }
+
+        # Optional debug block with rich insight into detection and caching
+        if debug:
+            import hashlib
+            import json as _json
+
+            references = resource_dict.get("dct_references_s", {})
+            if isinstance(references, str):
+                try:
+                    references = _json.loads(references)
+                except Exception:
+                    references = {}
+
+            # Determine raw source URL without network
+            source_url = (
+                image_service._get_thumbnail_source_url(references)
+                if isinstance(references, dict)
+                else None
+            )
+            standardized_source = (
+                image_service._standardize_iiif_url(source_url) if source_url else None
+            )
+
+            # If manifest, try to resolve to an image (network call; 2s timeout inside service)
+            resolved_url = None
+            if (
+                source_url
+                and isinstance(source_url, str)
+                and source_url.endswith(("/manifest", "manifest.json"))
+            ):
+                try:
+                    resolved_url = image_service.get_iiif_manifest_thumbnail(source_url)
+                    if resolved_url:
+                        resolved_url = image_service._standardize_iiif_url(resolved_url)
+                except Exception:
+                    resolved_url = None
+
+            # Compute the hash key used for caching based on the queued URL (standardized_source)
+            image_hash = (
+                hashlib.sha256((standardized_source or "").encode()).hexdigest()
+                if standardized_source
+                else None
+            )
+            cache_key = f"image:{image_hash}" if image_hash else None
+
+            cache_exists = None
+            try:
+                if cache_key:
+                    cache_exists = bool(image_service.image_cache.exists(cache_key))
+            except Exception:
+                cache_exists = None
+
+            response_payload["debug"] = {
+                "source_url": source_url,
+                "standardized_source": standardized_source,
+                "resolved_url": resolved_url,
+                "image_hash": image_hash,
+                "cache_key": cache_key,
+                "cache_exists": cache_exists,
+            }
+
+        return create_response(response_payload, callback)
+    except Exception as e:
+        logger.error(f"Error getting thumbnail for resource {id}: {str(e)}", exc_info=True)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
 @router.get("/resources/{id}/viewer")

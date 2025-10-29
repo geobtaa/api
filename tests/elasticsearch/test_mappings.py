@@ -164,8 +164,8 @@ class TestMappings:
             if field in properties:
                 assert properties[field]["type"] == "text"
 
-        # Keyword fields should be configured as keywords
-        keyword_fields = [
+        # Fields that were keywords are now text with a keyword subfield
+        text_with_keyword_fields = [
             "dct_spatial_sm",
             "gbl_resourceClass_sm",
             "gbl_resourceType_sm",
@@ -175,9 +175,13 @@ class TestMappings:
             "dct_accessRights_s",
         ]
 
-        for field in keyword_fields:
+        for field in text_with_keyword_fields:
             if field in properties:
-                assert properties[field]["type"] == "keyword"
+                assert properties[field]["type"] == "text"
+                assert "fields" in properties[field]
+                assert "keyword" in properties[field]["fields"]
+                assert properties[field]["fields"]["keyword"]["type"] == "keyword"
+                assert properties[field]["fields"]["keyword"].get("normalizer") == "lowercase"
 
         # Boolean fields should be configured as booleans
         boolean_fields = ["gbl_georeferenced_b", "b1g_child_record_b"]

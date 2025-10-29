@@ -2,9 +2,11 @@ import json
 import logging
 import os
 import time
+from typing import Optional
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
+from elasticsearch.exceptions import NotFoundError
 from fastapi import HTTPException
 from sqlalchemy.sql import text
 
@@ -36,8 +38,227 @@ def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list 
     }
 
 
+def _normalize_geo_params(geo_params: dict) -> dict:
+    """Normalize flattened bracket keys into nested geo params structure.
+
+    Examples of flattened keys this handles:
+    - center][lat, center][lon
+    - top_left][lat, bottom_right][lon
+    - points][0][lat, points][1][lon
+    - shape][type, shape][coordinates][0][0]
+    """
+    if not isinstance(geo_params, dict):
+        return {}
+
+    normalized: dict = {}
+
+    def ensure_dict(parent: dict, key: str) -> dict:
+        if key not in parent or not isinstance(parent[key], dict):
+            parent[key] = {}
+        return parent[key]
+
+    def ensure_list(parent: dict, key: str, size: int) -> list:
+        if key not in parent or not isinstance(parent[key], list):
+            parent[key] = []
+        lst = parent[key]
+        while len(lst) <= size:
+            lst.append(None)
+        return lst
+
+    for raw_key, raw_value in geo_params.items():
+        # Values may come as lists from parse_qs; take the first
+        value = raw_value[0] if isinstance(raw_value, list) and raw_value else raw_value
+
+        # Simple top-level keys
+        if raw_key in {"type", "field", "distance", "relation"}:
+            normalized[raw_key] = value
+            continue
+
+        # Tokenize keys like 'center][lat' or 'points][0][lat' or 'shape][coordinates][0][0]'
+        tokens = raw_key.replace("][", "|").replace("[", "|").replace("]", "").split("|")
+        tokens = [t for t in tokens if t]
+        if not tokens:
+            continue
+
+        head = tokens[0]
+
+        if head in {"center", "top_left", "bottom_right"}:
+            target = ensure_dict(normalized, head)
+            if len(tokens) >= 2 and tokens[1] in {"lat", "lon"}:
+                try:
+                    target[tokens[1]] = float(value) if value is not None else None
+                except (TypeError, ValueError):
+                    target[tokens[1]] = value
+            continue
+
+        if head == "points":
+            if len(tokens) >= 3 and tokens[1].isdigit():
+                idx = int(tokens[1])
+                lst = ensure_list(normalized, "points", idx)
+                if lst[idx] is None or not isinstance(lst[idx], dict):
+                    lst[idx] = {}
+                key = tokens[2]
+                try:
+                    lst[idx][key] = float(value) if value is not None else None
+                except (TypeError, ValueError):
+                    lst[idx][key] = value
+            continue
+
+        if head == "shape":
+            shape_dict = ensure_dict(normalized, "shape")
+            if len(tokens) >= 2 and tokens[1] == "type":
+                shape_dict["type"] = value
+                continue
+            if len(tokens) >= 2 and tokens[1] == "coordinates":
+                # coordinates might be e.g. [0][0] and [1][1]
+                if len(tokens) >= 4 and tokens[2].isdigit() and tokens[3].isdigit():
+                    outer_idx = int(tokens[2])
+                    inner_idx = int(tokens[3])
+                    # Ensure 2D list
+                    if "coordinates" not in shape_dict or not isinstance(
+                        shape_dict.get("coordinates"), list
+                    ):
+                        shape_dict["coordinates"] = []
+                    coords = shape_dict["coordinates"]
+                    while len(coords) <= outer_idx:
+                        coords.append([])
+                    while len(coords[outer_idx]) <= inner_idx:
+                        coords[outer_idx].append(None)
+                    try:
+                        coords[outer_idx][inner_idx] = float(value) if value is not None else None
+                    except (TypeError, ValueError):
+                        coords[outer_idx][inner_idx] = value
+                continue
+
+    return normalized or geo_params
+
+
+def _build_geospatial_filter(geo_params: dict) -> dict | None:
+    """Build Elasticsearch geospatial filter from geo parameters.
+
+    Supports:
+    - bbox: bounding box with top_left and bottom_right coordinates
+    - distance: radius search with center point and distance
+    - polygon: polygon search with array of points
+    - shape: shape search with relation and shape definition
+    """
+    if not isinstance(geo_params, dict):
+        return None
+
+    # Normalize any flattened keys into nested structures
+    geo_params = _normalize_geo_params(geo_params)
+
+    geo_type = geo_params.get("type")
+    geo_field = geo_params.get("field", "dcat_centroid")
+
+    if geo_type == "bbox":
+        top_left = geo_params.get("top_left", {})
+        bottom_right = geo_params.get("bottom_right", {})
+
+        if not all(
+            [
+                top_left.get("lat"),
+                top_left.get("lon"),
+                bottom_right.get("lat"),
+                bottom_right.get("lon"),
+            ]
+        ):
+            logger.warning("Invalid bbox parameters: missing lat/lon coordinates")
+            return None
+
+        return {
+            "geo_bounding_box": {
+                geo_field: {
+                    "top_left": {"lat": float(top_left["lat"]), "lon": float(top_left["lon"])},
+                    "bottom_right": {
+                        "lat": float(bottom_right["lat"]),
+                        "lon": float(bottom_right["lon"]),
+                    },
+                }
+            }
+        }
+
+    elif geo_type == "distance":
+        center = geo_params.get("center", {})
+        distance = geo_params.get("distance", "10km")
+
+        if not all([center.get("lat"), center.get("lon")]):
+            logger.warning("Invalid distance parameters: missing center coordinates")
+            return None
+
+        return {
+            "geo_distance": {
+                "distance": distance,
+                geo_field: {"lat": float(center["lat"]), "lon": float(center["lon"])},
+            }
+        }
+
+    elif geo_type == "polygon":
+        points = geo_params.get("points", [])
+
+        if not points or len(points) < 3:
+            logger.warning("Invalid polygon parameters: need at least 3 points")
+            return None
+
+        # Convert points to Elasticsearch polygon format
+        coordinates = []
+        for point in points:
+            if not all([point.get("lat"), point.get("lon")]):
+                logger.warning("Invalid polygon point: missing lat/lon")
+                return None
+            coordinates.append([float(point["lon"]), float(point["lat"])])
+
+        # Close the polygon by adding the first point at the end
+        if coordinates[0] != coordinates[-1]:
+            coordinates.append(coordinates[0])
+
+        return {"geo_polygon": {geo_field: {"points": coordinates}}}
+
+    elif geo_type == "shape":
+        relation = geo_params.get("relation", "intersects")
+        shape = geo_params.get("shape", {})
+
+        if not shape:
+            logger.warning("Invalid shape parameters: missing shape definition")
+            return None
+
+        shape_type = shape.get("type")
+        coordinates = shape.get("coordinates", [])
+
+        if shape_type == "envelope" and len(coordinates) == 2:
+            # Convert envelope coordinates to proper format
+            envelope_coords = [
+                [float(coordinates[0][0]), float(coordinates[0][1])],  # top_left
+                [float(coordinates[1][0]), float(coordinates[1][1])],  # bottom_right
+            ]
+
+            return {
+                "geo_shape": {
+                    geo_field: {
+                        "shape": {"type": "envelope", "coordinates": envelope_coords},
+                        "relation": relation,
+                    }
+                }
+            }
+        else:
+            logger.warning(f"Unsupported shape type: {shape_type}")
+            return None
+
+    else:
+        logger.warning(f"Unsupported geo type: {geo_type}")
+        return None
+
+
 async def search_resources(
-    query: str = None, fq: dict = None, skip: int = 0, limit: int = 20, sort: list = None
+    query: str = None,
+    fq: dict = None,
+    skip: int = 0,
+    limit: int = 20,
+    sort: list = None,
+    search_fields: str | None = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
+    facets: Optional[str] = None,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -52,8 +273,9 @@ async def search_resources(
         search_criteria = get_search_criteria(query, fq, skip, limit, sort)
         logger.debug(f"Search criteria: {search_criteria}")
 
-        # Construct the filter query
+        # Construct the filter query (legacy fq + new include/exclude)
         filter_clauses = []
+        must_not_clauses = []
         if fq:
             for field, values in fq.items():
                 logger.debug(f"Processing filter - Field: {field}, Values: {values}")
@@ -62,81 +284,160 @@ async def search_resources(
                 else:
                     filter_clauses.append({"term": {field: values}})
 
-        # Build the search query
-        if search_criteria.get("query"):
-            # Use query_string to support full boolean operators (OR, AND, NOT, etc.)
-            search_query = {
-                "query": {
-                    "bool": {
-                        "must": [
-                            {
-                                "query_string": {
-                                    "query": search_criteria["query"],
-                                    "fields": [
-                                        "id^5",  # Boost ID matches highest - exact ID searches
-                                        "dct_title_s^3",  # Boost title matches
-                                        "dct_description_sm^2",  # Boost description matches
-                                        "summary^2",  # Add summary field with boost
-                                        "dct_creator_sm^2",  # Boost creator name matches
-                                        "dct_subject_sm^1.5",  # Boost subject matches
-                                        "dcat_keyword_sm^1.5",  # Boost keyword matches
-                                        "dct_publisher_sm",  # Include publisher name
-                                        "schema_provider_s",  # Include provider name
-                                        "dct_spatial_sm",  # Include spatial name
-                                        "gbl_displaynote_sm",  # Include display notes
-                                    ],
-                                    "default_operator": "AND",
-                                    "analyze_wildcard": True,
-                                    "allow_leading_wildcard": True,
+        if include_filters:
+            for field, values in include_filters.items():
+                # Handle geospatial queries
+                if field == "geo" and isinstance(values, dict):
+                    geo_filter = _build_geospatial_filter(values)
+                    if geo_filter:
+                        filter_clauses.append(geo_filter)
+                elif isinstance(values, list):
+                    # Use terms_set to ensure all specified values must be present
+                    # when the field is an array
+                    filter_clauses.append(
+                        {
+                            "terms_set": {
+                                field: {
+                                    "terms": values,
+                                    "minimum_should_match_script": {"source": "params.num_terms"},
                                 }
                             }
-                        ],
-                        "filter": filter_clauses,
+                        }
+                    )
+                else:
+                    filter_clauses.append({"term": {field: values}})
+
+        if exclude_filters:
+            for field, values in exclude_filters.items():
+                if isinstance(values, list):
+                    must_not_clauses.append({"terms": {field: values}})
+                else:
+                    must_not_clauses.append({"term": {field: values}})
+
+        # Build the search query
+        if search_criteria.get("query"):
+            query_text = search_criteria["query"] or ""
+            is_phrase = (
+                len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
+            )
+            phrase = query_text[1:-1] if is_phrase else query_text
+
+            # If specific fields are requested (and not 'all_fields'),
+            # use multi_match across provided fields
+            scoped = bool(search_fields) and search_fields.strip().lower() != "all_fields"
+            if scoped:
+                requested_fields = [f.strip() for f in search_fields.split(",") if f.strip()]
+                # Prefer exact matches via .keyword when available,
+                # but also search the analyzed field
+                expanded_fields = []
+                for f in requested_fields:
+                    expanded_fields.append(f)
+                    expanded_fields.append(f"{f}.keyword")
+
+                base_query = {
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "multi_match": {
+                                        "query": phrase,
+                                        "type": "best_fields" if not is_phrase else "phrase",
+                                        "operator": "AND",
+                                        "fields": expanded_fields,
+                                    }
+                                }
+                            ],
+                            "filter": filter_clauses,
+                            "must_not": must_not_clauses,
+                        }
                     }
+                }
+            else:
+                # Default behavior across boosted fields using query_string
+                base_query = {
+                    "query": {
+                        "bool": {
+                            "must": [
+                                {
+                                    "query_string": {
+                                        "query": query_text,
+                                        "fields": [
+                                            "id^5",
+                                            "dct_title_s^3",
+                                            "dct_description_sm^2",
+                                            "summary^2",
+                                            "dct_creator_sm^2",
+                                            "dct_subject_sm^1.5",
+                                            "dcat_keyword_sm^1.5",
+                                            "dct_publisher_sm",
+                                            "schema_provider_s",
+                                            "dct_spatial_sm",
+                                            "gbl_displaynote_sm",
+                                        ],
+                                        "default_operator": "AND",
+                                        "analyze_wildcard": True,
+                                        "allow_leading_wildcard": True,
+                                    }
+                                }
+                            ],
+                            "filter": filter_clauses,
+                            "must_not": must_not_clauses,
+                        }
+                    },
+                }
+
+            # Optionally filter which aggs to include
+            allowed_aggs = None
+            if facets:
+                allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+
+            full_aggs = {
+                "dct_spatial_sm": {
+                    "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
                 },
+                "gbl_resourceClass_sm": {
+                    "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceType_sm": {
+                    "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_indexYear_im": {
+                    "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_language_sm": {
+                    "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_creator_sm": {
+                    "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "schema_provider_s": {
+                    "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_accessRights_s": {
+                    "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_georeferenced_b": {
+                    "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+                },
+                # Spatial facet aggregations with configurable sizes
+                "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
+                "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+                "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
+            }
+
+            selected_aggs = (
+                {k: v for k, v in full_aggs.items() if k in allowed_aggs}
+                if allowed_aggs
+                else full_aggs
+            )
+
+            search_query = {
+                **base_query,
                 "from": skip,
                 "size": limit,
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
-                "aggs": {
-                    "spatial_agg": {
-                        "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "resource_class_agg": {
-                        "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "resource_type_agg": {
-                        "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "index_year_agg": {
-                        "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "language_agg": {
-                        "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "creator_agg": {
-                        "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "provider_agg": {
-                        "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "access_rights_agg": {
-                        "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "georeferenced_agg": {
-                        "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-                    },
-                    # Spatial facet aggregations with configurable sizes
-                    "geo_country_agg": {
-                        "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-                    },
-                    "geo_region_agg": {
-                        "terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}
-                    },
-                    "geo_county_agg": {
-                        "terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}
-                    },
-                },
+                "aggs": selected_aggs,
             }
 
             # Only add suggest if query is not empty
@@ -157,57 +458,64 @@ async def search_resources(
                     },
                 }
         else:
+            allowed_aggs = None
+            if facets:
+                allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+
+            full_aggs = {
+                "id": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
+                "dct_spatial_sm": {
+                    "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceClass_sm": {
+                    "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_resourceType_sm": {
+                    "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_indexYear_im": {
+                    "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_language_sm": {
+                    "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_creator_sm": {
+                    "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
+                },
+                "schema_provider_s": {
+                    "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "dct_accessRights_s": {
+                    "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
+                },
+                "gbl_georeferenced_b": {
+                    "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+                },
+                # Spatial facet aggregations with configurable sizes
+                "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
+                "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+                "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
+            }
+
+            selected_aggs = (
+                {k: v for k, v in full_aggs.items() if k in allowed_aggs}
+                if allowed_aggs
+                else full_aggs
+            )
+
             search_query = {
                 "query": {"bool": {"must": [{"match_all": {}}], "filter": filter_clauses}},
                 "from": skip,
                 "size": limit,
                 "sort": sort or [{"_score": "desc"}],
                 "track_total_hits": True,
-                "aggs": {
-                    "id_agg": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
-                    "spatial_agg": {
-                        "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "resource_class_agg": {
-                        "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "resource_type_agg": {
-                        "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "index_year_agg": {
-                        "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "language_agg": {
-                        "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "creator_agg": {
-                        "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "provider_agg": {
-                        "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "access_rights_agg": {
-                        "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
-                    },
-                    "georeferenced_agg": {
-                        "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-                    },
-                    # Spatial facet aggregations with configurable sizes
-                    "geo_country_agg": {
-                        "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-                    },
-                    "geo_region_agg": {
-                        "terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}
-                    },
-                    "geo_county_agg": {
-                        "terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}
-                    },
-                },
+                "aggs": selected_aggs,
             }
 
         logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
 
         try:
+            # Call ES using keyword args so tests can inspect 'query' and 'suggest'
             response = await es.search(
                 index=index_name,
                 query=search_query["query"],
@@ -216,8 +524,18 @@ async def search_resources(
                 sort=sort or [{"_score": "desc"}],
                 track_total_hits=True,
                 aggs=search_query["aggs"],
-                suggest=search_query.get("suggest"),  # Only include suggest if it exists
+                suggest=search_query.get("suggest"),
             )
+            response_dict = response.body if hasattr(response, "body") else response
+        except NotFoundError:
+            # Index missing: return empty result structure instead of 500
+            logger.warning(f"Elasticsearch index '{index_name}' not found; returning empty results")
+            empty_response = {
+                "hits": {"total": {"value": 0}, "hits": []},
+                "took": 0,
+                "aggregations": {},
+            }
+            return await process_search_response(empty_response, limit, skip, search_criteria)
         except Exception as es_error:
             logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
             error_detail = {
@@ -232,9 +550,7 @@ async def search_resources(
                 error_detail["status_code"] = es_error.status_code
             raise HTTPException(status_code=500, detail=error_detail) from es_error
 
-        logger.info(f"ES Response status: {response.meta.status}")
-
-        return await process_search_response(response, limit, skip, search_criteria)
+        return await process_search_response(response_dict, limit, skip, search_criteria)
 
     except Exception as e:
         logger.error(f"Search documents error: {str(e)}", exc_info=True)

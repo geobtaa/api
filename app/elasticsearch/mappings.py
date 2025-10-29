@@ -6,25 +6,76 @@ INDEX_MAPPING = {
                 "type": "text",
                 "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
             },
-            "dct_spatial_sm": {"type": "keyword"},
-            "gbl_resourceClass_sm": {"type": "keyword"},
-            "gbl_resourceType_sm": {"type": "keyword"},
+            "dct_spatial_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "gbl_resourceClass_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "gbl_resourceType_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
             "gbl_indexYear_im": {"type": "integer"},
-            "dct_language_sm": {"type": "keyword"},
-            "dct_creator_sm": {"type": "keyword"},
-            "schema_provider_s": {"type": "keyword"},
-            "dct_accessRights_s": {"type": "keyword"},
+            "dct_language_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_creator_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "schema_provider_s": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_accessRights_s": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
             "gbl_georeferenced_b": {"type": "boolean"},
-            "dct_alternative_sm": {"type": "text"},
-            "dct_description_sm": {"type": "text"},
-            "gbl_displaynote_sm": {"type": "text"},
-            "dct_publisher_sm": {"type": "text"},
-            "dct_subject_sm": {"type": "text"},
-            "dcat_theme_sm": {"type": "text"},
-            "dcat_keyword_sm": {"type": "text"},
-            "dct_temporal_sm": {"type": "text"},
-            "dct_issued_s": {"type": "text"},
-            "gbl_daterange_drsim": {"type": "text"},
+            "dct_alternative_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_description_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "gbl_displaynote_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_publisher_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_subject_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dcat_theme_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dcat_keyword_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_temporal_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "dct_issued_s": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
+            "gbl_daterange_drsim": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
             "locn_geometry": {
                 "type": "geo_shape",
                 "orientation": "counterclockwise",
@@ -60,7 +111,10 @@ INDEX_MAPPING = {
             "b1g_geodcat_spatialResolutionAsText_sm": {"type": "keyword"},
             "b1g_dct_provenanceStatement_sm": {"type": "keyword"},
             "b1g_adminTags_sm": {"type": "keyword"},
-            "summary": {"type": "text"},
+            "summary": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+            },
             # Spatial facet fields for faceting
             "geo_global": {"type": "boolean"},
             "geo_country": {"type": "keyword"},

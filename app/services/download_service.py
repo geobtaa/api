@@ -82,13 +82,17 @@ class DownloadService:
 
     def _parse_references(self) -> Dict:
         """Parse references from document."""
-        refs = self.document.get("dct_references_s", {})
+        refs = self.document.get("dct_references_s")
+        if not refs:
+            return {}
         if isinstance(refs, str):
             try:
                 return json.loads(refs)
             except json.JSONDecodeError:
                 return {}
-        return refs
+        if isinstance(refs, dict):
+            return refs
+        return {}
 
     def _get_direct_downloads(self) -> List[Dict]:
         """Get direct download URLs from schema.org references."""

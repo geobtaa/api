@@ -31,23 +31,22 @@ class TestStrongParams:
     def test_search_allowed_params_facet_filters(self):
         """Test that SEARCH_ALLOWED_PARAMS contains facet filter parameters."""
         # Check facet filter parameters
-        assert "fq[resource_class_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[resource_type_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[spatial_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[issued_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[index_year_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[language_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[creator_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[provider_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[access_rights_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[georeferenced_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[id_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[dct_resourceClass_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[gbl_resourceType_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[dct_spatial_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[gbl_indexYear_im][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[dct_language_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[dct_language_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[dct_creator_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[schema_provider_s][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[dct_accessRights_s][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[gbl_georeferenced_b][]" in SEARCH_ALLOWED_PARAMS
 
     def test_search_allowed_params_spatial_facets(self):
         """Test that SEARCH_ALLOWED_PARAMS contains spatial facet parameters."""
-        assert "fq[geo_country_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[geo_region_agg][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[geo_county_agg][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[geo_country][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[geo_region][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[geo_county][]" in SEARCH_ALLOWED_PARAMS
 
     def test_gazetteer_allowed_params_structure(self):
         """Test that GAZETTEER_ALLOWED_PARAMS contains expected parameters."""
@@ -139,16 +138,15 @@ class TestStrongParams:
             # Should have content between fq[ and ][]
             content = param[3:-2]  # Remove "fq[" and "][]"
             assert len(content) > 0
-            assert "_agg" in content, f"Facet parameter {param} should contain '_agg'"
 
     def test_spatial_facet_naming_consistency(self):
         """Test that spatial facet parameters follow consistent naming pattern."""
         spatial_params = [param for param in SEARCH_ALLOWED_PARAMS if "geo_" in param]
 
         expected_spatial_params = [
-            "fq[geo_country_agg][]",
-            "fq[geo_region_agg][]",
-            "fq[geo_county_agg][]",
+            "fq[geo_country][]",
+            "fq[geo_region][]",
+            "fq[geo_county][]",
         ]
 
         for expected_param in expected_spatial_params:
@@ -161,13 +159,9 @@ class TestStrongParams:
         for param in core_params:
             assert param in SEARCH_ALLOWED_PARAMS
 
-        # Facet filter parameters (should have _agg in name)
-        facet_params = [param for param in SEARCH_ALLOWED_PARAMS if "_agg" in param]
-        assert len(facet_params) > 10  # Should have many facet parameters
-
         # Spatial facet parameters
         spatial_params = [param for param in SEARCH_ALLOWED_PARAMS if "geo_" in param]
-        assert len(spatial_params) >= 3  # Should have geo_country, geo_region, geo_county
+        assert len(spatial_params) == 3  # Should have geo_country, geo_region, geo_county
 
     def test_gazetteer_params_minimal_but_complete(self):
         """Test that GAZETTEER_ALLOWED_PARAMS is minimal but covers essential functionality."""

@@ -33,8 +33,13 @@ class SearchService:
         page: int = 1,
         limit: int = 10,
         sort: Optional[str] = None,
+        search_fields: Optional[str] = None,
         request_query_params: Optional[str] = None,
         callback: Optional[str] = None,
+        facets: Optional[str] = None,
+        include_filters: Optional[Dict] = None,
+        exclude_filters: Optional[Dict] = None,
+        fq_direct: Optional[Dict] = None,
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
@@ -44,10 +49,22 @@ class SearchService:
             # Calculate skip from page/limit
             skip = (page - 1) * limit
 
-            # Get filter queries from request
-            filter_query = (
-                self.extract_filter_queries(request_query_params) if request_query_params else {}
-            )
+            # Get filter queries either from direct input (POST) or from request params (GET)
+            if fq_direct is not None:
+                filter_query = fq_direct
+            else:
+                filter_query = (
+                    self.extract_filter_queries(request_query_params)
+                    if request_query_params
+                    else {}
+                )
+
+            if include_filters is None or exclude_filters is None:
+                parsed_include, parsed_exclude = self.extract_new_style_filters(
+                    request_query_params
+                )
+                include_filters = include_filters if include_filters is not None else parsed_include
+                exclude_filters = exclude_filters if exclude_filters is not None else parsed_exclude
 
             # Get sort mapping
             sort_mapping = SORT_MAPPINGS.get(sort, None)
@@ -60,7 +77,14 @@ class SearchService:
                 skip=skip,
                 limit=limit,
                 sort=sort_mapping,
+                search_fields=search_fields,
+                include_filters=include_filters,
+                exclude_filters=exclude_filters,
+                facets=facets,
             )
+            # Defensive: ensure results is a dict
+            if not isinstance(results, dict):
+                results = {}
             es_time = (time.time() - es_start) * 1000
             timings["elasticsearch"] = f"{es_time:.0f}ms"
 
@@ -113,7 +137,7 @@ class SearchService:
             results["query_time"] = timings
 
             # Extract and add suggestions to meta if they exist
-            if "meta" in results and "suggestions" in results["meta"]:
+            if isinstance(results, dict) and "meta" in results and "suggestions" in results["meta"]:
                 results["meta"]["spelling_suggestions"] = results["meta"].pop("suggestions")
 
             # Sanitize the entire results object for JSON
@@ -301,12 +325,81 @@ class SearchService:
             "geo_county_agg": "geo_county",
         }
 
+        # Define allowed direct fields (the mapping values)
+        allowed_direct_fields = set(agg_to_field.values())
+
         for key, values in raw_params.items():
             if key.startswith("fq[") and key.endswith("][]"):
-                field = key[3:-3]  # Remove 'fq[' and '[]'
-                if field in agg_to_field:
-                    es_field = agg_to_field[field]
-                    if values:  # values is already a list from parse_qs
-                        filter_query[es_field] = values
+                # Allow aggregation aliases or direct ES fields; ignore unknown
+                name = key[3:-3]  # Remove 'fq[' and '[]'
+                if name in agg_to_field:
+                    es_field = agg_to_field[name]
+                elif name in allowed_direct_fields:
+                    es_field = name
+                else:
+                    continue
+                if values:
+                    filter_query[es_field] = values
+            elif key.startswith("fq[") and key.endswith("]"):
+                # Single value form fq[field]=value
+                name = key[3:-1]
+                if name in agg_to_field:
+                    es_field = agg_to_field[name]
+                elif name in allowed_direct_fields:
+                    es_field = name
+                else:
+                    continue
+                if values:
+                    filter_query[es_field] = values[0]
 
         return filter_query
+
+    def extract_new_style_filters(self, params: Optional[str]) -> tuple[Dict, Dict]:
+        """
+        Extract include/exclude filters passed as
+        include_filters[field][]= and exclude_filters[field][].
+        Also handles geospatial filters like include_filters[geo][type]=bbox.
+        """
+        include_filters: Dict[str, list] = {}
+        exclude_filters: Dict[str, list] = {}
+        if not params:
+            return include_filters, exclude_filters
+        raw_params = parse_qs(str(params))
+
+        # Handle geospatial filters
+        geo_filters = {}
+        for key, values in raw_params.items():
+            if key.startswith("include_filters[geo]["):
+                # Extract the geospatial parameter (e.g., "type", "field", "top_left[lat]")
+                geo_param = key[len("include_filters[geo][") : -1]  # Remove brackets
+                if geo_param not in geo_filters:
+                    geo_filters[geo_param] = values[0] if values else None
+                else:
+                    # Handle nested parameters like top_left[lat]
+                    if "[" in geo_param and "]" in geo_param:
+                        # This is a nested parameter like "top_left[lat]"
+                        parent_key = geo_param.split("[")[0]
+                        child_key = geo_param.split("[")[1].split("]")[0]
+                        if parent_key not in geo_filters:
+                            geo_filters[parent_key] = {}
+                        geo_filters[parent_key][child_key] = values[0] if values else None
+                    else:
+                        geo_filters[geo_param] = values[0] if values else None
+
+        # If we have geospatial filters, add them to include_filters
+        if geo_filters:
+            include_filters["geo"] = geo_filters
+
+        # Handle regular field filters
+        for key, values in raw_params.items():
+            if (
+                key.startswith("include_filters[")
+                and key.endswith("][]")
+                and not key.startswith("include_filters[geo][")
+            ):
+                field = key[len("include_filters[") : -len("][]")]
+                include_filters[field] = values
+            if key.startswith("exclude_filters[") and key.endswith("][]"):
+                field = key[len("exclude_filters[") : -len("][]")]
+                exclude_filters[field] = values
+        return include_filters, exclude_filters

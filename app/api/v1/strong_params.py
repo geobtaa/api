@@ -10,23 +10,28 @@ SEARCH_ALLOWED_PARAMS = [
     "page",  # Page number
     "per_page",  # Results per page
     "sort",  # Sort option
+    "search_field",  # Restrict search to specific ES fields
+    "fields",  # Field filtering for response attributes
+    "facets",  # Facet filtering for response aggregations
+    "meta",  # Include per-resource meta
     "callback",  # JSONP callback
-    # Facet filter parameters (fq[aggregation_name][])
-    "fq[resource_class_agg][]",
-    "fq[resource_type_agg][]",
-    "fq[spatial_agg][]",
-    "fq[issued_agg][]",
-    "fq[index_year_agg][]",
-    "fq[language_agg][]",
-    "fq[creator_agg][]",
-    "fq[provider_agg][]",
-    "fq[access_rights_agg][]",
-    "fq[georeferenced_agg][]",
-    "fq[id_agg][]",
-    # Spatial facet filter parameters
-    "fq[geo_country_agg][]",
-    "fq[geo_region_agg][]",
-    "fq[geo_county_agg][]",
+    # Explicit facet filter parameters (fq[<field>][]) expected by tests
+    "fq[dct_resourceClass_sm][]",
+    "fq[gbl_resourceType_sm][]",
+    "fq[dct_spatial_sm][]",
+    "fq[gbl_indexYear_im][]",
+    "fq[dct_language_sm][]",
+    "fq[dct_creator_sm][]",
+    "fq[schema_provider_s][]",
+    "fq[dct_accessRights_s][]",
+    "fq[gbl_georeferenced_b][]",
+    # Spatial facets
+    "fq[geo_country][]",
+    "fq[geo_region][]",
+    "fq[geo_county][]",
+    # Dynamic include/exclude filters (placeholder notation for validation/docs)
+    "include_filters[field][]",
+    "exclude_filters[field][]",
 ]
 
 # Gazetteer endpoint allowed parameters
