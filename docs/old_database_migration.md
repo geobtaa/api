@@ -50,6 +50,8 @@ Most fields map directly from `json_attributes` to the new column names. The fie
 |----------------------|---------------------|-------|
 | `id` | `id` | Direct mapping |
 | `title` | `dct_title_s` | Direct mapping |
+| `publication_state` | `publication_state` | Carried over from `kithe_models` column |
+| `import_id` | `import_id` | Carried over from `kithe_models` column |
 | All other fields | Same name | Mapped from json_attributes JSON |
 
 ### Array Fields
@@ -93,8 +95,8 @@ python db/migrations/bridge_old_production.py --create-view
 This will:
 - Create the `kithe_to_resources_bridge` materialized view
 - Extract fields from `json_attributes` JSON
-- Apply proper type casting (arrays, dates, booleans, etc.)
-- Filter for `type = 'Document'` records
+- Apply proper type casting (arrays, dates, booleans, JSON, etc.)
+- Filter for `type = 'Document'` records with `publication_state = 'published'`
 - Create an index on the `id` field
 - Populate the view with data
 
@@ -140,12 +142,12 @@ Review the output to ensure everything looks correct before running the actual i
 Run the actual import:
 
 ```bash
-python db/migrations/import_from_old_production.py --batch-size 1000 --conflict skip
+python db/migrations/import_from_old_production.py --batch-size 1000 --conflict update
 ```
 
 **Conflict handling options**:
-- `skip`: Skip records with duplicate IDs (recommended for initial import)
-- `update`: Update existing records with new data
+- `update`: Update existing records with incoming data (recommended so the old production values using `friendlier_id` take precedence)
+- `skip`: Skip records with duplicate IDs (useful for incremental loads when no overwrite is desired)
 - `fail`: Stop on first conflict
 
 **Expected output**:
@@ -161,7 +163,7 @@ Skipped: Z
 
 ### Step 6: Verify Import
 
-Verify the imported data:
+Verify the imported data and spot-check a sample:
 
 ```bash
 python db/migrations/import_from_old_production.py --verify
@@ -171,6 +173,7 @@ This will:
 - Compare record counts between old and new databases
 - Sample records and verify they match
 - Report any discrepancies
+- Log how many rows were updated versus newly inserted based on the conflict strategy
 
 ## Maintenance Operations
 
