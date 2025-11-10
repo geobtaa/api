@@ -167,11 +167,35 @@ reindex:
 
 # Index only missing resources (generate missing list, then index those IDs)
 index_missing_resources:
-	@echo "Generating missing resource list (published only) against Elasticsearch index $$ELASTICSEARCH_INDEX..."
-	@docker compose exec -T api bash -lc "ELASTICSEARCH_INDEX=$$ELASTICSEARCH_INDEX PUBLISHED_ONLY=1 USE_B1G_PUBLICATION_STATE=0 python scripts/diagnose_missing_resources.py"
-	@echo "Indexing missing resources from logs/missing_resource_ids.txt into $$ELASTICSEARCH_INDEX ..."
-	@docker compose exec -T api bash -lc "ELASTICSEARCH_INDEX=$$ELASTICSEARCH_INDEX python scripts/index_missing_resources.py"
-	@echo "Done. You can verify with: curl -s \"$$ELASTICSEARCH_URL/$$ELASTICSEARCH_INDEX/_count\" | jq .count"
+	@echo "Generating missing_resource_ids.txt (published only) for index $$ELASTICSEARCH_INDEX ..."
+	@docker compose exec -T api bash -lc '\
+		set -e; \
+		echo "Phase 1/3: diagnosing missing resources..."; \
+		ELASTICSEARCH_INDEX=$$ELASTICSEARCH_INDEX PUBLISHED_ONLY=1 USE_B1G_PUBLICATION_STATE=0 \
+		  python scripts/diagnose_missing_resources.py; \
+		echo "missing list path: logs/missing_resource_ids.txt"; \
+		if [ -f logs/missing_resource_ids.txt ]; then \
+		  echo "Missing IDs:"; wc -l logs/missing_resource_ids.txt || true; \
+		  head -20 logs/missing_resource_ids.txt || true; \
+		else \
+		  echo "No missing list produced (file not found)."; \
+		fi'
+	@echo "Indexing any missing resources found into $$ELASTICSEARCH_INDEX ..."
+	@docker compose exec -T api bash -lc '\
+		set -e; \
+		echo "Phase 2/3: indexing missing resources..."; \
+		ELASTICSEARCH_INDEX=$$ELASTICSEARCH_INDEX python scripts/index_missing_resources.py'
+	@echo "Verifying index document count..."
+	@docker compose exec -T api bash -lc '\
+		set -e; \
+		echo "Phase 3/3: verifying counts..."; \
+		echo "Index: $${ELASTICSEARCH_INDEX:-btaa_data_api}"; \
+		curl -s "$${ELASTICSEARCH_URL}/$${ELASTICSEARCH_INDEX}/_count" || true; \
+		echo; \
+		curl -s -H "Content-Type: application/json" -X POST \
+		  "$${ELASTICSEARCH_URL}/$${ELASTICSEARCH_INDEX}/_count" \
+		  --data-binary '\''{"query":{"term":{"publication_state":{"value":"published"}}}}'\'' || true; \
+		echo'
 
 # Cache management
 clear_cache:
