@@ -165,6 +165,14 @@ reindex:
 	@echo "Reindexing all resources into Elasticsearch..."
 	@docker compose exec -T api bash -lc "python scripts/reindex_all_resources.py"
 
+# Index only missing resources (generate missing list, then index those IDs)
+index_missing_resources:
+	@echo "Generating missing resource list (published only) against Elasticsearch index $$ELASTICSEARCH_INDEX..."
+	@docker compose exec -T api bash -lc "ELASTICSEARCH_INDEX=$$ELASTICSEARCH_INDEX PUBLISHED_ONLY=1 USE_B1G_PUBLICATION_STATE=0 python scripts/diagnose_missing_resources.py"
+	@echo "Indexing missing resources from logs/missing_resource_ids.txt into $$ELASTICSEARCH_INDEX ..."
+	@docker compose exec -T api bash -lc "ELASTICSEARCH_INDEX=$$ELASTICSEARCH_INDEX python scripts/index_missing_resources.py"
+	@echo "Done. You can verify with: curl -s \"$$ELASTICSEARCH_URL/$$ELASTICSEARCH_INDEX/_count\" | jq .count"
+
 # Cache management
 clear_cache:
 	@if [ -z "$(REDIS_PASSWORD)" ]; then \
