@@ -2,11 +2,15 @@ import logging
 import sys
 import os
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+import ast
+from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
+
+import json
 
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.dialects.postgresql import ARRAY
 
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
@@ -94,33 +98,39 @@ def validate_materialized_view():
         return False
 
 
-def get_resource_column_names():
+def get_resource_column_metadata():
     """
-    Get all column names from the resources table in the new database.
-    
+    Get column metadata (names and array detection) from the resources table.
+
     Returns:
-        List[str]: List of column names
+        Tuple[List[str], Set[str]]: List of column names and set of array column names
     """
-    logger.info("Getting resource table column names...")
-    
+    logger.info("Getting resource table column metadata...")
+
     try:
         engine = get_new_db_connection()
         inspector = inspect(engine)
-        
-        # Check if table exists
+
         if not inspector.has_table("resources"):
             logger.error("Resources table does not exist in new database")
-            return []
-        
+            return [], set()
+
         columns = inspector.get_columns("resources")
-        column_names = [col['name'] for col in columns]
-        
-        logger.info(f"✓ Found {len(column_names)} columns in resources table")
-        return column_names
-        
+        column_names = []
+        array_columns = set()
+
+        for col in columns:
+            name = col["name"]
+            column_names.append(name)
+            if isinstance(col.get("type"), ARRAY):
+                array_columns.add(name)
+
+        logger.info(f"✓ Found {len(column_names)} columns, {len(array_columns)} array columns")
+        return column_names, array_columns
+
     except Exception as e:
-        logger.error(f"Error getting column names: {e}")
-        return []
+        logger.error(f"Error getting column metadata: {e}")
+        return [], set()
 
 
 def get_json_column_names():
@@ -164,8 +174,8 @@ def import_data(dry_run: bool = False, batch_size: int = 1000, conflict_action: 
     if not validate_materialized_view():
         return
     
-    # Get column names from new database
-    new_columns = get_resource_column_names()
+    # Get column names and type metadata from new database
+    new_columns, array_columns = get_resource_column_metadata()
     if not new_columns:
         logger.error("Cannot proceed without column names")
         return
@@ -217,7 +227,7 @@ def import_data(dry_run: bool = False, batch_size: int = 1000, conflict_action: 
             # Import batch to new database
             if not dry_run:
                 batch_imported, batch_skipped, batch_errors = _import_batch(
-                    new_engine, batch_records, new_columns, conflict_action
+                    new_engine, batch_records, new_columns, array_columns, json_columns, conflict_action
                 )
                 imported_count += batch_imported
                 skipped_count += batch_skipped
@@ -256,7 +266,14 @@ def import_data(dry_run: bool = False, batch_size: int = 1000, conflict_action: 
         raise
 
 
-def _import_batch(engine, records: List[Dict], column_names: List[str], conflict_action: str) -> tuple:
+def _import_batch(
+    engine,
+    records: List[Dict],
+    column_names: List[str],
+    array_columns: Set[str],
+    json_columns: List[str],
+    conflict_action: str,
+) -> tuple:
     """
     Import a batch of records to the new database.
     
@@ -276,7 +293,25 @@ def _import_batch(engine, records: List[Dict], column_names: List[str], conflict
     # Filter records to only include columns that exist in target table
     filtered_records = []
     for record in records:
-        filtered_record = {k: v for k, v in record.items() if k in column_names}
+        filtered_record: Dict[str, Any] = {}
+        for column in column_names:
+            value = record.get(column)
+            filtered_record[column] = _normalize_column_value(
+                column, value, array_columns, json_columns
+            )
+        for column, normalized_value in filtered_record.items():
+            if isinstance(normalized_value, dict):
+                logger.error(
+                    "Unconverted dict encountered",
+                    extra={
+                        "resource_id": record.get("id"),
+                        "column": column,
+                        "value": normalized_value,
+                    },
+                )
+                raise ValueError(
+                    f"Column '{column}' for resource '{record.get('id')}' still contains a dict"
+                )
         filtered_records.append(filtered_record)
     
     # Quote all column names to preserve mixed-case identifiers
@@ -325,6 +360,131 @@ def _import_batch(engine, records: List[Dict], column_names: List[str], conflict
         errors.append(f"Error importing batch: {str(e)}")
     
     return imported_count, skipped_count, errors
+
+
+def _normalize_array_item(item: Any) -> Any:
+    """Normalize individual items destined for array columns."""
+    if item is None:
+        return None
+    if isinstance(item, dict):
+        try:
+            return json.dumps(item)
+        except (TypeError, ValueError):
+            return str(item)
+    if isinstance(item, (list, tuple)):
+        flattened = [str(sub) for sub in item if sub is not None]
+        return "; ".join(flattened) if flattened else None
+    return item
+
+
+def _normalize_column_value(
+    column: str,
+    value: Any,
+    array_columns: Set[str],
+    json_columns: List[str],
+) -> Any:
+    """Normalize record values before inserting into the resources table."""
+    if value is None:
+        return None
+
+    if column in json_columns:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped in ("", "null"):
+                return None
+            try:
+                return json.loads(stripped)
+            except json.JSONDecodeError:
+                return value
+        return value
+
+    if column in array_columns:
+        if isinstance(value, list):
+            normalized_items = []
+            for item in value:
+                normalized_items.append(_normalize_array_item(item))
+            return normalized_items
+        if isinstance(value, tuple):
+            normalized_items = []
+            for item in value:
+                normalized_items.append(_normalize_array_item(item))
+            return normalized_items
+        if isinstance(value, dict):
+            try:
+                return [json.dumps(value)]
+            except (TypeError, ValueError):
+                return [str(value)]
+        if isinstance(value, str):
+            stripped = value.strip()
+            if stripped == "":
+                return None
+            # Attempt to deserialize JSON-style arrays
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                try:
+                    parsed = ast.literal_eval(stripped)
+                    if isinstance(parsed, (list, tuple)):
+                        return list(parsed)
+                except (ValueError, SyntaxError):
+                    pass
+            return [stripped]
+        return [value]
+
+    # Scalar column
+    if isinstance(value, list):
+        if len(value) == 0:
+            return None
+        if len(value) == 1:
+            return value[0]
+        return "; ".join(str(v) for v in value)
+
+    if isinstance(value, tuple):
+        if len(value) == 0:
+            return None
+        if len(value) == 1:
+            return value[0]
+        return "; ".join(str(v) for v in value)
+
+    if isinstance(value, dict):
+        try:
+            return json.dumps(value)
+        except (TypeError, ValueError):
+            return str(value)
+
+    if isinstance(value, str):
+        stripped = value.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            if "{" in stripped or "}" in stripped:
+                return stripped
+            try:
+                parsed = ast.literal_eval(stripped)
+                if isinstance(parsed, list):
+                    if len(parsed) == 0:
+                        return ""
+                    if len(parsed) == 1:
+                        return parsed[0]
+                    return "; ".join(str(v) for v in parsed)
+            except (ValueError, SyntaxError):
+                pass
+        if stripped.startswith("(") and stripped.endswith(")"):
+            if "{" in stripped or "}" in stripped:
+                return stripped
+            try:
+                parsed = ast.literal_eval(stripped)
+                if isinstance(parsed, tuple):
+                    if len(parsed) == 0:
+                        return ""
+                    if len(parsed) == 1:
+                        return parsed[0]
+                    return "; ".join(str(v) for v in parsed)
+            except (ValueError, SyntaxError):
+                pass
+        return value
+
+    return value
 
 
 def verify_import():

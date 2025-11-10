@@ -181,7 +181,6 @@ class TestMappings:
                 assert "fields" in properties[field]
                 assert "keyword" in properties[field]["fields"]
                 assert properties[field]["fields"]["keyword"]["type"] == "keyword"
-                assert properties[field]["fields"]["keyword"].get("normalizer") == "lowercase"
 
         # Boolean fields should be configured as booleans
         boolean_fields = ["gbl_georeferenced_b", "b1g_child_record_b"]

@@ -97,9 +97,8 @@ class TestCitationServiceURLMethods:
         service = CitationService(document)
         url = service._get_url()
 
-        # The current implementation only handles JSON strings, not dictionaries
-        # So this should return None
-        assert url is None
+        # Application now supports dict references as well
+        assert url == "http://example.com/document"
 
     def test_get_url_with_invalid_json(self):
         """Test getting URL with invalid JSON in references."""

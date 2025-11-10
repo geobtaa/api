@@ -50,6 +50,10 @@ services:
       - cluster.routing.allocation.disk.watermark.low=85%
       - cluster.routing.allocation.disk.watermark.high=90%
       - cluster.routing.allocation.disk.watermark.flood_stage=95%
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "127.0.0.1:9200:9200"
     volumes:
@@ -68,6 +72,10 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_DB=btaa_ogm_api
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     ports:
       - "127.0.0.1:2345:5432"
     volumes:

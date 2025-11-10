@@ -57,7 +57,9 @@ def add_missing_fields_for_migration():
             for field_name, field_type in additional_fields:
                 try:
                     # Try to add the column - PostgreSQL will error if it already exists
-                    conn.execute(text(f"ALTER TABLE resources ADD COLUMN {field_name} {field_type}"))
+                    conn.execute(
+                        text(f'ALTER TABLE resources ADD COLUMN "{field_name}" {field_type}')
+                    )
                     conn.commit()
                     logger.info(f"Added column {field_name} to resources table")
                 except Exception as e:

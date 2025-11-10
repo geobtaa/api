@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex clear_cache
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -156,3 +156,20 @@ db-import:
 # Export and import in one command
 db-sync: db-export db-import
 	@echo "Database sync complete!"
+
+# Search indexing tasks
+# ─────────────────────────────────────────────────────────────────────────
+
+# Reindex all resources into Elasticsearch
+reindex:
+	@echo "Reindexing all resources into Elasticsearch..."
+	@docker compose exec -T api bash -lc "python scripts/reindex_all_resources.py"
+
+# Cache management
+clear_cache:
+	@if [ -z "$(REDIS_PASSWORD)" ]; then \
+		echo "ERROR: REDIS_PASSWORD is not set. Populate it in your .env file."; \
+		exit 1; \
+	fi
+	@echo "Flushing Redis cache (database $(if $(REDIS_DB),$(REDIS_DB),0))..."
+	@docker compose exec -T redis redis-cli -a "$(REDIS_PASSWORD)" -n $(if $(REDIS_DB),$(REDIS_DB),0) FLUSHDB

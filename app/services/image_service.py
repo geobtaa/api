@@ -3,12 +3,17 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import aiohttp
 import redis
 import requests
 from dotenv import load_dotenv
+
+from app.services.distribution_repository import (
+    DistributionContext,
+    build_distribution_context,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -19,7 +24,11 @@ logger = logging.getLogger(__name__)
 class ImageService:
     """Service for handling different types of image assets."""
 
-    def __init__(self, metadata: Dict[str, Any]):
+    def __init__(
+        self,
+        metadata: Dict[str, Any],
+        distribution_context: Optional[DistributionContext] = None,
+    ):
         """
         Initialize the image service with document metadata.
 
@@ -27,6 +36,10 @@ class ImageService:
             metadata: Document metadata dictionary
         """
         self.metadata = metadata
+        if distribution_context is None:
+            distribution_context = build_distribution_context(metadata.get("id", ""), [])
+        self.distribution_context = distribution_context
+        self.by_uri = distribution_context.by_uri
 
         # Setup Redis connection
         self.redis_host = os.getenv("REDIS_HOST", "redis")
@@ -220,20 +233,8 @@ class ImageService:
             if not doc_id:
                 return None
 
-            # Parse references if needed
-            references = self.metadata.get("dct_references_s", {})
-            if isinstance(references, str):
-                try:
-                    references = json.loads(references)
-                except json.JSONDecodeError:
-                    logger.error("Failed to parse references JSON")
-                    return None
-
-            if not isinstance(references, dict):
-                return None
-
             # Determine the source thumbnail URL without making external calls
-            thumbnail_url = self._get_thumbnail_source_url(references)
+            thumbnail_url = self._get_thumbnail_source_url()
 
             if thumbnail_url:
                 # For manifest URLs, we can't check cache yet since we don't know the resolved URL
@@ -252,7 +253,9 @@ class ImageService:
                             return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
                     except Exception as e:
                         # If Redis is unavailable, fall back to non-cached behavior
-                        self.logger.warning(f"Redis unavailable while checking cache for {doc_id}: {e}")
+                        self.logger.warning(
+                            f"Redis unavailable while checking cache for {doc_id}: {e}"
+                        )
 
                 # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
                 # The Celery worker will handle validation and caching
@@ -268,29 +271,23 @@ class ImageService:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
             return None
 
-    def _get_thumbnail_source_url(self, references: Dict) -> Optional[str]:
+    def _get_thumbnail_source_url(
+        self, references: Optional[Dict[str, Any]] = None
+    ) -> Optional[str]:
         """
         Extract thumbnail source URL from references without making external calls.
         This method only does local string processing - no HTTP requests.
         """
         # Check for direct thumbnail URL first (support http and https keys)
         for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
-            if thumb_key in references:
-                thumbnail_url = references[thumb_key]
-                if isinstance(thumbnail_url, list) and thumbnail_url:
-                    return thumbnail_url[0]
-                return thumbnail_url
+            if url := self._first_url(thumb_key, references=references):
+                return url
 
         # Check for IIIF thumbnail URL
-        if any(k in references for k in ("http://iiif.io/api/image", "https://iiif.io/api/image")):
-            iiif_key = (
-                "http://iiif.io/api/image"
-                if "http://iiif.io/api/image" in references
-                else "https://iiif.io/api/image"
-            )
-            iiif_url = references[iiif_key]
-            if isinstance(iiif_url, list) and iiif_url:
-                iiif_url = iiif_url[0]
+        for iiif_key in ("http://iiif.io/api/image", "https://iiif.io/api/image"):
+            iiif_url = self._first_url(iiif_key, references=references)
+            if not iiif_url:
+                continue
 
             # Transform ContentDM IIIF URLs
             if "contentdm.oclc.org" in iiif_url:
@@ -300,7 +297,7 @@ class ImageService:
                 if match:
                     collection, item_id = match.groups()
                     return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}/full/200,/0/default.jpg"
-                
+
                 # Pattern 2: /iiif/collection:id/manifest.json or /iiif/collection:id/
                 match = re.search(r"/iiif/([^/]+)/", iiif_url)
                 if match:
@@ -312,16 +309,14 @@ class ImageService:
 
         # Check for IIIF Manifest - only extract URL, don't fetch manifest
         # Prefer explicit manifest relation keys (http and https)
-        manifest_url = (
-            references.get("http://iiif.io/api/presentation#manifest")
-            or references.get("https://iiif.io/api/presentation#manifest")
-            or references.get("https://iiif.io/api/presentation/2/context.json")
-        )
+        manifest_url = self._first_url(
+            "http://iiif.io/api/presentation#manifest", references=references
+        ) or self._first_url("https://iiif.io/api/presentation#manifest", references=references)
 
         # If not found, scan values for common manifest endings
         if not manifest_url:
-            for value in references.values():
-                if isinstance(value, str) and (
+            for value in self._all_reference_urls(references=references):
+                if (
                     value.endswith(
                         ("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json")
                     )
@@ -334,7 +329,7 @@ class ImageService:
                         if match:
                             collection_item = match.group(1)
                             return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/200,/0/default.jpg"
-                    
+
                     manifest_url = value
                     break
 
@@ -346,19 +341,18 @@ class ImageService:
             return manifest_url
 
         # Check for ESRI services
-        if "urn:x-esri:serviceType:ArcGIS#ImageMapLayer" in references:
-            viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#ImageMapLayer"]
-            return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-        if "urn:x-esri:serviceType:ArcGIS#TiledMapLayer" in references:
-            viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#TiledMapLayer"]
-            return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
-        if "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer" in references:
-            viewer_endpoint = references["urn:x-esri:serviceType:ArcGIS#DynamicMapLayer"]
-            return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
+        for esri_uri in (
+            "urn:x-esri:serviceType:ArcGIS#ImageMapLayer",
+            "urn:x-esri:serviceType:ArcGIS#TiledMapLayer",
+            "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer",
+        ):
+            if viewer_endpoint := self._first_url(esri_uri, references=references):
+                return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
 
         # Check for WMS
-        if "http://www.opengis.net/def/serviceType/ogc/wms" in references:
-            wms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/wms"]
+        if wms_endpoint := self._first_url(
+            "http://www.opengis.net/def/serviceType/ogc/wms", references=references
+        ):
             width = 200
             height = 200
             layers = self.metadata.get("gbl_wxsidentifier_s", "")
@@ -372,8 +366,9 @@ class ImageService:
             )
 
         # Check for TMS
-        if "http://www.opengis.net/def/serviceType/ogc/tms" in references:
-            tms_endpoint = references["http://www.opengis.net/def/serviceType/ogc/tms"]
+        if tms_endpoint := self._first_url(
+            "http://www.opengis.net/def/serviceType/ogc/tms", references=references
+        ):
             return f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
 
         return None
@@ -386,6 +381,55 @@ class ImageService:
             url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json"))
             or "/manifest" in url
         )
+
+    def _first_url(self, uri: str, references: Optional[Dict[str, Any]] = None) -> Optional[str]:
+        # Prefer distribution context if available and no explicit references provided
+        if references is None:
+            records = self.by_uri.get(uri, [])
+            if records:
+                return records[0].url
+        else:
+            # If explicit references are provided, consult those first
+            val = references.get(uri)
+            if isinstance(val, str):
+                return val
+            if isinstance(val, list) and val:
+                first = val[0]
+                if isinstance(first, str):
+                    return first
+                if isinstance(first, dict):
+                    return first.get("url") or first.get("@id") or first.get("id")
+            if isinstance(val, dict):
+                return val.get("url") or val.get("@id") or val.get("id")
+            # If not found in provided references, fall back to distribution context
+            records = self.by_uri.get(uri, [])
+            if records:
+                return records[0].url
+        return None
+
+    def _all_reference_urls(self, references: Optional[Dict[str, Any]] = None) -> List[str]:
+        urls: List[str] = []
+        if references is not None:
+            for val in references.values():
+                if isinstance(val, str):
+                    urls.append(val)
+                elif isinstance(val, list):
+                    for item in val:
+                        if isinstance(item, str):
+                            urls.append(item)
+                        elif isinstance(item, dict):
+                            u = item.get("url") or item.get("@id") or item.get("id")
+                            if u:
+                                urls.append(u)
+                elif isinstance(val, dict):
+                    u = val.get("url") or val.get("@id") or val.get("id")
+                    if u:
+                        urls.append(u)
+        else:
+            for records in self.by_uri.values():
+                for record in records:
+                    urls.append(record.url)
+        return urls
 
     def _queue_thumbnail_processing(self, thumbnail_url: str, doc_id: str) -> None:
         """

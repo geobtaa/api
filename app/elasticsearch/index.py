@@ -6,6 +6,8 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+from shapely import wkt as shapely_wkt
+from shapely.geometry import mapping as shapely_mapping
 
 from db.database import database
 from db.models import resources
@@ -171,11 +173,9 @@ async def process_resource(resource_dict):
             processed_dict[key] = _coerce_integer_or_list(value)
         elif key in boolean_fields:
             processed_dict[key] = _coerce_boolean(value)
-        elif key == "dct_references_s" and value:
-            try:
-                processed_dict[key] = json.loads(value)
-            except json.JSONDecodeError:
-                processed_dict[key] = value
+        elif key == "dct_references_s":
+            # Legacy field deprecated in favor of resource_distributions
+            continue
         # Handle geometry fields
         elif key in ["locn_geometry", "dcat_bbox", "dcat_centroid"]:
             # Store original string value
@@ -203,7 +203,11 @@ async def process_resource(resource_dict):
                     # geo_shape fields expect a GeoJSON-like dict
                     if processed_geometry:
                         if "type" in processed_geometry:
-                            processed_geometry["type"] = processed_geometry["type"].capitalize()
+                            normalized_type = _normalize_geojson_type(
+                                processed_geometry.get("type")
+                            )
+                            if normalized_type:
+                                processed_geometry["type"] = normalized_type
                         processed_dict[key] = processed_geometry
                     else:
                         processed_dict[key] = None
@@ -407,14 +411,123 @@ async def get_spatial_facets(resource_id):
         return None
 
 
+def _convert_tuples_to_lists(value):
+    """Recursively convert tuples to lists and coerce numeric strings to floats."""
+    if isinstance(value, dict):
+        return {key: _convert_tuples_to_lists(val) for key, val in value.items()}
+    if isinstance(value, tuple):
+        return [_convert_tuples_to_lists(v) for v in value]
+    if isinstance(value, list):
+        return [_convert_tuples_to_lists(v) for v in value]
+    if isinstance(value, str):
+        stripped = value.strip()
+        try:
+            return float(stripped)
+        except (TypeError, ValueError):
+            return value
+    return value
+
+
+def _normalize_geojson_type(type_name):
+    """Normalize GeoJSON type casing."""
+    if not isinstance(type_name, str):
+        return None
+    mapping_table = {
+        "point": "Point",
+        "polygon": "Polygon",
+        "multipolygon": "MultiPolygon",
+        "linestring": "LineString",
+        "multilinestring": "MultiLineString",
+        "envelope": "Envelope",
+    }
+    lower = type_name.lower()
+    return mapping_table.get(lower, type_name)
+
+
+def _normalize_geojson_geometry(geometry_dict):
+    """Validate and normalize a GeoJSON-like geometry dictionary."""
+    if not isinstance(geometry_dict, dict):
+        return None
+
+    normalized = _convert_tuples_to_lists(geometry_dict)
+    geom_type = _normalize_geojson_type(normalized.get("type"))
+    coords = normalized.get("coordinates")
+
+    if not geom_type or coords is None:
+        return None
+
+    geom_type_lower = geom_type.lower()
+
+    if geom_type_lower == "point":
+        if isinstance(coords, list) and len(coords) >= 2:
+            coords = [coords[0], coords[1]]
+        elif isinstance(coords, (tuple, set)) and len(coords) >= 2:
+            coords = [coords[0], coords[1]]
+        else:
+            return None
+
+        try:
+            coords = [float(coords[0]), float(coords[1])]
+        except (TypeError, ValueError):
+            return None
+
+        if not _is_valid_point(coords):
+            logger.warning(f"Invalid point coordinates: {coords} - skipping")
+            return None
+
+        return {"type": "Point", "coordinates": coords}
+
+    if geom_type_lower == "polygon":
+        if not _is_valid_polygon_coordinates(coords, "polygon"):
+            logger.warning(f"Invalid polygon coordinates: {coords} - skipping")
+            return None
+        return {"type": "Polygon", "coordinates": coords}
+
+    if geom_type_lower == "multipolygon":
+        if not _is_valid_polygon_coordinates(coords, "multipolygon"):
+            logger.warning(f"Invalid multipolygon coordinates: {coords} - skipping")
+            return None
+        return {"type": "MultiPolygon", "coordinates": coords}
+
+    return None
+
+
+def _convert_bbox_string_to_envelope(geometry):
+    """Handle bbox strings formatted as 'minx,miny,maxx,maxy'."""
+    parts = [p.strip() for p in geometry.split(",")]
+    if len(parts) != 4:
+        return None
+    try:
+        minx, miny, maxx, maxy = map(float, parts)
+    except ValueError:
+        return None
+
+    normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
+    if normalized_geom is None:
+        logger.error(f"Invalid bbox {geometry}: {error_msg} - skipping")
+    return normalized_geom
+
+
+def _shape_to_geojson(shape):
+    """Convert a Shapely geometry to a GeoJSON-like dict."""
+    if shape is None or shape.is_empty:
+        return None
+
+    geojson = shapely_mapping(shape)
+    normalized = _normalize_geojson_geometry(geojson)
+    return normalized
+
+
 def process_geometry(geometry):
     """Process geometry for Elasticsearch with validation."""
     if not geometry:
         return None
 
     try:
-        # Try to parse as GeoJSON
         if isinstance(geometry, str):
+            original_value = geometry
+            geometry = geometry.strip()
+
             # Check if it's an ENVELOPE format (case insensitive)
             envelope_match = re.match(
                 r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)",
@@ -434,31 +547,46 @@ def process_geometry(geometry):
 
                 return normalized_geom
 
+            # Handle simple comma-delimited centroid/bbox strings
+            bbox_geom = _convert_bbox_string_to_envelope(geometry)
+            if bbox_geom:
+                return bbox_geom
+
+            # Handle simple coordinate pair (lat, lon)
+            coordinate_pair_match = re.match(
+                r"^\s*([-+]?\d*\.?\d+)\s*,\s*([-+]?\d*\.?\d+)\s*$", geometry
+            )
+            if coordinate_pair_match:
+                lat = float(coordinate_pair_match.group(1))
+                lon = float(coordinate_pair_match.group(2))
+                # Store as Point in lon, lat order for GeoJSON/ES
+                point_coords = [lon, lat]
+                if not _is_valid_point(point_coords):
+                    logger.warning(f"Invalid point coordinates: {point_coords} - skipping")
+                    return None
+                return {"type": "Point", "coordinates": point_coords}
+
+            # Try to parse as WKT using Shapely
+            try:
+                shapely_geom = shapely_wkt.loads(geometry)
+            except Exception:
+                shapely_geom = None
+
+            if shapely_geom:
+                geojson = _shape_to_geojson(shapely_geom)
+                if geojson:
+                    return geojson
+
             # Try to parse as JSON
             try:
                 geometry = json.loads(geometry)
             except json.JSONDecodeError:
+                logger.debug(f"Unable to parse geometry string '{original_value}' as JSON/WKT")
                 return None
 
-        # Handle different geometry types
         if isinstance(geometry, dict):
-            geom_type = geometry.get("type", "").lower()
-            if geom_type == "point":
-                coords = geometry.get("coordinates", [0, 0])
-                if not _is_valid_point(coords):
-                    logger.warning(f"Invalid point coordinates: {coords} - skipping")
-                    return None
-                return {"type": "point", "coordinates": coords}
-            elif geom_type in ["polygon", "multipolygon"]:
-                coords = geometry.get("coordinates")
-                if not _is_valid_polygon_coordinates(coords, geom_type):
-                    logger.warning(f"Invalid {geom_type} coordinates: {coords} - skipping")
-                    return None
-                return {"type": geom_type, "coordinates": coords}
-            else:
-                return None
-        else:
-            return None
+            normalized = _normalize_geojson_geometry(geometry)
+            return normalized
 
     except Exception as e:
         logger.warning(f"Error processing geometry {geometry}: {e} - skipping")

@@ -52,16 +52,16 @@ RESOURCE_FIELDS = [
     
     # BTAA-specific fields
     "b1g_code_s", "b1g_status_s", "b1g_dct_accrualMethod_s", "b1g_dct_accrualPeriodicity_s",
-    "b1g_dateAccessioned_s", "b1g_dateaccessioned_sm", "b1g_dateRetired_s", "b1g_child_record_b", 
+    "b1g_dateAccessioned_s", "b1g_dateAccessioned_sm", "b1g_dateRetired_s", "b1g_child_record_b", 
     "b1g_dct_mediator_sm", "b1g_access_s", "b1g_image_ss", "b1g_geonames_sm", 
     "b1g_publication_state_s", "b1g_language_sm", "b1g_creatorID_sm", "b1g_dct_conformsTo_sm",
     "b1g_dcat_spatialResolutionInMeters_sm", "b1g_geodcat_spatialResolutionAsText_sm",
     "b1g_dct_provenanceStatement_sm", "b1g_adminTags_sm",
     
     # Additional BTAA fields for migration
-    "b1g_adms_supportedschema_sm", "b1g_dcat_endpointdescription_s", "b1g_dcat_endpointurl_s",
-    "b1g_dcat_inseries_sm", "b1g_localcollectionlabel_sm", "b1g_prov_softwareagent_sm",
-    "b1g_prov_wasgeneratedby_sm", "date_created_dtsi", "date_modified_dtsi", "geomg_id_s",
+    "b1g_adms_supportedSchema_sm", "b1g_dcat_endpointDescription_s", "b1g_dcat_endpointURL_s",
+    "b1g_dcat_inSeries_sm", "b1g_localCollectionLabel_sm", "b1g_prov_softwareAgent_sm",
+    "b1g_prov_wasGeneratedBy_sm", "date_created_dtsi", "date_modified_dtsi", "geomg_id_s",
     "publication_state", "import_id",
 ]
 
@@ -77,8 +77,8 @@ ARRAY_FIELDS = {
     "b1g_language_sm", "b1g_creatorID_sm", "b1g_dct_conformsTo_sm",
     "b1g_dcat_spatialResolutionInMeters_sm", "b1g_geodcat_spatialResolutionAsText_sm",
     "b1g_dct_provenanceStatement_sm", "b1g_adminTags_sm",
-    "b1g_dateaccessioned_sm", "b1g_adms_supportedschema_sm", "b1g_dcat_inseries_sm",
-    "b1g_localcollectionlabel_sm", "b1g_prov_softwareagent_sm", "b1g_prov_wasgeneratedby_sm",
+    "b1g_dateAccessioned_sm", "b1g_adms_supportedSchema_sm", "b1g_dcat_inSeries_sm",
+    "b1g_localCollectionLabel_sm", "b1g_prov_softwareAgent_sm", "b1g_prov_wasGeneratedBy_sm",
 }
 
 INTEGER_ARRAY_FIELDS = {
