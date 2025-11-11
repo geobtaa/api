@@ -1,7 +1,11 @@
-import json
 import logging
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
+from app.services.distribution_repository import (
+    DistributionContext,
+    build_distribution_context,
+    fetch_distribution_context,
+)
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -10,7 +14,11 @@ logger = logging.getLogger(__name__)
 class LinkService:
     """Service for handling resource links."""
 
-    def __init__(self, resource_dict: Dict[str, Any]):
+    def __init__(
+        self,
+        resource_dict: Dict[str, Any],
+        distribution_context: Optional[DistributionContext] = None,
+    ):
         """
         Initialize the link service with resource data.
 
@@ -18,6 +26,11 @@ class LinkService:
             resource_dict: The resource data from the database
         """
         self.resource_dict = resource_dict
+        if distribution_context is None:
+            distribution_context = build_distribution_context(resource_dict.get("id", ""), [])
+        self.distribution_context = distribution_context
+        self.by_uri = distribution_context.by_uri
+        self._legacy_refs_cache: Optional[Dict[str, Any]] = None
 
     def get_links(self) -> Dict[str, List[Dict[str, str]]]:
         """
@@ -56,12 +69,7 @@ class LinkService:
         return links
 
     def _get_source_links(self) -> List[Dict[str, str]]:
-        """
-        Get the "Visit Source" links from dct_references_s.
-
-        Returns:
-            List of link dictionaries with 'label' and 'url' keys
-        """
+        """Get the “Visit Source” links derived from resource distributions."""
         links = []
         try:
             references = self._parse_references()
@@ -75,83 +83,60 @@ class LinkService:
         return links
 
     def _get_web_services_links(self) -> List[Dict[str, str]]:
-        """
-        Get the "Web Services" links from dct_references_s for various web services.
-
-        Returns:
-            List of link dictionaries with 'label' and 'url' keys
-        """
+        """Get the “Web Services” links derived from resource distributions."""
         links = []
         try:
-            references = self._parse_references()
-
-            # IIIF Image API
-            iiif_url = references.get("http://iiif.io/api/image")
-            if iiif_url:
+            if iiif_url := self._first_url("http://iiif.io/api/image"):
                 links.append({"label": "IIIF Image API", "url": iiif_url})
 
             # IIIF Presentation API
-            iiif_manifest_url = references.get("http://iiif.io/api/presentation#manifest")
-            if iiif_manifest_url:
+            if iiif_manifest_url := self._first_url("http://iiif.io/api/presentation#manifest"):
                 links.append({"label": "IIIF Manifest", "url": iiif_manifest_url})
 
             # IIIF Annotation
-            iiif_annotation_url = references.get(
+            if iiif_annotation_url := self._first_url(
                 "https://iiif.io/api/extension/georef/1/context.json"
-            )
-            if iiif_annotation_url:
+            ):
                 links.append({"label": "IIIF Annotation", "url": iiif_annotation_url})
 
             # OGC Services
-            wms_url = references.get("http://www.opengis.net/def/serviceType/ogc/wms")
-            if wms_url:
-                links.append({"label": "Web Mapping Service (WMS)", "url": wms_url})
-
-            wfs_url = references.get("http://www.opengis.net/def/serviceType/ogc/wfs")
-            if wfs_url:
-                links.append({"label": "Web Feature Service (WFS)", "url": wfs_url})
-
-            wcs_url = references.get("http://www.opengis.net/def/serviceType/ogc/wcs")
-            if wcs_url:
-                links.append({"label": "Web Coverage Service (WCS)", "url": wcs_url})
-
-            wmts_url = references.get("http://www.opengis.net/def/serviceType/ogc/wmts")
-            if wmts_url:
-                links.append({"label": "Web Map Tile Service (WMTS)", "url": wmts_url})
+            service_map = {
+                "http://www.opengis.net/def/serviceType/ogc/wms": "Web Mapping Service (WMS)",
+                "http://www.opengis.net/def/serviceType/ogc/wfs": "Web Feature Service (WFS)",
+                "http://www.opengis.net/def/serviceType/ogc/wcs": "Web Coverage Service (WCS)",
+                "http://www.opengis.net/def/serviceType/ogc/wmts": "Web Map Tile Service (WMTS)",
+            }
+            for uri, label in service_map.items():
+                if url := self._first_url(uri):
+                    links.append({"label": label, "url": url})
 
             # Tile Services
-            tms_url = references.get("https://wiki.osgeo.org/wiki/Tile_Map_Service_Specification")
-            if tms_url:
-                links.append({"label": "Tile Mapping Service (TMS)", "url": tms_url})
-
-            xyz_url = references.get("https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames")
-            if xyz_url:
-                links.append({"label": "XYZ Tiles", "url": xyz_url})
-
-            tilejson_url = references.get("https://github.com/mapbox/tilejson-spec")
-            if tilejson_url:
-                links.append({"label": "TileJSON", "url": tilejson_url})
+            tile_map = {
+                "https://wiki.osgeo.org/wiki/Tile_Map_Service_Specification": (
+                    "Tile Mapping Service (TMS)"
+                ),
+                "https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames": "XYZ Tiles",
+                "https://github.com/mapbox/tilejson-spec": "TileJSON",
+            }
+            for uri, label in tile_map.items():
+                if url := self._first_url(uri):
+                    links.append({"label": label, "url": url})
 
             # Data Formats
-            geojson_url = references.get("http://geojson.org/geojson-spec.html")
-            if geojson_url:
-                links.append({"label": "GeoJSON", "url": geojson_url})
-
-            cog_url = references.get("https://github.com/cogeotiff/cog-spec")
-            if cog_url:
-                links.append({"label": "Cloud Optimized GeoTIFF (COG)", "url": cog_url})
-
-            pmtiles_url = references.get("https://github.com/protomaps/PMTiles")
-            if pmtiles_url:
-                links.append({"label": "PMTiles", "url": pmtiles_url})
+            data_formats = {
+                "http://geojson.org/geojson-spec.html": "GeoJSON",
+                "https://github.com/cogeotiff/cog-spec": "Cloud Optimized GeoTIFF (COG)",
+                "https://github.com/protomaps/PMTiles": "PMTiles",
+            }
+            for uri, label in data_formats.items():
+                if url := self._first_url(uri):
+                    links.append({"label": label, "url": url})
 
             # Other Services
-            oembed_url = references.get("https://oembed.com")
-            if oembed_url:
+            if oembed_url := self._first_url("https://oembed.com"):
                 links.append({"label": "oEmbed", "url": oembed_url})
 
-            openindexmap_url = references.get("https://openindexmaps.org")
-            if openindexmap_url:
+            if openindexmap_url := self._first_url("https://openindexmaps.org"):
                 links.append({"label": "OpenIndexMap", "url": openindexmap_url})
 
         except Exception as e:
@@ -160,42 +145,24 @@ class LinkService:
         return links
 
     def _get_metadata_links(self) -> List[Dict[str, str]]:
-        """
-        Get the "Metadata" links from dct_references_s for FGDC and ISO XML.
-
-        Returns:
-            List of link dictionaries with 'label' and 'url' keys
-        """
+        """Get the “Metadata” links derived from resource distributions."""
         links = []
         try:
-            references = self._parse_references()
-
-            # ISO 19115 metadata (try both with and without trailing slash)
-            iso_url = references.get("http://www.isotc211.org/schemas/2005/gmd/") or references.get(
-                "http://www.isotc211.org/schemas/2005/gmd"
-            )
-            if iso_url:
-                links.append({"label": "ISO 19115 XML", "url": iso_url})
-
-            # FGDC metadata (if it exists)
-            fgdc_url = references.get("http://www.fgdc.gov/schemas/metadata/")
-            if fgdc_url:
-                links.append({"label": "FGDC XML", "url": fgdc_url})
-
-            # CS-GDM metadata (if it exists)
-            csgdm_url = references.get("http://www.opengis.net/cat/csw/csdgm")
-            if csgdm_url:
-                links.append({"label": "CS-GDM XML", "url": csgdm_url})
-
-            # MODS metadata (if it exists)
-            mods_url = references.get("http://www.loc.gov/mods/v3")
-            if mods_url:
-                links.append({"label": "MODS XML", "url": mods_url})
-
-            # HTML metadata (if it exists)
-            html_metadata_url = references.get("http://www.w3.org/1999/xhtml")
-            if html_metadata_url:
-                links.append({"label": "HTML Metadata", "url": html_metadata_url})
+            metadata_map = {
+                "http://www.isotc211.org/schemas/2005/gmd/": "ISO 19115 XML",
+                "http://www.isotc211.org/schemas/2005/gmd": "ISO 19115 XML",
+                "http://www.fgdc.gov/schemas/metadata/": "FGDC XML",
+                "http://www.opengis.net/cat/csw/csdgm": "CS-GDM XML",
+                "http://www.loc.gov/mods/v3": "MODS XML",
+                "http://www.w3.org/1999/xhtml": "HTML Metadata",
+            }
+            seen = set()
+            for uri, label in metadata_map.items():
+                if uri in seen:
+                    continue
+                if url := self._first_url(uri):
+                    links.append({"label": label, "url": url})
+                    seen.add(label)
 
         except Exception as e:
             logger.error(f"Error getting metadata links: {e}", exc_info=True)
@@ -203,31 +170,19 @@ class LinkService:
         return links
 
     def _get_arcgis_links(self) -> List[Dict[str, str]]:
-        """
-        Get the "Open in ArcGIS Online" links from dct_references_s.
-
-        Returns:
-            List of link dictionaries with 'label' and 'url' keys
-        """
+        """Get the “Open in ArcGIS Online” links derived from resource distributions."""
         links = []
         try:
-            references = self._parse_references()
+            arcgis_service_types = {
+                "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer": "DynamicMapLayer",
+                "urn:x-esri:serviceType:ArcGIS#FeatureLayer": "FeatureLayer",
+                "urn:x-esri:serviceType:ArcGIS#ImageMapLayer": "ImageMapLayer",
+                "urn:x-esri:serviceType:ArcGIS#TiledMapLayer": "TiledMapLayer",
+            }
 
-            # Look for ArcGIS service types
-            arcgis_service_types = [
-                "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer",
-                "urn:x-esri:serviceType:ArcGIS#FeatureLayer",
-                "urn:x-esri:serviceType:ArcGIS#ImageMapLayer",
-                "urn:x-esri:serviceType:ArcGIS#TiledMapLayer",
-            ]
-
-            for service_type in arcgis_service_types:
-                arcgis_url = references.get(service_type)
+            for service_type, service_name in arcgis_service_types.items():
+                arcgis_url = self._first_url(service_type)
                 if arcgis_url:
-                    # Extract the service type name for a cleaner label
-                    service_name = (
-                        service_type.split("#")[-1] if "#" in service_type else service_type
-                    )
                     links.append(
                         {"label": f"Open in ArcGIS Online ({service_name})", "url": arcgis_url}
                     )
@@ -238,18 +193,10 @@ class LinkService:
         return links
 
     def _get_documentation_links(self) -> List[Dict[str, str]]:
-        """
-        Get the "Documentation" links from dct_references_s.
-
-        Returns:
-            List of link dictionaries with 'label' and 'url' keys
-        """
+        """Get the “Documentation” links derived from resource distributions."""
         links = []
         try:
-            references = self._parse_references()
-
-            # Data dictionary / supplemental documentation
-            documentation_url = references.get("http://lccn.loc.gov/sh85035852")
+            documentation_url = self._first_url("http://lccn.loc.gov/sh85035852")
             if documentation_url:
                 links.append({"label": "Data Dictionary", "url": documentation_url})
 
@@ -257,30 +204,6 @@ class LinkService:
             logger.error(f"Error getting documentation links: {e}", exc_info=True)
 
         return links
-
-    def _parse_references(self) -> Dict[str, Any]:
-        """
-        Parse the dct_references_s field from the resource.
-
-        Returns:
-            Dictionary of parsed references
-        """
-        try:
-            refs = self.resource_dict.get("dct_references_s", {})
-
-            # If refs is a string, try to parse it as JSON
-            if isinstance(refs, str):
-                try:
-                    refs = json.loads(refs)
-                except json.JSONDecodeError:
-                    refs = {}
-            elif not isinstance(refs, dict):
-                refs = {}
-
-            return refs
-        except Exception as e:
-            logger.error(f"Error parsing references: {e}", exc_info=True)
-            return {}
 
     @staticmethod
     async def get_resource_links(resource_id: str) -> Dict[str, List[Dict[str, str]]]:
@@ -296,7 +219,7 @@ class LinkService:
         try:
             # Fetch the resource from the database
             resource_query = """
-                SELECT id, dct_title_s, dct_references_s
+                SELECT id, dct_title_s
                 FROM resources
                 WHERE id = :resource_id
             """
@@ -307,9 +230,63 @@ class LinkService:
                 return {}
 
             # Create LinkService instance and get links
-            link_service = LinkService(dict(resource))
+            distribution_context = await fetch_distribution_context(resource_id)
+            link_service = LinkService(dict(resource), distribution_context=distribution_context)
             return link_service.get_links()
 
         except Exception as e:
             logger.error(f"Error getting resource links for {resource_id}: {e}", exc_info=True)
             return {}
+
+    def _first_url(self, uri: str) -> Optional[str]:
+        # Prefer distribution context if available
+        records = self.by_uri.get(uri, [])
+        if records:
+            return records[0].url
+        # Fallback to legacy references on the resource_dict
+        refs = self._parse_references()
+        val = refs.get(uri)
+        if isinstance(val, str):
+            return val
+        if isinstance(val, dict):
+            return val.get("url")
+        return None
+
+    def _parse_references(self) -> Dict[str, Any]:
+        """
+        Backwards compatibility helper for legacy logic not yet refactored.
+        Uses distribution context when available, falling back to dct_references_s.
+        """
+        if self._legacy_refs_cache is not None:
+            return self._legacy_refs_cache
+
+        # Use distribution context first
+        references: Dict[str, Any] = {}
+        for uri, records in self.by_uri.items():
+            if records:
+                references[uri] = records[0].url
+
+        # Fallback to the legacy field if we didn't find anything
+        if not references:
+            raw_refs = self.resource_dict.get("dct_references_s")
+            if isinstance(raw_refs, str):
+                try:
+                    import json
+
+                    raw_refs = json.loads(raw_refs)
+                except Exception:
+                    raw_refs = None
+            if isinstance(raw_refs, dict):
+                # Coerce mixed values to simple URLs where possible
+                coerced: Dict[str, Any] = {}
+                for uri, value in raw_refs.items():
+                    if isinstance(value, str):
+                        coerced[uri] = value
+                    elif isinstance(value, dict):
+                        url = value.get("url") or value.get("@id") or value.get("id")
+                        if url:
+                            coerced[uri] = url
+                references = coerced
+
+        self._legacy_refs_cache = references
+        return references

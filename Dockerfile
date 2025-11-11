@@ -33,6 +33,9 @@ COPY pyproject.toml uv.lock ./
 # Copy the frontend dist files (must be built before docker build)
 COPY frontend/dist ./frontend/dist
 
+# Ensure operational scripts are present in the runtime image (for kamal exec)
+COPY scripts ./scripts
+
 # Copy the rest of the application
 COPY . .
 

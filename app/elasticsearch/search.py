@@ -10,6 +10,7 @@ from elasticsearch.exceptions import NotFoundError
 from fastapi import HTTPException
 from sqlalchemy.sql import text
 
+from app.services.distribution_repository import fetch_distribution_context_map
 from app.services.viewer_service import create_viewer_attributes  # Updated import
 from db.database import database
 from db.models import resources
@@ -26,6 +27,24 @@ GEO_COUNTRY_FACET_SIZE = int(os.getenv("GEO_COUNTRY_FACET_SIZE", "20"))
 GEO_REGION_FACET_SIZE = int(os.getenv("GEO_REGION_FACET_SIZE", "50"))
 GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
 DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "10"))
+
+# Fields that should use their `.keyword` subfield for aggregations and filters
+KEYWORD_FILTER_FIELDS = {
+    "dct_spatial_sm",
+    "gbl_resourceClass_sm",
+    "gbl_resourceType_sm",
+    "dct_language_sm",
+    "dct_creator_sm",
+    "schema_provider_s",
+    "dct_accessRights_s",
+}
+
+
+def _resolve_filter_field(field: str) -> str:
+    """Return the appropriate ES field for filtering."""
+    if field in KEYWORD_FILTER_FIELDS:
+        return f"{field}.keyword"
+    return field
 
 
 def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list = None):
@@ -65,14 +84,47 @@ def _normalize_geo_params(geo_params: dict) -> dict:
             lst.append(None)
         return lst
 
-    for raw_key, raw_value in geo_params.items():
-        # Values may come as lists from parse_qs; take the first
-        value = raw_value[0] if isinstance(raw_value, list) and raw_value else raw_value
+    def coerce_numeric(val):
+        try:
+            return float(val) if val is not None else None
+        except (TypeError, ValueError):
+            return val
 
-        # Simple top-level keys
+    for raw_key, raw_value in geo_params.items():
+        # Handle already structured payloads (e.g., POST body)
         if raw_key in {"type", "field", "distance", "relation"}:
-            normalized[raw_key] = value
+            if isinstance(raw_value, list) and raw_value:
+                normalized[raw_key] = raw_value[0]
+            else:
+                normalized[raw_key] = raw_value
             continue
+
+        if raw_key in {"center", "top_left", "bottom_right"} and isinstance(raw_value, dict):
+            normalized[raw_key] = {
+                coord_key: coerce_numeric(coord_val) for coord_key, coord_val in raw_value.items()
+            }
+            continue
+
+        if raw_key == "points" and isinstance(raw_value, list):
+            points_list = []
+            for point in raw_value:
+                if isinstance(point, dict):
+                    points_list.append(
+                        {
+                            coord_key: coerce_numeric(coord_val)
+                            for coord_key, coord_val in point.items()
+                        }
+                    )
+            if points_list:
+                normalized["points"] = points_list
+            continue
+
+        if raw_key == "shape" and isinstance(raw_value, dict):
+            normalized["shape"] = raw_value
+            continue
+
+        # Values may come as lists from parse_qs; take the first where appropriate
+        value = raw_value[0] if isinstance(raw_value, list) and raw_value else raw_value
 
         # Tokenize keys like 'center][lat' or 'points][0][lat' or 'shape][coordinates][0][0]'
         tokens = raw_key.replace("][", "|").replace("[", "|").replace("]", "").split("|")
@@ -200,7 +252,7 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
             logger.warning("Invalid polygon parameters: need at least 3 points")
             return None
 
-        # Convert points to Elasticsearch polygon format
+        # Convert points to Elasticsearch polygon format (lon/lat order)
         coordinates = []
         for point in points:
             if not all([point.get("lat"), point.get("lon")]):
@@ -212,7 +264,22 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
         if coordinates[0] != coordinates[-1]:
             coordinates.append(coordinates[0])
 
-        return {"geo_polygon": {geo_field: {"points": coordinates}}}
+        relation = str(geo_params.get("relation", "intersects")).lower()
+        allowed_relations = {"intersects", "within", "contains", "disjoint"}
+        if relation not in allowed_relations:
+            relation = "intersects"
+
+        return {
+            "geo_shape": {
+                geo_field: {
+                    "relation": relation,
+                    "shape": {
+                        "type": "polygon",
+                        "coordinates": [coordinates],
+                    },
+                }
+            }
+        }
 
     elif geo_type == "shape":
         relation = geo_params.get("relation", "intersects")
@@ -266,7 +333,7 @@ async def search_resources(
     if limit <= 0:
         limit = 20  # Default to 20 if limit is zero or negative
 
-    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 
     try:
         # Get the current search criteria
@@ -286,6 +353,8 @@ async def search_resources(
 
         if include_filters:
             for field, values in include_filters.items():
+                resolved_field = _resolve_filter_field(field)
+
                 # Handle geospatial queries
                 if field == "geo" and isinstance(values, dict):
                     geo_filter = _build_geospatial_filter(values)
@@ -297,7 +366,7 @@ async def search_resources(
                     filter_clauses.append(
                         {
                             "terms_set": {
-                                field: {
+                                resolved_field: {
                                     "terms": values,
                                     "minimum_should_match_script": {"source": "params.num_terms"},
                                 }
@@ -305,14 +374,16 @@ async def search_resources(
                         }
                     )
                 else:
-                    filter_clauses.append({"term": {field: values}})
+                    filter_clauses.append({"term": {resolved_field: values}})
 
         if exclude_filters:
             for field, values in exclude_filters.items():
+                resolved_field = _resolve_filter_field(field)
+
                 if isinstance(values, list):
-                    must_not_clauses.append({"terms": {field: values}})
+                    must_not_clauses.append({"terms": {resolved_field: values}})
                 else:
-                    must_not_clauses.append({"term": {field: values}})
+                    must_not_clauses.append({"term": {resolved_field: values}})
 
         # Build the search query
         if search_criteria.get("query"):
@@ -393,28 +464,28 @@ async def search_resources(
 
             full_aggs = {
                 "dct_spatial_sm": {
-                    "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_resourceClass_sm": {
-                    "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_resourceType_sm": {
-                    "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_indexYear_im": {
                     "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
                 },
                 "dct_language_sm": {
-                    "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "dct_creator_sm": {
-                    "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "schema_provider_s": {
-                    "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "dct_accessRights_s": {
-                    "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_georeferenced_b": {
                     "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
@@ -463,30 +534,30 @@ async def search_resources(
                 allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
 
             full_aggs = {
-                "id": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
+                "id": {"terms": {"field": "id.keyword", "size": DEFAULT_FACET_SIZE}},
                 "dct_spatial_sm": {
-                    "terms": {"field": "dct_spatial_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_resourceClass_sm": {
-                    "terms": {"field": "gbl_resourceClass_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_resourceType_sm": {
-                    "terms": {"field": "gbl_resourceType_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_indexYear_im": {
                     "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
                 },
                 "dct_language_sm": {
-                    "terms": {"field": "dct_language_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "dct_creator_sm": {
-                    "terms": {"field": "dct_creator_sm", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "schema_provider_s": {
-                    "terms": {"field": "schema_provider_s", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "dct_accessRights_s": {
-                    "terms": {"field": "dct_accessRights_s", "size": DEFAULT_FACET_SIZE}
+                    "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
                 },
                 "gbl_georeferenced_b": {
                     "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
@@ -504,7 +575,13 @@ async def search_resources(
             )
 
             search_query = {
-                "query": {"bool": {"must": [{"match_all": {}}], "filter": filter_clauses}},
+                "query": {
+                    "bool": {
+                        "must": [{"match_all": {}}],
+                        "filter": filter_clauses,
+                        "must_not": must_not_clauses,
+                    }
+                },
                 "from": skip,
                 "size": limit,
                 "sort": sort or [{"_score": "desc"}],
@@ -693,7 +770,12 @@ async def process_search_response(response, limit, skip, search_criteria):
         resource_rows = await database.fetch_all(query)
         processed_resources = []
 
+        distribution_contexts = await fetch_distribution_context_map(
+            [resource["id"] for resource in resource_rows]
+        )
+
         for resource in resource_rows:
+            distribution_context = distribution_contexts.get(resource["id"])
             processed_resources.append(
                 {
                     "type": "document",
@@ -703,7 +785,12 @@ async def process_search_response(response, limit, skip, search_criteria):
                         for hit in response["hits"]["hits"]
                         if hit["_source"]["id"] == resource["id"]
                     ),
-                    "attributes": {**resource, **create_viewer_attributes(resource)},
+                    "attributes": {
+                        **resource,
+                        **create_viewer_attributes(
+                            resource, distribution_context=distribution_context
+                        ),
+                    },
                 }
             )
 

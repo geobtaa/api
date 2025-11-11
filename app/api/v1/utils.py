@@ -6,6 +6,11 @@ from typing import Any, Dict, Optional
 from fastapi.responses import JSONResponse
 
 from app.api.v1.jsonp import JSONPResponse
+from app.services.distribution_repository import (
+    DistributionContext,
+    build_distribution_context,
+    fetch_distribution_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +49,22 @@ def create_response(
     return JSONResponse(content=sanitized_content, status_code=status_code)
 
 
-def add_thumbnail_url(item: Dict) -> Dict:
+def add_thumbnail_url(
+    item: Dict, distribution_context: Optional[DistributionContext] = None
+) -> Dict:
     """Add the ui_thumbnail_url to the item."""
     from app.services.image_service import ImageService
 
-    image_service = ImageService(item)
+    if distribution_context is None:
+        distribution_context = build_distribution_context(item.get("id", ""), [])
+
+    image_service = ImageService(item, distribution_context=distribution_context)
     thumbnail_url = image_service.get_thumbnail_url()
     item["ui_thumbnail_url"] = thumbnail_url
     return item
 
 
-def add_citations(item: Dict) -> Dict:
+def add_citations(item: Dict, distribution_context: Optional[DistributionContext] = None) -> Dict:
     """Add citations to an item."""
     # Ensure 'attributes' key exists
     if "attributes" not in item:
@@ -63,7 +73,10 @@ def add_citations(item: Dict) -> Dict:
     try:
         from app.services.citation_service import CitationService
 
-        citation_service = CitationService(item)
+        if distribution_context is None:
+            distribution_context = build_distribution_context(item.get("id", ""), [])
+
+        citation_service = CitationService(item, distribution_context=distribution_context)
         item["attributes"]["ui_citation"] = citation_service.get_citation()
     except Exception as e:
         logger.error(f"Failed to generate citation: {str(e)}")
@@ -71,14 +84,12 @@ def add_citations(item: Dict) -> Dict:
     return item
 
 
-def add_ui_attributes(item: Dict) -> Dict:
+def add_ui_attributes(
+    item: Dict, distribution_context: Optional[DistributionContext] = None
+) -> Dict:
     """Add UI attributes to an item."""
-    # Parse references if needed
-    if isinstance(item.get("dct_references_s"), str):
-        try:
-            item["dct_references_s"] = json.loads(item["dct_references_s"])
-        except json.JSONDecodeError:
-            item["dct_references_s"] = {}
+    if distribution_context is None:
+        distribution_context = build_distribution_context(item.get("id", ""), [])
 
     # Create services
     from app.services.citation_service import CitationService
@@ -86,12 +97,12 @@ def add_ui_attributes(item: Dict) -> Dict:
     from app.services.image_service import ImageService
     from app.services.viewer_service import create_viewer_attributes
 
-    image_service = ImageService(item)
-    citation_service = CitationService(item)
-    download_service = DownloadService(item)
+    image_service = ImageService(item, distribution_context=distribution_context)
+    citation_service = CitationService(item, distribution_context=distribution_context)
+    download_service = DownloadService(item, distribution_context=distribution_context)
 
     # Add viewer attributes
-    item.update(create_viewer_attributes(item))
+    item.update(create_viewer_attributes(item, distribution_context=distribution_context))
 
     # Add thumbnail URL (always add, even if None)
     item["ui_thumbnail_url"] = image_service.get_thumbnail_url()
@@ -437,23 +448,25 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     if apply_field_mapping:
         resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
 
+    distribution_context = await fetch_distribution_context(resource_dict["id"])
+
     # Add thumbnail URL
-    resource_dict = add_thumbnail_url(resource_dict)
+    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
 
     # Generate citation using CitationService
-    citation_service = CitationService(resource_dict)
+    citation_service = CitationService(resource_dict, distribution_context=distribution_context)
     ui_citation = citation_service.get_citation()
 
     # Use ViewerService to get viewer attributes
-    viewer_service = ViewerService(resource_dict)
+    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
     viewer_attributes = viewer_service.get_viewer_attributes()
 
     # Use DownloadService to get download options
-    download_service = DownloadService(resource_dict)
+    download_service = DownloadService(resource_dict, distribution_context=distribution_context)
     ui_downloads = download_service.get_download_options()
 
     # Use LinkService to get links
-    link_service = LinkService(resource_dict)
+    link_service = LinkService(resource_dict, distribution_context=distribution_context)
     ui_links = link_service.get_links()
 
     # Use RelationshipService to get relationships
@@ -475,6 +488,15 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         "ui_links": ui_links,
         "ui_relationships": ui_relationships,
     }
+
+    # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
+    try:
+        legacy_refs = distribution_context.legacy_reference_payload
+        if legacy_refs:
+            attributes["dct_references_s"] = json.dumps(legacy_refs)
+    except Exception:
+        # Do not fail response generation due to references serialization issues
+        pass
 
     # Add viewer attributes
     for key, value in viewer_attributes.items():
@@ -521,23 +543,25 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     if apply_field_mapping:
         resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
 
+    distribution_context = await fetch_distribution_context(resource_dict["id"])
+
     # Add thumbnail URL
-    resource_dict = add_thumbnail_url(resource_dict)
+    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
 
     # Generate citation using CitationService
-    citation_service = CitationService(resource_dict)
+    citation_service = CitationService(resource_dict, distribution_context=distribution_context)
     ui_citation = citation_service.get_citation()
 
     # Use ViewerService to get viewer attributes
-    viewer_service = ViewerService(resource_dict)
+    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
     viewer_attributes = viewer_service.get_viewer_attributes()
 
     # Use DownloadService to get download options
-    download_service = DownloadService(resource_dict)
+    download_service = DownloadService(resource_dict, distribution_context=distribution_context)
     ui_downloads = download_service.get_download_options()
 
     # Use LinkService to get links
-    link_service = LinkService(resource_dict)
+    link_service = LinkService(resource_dict, distribution_context=distribution_context)
     ui_links = link_service.get_links()
 
     # Use RelationshipService to get relationships
@@ -558,6 +582,14 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
         "ui_links": ui_links,
         "ui_relationships": ui_relationships,
     }
+
+    # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
+    try:
+        legacy_refs = distribution_context.legacy_reference_payload
+        if legacy_refs:
+            attributes["dct_references_s"] = json.dumps(legacy_refs)
+    except Exception:
+        pass
 
     # Add viewer attributes
     for key, value in viewer_attributes.items():

@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 import time
@@ -12,7 +11,13 @@ from app.api.v1.shared import SORT_MAPPINGS
 from app.api.v1.utils import sanitize_for_json
 from app.elasticsearch import search_resources
 from app.elasticsearch.client import es
+from app.elasticsearch.search import _normalize_geo_params
 from app.services.citation_service import CitationService
+from app.services.distribution_repository import (
+    build_distribution_context,
+    fetch_distribution_context,
+    fetch_distribution_context_map,
+)
 from app.services.download_service import DownloadService
 from app.services.image_service import ImageService
 from app.services.relationship_service import RelationshipService
@@ -24,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class SearchService:
     def __init__(self):
-        self.index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
+        self.index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
         self.es = es
 
     async def search(
@@ -95,24 +100,39 @@ class SearchService:
             thumbnail_time = 0
             viewer_time = 0
 
+            resource_ids = [
+                resource.get("id") for resource in results.get("data", []) if resource.get("id")
+            ]
+            distribution_contexts = await fetch_distribution_context_map(resource_ids)
+
             for resource in results.get("data", []):
                 doc_start = time.time()
+                resource_id = resource.get("id")
+                distribution_context = distribution_contexts.get(
+                    resource_id, build_distribution_context(resource_id or "", [])
+                )
 
                 # Add thumbnail URL
                 thumb_start = time.time()
-                image_service = ImageService(resource["attributes"])
+                image_service = ImageService(
+                    resource["attributes"], distribution_context=distribution_context
+                )
                 resource["attributes"]["ui_thumbnail_url"] = image_service.get_thumbnail_url()
                 thumbnail_time += time.time() - thumb_start
 
                 # Add citation
                 cite_start = time.time()
-                citation_service = CitationService(resource["attributes"])
+                citation_service = CitationService(
+                    resource["attributes"], distribution_context=distribution_context
+                )
                 resource["attributes"]["ui_citation"] = citation_service.get_citation()
                 citation_time += time.time() - cite_start
 
                 # Add viewer attributes
                 viewer_start = time.time()
-                viewer_attrs = create_viewer_attributes(resource["attributes"])
+                viewer_attrs = create_viewer_attributes(
+                    resource["attributes"], distribution_context=distribution_context
+                )
                 resource["attributes"].update(viewer_attrs)
                 viewer_time += time.time() - viewer_start
 
@@ -177,16 +197,14 @@ class SearchService:
             source_data = result["_source"]
 
             # Create services
-            download_service = DownloadService(source_data)
-            viewer_service = ViewerService(source_data)
-            citation_service = CitationService(source_data)
-
-            # Parse dct_references_s if it's a string
-            if isinstance(source_data.get("dct_references_s"), str):
-                try:
-                    source_data["dct_references_s"] = json.loads(source_data["dct_references_s"])
-                except json.JSONDecodeError:
-                    logger.warning(f"Could not parse dct_references_s for resource {id}")
+            distribution_context = await fetch_distribution_context(id)
+            download_service = DownloadService(
+                source_data, distribution_context=distribution_context
+            )
+            viewer_service = ViewerService(source_data, distribution_context=distribution_context)
+            citation_service = CitationService(
+                source_data, distribution_context=distribution_context
+            )
 
             # Add UI attributes in the same order as the original code
             source_data["ui_thumbnail_url"] = source_data.get("thumbnail_url")
@@ -309,7 +327,7 @@ class SearchService:
         raw_params = parse_qs(str(params))
 
         agg_to_field = {
-            "id_agg": "id",
+            "id_agg": "id.keyword",
             "spatial_agg": "dct_spatial_sm",
             "resource_type_agg": "gbl_resourceType_sm",
             "resource_class_agg": "gbl_resourceClass_sm",
@@ -388,7 +406,7 @@ class SearchService:
 
         # If we have geospatial filters, add them to include_filters
         if geo_filters:
-            include_filters["geo"] = geo_filters
+            include_filters["geo"] = _normalize_geo_params(geo_filters)
 
         # Handle regular field filters
         for key, values in raw_params.items():

@@ -8,32 +8,32 @@ INDEX_MAPPING = {
             },
             "dct_spatial_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "gbl_resourceClass_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "gbl_resourceType_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "gbl_indexYear_im": {"type": "integer"},
             "dct_language_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "dct_creator_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "schema_provider_s": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "dct_accessRights_s": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "gbl_georeferenced_b": {"type": "boolean"},
             "dct_alternative_sm": {
@@ -89,8 +89,9 @@ INDEX_MAPPING = {
                 "ignore_malformed": True,
             },
             "dcat_centroid": {"type": "geo_point", "ignore_malformed": True},
-            "dct_references_s": {"type": "object", "enabled": False},
             "gbl_mdmodified_dt": {"type": "date", "ignore_malformed": True},
+            # Legacy references blob retained for compatibility (disabled indexing)
+            "dct_references_s": {"type": "object", "enabled": False},
             # BTAA-specific OGM Aardvark fields
             "b1g_code_s": {"type": "keyword"},
             "b1g_status_s": {"type": "keyword"},

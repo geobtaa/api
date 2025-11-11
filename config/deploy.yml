@@ -1,8 +1,8 @@
 # Name of your application. Used to uniquely configure containers.
-service: btaa-data-api
+service: btaa-geospatial-api
 
 # Name of the container image.
-image: ghcr.io/ewlarson/btaa-data-api
+image: ghcr.io/ewlarson/btaa-geospatial-api
 
 builder:
   arch: amd64
@@ -48,13 +48,13 @@ registry:
 # ───────────────── ENV passed into *every* container ────────────────
 env:
   clear:
-    ELASTICSEARCH_URL:     http://btaa-data-api-elasticsearch:9200
-    REDIS_HOST:            btaa-data-api-redis
+    ELASTICSEARCH_URL:     http://btaa-geospatial-api-elasticsearch:9200
+    REDIS_HOST:            btaa-geospatial-api-redis
     REDIS_PORT:            "6379"
-    REDIS_URL:             redis://btaa-data-api-redis:6379/0
-    CELERY_BROKER_URL:     redis://btaa-data-api-redis:6379/0
-    CELERY_RESULT_BACKEND: redis://btaa-data-api-redis:6379/1
-    ELASTICSEARCH_INDEX:   btaa_data_api
+    REDIS_URL:             redis://btaa-geospatial-api-redis:6379/0
+    CELERY_BROKER_URL:     redis://btaa-geospatial-api-redis:6379/0
+    CELERY_RESULT_BACKEND: redis://btaa-geospatial-api-redis:6379/1
+    ELASTICSEARCH_INDEX:   btaa_geospatial_api
     REDIS_TTL:             "604800"
     LOG_LEVEL:             DEBUG
     ENDPOINT_CACHE:        "true"
@@ -95,7 +95,7 @@ accessories:
     env:
       clear:
         POSTGRES_USER: postgres
-        POSTGRES_DB:   btaa_ogm_api
+        POSTGRES_DB:   btaa_geospatial_api
       secret:
         - POSTGRES_PASSWORD
 

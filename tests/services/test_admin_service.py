@@ -225,24 +225,35 @@ class TestResourceProcessingService:
 
     def test_parse_resource_references_string(self):
         """Test parsing string references."""
+        from tests.utils.distribution_helpers import (
+            make_distribution_context,
+            make_distribution_record,
+        )
+
         service = ResourceProcessingService()
-        resource = {
-            "dct_references_s": '{"http://schema.org/downloadUrl": "https://example.com/data.zip"}'
-        }
-
-        result = service.parse_resource_references(resource, "test-id")
-
+        resource = {"id": "test-id"}
+        record = make_distribution_record(
+            "test-id", "http://schema.org/downloadUrl", "https://example.com/data.zip"
+        )
+        ctx = make_distribution_context("test-id", [record])
+        result = service.parse_resource_references(resource, "test-id", distribution_context=ctx)
         assert result["http://schema.org/downloadUrl"] == "https://example.com/data.zip"
 
     def test_parse_resource_references_dict(self):
         """Test parsing dict references."""
+        from tests.utils.distribution_helpers import (
+            make_distribution_context,
+            make_distribution_record,
+        )
+
         service = ResourceProcessingService()
-        references = {"http://schema.org/downloadUrl": "https://example.com/data.zip"}
-        resource = {"dct_references_s": references}
-
-        result = service.parse_resource_references(resource, "test-id")
-
-        assert result == references
+        resource = {"id": "test-id"}
+        record = make_distribution_record(
+            "test-id", "http://schema.org/downloadUrl", "https://example.com/data.zip"
+        )
+        ctx = make_distribution_context("test-id", [record])
+        result = service.parse_resource_references(resource, "test-id", distribution_context=ctx)
+        assert result["http://schema.org/downloadUrl"] == "https://example.com/data.zip"
 
     def test_parse_resource_references_invalid_json(self):
         """Test parsing invalid JSON references."""

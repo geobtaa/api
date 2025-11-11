@@ -1,6 +1,6 @@
-# GeoBTAA API
+# BTAA Geospatial API
 
-![GeoBTAA API](docs/geo_btaa_api.png)
+![BTAA Geospatial API](docs/btaa_geospatial_api.png)
 
 ## Development
 
@@ -43,13 +43,14 @@ The application uses several services:
 * [ParadeDB](https://www.paradedb.com/) (PostgreSQL-compatible database)
   - Port: 2345
   - Default credentials: postgres/postgres
-  - Database: btaa_ogm_api
+  - Database: btaa_geospatial_api
 
 * [Elasticsearch](https://www.elastic.co/elasticsearch/) (Search engine)
   - Port: 9200
   - Single-node configuration
   - Security disabled for development
   - 2GB memory allocation
+  - Index: btaa_geospatial_api
 
 * [Redis](https://redis.io/) (Caching and message broker)
   - Port: 6379
@@ -59,7 +60,7 @@ The application uses several services:
 * [DuckDB](https://duckdb.org/) (Embedded analytical database)
   - Runs in-process with the Python application
   - No separate service or port required
-  - Database file: `data/duckdb/btaa_ogm_api.duckdb`
+  - Database file: `data/duckdb/btaa_geospatial_api.duckdb`
   - Used for analytical queries and data processing
   - Access via Python `duckdb` package
 
@@ -81,7 +82,7 @@ docker compose up -d
 Imports a flat file of GeoBlacklight OpenGeoMetadata Aardvark test fixture data:
 ```bash
 cd data
-psql -h localhost -p 2345 -U postgres -d btaa_ogm_api -f btaa_ogm_api.txt
+psql -h localhost -p 2345 -U postgres -d btaa_geospatial_api -f btaa_geospatial_api.txt
 ```
 
 Run the API server:
@@ -126,8 +127,8 @@ This script will download and import all the gazetteer data.
 The application is also available as a Docker image on Docker Hub. You can pull and run the image using the following commands:
 
 ```bash
-docker pull ewlarson/ogm-api:latest
-docker run -d -p 8000:8000 ewlarson/ogm-api:latest
+docker pull ewlarson/btaa-geospatial-api:latest
+docker run -d -p 8000:8000 ewlarson/btaa-geospatial-api:latest
 ```
 
 This will start the API server on port 8000.
@@ -165,16 +166,16 @@ CACHE_TTL=43200           # Default TTL (12 hours)
 When caching is enabled:
 - API responses are cached in Redis based on the endpoint and its parameters
 - Search results are cached for faster repeated queries
-- Document details are cached to reduce database load
+- Resource details are cached to reduce database load
 - Suggestions are cached to improve autocomplete performance
 
 The cache is automatically invalidated when:
-- Documents are created, updated, or deleted
+- Resources are created, updated, or deleted
 - The Elasticsearch index is rebuilt
 
 You can manually clear the cache using:
 ```
-GET /api/v1/cache/clear?cache_type=search|document|suggest|all
+GET /api/v1/cache/clear?cache_type=search|resource|suggest|all
 ```
 
 ## AI Summarization
@@ -202,21 +203,21 @@ The API can process various types of assets to enhance summaries:
 
 ### Generating Summaries
 
-To generate a summary for a document:
+To generate a summary for a resource:
 
 ```
-POST /api/v1/documents/{id}/summarize
+POST /api/v1/resources/{id}/summarize
 ```
 
 This will trigger an asynchronous task to generate a summary. You can retrieve the summary using:
 
 ```
-GET /api/v1/documents/{id}/summaries
+GET /api/v1/resources/{id}/summaries
 ```
 
 ### Geographic Entity Extraction
 
-The API can identify and extract geographic named entities from documents. This includes:
+The API can identify and extract geographic named entities from resources. This includes:
 
 - Place names
 - Geographic coordinates
@@ -227,7 +228,7 @@ The API can identify and extract geographic named entities from documents. This 
 To extract geographic entities:
 
 ```
-POST /api/v1/documents/{id}/extract_entities
+POST /api/v1/resources/{id}/extract_entities
 ```
 
 The response will include:
@@ -277,10 +278,10 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [X] Search - sorting
 - [X] Search - basic faceting
 - [X] Performance - Redis caching
-- [ ] Search - facet include/exclude
+- [X] Search - facet include/exclude
 - [ ] Search - facet alpha and numerical pagination, and search within facets
 - [ ] Search - advanced/fielded search
-- [ ] Search - spatial search
+- [X] Search - spatial search
 - [X] Search Results - thumbnail images (needs improvements)
 - [X] Search Results - bookmarked resources
 - [X] Item View - citations
@@ -313,4 +314,4 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [ ] API - Analytics (PostHog?)
 - [ ] API - Authentication/Authorization for "Admin" endpoints
 - [ ] API - Throttling
-- [ ] Heirarchical Faceting > Spatial, ex: https://geo.btaa.org/catalog/p16022coll230:1750
+- [X] Heirarchical Faceting > Spatial, ex: https://geo.btaa.org/catalog/p16022coll230:1750

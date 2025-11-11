@@ -1,6 +1,10 @@
-import json
 import logging
 from typing import Dict, List, Optional
+
+from app.services.distribution_repository import (
+    DistributionContext,
+    build_distribution_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -8,20 +12,32 @@ logger = logging.getLogger(__name__)
 class CitationService:
     """Service for generating simple citations."""
 
-    def __init__(self, document: Dict):
+    def __init__(
+        self,
+        document: Dict,
+        distribution_context: Optional[DistributionContext] = None,
+    ):
         self.document = document
+        if distribution_context is None:
+            distribution_context = build_distribution_context(document.get("id", ""), [])
+        self.distribution_context = distribution_context
+        self.by_uri = distribution_context.by_uri
 
     def _get_url(self) -> Optional[str]:
         """Get the primary URL for the document."""
-        references = self.document.get("dct_references_s")
-        if isinstance(references, str):
-            try:
-                references = json.loads(references)
-                return references.get("http://schema.org/url") or references.get(
-                    "http://schema.org/downloadUrl"
-                )
-            except json.JSONDecodeError:
-                return None
+        # Prefer distribution context first
+        if url_records := self.by_uri.get("http://schema.org/url"):
+            return url_records[0].url
+        if download_records := self.by_uri.get("http://schema.org/downloadUrl"):
+            return download_records[0].url
+        # Fallback to legacy dct_references_s on the document
+        refs = self._parse_references()
+        val = refs.get("http://schema.org/url")
+        if isinstance(val, str):
+            return val
+        val = refs.get("http://schema.org/downloadUrl")
+        if isinstance(val, str):
+            return val
         return None
 
     def _get_resource_type(self) -> str:
@@ -90,3 +106,15 @@ class CitationService:
             logger.error(f"Citation generation failed: {str(e)}")
             logger.error(f"Document: {self.document}")
             return "Citation unavailable"
+
+    def _parse_references(self) -> Dict:
+        """Parse legacy dct_references_s if present on the document."""
+        raw = self.document.get("dct_references_s")
+        if isinstance(raw, str):
+            try:
+                import json
+
+                raw = json.loads(raw)
+            except Exception:
+                raw = None
+        return raw if isinstance(raw, dict) else {}

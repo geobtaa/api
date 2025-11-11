@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from typing import Optional
@@ -17,6 +18,7 @@ from app.api.v1.utils import (
     sanitize_for_json,
 )
 from app.services.cache_service import cached_endpoint
+from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.link_service import LinkService
 from app.services.ogm_field_mapper import OGMFieldMapper
@@ -287,6 +289,15 @@ async def get_resource_ogm(
                 aardvark_record = filter_resource_fields(aardvark_record, fields)
                 logger.info(f"Filtered OGM record: {aardvark_record}")
 
+            # Rebuild dct_references_s from resource_distributions for OGM output
+            try:
+                distribution_context = await fetch_distribution_context(id)
+                legacy_refs = distribution_context.legacy_reference_payload
+                if legacy_refs:
+                    aardvark_record["dct_references_s"] = json.dumps(legacy_refs)
+            except Exception:
+                pass
+
             # Return just the cleaned attributes (the Aardvark record)
             return create_response(aardvark_record, callback)
     except HTTPException:
@@ -418,7 +429,8 @@ async def get_resource_thumbnail(
             resource_dict = sanitize_for_json(dict(row._mapping))
 
         # Compute thumbnail URL using ImageService
-        image_service = ImageService(resource_dict)
+        distribution_context = await fetch_distribution_context(id)
+        image_service = ImageService(resource_dict, distribution_context=distribution_context)
         thumbnail_url = image_service.get_thumbnail_url()
 
         # Ensure placeholder when none available
@@ -437,21 +449,9 @@ async def get_resource_thumbnail(
         # Optional debug block with rich insight into detection and caching
         if debug:
             import hashlib
-            import json as _json
-
-            references = resource_dict.get("dct_references_s", {})
-            if isinstance(references, str):
-                try:
-                    references = _json.loads(references)
-                except Exception:
-                    references = {}
 
             # Determine raw source URL without network
-            source_url = (
-                image_service._get_thumbnail_source_url(references)
-                if isinstance(references, dict)
-                else None
-            )
+            source_url = image_service._get_thumbnail_source_url()
             standardized_source = (
                 image_service._standardize_iiif_url(source_url) if source_url else None
             )

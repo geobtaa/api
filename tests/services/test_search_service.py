@@ -725,3 +725,145 @@ class TestSearchService:
 
         assert "dct_spatial_sm" in result
         assert result["dct_spatial_sm"] == ["Minnesota"]
+
+    def test_extract_new_style_filters_geo_polygon(self):
+        """Ensure geo include_filters parse into structured dict."""
+        service = SearchService()
+
+        params = (
+            "include_filters[geo][type]=polygon&"
+            "include_filters[geo][field]=locn_geometry&"
+            "include_filters[geo][relation]=intersects&"
+            "include_filters[geo][points][0][lat]=45&"
+            "include_filters[geo][points][0][lon]=-104&"
+            "include_filters[geo][points][1][lat]=45&"
+            "include_filters[geo][points][1][lon]=-109&"
+            "include_filters[geo][points][2][lat]=41&"
+            "include_filters[geo][points][2][lon]=-109&"
+            "include_filters[geo][points][3][lat]=41&"
+            "include_filters[geo][points][3][lon]=-104"
+        )
+
+        include, exclude = service.extract_new_style_filters(params)
+
+        assert "geo" in include
+        geo = include["geo"]
+        assert geo["type"] == "polygon"
+        assert geo["field"] == "locn_geometry"
+        assert geo["relation"] == "intersects"
+        assert len(geo["points"]) == 4
+        assert geo["points"][0] == {"lat": 45.0, "lon": -104.0}
+        assert exclude == {}
+
+    def test_extract_new_style_filters_geo_bbox(self):
+        """Bbox params should normalize to nested dict."""
+        service = SearchService()
+
+        params = (
+            "include_filters[geo][type]=bbox&"
+            "include_filters[geo][field]=dcat_bbox&"
+            "include_filters[geo][top_left][lat]=45&"
+            "include_filters[geo][top_left][lon]=-109&"
+            "include_filters[geo][bottom_right][lat]=41&"
+            "include_filters[geo][bottom_right][lon]=-104"
+        )
+
+        include, exclude = service.extract_new_style_filters(params)
+
+        bbox = include["geo"]
+        assert bbox["type"] == "bbox"
+        assert bbox["field"] == "dcat_bbox"
+        assert bbox["top_left"] == {"lat": 45.0, "lon": -109.0}
+        assert bbox["bottom_right"] == {"lat": 41.0, "lon": -104.0}
+        assert exclude == {}
+
+    def test_extract_new_style_filters_geo_distance(self):
+        """Distance params should normalize center and numeric distance."""
+        service = SearchService()
+
+        params = (
+            "include_filters[geo][type]=distance&"
+            "include_filters[geo][field]=dcat_centroid&"
+            "include_filters[geo][distance]=25km&"
+            "include_filters[geo][center][lat]=43.5&"
+            "include_filters[geo][center][lon]=-106.2"
+        )
+
+        include, exclude = service.extract_new_style_filters(params)
+
+        dist = include["geo"]
+        assert dist["type"] == "distance"
+        assert dist["field"] == "dcat_centroid"
+        assert dist["distance"] == "25km"
+        assert dist["center"] == {"lat": 43.5, "lon": -106.2}
+        assert exclude == {}
+
+    @pytest.mark.asyncio
+    async def test_search_passes_geospatial_include_filters(self):
+        """Search should forward geo include_filters unchanged."""
+        service = SearchService()
+
+        geo_filter = {
+            "geo": {
+                "type": "polygon",
+                "field": "locn_geometry",
+                "relation": "within",
+                "points": [
+                    {"lat": 45.0, "lon": -104.0},
+                    {"lat": 45.0, "lon": -109.0},
+                    {"lat": 41.0, "lon": -109.0},
+                    {"lat": 41.0, "lon": -104.0},
+                ],
+            }
+        }
+
+        with patch("app.services.search_service.search_resources") as mock_search:
+            mock_search.return_value = {"data": [], "meta": {"totalCount": 0}}
+
+            await service.search(q=None, page=1, limit=5, include_filters=geo_filter)
+
+            mock_search.assert_called_once()
+            include_arg = mock_search.call_args.kwargs.get("include_filters")
+            assert include_arg == geo_filter
+
+    @pytest.mark.asyncio
+    async def test_search_passes_geospatial_bbox_filters(self):
+        service = SearchService()
+
+        geo_filter = {
+            "geo": {
+                "type": "bbox",
+                "field": "dcat_bbox",
+                "top_left": {"lat": 45.0, "lon": -109.0},
+                "bottom_right": {"lat": 41.0, "lon": -104.0},
+            }
+        }
+
+        with patch("app.services.search_service.search_resources") as mock_search:
+            mock_search.return_value = {"data": [], "meta": {"totalCount": 0}}
+
+            await service.search(q=None, page=1, limit=5, include_filters=geo_filter)
+
+            include_arg = mock_search.call_args.kwargs.get("include_filters")
+            assert include_arg == geo_filter
+
+    @pytest.mark.asyncio
+    async def test_search_passes_geospatial_distance_filters(self):
+        service = SearchService()
+
+        geo_filter = {
+            "geo": {
+                "type": "distance",
+                "field": "dcat_centroid",
+                "distance": "25km",
+                "center": {"lat": 43.5, "lon": -106.2},
+            }
+        }
+
+        with patch("app.services.search_service.search_resources") as mock_search:
+            mock_search.return_value = {"data": [], "meta": {"totalCount": 0}}
+
+            await service.search(q=None, page=1, limit=5, include_filters=geo_filter)
+
+            include_arg = mock_search.call_args.kwargs.get("include_filters")
+            assert include_arg == geo_filter

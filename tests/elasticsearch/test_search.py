@@ -168,6 +168,251 @@ class TestElasticsearchSearch:
                 assert filter_clauses[0]["terms"]["dct_spatial_sm"] == ["Minnesota", "Wisconsin"]
 
     @pytest.mark.asyncio
+    async def test_search_resources_with_geospatial_polygon_filter(self):
+        """Ensure include_filters.geo polygon creates a geo_shape filter."""
+
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=5,
+                    sort=None,
+                    include_filters={
+                        "geo": {
+                            "type": "polygon",
+                            "field": "locn_geometry",
+                            "relation": "intersects",
+                            "points": [
+                                {"lat": 45.0, "lon": -104.0},
+                                {"lat": 45.0, "lon": -109.0},
+                                {"lat": 41.0, "lon": -109.0},
+                                {"lat": 41.0, "lon": -104.0},
+                            ],
+                        }
+                    },
+                )
+
+                mock_es.search.assert_called_once()
+                search_query = mock_es.search.call_args.kwargs["query"]
+                filters = search_query["bool"]["filter"]
+
+                geo_filter = next((f for f in filters if "geo_shape" in f), None)
+                assert geo_filter is not None, "Geo filter not present in ES query"
+
+                geo_shape = geo_filter["geo_shape"]
+                assert "locn_geometry" in geo_shape
+                shape = geo_shape["locn_geometry"]["shape"]
+                assert shape["type"] == "polygon"
+                coords = shape["coordinates"][0]
+                assert coords[0] == coords[-1], "Polygon should be closed"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_geospatial_bbox_filter(self):
+        """Ensure bbox include filter generates geo_bounding_box."""
+
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=5,
+                    sort=None,
+                    include_filters={
+                        "geo": {
+                            "type": "bbox",
+                            "field": "dcat_bbox",
+                            "top_left": {"lat": 45.0, "lon": -109.0},
+                            "bottom_right": {"lat": 41.0, "lon": -104.0},
+                        }
+                    },
+                )
+
+                search_query = mock_es.search.call_args.kwargs["query"]
+                filters = search_query["bool"]["filter"]
+                geo_filter = next((f for f in filters if "geo_bounding_box" in f), None)
+                assert geo_filter is not None
+                box = geo_filter["geo_bounding_box"]["dcat_bbox"]
+                assert box["top_left"] == {"lat": 45.0, "lon": -109.0}
+                assert box["bottom_right"] == {"lat": 41.0, "lon": -104.0}
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_geospatial_distance_filter(self):
+        """Ensure distance include filter generates geo_distance."""
+
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=5,
+                    sort=None,
+                    include_filters={
+                        "geo": {
+                            "type": "distance",
+                            "field": "dcat_centroid",
+                            "center": {"lat": 43.5, "lon": -106.2},
+                            "distance": "25km",
+                        }
+                    },
+                )
+
+                search_query = mock_es.search.call_args.kwargs["query"]
+                filters = search_query["bool"]["filter"]
+                geo_filter = next((f for f in filters if "geo_distance" in f), None)
+                assert geo_filter is not None
+                distance = geo_filter["geo_distance"]
+                assert distance["distance"] == "25km"
+                assert distance["dcat_centroid"] == {
+                    "lat": 43.5,
+                    "lon": -106.2,
+                }
+
+    @pytest.mark.asyncio
+    async def test_search_resources_geo_filter_reduces_results_and_matches_pg(self, monkeypatch):
+        """Geo filter should reduce results and align with PostGIS row count."""
+
+        monkeypatch.setenv("APPLICATION_URL", "http://localhost:8000")
+
+        baseline_response = MagicMock()
+        baseline_response.body = {
+            "hits": {
+                "total": {"value": 5, "relation": "eq"},
+                "hits": [
+                    {
+                        "_index": "btaa_ogm_api",
+                        "_id": "baseline-1",
+                        "_score": 1.0,
+                        "_source": {"id": "baseline-1"},
+                    },
+                    {
+                        "_index": "btaa_ogm_api",
+                        "_id": "baseline-2",
+                        "_score": 0.9,
+                        "_source": {"id": "baseline-2"},
+                    },
+                ],
+            },
+            "took": 7,
+            "aggregations": {},
+        }
+
+        geo_response = MagicMock()
+        geo_response.body = {
+            "hits": {
+                "total": {"value": 1, "relation": "eq"},
+                "hits": [
+                    {
+                        "_index": "btaa_ogm_api",
+                        "_id": "geo-1",
+                        "_score": 1.0,
+                        "_source": {"id": "geo-1"},
+                    }
+                ],
+            },
+            "took": 5,
+            "aggregations": {},
+        }
+
+        async def search_side_effect(*, query=None, **kwargs):
+            filters = query.get("bool", {}).get("filter", []) if query else []
+            if any("geo_shape" in clause for clause in filters):
+                return geo_response
+            return baseline_response
+
+        mock_es = AsyncMock()
+        mock_es.search.side_effect = search_side_effect
+
+        baseline_rows = [
+            {"id": "baseline-1", "dct_title_s": "Baseline 1"},
+            {"id": "baseline-2", "dct_title_s": "Baseline 2"},
+        ]
+        geo_rows = [
+            {"id": "geo-1", "dct_title_s": "Geo 1"},
+        ]
+
+        fetch_all_mock = AsyncMock(side_effect=[baseline_rows, geo_rows])
+
+        with (
+            patch("app.elasticsearch.search.database.fetch_all", fetch_all_mock),
+            patch("app.elasticsearch.search.es", mock_es),
+            patch("app.elasticsearch.search.create_viewer_attributes", return_value={}),
+        ):
+            baseline = await search_resources(
+                query=None,
+                fq=None,
+                skip=0,
+                limit=10,
+                sort=None,
+                include_filters={"gbl_resourceClass_sm": ["Maps"]},
+            )
+
+            geo = await search_resources(
+                query=None,
+                fq=None,
+                skip=0,
+                limit=10,
+                sort=None,
+                include_filters={
+                    "gbl_resourceClass_sm": ["Maps"],
+                    "geo": {
+                        "type": "polygon",
+                        "field": "locn_geometry",
+                        "relation": "intersects",
+                        "points": [
+                            {"lat": 45.0, "lon": -104.0},
+                            {"lat": 45.0, "lon": -109.0},
+                            {"lat": 41.0, "lon": -109.0},
+                            {"lat": 41.0, "lon": -104.0},
+                        ],
+                    },
+                },
+            )
+
+        baseline_total = baseline["meta"]["pages"]["total_count"]
+        geo_total = geo["meta"]["pages"]["total_count"]
+        assert geo_total < baseline_total
+
+        pg_row_count = len(geo["data"])
+        assert geo_total == pg_row_count
+
+    @pytest.mark.asyncio
     async def test_search_resources_error_handling(self):
         """Test search_resources error handling."""
         # Mock the Elasticsearch client to raise an exception

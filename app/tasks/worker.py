@@ -76,7 +76,7 @@ def fetch_and_cache_image(self, url: str) -> bool:
         # Determine the actual image URL; handle IIIF manifests by resolving to a thumbnail
         resolved_url = _resolve_image_url(url)
         logger.info(f"Resolved URL: {url} -> {resolved_url}")
-        
+
         # Generate cache key based on the resolved image URL (not the original manifest URL)
         image_key = f"image:{hashlib.sha256(resolved_url.encode()).hexdigest()}"
 
@@ -102,7 +102,9 @@ def fetch_and_cache_image(self, url: str) -> bool:
                 logger.info(f"Successfully cached image: {resolved_url}")
                 return True
             except Exception as redis_err:
-                logger.warning(f"Failed to cache image due to Redis error for {resolved_url}: {redis_err}")
+                logger.warning(
+                    f"Failed to cache image due to Redis error for {resolved_url}: {redis_err}"
+                )
                 return False
         else:
             logger.warning(f"Skipping cache store for {resolved_url}: Redis unavailable")

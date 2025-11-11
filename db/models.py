@@ -83,6 +83,21 @@ resources = Table(
     Column("b1g_geodcat_spatialResolutionAsText_sm", ARRAY(String)),
     Column("b1g_dct_provenanceStatement_sm", ARRAY(String)),
     Column("b1g_adminTags_sm", ARRAY(String)),
+    
+    # Additional BTAA fields for old database migration
+    Column("b1g_adms_supportedSchema_sm", ARRAY(String)),
+    Column("b1g_dateAccessioned_sm", ARRAY(String)),  # Note: array version for migration
+    Column("b1g_dcat_endpointDescription_s", String),
+    Column("b1g_dcat_endpointURL_s", String),
+    Column("b1g_dcat_inSeries_sm", ARRAY(String)),
+    Column("b1g_localCollectionLabel_sm", ARRAY(String)),
+    Column("b1g_prov_softwareAgent_sm", ARRAY(String)),
+    Column("b1g_prov_wasGeneratedBy_sm", ARRAY(String)),
+    Column("date_created_dtsi", TIMESTAMP),
+    Column("date_modified_dtsi", TIMESTAMP),
+    Column("geomg_id_s", String),
+    Column("publication_state", String),
+    Column("import_id", String),
 )
 
 resource_relationships = Table(

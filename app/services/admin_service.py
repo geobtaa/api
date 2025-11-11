@@ -12,6 +12,11 @@ from sqlalchemy import select
 
 from app.elasticsearch.index import reindex_resources
 from app.services.cache_service import ENDPOINT_CACHE, CacheService, invalidate_cache_with_prefix
+from app.services.distribution_repository import (
+    DistributionContext,
+    build_distribution_context,
+    fetch_distribution_context,
+)
 from app.tasks.entities import generate_geo_entities
 from app.tasks.summarization import generate_resource_summary
 from db.database import database
@@ -138,24 +143,19 @@ class ResourceProcessingService:
             ) from e
 
     def parse_resource_references(
-        self, resource: Dict[str, Any], resource_id: str
+        self,
+        resource: Dict[str, Any],
+        resource_id: str,
+        distribution_context: Optional[DistributionContext] = None,
     ) -> Dict[str, Any]:
-        """Parse resource references from dct_references_s field."""
-        references = resource.get("dct_references_s", {})
-        logger.info(f"Raw references for resource {resource_id}: {references}")
+        """
+        Retrieve resource distribution references using the relational tables.
+        """
+        if distribution_context is None:
+            distribution_context = build_distribution_context(resource.get("id", ""), [])
 
-        if isinstance(references, str):
-            try:
-                references = json.loads(references)
-                logger.info(
-                    f"Parsed references for resource {resource_id}: "
-                    f"{json.dumps(references, indent=2)}"
-                )
-            except json.JSONDecodeError:
-                logger.error(
-                    f"Failed to parse references JSON for resource {resource_id}: {references}"
-                )
-                references = {}
+        references = dict(distribution_context.legacy_reference_payload)
+        logger.info(f"Parsed references for resource {resource_id}: {references}")
 
         return references
 
@@ -232,7 +232,7 @@ class ResourceProcessingService:
             logger.info(f"Started summary task {summary_task.id} for resource {resource_id}")
 
             # Invalidate the resource cache since we'll be updating it
-            invalidate_cache_with_prefix(f"resource:{resource_id}")
+            await invalidate_cache_with_prefix(f"resource:{resource_id}")
 
             return summary_task.id
         except Exception as e:
@@ -253,7 +253,7 @@ class ResourceProcessingService:
             )
 
             # Invalidate the resource cache since we'll be updating it
-            invalidate_cache_with_prefix(f"resource:{resource_id}")
+            await invalidate_cache_with_prefix(f"resource:{resource_id}")
 
             return geo_entities_task.id
         except Exception as e:
@@ -290,9 +290,11 @@ class AdminService:
         # Get resource
         resource = await self.resource_processing_service.get_resource_by_id(resource_id)
 
+        distribution_context = await fetch_distribution_context(resource_id)
+
         # Parse references
         references = self.resource_processing_service.parse_resource_references(
-            resource, resource_id
+            resource, resource_id, distribution_context=distribution_context
         )
 
         # Determine asset info

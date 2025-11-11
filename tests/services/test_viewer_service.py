@@ -5,6 +5,7 @@ Tests for the ViewerService.
 from unittest.mock import MagicMock, patch
 
 from app.services.viewer_service import ViewerService, create_viewer_attributes, parse_references
+from tests.utils.distribution_helpers import make_distribution_context, make_distribution_record
 
 
 class TestParseReferences:
@@ -174,6 +175,27 @@ class TestParseReferences:
         assert isinstance(result, dict)
         assert result["iiif"] == "http://example.com/iiif"
         assert result["locn_geometry"] == "POINT(-93.2650 44.9778)"
+
+    def test_parse_references_with_distribution_context_https_alias(self):
+        """Ensure IIIF https URIs are mapped to http variants for viewer compatibility."""
+        resource_id = "test-resource"
+        manifest_url = "https://example.com/iiif/manifest.json"
+        context = make_distribution_context(
+            resource_id,
+            [
+                make_distribution_record(
+                    resource_id,
+                    "https://iiif.io/api/presentation#manifest",
+                    manifest_url,
+                )
+            ],
+        )
+        document = {"id": resource_id}
+
+        result = parse_references(document, distribution_context=context)
+
+        assert result["https://iiif.io/api/presentation#manifest"] == manifest_url
+        assert result["http://iiif.io/api/presentation#manifest"] == manifest_url
 
     def test_parse_references_error_handling(self):
         """Test parse_references error handling."""

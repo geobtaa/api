@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from db.config import DATABASE_URL
-from db.models import resource_allmaps, resources
+from db.models import distribution_types, resource_allmaps, resource_distributions, resources
 
 logger = logging.getLogger(__name__)
 
@@ -243,13 +243,23 @@ def index_all_allmaps(self: Task, batch_size: int = 100) -> dict:
                 task_engine, class_=AsyncSession, expire_on_commit=False
             )
             async with async_session_factory() as session:
-                query = select(resources).where(
-                    resources.c.dct_references_s.like(
-                        '%"http://iiif.io/api/presentation#manifest"%'
+                manifest_uri = "http://iiif.io/api/presentation#manifest"
+                query = (
+                    select(resources.c.id, resource_distributions.c.url)
+                    .select_from(
+                        resources.join(
+                            resource_distributions,
+                            resources.c.id == resource_distributions.c.resource_id,
+                        ).join(
+                            distribution_types,
+                            resource_distributions.c.distribution_type_id
+                            == distribution_types.c.id,
+                        )
                     )
+                    .where(distribution_types.c.distribution_uri == manifest_uri)
                 )
                 results = await session.execute(query)
-                return list(results)
+                return results.fetchall()
         finally:
             await task_engine.dispose()
 
@@ -272,11 +282,8 @@ def index_all_allmaps(self: Task, batch_size: int = 100) -> dict:
         jobs_submitted = 0
         for resource in resource_list:
             try:
-                references = json.loads(resource.dct_references_s)
-                manifest_url = references.get("http://iiif.io/api/presentation#manifest")
-
+                manifest_url = resource.url
                 if manifest_url:
-                    # Submit to Celery queue
                     process_allmaps_resource.delay(resource.id, manifest_url)
                     jobs_submitted += 1
 

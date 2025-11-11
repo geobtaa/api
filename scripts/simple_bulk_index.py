@@ -168,7 +168,7 @@ def build_suggest_field(doc):
 
 
 async def main():
-    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_data_api")
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
     chunk_size = 500
 
     logger.info("=" * 70)

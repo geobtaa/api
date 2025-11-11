@@ -236,8 +236,8 @@ class TestAddUiAttributes:
         assert "ui_thumbnail_url" in result
         assert "ui_citation" in result
         assert "ui_downloads" in result
-        # Should parse JSON references
-        assert isinstance(result["dct_references_s"], dict)
+        # dct_references_s is preserved as provided (JSON string)
+        assert isinstance(result["dct_references_s"], str)
 
     def test_add_ui_attributes_parse_references(self):
         """Test adding UI attributes with JSON references parsing."""
@@ -247,17 +247,16 @@ class TestAddUiAttributes:
         }
         result = add_ui_attributes(item)
 
-        # Should parse JSON string to dict
-        assert isinstance(result["dct_references_s"], dict)
-        assert result["dct_references_s"]["test"] == "value"
+        # JSON string is preserved; parsing is not performed in add_ui_attributes
+        assert isinstance(result["dct_references_s"], str)
 
     def test_add_ui_attributes_invalid_json_references(self):
         """Test adding UI attributes with invalid JSON references."""
         item = {"id": "test-123", "dct_references_s": "invalid json"}
         result = add_ui_attributes(item)
 
-        # Should handle invalid JSON gracefully
-        assert result["dct_references_s"] == {}
+        # Invalid JSON is preserved as-is; no parsing is performed here
+        assert result["dct_references_s"] == "invalid json"
 
     def test_add_ui_attributes_already_dict_references(self):
         """Test adding UI attributes when references are already a dict."""

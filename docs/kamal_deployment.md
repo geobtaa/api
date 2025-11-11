@@ -54,7 +54,7 @@ KAMAL_REGISTRY_PASSWORD=your_github_token_here
 POSTGRES_PASSWORD=your_postgres_password_here
 
 # Database URL (will be interpolated by Kamal)
-DATABASE_URL=postgresql+asyncpg://postgres:your_postgres_password_here@btaa-data-api-paradedb:5432/btaa_ogm_api
+DATABASE_URL=postgresql+asyncpg://postgres:your_postgres_password_here@btaa-geospatial-api-paradedb:5432/btaa_geospatial_api
 
 # Admin credentials
 ADMIN_USERNAME=admin
@@ -119,13 +119,13 @@ Wait for DNS propagation (can take up to 48 hours, usually much faster).
 
 ```bash
 # Build the image locally
-docker build -t your-dockerhub-username/btaa-data-api:latest .
+docker build -t your-dockerhub-username/btaa-geospatial-api:latest .
 
 # Login to Docker Hub
 docker login
 
 # Push the image
-docker push your-dockerhub-username/btaa-data-api:latest
+docker push your-dockerhub-username/btaa-geospatial-api:latest
 ```
 
 ### 6. Setup Kamal on Server
@@ -368,7 +368,7 @@ kamal app logs --tail 100
 # Check Docker on server
 kamal ssh
 docker ps -a
-docker logs btaa-data-api-web
+docker logs btaa-geospatial-api-web
 ```
 
 ### Database Connection Issues
@@ -448,13 +448,13 @@ source .kamal/secrets
 
 # Backup ParadeDB data
 ssh $KAMAL_SSH_USER@$KAMAL_HOST '\
-  docker exec btaa-data-api-paradedb pg_dump \
+          docker exec btaa-geospatial-api-paradedb pg_dump \
     -U postgres \
-    -d btaa_ogm_api \
-    --clean --if-exists | gzip > ~/btaa_ogm_api_backup_$(date +%Y%m%d).sql.gz'
+    -d btaa_geospatial_api \
+    --clean --if-exists | gzip > ~/btaa_geospatial_api_backup_$(date +%Y%m%d).sql.gz'
 
 # Download backup to local
-scp $KAMAL_SSH_USER@$KAMAL_HOST:~/btaa_ogm_api_backup_*.sql.gz ./backups/
+scp $KAMAL_SSH_USER@$KAMAL_HOST:~/btaa_geospatial_api_backup_*.sql.gz ./backups/
 ```
 
 ## Scaling
@@ -536,7 +536,7 @@ jobs:
           # Credentials
           KAMAL_REGISTRY_PASSWORD=${{ secrets.KAMAL_REGISTRY_PASSWORD }}
           POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
-          DATABASE_URL=postgresql+asyncpg://postgres:${{ secrets.POSTGRES_PASSWORD }}@btaa-data-api-paradedb:5432/btaa_ogm_api
+          DATABASE_URL=postgresql+asyncpg://postgres:${{ secrets.POSTGRES_PASSWORD }}@btaa-geospatial-api-paradedb:5432/btaa_geospatial_api
           ADMIN_USERNAME=${{ secrets.ADMIN_USERNAME }}
           ADMIN_PASSWORD=${{ secrets.ADMIN_PASSWORD }}
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
