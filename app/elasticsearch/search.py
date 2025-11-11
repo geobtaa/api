@@ -333,7 +333,7 @@ async def search_resources(
     if limit <= 0:
         limit = 20  # Default to 20 if limit is zero or negative
 
-    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 
     try:
         # Get the current search criteria
@@ -534,7 +534,7 @@ async def search_resources(
                 allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
 
             full_aggs = {
-                "id": {"terms": {"field": "id", "size": DEFAULT_FACET_SIZE}},
+                "id": {"terms": {"field": "id.keyword", "size": DEFAULT_FACET_SIZE}},
                 "dct_spatial_sm": {
                     "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
                 },

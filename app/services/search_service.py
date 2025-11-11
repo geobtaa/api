@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class SearchService:
     def __init__(self):
-        self.index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
+        self.index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
         self.es = es
 
     async def search(
@@ -327,7 +327,7 @@ class SearchService:
         raw_params = parse_qs(str(params))
 
         agg_to_field = {
-            "id_agg": "id",
+            "id_agg": "id.keyword",
             "spatial_agg": "dct_spatial_sm",
             "resource_type_agg": "gbl_resourceType_sm",
             "resource_class_agg": "gbl_resourceClass_sm",

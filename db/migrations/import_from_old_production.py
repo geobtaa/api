@@ -51,7 +51,7 @@ def get_new_db_connection():
     db_password = os.getenv("DB_PASSWORD", "postgres")
     db_host = os.getenv("DB_HOST", "localhost")
     db_port = os.getenv("DB_PORT", "2345")
-    db_name = os.getenv("DB_NAME", "btaa_ogm_api")
+    db_name = os.getenv("DB_NAME", "btaa_geospatial_api")
     
     new_db_url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     logger.info(f"Connecting to new production database: {db_name}")

@@ -22,7 +22,7 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=2345
-DB_NAME=btaa_ogm_api
+DB_NAME=btaa_geospatial_api
 
 # Old database name (add this)
 OLD_DB_NAME=geoportal_production_20251030
@@ -271,7 +271,7 @@ If you need to rollback the migration:
 
 3. **Restore from backup file**:
    ```bash
-   gunzip -c tmp/btaa_ogm_api_export.sql.gz | docker exec -i btaa-ogm-api-paradedb psql -U postgres -d btaa_ogm_api
+   gunzip -c tmp/btaa_geospatial_api_export.sql.gz | docker exec -i btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api
    ```
 
 ## Post-Migration Tasks

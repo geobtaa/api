@@ -229,6 +229,7 @@ class TestResourceProcessingService:
             make_distribution_context,
             make_distribution_record,
         )
+
         service = ResourceProcessingService()
         resource = {"id": "test-id"}
         record = make_distribution_record(
@@ -244,6 +245,7 @@ class TestResourceProcessingService:
             make_distribution_context,
             make_distribution_record,
         )
+
         service = ResourceProcessingService()
         resource = {"id": "test-id"}
         record = make_distribution_record(

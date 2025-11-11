@@ -1,6 +1,6 @@
-# GeoBTAA API
+# BTAA Geospatial API
 
-![GeoBTAA API](docs/geo_btaa_api.png)
+![BTAA Geospatial API](docs/geo_btaa_api.png)
 
 ## Development
 
@@ -43,7 +43,7 @@ The application uses several services:
 * [ParadeDB](https://www.paradedb.com/) (PostgreSQL-compatible database)
   - Port: 2345
   - Default credentials: postgres/postgres
-  - Database: btaa_ogm_api
+  - Database: btaa_geospatial_api
 
 * [Elasticsearch](https://www.elastic.co/elasticsearch/) (Search engine)
   - Port: 9200
@@ -81,7 +81,7 @@ docker compose up -d
 Imports a flat file of GeoBlacklight OpenGeoMetadata Aardvark test fixture data:
 ```bash
 cd data
-psql -h localhost -p 2345 -U postgres -d btaa_ogm_api -f btaa_ogm_api.txt
+psql -h localhost -p 2345 -U postgres -d btaa_geospatial_api -f btaa_geospatial_api.txt
 ```
 
 Run the API server:
@@ -126,8 +126,8 @@ This script will download and import all the gazetteer data.
 The application is also available as a Docker image on Docker Hub. You can pull and run the image using the following commands:
 
 ```bash
-docker pull ewlarson/ogm-api:latest
-docker run -d -p 8000:8000 ewlarson/ogm-api:latest
+docker pull ewlarson/btaa-geospatial-api:latest
+docker run -d -p 8000:8000 ewlarson/btaa-geospatial-api:latest
 ```
 
 This will start the API server on port 8000.
@@ -165,16 +165,16 @@ CACHE_TTL=43200           # Default TTL (12 hours)
 When caching is enabled:
 - API responses are cached in Redis based on the endpoint and its parameters
 - Search results are cached for faster repeated queries
-- Document details are cached to reduce database load
+- Resource details are cached to reduce database load
 - Suggestions are cached to improve autocomplete performance
 
 The cache is automatically invalidated when:
-- Documents are created, updated, or deleted
+- Resources are created, updated, or deleted
 - The Elasticsearch index is rebuilt
 
 You can manually clear the cache using:
 ```
-GET /api/v1/cache/clear?cache_type=search|document|suggest|all
+GET /api/v1/cache/clear?cache_type=search|resource|suggest|all
 ```
 
 ## AI Summarization
@@ -202,21 +202,21 @@ The API can process various types of assets to enhance summaries:
 
 ### Generating Summaries
 
-To generate a summary for a document:
+To generate a summary for a resource:
 
 ```
-POST /api/v1/documents/{id}/summarize
+POST /api/v1/resources/{id}/summarize
 ```
 
 This will trigger an asynchronous task to generate a summary. You can retrieve the summary using:
 
 ```
-GET /api/v1/documents/{id}/summaries
+GET /api/v1/resources/{id}/summaries
 ```
 
 ### Geographic Entity Extraction
 
-The API can identify and extract geographic named entities from documents. This includes:
+The API can identify and extract geographic named entities from resources. This includes:
 
 - Place names
 - Geographic coordinates
@@ -227,7 +227,7 @@ The API can identify and extract geographic named entities from documents. This 
 To extract geographic entities:
 
 ```
-POST /api/v1/documents/{id}/extract_entities
+POST /api/v1/resources/{id}/extract_entities
 ```
 
 The response will include:

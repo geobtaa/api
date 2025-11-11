@@ -64,7 +64,7 @@ async def main():
         db_count = db_result[0]
 
         # Get count from Elasticsearch
-        index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_data_api")
+        index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
         es_url = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
         es_count_result = await es.count(index=index_name)
         es_count = es_count_result.get("count", 0)
@@ -107,9 +107,7 @@ async def main():
                 )
             else:
                 db_ids_query = (
-                    "SELECT id FROM resources "
-                    "WHERE publication_state = 'published' "
-                    "ORDER BY id"
+                    "SELECT id FROM resources WHERE publication_state = 'published' ORDER BY id"
                 )
         else:
             db_ids_query = "SELECT id FROM resources ORDER BY id"

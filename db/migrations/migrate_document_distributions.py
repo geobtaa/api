@@ -68,7 +68,7 @@ def get_new_engine() -> Engine:
     db_password = get_env("DB_PASSWORD", "postgres")
     db_host = get_env("DB_HOST", "localhost")
     db_port = get_env("DB_PORT", "2345")
-    db_name = get_env("DB_NAME", "btaa_ogm_api")
+    db_name = get_env("DB_NAME", "btaa_geospatial_api")
 
     url = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
     logger.info("Connecting to new database: %s", db_name)

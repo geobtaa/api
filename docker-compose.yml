@@ -3,12 +3,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ewlarson/btaa-ogm-api:0.1.1
-    container_name: btaa-ogm-api-app
+    image: ewlarson/btaa-geospatial-api:0.2.0
+    container_name: btaa-geospatial-api-app
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
       - ELASTICSEARCH_URL=http://elasticsearch:9200
-      - ELASTICSEARCH_INDEX=btaa_data_api
+      - ELASTICSEARCH_INDEX=btaa_geospatial_api
       - LOG_PATH=/app/logs
       - APPLICATION_URL=http://localhost:8000
       - CORS_ORIGINS=*
@@ -41,7 +41,7 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
-    container_name: btaa-ogm-api-elasticsearch
+    container_name: btaa-geospatial-api-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
@@ -67,11 +67,11 @@ services:
 
   paradedb:
     image: paradedb/paradedb:0.18.11
-    container_name: btaa-ogm-api-paradedb
+    container_name: btaa-geospatial-api-paradedb
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=btaa_ogm_api
+      - POSTGRES_DB=btaa_geospatial_api
     ulimits:
       nofile:
         soft: 65536
@@ -82,14 +82,14 @@ services:
       - ./data/postgres:/var/lib/postgresql/data
     networks: [elastic]
     healthcheck:
-      test: ["CMD-SHELL","pg_isready -U postgres -d btaa_ogm_api"]
+      test: ["CMD-SHELL","pg_isready -U postgres -d btaa_geospatial_api"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7.4.6-alpine
-    container_name: btaa-ogm-api-redis
+    container_name: btaa-geospatial-api-redis
     command: >
       redis-server
       --appendonly yes
@@ -110,14 +110,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: btaa-ogm-api-celery
+    container_name: btaa-geospatial-api-celery
     # pass broker/backend explicitly in case your app doesn't read envs:
     command: celery -A app.tasks.worker worker --loglevel=INFO
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - REDIS_TTL=604800
@@ -138,13 +138,13 @@ services:
   flower:
     build:
       context: .
-    container_name: btaa-ogm-api-flower
+    container_name: btaa-geospatial-api-flower
     # tell Flower where the broker is
     command: bash -lc "cd /app && celery -A app.tasks.worker flower --port=5555 --broker=redis://:${REDIS_PASSWORD}@redis:6379/0"
     ports:
       - "127.0.0.1:5555:5555"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_ogm_api
+      - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - PYTHONPATH=/app

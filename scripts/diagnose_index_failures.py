@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 
 async def main():
-    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_data_api")
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
     es = AsyncElasticsearch(os.getenv("ELASTICSEARCH_URL", "http://elasticsearch:9200"))
 
     await database.connect()

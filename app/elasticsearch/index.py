@@ -128,7 +128,7 @@ def _coerce_boolean(value):
 
 async def index_resources():
     """Index all resources from PostgreSQL into Elasticsearch."""
-    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_ogm_api")
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 
     if await es.indices.exists(index=index_name):
         await es.indices.delete(index=index_name)
@@ -823,7 +823,7 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
 
 async def reindex_resources():
     """Reindex all resources from PostgreSQL into Elasticsearch with the new mapping."""
-    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geometadata_api")
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 
     try:
         # Delete the existing index if it exists
