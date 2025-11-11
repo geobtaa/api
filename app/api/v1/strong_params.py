@@ -11,6 +11,7 @@ SEARCH_ALLOWED_PARAMS = [
     "per_page",  # Results per page
     "sort",  # Sort option
     "search_field",  # Restrict search to specific ES fields
+    "advanced_queries",  # Advanced multi-field search queries
     "fields",  # Field filtering for response attributes
     "facets",  # Facet filtering for response aggregations
     "meta",  # Include per-resource meta

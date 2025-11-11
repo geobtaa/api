@@ -520,7 +520,7 @@ class TestSearchService:
         result = service.extract_filter_queries(params)
 
         # Verify all fields are mapped correctly
-        assert result["id"] == ["1"]
+        assert result["id.keyword"] == ["1"]
         assert result["dct_spatial_sm"] == ["Minnesota"]
         assert result["gbl_resourceType_sm"] == ["Dataset"]
         assert result["gbl_resourceClass_sm"] == ["Dataset"]
