@@ -255,7 +255,8 @@ class DownloadService:
 
     def _parse_references(self) -> Dict:
         """
-        Legacy helper: parse dct_references_s from the document if present and return a URI->value map.
+        Legacy helper: parse dct_references_s from the document if present
+        and return a URI->value map.
         """
         if self._legacy_refs_cache is not None:
             return self._legacy_refs_cache

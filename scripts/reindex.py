@@ -91,7 +91,10 @@ async def _db_id_stream(
             sql = f"SELECT id FROM resources WHERE {clause} ORDER BY id LIMIT :limit"
             params = {"limit": batch_size}
         else:
-            sql = f"SELECT id FROM resources WHERE {clause} AND id > :last_id ORDER BY id LIMIT :limit"
+            sql = (
+                f"SELECT id FROM resources WHERE {clause} "
+                "AND id > :last_id ORDER BY id LIMIT :limit"
+            )
             params = {"last_id": last_id, "limit": batch_size}
 
         rows = await database.fetch_all(sql, params)
@@ -156,7 +159,11 @@ async def _verify_missing(
     # DB IDs
     if published_only:
         if use_b1g_pub_state:
-            db_ids_sql = "SELECT id FROM resources WHERE coalesce(b1g_publication_state_s, '') = 'published' ORDER BY id"
+            db_ids_sql = (
+                "SELECT id FROM resources WHERE "
+                "coalesce(b1g_publication_state_s, '') = 'published' "
+                "ORDER BY id"
+            )
         else:
             db_ids_sql = (
                 "SELECT id FROM resources WHERE publication_state = 'published' ORDER BY id"
@@ -271,7 +278,10 @@ async def main():
 
             if total_attempted % max(1, batch_size) == 0:
                 logger.info(
-                    f"Progress: attempted={total_attempted:,}, indexed={total_indexed:,}, errors={total_errors:,}"
+                    "Progress: attempted=%s, indexed=%s, errors=%s",
+                    f"{total_attempted:,}",
+                    f"{total_indexed:,}",
+                    f"{total_errors:,}",
                 )
 
         # One refresh to expose results
@@ -331,7 +341,10 @@ async def main():
         # DB count
         if published_only:
             if use_b1g_pub_state:
-                db_count_sql = "SELECT COUNT(*) FROM resources WHERE coalesce(b1g_publication_state_s, '') = 'published'"
+                db_count_sql = (
+                    "SELECT COUNT(*) FROM resources WHERE "
+                    "coalesce(b1g_publication_state_s, '') = 'published'"
+                )
             else:
                 db_count_sql = (
                     "SELECT COUNT(*) FROM resources WHERE publication_state = 'published'"
