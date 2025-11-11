@@ -1,6 +1,6 @@
 # BTAA Geospatial API
 
-![BTAA Geospatial API](docs/geo_btaa_api.png)
+![BTAA Geospatial API](docs/btaa_geospatial_api.png)
 
 ## Development
 
@@ -50,6 +50,7 @@ The application uses several services:
   - Single-node configuration
   - Security disabled for development
   - 2GB memory allocation
+  - Index: btaa_geospatial_api
 
 * [Redis](https://redis.io/) (Caching and message broker)
   - Port: 6379
@@ -59,7 +60,7 @@ The application uses several services:
 * [DuckDB](https://duckdb.org/) (Embedded analytical database)
   - Runs in-process with the Python application
   - No separate service or port required
-  - Database file: `data/duckdb/btaa_ogm_api.duckdb`
+  - Database file: `data/duckdb/btaa_geospatial_api.duckdb`
   - Used for analytical queries and data processing
   - Access via Python `duckdb` package
 
@@ -277,10 +278,10 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [X] Search - sorting
 - [X] Search - basic faceting
 - [X] Performance - Redis caching
-- [ ] Search - facet include/exclude
+- [X] Search - facet include/exclude
 - [ ] Search - facet alpha and numerical pagination, and search within facets
 - [ ] Search - advanced/fielded search
-- [ ] Search - spatial search
+- [X] Search - spatial search
 - [X] Search Results - thumbnail images (needs improvements)
 - [X] Search Results - bookmarked resources
 - [X] Item View - citations
@@ -313,4 +314,4 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [ ] API - Analytics (PostHog?)
 - [ ] API - Authentication/Authorization for "Admin" endpoints
 - [ ] API - Throttling
-- [ ] Heirarchical Faceting > Spatial, ex: https://geo.btaa.org/catalog/p16022coll230:1750
+- [X] Heirarchical Faceting > Spatial, ex: https://geo.btaa.org/catalog/p16022coll230:1750
