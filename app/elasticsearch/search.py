@@ -185,6 +185,52 @@ def _normalize_geo_params(geo_params: dict) -> dict:
     return normalized or geo_params
 
 
+def _build_advanced_query(adv_q: list) -> dict:
+    """Build Elasticsearch bool query from advanced query clauses.
+
+    Args:
+        adv_q: List of query clause dicts with keys: op, f, q
+
+    Returns:
+        Dict with must, should, must_not lists for bool query
+    """
+    must_clauses = []
+    should_clauses = []
+    must_not_clauses = []
+
+    for clause in adv_q:
+        # Extract op, f, q from clause
+        operator = clause.get("op")
+        field = clause.get("f")
+        query = clause.get("q")
+
+        # Normalize operator to uppercase
+        if operator:
+            operator = operator.upper()
+
+        # Check if query is a phrase (wrapped in quotes)
+        is_phrase = len(query) >= 2 and query.startswith('"') and query.endswith('"')
+        phrase = query[1:-1] if is_phrase else query
+
+        # Build match query for the field
+        # Use simple match query - Elasticsearch will handle both analyzed and keyword fields
+        match_query = {"match": {field: {"query": phrase, "operator": "and"}}}
+
+        # Route to appropriate clause list based on operator
+        if operator == "AND":
+            must_clauses.append(match_query)
+        elif operator == "OR":
+            should_clauses.append(match_query)
+        elif operator == "NOT":
+            must_not_clauses.append(match_query)
+
+    return {
+        "must": must_clauses,
+        "should": should_clauses,
+        "must_not": must_not_clauses,
+    }
+
+
 def _build_geospatial_filter(geo_params: dict) -> dict | None:
     """Build Elasticsearch geospatial filter from geo parameters.
 
@@ -326,6 +372,7 @@ async def search_resources(
     include_filters: dict | None = None,
     exclude_filters: dict | None = None,
     facets: Optional[str] = None,
+    adv_q: Optional[list] = None,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -385,7 +432,56 @@ async def search_resources(
                 else:
                     must_not_clauses.append({"term": {resolved_field: values}})
 
+        # Optionally filter which aggs to include
+        allowed_aggs = None
+        if facets:
+            allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+
+        full_aggs = {
+            "dct_spatial_sm": {
+                "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_resourceClass_sm": {
+                "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_resourceType_sm": {
+                "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_indexYear_im": {
+                "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+            },
+            "dct_language_sm": {
+                "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "dct_creator_sm": {
+                "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "schema_provider_s": {
+                "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "dct_accessRights_s": {
+                "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_georeferenced_b": {
+                "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+            },
+            # Spatial facet aggregations with configurable sizes
+            "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
+            "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+            "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
+        }
+
+        selected_aggs = (
+            {k: v for k, v in full_aggs.items() if k in allowed_aggs} if allowed_aggs else full_aggs
+        )
+
         # Build the search query
+        # Support both q and adv_q simultaneously
+        must_clauses = []
+        should_clauses = []
+        combined_must_not = list(must_not_clauses)
+
+        # Build query from q parameter if provided
         if search_criteria.get("query"):
             query_text = search_criteria["query"] or ""
             is_phrase = (
@@ -405,189 +501,100 @@ async def search_resources(
                     expanded_fields.append(f)
                     expanded_fields.append(f"{f}.keyword")
 
-                base_query = {
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {
-                                    "multi_match": {
-                                        "query": phrase,
-                                        "type": "best_fields" if not is_phrase else "phrase",
-                                        "operator": "AND",
-                                        "fields": expanded_fields,
-                                    }
-                                }
-                            ],
-                            "filter": filter_clauses,
-                            "must_not": must_not_clauses,
+                must_clauses.append(
+                    {
+                        "multi_match": {
+                            "query": phrase,
+                            "type": "best_fields" if not is_phrase else "phrase",
+                            "operator": "AND",
+                            "fields": expanded_fields,
                         }
                     }
-                }
+                )
             else:
                 # Default behavior across boosted fields using query_string
-                base_query = {
-                    "query": {
-                        "bool": {
-                            "must": [
-                                {
-                                    "query_string": {
-                                        "query": query_text,
-                                        "fields": [
-                                            "id^5",
-                                            "dct_title_s^3",
-                                            "dct_description_sm^2",
-                                            "summary^2",
-                                            "dct_creator_sm^2",
-                                            "dct_subject_sm^1.5",
-                                            "dcat_keyword_sm^1.5",
-                                            "dct_publisher_sm",
-                                            "schema_provider_s",
-                                            "dct_spatial_sm",
-                                            "gbl_displaynote_sm",
-                                        ],
-                                        "default_operator": "AND",
-                                        "analyze_wildcard": True,
-                                        "allow_leading_wildcard": True,
-                                    }
-                                }
+                must_clauses.append(
+                    {
+                        "query_string": {
+                            "query": query_text,
+                            "fields": [
+                                "id^5",
+                                "dct_title_s^3",
+                                "dct_description_sm^2",
+                                "summary^2",
+                                "dct_creator_sm^2",
+                                "dct_subject_sm^1.5",
+                                "dcat_keyword_sm^1.5",
+                                "dct_publisher_sm",
+                                "schema_provider_s",
+                                "dct_spatial_sm",
+                                "gbl_displaynote_sm",
                             ],
-                            "filter": filter_clauses,
-                            "must_not": must_not_clauses,
+                            "default_operator": "AND",
+                            "analyze_wildcard": True,
+                            "allow_leading_wildcard": True,
                         }
-                    },
-                }
+                    }
+                )
 
-            # Optionally filter which aggs to include
-            allowed_aggs = None
-            if facets:
-                allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+        # Build advanced query clauses if provided
+        if adv_q:
+            advanced_query_structure = _build_advanced_query(adv_q)
+            # Add advanced query AND clauses to must
+            must_clauses.extend(advanced_query_structure["must"])
+            # Add advanced query OR clauses to should
+            should_clauses.extend(advanced_query_structure["should"])
+            # Add advanced query NOT clauses to must_not
+            combined_must_not.extend(advanced_query_structure["must_not"])
 
-            full_aggs = {
-                "dct_spatial_sm": {
-                    "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_resourceClass_sm": {
-                    "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_resourceType_sm": {
-                    "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_indexYear_im": {
-                    "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-                },
-                "dct_language_sm": {
-                    "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "dct_creator_sm": {
-                    "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "schema_provider_s": {
-                    "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "dct_accessRights_s": {
-                    "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_georeferenced_b": {
-                    "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-                },
-                # Spatial facet aggregations with configurable sizes
-                "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
-                "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
-                "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
-            }
+        # Build the bool query combining all clauses
+        bool_query_dict = {
+            "filter": filter_clauses,
+        }
 
-            selected_aggs = (
-                {k: v for k, v in full_aggs.items() if k in allowed_aggs}
-                if allowed_aggs
-                else full_aggs
-            )
+        if must_clauses:
+            bool_query_dict["must"] = must_clauses
+        elif not should_clauses:
+            # If no must clauses and no should clauses, match all
+            bool_query_dict["must"] = [{"match_all": {}}]
 
-            search_query = {
-                **base_query,
-                "from": skip,
-                "size": limit,
-                "sort": sort or [{"_score": "desc"}],
-                "track_total_hits": True,
-                "aggs": selected_aggs,
-            }
+        if should_clauses:
+            bool_query_dict["should"] = should_clauses
+            bool_query_dict["minimum_should_match"] = 1
 
-            # Only add suggest if query is not empty
-            if search_criteria["query"].strip():
-                search_query["suggest"] = {
-                    "text": search_criteria["query"],
-                    "simple_phrase": {
-                        "phrase": {
-                            "field": "dct_title_s",
-                            "size": 1,
-                            "gram_size": 3,
-                            "direct_generator": [
-                                {"field": "dct_title_s", "suggest_mode": "always"},
-                                {"field": "dct_description_sm", "suggest_mode": "always"},
-                            ],
-                            "highlight": {"pre_tag": "<em>", "post_tag": "</em>"},
-                        }
-                    },
-                }
-        else:
-            allowed_aggs = None
-            if facets:
-                allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+        if combined_must_not:
+            bool_query_dict["must_not"] = combined_must_not
 
-            full_aggs = {
-                "id": {"terms": {"field": "id.keyword", "size": DEFAULT_FACET_SIZE}},
-                "dct_spatial_sm": {
-                    "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_resourceClass_sm": {
-                    "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_resourceType_sm": {
-                    "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_indexYear_im": {
-                    "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-                },
-                "dct_language_sm": {
-                    "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "dct_creator_sm": {
-                    "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "schema_provider_s": {
-                    "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "dct_accessRights_s": {
-                    "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
-                },
-                "gbl_georeferenced_b": {
-                    "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-                },
-                # Spatial facet aggregations with configurable sizes
-                "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
-                "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
-                "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
-            }
+        base_query = {"query": {"bool": bool_query_dict}}
 
-            selected_aggs = (
-                {k: v for k, v in full_aggs.items() if k in allowed_aggs}
-                if allowed_aggs
-                else full_aggs
-            )
+        search_query = {
+            **base_query,
+            "from": skip,
+            "size": limit,
+            "sort": sort or [{"_score": "desc"}],
+            "track_total_hits": True,
+            "aggs": selected_aggs,
+        }
 
-            search_query = {
-                "query": {
-                    "bool": {
-                        "must": [{"match_all": {}}],
-                        "filter": filter_clauses,
-                        "must_not": must_not_clauses,
+        # Add suggestions if q parameter was provided
+        if search_criteria.get("query") and search_criteria["query"].strip():
+            search_query["suggest"] = {
+                "text": search_criteria["query"],
+                "simple_phrase": {
+                    "phrase": {
+                        "field": "dct_title_s",
+                        "size": 1,
+                        "gram_size": 3,
+                        "direct_generator": [
+                            {"field": "dct_title_s", "suggest_mode": "always"},
+                            {"field": "dct_description_sm", "suggest_mode": "always"},
+                        ],
+                        "highlight": {"pre_tag": "<em>", "post_tag": "</em>"},
                     }
                 },
-                "from": skip,
-                "size": limit,
-                "sort": sort or [{"_score": "desc"}],
-                "track_total_hits": True,
-                "aggs": selected_aggs,
             }
+
+        # If neither q nor adv_q provided, search_query already has match_all in must
 
         logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
 
