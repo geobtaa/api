@@ -199,9 +199,14 @@ def _build_advanced_query(adv_q: list) -> dict:
     must_not_clauses = []
 
     for clause in adv_q:
-        operator = clause["operator"]
-        field = clause["field"]
-        query = clause["query"]
+        # Extract op, f, q from clause
+        operator = clause.get("op")
+        field = clause.get("f")
+        query = clause.get("q")
+
+        # Normalize operator to uppercase
+        if operator:
+            operator = operator.upper()
 
         # Check if query is a phrase (wrapped in quotes)
         is_phrase = len(query) >= 2 and query.startswith('"') and query.endswith('"')

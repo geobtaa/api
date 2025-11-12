@@ -166,9 +166,15 @@ class TestAdvancedSearchQueryStructure:
         assert len(result["must_not"]) == 1  # NOT -> must_not
 
         # Verify operators were normalized
-        assert validated_queries[0]["operator"] == "AND"
-        assert validated_queries[1]["operator"] == "OR"
-        assert validated_queries[2]["operator"] == "NOT"
+        assert validated_queries[0]["op"] == "AND"
+        assert validated_queries[0]["f"] == "dct_title_s"
+        assert validated_queries[0]["q"] == "Iowa"
+        assert validated_queries[1]["op"] == "OR"
+        assert validated_queries[1]["f"] == "dct_description_sm"
+        assert validated_queries[1]["q"] == "Water"
+        assert validated_queries[2]["op"] == "NOT"
+        assert validated_queries[2]["f"] == "dct_subject_sm"
+        assert validated_queries[2]["q"] == "River"
 
     @pytest.mark.asyncio
     async def test_multiple_and_clauses_structure(self):

@@ -60,7 +60,7 @@ def validate_advanced_query_clause(clause: dict) -> dict:
     if not query or not isinstance(query, str) or not query.strip():
         raise HTTPException(status_code=400, detail="Missing or empty 'q' in advanced query clause")
 
-    return {"operator": operator_upper, "field": field.strip(), "query": query.strip()}
+    return {"op": operator_upper, "f": field.strip(), "q": query.strip()}
 
 
 def validate_adv_q(adv_q: Optional[List[dict]]) -> Optional[List[dict]]:
