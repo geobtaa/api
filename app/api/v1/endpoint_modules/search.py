@@ -9,11 +9,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.v1.advanced_search_utils import validate_adv_q
+from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
 from app.api.v1.utils import (
     create_jsonapi_response,
     create_pagination_links,
     process_resource_optimized,
     sanitize_for_json,
+)
+from app.elasticsearch.search import (
+    get_facet_aggregation_config,
+    get_facet_values,
+    get_search_criteria,
+    process_facet_response,
 )
 from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
@@ -306,6 +313,135 @@ async def search_post(
     except HTTPException:
         raise
     except Exception as e:
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@router.get("/search/facets/{facet_name}")
+@cached_endpoint(ttl=SEARCH_CACHE_TTL)
+async def get_facet(
+    facet_name: str,
+    request: Request,
+    q: Optional[str] = Query(None, description="Search query to filter resultset"),
+    page: int = Query(1, ge=1, description="Page number (minimum: 1)"),
+    per_page: int = Query(10, ge=1, le=100, description="Facet values per page (1-100)"),
+    sort: Optional[str] = Query(
+        "count_desc",
+        description="Sort option: count_desc, count_asc, alpha_asc, alpha_desc",
+    ),
+    q_facet: Optional[str] = Query(None, description="Search query to filter facet values"),
+    adv_q: Optional[str] = Query(
+        None,
+        description=(
+            "JSON array of advanced query clauses. "
+            "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
+        ),
+    ),
+):
+    """Get paginated, sortable facet values for a specific facet field within a search resultset.
+
+    This endpoint allows clients to retrieve, sort, paginate, and search through facet values
+    for a specific aggregation field. It accepts the same search parameters as /search to
+    maintain search context, ensuring facet counts match the current filtered resultset.
+    """
+    import json
+
+    try:
+        # Validate facet name
+        try:
+            get_facet_aggregation_config(facet_name)
+        except ValueError:
+            return JSONResponse(
+                content={"error": f"Invalid facet name: {facet_name}"}, status_code=400
+            )
+
+        # Validate sort parameter
+        valid_sorts = {"count_desc", "count_asc", "alpha_asc", "alpha_desc"}
+        if sort not in valid_sorts:
+            return JSONResponse(
+                content={
+                    "error": f"Invalid sort parameter. Must be one of: {', '.join(valid_sorts)}"
+                },
+                status_code=400,
+            )
+
+        # Parse adv_q from JSON string if provided
+        parsed_adv_q = None
+        if adv_q:
+            try:
+                parsed_adv_q = json.loads(adv_q)
+            except json.JSONDecodeError as e:
+                return JSONResponse(
+                    content={"error": f"Invalid JSON in adv_q parameter: {str(e)}"},
+                    status_code=400,
+                )
+
+        # Extract filters from query parameters (similar to search endpoint)
+        from app.services.search_service import SearchService
+
+        search_service = SearchService()
+        request_query_params = str(request.query_params)
+
+        # Extract filter queries
+        filter_query = search_service.extract_filter_queries(request_query_params)
+        include_filters, exclude_filters = search_service.extract_new_style_filters(
+            request_query_params
+        )
+
+        # Validate adv_q if provided
+        if parsed_adv_q is not None:
+            parsed_adv_q = validate_adv_q(parsed_adv_q)
+
+        # Build search criteria for link generation
+        search_criteria = get_search_criteria(q, filter_query, 0, 10, None)
+
+        # Get facet values from Elasticsearch
+        buckets = await get_facet_values(
+            facet_name=facet_name,
+            query=q,
+            fq=filter_query,
+            include_filters=include_filters,
+            exclude_filters=exclude_filters,
+            adv_q=parsed_adv_q,
+            q_facet=q_facet,
+        )
+
+        # Process and format facet response
+        facet_data = process_facet_response(
+            buckets=buckets,
+            facet_name=facet_name,
+            search_criteria=search_criteria,
+            page=page,
+            per_page=per_page,
+            sort=sort,
+            q_facet=q_facet,
+        )
+
+        # Create pagination links
+        links = create_pagination_links(
+            request,
+            page,
+            facet_data["meta"]["totalPages"],
+            pagination_type="page",
+            allowed_params=FACET_ALLOWED_PARAMS,
+        )
+
+        # Build JSON:API response
+        base = create_jsonapi_response(data=[], request_url=str(request.url))
+        response = {
+            "jsonapi": base.get("jsonapi", {}),
+            "links": links,
+            "meta": facet_data["meta"],
+            "data": facet_data["data"],
+        }
+
+        return JSONResponse(content=sanitize_for_json(response))
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        return JSONResponse(content={"error": str(e)}, status_code=400)
+    except Exception as e:
+        logger.error(f"Error getting facet values: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
 

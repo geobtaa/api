@@ -47,6 +47,76 @@ def _resolve_filter_field(field: str) -> str:
     return field
 
 
+def get_facet_aggregation_config(facet_name: str) -> dict:
+    """Get Elasticsearch aggregation configuration for a given facet name.
+
+    Args:
+        facet_name: The facet field name (e.g., 'dct_spatial_sm', 'schema_provider_s')
+
+    Returns:
+        Dictionary with aggregation configuration including field and size
+
+    Raises:
+        ValueError: If facet_name is not a valid facet field
+    """
+    # Map facet names to their aggregation configurations
+    facet_configs = {
+        "dct_spatial_sm": {
+            "field": "dct_spatial_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_resourceClass_sm": {
+            "field": "gbl_resourceClass_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_resourceType_sm": {
+            "field": "gbl_resourceType_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_indexYear_im": {
+            "field": "gbl_indexYear_im",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_language_sm": {
+            "field": "dct_language_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_creator_sm": {
+            "field": "dct_creator_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "schema_provider_s": {
+            "field": "schema_provider_s.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_accessRights_s": {
+            "field": "dct_accessRights_s.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_georeferenced_b": {
+            "field": "gbl_georeferenced_b",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "geo_country": {
+            "field": "geo_country",
+            "size": GEO_COUNTRY_FACET_SIZE,
+        },
+        "geo_region": {
+            "field": "geo_region",
+            "size": GEO_REGION_FACET_SIZE,
+        },
+        "geo_county": {
+            "field": "geo_county",
+            "size": GEO_COUNTY_FACET_SIZE,
+        },
+    }
+
+    if facet_name not in facet_configs:
+        raise ValueError(f"Invalid facet name: {facet_name}")
+
+    return facet_configs[facet_name]
+
+
 def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list = None):
     """Return the currently applied search criteria."""
     return {
@@ -896,17 +966,297 @@ def process_aggregations(aggregations, search_criteria):
 
 
 def generate_facet_link(agg_name, facet_value, search_criteria):
-    """Generate a link for a facet with current search parameters."""
+    """Generate a link for a facet with current search parameters.
+
+    Uses include_filters format for consistency with the new search endpoint.
+    """
+    from urllib.parse import urlencode
+
     base_url = os.getenv("APPLICATION_URL", "http://localhost:8000") + "/api/v1/search"
     query_params = {
         "q": search_criteria["query"] or "",
-        "search_field": "all_fields",
-        **{
-            f"fq[{key}][]": value
-            for key, values in search_criteria["filters"].items()
-            for value in (values if isinstance(values, list) else [values])
-        },
-        f"fq[{agg_name}][]": facet_value,
     }
-    query_string = "&".join(f"{key}={value}" for key, value in query_params.items())
+
+    # Add existing filters using include_filters format
+    if search_criteria.get("filters"):
+        for key, values in search_criteria["filters"].items():
+            # Convert ES field names back to facet names (remove .keyword suffix if present)
+            facet_key = key.replace(".keyword", "")
+            if isinstance(values, list):
+                for value in values:
+                    query_params.setdefault(f"include_filters[{facet_key}][]", []).append(value)
+            else:
+                query_params.setdefault(f"include_filters[{facet_key}][]", []).append(values)
+
+    # Add the new facet filter
+    # Remove .keyword suffix if present for consistency
+    facet_key = agg_name.replace(".keyword", "")
+    query_params.setdefault(f"include_filters[{facet_key}][]", []).append(facet_value)
+
+    query_string = urlencode(query_params, doseq=True)
     return f"{base_url}?{query_string}"
+
+
+async def get_facet_values(
+    facet_name: str,
+    query: str = None,
+    fq: dict = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
+    adv_q: Optional[list] = None,
+    q_facet: Optional[str] = None,
+    size: int = 1000,
+):
+    """Get facet values for a specific facet field within a search context.
+
+    Args:
+        facet_name: The facet field name (e.g., 'dct_spatial_sm', 'schema_provider_s')
+        query: Search query string
+        fq: Legacy filter queries dict
+        include_filters: Include filters dict
+        exclude_filters: Exclude filters dict
+        adv_q: Advanced query clauses
+        q_facet: Optional search query to filter facet values (client-side filtering)
+        size: Maximum number of facet values to retrieve from ES (default: 1000)
+
+    Returns:
+        Raw Elasticsearch aggregation buckets
+
+    Raises:
+        ValueError: If facet_name is invalid
+        HTTPException: If Elasticsearch query fails
+    """
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    # Get facet aggregation configuration
+    facet_config = get_facet_aggregation_config(facet_name)
+    agg_field = facet_config["field"]
+
+    # Build the same filter query structure as search_resources
+    filter_clauses = []
+    must_not_clauses = []
+
+    if fq:
+        for field, values in fq.items():
+            if isinstance(values, list):
+                filter_clauses.append({"terms": {field: values}})
+            else:
+                filter_clauses.append({"term": {field: values}})
+
+    if include_filters:
+        for field, values in include_filters.items():
+            resolved_field = _resolve_filter_field(field)
+
+            # Handle geospatial queries
+            if field == "geo" and isinstance(values, dict):
+                geo_filter = _build_geospatial_filter(values)
+                if geo_filter:
+                    filter_clauses.append(geo_filter)
+            elif isinstance(values, list):
+                filter_clauses.append(
+                    {
+                        "terms_set": {
+                            resolved_field: {
+                                "terms": values,
+                                "minimum_should_match_script": {"source": "params.num_terms"},
+                            }
+                        }
+                    }
+                )
+            else:
+                filter_clauses.append({"term": {resolved_field: values}})
+
+    if exclude_filters:
+        for field, values in exclude_filters.items():
+            resolved_field = _resolve_filter_field(field)
+            if isinstance(values, list):
+                must_not_clauses.append({"terms": {resolved_field: values}})
+            else:
+                must_not_clauses.append({"term": {resolved_field: values}})
+
+    # Build query clauses (same as search_resources)
+    must_clauses = []
+    should_clauses = []
+    combined_must_not = list(must_not_clauses)
+
+    # Build query from q parameter if provided
+    if query:
+        query_text = query or ""
+        # Note: is_phrase and phrase are calculated for consistency with search_resources,
+        # but query_string handles quotes natively, so we use query_text directly
+        is_phrase = len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
+        _phrase = query_text[1:-1] if is_phrase else query_text  # Unused but kept for consistency
+
+        must_clauses.append(
+            {
+                "query_string": {
+                    "query": query_text,
+                    "fields": [
+                        "id^5",
+                        "dct_title_s^3",
+                        "dct_description_sm^2",
+                        "summary^2",
+                        "dct_creator_sm^2",
+                        "dct_subject_sm^1.5",
+                        "dcat_keyword_sm^1.5",
+                        "dct_publisher_sm",
+                        "schema_provider_s",
+                        "dct_spatial_sm",
+                        "gbl_displaynote_sm",
+                    ],
+                    "default_operator": "AND",
+                    "analyze_wildcard": True,
+                    "allow_leading_wildcard": True,
+                }
+            }
+        )
+
+    # Build advanced query clauses if provided
+    if adv_q:
+        advanced_query_structure = _build_advanced_query(adv_q)
+        must_clauses.extend(advanced_query_structure["must"])
+        should_clauses.extend(advanced_query_structure["should"])
+        combined_must_not.extend(advanced_query_structure["must_not"])
+
+    # Build the bool query
+    bool_query_dict = {"filter": filter_clauses}
+
+    if must_clauses:
+        bool_query_dict["must"] = must_clauses
+    elif not should_clauses:
+        bool_query_dict["must"] = [{"match_all": {}}]
+
+    if should_clauses:
+        bool_query_dict["should"] = should_clauses
+        bool_query_dict["minimum_should_match"] = 1
+
+    if combined_must_not:
+        bool_query_dict["must_not"] = combined_must_not
+
+    # Build aggregation with large size to get all values for sorting/filtering
+    agg_config = {"terms": {"field": agg_field, "size": size}}
+
+    # Optionally use ES include parameter for filtering (but we'll do client-side for simplicity)
+    if q_facet:
+        # Use regex pattern matching in ES for better performance on large datasets
+        # Escape special regex characters
+        import re
+
+        escaped_query = re.escape(q_facet)
+        agg_config["terms"]["include"] = f".*{escaped_query}.*"
+
+    search_query = {
+        "query": {"bool": bool_query_dict},
+        "size": 0,  # We only want aggregations, not documents
+        "aggs": {"facet_values": agg_config},
+    }
+
+    try:
+        response = await es.search(
+            index=index_name,
+            query=search_query["query"],
+            size=0,
+            aggs=search_query["aggs"],
+        )
+        response_dict = response.body if hasattr(response, "body") else response
+        return response_dict.get("aggregations", {}).get("facet_values", {}).get("buckets", [])
+    except Exception as es_error:
+        logger.error(f"Elasticsearch error getting facet values: {str(es_error)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(es_error)) from es_error
+
+
+def process_facet_response(
+    buckets: list,
+    facet_name: str,
+    search_criteria: dict,
+    page: int = 1,
+    per_page: int = 10,
+    sort: str = "count_desc",
+    q_facet: Optional[str] = None,
+) -> dict:
+    """Process and format facet aggregation buckets into paginated JSON:API response.
+
+    Args:
+        buckets: Raw aggregation buckets from Elasticsearch
+        facet_name: The facet field name
+        search_criteria: Search criteria dict (for generating links)
+        page: Page number (1-based)
+        per_page: Items per page
+        sort: Sort option ('count_desc', 'count_asc', 'alpha_asc', 'alpha_desc')
+        q_facet: Optional search query to filter facet values
+
+    Returns:
+        Dictionary with processed facet data ready for JSON:API formatting
+    """
+    # Apply client-side filtering if q_facet provided (case-insensitive)
+    filtered_buckets = buckets
+    if q_facet:
+        q_facet_lower = q_facet.lower()
+        filtered_buckets = [
+            bucket for bucket in buckets if q_facet_lower in str(bucket.get("key", "")).lower()
+        ]
+
+    # Sort buckets based on sort parameter
+    if sort == "count_desc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
+        )
+    elif sort == "count_asc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=False
+        )
+    elif sort == "alpha_asc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: str(x.get("key", "")).lower(), reverse=False
+        )
+    elif sort == "alpha_desc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: str(x.get("key", "")).lower(), reverse=True
+        )
+    else:
+        # Default to count_desc
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
+        )
+
+    # Calculate pagination
+    total_count = len(filtered_buckets)
+    total_pages = max(1, (total_count + per_page - 1) // per_page) if per_page > 0 else 1
+    skip = (page - 1) * per_page
+    paginated_buckets = filtered_buckets[skip : skip + per_page]
+
+    # Format facet values as JSON:API resources
+    facet_items = []
+    for bucket in paginated_buckets:
+        facet_value = bucket.get("key", "")
+        doc_count = bucket.get("doc_count", 0)
+
+        # Generate link for this facet value
+        facet_link = generate_facet_link(facet_name, facet_value, search_criteria)
+
+        facet_items.append(
+            {
+                "type": "facet_value",
+                "id": str(facet_value),
+                "attributes": {
+                    "label": str(facet_value),
+                    "value": str(facet_value),
+                    "hits": doc_count,
+                },
+                "links": {
+                    "self": facet_link,
+                },
+            }
+        )
+
+    return {
+        "data": facet_items,
+        "meta": {
+            "totalCount": total_count,
+            "totalPages": total_pages,
+            "currentPage": page,
+            "perPage": per_page,
+            "facetName": facet_name,
+            "sort": sort,
+        },
+    }

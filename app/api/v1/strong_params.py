@@ -35,6 +35,34 @@ SEARCH_ALLOWED_PARAMS = [
     "exclude_filters[field][]",
 ]
 
+# Facet endpoint allowed parameters
+FACET_ALLOWED_PARAMS = [
+    "q",  # Search query to filter resultset
+    "page",  # Page number
+    "per_page",  # Facet values per page
+    "sort",  # Sort option (count_desc, count_asc, alpha_asc, alpha_desc)
+    "q_facet",  # Search query to filter facet values
+    "adv_q",  # Advanced multi-field search queries
+    "callback",  # JSONP callback
+    # Explicit facet filter parameters (fq[<field>][]) expected by tests
+    "fq[dct_resourceClass_sm][]",
+    "fq[gbl_resourceType_sm][]",
+    "fq[dct_spatial_sm][]",
+    "fq[gbl_indexYear_im][]",
+    "fq[dct_language_sm][]",
+    "fq[dct_creator_sm][]",
+    "fq[schema_provider_s][]",
+    "fq[dct_accessRights_s][]",
+    "fq[gbl_georeferenced_b][]",
+    # Spatial facets
+    "fq[geo_country][]",
+    "fq[geo_region][]",
+    "fq[geo_county][]",
+    # Dynamic include/exclude filters (placeholder notation for validation/docs)
+    "include_filters[field][]",
+    "exclude_filters[field][]",
+]
+
 # Gazetteer endpoint allowed parameters
 GAZETTEER_ALLOWED_PARAMS = [
     "q",  # Search query
