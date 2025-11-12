@@ -3,6 +3,7 @@ source = app
 omit = 
     */tests/*
     */__init__.py
+    examples/*
 
 [report]
 exclude_lines =
