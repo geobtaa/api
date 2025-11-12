@@ -8,7 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.api.v1.advanced_search_utils import validate_advanced_queries
+from app.api.v1.advanced_search_utils import validate_adv_q
 from app.api.v1.utils import (
     create_jsonapi_response,
     create_pagination_links,
@@ -38,7 +38,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
 
     Expects params to contain: q, page, per_page, sort, search_field, fields,
     facets, meta, callback, request_query_params (for GET only), include_filters,
-    exclude_filters, fq, advanced_queries.
+    exclude_filters, fq, adv_q.
     """
 
     # Defaults
@@ -55,11 +55,11 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     include_filters = params.get("include_filters")
     exclude_filters = params.get("exclude_filters")
     fq = params.get("fq")
-    advanced_queries = params.get("advanced_queries")
+    adv_q = params.get("adv_q")
 
-    # Validate advanced_queries if provided
-    if advanced_queries is not None:
-        advanced_queries = validate_advanced_queries(advanced_queries)
+    # Validate adv_q if provided
+    if adv_q is not None:
+        adv_q = validate_adv_q(adv_q)
 
     # Step 1: Call SearchService
     search_service = SearchService()
@@ -75,7 +75,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         include_filters=include_filters,
         exclude_filters=exclude_filters,
         fq_direct=fq,
-        advanced_queries=advanced_queries,
+        adv_q=adv_q,
     )
 
     # Step 2: Extract resource IDs and scores
@@ -179,11 +179,11 @@ async def search(
     meta: bool = Query(True, description="Include per-resource meta block (default: true)"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    advanced_queries: Optional[str] = Query(
+    adv_q: Optional[str] = Query(
         None,
         description=(
             "JSON array of advanced query clauses. "
-            "Each clause: {'operator': 'AND|OR|NOT', 'field': 'dct_title_s', 'query': 'Iowa'}"
+            "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
         ),
     ),
 ):
@@ -198,14 +198,14 @@ async def search(
             f"🔍 Starting search request: q='{q}', page={page}, per_page={per_page}, sort='{sort}'"
         )
 
-        # Parse advanced_queries from JSON string if provided
-        parsed_advanced_queries = None
-        if advanced_queries:
+        # Parse adv_q from JSON string if provided
+        parsed_adv_q = None
+        if adv_q:
             try:
-                parsed_advanced_queries = json.loads(advanced_queries)
+                parsed_adv_q = json.loads(adv_q)
             except json.JSONDecodeError as e:
                 return JSONResponse(
-                    content={"error": f"Invalid JSON in advanced_queries parameter: {str(e)}"},
+                    content={"error": f"Invalid JSON in adv_q parameter: {str(e)}"},
                     status_code=400,
                 )
 
@@ -222,7 +222,7 @@ async def search(
                 "meta": meta,
                 "callback": callback,
                 "request_query_params": str(request.query_params),
-                "advanced_queries": parsed_advanced_queries,
+                "adv_q": parsed_adv_q,
             },
         )
     except Exception as e:
@@ -249,10 +249,10 @@ async def search_post(
                     "exclude_filters": {"dct_spatial_sm": ["Iowa"]},
                 },
                 {
-                    "advanced_queries": [
-                        {"operator": "AND", "field": "dct_title_s", "query": "Iowa"},
-                        {"operator": "NOT", "field": "dct_title_s", "query": "Wisconsin"},
-                        {"operator": "AND", "field": "dct_description_sm", "query": "Water"},
+                    "adv_q": [
+                        {"op": "AND", "f": "dct_title_s", "q": "Iowa"},
+                        {"op": "NOT", "f": "dct_title_s", "q": "Wisconsin"},
+                        {"op": "AND", "f": "dct_description_sm", "q": "Water"},
                     ]
                 },
             ],
@@ -264,7 +264,7 @@ async def search_post(
     Supported keys:
       - q, page, per_page, sort, search_field, fields, facets, meta
       - include_filters, exclude_filters, fq (object of field->values)
-      - advanced_queries (array of query clauses with operator, field, query)
+      - adv_q (array of query clauses with op, f, q)
     """
 
     # Extract parameters with defaults matching GET
@@ -277,7 +277,7 @@ async def search_post(
     facets = payload.get("facets")
     meta = payload.get("meta", True)
     callback = payload.get("callback")
-    advanced_queries = payload.get("advanced_queries")
+    adv_q = payload.get("adv_q")
 
     include_filters = payload.get("include_filters")
     exclude_filters = payload.get("exclude_filters")
@@ -300,7 +300,7 @@ async def search_post(
                 "include_filters": include_filters,
                 "exclude_filters": exclude_filters,
                 "fq": fq,
-                "advanced_queries": advanced_queries,
+                "adv_q": adv_q,
             },
         )
     except HTTPException:

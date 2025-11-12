@@ -185,11 +185,11 @@ def _normalize_geo_params(geo_params: dict) -> dict:
     return normalized or geo_params
 
 
-def _build_advanced_query(advanced_queries: list) -> dict:
+def _build_advanced_query(adv_q: list) -> dict:
     """Build Elasticsearch bool query from advanced query clauses.
 
     Args:
-        advanced_queries: List of query clause dicts with keys: operator, field, query
+        adv_q: List of query clause dicts with keys: op, f, q
 
     Returns:
         Dict with must, should, must_not lists for bool query
@@ -198,7 +198,7 @@ def _build_advanced_query(advanced_queries: list) -> dict:
     should_clauses = []
     must_not_clauses = []
 
-    for clause in advanced_queries:
+    for clause in adv_q:
         operator = clause["operator"]
         field = clause["field"]
         query = clause["query"]
@@ -367,7 +367,7 @@ async def search_resources(
     include_filters: dict | None = None,
     exclude_filters: dict | None = None,
     facets: Optional[str] = None,
-    advanced_queries: Optional[list] = None,
+    adv_q: Optional[list] = None,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -471,7 +471,7 @@ async def search_resources(
         )
 
         # Build the search query
-        # Support both q and advanced_queries simultaneously
+        # Support both q and adv_q simultaneously
         must_clauses = []
         should_clauses = []
         combined_must_not = list(must_not_clauses)
@@ -533,8 +533,8 @@ async def search_resources(
                 )
 
         # Build advanced query clauses if provided
-        if advanced_queries:
-            advanced_query_structure = _build_advanced_query(advanced_queries)
+        if adv_q:
+            advanced_query_structure = _build_advanced_query(adv_q)
             # Add advanced query AND clauses to must
             must_clauses.extend(advanced_query_structure["must"])
             # Add advanced query OR clauses to should
@@ -589,7 +589,7 @@ async def search_resources(
                 },
             }
 
-        # If neither q nor advanced_queries provided, search_query already has match_all in must
+        # If neither q nor adv_q provided, search_query already has match_all in must
 
         logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
 

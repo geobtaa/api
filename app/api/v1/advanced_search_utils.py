@@ -14,7 +14,7 @@ def validate_advanced_query_clause(clause: dict) -> dict:
     """Validate and normalize a single advanced query clause.
 
     Args:
-        clause: Query clause dict with keys: operator, field, query
+        clause: Query clause dict with keys: op, f, q
 
     Returns:
         Normalized clause dict with ES field name
@@ -25,21 +25,18 @@ def validate_advanced_query_clause(clause: dict) -> dict:
     if not isinstance(clause, dict):
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Each advanced query clause must be a dictionary with "
-                "'operator', 'field', and 'query' keys"
-            ),
+            detail=("Each advanced query clause must be a dictionary with 'op', 'f', and 'q' keys"),
         )
 
-    operator = clause.get("operator")
-    field = clause.get("field")
-    query = clause.get("query")
+    operator = clause.get("op")
+    field = clause.get("f")
+    query = clause.get("q")
 
     # Validate operator
     if not operator:
         raise HTTPException(
             status_code=400,
-            detail="Missing 'operator' in advanced query clause. Must be one of: AND, OR, NOT",
+            detail="Missing 'op' in advanced query clause. Must be one of: AND, OR, NOT",
         )
 
     operator_upper = operator.upper()
@@ -51,28 +48,26 @@ def validate_advanced_query_clause(clause: dict) -> dict:
 
     # Validate field - must be a non-empty string (Elasticsearch will validate the field exists)
     if not field:
-        raise HTTPException(status_code=400, detail="Missing 'field' in advanced query clause")
+        raise HTTPException(status_code=400, detail="Missing 'f' in advanced query clause")
 
     if not isinstance(field, str) or not field.strip():
         raise HTTPException(
             status_code=400,
-            detail="'field' must be a non-empty string containing the Elasticsearch field name",
+            detail="'f' must be a non-empty string containing the Elasticsearch field name",
         )
 
     # Validate query
     if not query or not isinstance(query, str) or not query.strip():
-        raise HTTPException(
-            status_code=400, detail="Missing or empty 'query' in advanced query clause"
-        )
+        raise HTTPException(status_code=400, detail="Missing or empty 'q' in advanced query clause")
 
     return {"operator": operator_upper, "field": field.strip(), "query": query.strip()}
 
 
-def validate_advanced_queries(advanced_queries: Optional[List[dict]]) -> Optional[List[dict]]:
+def validate_adv_q(adv_q: Optional[List[dict]]) -> Optional[List[dict]]:
     """Validate and normalize advanced queries list.
 
     Args:
-        advanced_queries: List of query clause dicts
+        adv_q: List of query clause dicts
 
     Returns:
         List of normalized query clause dicts
@@ -80,25 +75,25 @@ def validate_advanced_queries(advanced_queries: Optional[List[dict]]) -> Optiona
     Raises:
         HTTPException: If queries are invalid
     """
-    if advanced_queries is None:
+    if adv_q is None:
         return None
 
-    if not isinstance(advanced_queries, list):
+    if not isinstance(adv_q, list):
         raise HTTPException(
-            status_code=400, detail="'advanced_queries' must be a list of query clause objects"
+            status_code=400, detail="'adv_q' must be a list of query clause objects"
         )
 
-    if len(advanced_queries) == 0:
-        raise HTTPException(status_code=400, detail="'advanced_queries' cannot be an empty list")
+    if len(adv_q) == 0:
+        raise HTTPException(status_code=400, detail="'adv_q' cannot be an empty list")
 
     validated_queries = []
-    for i, clause in enumerate(advanced_queries):
+    for i, clause in enumerate(adv_q):
         try:
             validated_clause = validate_advanced_query_clause(clause)
             validated_queries.append(validated_clause)
         except HTTPException as e:
             raise HTTPException(
-                status_code=e.status_code, detail=f"Error in advanced_queries[{i}]: {e.detail}"
+                status_code=e.status_code, detail=f"Error in adv_q[{i}]: {e.detail}"
             ) from e
 
     return validated_queries
