@@ -22,11 +22,9 @@ Every resource **MUST** include the following required BTAA properties:
 
 | Field | Type | Description |
 | :---- | :---- | :---- |
-| `b1g_code_s` | string | To group records based upon their source. |
 | `b1g_dct_accrualMethod_s` | string | To describe how the record was obtained. |
 | `b1g_dateAccessioned_s` | string | To store the date a record was harvested. |
 | `b1g_publication_state_s` | string | To communicate if the resource is public or hidden. |
-| `b1g_language_sm` | string | To display the spelled out string (in English) of a language code to users. |
 | [Full BTAA Extension Schema Definition](https://gin.btaa.org/metadata/b1g-custom-elements/) |  |  |
 
 ## OGM+BTAA Geospatial
@@ -41,17 +39,16 @@ Combined OGM+BTAA Geospatial required attributes:
 | `gbl_resourceClass_sm` | array of strings | Provides a top level set of categories for classifying the resource. |
 | `gbl_mdModified_dt` | string (date‑time) | Last modified timestamp. |
 | `gbl_mdVersion_s` | string | MUST be `Aardvark`. |
-| `b1g_code_s` | string | To group records based upon their source |
 | `b1g_dct_accrualMethod_s` | string | To describe how the record was obtained. |
 | `b1g_dateAccessioned_s` | string | To store the date a record was harvested. |
 | `b1g_publication_state_s` | string | To communicate if the resource is public or hidden. |
-| `b1g_language_sm` | string | To display the spelled out string (in English) of a language code to users. |
 
 The obligation for all other fields defined in the canonical Aardvark schema is **MAY**.
 
 ## JSON Schema
 
-JSON Schema file for OGM+BTAA Geospatial resources is maintained at: [https://opengeometadata.org/schema/geoblacklight-schema-aardvark.json](https://opengeometadata.org/schema/geoblacklight-schema-aardvark.json)
+JSON Schema file for OGM resources is maintained at: [https://opengeometadata.org/schema/geoblacklight-schema-aardvark.json](https://opengeometadata.org/schema/geoblacklight-schema-aardvark.json)
+
 
 ## JSON-LD Context
 

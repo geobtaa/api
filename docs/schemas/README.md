@@ -9,6 +9,7 @@ This directory contains JSON Schema definitions for validating linked data struc
 Validates OpenGeoMetadata Aardvark schema fields with BTAA Geospatial custom elements for geospatial resource records.
 
 **Required fields:**
+
 - `id` - Resource identifier
 - `gbl_mdVersion_s` - Metadata version (must be "Aardvark")
 - `schema_provider_s` - Schema provider
@@ -16,14 +17,12 @@ Validates OpenGeoMetadata Aardvark schema fields with BTAA Geospatial custom ele
 - `dct_description_sm` - Resource descriptions
 - `dct_language_sm` - Languages
 - `dct_accessRights_s` - Access rights ("Public" or "Restricted")
-- `dct_license_sm` - License URIs
-- `b1g_code_s` - BTAA Geospatial custom code
 - `b1g_dct_accrualMethod_s` - Accrual method
 - `b1g_dateAccessioned_s` - Accession date
 - `b1g_publication_state_s` - Publication state
-- `b1g_language_sm` - B1G languages
 
 **Key features:**
+
 - OpenGeoMetadata Aardvark compliance
 - BTAA Geospatial B1G custom extensions
 - Dublin Core metadata validation
