@@ -338,3 +338,65 @@ resource_distributions = Table(
     Column("updated_at", TIMESTAMP, nullable=False),
     Column("import_distribution_id", String(255), nullable=True),
 )
+
+# API Rate Limiting tables
+
+# API service tiers table
+api_service_tiers = Table(
+    "api_service_tiers",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("tier_name", String(100), nullable=False, unique=True, index=True),
+    Column("display_name", String(255), nullable=False),
+    Column("requests_per_minute", Integer, nullable=True),  # NULL = unlimited
+    Column("description", Text, nullable=True),
+    Column("created_at", TIMESTAMP, nullable=False),
+    Column("updated_at", TIMESTAMP, nullable=False),
+)
+
+# API keys table
+api_keys = Table(
+    "api_keys",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("key_hash", String(64), nullable=False, unique=True, index=True),  # SHA-256 hash
+    Column("tier_id", Integer, nullable=False, index=True),
+    Column("name", String(255), nullable=True),
+    Column("is_active", Boolean, nullable=False, server_default="true"),
+    Column("created_at", TIMESTAMP, nullable=False),
+    Column("updated_at", TIMESTAMP, nullable=False),
+    Column("last_used_at", TIMESTAMP, nullable=True),
+)
+
+# API usage logs table (for future analytics, inspired by Ahoy's comprehensive tracking)
+api_usage_logs = Table(
+    "api_usage_logs",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("api_key_id", Integer, nullable=True, index=True),  # Nullable for anonymous requests
+    Column("tier_id", Integer, nullable=False, index=True),
+    Column("visit_token", String(255), nullable=True, index=True),  # Unique identifier to group requests from same session/visit
+    Column("endpoint", String(500), nullable=False),
+    Column("method", String(10), nullable=False),
+    Column("status_code", Integer, nullable=False),
+    Column("requested_at", TIMESTAMP, nullable=False, index=True),
+    Column("response_time_ms", Integer, nullable=True),  # Response time in milliseconds
+    Column("ip_address", String(45), nullable=True),  # IPv6 max length
+    Column("user_agent", String(500), nullable=True),
+    # Traffic Source (Ahoy-inspired)
+    Column("referrer", String(500), nullable=True),  # HTTP Referer header
+    Column("referring_domain", String(255), nullable=True),  # Extracted from referrer
+    Column("landing_page", String(500), nullable=True),  # First endpoint in visit
+    # Technology (Ahoy-inspired, parsed from user_agent)
+    Column("browser", String(100), nullable=True),  # Browser name
+    Column("os", String(100), nullable=True),  # Operating system
+    Column("device_type", String(50), nullable=True),  # mobile, tablet, desktop, bot, etc.
+    # UTM Parameters (Ahoy-inspired)
+    Column("utm_source", String(255), nullable=True),
+    Column("utm_medium", String(255), nullable=True),
+    Column("utm_term", String(255), nullable=True),
+    Column("utm_content", String(255), nullable=True),
+    Column("utm_campaign", String(255), nullable=True),
+    # Custom properties/metadata for the request (Ahoy-inspired event properties)
+    Column("properties", JSON, nullable=True),
+)

@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 GEO_COUNTRY_FACET_SIZE = int(os.getenv("GEO_COUNTRY_FACET_SIZE", "20"))
 GEO_REGION_FACET_SIZE = int(os.getenv("GEO_REGION_FACET_SIZE", "50"))
 GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
-DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "10"))
+DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
 KEYWORD_FILTER_FIELDS = {

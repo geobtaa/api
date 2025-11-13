@@ -161,6 +161,13 @@ SEARCH_CACHE_TTL=3600     # 1 hour
 SUGGEST_CACHE_TTL=7200    # 2 hours 
 LIST_CACHE_TTL=43200      # 12 hours
 CACHE_TTL=43200           # Default TTL (12 hours)
+
+# Rate Limiting settings
+RATE_LIMIT_ENABLED=true   # Enable/disable rate limiting
+RATE_LIMIT_REDIS_DB=2     # Redis database number for rate limiting (uses same Redis instance)
+
+# API Usage Analytics Enrichment (User Agent Parsing)
+# Note: Geocoding has been removed due to licensing complexity
 ```
 
 When caching is enabled:
@@ -177,6 +184,39 @@ You can manually clear the cache using:
 ```
 GET /api/v1/cache/clear?cache_type=search|resource|suggest|all
 ```
+
+## API Usage Analytics
+
+The API automatically logs all requests to the `api_usage_logs` table for analytics purposes. This includes:
+
+- Request metadata (endpoint, method, status code, response time)
+- API key and tier information
+- IP address and user agent
+- Referrer and UTM parameters
+- Query parameters (stored in JSON properties field)
+
+### Enrichment with User Agent Parsing
+
+API usage logs are automatically enriched in the background with:
+
+- **User agent parsing**: Browser, operating system, and device type
+
+This enrichment happens asynchronously via Celery tasks to avoid blocking API requests.
+
+**Note**: IP geocoding (country, region, city, latitude, longitude) has been removed due to licensing complexity with geocoding databases.
+
+#### Backfilling Enrichment Data
+
+To enrich existing API usage logs that were created before enrichment was enabled, you can use the batch enrichment task:
+
+```python
+from app.tasks.api_usage_enrichment import enrich_api_usage_logs_batch
+
+# Enrich 100 logs at a time
+enrich_api_usage_logs_batch.delay(batch_size=100)
+```
+
+This can be run repeatedly until all logs are enriched.
 
 ## AI Summarization
 
@@ -279,8 +319,8 @@ Data from Who's On First. [License](https://whosonfirst.org/docs/licenses/)
 - [X] Search - basic faceting
 - [X] Performance - Redis caching
 - [X] Search - facet include/exclude
-- [ ] Search - facet alpha and numerical pagination, and search within facets
-- [ ] Search - advanced/fielded search
+- [X] Search - facet alpha and numerical pagination, and search within facets
+- [X] Search - advanced/fielded search
 - [X] Search - spatial search
 - [X] Search Results - thumbnail images (needs improvements)
 - [X] Search Results - bookmarked resources
