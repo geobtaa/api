@@ -100,6 +100,18 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "field": "gbl_georeferenced_b",
             "size": DEFAULT_FACET_SIZE,
         },
+        "dct_subject_sm": {
+            "field": "dct_subject_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dcat_theme_sm": {
+            "field": "dcat_theme_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dcat_keyword_sm": {
+            "field": "dcat_keyword_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
         "geo_country": {
             "field": "geo_country.keyword",
             "size": GEO_COUNTRY_FACET_SIZE,
