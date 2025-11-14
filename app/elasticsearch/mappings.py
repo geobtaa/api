@@ -64,17 +64,20 @@ INDEX_MAPPING = {
                 "type": "text",
                 "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
             },
+            # Date-ish fields that often contain free-form or fuzzy text (e.g. "1656-1677?" or
+            # "2021-08-31 to *"). We index them as keywords so Elasticsearch never tries to parse
+            # them as strict dates.
             "dct_temporal_sm": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "type": "keyword",
+                "normalizer": "lowercase",
             },
             "dct_issued_s": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "type": "keyword",
+                "normalizer": "lowercase",
             },
             "gbl_daterange_drsim": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "type": "keyword",
+                "normalizer": "lowercase",
             },
             "locn_geometry": {
                 "type": "geo_shape",
