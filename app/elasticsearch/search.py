@@ -104,6 +104,10 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "field": "dct_subject_sm.keyword",
             "size": DEFAULT_FACET_SIZE,
         },
+        "dct_publisher_sm": {
+            "field": "dct_publisher_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
         "dcat_theme_sm": {
             "field": "dcat_theme_sm.keyword",
             "size": DEFAULT_FACET_SIZE,

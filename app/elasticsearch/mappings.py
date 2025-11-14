@@ -54,15 +54,15 @@ INDEX_MAPPING = {
             },
             "dct_subject_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "dcat_theme_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "dcat_keyword_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             # Date-ish fields that often contain free-form or fuzzy text (e.g. "1656-1677?" or
             # "2021-08-31 to *"). We index them as keywords so Elasticsearch never tries to parse
