@@ -450,3 +450,179 @@ class TestAdvancedSearchBackwardCompatibility:
                 # Should have NOT clauses in must_not
                 assert "must_not" in bool_query
                 assert len(bool_query["must_not"]) == 1
+
+
+class TestAdvancedSearchAllFields:
+    """Test that 'all_fields' field name uses query_string across multiple fields."""
+
+    @pytest.mark.asyncio
+    async def test_all_fields_uses_query_string(self):
+        """Test that all_fields uses query_string across multiple fields."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [{"op": "AND", "f": "all_fields", "q": "water"}]
+        result = _build_advanced_query(adv_q)
+
+        assert len(result["must"]) == 1
+        assert "query_string" in result["must"][0]
+        query_string = result["must"][0]["query_string"]
+        assert query_string["query"] == "water"
+        assert "fields" in query_string
+        # Should search across multiple fields with boosts
+        assert len(query_string["fields"]) > 1
+        assert "dct_title_s^3" in query_string["fields"]
+        assert "dct_description_sm^2" in query_string["fields"]
+
+    @pytest.mark.asyncio
+    async def test_all_fields_case_insensitive(self):
+        """Test that all_fields works with different case variations."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        for field_variant in ["all_fields", "ALL_FIELDS", "All_Fields", "all", "*"]:
+            adv_q = [{"op": "AND", "f": field_variant, "q": "test"}]
+            result = _build_advanced_query(adv_q)
+
+            assert len(result["must"]) == 1
+            assert "query_string" in result["must"][0]
+
+    @pytest.mark.asyncio
+    async def test_all_fields_with_phrase(self):
+        """Test that all_fields handles phrase queries correctly."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [{"op": "AND", "f": "all_fields", "q": '"exact phrase"'}]
+        result = _build_advanced_query(adv_q)
+
+        assert len(result["must"]) == 1
+        assert "query_string" in result["must"][0]
+        # query_string should preserve quotes for phrase matching
+        assert result["must"][0]["query_string"]["query"] == '"exact phrase"'
+
+
+class TestAdvancedSearchOROperator:
+    """Test OR operator behavior, especially when mixed with AND on same field."""
+
+    @pytest.mark.asyncio
+    async def test_or_operator_single_clause(self):
+        """Test that single OR clause goes to should."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [{"op": "OR", "f": "dct_title_s", "q": "Iowa"}]
+        result = _build_advanced_query(adv_q)
+
+        assert len(result["must"]) == 0
+        assert len(result["should"]) == 1
+        assert len(result["must_not"]) == 0
+        assert result["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+
+    @pytest.mark.asyncio
+    async def test_and_then_or_same_field_treated_as_or(self):
+        """Test that AND+OR on same field are all treated as OR clauses."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        # This is the bug case: AND then OR on same field should be OR
+        adv_q = [
+            {"op": "AND", "f": "dct_title_s", "q": "Iowa"},
+            {"op": "OR", "f": "dct_title_s", "q": "Wisconsin"},
+        ]
+        result = _build_advanced_query(adv_q)
+
+        # Both should be in should_clauses, not must
+        assert len(result["must"]) == 0
+        assert len(result["should"]) == 2
+        assert len(result["must_not"]) == 0
+
+        # Both should be match queries on dct_title_s
+        assert result["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+        assert result["should"][1]["match"]["dct_title_s"]["query"] == "Wisconsin"
+
+    @pytest.mark.asyncio
+    async def test_multiple_or_same_field(self):
+        """Test that multiple OR clauses on same field all go to should."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [
+            {"op": "OR", "f": "dct_title_s", "q": "Iowa"},
+            {"op": "OR", "f": "dct_title_s", "q": "Wisconsin"},
+            {"op": "OR", "f": "dct_title_s", "q": "Minnesota"},
+        ]
+        result = _build_advanced_query(adv_q)
+
+        assert len(result["must"]) == 0
+        assert len(result["should"]) == 3
+        assert len(result["must_not"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_or_different_fields_not_treated_as_or(self):
+        """Test that OR clauses on different fields work normally (not all as OR)."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [
+            {"op": "AND", "f": "dct_title_s", "q": "Iowa"},
+            {"op": "OR", "f": "dct_description_sm", "q": "Water"},
+        ]
+        result = _build_advanced_query(adv_q)
+
+        # Should work normally: AND in must, OR in should
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 1
+        assert result["must"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+        assert result["should"][0]["match"]["dct_description_sm"]["query"] == "Water"
+
+    @pytest.mark.asyncio
+    async def test_or_with_not_clause_same_field(self):
+        """Test that NOT clauses are excluded from OR grouping."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [
+            {"op": "AND", "f": "dct_title_s", "q": "Iowa"},
+            {"op": "OR", "f": "dct_title_s", "q": "Wisconsin"},
+            {"op": "NOT", "f": "dct_title_s", "q": "Minnesota"},
+        ]
+        result = _build_advanced_query(adv_q)
+
+        # Iowa and Wisconsin should both be in should (treated as OR)
+        assert len(result["must"]) == 0
+        assert len(result["should"]) == 2
+        assert len(result["must_not"]) == 1
+
+        # NOT clause should be separate
+        assert result["must_not"][0]["match"]["dct_title_s"]["query"] == "Minnesota"
+
+    @pytest.mark.asyncio
+    async def test_or_same_field_integration(self):
+        """Test that OR on same field works correctly in full search."""
+        from app.elasticsearch.search import search_resources
+
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    adv_q=[
+                        {"op": "AND", "f": "dct_title_s", "q": "Iowa"},
+                        {"op": "OR", "f": "dct_title_s", "q": "Wisconsin"},
+                    ],
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+                bool_query = search_query["bool"]
+
+                # Should have both in should_clauses (treated as OR)
+                assert "should" in bool_query
+                assert len(bool_query["should"]) == 2
+                assert bool_query["minimum_should_match"] == 1
+
+                # Should NOT have must clauses
+                assert "must" not in bool_query or len(bool_query.get("must", [])) == 0

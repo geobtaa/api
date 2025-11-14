@@ -271,6 +271,42 @@ def _build_advanced_query(adv_q: list) -> dict:
     should_clauses = []
     must_not_clauses = []
 
+    # Fields to search when "all_fields" is specified (same as regular q parameter)
+    ALL_FIELDS_SEARCH_FIELDS = [
+        "id^5",
+        "dct_title_s^3",
+        "dct_description_sm^2",
+        "summary^2",
+        "dct_creator_sm^2",
+        "dct_subject_sm^1.5",
+        "dcat_keyword_sm^1.5",
+        "dct_publisher_sm",
+        "schema_provider_s",
+        "dct_spatial_sm",
+        "gbl_displaynote_sm",
+    ]
+
+    # Check if there are any OR clauses
+    has_or_clauses = any(
+        clause.get("op", "").upper() == "OR" for clause in adv_q if clause.get("op")
+    )
+
+    # If there are OR clauses, check if all non-NOT clauses are on the same field
+    # If so, treat them all as OR clauses (even if some are marked as AND)
+    # This handles the case: [{"op":"AND","f":"field","q":"A"}, {"op":"OR","f":"field","q":"B"}]
+    # which should be interpreted as: field contains A OR B
+    treat_all_as_or = False
+    if has_or_clauses:
+        # Get all non-NOT clauses
+        non_not_clauses = [clause for clause in adv_q if clause.get("op", "").upper() != "NOT"]
+        if non_not_clauses:
+            # Check if all non-NOT clauses are on the same field
+            first_field = non_not_clauses[0].get("f")
+            all_same_field = all(clause.get("f") == first_field for clause in non_not_clauses)
+            # If all on same field, treat all non-NOT clauses as OR
+            if all_same_field:
+                treat_all_as_or = True
+
     for clause in adv_q:
         # Extract op, f, q from clause
         operator = clause.get("op")
@@ -281,21 +317,40 @@ def _build_advanced_query(adv_q: list) -> dict:
         if operator:
             operator = operator.upper()
 
-        # Check if query is a phrase (wrapped in quotes)
-        is_phrase = len(query) >= 2 and query.startswith('"') and query.endswith('"')
-        phrase = query[1:-1] if is_phrase else query
-
-        # Build match query for the field
-        # Use simple match query - Elasticsearch will handle both analyzed and keyword fields
-        match_query = {"match": {field: {"query": phrase, "operator": "and"}}}
+        # Build query based on field type
+        if field and field.lower() in ("all_fields", "all", "*"):
+            # For "all_fields", use query_string across multiple fields
+            # (same as regular q parameter). query_string handles quotes natively,
+            # so use the original query text
+            query_clause = {
+                "query_string": {
+                    "query": query,
+                    "fields": ALL_FIELDS_SEARCH_FIELDS,
+                    "default_operator": "AND",
+                    "analyze_wildcard": True,
+                    "allow_leading_wildcard": True,
+                }
+            }
+        else:
+            # For specific fields, use match query
+            # Check if query is a phrase (wrapped in quotes) and extract it
+            is_phrase = len(query) >= 2 and query.startswith('"') and query.endswith('"')
+            phrase = query[1:-1] if is_phrase else query
+            # Use simple match query - Elasticsearch will handle both analyzed and keyword fields
+            query_clause = {"match": {field: {"query": phrase, "operator": "and"}}}
 
         # Route to appropriate clause list based on operator
-        if operator == "AND":
-            must_clauses.append(match_query)
+        # Special handling: if there are OR clauses and all non-NOT clauses are on the same field,
+        # treat all non-NOT clauses as OR (even if marked as AND)
+        if operator == "NOT":
+            must_not_clauses.append(query_clause)
+        elif treat_all_as_or:
+            # If we're in "OR mode" (all same field with OR clauses), put everything in should
+            should_clauses.append(query_clause)
+        elif operator == "AND":
+            must_clauses.append(query_clause)
         elif operator == "OR":
-            should_clauses.append(match_query)
-        elif operator == "NOT":
-            must_not_clauses.append(match_query)
+            should_clauses.append(query_clause)
 
     return {
         "must": must_clauses,
@@ -540,7 +595,9 @@ async def search_resources(
             },
             # Spatial facet aggregations with configurable sizes
             # Note: These fields are text with keyword subfields in the actual index
-            "geo_country": {"terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}},
+            "geo_country": {
+                "terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}
+            },
             "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
             "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
         }
