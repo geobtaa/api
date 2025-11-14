@@ -37,6 +37,9 @@ KEYWORD_FILTER_FIELDS = {
     "dct_creator_sm",
     "schema_provider_s",
     "dct_accessRights_s",
+    "geo_country",
+    "geo_region",
+    "geo_county",
 }
 
 
@@ -98,15 +101,15 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "size": DEFAULT_FACET_SIZE,
         },
         "geo_country": {
-            "field": "geo_country",
+            "field": "geo_country.keyword",
             "size": GEO_COUNTRY_FACET_SIZE,
         },
         "geo_region": {
-            "field": "geo_region",
+            "field": "geo_region.keyword",
             "size": GEO_REGION_FACET_SIZE,
         },
         "geo_county": {
-            "field": "geo_county",
+            "field": "geo_county.keyword",
             "size": GEO_COUNTY_FACET_SIZE,
         },
     }
@@ -536,9 +539,10 @@ async def search_resources(
                 "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
             },
             # Spatial facet aggregations with configurable sizes
-            "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
-            "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
-            "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
+            # Note: These fields are text with keyword subfields in the actual index
+            "geo_country": {"terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}},
+            "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
+            "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
         }
 
         selected_aggs = (
