@@ -5,7 +5,7 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -24,6 +24,8 @@ from app.services.link_service import LinkService
 from app.services.ogm_field_mapper import OGMFieldMapper
 from app.services.relationship_service import RelationshipService
 from app.services.spatial_facet_service import SpatialFacetService
+from app.services.static_map_service import StaticMapService
+from app.tasks.static_maps import generate_static_map
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -66,8 +68,15 @@ router = APIRouter()
 
 logger = logging.getLogger(__name__)
 
-# Create async engine and session
-engine = create_async_engine(DATABASE_URL)
+# Create async engine and session with connection pool settings
+engine = create_async_engine(
+    DATABASE_URL,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,  # Recycle connections after 30 minutes
+    pool_pre_ping=True,  # Verify connections before using them
+)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 base_url = os.getenv("APPLICATION_URL", "http://localhost:8000/api/v1/")
@@ -374,6 +383,71 @@ async def get_resource_spatial_facets(
         ) from e
 
 
+@router.get("/resources/{id}/static-map")
+@cached_endpoint(ttl=RESOURCE_CACHE_TTL)
+async def get_resource_static_map(
+    id: str,
+    request: Request = None,
+):
+    """Get a static map image for a resource based on its locn_geometry (or dcat_bbox as fallback)."""
+    try:
+        # First check if the resource exists and has geometry
+        async with async_session() as session:
+            query = select(resources.c.id, resources.c.locn_geometry, resources.c.dcat_bbox).where(
+                resources.c.id == id
+            )
+            result = await session.execute(query)
+            row = result.fetchone()
+
+            if not row:
+                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+
+            resource_dict = dict(row._mapping)
+            # Prefer locn_geometry over dcat_bbox
+            geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+
+            if not geometry:
+                return JSONResponse(
+                    content={"error": "Resource has no geometry"}, status_code=404
+                )
+
+        # Check if map already exists
+        map_service = StaticMapService()
+        map_path = map_service.get_map_path(id)
+
+        if map_path and map_path.exists():
+            # Return the map image (display inline in browser)
+            # Remove filename parameter to prevent download, browser will display inline
+            return FileResponse(
+                str(map_path),
+                media_type="image/png",
+                headers={"Content-Disposition": "inline"},
+            )
+
+        # Map doesn't exist, trigger Celery task to generate it
+        try:
+            generate_static_map.delay(id)
+            logger.info(f"Triggered static map generation for resource {id}")
+        except Exception as e:
+            logger.error(f"Error triggering static map generation for resource {id}: {e}")
+
+        # Return 202 Accepted while map is being generated
+        return JSONResponse(
+            content={
+                "status": "processing",
+                "message": "Static map is being generated. Please try again in a few moments.",
+            },
+            status_code=202,
+        )
+
+    except HTTPException:
+        # Re-raise HTTP exceptions to maintain their status code
+        raise
+    except Exception as e:
+        logger.error(f"Error getting static map for resource {id}: {str(e)}", exc_info=True)
+        return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
 @router.get("/resources/{id}/summaries")
 async def get_resource_summaries(
     id: str,
@@ -573,3 +647,5 @@ async def get_resource_viewer(
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+

@@ -109,18 +109,51 @@ class SpatialFacetService:
                 )
                 return facets
 
+            # Check if this is a global bbox - if so, return geo.global = True immediately
+            # This should happen before PostGIS queries to avoid antipodal errors
+            if self._is_global_bbox(bbox_geom):
+                logger.debug(
+                    f"Global bbox detected for resource {self.resource_dict.get('id', 'unknown')}: {bbox_geom}"
+                )
+                return {"geo.global": True}
+
             # Get spatial facets using PostGIS and Who's on First data
-            country = await self._get_country_from_bbox(bbox_geom, session)
-            if country:
-                facets["geo.country"] = country
+            # Use try/except around each query to handle transaction failures
+            try:
+                country = await self._get_country_from_bbox(bbox_geom, session)
+                if country:
+                    facets["geo.country"] = country
+            except Exception as e:
+                logger.warning(f"Error getting country for resource {self.resource_dict.get('id', 'unknown')}: {e}")
+                if session:
+                    try:
+                        await session.rollback()
+                    except Exception:
+                        pass
 
-            regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
-            if regions:
-                facets["geo.region"] = regions
+            try:
+                regions = await self._get_regions_from_bbox(bbox_geom, session, debug=debug)
+                if regions:
+                    facets["geo.region"] = regions
+            except Exception as e:
+                logger.warning(f"Error getting regions for resource {self.resource_dict.get('id', 'unknown')}: {e}")
+                if session:
+                    try:
+                        await session.rollback()
+                    except Exception:
+                        pass
 
-            counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
-            if counties:
-                facets["geo.county"] = counties
+            try:
+                counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
+                if counties:
+                    facets["geo.county"] = counties
+            except Exception as e:
+                logger.warning(f"Error getting counties for resource {self.resource_dict.get('id', 'unknown')}: {e}")
+                if session:
+                    try:
+                        await session.rollback()
+                    except Exception:
+                        pass
 
         except Exception as e:
             logger.error(
@@ -128,6 +161,12 @@ class SpatialFacetService:
                 f"{self.resource_dict.get('id', 'unknown')}: {e}",
                 exc_info=True,
             )
+            # Rollback transaction if it's in a failed state
+            if session:
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass
 
         return facets
 
@@ -171,7 +210,8 @@ class SpatialFacetService:
         Check if a bounding box represents a global dataset (entire world).
 
         Allows some tolerance for catalogers who might use near-global extents
-        to work around validation constraints.
+        to work around validation constraints. Also considers bboxes with very large
+        longitude spans (>= 180 degrees) as global, even if latitude span is limited.
 
         Args:
             bbox_coords: (xmin, ymin, xmax, ymax) tuple
@@ -188,11 +228,19 @@ class SpatialFacetService:
         lon_span = xmax - xmin
         lat_span = ymax - ymin
 
+        # Handle dateline crossing: if xmin is negative and xmax is positive,
+        # calculate the actual wrapped span
+        if xmin < 0 and xmax > 0:
+            # Dateline crossing - the actual span wraps around
+            actual_lon_span = 360 - (abs(xmin) + abs(xmax))
+        else:
+            actual_lon_span = lon_span
+
         # Check if longitude span is close to 360 degrees (within tolerance)
         # and latitude span is close to 180 degrees (within tolerance)
         # and the bounds are close to world extent
-        is_near_global = (
-            lon_span >= (360 - tolerance * 2)  # At least 358 degrees wide
+        is_fully_global = (
+            actual_lon_span >= (360 - tolerance * 2)  # At least 358 degrees wide
             and lat_span >= (180 - tolerance * 2)  # At least 178 degrees tall
             and xmin >= (-180 - tolerance)
             and xmin <= (-180 + tolerance)  # Western edge near -180
@@ -204,7 +252,14 @@ class SpatialFacetService:
             and ymax >= (90 - tolerance)  # Northern edge near 90
         )
 
-        return is_near_global
+        # Also consider bboxes with very large longitude spans (>= 180 degrees) as global
+        # even if latitude span is limited - these represent near-global datasets
+        is_near_global_longitude = (
+            actual_lon_span >= (360 - tolerance * 2)  # At least 358 degrees wide
+            or (lon_span >= 180.0 and xmin <= (-180 + tolerance * 2) and xmax >= (180 - tolerance * 2))
+        )
+
+        return is_fully_global or is_near_global_longitude
 
     def _parse_bbox_to_geometry(self, bbox: str) -> Optional[Tuple[float, float, float, float]]:
         """
@@ -221,6 +276,15 @@ class SpatialFacetService:
             envelope_match = re.match(r"ENVELOPE\(([^,]+),([^,]+),([^,]+),([^)]+)\)", bbox.strip())
             if envelope_match:
                 xmin, xmax, ymax, ymin = map(float, envelope_match.groups())
+
+                # Auto-fix: ensure xmin < xmax and ymin < ymax
+                if xmin > xmax:
+                    xmin, xmax = xmax, xmin
+                    logger.debug(f"Swapped x coordinates in ENVELOPE bbox: {bbox}")
+                
+                if ymin > ymax:
+                    ymin, ymax = ymax, ymin
+                    logger.debug(f"Swapped y coordinates in ENVELOPE bbox: {bbox}")
 
                 # Check if this is a point location (zero-area bbox)
                 # If so, add a small buffer to make it processable
@@ -244,14 +308,100 @@ class SpatialFacetService:
                     ymin -= buffer
                     ymax += buffer
 
+                # Handle very small bounding boxes (expand if too small)
+                if (xmax - xmin) < 0.001:
+                    logger.debug(f"Very small x range in {bbox}, expanding")
+                    center_x = (xmin + xmax) / 2
+                    xmin = center_x - buffer
+                    xmax = center_x + buffer
+                
+                if (ymax - ymin) < 0.001:
+                    logger.debug(f"Very small y range in {bbox}, expanding")
+                    center_y = (ymin + ymax) / 2
+                    ymin = center_y - buffer
+                    ymax = center_y + buffer
+
+                # Check if this is a global bbox BEFORE validation
+                # Global bboxes should be returned even if they fail validation
+                if self._is_global_bbox((xmin, ymin, xmax, ymax)):
+                    logger.debug(f"Global bbox detected (may fail validation): {bbox} -> ({xmin},{ymin},{xmax},{ymax})")
+                    return (xmin, ymin, xmax, ymax)
+
                 # Validate bounding box
                 if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
-                    logger.warning(f"Invalid bounding box: {bbox} - skipping")
+                    logger.warning(f"Invalid bounding box after fixes: {bbox} -> ({xmin},{ymin},{xmax},{ymax}) - skipping")
                     return None
 
                 return (xmin, ymin, xmax, ymax)
 
-            # Handle other bbox formats if needed
+            # Handle simple comma-separated format: xmin,ymin,xmax,ymax
+            parts = [p.strip() for p in bbox.split(",")]
+            if len(parts) == 4:
+                try:
+                    xmin, ymin, xmax, ymax = map(float, parts)
+                    
+                    # Auto-fix common issues: swapped coordinates
+                    if xmin > xmax:
+                        # x coordinates might be swapped
+                        xmin, xmax = xmax, xmin
+                        logger.debug(f"Swapped x coordinates in bbox: {bbox}")
+                    
+                    if ymin > ymax:
+                        # y coordinates might be swapped
+                        ymin, ymax = ymax, ymin
+                        logger.debug(f"Swapped y coordinates in bbox: {bbox}")
+                    
+                    # Check if this is a point location (zero-area bbox)
+                    buffer = 0.001  # ~100 meters at the equator
+                    
+                    if xmin == xmax and ymin == ymax:
+                        # Point location - expand in all directions
+                        logger.debug(f"Point location detected in {bbox}, adding buffer")
+                        xmin -= buffer
+                        xmax += buffer
+                        ymin -= buffer
+                        ymax += buffer
+                    elif xmin == xmax:
+                        # Vertical line - expand horizontally
+                        logger.debug(f"Vertical line detected in {bbox}, adding horizontal buffer")
+                        xmin -= buffer
+                        xmax += buffer
+                    elif ymin == ymax:
+                        # Horizontal line - expand vertically
+                        logger.debug(f"Horizontal line detected in {bbox}, adding vertical buffer")
+                        ymin -= buffer
+                        ymax += buffer
+                    
+                    # Handle very small bounding boxes (expand if too small)
+                    if (xmax - xmin) < 0.001:
+                        logger.debug(f"Very small x range in {bbox}, expanding")
+                        center_x = (xmin + xmax) / 2
+                        xmin = center_x - buffer
+                        xmax = center_x + buffer
+                    
+                    if (ymax - ymin) < 0.001:
+                        logger.debug(f"Very small y range in {bbox}, expanding")
+                        center_y = (ymin + ymax) / 2
+                        ymin = center_y - buffer
+                        ymax = center_y + buffer
+                    
+                    # Check if this is a global bbox BEFORE validation
+                    # Global bboxes should be returned even if they fail validation
+                    if self._is_global_bbox((xmin, ymin, xmax, ymax)):
+                        logger.debug(f"Global bbox detected (may fail validation): {bbox} -> ({xmin},{ymin},{xmax},{ymax})")
+                        return (xmin, ymin, xmax, ymax)
+                    
+                    # Validate bounding box
+                    if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
+                        logger.warning(f"Invalid bounding box after fixes: {bbox} -> ({xmin},{ymin},{xmax},{ymax}) - skipping")
+                        return None
+                    
+                    return (xmin, ymin, xmax, ymax)
+                except ValueError:
+                    logger.warning(f"Could not parse bbox coordinates: {bbox}")
+                    return None
+            
+            # Unrecognized format
             logger.warning(f"Unrecognized bbox format: {bbox}")
             return None
 
@@ -285,25 +435,45 @@ class SpatialFacetService:
             return True
 
         # Check for antipodal edges (spans 180 degrees longitude)
-        if abs(xmax - xmin) >= 180:
-            return False
+        # But allow dateline crossing for high-latitude regions (e.g., Arctic)
+        lon_span = abs(xmax - xmin)
+        if lon_span >= 180:
+            # If this crosses the dateline (xmin negative, xmax positive) and is at high latitude,
+            # it might be a legitimate bbox (e.g., Arctic regions)
+            if xmin < 0 and xmax > 0 and abs((ymin + ymax) / 2) > 60:
+                # High latitude dateline crossing - allow it
+                pass
+            else:
+                return False
 
         # Check for extremely large bounding boxes (likely data errors)
-        # For latitude, 90 degrees is still a reasonable limit
-        if (ymax - ymin) > 90:
+        # For latitude, allow up to 180 degrees (covers entire globe N-S)
+        # This allows legitimate large datasets like continental coverage
+        if (ymax - ymin) > 180:
             return False
 
         # For longitude, use latitude-dependent threshold
         # At high latitudes (near poles), wider longitude spans are legitimate
         # because lines of longitude converge
         avg_lat = abs((ymin + ymax) / 2)
+        lon_span = abs(xmax - xmin)
 
-        # At the equator (lat=0), limit to 90 degrees
-        # At the poles (lat=90), allow up to 180 degrees
+        # Handle dateline crossing: if xmin is negative and xmax is positive,
+        # the actual span might wrap around (360 - lon_span)
+        if xmin < 0 and xmax > 0:
+            # Dateline crossing - calculate the shorter path
+            # The actual span is either lon_span or (360 - lon_span), whichever is smaller
+            actual_span = min(lon_span, 360 - lon_span)
+        else:
+            actual_span = lon_span
+
+        # At the equator (lat=0), allow up to 180 degrees (half the globe)
+        # At the poles (lat=90), allow up to 360 degrees (full circle)
         # Linear interpolation between these extremes
-        max_lon_span = 90 + (avg_lat / 90) * 90  # ranges from 90 to 180
+        # This allows legitimate large datasets like continental coverage
+        max_lon_span = 180 + (avg_lat / 90) * 180  # ranges from 180 to 360
 
-        if (xmax - xmin) > max_lon_span:
+        if actual_span > max_lon_span:
             return False
 
         # Check for zero-area bounding boxes
@@ -326,6 +496,16 @@ class SpatialFacetService:
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
+            
+            # Skip global bboxes - they can't be processed by PostGIS
+            if self._is_global_bbox(bbox_coords):
+                logger.debug(f"Skipping global bbox for country lookup: {bbox_coords}")
+                return None
+            
+            # Skip bboxes with exactly 180-degree longitude span (PostGIS antipodal error)
+            if abs(xmax - xmin) >= 180.0:
+                logger.debug(f"Skipping antipodal bbox for country lookup: {bbox_coords}")
+                return None
 
             # Optimized query using pre-computed geometry and spatial index
             query = """
@@ -371,6 +551,12 @@ class SpatialFacetService:
 
         except Exception as e:
             logger.error(f"Error getting country from bbox {bbox_coords}: {e}", exc_info=True)
+            # Rollback transaction if it's in a failed state
+            if session:
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass  # Ignore rollback errors
             return None
 
     async def _get_regions_from_bbox(
@@ -389,6 +575,16 @@ class SpatialFacetService:
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
+            
+            # Skip global bboxes - they can't be processed by PostGIS
+            if self._is_global_bbox(bbox_coords):
+                logger.debug(f"Skipping global bbox for regions lookup: {bbox_coords}")
+                return None
+            
+            # Skip bboxes with exactly 180-degree longitude span (PostGIS antipodal error)
+            if abs(xmax - xmin) >= 180.0:
+                logger.debug(f"Skipping antipodal bbox for regions lookup: {bbox_coords}")
+                return None
 
             # Optimized query using spatial index and pre-computed geometry
             if debug:
@@ -399,37 +595,53 @@ class SpatialFacetService:
                 bbox_area AS (
                     SELECT ST_Area(bbox.geom::geography) AS total_area
                     FROM bbox
+                ),
+                intersections AS (
+                    SELECT 
+                        wof.name, 
+                        wof.wok_id, 
+                        wof.parent_id,
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                    FROM gazetteer_wof_spr wof
+                    JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
+                    CROSS JOIN bbox
+                    WHERE wof.placetype = 'region'
+                      AND wof.country = 'US'
+                      AND geojson.source = 'quattroshapes'
+                      AND geojson.alt_label IS NULL
+                      AND geojson.geometry IS NOT NULL
+                      AND ST_Intersects(geojson.geometry, bbox.geom)
                 )
-                SELECT wof.name, wof.wok_id, wof.parent_id,
-                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
-                              bbox_area.total_area) * 100) AS overlap_percent
-                FROM gazetteer_wof_spr wof
-                JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
-                CROSS JOIN bbox, bbox_area
-                WHERE wof.placetype = 'region'
-                  AND wof.country = 'US'
-                  AND geojson.source = 'quattroshapes'
-                  AND geojson.alt_label IS NULL
-                  AND geojson.geometry IS NOT NULL
-                  AND ST_Intersects(geojson.geometry, bbox.geom)
-                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC;
+                SELECT 
+                    name, wok_id, parent_id,
+                    ROUND((intersect_area / bbox_area.total_area) * 100) AS overlap_percent
+                FROM intersections, bbox_area
+                ORDER BY intersect_area DESC;
                 """
             else:
                 query = """
                 WITH bbox AS (
                     SELECT ST_SetSRID(ST_MakeEnvelope(:xmin, :ymin, :xmax, :ymax), 4326) AS geom
+                ),
+                intersections AS (
+                    SELECT 
+                        wof.name, 
+                        wof.wok_id, 
+                        wof.parent_id,
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                    FROM gazetteer_wof_spr wof
+                    JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
+                    CROSS JOIN bbox
+                    WHERE wof.placetype = 'region'
+                      AND wof.country = 'US'
+                      AND geojson.source = 'quattroshapes'
+                      AND geojson.alt_label IS NULL
+                      AND geojson.geometry IS NOT NULL
+                      AND ST_Intersects(geojson.geometry, bbox.geom)
                 )
-                SELECT wof.name, wof.wok_id, wof.parent_id
-                FROM gazetteer_wof_spr wof
-                JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
-                CROSS JOIN bbox
-                WHERE wof.placetype = 'region'
-                  AND wof.country = 'US'
-                  AND geojson.source = 'quattroshapes'
-                  AND geojson.alt_label IS NULL
-                  AND geojson.geometry IS NOT NULL
-                  AND ST_Intersects(geojson.geometry, bbox.geom)
-                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC;
+                SELECT name, wok_id, parent_id
+                FROM intersections
+                ORDER BY intersect_area DESC;
                 """
 
             if session:
@@ -481,6 +693,12 @@ class SpatialFacetService:
 
         except Exception as e:
             logger.error(f"Error getting regions from bbox {bbox_coords}: {e}", exc_info=True)
+            # Rollback transaction if it's in a failed state
+            if session:
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass  # Ignore rollback errors
             return None
 
     async def _get_counties_from_bbox(
@@ -504,6 +722,16 @@ class SpatialFacetService:
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
+            
+            # Skip global bboxes - they can't be processed by PostGIS
+            if self._is_global_bbox(bbox_coords):
+                logger.debug(f"Skipping global bbox for counties lookup: {bbox_coords}")
+                return None
+            
+            # Skip bboxes with exactly 180-degree longitude span (PostGIS antipodal error)
+            if abs(xmax - xmin) >= 180.0:
+                logger.debug(f"Skipping antipodal bbox for counties lookup: {bbox_coords}")
+                return None
 
             # Highly optimized query using materialized view and spatial indexes
             if debug:
@@ -514,20 +742,32 @@ class SpatialFacetService:
                 bbox_area AS (
                     SELECT ST_Area(bbox.geom::geography) AS total_area
                     FROM bbox
+                ),
+                intersections AS (
+                    SELECT 
+                        csr.county_name, 
+                        csr.county_wok_id, 
+                        csr.state_wok_id, 
+                        csr.state_abbrev,
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                    FROM county_state_relationships csr
+                    JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
+                    CROSS JOIN bbox
+                    WHERE geojson.source = 'quattroshapes'
+                      AND geojson.alt_label IS NULL
+                      AND geojson.geometry IS NOT NULL
+                      AND ST_Intersects(geojson.geometry, bbox.geom)
+                ),
+                filtered AS (
+                    SELECT *, (intersect_area / bbox_area.total_area) AS overlap_ratio
+                    FROM intersections, bbox_area
+                    WHERE (intersect_area / bbox_area.total_area) >= :threshold
                 )
-                SELECT csr.county_name, csr.county_wok_id, csr.state_wok_id, csr.state_abbrev,
-                       ROUND((ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
-                              bbox_area.total_area) * 100) AS overlap_percent
-                FROM county_state_relationships csr
-                JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
-                CROSS JOIN bbox, bbox_area
-                WHERE geojson.source = 'quattroshapes'
-                  AND geojson.alt_label IS NULL
-                  AND geojson.geometry IS NOT NULL
-                  AND ST_Intersects(geojson.geometry, bbox.geom)
-                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
-                      bbox_area.total_area >= :threshold
-                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
+                SELECT 
+                    county_name, county_wok_id, state_wok_id, state_abbrev,
+                    ROUND(overlap_ratio * 100) AS overlap_percent
+                FROM filtered
+                ORDER BY intersect_area DESC
                 LIMIT 100;
                 """
             else:
@@ -538,18 +778,30 @@ class SpatialFacetService:
                 bbox_area AS (
                     SELECT ST_Area(bbox.geom::geography) AS total_area
                     FROM bbox
+                ),
+                intersections AS (
+                    SELECT 
+                        csr.county_name, 
+                        csr.county_wok_id, 
+                        csr.state_wok_id, 
+                        csr.state_abbrev,
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                    FROM county_state_relationships csr
+                    JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
+                    CROSS JOIN bbox
+                    WHERE geojson.source = 'quattroshapes'
+                      AND geojson.alt_label IS NULL
+                      AND geojson.geometry IS NOT NULL
+                      AND ST_Intersects(geojson.geometry, bbox.geom)
+                ),
+                filtered AS (
+                    SELECT *, (intersect_area / bbox_area.total_area) AS overlap_ratio
+                    FROM intersections, bbox_area
+                    WHERE (intersect_area / bbox_area.total_area) >= :threshold
                 )
-                SELECT csr.county_name, csr.county_wok_id, csr.state_wok_id, csr.state_abbrev
-                FROM county_state_relationships csr
-                JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
-                CROSS JOIN bbox, bbox_area
-                WHERE geojson.source = 'quattroshapes'
-                  AND geojson.alt_label IS NULL
-                  AND geojson.geometry IS NOT NULL
-                  AND ST_Intersects(geojson.geometry, bbox.geom)
-                  AND ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) / 
-                      bbox_area.total_area >= :threshold
-                ORDER BY ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) DESC
+                SELECT county_name, county_wok_id, state_wok_id, state_abbrev
+                FROM filtered
+                ORDER BY intersect_area DESC
                 LIMIT 100;
                 """
 
@@ -625,6 +877,12 @@ class SpatialFacetService:
 
         except Exception as e:
             logger.error(f"Error getting counties from bbox {bbox_coords}: {e}", exc_info=True)
+            # Rollback transaction if it's in a failed state
+            if session:
+                try:
+                    await session.rollback()
+                except Exception:
+                    pass  # Ignore rollback errors
             return None
 
     @staticmethod

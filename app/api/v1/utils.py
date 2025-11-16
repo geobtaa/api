@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -516,6 +517,23 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         # Wrap Allmaps attributes in an allmaps object
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
 
+    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox)
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    if geometry:
+        from app.services.static_map_service import StaticMapService
+
+        map_service = StaticMapService()
+        if map_service.map_exists(resource_dict["id"]):
+            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+            static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+            
+            if "meta" not in resource:
+                resource["meta"] = {}
+            if "ui" not in resource["meta"]:
+                resource["meta"]["ui"] = {}
+            
+            resource["meta"]["ui"]["static_map"] = static_map_url
+
     return resource
 
 
@@ -608,5 +626,22 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
 
         # Wrap Allmaps attributes in an allmaps object
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+
+    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox)
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    if geometry:
+        from app.services.static_map_service import StaticMapService
+
+        map_service = StaticMapService()
+        if map_service.map_exists(resource_dict["id"]):
+            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+            static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+            
+            if "meta" not in resource:
+                resource["meta"] = {}
+            if "ui" not in resource["meta"]:
+                resource["meta"]["ui"] = {}
+            
+            resource["meta"]["ui"]["static_map"] = static_map_url
 
     return resource
