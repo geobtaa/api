@@ -29,6 +29,7 @@ GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
 DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
+# Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
 KEYWORD_FILTER_FIELDS = {
     "dct_spatial_sm",
     "gbl_resourceClass_sm",
@@ -37,9 +38,6 @@ KEYWORD_FILTER_FIELDS = {
     "dct_creator_sm",
     "schema_provider_s",
     "dct_accessRights_s",
-    "geo_country",
-    "geo_region",
-    "geo_county",
 }
 
 
@@ -117,15 +115,15 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "size": DEFAULT_FACET_SIZE,
         },
         "geo_country": {
-            "field": "geo_country.keyword",
+            "field": "geo_country",
             "size": GEO_COUNTRY_FACET_SIZE,
         },
         "geo_region": {
-            "field": "geo_region.keyword",
+            "field": "geo_region",
             "size": GEO_REGION_FACET_SIZE,
         },
         "geo_county": {
-            "field": "geo_county.keyword",
+            "field": "geo_county",
             "size": GEO_COUNTY_FACET_SIZE,
         },
     }
@@ -610,12 +608,12 @@ async def search_resources(
                 "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
             },
             # Spatial facet aggregations with configurable sizes
-            # Note: These fields are text with keyword subfields in the actual index
+            # Note: These fields are already keyword type fields (not text with .keyword subfields)
             "geo_country": {
-                "terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}
+                "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
             },
-            "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
-            "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
+            "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+            "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
         }
 
         selected_aggs = (
