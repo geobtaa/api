@@ -26,6 +26,10 @@ services:
       - IS_DOCKER=true
     ports:
       - "127.0.0.1:8000:8000"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     depends_on:
       elasticsearch:
         condition: service_healthy
@@ -37,7 +41,7 @@ services:
       - ./logs:/app/logs
       - .:/app
     networks: [elastic]
-    command: ["uvicorn","main:app","--host","0.0.0.0","--port","8000","--reload","--log-level","debug"]
+    command: ["uvicorn","main:app","--host","0.0.0.0","--port","8000","--log-level","debug"]
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
@@ -54,6 +58,7 @@ services:
       nofile:
         soft: 65536
         hard: 65536
+    mem_limit: 4g
     ports:
       - "127.0.0.1:9200:9200"
     volumes:
