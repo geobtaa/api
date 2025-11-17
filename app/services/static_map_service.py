@@ -17,6 +17,16 @@ from shapely.geometry import shape
 
 logger = logging.getLogger(__name__)
 
+# Custom Carto tile provider (not available in py-staticmaps v0.4.0)
+# Based on: https://github.com/flopp/py-staticmaps/blob/e0266dc40163e87ce42a0ea5d8836a9a4bd92208/staticmaps/tile_provider.py#L132
+tile_provider_Carto = staticmaps.TileProvider(
+    "carto",
+    url_pattern="http://$s.basemaps.cartocdn.com/rastertiles/light_all/$z/$x/$y.png",
+    shards=["a", "b", "c", "d"],
+    attribution="Maps (C) CARTO (C) OpenStreetMap.org contributors",
+    max_zoom=20,
+)
+
 
 class StaticMapService:
     """Service for generating static maps from bounding boxes."""
@@ -251,9 +261,8 @@ class StaticMapService:
 
             # Create a context for the map
             context = staticmaps.Context()
-            # Use OpenStreetMap tiles (standard provider with labels)
-            # OSM tiles have labels at zoom levels 5+ and are part of the standard py-staticmaps featureset
-            context.set_tile_provider(staticmaps.tile_provider.tile_provider_OSM)
+            # Carto Light tiles (standard provider with labels)
+            context.set_tile_provider(tile_provider_Carto)
 
             # Create a rectangle from the bounding box
             # py-staticmaps uses (lat, lon) order for coordinates
@@ -289,8 +298,8 @@ class StaticMapService:
             
             rectangle = staticmaps.Area(
                 points,
-                fill_color=staticmaps.Color(0, 0, 255, 100),  # Blue with transparency (RGBA, 0-255)
-                color=staticmaps.Color(0, 0, 255, 255),  # Solid blue outline (RGBA, 0-255)
+                fill_color=staticmaps.Color(37, 99, 235, 26),  # #2563eb with 10% opacity (fill-opacity="0.1")
+                color=staticmaps.Color(37, 99, 235, 153),  # #2563eb with 60% opacity (stroke-opacity="0.6")
                 width=2,
             )
 
