@@ -38,6 +38,10 @@ KEYWORD_FILTER_FIELDS = {
     "dct_creator_sm",
     "schema_provider_s",
     "dct_accessRights_s",
+    "dct_subject_sm",
+    "dct_publisher_sm",
+    "dcat_theme_sm",
+    "dcat_keyword_sm",
 }
 
 
