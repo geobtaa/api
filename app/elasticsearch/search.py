@@ -534,11 +534,12 @@ async def search_resources(
         must_not_clauses = []
         if fq:
             for field, values in fq.items():
-                logger.debug(f"Processing filter - Field: {field}, Values: {values}")
+                resolved_field = _resolve_filter_field(field)
+                logger.debug(f"Processing filter - Field: {field}, Resolved: {resolved_field}, Values: {values}")
                 if isinstance(values, list):
-                    filter_clauses.append({"terms": {field: values}})
+                    filter_clauses.append({"terms": {resolved_field: values}})
                 else:
-                    filter_clauses.append({"term": {field: values}})
+                    filter_clauses.append({"term": {resolved_field: values}})
 
         if include_filters:
             for field, values in include_filters.items():
@@ -1113,10 +1114,11 @@ async def get_facet_values(
 
     if fq:
         for field, values in fq.items():
+            resolved_field = _resolve_filter_field(field)
             if isinstance(values, list):
-                filter_clauses.append({"terms": {field: values}})
+                filter_clauses.append({"terms": {resolved_field: values}})
             else:
-                filter_clauses.append({"term": {field: values}})
+                filter_clauses.append({"term": {resolved_field: values}})
 
     if include_filters:
         for field, values in include_filters.items():
