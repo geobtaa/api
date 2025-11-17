@@ -389,7 +389,8 @@ async def get_resource_static_map(
     id: str,
     request: Request = None,
 ):
-    """Get a static map image for a resource based on its locn_geometry (or dcat_bbox as fallback)."""
+    """Get a static map image for a resource based on its locn_geometry (or dcat_bbox as fallback).
+    """
     try:
         # First check if the resource exists and has geometry
         async with async_session() as session:
@@ -407,9 +408,7 @@ async def get_resource_static_map(
             geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
 
             if not geometry:
-                return JSONResponse(
-                    content={"error": "Resource has no geometry"}, status_code=404
-                )
+                return JSONResponse(content={"error": "Resource has no geometry"}, status_code=404)
 
         # Check if map already exists
         map_service = StaticMapService()
@@ -647,5 +646,3 @@ async def get_resource_viewer(
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-

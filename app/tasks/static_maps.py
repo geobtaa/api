@@ -7,7 +7,7 @@ from dcat_bbox values using py-staticmaps.
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 from celery import Task, shared_task
 from sqlalchemy import select
@@ -34,7 +34,7 @@ async def generate_map_for_resource(resource_id: str, geometry: Any) -> bool:
     """
     try:
         service = StaticMapService()
-        
+
         # Check if map already exists
         if service.map_exists(resource_id):
             logger.debug(f"Static map already exists for resource {resource_id}")
@@ -96,7 +96,9 @@ async def _generate_static_map_async(resource_id: str) -> dict:
             # Prefer locn_geometry over dcat_bbox
             geometry = row.locn_geometry or row.dcat_bbox
             if not geometry:
-                logger.warning(f"Resource {resource_id} has no geometry (locn_geometry or dcat_bbox)")
+                logger.warning(
+                    f"Resource {resource_id} has no geometry (locn_geometry or dcat_bbox)"
+                )
                 return {
                     "resource_id": resource_id,
                     "success": False,
@@ -259,4 +261,3 @@ async def _generate_static_maps_collection_async() -> dict:
 
     finally:
         await task_engine.dispose()
-

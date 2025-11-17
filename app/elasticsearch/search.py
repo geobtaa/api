@@ -535,7 +535,10 @@ async def search_resources(
         if fq:
             for field, values in fq.items():
                 resolved_field = _resolve_filter_field(field)
-                logger.debug(f"Processing filter - Field: {field}, Resolved: {resolved_field}, Values: {values}")
+                logger.debug(
+                    f"Processing filter - Field: {field}, "
+                    f"Resolved: {resolved_field}, Values: {values}"
+                )
                 if isinstance(values, list):
                     filter_clauses.append({"terms": {resolved_field: values}})
                 else:
@@ -610,9 +613,7 @@ async def search_resources(
             },
             # Spatial facet aggregations with configurable sizes
             # Note: These fields are already keyword type fields (not text with .keyword subfields)
-            "geo_country": {
-                "terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}
-            },
+            "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
             "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
             "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
         }

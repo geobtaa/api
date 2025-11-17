@@ -526,12 +526,12 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         if map_service.map_exists(resource_dict["id"]):
             application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
             static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
-            
+
             if "meta" not in resource:
                 resource["meta"] = {}
             if "ui" not in resource["meta"]:
                 resource["meta"]["ui"] = {}
-            
+
             resource["meta"]["ui"]["static_map"] = static_map_url
 
     return resource
@@ -636,12 +636,12 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
         if map_service.map_exists(resource_dict["id"]):
             application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
             static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
-            
+
             if "meta" not in resource:
                 resource["meta"] = {}
             if "ui" not in resource["meta"]:
                 resource["meta"]["ui"] = {}
-            
+
             resource["meta"]["ui"]["static_map"] = static_map_url
 
     return resource

@@ -113,7 +113,8 @@ class SpatialFacetService:
             # This should happen before PostGIS queries to avoid antipodal errors
             if self._is_global_bbox(bbox_geom):
                 logger.debug(
-                    f"Global bbox detected for resource {self.resource_dict.get('id', 'unknown')}: {bbox_geom}"
+                    f"Global bbox detected for resource "
+                    f"{self.resource_dict.get('id', 'unknown')}: {bbox_geom}"
                 )
                 return {"geo.global": True}
 
@@ -124,7 +125,10 @@ class SpatialFacetService:
                 if country:
                     facets["geo.country"] = country
             except Exception as e:
-                logger.warning(f"Error getting country for resource {self.resource_dict.get('id', 'unknown')}: {e}")
+                logger.warning(
+                    f"Error getting country for resource "
+                    f"{self.resource_dict.get('id', 'unknown')}: {e}"
+                )
                 if session:
                     try:
                         await session.rollback()
@@ -136,7 +140,10 @@ class SpatialFacetService:
                 if regions:
                     facets["geo.region"] = regions
             except Exception as e:
-                logger.warning(f"Error getting regions for resource {self.resource_dict.get('id', 'unknown')}: {e}")
+                logger.warning(
+                    f"Error getting regions for resource "
+                    f"{self.resource_dict.get('id', 'unknown')}: {e}"
+                )
                 if session:
                     try:
                         await session.rollback()
@@ -144,11 +151,16 @@ class SpatialFacetService:
                         pass
 
             try:
-                counties = await self._get_counties_from_bbox(bbox_geom, session=session, debug=debug)
+                counties = await self._get_counties_from_bbox(
+                    bbox_geom, session=session, debug=debug
+                )
                 if counties:
                     facets["geo.county"] = counties
             except Exception as e:
-                logger.warning(f"Error getting counties for resource {self.resource_dict.get('id', 'unknown')}: {e}")
+                logger.warning(
+                    f"Error getting counties for resource "
+                    f"{self.resource_dict.get('id', 'unknown')}: {e}"
+                )
                 if session:
                     try:
                         await session.rollback()
@@ -256,7 +268,11 @@ class SpatialFacetService:
         # even if latitude span is limited - these represent near-global datasets
         is_near_global_longitude = (
             actual_lon_span >= (360 - tolerance * 2)  # At least 358 degrees wide
-            or (lon_span >= 180.0 and xmin <= (-180 + tolerance * 2) and xmax >= (180 - tolerance * 2))
+            or (
+                lon_span >= 180.0
+                and xmin <= (-180 + tolerance * 2)
+                and xmax >= (180 - tolerance * 2)
+            )
         )
 
         return is_fully_global or is_near_global_longitude
@@ -281,7 +297,7 @@ class SpatialFacetService:
                 if xmin > xmax:
                     xmin, xmax = xmax, xmin
                     logger.debug(f"Swapped x coordinates in ENVELOPE bbox: {bbox}")
-                
+
                 if ymin > ymax:
                     ymin, ymax = ymax, ymin
                     logger.debug(f"Swapped y coordinates in ENVELOPE bbox: {bbox}")
@@ -314,7 +330,7 @@ class SpatialFacetService:
                     center_x = (xmin + xmax) / 2
                     xmin = center_x - buffer
                     xmax = center_x + buffer
-                
+
                 if (ymax - ymin) < 0.001:
                     logger.debug(f"Very small y range in {bbox}, expanding")
                     center_y = (ymin + ymax) / 2
@@ -324,12 +340,18 @@ class SpatialFacetService:
                 # Check if this is a global bbox BEFORE validation
                 # Global bboxes should be returned even if they fail validation
                 if self._is_global_bbox((xmin, ymin, xmax, ymax)):
-                    logger.debug(f"Global bbox detected (may fail validation): {bbox} -> ({xmin},{ymin},{xmax},{ymax})")
+                    logger.debug(
+                        f"Global bbox detected (may fail validation): {bbox} -> "
+                        f"({xmin},{ymin},{xmax},{ymax})"
+                    )
                     return (xmin, ymin, xmax, ymax)
 
                 # Validate bounding box
                 if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
-                    logger.warning(f"Invalid bounding box after fixes: {bbox} -> ({xmin},{ymin},{xmax},{ymax}) - skipping")
+                    logger.warning(
+                        f"Invalid bounding box after fixes: {bbox} -> "
+                        f"({xmin},{ymin},{xmax},{ymax}) - skipping"
+                    )
                     return None
 
                 return (xmin, ymin, xmax, ymax)
@@ -339,21 +361,21 @@ class SpatialFacetService:
             if len(parts) == 4:
                 try:
                     xmin, ymin, xmax, ymax = map(float, parts)
-                    
+
                     # Auto-fix common issues: swapped coordinates
                     if xmin > xmax:
                         # x coordinates might be swapped
                         xmin, xmax = xmax, xmin
                         logger.debug(f"Swapped x coordinates in bbox: {bbox}")
-                    
+
                     if ymin > ymax:
                         # y coordinates might be swapped
                         ymin, ymax = ymax, ymin
                         logger.debug(f"Swapped y coordinates in bbox: {bbox}")
-                    
+
                     # Check if this is a point location (zero-area bbox)
                     buffer = 0.001  # ~100 meters at the equator
-                    
+
                     if xmin == xmax and ymin == ymax:
                         # Point location - expand in all directions
                         logger.debug(f"Point location detected in {bbox}, adding buffer")
@@ -371,36 +393,42 @@ class SpatialFacetService:
                         logger.debug(f"Horizontal line detected in {bbox}, adding vertical buffer")
                         ymin -= buffer
                         ymax += buffer
-                    
+
                     # Handle very small bounding boxes (expand if too small)
                     if (xmax - xmin) < 0.001:
                         logger.debug(f"Very small x range in {bbox}, expanding")
                         center_x = (xmin + xmax) / 2
                         xmin = center_x - buffer
                         xmax = center_x + buffer
-                    
+
                     if (ymax - ymin) < 0.001:
                         logger.debug(f"Very small y range in {bbox}, expanding")
                         center_y = (ymin + ymax) / 2
                         ymin = center_y - buffer
                         ymax = center_y + buffer
-                    
+
                     # Check if this is a global bbox BEFORE validation
                     # Global bboxes should be returned even if they fail validation
                     if self._is_global_bbox((xmin, ymin, xmax, ymax)):
-                        logger.debug(f"Global bbox detected (may fail validation): {bbox} -> ({xmin},{ymin},{xmax},{ymax})")
+                        logger.debug(
+                            f"Global bbox detected (may fail validation): {bbox} -> "
+                            f"({xmin},{ymin},{xmax},{ymax})"
+                        )
                         return (xmin, ymin, xmax, ymax)
-                    
+
                     # Validate bounding box
                     if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
-                        logger.warning(f"Invalid bounding box after fixes: {bbox} -> ({xmin},{ymin},{xmax},{ymax}) - skipping")
+                        logger.warning(
+                            f"Invalid bounding box after fixes: {bbox} -> "
+                            f"({xmin},{ymin},{xmax},{ymax}) - skipping"
+                        )
                         return None
-                    
+
                     return (xmin, ymin, xmax, ymax)
                 except ValueError:
                     logger.warning(f"Could not parse bbox coordinates: {bbox}")
                     return None
-            
+
             # Unrecognized format
             logger.warning(f"Unrecognized bbox format: {bbox}")
             return None
@@ -496,12 +524,12 @@ class SpatialFacetService:
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
-            
+
             # Skip global bboxes - they can't be processed by PostGIS
             if self._is_global_bbox(bbox_coords):
                 logger.debug(f"Skipping global bbox for country lookup: {bbox_coords}")
                 return None
-            
+
             # Skip bboxes with exactly 180-degree longitude span (PostGIS antipodal error)
             if abs(xmax - xmin) >= 180.0:
                 logger.debug(f"Skipping antipodal bbox for country lookup: {bbox_coords}")
@@ -575,12 +603,12 @@ class SpatialFacetService:
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
-            
+
             # Skip global bboxes - they can't be processed by PostGIS
             if self._is_global_bbox(bbox_coords):
                 logger.debug(f"Skipping global bbox for regions lookup: {bbox_coords}")
                 return None
-            
+
             # Skip bboxes with exactly 180-degree longitude span (PostGIS antipodal error)
             if abs(xmax - xmin) >= 180.0:
                 logger.debug(f"Skipping antipodal bbox for regions lookup: {bbox_coords}")
@@ -601,7 +629,8 @@ class SpatialFacetService:
                         wof.name, 
                         wof.wok_id, 
                         wof.parent_id,
-                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) 
+                        AS intersect_area
                     FROM gazetteer_wof_spr wof
                     JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
                     CROSS JOIN bbox
@@ -628,7 +657,8 @@ class SpatialFacetService:
                         wof.name, 
                         wof.wok_id, 
                         wof.parent_id,
-                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) 
+                        AS intersect_area
                     FROM gazetteer_wof_spr wof
                     JOIN gazetteer_wof_geojson geojson ON wof.wok_id = geojson.wok_id
                     CROSS JOIN bbox
@@ -722,12 +752,12 @@ class SpatialFacetService:
         """
         try:
             xmin, ymin, xmax, ymax = bbox_coords
-            
+
             # Skip global bboxes - they can't be processed by PostGIS
             if self._is_global_bbox(bbox_coords):
                 logger.debug(f"Skipping global bbox for counties lookup: {bbox_coords}")
                 return None
-            
+
             # Skip bboxes with exactly 180-degree longitude span (PostGIS antipodal error)
             if abs(xmax - xmin) >= 180.0:
                 logger.debug(f"Skipping antipodal bbox for counties lookup: {bbox_coords}")
@@ -749,7 +779,8 @@ class SpatialFacetService:
                         csr.county_wok_id, 
                         csr.state_wok_id, 
                         csr.state_abbrev,
-                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) 
+                        AS intersect_area
                     FROM county_state_relationships csr
                     JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
                     CROSS JOIN bbox
@@ -785,7 +816,8 @@ class SpatialFacetService:
                         csr.county_wok_id, 
                         csr.state_wok_id, 
                         csr.state_abbrev,
-                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) AS intersect_area
+                        ST_Area(ST_Intersection(geojson.geometry, bbox.geom)::geography) 
+                        AS intersect_area
                     FROM county_state_relationships csr
                     JOIN gazetteer_wof_geojson geojson ON csr.county_wok_id = geojson.wok_id
                     CROSS JOIN bbox

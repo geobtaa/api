@@ -44,23 +44,22 @@ class StaticMapService:
         self.maps_dir = Path(os.getenv("STATIC_MAPS_DIR", "static/maps"))
         self.maps_dir.mkdir(parents=True, exist_ok=True)
 
-    def _parse_bbox_to_geometry(
-        self, bbox: str
-    ) -> Optional[Tuple[float, float, float, float]]:
+    def _parse_bbox_to_geometry(self, bbox: str) -> Optional[Tuple[float, float, float, float]]:
         """
         Parse bbox string to (xmin, ymin, xmax, ymax) tuple.
         Supports both ENVELOPE format and simple comma-separated format.
 
         Args:
             bbox: ENVELOPE string like "ENVELOPE(-123.08286, -121.912937, 45.918689, 45.255769)"
-                  or simple format like "-123.08286,45.255769,-121.912937,45.918689" (xmin,ymin,xmax,ymax)
+                  or simple format like "-123.08286,45.255769,-121.912937,45.918689"
+                  (xmin,ymin,xmax,ymax)
 
         Returns:
             Tuple of (xmin, ymin, xmax, ymax) or None if parsing fails
         """
         try:
             bbox = bbox.strip()
-            
+
             # Handle ENVELOPE format: ENVELOPE(xmin, xmax, ymax, ymin)
             envelope_match = re.match(
                 r"ENVELOPE\(([^,]+),([^,]+),([^,]+),([^)]+)\)", bbox, re.IGNORECASE
@@ -80,12 +79,12 @@ class StaticMapService:
             if len(parts) == 4:
                 try:
                     xmin, ymin, xmax, ymax = map(float, parts)
-                    
+
                     # Validate bounding box
                     if not self._is_valid_bbox(xmin, ymin, xmax, ymax):
                         logger.warning(f"Invalid bounding box: {bbox} - skipping")
                         return None
-                    
+
                     return (xmin, ymin, xmax, ymax)
                 except ValueError:
                     logger.warning(f"Could not parse bbox coordinates: {bbox}")
@@ -99,9 +98,7 @@ class StaticMapService:
             logger.error(f"Error parsing bbox {bbox}: {e}")
             return None
 
-    def _is_valid_bbox(
-        self, xmin: float, ymin: float, xmax: float, ymax: float
-    ) -> bool:
+    def _is_valid_bbox(self, xmin: float, ymin: float, xmax: float, ymax: float) -> bool:
         """
         Validate that a bounding box is reasonable for map generation.
 
@@ -127,9 +124,7 @@ class StaticMapService:
 
         return True
 
-    def _is_global_bbox(
-        self, bbox_coords: Tuple[float, float, float, float]
-    ) -> bool:
+    def _is_global_bbox(self, bbox_coords: Tuple[float, float, float, float]) -> bool:
         """
         Check if a bounding box represents a global dataset (entire world).
 
@@ -160,9 +155,7 @@ class StaticMapService:
 
         return is_near_global
 
-    def _parse_geometry_to_bbox(
-        self, geometry: Any
-    ) -> Optional[Tuple[float, float, float, float]]:
+    def _parse_geometry_to_bbox(self, geometry: Any) -> Optional[Tuple[float, float, float, float]]:
         """
         Parse geometry (GeoJSON, WKT, ENVELOPE, or string) to bounding box coordinates.
 
@@ -232,9 +225,7 @@ class StaticMapService:
             logger.error(f"Error extracting bbox from GeoJSON: {e}")
             return None
 
-    def generate_map(
-        self, resource_id: str, geometry: Any
-    ) -> Optional[Path]:
+    def generate_map(self, resource_id: str, geometry: Any) -> Optional[Path]:
         """
         Generate a static map image from a geometry.
 
@@ -272,34 +263,38 @@ class StaticMapService:
             bbox_width_degrees = xmax - xmin
             # Use more segments: approximately one per degree of longitude, minimum 50
             num_segments = max(50, int(bbox_width_degrees * 2))
-            
+
             points = []
-            
+
             # West edge: from south to north (straight line, no intermediate points needed)
             points.append(staticmaps.create_latlng(ymin, xmin))  # Southwest
             points.append(staticmaps.create_latlng(ymax, xmin))  # Northwest
-            
+
             # North edge: from west to east (needs many points to appear straight in projection)
             for i in range(1, num_segments):
                 lon = xmin + (xmax - xmin) * (i / num_segments)
                 points.append(staticmaps.create_latlng(ymax, lon))
-            
+
             # East edge: from north to south (straight line)
             points.append(staticmaps.create_latlng(ymax, xmax))  # Northeast
             points.append(staticmaps.create_latlng(ymin, xmax))  # Southeast
-            
+
             # South edge: from east to west (needs many points to appear straight in projection)
             for i in range(num_segments - 1, 0, -1):
                 lon = xmin + (xmax - xmin) * (i / num_segments)
                 points.append(staticmaps.create_latlng(ymin, lon))
-            
+
             # Close the polygon
             points.append(points[0])
-            
+
             rectangle = staticmaps.Area(
                 points,
-                fill_color=staticmaps.Color(37, 99, 235, 26),  # #2563eb with 10% opacity (fill-opacity="0.1")
-                color=staticmaps.Color(37, 99, 235, 153),  # #2563eb with 60% opacity (stroke-opacity="0.6")
+                fill_color=staticmaps.Color(
+                    37, 99, 235, 26
+                ),  # #2563eb with 10% opacity (fill-opacity="0.1")
+                color=staticmaps.Color(
+                    37, 99, 235, 153
+                ),  # #2563eb with 60% opacity (stroke-opacity="0.6")
                 width=2,
             )
 
@@ -311,8 +306,10 @@ class StaticMapService:
             try:
                 cairo_surface = context.render_cairo(self.map_width, self.map_height)
                 # Convert cairo ImageSurface to Pillow Image
-                from PIL import Image
                 import io
+
+                from PIL import Image
+
                 buf = io.BytesIO()
                 cairo_surface.write_to_png(buf)
                 buf.seek(0)
@@ -334,7 +331,9 @@ class StaticMapService:
             return map_path
 
         except Exception as e:
-            logger.error(f"Error generating static map for resource {resource_id}: {e}", exc_info=True)
+            logger.error(
+                f"Error generating static map for resource {resource_id}: {e}", exc_info=True
+            )
             return None
 
     def get_map_path(self, resource_id: str) -> Optional[Path]:
@@ -363,4 +362,3 @@ class StaticMapService:
             True if the map exists, False otherwise
         """
         return self.get_map_path(resource_id) is not None
-

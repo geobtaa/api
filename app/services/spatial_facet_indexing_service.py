@@ -127,7 +127,8 @@ class SpatialFacetIndexingService:
 
                     logger.info(
                         f"Processing batch {processed_so_far // self.batch_size + 1}: "
-                        f"resources {processed_so_far + 1}-{processed_so_far + len(batch_resources)} of {loop_total}"
+                        f"resources {processed_so_far + 1}-"
+                        f"{processed_so_far + len(batch_resources)} of {loop_total}"
                     )
 
                     # Process each resource in the batch
