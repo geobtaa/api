@@ -633,8 +633,9 @@ async def search_resources(
         combined_must_not = list(must_not_clauses)
 
         # Build query from q parameter if provided
-        if search_criteria.get("query"):
-            query_text = search_criteria["query"] or ""
+        query_value = search_criteria.get("query")
+        if query_value and query_value.strip():
+            query_text = query_value.strip()
             is_phrase = (
                 len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
             )
