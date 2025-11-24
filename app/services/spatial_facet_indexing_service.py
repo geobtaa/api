@@ -54,12 +54,14 @@ class SpatialFacetIndexingService:
 
         try:
             async with self.async_session() as session:
-                # Get total count of resources with dcat_bbox
+                # Get total count of resources with dcat_bbox that don't have spatial facets yet
                 count_query = text("""
                     SELECT COUNT(*) as total
-                    FROM resources 
-                    WHERE dcat_bbox IS NOT NULL 
-                    AND dcat_bbox != ''
+                    FROM resources r
+                    LEFT JOIN resource_spatial_facets rsf ON r.id = rsf.resource_id
+                    WHERE r.dcat_bbox IS NOT NULL 
+                    AND r.dcat_bbox != ''
+                    AND rsf.resource_id IS NULL
                 """)
                 result = await session.execute(count_query)
                 total_count = result.scalar()
@@ -80,31 +82,53 @@ class SpatialFacetIndexingService:
 
                 # Process resources in batches (cap to one batch in tests)
                 loop_total = min(total_count, self.batch_size) if is_test_env else total_count
-                offset = 0
-                while offset < loop_total:
+                last_id = None
+                processed_so_far = 0
+                while processed_so_far < loop_total:
                     batch_start_time = time.time()
 
-                    # Get batch of resources
-                    batch_query = text("""
-                        SELECT id, dcat_bbox
-                        FROM resources 
-                        WHERE dcat_bbox IS NOT NULL 
-                        AND dcat_bbox != ''
-                        ORDER BY id
-                        LIMIT :limit OFFSET :offset
-                    """)
+                    # Get batch of resources that don't have spatial facets yet
+                    # Use NOT EXISTS and cursor-based pagination for better performance
+                    if last_id is None:
+                        batch_query = text("""
+                            SELECT r.id, r.dcat_bbox
+                            FROM resources r
+                            WHERE r.dcat_bbox IS NOT NULL
+                            AND r.dcat_bbox != ''
+                            AND NOT EXISTS (
+                                SELECT 1 FROM resource_spatial_facets rsf
+                                WHERE rsf.resource_id = r.id
+                            )
+                            ORDER BY r.id
+                            LIMIT :limit
+                        """)
+                        params = {"limit": self.batch_size}
+                    else:
+                        batch_query = text("""
+                            SELECT r.id, r.dcat_bbox
+                            FROM resources r
+                            WHERE r.id > :last_id
+                            AND r.dcat_bbox IS NOT NULL
+                            AND r.dcat_bbox != ''
+                            AND NOT EXISTS (
+                                SELECT 1 FROM resource_spatial_facets rsf
+                                WHERE rsf.resource_id = r.id
+                            )
+                            ORDER BY r.id
+                            LIMIT :limit
+                        """)
+                        params = {"limit": self.batch_size, "last_id": last_id}
 
-                    result = await session.execute(
-                        batch_query, {"limit": self.batch_size, "offset": offset}
-                    )
+                    result = await session.execute(batch_query, params)
                     batch_resources = result.fetchall()
 
                     if not batch_resources:
                         break
 
                     logger.info(
-                        f"Processing batch {offset // self.batch_size + 1}: "
-                        f"resources {offset + 1}-{offset + len(batch_resources)} of {loop_total}"
+                        f"Processing batch {processed_so_far // self.batch_size + 1}: "
+                        f"resources {processed_so_far + 1}-"
+                        f"{processed_so_far + len(batch_resources)} of {loop_total}"
                     )
 
                     # Process each resource in the batch
@@ -124,7 +148,9 @@ class SpatialFacetIndexingService:
                         f"Skipped: {batch_stats['skipped']}"
                     )
 
-                    offset += self.batch_size
+                    processed_count = len(batch_resources)
+                    processed_so_far += processed_count
+                    last_id = batch_resources[-1][0]
 
                     # Commit the batch
                     if not dry_run:
@@ -136,8 +162,8 @@ class SpatialFacetIndexingService:
                             stats["errors"].append(f"Commit error: {str(commit_error)}")
 
                     # Log progress
-                    progress = (offset / loop_total) * 100 if loop_total else 100
-                    logger.info(f"Progress: {progress:.1f}% ({offset}/{total_count})")
+                    progress = (processed_so_far / loop_total) * 100 if loop_total else 100
+                    logger.info(f"Progress: {progress:.1f}% ({processed_so_far}/{total_count})")
 
         except Exception as e:
             logger.error(f"Error during batch processing: {e}", exc_info=True)
@@ -179,27 +205,24 @@ class SpatialFacetIndexingService:
                     batch_stats["skipped"] += 1
                     continue
 
-                # Check if spatial facets already exist
-                existing_query = text(
-                    "SELECT resource_id FROM resource_spatial_facets "
-                    "WHERE resource_id = :resource_id"
-                )
-                existing_result = await session.execute(
-                    existing_query, {"resource_id": resource_id}
-                )
-                existing = existing_result.fetchone()
-
-                if existing:
-                    logger.debug(f"Skipping {resource_id} - spatial facets already exist")
-                    batch_stats["skipped"] += 1
-                    continue
+                # Note: We no longer need to check if facets exist since the query
+                # already excludes resources that have spatial facets
 
                 # Compute spatial facets with WOF identifiers
                 resource_dict = {"id": resource_id, "dcat_bbox": dcat_bbox}
                 service = SpatialFacetService(resource_dict)
                 spatial_facets = await service.get_spatial_facets_with_wof_ids(session)
 
-                if not spatial_facets:
+                # Check if we have any facets to insert (including geo.global)
+                # Allow insertion if geo.global is True even if other facets are empty
+                has_geo_global = spatial_facets.get("geo.global", False)
+                has_other_facets = (
+                    spatial_facets.get("geo.country")
+                    or spatial_facets.get("geo.region")
+                    or spatial_facets.get("geo.county")
+                )
+
+                if not spatial_facets or (not has_geo_global and not has_other_facets):
                     logger.debug(f"No spatial facets computed for {resource_id}")
                     batch_stats["skipped"] += 1
                     continue
@@ -207,6 +230,7 @@ class SpatialFacetIndexingService:
                 # Prepare data for insertion with WOF identifiers
                 insert_data = {
                     "resource_id": resource_id,
+                    "geo_global": spatial_facets.get("geo.global", False),
                     "geo_country": json.dumps(spatial_facets.get("geo.country"))
                     if spatial_facets.get("geo.country")
                     else None,
@@ -222,10 +246,11 @@ class SpatialFacetIndexingService:
                     # Insert or update spatial facets
                     upsert_query = text("""
                         INSERT INTO resource_spatial_facets 
-                        (resource_id, geo_country, geo_region, geo_county)
-                        VALUES (:resource_id, :geo_country, :geo_region, :geo_county)
+                        (resource_id, geo_global, geo_country, geo_region, geo_county)
+                        VALUES (:resource_id, :geo_global, :geo_country, :geo_region, :geo_county)
                         ON CONFLICT (resource_id) 
                         DO UPDATE SET 
+                            geo_global = EXCLUDED.geo_global,
                             geo_country = EXCLUDED.geo_country,
                             geo_region = EXCLUDED.geo_region,
                             geo_county = EXCLUDED.geo_county,

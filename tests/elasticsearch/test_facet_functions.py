@@ -616,6 +616,49 @@ class TestGetFacetValues:
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
+    async def test_fq_field_resolution_to_keyword(self, mock_es):
+        """Test that fq fields requiring .keyword resolution are correctly resolved."""
+        mock_response = MagicMock()
+        mock_response.body = {
+            "aggregations": {"facet_values": {"buckets": [{"key": "Illinois", "doc_count": 10}]}}
+        }
+        mock_es.search = AsyncMock(return_value=mock_response)
+
+        await get_facet_values(
+            facet_name="dct_spatial_sm",
+            query=None,
+            fq={"gbl_resourceClass_sm": ["Maps"]},  # Field that requires .keyword resolution
+            include_filters=None,
+            exclude_filters=None,
+            adv_q=None,
+        )
+
+        # Verify ES was called
+        mock_es.search.assert_called_once()
+        
+        # Verify that the filter uses .keyword field
+        call_args = mock_es.search.call_args
+        query_dict = call_args.kwargs["query"]
+        
+        # Navigate through the bool query structure to find the filter
+        filter_clauses = query_dict["bool"]["filter"]
+        
+        # Find the terms filter for gbl_resourceClass_sm
+        terms_filter = None
+        for clause in filter_clauses:
+            if "terms" in clause:
+                terms_filter = clause["terms"]
+                break
+        
+        # Verify that gbl_resourceClass_sm.keyword is used, not gbl_resourceClass_sm
+        assert terms_filter is not None, "Expected terms filter not found"
+        assert "gbl_resourceClass_sm.keyword" in terms_filter, (
+            f"Expected 'gbl_resourceClass_sm.keyword' in filter, but got: {list(terms_filter.keys())}"
+        )
+        assert terms_filter["gbl_resourceClass_sm.keyword"] == ["Maps"]
+
+    @pytest.mark.asyncio
+    @patch("app.elasticsearch.search.es")
     async def test_with_include_filters_single_value(self, mock_es):
         """Test facet retrieval with include_filters containing single value."""
         mock_response = MagicMock()

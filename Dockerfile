@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     zlib1g-dev \
     libpng-dev \
+    libcairo2-dev \
     gdal-bin \
     libgdal-dev \
     curl \
@@ -42,8 +43,8 @@ COPY . .
 # Install Python dependencies
 RUN uv pip install -e . --system
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs and static maps directories
+RUN mkdir -p logs static/maps
 
 # Expose port
 EXPOSE 8000

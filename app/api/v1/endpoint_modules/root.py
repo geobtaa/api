@@ -33,6 +33,7 @@ async def api_root(request: Request = None):
                 "/resources/{id}/ogm",
                 "/resources/{id}/relationships",
                 "/resources/{id}/spatial_facets",
+                "/resources/{id}/static-map",
                 "/resources/{id}/summaries",
                 "/resources/{id}/thumbnails",
                 "/resources/{id}/viewer",

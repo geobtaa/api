@@ -29,6 +29,7 @@ GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
 DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
+# Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
 KEYWORD_FILTER_FIELDS = {
     "dct_spatial_sm",
     "gbl_resourceClass_sm",
@@ -37,9 +38,10 @@ KEYWORD_FILTER_FIELDS = {
     "dct_creator_sm",
     "schema_provider_s",
     "dct_accessRights_s",
-    "geo_country",
-    "geo_region",
-    "geo_county",
+    "dct_subject_sm",
+    "dct_publisher_sm",
+    "dcat_theme_sm",
+    "dcat_keyword_sm",
 }
 
 
@@ -117,15 +119,15 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "size": DEFAULT_FACET_SIZE,
         },
         "geo_country": {
-            "field": "geo_country.keyword",
+            "field": "geo_country",
             "size": GEO_COUNTRY_FACET_SIZE,
         },
         "geo_region": {
-            "field": "geo_region.keyword",
+            "field": "geo_region",
             "size": GEO_REGION_FACET_SIZE,
         },
         "geo_county": {
-            "field": "geo_county.keyword",
+            "field": "geo_county",
             "size": GEO_COUNTY_FACET_SIZE,
         },
     }
@@ -536,11 +538,15 @@ async def search_resources(
         must_not_clauses = []
         if fq:
             for field, values in fq.items():
-                logger.debug(f"Processing filter - Field: {field}, Values: {values}")
+                resolved_field = _resolve_filter_field(field)
+                logger.debug(
+                    f"Processing filter - Field: {field}, "
+                    f"Resolved: {resolved_field}, Values: {values}"
+                )
                 if isinstance(values, list):
-                    filter_clauses.append({"terms": {field: values}})
+                    filter_clauses.append({"terms": {resolved_field: values}})
                 else:
-                    filter_clauses.append({"term": {field: values}})
+                    filter_clauses.append({"term": {resolved_field: values}})
 
         if include_filters:
             for field, values in include_filters.items():
@@ -610,12 +616,10 @@ async def search_resources(
                 "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
             },
             # Spatial facet aggregations with configurable sizes
-            # Note: These fields are text with keyword subfields in the actual index
-            "geo_country": {
-                "terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}
-            },
-            "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
-            "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
+            # Note: These fields are already keyword type fields (not text with .keyword subfields)
+            "geo_country": {"terms": {"field": "geo_country", "size": GEO_COUNTRY_FACET_SIZE}},
+            "geo_region": {"terms": {"field": "geo_region", "size": GEO_REGION_FACET_SIZE}},
+            "geo_county": {"terms": {"field": "geo_county", "size": GEO_COUNTY_FACET_SIZE}},
         }
 
         selected_aggs = (
@@ -629,8 +633,9 @@ async def search_resources(
         combined_must_not = list(must_not_clauses)
 
         # Build query from q parameter if provided
-        if search_criteria.get("query"):
-            query_text = search_criteria["query"] or ""
+        query_value = search_criteria.get("query")
+        if query_value and query_value.strip():
+            query_text = query_value.strip()
             is_phrase = (
                 len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
             )
@@ -1115,10 +1120,11 @@ async def get_facet_values(
 
     if fq:
         for field, values in fq.items():
+            resolved_field = _resolve_filter_field(field)
             if isinstance(values, list):
-                filter_clauses.append({"terms": {field: values}})
+                filter_clauses.append({"terms": {resolved_field: values}})
             else:
-                filter_clauses.append({"term": {field: values}})
+                filter_clauses.append({"term": {resolved_field: values}})
 
     if include_filters:
         for field, values in include_filters.items():

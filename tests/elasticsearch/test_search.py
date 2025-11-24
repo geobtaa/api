@@ -612,3 +612,79 @@ class TestElasticsearchSearch:
                 assert query_string_clause["default_operator"] == "AND"
                 assert query_string_clause["analyze_wildcard"] is True
                 assert query_string_clause["allow_leading_wildcard"] is True
+
+    @pytest.mark.asyncio
+    async def test_year_sort_uses_correct_field_name(self):
+        """Test that year sorting uses the correct field name gbl_indexYear_im (with capital Y).
+        
+        This test prevents regression where the field name was incorrectly set to
+        gbl_indexyear_im (lowercase), which would cause 0 results when sorting by year.
+        """
+        from app.api.v1.shared import SORT_MAPPINGS, SortOption
+
+        # Verify the sort mappings use the correct field name
+        year_desc_sort = SORT_MAPPINGS[SortOption.YEAR_NEWEST]
+        year_asc_sort = SORT_MAPPINGS[SortOption.YEAR_OLDEST]
+
+        # Check that both use gbl_indexYear_im (with capital Y)
+        assert year_desc_sort[0] == {"gbl_indexYear_im": "desc"}
+        assert year_asc_sort[0] == {"gbl_indexYear_im": "asc"}
+
+        # Verify the field name is NOT the incorrect lowercase version
+        assert "gbl_indexyear_im" not in str(year_desc_sort)
+        assert "gbl_indexyear_im" not in str(year_asc_sort)
+
+        # Mock Elasticsearch to verify the sort is passed correctly
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 2}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                # Test year_desc sort
+                await search_resources(
+                    query="test",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=year_desc_sort,
+                )
+
+                # Verify Elasticsearch was called with correct sort
+                call_args = mock_es.search.call_args
+                sort_param = call_args.kwargs.get("sort")
+
+                # Verify the sort uses the correct field name
+                assert sort_param is not None
+                assert len(sort_param) >= 1
+                assert sort_param[0] == {"gbl_indexYear_im": "desc"}
+                assert "gbl_indexyear_im" not in str(sort_param)  # Should not use lowercase
+
+                # Reset mock for next test
+                mock_es.reset_mock()
+
+                # Test year_asc sort
+                await search_resources(
+                    query="test",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=year_asc_sort,
+                )
+
+                # Verify Elasticsearch was called with correct sort
+                call_args = mock_es.search.call_args
+                sort_param = call_args.kwargs.get("sort")
+
+                # Verify the sort uses the correct field name
+                assert sort_param is not None
+                assert len(sort_param) >= 1
+                assert sort_param[0] == {"gbl_indexYear_im": "asc"}
+                assert "gbl_indexyear_im" not in str(sort_param)  # Should not use lowercase
