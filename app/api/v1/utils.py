@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -22,7 +23,9 @@ def sanitize_for_json(obj: Any) -> Any:
         return {k: sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize_for_json(item) for item in obj]
-    elif hasattr(obj, "isoformat"):  # Handle datetime objects
+    elif isinstance(obj, (datetime, date)):  # Handle datetime and date objects
+        return obj.isoformat()
+    elif hasattr(obj, "isoformat"):  # Handle other objects with isoformat (fallback)
         return obj.isoformat()
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)

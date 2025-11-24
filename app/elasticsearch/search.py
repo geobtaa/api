@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import time
 from typing import Optional
@@ -391,9 +392,13 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
 
     # Normalize any flattened keys into nested structures
     geo_params = _normalize_geo_params(geo_params)
+    
+    logger.info(f"Normalized geo_params: {geo_params}")
 
     geo_type = geo_params.get("type")
     geo_field = geo_params.get("field", "dcat_centroid")
+    
+    logger.info(f"Geo filter - type: {geo_type}, field: {geo_field}")
 
     if geo_type == "bbox":
         top_left = geo_params.get("top_left", {})
@@ -410,17 +415,59 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
             logger.warning("Invalid bbox parameters: missing lat/lon coordinates")
             return None
 
-        return {
-            "geo_bounding_box": {
-                geo_field: {
-                    "top_left": {"lat": float(top_left["lat"]), "lon": float(top_left["lon"])},
-                    "bottom_right": {
-                        "lat": float(bottom_right["lat"]),
-                        "lon": float(bottom_right["lon"]),
-                    },
+        # Use geo_shape query for geo_shape fields (dcat_bbox, locn_geometry)
+        # Use geo_bounding_box for geo_point fields (dcat_centroid)
+        if geo_field in ["dcat_bbox", "locn_geometry"]:
+            # Use envelope type for bounding boxes (more efficient than polygon)
+            # Envelope format: [[min_lon, max_lat], [max_lon, min_lat]]
+            top_left_lon = float(top_left["lon"])
+            top_left_lat = float(top_left["lat"])
+            bottom_right_lon = float(bottom_right["lon"])
+            bottom_right_lat = float(bottom_right["lat"])
+            
+            # Ensure we have min/max values (handle cases where bbox might be reversed)
+            min_lon = min(top_left_lon, bottom_right_lon)
+            max_lon = max(top_left_lon, bottom_right_lon)
+            min_lat = min(top_left_lat, bottom_right_lat)
+            max_lat = max(top_left_lat, bottom_right_lat)
+            
+            # Envelope coordinates: [[min_lon, max_lat], [max_lon, min_lat]]
+            envelope_coords = [
+                [min_lon, max_lat],  # top-left corner
+                [max_lon, min_lat],  # bottom-right corner
+            ]
+            
+            geo_filter = {
+                "geo_shape": {
+                    geo_field: {
+                        "shape": {
+                            "type": "envelope",
+                            "coordinates": envelope_coords,
+                        },
+                        "relation": "intersects",
+                    }
                 }
             }
-        }
+            
+            logger.debug(
+                f"Geo filter for {geo_field}: envelope={envelope_coords}, "
+                f"bbox=({min_lon},{max_lat}) to ({max_lon},{min_lat})"
+            )
+            
+            return geo_filter
+        else:
+            # Use geo_bounding_box for geo_point fields (dcat_centroid)
+            return {
+                "geo_bounding_box": {
+                    geo_field: {
+                        "top_left": {"lat": float(top_left["lat"]), "lon": float(top_left["lon"])},
+                        "bottom_right": {
+                            "lat": float(bottom_right["lat"]),
+                            "lon": float(bottom_right["lon"]),
+                        },
+                    }
+                }
+            }
 
     elif geo_type == "distance":
         center = geo_params.get("center", {})
@@ -536,6 +583,10 @@ async def search_resources(
         # Construct the filter query (legacy fq + new include/exclude)
         filter_clauses = []
         must_not_clauses = []
+        
+        # Track bbox filter for spatial scoring
+        bbox_filter_info = None
+        
         if fq:
             for field, values in fq.items():
                 resolved_field = _resolve_filter_field(field)
@@ -554,9 +605,20 @@ async def search_resources(
 
                 # Handle geospatial queries
                 if field == "geo" and isinstance(values, dict):
+                    logger.info(f"Building geo filter from values: {values}")
                     geo_filter = _build_geospatial_filter(values)
                     if geo_filter:
+                        logger.info(f"Geo filter built successfully: {geo_filter}")
                         filter_clauses.append(geo_filter)
+                        # Track bbox filter for spatial scoring
+                        if values.get("type") == "bbox" and values.get("top_left") and values.get("bottom_right"):
+                            bbox_filter_info = {
+                                "top_left": values["top_left"],
+                                "bottom_right": values["bottom_right"],
+                                "field": values.get("field", "dcat_centroid"),
+                            }
+                    else:
+                        logger.warning(f"Failed to build geo filter from values: {values}")
                 elif isinstance(values, list):
                     # Use terms_set to ensure all specified values must be present
                     # when the field is an array
@@ -703,21 +765,135 @@ async def search_resources(
         bool_query_dict = {
             "filter": filter_clauses,
         }
-
+        
+        logger.info(f"Bool query - filter clauses count: {len(filter_clauses)}")
+        if filter_clauses:
+            logger.info(f"Filter clauses: {json.dumps(filter_clauses, indent=2)}")
+        else:
+            logger.warning("No filter clauses found - query will return all results!")
+        
         if must_clauses:
             bool_query_dict["must"] = must_clauses
         elif not should_clauses:
             # If no must clauses and no should clauses, match all
             bool_query_dict["must"] = [{"match_all": {}}]
-
+        
         if should_clauses:
             bool_query_dict["should"] = should_clauses
             bool_query_dict["minimum_should_match"] = 1
-
+        
         if combined_must_not:
             bool_query_dict["must_not"] = combined_must_not
-
+        
+        # Base query is a plain bool; we will wrap it in script_score when we have
+        # bbox info for overlap-based relevance.
         base_query = {"query": {"bool": bool_query_dict}}
+        overlap_context = None
+        
+        # Add bbox overlap-based scoring when bbox filter is present.
+        # This uses an approximate IoU between the document's bbox and the query bbox,
+        # computed from numeric bbox_* fields and the query bbox bounds, and does NOT
+        # use centroids at all.
+        if bbox_filter_info:
+            top_left = bbox_filter_info["top_left"]
+            bottom_right = bbox_filter_info["bottom_right"]
+
+            # Query bbox bounds (x = lon, y = lat)
+            q_minx = min(float(top_left["lon"]), float(bottom_right["lon"]))
+            q_maxx = max(float(top_left["lon"]), float(bottom_right["lon"]))
+            q_miny = min(float(bottom_right["lat"]), float(top_left["lat"]))
+            q_maxy = max(float(bottom_right["lat"]), float(top_left["lat"]))
+
+            # Persist query bbox bounds so we can later compute a concrete
+            # bbox_overlap_ratio per hit in Python for the API meta block.
+            overlap_context = {
+                "qMinX": q_minx,
+                "qMaxX": q_maxx,
+                "qMinY": q_miny,
+                "qMaxY": q_maxy,
+            }
+
+            base_query = {
+                "query": {
+                    "script_score": {
+                        "query": {"bool": bool_query_dict},
+                        "script": {
+                            "source": """
+                                // Read document bbox from numeric bbox_* fields
+                                if (doc['bbox_minx'].size() == 0 ||
+                                    doc['bbox_maxx'].size() == 0 ||
+                                    doc['bbox_miny'].size() == 0 ||
+                                    doc['bbox_maxy'].size() == 0) {
+                                    return _score;
+                                }
+                                double dMinX;
+                                double dMinY;
+                                double dMaxX;
+                                double dMaxY;
+                                try {
+                                    dMinX = doc['bbox_minx'].value;
+                                    dMinY = doc['bbox_miny'].value;
+                                    dMaxX = doc['bbox_maxx'].value;
+                                    dMaxY = doc['bbox_maxy'].value;
+                                } catch (Exception e) {
+                                    return _score;
+                                }
+
+                                // Query bbox
+                                double qMinX = params.qMinX;
+                                double qMaxX = params.qMaxX;
+                                double qMinY = params.qMinY;
+                                double qMaxY = params.qMaxY;
+
+                                // Intersection bbox
+                                double ix1 = Math.max(dMinX, qMinX);
+                                double iy1 = Math.max(dMinY, qMinY);
+                                double ix2 = Math.min(dMaxX, qMaxX);
+                                double iy2 = Math.min(dMaxY, qMaxY);
+
+                                double iw = Math.max(0.0, ix2 - ix1);
+                                double ih = Math.max(0.0, iy2 - iy1);
+                                double intersection = iw * ih;
+                                double docArea = Math.max(0.0, (dMaxX - dMinX) * (dMaxY - dMinY));
+                                double queryArea = Math.max(0.0, (qMaxX - qMinX) * (qMaxY - qMinY));
+
+                                if (intersection <= 0.0 || docArea <= 0.0 || queryArea <= 0.0) {
+                                    // If we can't establish a meaningful overlap,
+                                    // push this document to the bottom of the
+                                    // relevance ranking for bbox queries.
+                                    return 0.0;
+                                }
+
+                                double unionArea = docArea + queryArea - intersection;
+                                if (unionArea <= 0.0) {
+                                    return 0.0;
+                                }
+
+                                // Overlap similarity: IoU between document bbox and query bbox.
+                                // This is high (near 1.0) only when the two extents are similar
+                                // in both size and location.
+                                double overlapRatio = intersection / unionArea;
+                                if (overlapRatio < 0.0) {
+                                    overlapRatio = 0.0;
+                                } else if (overlapRatio > 1.0) {
+                                    overlapRatio = 1.0;
+                                }
+
+                                // Combine base score (text relevance when present) with IoU.
+                                double baseScore = _score;
+                                // Keep scores positive and emphasize high-overlap maps.
+                                return baseScore * (0.1 + 0.9 * overlapRatio);
+                            """,
+                            "params": {
+                                "qMinX": q_minx,
+                                "qMaxX": q_maxx,
+                                "qMinY": q_miny,
+                                "qMaxY": q_maxy,
+                            },
+                        },
+                    }
+                }
+            }
 
         search_query = {
             **base_query,
@@ -765,15 +941,60 @@ async def search_resources(
             response_dict = response.body if hasattr(response, "body") else response
         except NotFoundError:
             # Index missing: return empty result structure instead of 500
-            logger.warning(f"Elasticsearch index '{index_name}' not found; returning empty results")
+            logger.warning(
+                f"Elasticsearch index '{index_name}' not found; returning empty results"
+            )
             empty_response = {
                 "hits": {"total": {"value": 0}, "hits": []},
                 "took": 0,
                 "aggregations": {},
             }
-            return await process_search_response(empty_response, limit, skip, search_criteria)
+            return await process_search_response(
+                empty_response, limit, skip, search_criteria, overlap_context=None
+            )
         except Exception as es_error:
             logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
+
+            # If the failure is due to script_score (e.g. painless compile error),
+            # fall back to a plain bool query WITHOUT overlap scoring so we still
+            # return correct filtered results instead of zero.
+            info = getattr(es_error, "info", {}) or {}
+            error_type = (
+                info.get("error", {})
+                .get("root_cause", [{}])[0]
+                .get("type", "")
+            )
+            if "script_exception" in error_type or "script_exception" in str(es_error):
+                logger.warning(
+                    "Script_score query failed (likely painless compile error); "
+                    "falling back to plain bool query without overlap scoring."
+                )
+                try:
+                    fallback_response = await es.search(
+                        index=index_name,
+                        query={"bool": bool_query_dict},
+                        from_=skip,
+                        size=limit,
+                        sort=sort or [{"_score": "desc"}],
+                        track_total_hits=True,
+                        aggs=selected_aggs,
+                        suggest=search_query.get("suggest"),
+                    )
+                    fallback_dict = (
+                        fallback_response.body
+                        if hasattr(fallback_response, "body")
+                        else fallback_response
+                    )
+                    return await process_search_response(
+                        fallback_dict, limit, skip, search_criteria, overlap_context=None
+                    )
+                except Exception as fallback_error:
+                    logger.error(
+                        f"Fallback bool query after script failure also errored: {fallback_error}",
+                        exc_info=True,
+                    )
+
+            # If we get here, propagate a detailed HTTP error
             error_detail = {
                 "message": "Elasticsearch query failed",
                 "error": str(es_error),
@@ -786,7 +1007,9 @@ async def search_resources(
                 error_detail["status_code"] = es_error.status_code
             raise HTTPException(status_code=500, detail=error_detail) from es_error
 
-        return await process_search_response(response_dict, limit, skip, search_criteria)
+        return await process_search_response(
+            response_dict, limit, skip, search_criteria, overlap_context=overlap_context
+        )
 
     except Exception as e:
         logger.error(f"Search documents error: {str(e)}", exc_info=True)
@@ -862,14 +1085,17 @@ def get_sort_options(search_criteria):
     return sort_options
 
 
-async def process_search_response(response, limit, skip, search_criteria):
+async def process_search_response(
+    response, limit, skip, search_criteria, overlap_context: dict | None = None
+):
     """Process Elasticsearch response and format for API output."""
     try:
         total_hits = response["hits"]["total"]["value"]
-        logger.debug(f"Total hits: {total_hits}")
+        logger.info(f"Total hits: {total_hits}")
 
-        document_ids = [hit["_source"]["id"] for hit in response["hits"]["hits"]]
-        logger.debug(f"Found document IDs: {document_ids}")
+        hits = response["hits"]["hits"]
+        document_ids = [hit["_source"]["id"] for hit in hits]
+        logger.info(f"Found document IDs: {document_ids}")
 
         # Process spelling suggestions
         suggestions = []
@@ -933,25 +1159,81 @@ async def process_search_response(response, limit, skip, search_criteria):
             [resource["id"] for resource in resource_rows]
         )
 
+        # Precompute lookups from id -> score and id -> bbox_overlap_ratio so we can
+        # expose them in the API layer meta block. The ratio is computed as the
+        # fraction of the document bbox area that lies inside the query bbox,
+        # mirroring the Painless scoring script semantics.
+        id_to_score: dict[str, float] = {}
+        id_to_overlap: dict[str, float] = {}
+
+        def _compute_overlap_ratio(hit_dict: dict, ctx: dict) -> float | None:
+            try:
+                src = hit_dict.get("_source", {})
+                d_minx = float(src["bbox_minx"])
+                d_maxx = float(src["bbox_maxx"])
+                d_miny = float(src["bbox_miny"])
+                d_maxy = float(src["bbox_maxy"])
+            except (KeyError, TypeError, ValueError):
+                return None
+
+            q_minx = float(ctx["qMinX"])
+            q_maxx = float(ctx["qMaxX"])
+            q_miny = float(ctx["qMinY"])
+            q_maxy = float(ctx["qMaxY"])
+
+            ix1 = max(d_minx, q_minx)
+            iy1 = max(d_miny, q_miny)
+            ix2 = min(d_maxx, q_maxx)
+            iy2 = min(d_maxy, q_maxy)
+
+            iw = max(0.0, ix2 - ix1)
+            ih = max(0.0, iy2 - iy1)
+            intersection = iw * ih
+            doc_area = max(0.0, (d_maxx - d_minx) * (d_maxy - d_miny))
+            query_area = max(0.0, (q_maxx - q_minx) * (q_maxy - q_miny))
+            if intersection <= 0.0 or doc_area <= 0.0 or query_area <= 0.0:
+                return 0.0
+
+            union_area = doc_area + query_area - intersection
+            if union_area <= 0.0:
+                return 0.0
+
+            ratio = intersection / union_area
+            if ratio < 0.0:
+                ratio = 0.0
+            elif ratio > 1.0:
+                ratio = 1.0
+            return ratio
+
+        for hit in hits:
+            rid = hit["_source"]["id"]
+            id_to_score[rid] = hit.get("_score", 0.0)
+            if overlap_context:
+                ratio = _compute_overlap_ratio(hit, overlap_context)
+                if ratio is not None:
+                    id_to_overlap[rid] = ratio
+
         for resource in resource_rows:
-            distribution_context = distribution_contexts.get(resource["id"])
-            processed_resources.append(
-                {
-                    "type": "document",
-                    "id": resource["id"],
-                    "score": next(
-                        hit["_score"]
-                        for hit in response["hits"]["hits"]
-                        if hit["_source"]["id"] == resource["id"]
+            rid = resource["id"]
+            distribution_context = distribution_contexts.get(rid)
+            score = id_to_score.get(rid, 0.0)
+            overlap_ratio = id_to_overlap.get(rid)
+
+            doc: dict = {
+                "type": "document",
+                "id": rid,
+                "score": score,
+                "attributes": {
+                    **resource,
+                    **create_viewer_attributes(
+                        resource, distribution_context=distribution_context
                     ),
-                    "attributes": {
-                        **resource,
-                        **create_viewer_attributes(
-                            resource, distribution_context=distribution_context
-                        ),
-                    },
-                }
-            )
+                },
+            }
+            if overlap_ratio is not None:
+                doc["bbox_overlap_ratio"] = overlap_ratio
+
+            processed_resources.append(doc)
 
         pg_query_time = (time.time() - start_time) * 1000
 

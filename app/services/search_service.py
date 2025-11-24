@@ -65,12 +65,16 @@ class SearchService:
                     else {}
                 )
 
+            logger.info(f"SearchService.search: include_filters={include_filters}, exclude_filters={exclude_filters}, request_query_params={request_query_params[:200] if request_query_params else None}...")
             if include_filters is None or exclude_filters is None:
+                logger.info("SearchService.search: Extracting new style filters from request_query_params")
                 parsed_include, parsed_exclude = self.extract_new_style_filters(
                     request_query_params
                 )
+                logger.info(f"SearchService.search: Parsed include_filters={parsed_include}, exclude_filters={parsed_exclude}")
                 include_filters = include_filters if include_filters is not None else parsed_include
                 exclude_filters = exclude_filters if exclude_filters is not None else parsed_exclude
+            logger.info(f"SearchService.search: Final include_filters={include_filters}, exclude_filters={exclude_filters}")
 
             # Get sort mapping
             sort_mapping = SORT_MAPPINGS.get(sort, None)
@@ -383,32 +387,97 @@ class SearchService:
         include_filters: Dict[str, list] = {}
         exclude_filters: Dict[str, list] = {}
         if not params:
+            logger.info("extract_new_style_filters: No params provided")
             return include_filters, exclude_filters
-        raw_params = parse_qs(str(params))
+        logger.info(f"extract_new_style_filters: Parsing params: {params[:200] if params else 'None'}...")
+        # parse_qs expects a URL-decoded query string
+        # If params is URL-encoded (contains %5B for [), decode it first
+        from urllib.parse import unquote
+        if params and '%5B' in params:
+            # URL-encoded brackets detected, decode first
+            decoded_params = unquote(params)
+            logger.info(f"extract_new_style_filters: Decoded params sample: {decoded_params[:200]}")
+            raw_params = parse_qs(decoded_params)
+        elif isinstance(params, str):
+            raw_params = parse_qs(params)
+        else:
+            raw_params = parse_qs(str(params))
+        logger.info(f"extract_new_style_filters: Found {len(raw_params)} raw params")
+        geo_keys = [k for k in raw_params.keys() if 'geo' in k.lower()]
+        logger.info(f"extract_new_style_filters: Geo-related keys: {geo_keys}")
+        logger.info(f"extract_new_style_filters: All keys sample: {list(raw_params.keys())[:10]}")
 
         # Handle geospatial filters
         geo_filters = {}
         for key, values in raw_params.items():
             if key.startswith("include_filters[geo]["):
+                # Skip array-style parameters like "include_filters[geo][]" - these are duplicates/artifacts
+                if key == "include_filters[geo][]" or key.endswith("][]") and key.count("[") == 2:
+                    # This is an array-style parameter without a proper key name, skip it
+                    continue
+                
                 # Extract the geospatial parameter (e.g., "type", "field", "top_left[lat]")
-                geo_param = key[len("include_filters[geo][") : -1]  # Remove brackets
-                if geo_param not in geo_filters:
-                    geo_filters[geo_param] = values[0] if values else None
+                # Handle both "include_filters[geo][param]" and "include_filters[geo][param][]" formats
+                prefix = "include_filters[geo]["
+                if key.endswith("][]"):
+                    # Array-style parameter like "include_filters[geo][type][]"
+                    geo_param = key[len(prefix) : -len("][]")]
+                elif key.startswith(prefix):
+                    # Regular parameter like "include_filters[geo][type]" or "include_filters[geo][top_left][lat]"
+                    # Remove the prefix, keep the rest (including any nested brackets)
+                    geo_param = key[len(prefix):]
+                    # Remove trailing ] if present (for simple params like "type]")
+                    # But keep it if it's part of nested structure like "top_left][lat]"
+                    if geo_param.endswith("]"):
+                        # Check if this is a nested param (has [ before the final ])
+                        last_bracket_idx = geo_param.rfind("[")
+                        if last_bracket_idx == -1:
+                            # No nested brackets, remove trailing ]
+                            geo_param = geo_param[:-1]
+                        else:
+                            # Has nested brackets, the structure is "parent][child]"
+                            # We want "parent[child]", so remove the ] before the [
+                            # Actually, the structure is correct: "top_left][lat]" means parent="top_left]", child="lat"
+                            # But we want parent="top_left", child="lat", so we need to fix this
+                            # The issue is that "top_left][lat]" should be parsed as parent="top_left", child="lat"
+                            # So we need to split on "][" to get ["top_left", "lat]"] and then remove the trailing ] from the child
+                            if "][" in geo_param:
+                                parts = geo_param.split("][")
+                                if len(parts) == 2:
+                                    parent = parts[0]
+                                    child = parts[1].rstrip("]")
+                                    geo_param = f"{parent}[{child}]"
                 else:
-                    # Handle nested parameters like top_left[lat]
-                    if "[" in geo_param and "]" in geo_param:
-                        # This is a nested parameter like "top_left[lat]"
-                        parent_key = geo_param.split("[")[0]
-                        child_key = geo_param.split("[")[1].split("]")[0]
-                        if parent_key not in geo_filters:
-                            geo_filters[parent_key] = {}
-                        geo_filters[parent_key][child_key] = values[0] if values else None
-                    else:
+                    continue
+                
+                # Skip empty parameter names
+                if not geo_param:
+                    continue
+                
+                # Handle nested parameters like top_left[lat]
+                if "[" in geo_param and "]" in geo_param:
+                    # This is a nested parameter like "top_left[lat]"
+                    parent_key = geo_param.split("[")[0]
+                    child_key = geo_param.split("[")[1].split("]")[0]
+                    if parent_key not in geo_filters:
+                        geo_filters[parent_key] = {}
+                    geo_filters[parent_key][child_key] = values[0] if values else None
+                    logger.info(f"  Added nested param: {parent_key}[{child_key}] = {values[0] if values else None}")
+                else:
+                    # For simple parameters, use the first value if not already set
+                    # This handles duplicate parameters by taking the first occurrence
+                    if geo_param not in geo_filters:
                         geo_filters[geo_param] = values[0] if values else None
+                        logger.info(f"  Added simple param: {geo_param} = {values[0] if values else None}")
 
         # If we have geospatial filters, add them to include_filters
         if geo_filters:
-            include_filters["geo"] = _normalize_geo_params(geo_filters)
+            logger.info(f"Raw geo_filters before normalization: {geo_filters}")
+            normalized_geo = _normalize_geo_params(geo_filters)
+            logger.info(f"Normalized geo_filters: {normalized_geo}")
+            include_filters["geo"] = normalized_geo
+        else:
+            logger.warning(f"No geo_filters found! Processed {len(raw_params)} params, geo_keys: {geo_keys}")
 
         # Handle regular field filters
         for key, values in raw_params.items():

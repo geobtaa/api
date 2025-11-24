@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import math
 from datetime import datetime
 from pathlib import Path
 
@@ -209,6 +210,9 @@ async def process_resource(resource_dict):
                             if normalized_type:
                                 processed_geometry["type"] = normalized_type
                         processed_dict[key] = processed_geometry
+                        # When we have a normalized bbox geometry, compute numeric bbox metrics
+                        if key == "dcat_bbox":
+                            _update_bbox_metrics(processed_dict, processed_geometry)
                     else:
                         processed_dict[key] = None
         else:
@@ -882,3 +886,43 @@ async def reindex_resources():
     except Exception as e:
         logger.error(f"Error during reindexing: {str(e)}", exc_info=True)
         raise
+
+
+def _update_bbox_metrics(processed_dict, geometry):
+    """Compute numeric bbox metrics (minx, maxx, miny, maxy, diagonal_km) from a geojson geometry."""
+    if not geometry or not isinstance(geometry, dict):
+        return
+    coords = geometry.get("coordinates")
+    if not coords:
+        return
+
+    def _walk(c, acc):
+        if isinstance(c, (list, tuple)):
+            if len(c) == 2 and all(isinstance(v, (int, float)) for v in c):
+                x, y = float(c[0]), float(c[1])
+                acc[0] = min(acc[0], x)
+                acc[1] = min(acc[1], y)
+                acc[2] = max(acc[2], x)
+                acc[3] = max(acc[3], y)
+            else:
+                for v in c:
+                    _walk(v, acc)
+
+    acc = [float("inf"), float("inf"), float("-inf"), float("-inf")]
+    _walk(coords, acc)
+    minx, miny, maxx, maxy = acc
+    if not math.isfinite(minx) or not math.isfinite(miny) or not math.isfinite(maxx) or not math.isfinite(maxy):
+        return
+
+    processed_dict["bbox_minx"] = minx
+    processed_dict["bbox_maxx"] = maxx
+    processed_dict["bbox_miny"] = miny
+    processed_dict["bbox_maxy"] = maxy
+
+    # Approximate diagonal length in km for later scoring heuristics
+    avg_lat = (miny + maxy) / 2.0
+    dx = maxx - minx
+    dy = maxy - miny
+    lat_km = dy * 111.0
+    lon_km = dx * 111.0 * abs(math.cos(math.radians(avg_lat)))
+    processed_dict["bbox_diagonal_km"] = math.sqrt(lat_km ** 2 + lon_km ** 2)
