@@ -27,18 +27,57 @@ The Elasticsearch deployment uses:
 
 ### Ulimits Configuration
 
-Elasticsearch requires high file descriptor limits. The configuration in `config/deploy.yml` sets:
-```yaml
-ulimits:
-  nofile:
-    soft: 65536
-    hard: 65536
+Elasticsearch requires high file descriptor limits (65536+). **Note**: Kamal doesn't support `ulimits` in accessories configuration, so we need to configure them at the host system level.
+
+**Option 1: Configure Docker daemon (Recommended)**
+
+On your Kamal server, edit `/etc/docker/daemon.json`:
+
+```json
+{
+  "default-ulimits": {
+    "nofile": {
+      "Name": "nofile",
+      "Hard": 65536,
+      "Soft": 65536
+    }
+  }
+}
 ```
 
-**Important**: These limits are set at the container level. If you still see "Too many open files" errors:
-1. Verify the ulimits are applied: `kamal accessory exec elasticsearch "ulimit -n"`
+Then restart Docker:
+```bash
+sudo systemctl restart docker
+```
+
+**Option 2: Use the setup script**
+
+```bash
+# Copy the script to the server
+kamal ssh
+# Then run:
+bash <(curl -s https://raw.githubusercontent.com/your-repo/scripts/setup_elasticsearch_ulimits.sh)
+# Or manually copy and run scripts/setup_elasticsearch_ulimits.sh
+```
+
+**Option 3: Configure system limits**
+
+Add to `/etc/security/limits.conf`:
+```
+* soft nofile 65536
+* hard nofile 65536
+```
+
+**Verify ulimits are applied:**
+```bash
+kamal accessory exec elasticsearch "ulimit -n"  # Should show 65536
+```
+
+**If you still see "Too many open files" errors:**
+1. Verify ulimits: `kamal accessory exec elasticsearch "ulimit -n"`
 2. Check system-level limits on the host
-3. Ensure the ES client has connection pooling configured (see below)
+3. Ensure the ES client has connection pooling configured (maxsize=25)
+4. Restart the Elasticsearch container after setting ulimits
 
 ## Configuration Details
 
