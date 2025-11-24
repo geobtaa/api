@@ -6,8 +6,10 @@ from elasticsearch import AsyncElasticsearch
 
 load_dotenv()
 
-# Create the AsyncElasticsearch client with connection pooling and proper limits
-# Connection pooling prevents file descriptor exhaustion
+# Create the AsyncElasticsearch client with proper timeout and retry settings
+# Note: Connection pooling is handled automatically by the elasticsearch library
+# The "too many open files" issue is addressed by configuring ulimits on the host system
+# See scripts/setup_elasticsearch_ulimits.sh for host-level configuration
 es = AsyncElasticsearch(
     os.getenv("ELASTICSEARCH_URL", "http://elasticsearch:9200"),
     verify_certs=False,  # For development only
@@ -15,9 +17,6 @@ es = AsyncElasticsearch(
     request_timeout=60,  # Increase timeout to 60 seconds
     retry_on_timeout=True,  # Retry on timeout
     max_retries=3,  # Maximum number of retries
-    maxsize=25,  # Maximum number of connections in the connection pool
-    # This limits the number of open file descriptors used by the ES client
-    # 25 connections should be sufficient for most workloads while preventing exhaustion
 )
 
 logger = logging.getLogger(__name__)
