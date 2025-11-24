@@ -84,10 +84,22 @@ accessories:
         xpack.security.enabled: "false"
         ES_JAVA_OPTS: "-Xms2g -Xmx2g"
         cluster.routing.allocation.disk.threshold_enabled: "true"
+        cluster.routing.allocation.disk.watermark.low: "85%"
+        cluster.routing.allocation.disk.watermark.high: "90%"
+        cluster.routing.allocation.disk.watermark.flood_stage: "95%"
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
     # only listen on localhost
     port: "127.0.0.1:9200:9200"
     directories:
       - esdata:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   paradedb:
     image: paradedb/paradedb:0.18.11
