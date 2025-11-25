@@ -23,6 +23,7 @@ Schemas in this repository define:
 Validates OpenGeoMetadata Aardvark schema fields with BTAA custom elements for geospatial resource records.
 
 **Key Features**:
+
 - OpenGeoMetadata Aardvark compliance
 - BTAA B1G custom extensions
 - Dublin Core metadata validation
@@ -31,6 +32,7 @@ Validates OpenGeoMetadata Aardvark schema fields with BTAA custom elements for g
 - Provenance and administrative metadata
 
 **Required Fields**:
+
 - `id` - Resource identifier
 - `gbl_mdVersion_s` - Metadata version (must be "Aardvark")
 - `schema_provider_s` - Schema provider
@@ -39,13 +41,13 @@ Validates OpenGeoMetadata Aardvark schema fields with BTAA custom elements for g
 - `dct_language_sm` - Languages
 - `dct_accessRights_s` - Access rights ("Public" or "Restricted")
 - `dct_license_sm` - License URIs
-- `b1g_code_s` - BTAA custom code
 - `b1g_dct_accrualMethod_s` - Accrual method
 - `b1g_dateAccessioned_s` - Accession date
 - `b1g_publication_state_s` - Publication state
-- `b1g_language_sm` - B1G languages
+
 
 **Core Aardvark Properties**:
+
 - **Identifiers**: `id`, `gbl_mdVersion_s`, `schema_provider_s`
 - **Titles & Descriptions**: `dct_title_s`, `dct_alternative_sm`, `dct_description_sm`
 - **Agents**: `dct_creator_sm`, `dct_publisher_sm`, `dct_rightsHolder_sm`
@@ -59,6 +61,7 @@ Validates OpenGeoMetadata Aardvark schema fields with BTAA custom elements for g
 - **Technical**: `layer_geom_type_s`, `solr_year_i`, `layer_id_s`, `suppressed_b`, `dct_references_s`
 
 **BTAA Custom Properties**:
+
 - **Institutional**: `b1g_code_s`, `b1g_status_s`, `b1g_publication_state_s`
 - **Dates**: `b1g_dateAccessioned_s`, `b1g_dateRetired_s`
 - **Accrual**: `b1g_dct_accrualMethod_s`, `b1g_dct_accrualPeriodicity_s`
@@ -68,6 +71,7 @@ Validates OpenGeoMetadata Aardvark schema fields with BTAA custom elements for g
 - **UI**: `b1g_image_ss` (URI), `b1g_language_sm`, `b1g_creatorID_sm` (URI array), `b1g_dct_conformsTo_sm` (URI array)
 
 **Data Type Constraints**:
+
 - **Enums**: `gbl_mdVersion_s` must be "Aardvark", `dct_accessRights_s` must be "Public" or "Restricted"
 - **Formats**: `gbl_mdModified_dt` (date-time), `b1g_dateAccessioned_s` (date), `b1g_dateRetired_s` (date)
 - **URIs**: `dct_license_sm`, `b1g_image_ss`, `b1g_geonames_sm`, `b1g_creatorID_sm`, `b1g_dct_conformsTo_sm`

@@ -42,6 +42,7 @@ JSON-LD profiles are specifications that define how to use JSON-LD in a particul
 - Integration with BTAA GIN infrastructure
 
 **Required Properties**:
+
 - `id` - Resource identifier
 - `dct_title_s` - Resource title
 - `gbl_resourceClass_sm` - Resource classification
@@ -50,9 +51,9 @@ JSON-LD profiles are specifications that define how to use JSON-LD in a particul
 - `b1g_dct_accrualMethod_s` - Accrual method
 - `b1g_dateAccessioned_s` - Date accessioned
 - `b1g_publication_state_s` - Publication state
-- `b1g_language_sm` - Language information
 
 **Recommended Properties**:
+
 - `dct_description_sm` - Resource description
 - `dct_language_sm` - Resource language
 - `dct_subject_sm` - Subject terms
@@ -71,19 +72,24 @@ JSON-LD profiles are specifications that define how to use JSON-LD in a particul
 - `b1g_dct_provenanceStatement_sm` - Provenance information
 
 **Temporal Coverage Constraints**:
+
 The profile requires at least one of the following temporal properties:
+
 - `dct_temporal_sm` - Temporal coverage
 - `gbl_indexYear_im` - Index year
 - `gbl_dateRange_drsim` - Date range
 
 **Cardinality Rules**:
+
 - Single values: `id`, `dct_title_s`, `dct_accessRights_s`, `gbl_mdVersion_s`, `b1g_dct_accrualMethod_s`, `b1g_dateAccessioned_s`, `b1g_publication_state_s`
 - Multi-values: `gbl_resourceClass_sm`, `b1g_language_sm`
 
 **Pattern Constraints**:
+
 - `dcat_centroid`: Must match pattern `^-?\d+(\.\d+)?,\s*-?\d+(\.\d+)?$` (latitude,longitude)
 
 **JSON Stringified Properties**:
+
 - `dct_references_s` - Reference links as JSON string
 - `b1g_access_s` - Access map as JSON string
 
@@ -118,17 +124,20 @@ The profile requires at least one of the following temporal properties:
 **Scope**: UI-specific metadata for viewer integration and citation display
 
 **Key Features**:
+
 - UI component specifications
 - Viewer protocol definitions
 - Citation formatting hints
 - Non-RDF structure for UI integration
 
 **Recommended Properties**:
+
 - `ui.citation` - Citation display information
 - `ui.viewer.protocol` - Viewer protocol type
 - `ui.viewer.endpoint` - Viewer endpoint URL
 
 **Cardinality Rules**:
+
 - `ui`: 0..1 (optional)
 - `ui.citation`: 0..1 (optional)
 - `ui.viewer`: 0..1 (optional)
@@ -137,7 +146,9 @@ The profile requires at least one of the following temporal properties:
 - `ui.viewer.geometry`: 0..1 (optional)
 
 **Protocol Enums**:
+
 The `ui.viewer.protocol` property supports these values:
+
 - `iiif_manifest` - IIIF Manifest
 - `tilejson` - TileJSON
 - `wms` - Web Map Service
