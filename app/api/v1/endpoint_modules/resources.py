@@ -258,6 +258,15 @@ async def get_resource_distributions(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("/resources/{id}/links")
+async def get_resource_links(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+):
+    """Get all links for a resource."""
+    return await LinkService.get_resource_links(id)
+
+
 @router.get("/resources/{id}/ogm")
 async def get_resource_ogm(
     id: str,
@@ -315,15 +324,6 @@ async def get_resource_ogm(
     except Exception as e:
         logger.error(f"Error getting Aardvark record for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-
-@router.get("/resources/{id}/links")
-async def get_resource_links(
-    id: str,
-    callback: Optional[str] = Query(None, description="JSONP callback name"),
-):
-    """Get all links for a resource."""
-    return await LinkService.get_resource_links(id)
 
 
 @router.get("/resources/{id}/relationships")

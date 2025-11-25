@@ -340,7 +340,7 @@ async def search_wof(
     try:
         # Default placetypes to exclude for autosuggestion
         if exclude_placetypes is None:
-            exclude_placetypes = "microhood,neighbourhood,venue"
+            exclude_placetypes = "localadmin,microhood,neighbourhood,venue"
         
         excluded_types = [pt.strip() for pt in exclude_placetypes.split(",") if pt.strip()]
 
