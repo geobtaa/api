@@ -87,31 +87,42 @@ class ImageService:
         # If not in cache, fetch and store
         try:
             self.logger.info(f"🐌 Cache MISS for manifest {manifest_url}")
-            response = requests.get(manifest_url, timeout=2.0)
+            # Use User-Agent header to avoid 403 errors from servers that block bots
+            headers = {
+                "User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"
+            }
+            response = requests.get(manifest_url, timeout=5.0, headers=headers)  # Increased timeout for slow servers
+            
+            # Don't try to parse 403/401 responses - they indicate authorization issues
+            if response.status_code in (401, 403):
+                self.logger.warning(f"Authorization error ({response.status_code}) for manifest {manifest_url}. Cannot fetch.")
+                return None
+                
             response.raise_for_status()
             manifest_data = response.json()
 
             # Cache the manifest
             self.cache.setex(cache_key, self.cache_ttl, json.dumps(manifest_data))
             return manifest_data
+        except requests.Timeout:
+            self.logger.warning(f"Timeout fetching manifest {manifest_url} (5s timeout)")
+            return None
         except Exception as e:
             self.logger.error(f"Error fetching manifest {manifest_url}: {e}")
             return None
 
-    def get_iiif_manifest_thumbnail(self, manifest_url: str) -> Optional[str]:
+    def _extract_thumbnail_from_manifest_json(self, manifest_json: Dict, manifest_url: str = "") -> Optional[str]:
         """
-        Get thumbnail URL from IIIF Manifest.
+        Extract thumbnail URL from a IIIF manifest JSON object.
+        This method does NOT fetch the manifest - it only parses existing JSON.
 
         Args:
-            manifest_url (str): URL to the IIIF manifest
+            manifest_json (Dict): The IIIF manifest JSON object
+            manifest_url (str): Optional manifest URL for logging
 
         Returns:
             Optional[str]: Thumbnail URL or None if not found
         """
-        manifest_json = self._get_manifest(manifest_url)
-        if not manifest_json:
-            return manifest_url
-
         try:
             # Prefer explicit thumbnail when present (array or object)
             if manifest_json.get("thumbnail"):
@@ -125,6 +136,7 @@ class ImageService:
                 else:
                     candidate = thumb
                 if candidate:
+                    self.logger.debug(f"Found manifest-level thumbnail: {candidate}")
                     return self._standardize_iiif_url(candidate)
 
             # Sequences - Prefer direct resource @id, then service @id
@@ -144,26 +156,53 @@ class ImageService:
 
             # Items - IIIF v3 style
             elif manifest_json.get("items"):
+                # Check for thumbnail in first canvas (items[0].thumbnail)
+                first_canvas = manifest_json.get("items", [{}])[0] if manifest_json.get("items") else {}
+                if first_canvas.get("thumbnail"):
+                    canvas_thumb = first_canvas["thumbnail"]
+                    if isinstance(canvas_thumb, list) and canvas_thumb:
+                        canvas_thumb = canvas_thumb[0]
+                    if isinstance(canvas_thumb, dict):
+                        thumb_id = canvas_thumb.get("id") or canvas_thumb.get("@id")
+                        if thumb_id:
+                            self.logger.debug("Image: canvas thumbnail id")
+                            return self._standardize_iiif_url(thumb_id)
+                    elif isinstance(canvas_thumb, str):
+                        return self._standardize_iiif_url(canvas_thumb)
+
+                # Navigate through items structure: items[0] -> items[0] -> items[0] -> body
                 items_path = (
                     manifest_json.get("items", [{}])[0].get("items", [{}])[0].get("items", [{}])[0]
                 )
 
                 # Try body.service.@id first (prefer constructing consistent size)
                 body = items_path.get("body", {})
-                body_service_id = (
-                    body.get("service", {}).get("@id") if isinstance(body, dict) else None
-                )
-                if body_service_id:
-                    return f"{body_service_id}/full/400,/0/default.jpg"
+                if isinstance(body, dict):
+                    # Handle service as either object or array
+                    service = body.get("service")
+                    if isinstance(service, list) and service:
+                        # Service is an array, get first element
+                        service = service[0]
+                    
+                    if isinstance(service, dict):
+                        body_service_id = service.get("@id") or service.get("id")
+                    elif isinstance(service, str):
+                        body_service_id = service
+                    else:
+                        body_service_id = None
+                    
+                    if body_service_id:
+                        self.logger.debug(f"Found body service ID: {body_service_id}")
+                        return f"{body_service_id}/full/400,/0/default.jpg"
 
-                # Next try body.id (prefer direct ID unmodified)
-                if isinstance(body, dict) and body.get("id"):
-                    self.logger.debug("Image: items body id")
-                    return body["id"]
+                    # Next try body.id (prefer direct ID unmodified)
+                    if body.get("id"):
+                        self.logger.debug(f"Found body ID: {body.get('id')}")
+                        return body["id"]
 
                 # Try direct id
-                elif items_path.get("id"):
-                    self.logger.debug("Image: items id")
+                if items_path.get("id"):
+                    self.logger.debug(f"Found items path ID: {items_path.get('id')}")
                     return items_path["id"]
 
             # Thumbnail - Try various thumbnail formats
@@ -174,15 +213,37 @@ class ImageService:
                     candidate = thumbnail.get("@id") or thumbnail.get("id")
                 else:
                     candidate = thumbnail
-                return self._standardize_iiif_url(candidate) if candidate else None
+                if candidate:
+                    self.logger.debug(f"Found thumbnail: {candidate}")
+                    return self._standardize_iiif_url(candidate)
 
-            # Fallback to viewer endpoint
-            self.logger.debug("Image: failed to find thumbnail")
-            return manifest_url
+            # Fallback - couldn't find thumbnail
+            self.logger.warning(f"Could not find thumbnail in manifest {manifest_url}")
+            return None  # Return None instead of manifest_url to indicate failure
 
         except Exception as e:
-            self.logger.error(f"Error processing IIIF manifest: {e}")
-            return manifest_url
+            self.logger.error(f"Error processing IIIF manifest JSON: {e}", exc_info=True)
+            return None  # Return None to indicate failure
+
+    def get_iiif_manifest_thumbnail(self, manifest_url: str) -> Optional[str]:
+        """
+        Get thumbnail URL from IIIF Manifest by fetching it.
+        NOTE: This method makes synchronous HTTP requests and should NOT be called
+        during API request handling. Use _extract_thumbnail_from_manifest_json() instead
+        if you already have the manifest JSON.
+
+        Args:
+            manifest_url (str): URL to the IIIF manifest
+
+        Returns:
+            Optional[str]: Thumbnail URL or None if not found
+        """
+        manifest_json = self._get_manifest(manifest_url)
+        if not manifest_json:
+            self.logger.warning(f"Could not fetch manifest {manifest_url}")
+            return None  # Return None instead of manifest_url to indicate failure
+
+        return self._extract_thumbnail_from_manifest_json(manifest_json, manifest_url)
 
     def _standardize_iiif_url(self, url: str) -> str:
         """
@@ -237,10 +298,45 @@ class ImageService:
             thumbnail_url = self._get_thumbnail_source_url()
 
             if thumbnail_url:
-                # For manifest URLs, we can't check cache yet since we don't know the resolved URL
-                # For direct image URLs, standardize and check cache
-                if not self._is_manifest_url(thumbnail_url):
-                    # Standardize IIIF URLs to ensure consistent size
+                # For manifest URLs, check if we have a cached resolution
+                # If manifest is cached, we can resolve it synchronously to check image cache
+                # Otherwise, queue it for background processing (no blocking HTTP calls)
+                if self._is_manifest_url(thumbnail_url):
+                    # Check if manifest is cached first (no HTTP request)
+                    manifest_cache_key = f"manifest:{thumbnail_url}"
+                    try:
+                        cached_manifest_data = self.cache.get(manifest_cache_key)
+                        if cached_manifest_data:
+                            # Manifest is cached, safe to resolve synchronously
+                            try:
+                                manifest_json = json.loads(cached_manifest_data)
+                                resolved_url = self._extract_thumbnail_from_manifest_json(manifest_json, thumbnail_url)
+                                if resolved_url:
+                                    resolved_url = self._standardize_iiif_url(resolved_url)
+                                    
+                                    # Check if the resolved image URL is already cached
+                                    image_hash = hashlib.sha256(resolved_url.encode()).hexdigest()
+                                    image_key = f"image:{image_hash}"
+                                    
+                                    if self.image_cache.exists(image_key):
+                                        self.logger.info(f"🚀 Cache HIT for resolved manifest image {doc_id}")
+                                        return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
+                            except Exception as e:
+                                # If resolution fails, queue for background processing
+                                self.logger.debug(f"Failed to resolve cached manifest for {doc_id}: {e}")
+                    except Exception as e:
+                        # If Redis is unavailable, fall back to non-cached behavior
+                        self.logger.debug(f"Redis unavailable while checking manifest cache for {doc_id}: {e}")
+                    
+                    # Manifest not cached or resolution failed - queue for background processing
+                    # DO NOT fetch manifest synchronously - this blocks the API response
+                    self.logger.info(f"🚀 Queueing manifest resolution for {doc_id}: {thumbnail_url}")
+                    self._queue_thumbnail_processing(thumbnail_url, doc_id)
+                    
+                    # Return None - frontend will use resource class icon until ready
+                    return None
+                else:
+                    # Direct image URL - standardize and check cache
                     thumbnail_url = self._standardize_iiif_url(thumbnail_url)
 
                     # Check if we have the image cached
@@ -257,13 +353,13 @@ class ImageService:
                             f"Redis unavailable while checking cache for {doc_id}: {e}"
                         )
 
-                # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
-                # The Celery worker will handle validation and caching
-                self.logger.info(f"🚀 Queueing image fetch for {doc_id}: {thumbnail_url}")
-                self._queue_thumbnail_processing(thumbnail_url, doc_id)
+                    # Queue thumbnail for processing in the background
+                    # Return None so frontend can show resource class icon until thumbnail is ready
+                    self.logger.info(f"🚀 Queueing image fetch for {doc_id}: {thumbnail_url}")
+                    self._queue_thumbnail_processing(thumbnail_url, doc_id)
 
-                # Return placeholder image URL - this ensures fast response times
-                return f"{self.application_url}/api/v1/thumbnails/placeholder"
+                    # Return None instead of placeholder - frontend will use resource class icon
+                    return None
 
             return None
 
@@ -322,19 +418,24 @@ class ImageService:
                     )
                     or "/manifest" in value
                 ):
-                    # Special case: ContentDM manifest URLs should be converted to image URLs
-                    if "contentdm.oclc.org" in value and "/iiif/" in value:
-                        # Extract collection:item from ContentDM manifest URL
-                        match = re.search(r"/iiif/([^/]+)/", value)
-                        if match:
-                            collection_item = match.group(1)
-                            return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/200,/0/default.jpg"
-
                     manifest_url = value
                     break
 
         if manifest_url:
-            # For manifests, queue background resolution and return manifest URL
+            # Special case: ContentDM manifest URLs can be directly converted to image URLs
+            # without fetching the manifest, since we know the pattern
+            if "contentdm.oclc.org" in manifest_url and "/iiif/" in manifest_url:
+                # Extract collection:item from ContentDM manifest URL
+                # Pattern: https://cdm16022.contentdm.oclc.org/iiif/p16022coll55:1755/manifest.json
+                match = re.search(r"/iiif/([^/]+)/", manifest_url)
+                if match:
+                    collection_item = match.group(1)
+                    # Convert to direct IIIF image URL
+                    image_url = f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/400,/0/default.jpg"
+                    self.logger.info(f"✅ Directly converted ContentDM manifest to image URL: {image_url}")
+                    return image_url
+
+            # For other manifests, queue background resolution and return manifest URL
             # The Celery worker will resolve the manifest and extract the image URL
             self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
             self._queue_manifest_processing(manifest_url)
@@ -371,15 +472,22 @@ class ImageService:
         ):
             return f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
 
+        # Return None when no thumbnail source is found
+        # This allows the frontend to show a default icon based on resource class (gbl_resourceClass_sm)
         return None
 
     def _is_manifest_url(self, url: str) -> bool:
         """Check if URL looks like a IIIF manifest URL."""
         if not url:
             return False
+        url_lower = url.lower()
+        # Check for common IIIF manifest patterns
         return (
             url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json"))
             or "/manifest" in url
+            or (".json" in url and ("iiif" in url_lower or "/object/" in url or "/collection/" in url))
+            or ("/api/" in url and ("iiif" in url_lower or "image" in url_lower))
+            or ("/cgi/i/image/api/" in url_lower)  # U of Michigan pattern
         )
 
     def _first_url(self, uri: str, references: Optional[Dict[str, Any]] = None) -> Optional[str]:

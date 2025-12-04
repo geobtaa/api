@@ -102,6 +102,9 @@ def add_thumbnail_url(
 
     image_service = ImageService(item, distribution_context=distribution_context)
     thumbnail_url = image_service.get_thumbnail_url()
+    
+    # Only set thumbnail_url if one was found (or placeholder for processing)
+    # If None, frontend can use resource class (gbl_resourceClass_sm) to show default icon
     item["ui_thumbnail_url"] = thumbnail_url
     return item
 
@@ -239,8 +242,12 @@ def create_jsonapi_resource(resource_data, request_url=None):
     restructured_ui = {}
 
     # Simple field mappings (remove ui_ prefix)
-    if "ui_thumbnail_url" in ui_fields:
-        restructured_ui["thumbnail_url"] = ui_fields["ui_thumbnail_url"]
+    if "ui_thumbnail_url" in ui_fields and ui_fields["ui_thumbnail_url"] is not None:
+        thumbnail_url = ui_fields["ui_thumbnail_url"]
+        restructured_ui["thumbnail_url"] = thumbnail_url
+        # Add placeholder flag if it's a placeholder URL
+        if "/thumbnails/placeholder" in str(thumbnail_url):
+            restructured_ui["thumbnail_placeholder"] = True
     if "ui_citation" in ui_fields:
         restructured_ui["citation"] = ui_fields["ui_citation"]
     if "ui_downloads" in ui_fields:
