@@ -389,7 +389,7 @@ async def get_resource_static_map(
     id: str,
     request: Request = None,
 ):
-    """Get a static map image for a resource based on its locn_geometry (or dcat_bbox as fallback)."""
+    """Get a static map image for a resource based on its locn_geometry or dcat_bbox."""
     try:
         # First check if the resource exists and has geometry
         async with async_session() as session:
@@ -511,7 +511,8 @@ async def get_resource_thumbnail(
 
         response_payload = {
             "id": id,
-            "thumbnail_url": thumbnail_url,  # Can be None (use resource class), placeholder URL, or actual thumbnail URL
+            # Can be None (use resource class), placeholder URL, or actual thumbnail URL
+            "thumbnail_url": thumbnail_url,
             "placeholder": is_placeholder,
         }
 
@@ -539,7 +540,9 @@ async def get_resource_thumbnail(
                     if cached_manifest_data:
                         import json
                         manifest_json = json.loads(cached_manifest_data)
-                        resolved_url = image_service._extract_thumbnail_from_manifest_json(manifest_json, source_url)
+                        resolved_url = image_service._extract_thumbnail_from_manifest_json(
+                            manifest_json, source_url
+                        )
                         if resolved_url:
                             resolved_url = image_service._standardize_iiif_url(resolved_url)
                 except Exception:

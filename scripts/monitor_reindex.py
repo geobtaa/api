@@ -162,7 +162,7 @@ def get_failure_log_stats() -> Dict[str, Any]:
     try:
         with open(log_path, "r") as f:
             lines = f.readlines()
-        failure_count = len([l for l in lines if l.strip()])
+        failure_count = len([line for line in lines if line.strip()])
         return {"exists": True, "count": failure_count, "path": str(log_path)}
     except Exception as e:
         return {"exists": True, "error": str(e)}
@@ -293,7 +293,8 @@ def format_status(status: Dict[str, Any]) -> str:
         count = failures.get("count", 0)
         if count > 0:
             output.append(
-                f"\n{Colors.YELLOW}⚠ Failures logged: {count:,} entries in {failures.get('path', FAILURE_LOG)}{Colors.RESET}"
+                f"\n{Colors.YELLOW}⚠ Failures logged: {count:,} entries in "
+                f"{failures.get('path', FAILURE_LOG)}{Colors.RESET}"
             )
         else:
             output.append(f"{Colors.GREEN}✓{Colors.RESET} No failures logged")
@@ -321,7 +322,8 @@ async def main():
             while True:
                 clear_screen()
                 print_header(
-                    f"Elasticsearch Reindex Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    f"Elasticsearch Reindex Monitor - "
+                    f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 )
 
                 status = await get_reindex_status()

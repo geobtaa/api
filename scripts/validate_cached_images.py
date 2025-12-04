@@ -4,7 +4,6 @@ Script to validate cached thumbnail images and remove invalid entries.
 
 This script checks all cached images in Redis and removes entries that are not valid images.
 """
-import hashlib
 import io
 import logging
 import os
@@ -87,8 +86,10 @@ def validate_cached_images(dry_run: bool = True):
             except redis.exceptions.ConnectionError:
                 logger.error(
                     "❌ Cannot connect to Redis. Options:\n"
-                    "1. Run inside Docker: docker-compose exec api python scripts/validate_cached_images.py\n"
-                    "2. Or ensure Redis is accessible at localhost:6379 (check docker-compose.yml port mapping)\n"
+                    "1. Run inside Docker: docker-compose exec api "
+                    "python scripts/validate_cached_images.py\n"
+                    "2. Or ensure Redis is accessible at localhost:6379 "
+                    "(check docker-compose.yml port mapping)\n"
                     "3. Or set REDIS_HOST and REDIS_PORT environment variables"
                 )
                 raise
@@ -130,7 +131,10 @@ def validate_cached_images(dry_run: bool = True):
                 if is_valid_image(image_data):
                     valid_count += 1
                     if total_checked % 100 == 0:
-                        logger.info(f"Checked {total_checked} images... ({valid_count} valid, {invalid_count} invalid)")
+                        logger.info(
+                            f"Checked {total_checked} images... "
+                            f"({valid_count} valid, {invalid_count} invalid)"
+                        )
                 else:
                     invalid_count += 1
                     logger.warning(

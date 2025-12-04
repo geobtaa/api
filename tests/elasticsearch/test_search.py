@@ -166,7 +166,10 @@ class TestElasticsearchSearch:
                 assert len(filter_clauses) == 1
                 assert "terms" in filter_clauses[0]
                 # Field is resolved to .keyword suffix via _resolve_filter_field
-                assert filter_clauses[0]["terms"]["dct_spatial_sm.keyword"] == ["Minnesota", "Wisconsin"]
+                assert filter_clauses[0]["terms"]["dct_spatial_sm.keyword"] == [
+                    "Minnesota",
+                    "Wisconsin",
+                ]
 
     @pytest.mark.asyncio
     async def test_search_resources_with_geospatial_polygon_filter(self):
@@ -264,7 +267,14 @@ class TestElasticsearchSearch:
                 assert "filter" in bool_query
                 filters = bool_query["filter"]
                 # For dcat_bbox field, it uses geo_shape, not geo_bounding_box
-                geo_filter = next((f for f in filters if "geo_shape" in f or "geo_bounding_box" in f), None)
+                geo_filter = next(
+                    (
+                        f
+                        for f in filters
+                        if "geo_shape" in f or "geo_bounding_box" in f
+                    ),
+                    None,
+                )
                 assert geo_filter is not None
                 box = geo_filter["geo_bounding_box"]["dcat_bbox"]
                 assert box["top_left"] == {"lat": 45.0, "lon": -109.0}

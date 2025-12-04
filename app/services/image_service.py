@@ -91,11 +91,15 @@ class ImageService:
             headers = {
                 "User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"
             }
-            response = requests.get(manifest_url, timeout=5.0, headers=headers)  # Increased timeout for slow servers
+            # Increased timeout for slow servers
+            response = requests.get(manifest_url, timeout=5.0, headers=headers)
             
             # Don't try to parse 403/401 responses - they indicate authorization issues
             if response.status_code in (401, 403):
-                self.logger.warning(f"Authorization error ({response.status_code}) for manifest {manifest_url}. Cannot fetch.")
+                self.logger.warning(
+                    f"Authorization error ({response.status_code}) "
+                    f"for manifest {manifest_url}. Cannot fetch."
+                )
                 return None
                 
             response.raise_for_status()
@@ -111,7 +115,9 @@ class ImageService:
             self.logger.error(f"Error fetching manifest {manifest_url}: {e}")
             return None
 
-    def _extract_thumbnail_from_manifest_json(self, manifest_json: Dict, manifest_url: str = "") -> Optional[str]:
+    def _extract_thumbnail_from_manifest_json(
+        self, manifest_json: Dict, manifest_url: str = ""
+    ) -> Optional[str]:
         """
         Extract thumbnail URL from a IIIF manifest JSON object.
         This method does NOT fetch the manifest - it only parses existing JSON.
@@ -157,7 +163,11 @@ class ImageService:
             # Items - IIIF v3 style
             elif manifest_json.get("items"):
                 # Check for thumbnail in first canvas (items[0].thumbnail)
-                first_canvas = manifest_json.get("items", [{}])[0] if manifest_json.get("items") else {}
+                first_canvas = (
+                    manifest_json.get("items", [{}])[0]
+                    if manifest_json.get("items")
+                    else {}
+                )
                 if first_canvas.get("thumbnail"):
                     canvas_thumb = first_canvas["thumbnail"]
                     if isinstance(canvas_thumb, list) and canvas_thumb:
@@ -310,7 +320,9 @@ class ImageService:
                             # Manifest is cached, safe to resolve synchronously
                             try:
                                 manifest_json = json.loads(cached_manifest_data)
-                                resolved_url = self._extract_thumbnail_from_manifest_json(manifest_json, thumbnail_url)
+                                resolved_url = self._extract_thumbnail_from_manifest_json(
+                                    manifest_json, thumbnail_url
+                                )
                                 if resolved_url:
                                     resolved_url = self._standardize_iiif_url(resolved_url)
                                     
@@ -319,18 +331,29 @@ class ImageService:
                                     image_key = f"image:{image_hash}"
                                     
                                     if self.image_cache.exists(image_key):
-                                        self.logger.info(f"🚀 Cache HIT for resolved manifest image {doc_id}")
-                                        return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
+                                        self.logger.info(
+                                            f"🚀 Cache HIT for resolved manifest image {doc_id}"
+                                        )
+                                        return (
+                                            f"{self.application_url}/api/v1/thumbnails/{image_hash}"
+                                        )
                             except Exception as e:
                                 # If resolution fails, queue for background processing
-                                self.logger.debug(f"Failed to resolve cached manifest for {doc_id}: {e}")
+                                self.logger.debug(
+                                    f"Failed to resolve cached manifest for {doc_id}: {e}"
+                                )
                     except Exception as e:
                         # If Redis is unavailable, fall back to non-cached behavior
-                        self.logger.debug(f"Redis unavailable while checking manifest cache for {doc_id}: {e}")
+                        self.logger.debug(
+                            f"Redis unavailable while checking manifest cache "
+                            f"for {doc_id}: {e}"
+                        )
                     
                     # Manifest not cached or resolution failed - queue for background processing
                     # DO NOT fetch manifest synchronously - this blocks the API response
-                    self.logger.info(f"🚀 Queueing manifest resolution for {doc_id}: {thumbnail_url}")
+                    self.logger.info(
+                        f"🚀 Queueing manifest resolution for {doc_id}: {thumbnail_url}"
+                    )
                     self._queue_thumbnail_processing(thumbnail_url, doc_id)
                     
                     # Return None - frontend will use resource class icon until ready
@@ -432,7 +455,9 @@ class ImageService:
                     collection_item = match.group(1)
                     # Convert to direct IIIF image URL
                     image_url = f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/400,/0/default.jpg"
-                    self.logger.info(f"✅ Directly converted ContentDM manifest to image URL: {image_url}")
+                    self.logger.info(
+                        f"✅ Directly converted ContentDM manifest to image URL: {image_url}"
+                    )
                     return image_url
 
             # For other manifests, queue background resolution and return manifest URL
@@ -473,7 +498,8 @@ class ImageService:
             return f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
 
         # Return None when no thumbnail source is found
-        # This allows the frontend to show a default icon based on resource class (gbl_resourceClass_sm)
+        # This allows the frontend to show a default icon based on resource class
+        # (gbl_resourceClass_sm)
         return None
 
     def _is_manifest_url(self, url: str) -> bool:
@@ -485,7 +511,10 @@ class ImageService:
         return (
             url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json"))
             or "/manifest" in url
-            or (".json" in url and ("iiif" in url_lower or "/object/" in url or "/collection/" in url))
+            or (
+                ".json" in url
+                and ("iiif" in url_lower or "/object/" in url or "/collection/" in url)
+            )
             or ("/api/" in url and ("iiif" in url_lower or "image" in url_lower))
             or ("/cgi/i/image/api/" in url_lower)  # U of Michigan pattern
         )

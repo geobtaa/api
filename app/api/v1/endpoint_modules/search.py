@@ -2,8 +2,6 @@ import json
 import logging
 from typing import Annotated, Optional
 
-logger = logging.getLogger(__name__)
-
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -251,7 +249,9 @@ async def search(
             else (request.url.query if request.url.query else "")
         )
         logger.info(
-            f"Search GET: raw_query_string length={len(raw_query_string)}, query_string length={len(query_string)}, sample={query_string[:300]}"
+            f"Search GET: raw_query_string length={len(raw_query_string)}, "
+            f"query_string length={len(query_string)}, "
+            f"sample={query_string[:300]}"
         )
         return await _handle_search(
             request,

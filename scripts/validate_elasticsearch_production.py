@@ -34,7 +34,8 @@ INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from app.elasticsearch.mappings import INDEX_MAPPING
+# Import after path setup
+from app.elasticsearch.mappings import INDEX_MAPPING  # noqa: E402
 
 
 class Colors:

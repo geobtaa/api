@@ -87,7 +87,7 @@ async def ensure_repository(client: AsyncElasticsearch) -> bool:
     """Ensure snapshot repository exists, create if it doesn't."""
     try:
         # Check if repository exists
-        repos = await client.snapshot.get_repository(name=REPOSITORY_NAME)
+        await client.snapshot.get_repository(name=REPOSITORY_NAME)
         print_success(f"Repository '{REPOSITORY_NAME}' already exists")
         return True
     except NotFoundError:
@@ -210,7 +210,7 @@ async def restore_snapshot(
             restore_body["rename_replacement"] = rename_index
             print_info(f"Will restore to index: {rename_index}")
 
-        response = await client.snapshot.restore(
+        await client.snapshot.restore(
             repository=REPOSITORY_NAME,
             snapshot=snapshot_name,
             body=restore_body,
@@ -264,13 +264,15 @@ async def cleanup_old_snapshots(client: AsyncElasticsearch, keep_days: int = 7) 
 
         if start_time < cutoff_timestamp:
             print_info(
-                f"Deleting old snapshot: {snapshot_name} (from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
+                f"Deleting old snapshot: {snapshot_name} "
+                f"(from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
             )
             if await delete_snapshot(client, snapshot_name):
                 deleted_count += 1
         else:
             print_info(
-                f"Keeping snapshot: {snapshot_name} (from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
+                f"Keeping snapshot: {snapshot_name} "
+                f"(from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
             )
 
     return deleted_count

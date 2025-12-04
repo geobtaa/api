@@ -290,7 +290,8 @@ async def search_wof(
     - parent_id: ID of the parent place
     - offset: Result offset for pagination
     - limit: Maximum number of results to return
-    - exclude_placetypes: Comma-separated list of placetypes to exclude (default: microhood,neighbourhood,venue)
+    - exclude_placetypes: Comma-separated list of placetypes to exclude
+      (default: microhood,neighbourhood,venue)
     """
     try:
         # Default placetypes to exclude for autosuggestion
@@ -375,7 +376,8 @@ async def search_wof(
                 )
             )
             if ancestor_ids:
-                # Compare ancestor_id (Integer) with wok_id (BigInteger) - PostgreSQL handles type coercion
+                # Compare ancestor_id (Integer) with wok_id (BigInteger)
+                # PostgreSQL handles type coercion
                 ancestor_spr_query = select(gazetteer_wof_spr).where(
                     gazetteer_wof_spr.c.wok_id.in_(ancestor_ids)
                 )
@@ -383,7 +385,7 @@ async def search_wof(
                 ancestor_names_map = {spr["wok_id"]: spr["name"] for spr in ancestor_sprs}
 
                 # Add names to ancestors
-                for wok_id, ancestors_list in ancestors_map.items():
+                for _wok_id, ancestors_list in ancestors_map.items():
                     for ancestor in ancestors_list:
                         ancestor["name"] = ancestor_names_map.get(ancestor["ancestor_id"])
 

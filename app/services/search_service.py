@@ -66,7 +66,10 @@ class SearchService:
                 )
 
             logger.info(
-                f"SearchService.search: include_filters={include_filters}, exclude_filters={exclude_filters}, request_query_params={request_query_params[:200] if request_query_params else None}..."
+                f"SearchService.search: include_filters={include_filters}, "
+                f"exclude_filters={exclude_filters}, "
+                f"request_query_params="
+                f"{request_query_params[:200] if request_query_params else None}..."
             )
             if include_filters is None or exclude_filters is None:
                 logger.info(
@@ -76,12 +79,14 @@ class SearchService:
                     request_query_params
                 )
                 logger.info(
-                    f"SearchService.search: Parsed include_filters={parsed_include}, exclude_filters={parsed_exclude}"
+                    f"SearchService.search: Parsed include_filters={parsed_include}, "
+                    f"exclude_filters={parsed_exclude}"
                 )
                 include_filters = include_filters if include_filters is not None else parsed_include
                 exclude_filters = exclude_filters if exclude_filters is not None else parsed_exclude
             logger.info(
-                f"SearchService.search: Final include_filters={include_filters}, exclude_filters={exclude_filters}"
+                f"SearchService.search: Final include_filters={include_filters}, "
+                f"exclude_filters={exclude_filters}"
             )
 
             # Get sort mapping
@@ -422,19 +427,22 @@ class SearchService:
         geo_filters = {}
         for key, values in raw_params.items():
             if key.startswith("include_filters[geo]["):
-                # Skip array-style parameters like "include_filters[geo][]" - these are duplicates/artifacts
+                # Skip array-style parameters like "include_filters[geo][]"
+                # These are duplicates/artifacts
                 if key == "include_filters[geo][]" or key.endswith("][]") and key.count("[") == 2:
                     # This is an array-style parameter without a proper key name, skip it
                     continue
 
                 # Extract the geospatial parameter (e.g., "type", "field", "top_left[lat]")
-                # Handle both "include_filters[geo][param]" and "include_filters[geo][param][]" formats
+                # Handle both "include_filters[geo][param]"
+                # and "include_filters[geo][param][]" formats
                 prefix = "include_filters[geo]["
                 if key.endswith("][]"):
                     # Array-style parameter like "include_filters[geo][type][]"
                     geo_param = key[len(prefix) : -len("][]")]
                 elif key.startswith(prefix):
-                    # Regular parameter like "include_filters[geo][type]" or "include_filters[geo][top_left][lat]"
+                    # Regular parameter like "include_filters[geo][type]"
+                    # or "include_filters[geo][top_left][lat]"
                     # Remove the prefix, keep the rest (including any nested brackets)
                     geo_param = key[len(prefix) :]
                     # Remove trailing ] if present (for simple params like "type]")
@@ -448,10 +456,13 @@ class SearchService:
                         else:
                             # Has nested brackets, the structure is "parent][child]"
                             # We want "parent[child]", so remove the ] before the [
-                            # Actually, the structure is correct: "top_left][lat]" means parent="top_left]", child="lat"
+                            # Actually, the structure is correct:
+                            # "top_left][lat]" means parent="top_left]", child="lat"
                             # But we want parent="top_left", child="lat", so we need to fix this
-                            # The issue is that "top_left][lat]" should be parsed as parent="top_left", child="lat"
-                            # So we need to split on "][" to get ["top_left", "lat]"] and then remove the trailing ] from the child
+                            # The issue is that "top_left][lat]" should be parsed as
+                            # parent="top_left", child="lat"
+                            # So we need to split on "][" to get ["top_left", "lat]"]
+                            # and then remove the trailing ] from the child
                             if "][" in geo_param:
                                 parts = geo_param.split("][")
                                 if len(parts) == 2:
@@ -474,7 +485,8 @@ class SearchService:
                         geo_filters[parent_key] = {}
                     geo_filters[parent_key][child_key] = values[0] if values else None
                     logger.info(
-                        f"  Added nested param: {parent_key}[{child_key}] = {values[0] if values else None}"
+                        f"  Added nested param: {parent_key}[{child_key}] = "
+                        f"{values[0] if values else None}"
                     )
                 else:
                     # For simple parameters, use the first value if not already set

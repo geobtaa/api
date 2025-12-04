@@ -653,7 +653,8 @@ class TestGetFacetValues:
         # Verify that gbl_resourceClass_sm.keyword is used, not gbl_resourceClass_sm
         assert terms_filter is not None, "Expected terms filter not found"
         assert "gbl_resourceClass_sm.keyword" in terms_filter, (
-            f"Expected 'gbl_resourceClass_sm.keyword' in filter, but got: {list(terms_filter.keys())}"
+            f"Expected 'gbl_resourceClass_sm.keyword' in filter, "
+            f"but got: {list(terms_filter.keys())}"
         )
         assert terms_filter["gbl_resourceClass_sm.keyword"] == ["Maps"]
 

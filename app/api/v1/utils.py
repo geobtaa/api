@@ -69,7 +69,11 @@ def filter_empty_values(obj: Any) -> Any:
         # Filter each item in the list
         filtered = [filter_empty_values(item) for item in obj]
         # Remove None entries that might result from filtering (if needed)
-        return [item for item in filtered if item is not None or isinstance(item, (bool, int, float))]
+        return [
+            item
+            for item in filtered
+            if item is not None or isinstance(item, (bool, int, float))
+        ]
     else:
         # Return primitive values as-is
         return obj

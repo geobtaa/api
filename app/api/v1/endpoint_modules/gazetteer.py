@@ -333,7 +333,10 @@ async def search_wof(
     offset: int = Query(0, description="Number of results to skip", ge=0),
     exclude_placetypes: Optional[str] = Query(
         None,
-        description="Comma-separated list of placetypes to exclude (default: microhood,neighbourhood,venue)",
+        description=(
+            "Comma-separated list of placetypes to exclude "
+            "(default: microhood,neighbourhood,venue)"
+        ),
     ),
     request: Request = None,
 ):
@@ -342,7 +345,8 @@ async def search_wof(
         # Default placetypes to exclude for autosuggestion
         if exclude_placetypes is None:
             exclude_placetypes = "localadmin,microhood,neighbourhood,venue"
-        # Handle case where exclude_placetypes might be a Query object (when called directly in tests)
+        # Handle case where exclude_placetypes might be a Query object
+        # (when called directly in tests)
         elif not isinstance(exclude_placetypes, str):
             # If it's not a string (e.g., Query object), use default
             exclude_placetypes = "localadmin,microhood,neighbourhood,venue"
@@ -410,7 +414,8 @@ async def search_wof(
                 )
             )
             if ancestor_ids:
-                # Compare ancestor_id (Integer) with wok_id (BigInteger) - PostgreSQL handles type coercion
+                # Compare ancestor_id (Integer) with wok_id (BigInteger)
+                # PostgreSQL handles type coercion
                 ancestor_spr_query = select(gazetteer_wof_spr).where(
                     gazetteer_wof_spr.c.wok_id.in_(ancestor_ids)
                 )
@@ -418,7 +423,7 @@ async def search_wof(
                 ancestor_names_map = {spr["wok_id"]: spr["name"] for spr in ancestor_sprs}
 
                 # Add names to ancestors
-                for wok_id, ancestors_list in ancestors_map.items():
+                for _wok_id, ancestors_list in ancestors_map.items():
                     for ancestor in ancestors_list:
                         ancestor["name"] = ancestor_names_map.get(ancestor["ancestor_id"])
 

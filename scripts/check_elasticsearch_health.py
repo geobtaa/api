@@ -166,7 +166,8 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                 print_error(f"Index '{INDEX_NAME}' does not exist")
                 print_warning("The index needs to be created before data can be indexed")
                 results["recommendations"].append(
-                    f"Create the index '{INDEX_NAME}' - it will be auto-created on first index operation"
+                    f"Create the index '{INDEX_NAME}' - "
+                    f"it will be auto-created on first index operation"
                 )
         except Exception as e:
             results["issues"].append(f"Error checking index existence: {str(e)}")

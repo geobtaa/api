@@ -45,7 +45,10 @@ def _detect_image_type(image_data: bytes) -> str:
             pass
     
     # GIF: 47 49 46 38 (GIF8)
-    if magic_bytes[:3] == b"GIF" or (len(image_data) > 6 and image_data[:6] in [b"GIF87a", b"GIF89a"]):
+    is_gif = magic_bytes[:3] == b"GIF" or (
+        len(image_data) > 6 and image_data[:6] in [b"GIF87a", b"GIF89a"]
+    )
+    if is_gif:
         try:
             Image.open(io.BytesIO(image_data)).verify()
             return "image/gif"
@@ -136,8 +139,8 @@ async def get_thumbnail(image_hash: str):
         # Return 404 for invalid cached content (should have been caught during caching)
         raise HTTPException(
             status_code=404,
-            detail="Invalid image data in cache. This may indicate corrupted cache entry."
-        )
+            detail="Invalid image data in cache. This may indicate corrupted cache entry.",
+        ) from None
 
     # Detect the actual image type
     content_type = _detect_image_type(image_data)

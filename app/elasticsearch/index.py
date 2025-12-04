@@ -889,7 +889,7 @@ async def reindex_resources():
 
 
 def _update_bbox_metrics(processed_dict, geometry):
-    """Compute numeric bbox metrics (minx, maxx, miny, maxy, diagonal_km) from a geojson geometry."""
+    """Compute numeric bbox metrics (minx, maxx, miny, maxy, diagonal_km)."""
     if not geometry or not isinstance(geometry, dict):
         return
     coords = geometry.get("coordinates")

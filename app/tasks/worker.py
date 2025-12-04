@@ -102,7 +102,10 @@ def fetch_and_cache_image(self, url: str) -> bool:
         
         # Don't retry 403/401 errors - they indicate authorization issues
         if response.status_code in (401, 403):
-            logger.warning(f"Authorization error ({response.status_code}) for {resolved_url}. Not caching.")
+            logger.warning(
+                f"Authorization error ({response.status_code}) "
+                f"for {resolved_url}. Not caching."
+            )
             return False
             
         response.raise_for_status()
@@ -147,7 +150,9 @@ def fetch_and_cache_image(self, url: str) -> bool:
         # Don't retry 403/401 errors - they indicate authorization issues that won't resolve
         if isinstance(http_err, requests.HTTPError) and hasattr(http_err.response, 'status_code'):
             if http_err.response.status_code in (401, 403):
-                logger.warning(f"Authorization error (401/403) for {url}: {http_err}. Not retrying.")
+                logger.warning(
+                    f"Authorization error (401/403) for {url}: {http_err}. Not retrying."
+                )
                 return False
         logger.error(f"HTTP error caching image {url}: {http_err}")
         self.retry(exc=http_err, countdown=60, max_retries=3)
@@ -172,7 +177,9 @@ def _looks_like_manifest_url(url: str) -> bool:
     )
 
 
-def _validate_image_content(content: bytes, content_type: Optional[str] = None) -> Tuple[bool, Optional[str]]:
+def _validate_image_content(
+    content: bytes, content_type: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
     """
     Validate that content is a valid image and return its detected MIME type.
     
