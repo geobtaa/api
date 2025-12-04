@@ -92,6 +92,11 @@ INDEX_MAPPING = {
                 "ignore_malformed": True,
             },
             "dcat_centroid": {"type": "geo_point", "ignore_malformed": True},
+            "bbox_minx": {"type": "double"},
+            "bbox_maxx": {"type": "double"},
+            "bbox_miny": {"type": "double"},
+            "bbox_maxy": {"type": "double"},
+            "bbox_diagonal_km": {"type": "double"},
             "gbl_mdmodified_dt": {"type": "date", "ignore_malformed": True},
             # Legacy references blob retained for compatibility (disabled indexing)
             "dct_references_s": {"type": "object", "enabled": False},
@@ -136,7 +141,7 @@ INDEX_MAPPING = {
     "settings": {
         "index": {
             "number_of_shards": 1,
-            "number_of_replicas": 0,
+            "number_of_replicas": 1,
             "analysis": {
                 "normalizer": {
                     "lowercase": {"type": "custom", "char_filter": [], "filter": ["lowercase"]}

@@ -2,6 +2,8 @@ import json
 import logging
 from typing import Annotated, Optional
 
+logger = logging.getLogger(__name__)
+
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -13,6 +15,7 @@ from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
 from app.api.v1.utils import (
     create_jsonapi_response,
     create_pagination_links,
+    filter_empty_values,
     process_resource_optimized,
     sanitize_for_json,
 )
@@ -92,15 +95,23 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     for item in sanitized_results.get("data", []):
         rid = None
         score = None
+        overlap = None
         if isinstance(item, dict):
             rid = (
                 item.get("id")
                 or item.get("attributes", {}).get("id")
                 or item.get("attributes", {}).get("attributes", {}).get("id")
             )
-            score = item.get("score") or item.get("attributes", {}).get("score")
+            # Be careful not to treat 0.0 as falsy; only fall back on None
+            score = item.get("score")
+            if score is None:
+                score = item.get("attributes", {}).get("score")
+
+            overlap = item.get("bbox_overlap_ratio")
+            if overlap is None:
+                overlap = item.get("attributes", {}).get("bbox_overlap_ratio")
         if rid:
-            resource_data.append({"id": rid, "score": score})
+            resource_data.append({"id": rid, "score": score, "bbox_overlap_ratio": overlap})
 
     # Step 3: Batch fetch resource data
     async with async_session() as session:
@@ -117,6 +128,14 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             d = lookup.get(rd["id"]) or {}
             obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
             mapped_attrs = OGMFieldMapper.map_resource_fields(obj.get("attributes", {}))
+            # Attach ES scoring and overlap ratio info into per-resource meta for debugging
+            if rd.get("score") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["score"] = rd["score"]
+            if rd.get("bbox_overlap_ratio") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
+
             if isinstance(fields, str) and fields.strip():
                 requested = [f.strip() for f in fields.split(",") if f.strip()]
                 if "id" not in requested:
@@ -126,6 +145,9 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 obj["attributes"] = filtered_attrs
             else:
                 obj["attributes"] = mapped_attrs
+            
+            # Filter out empty arrays and empty strings from attributes
+            obj["attributes"] = filter_empty_values(obj["attributes"])
             if not meta and "meta" in obj:
                 obj.pop("meta", None)
             processed_resources.append(obj)
@@ -216,6 +238,21 @@ async def search(
                     status_code=400,
                 )
 
+        # Get the raw query string from the request scope before FastAPI parses it
+        # This preserves bracket notation that FastAPI might filter from request.url.query
+        raw_query_string = (
+            request.scope.get("query_string", b"").decode("utf-8")
+            if isinstance(request.scope.get("query_string"), bytes)
+            else request.scope.get("query_string", "")
+        )
+        query_string = (
+            raw_query_string
+            if raw_query_string
+            else (request.url.query if request.url.query else "")
+        )
+        logger.info(
+            f"Search GET: raw_query_string length={len(raw_query_string)}, query_string length={len(query_string)}, sample={query_string[:300]}"
+        )
         return await _handle_search(
             request,
             {
@@ -228,7 +265,7 @@ async def search(
                 "facets": facets,
                 "meta": meta,
                 "callback": callback,
-                "request_query_params": str(request.query_params),
+                "request_query_params": query_string,
                 "adv_q": parsed_adv_q,
             },
         )

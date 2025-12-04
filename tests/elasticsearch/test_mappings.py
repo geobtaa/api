@@ -126,7 +126,7 @@ class TestMappings:
 
         index_settings = settings["index"]
         assert index_settings["number_of_shards"] == 1
-        assert index_settings["number_of_replicas"] == 0
+        assert index_settings["number_of_replicas"] == 1
 
         # Test analysis settings
         assert "analysis" in index_settings

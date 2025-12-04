@@ -675,7 +675,7 @@ class TestFacetEndpointIntegration:
         async_client: AsyncClient,
     ):
         """Test that fq parameters correctly resolve to .keyword fields in Elasticsearch queries.
-        
+
         This test ensures that filter queries like fq[gbl_resourceClass_sm][]=Maps
         are correctly resolved to gbl_resourceClass_sm.keyword in the Elasticsearch query,
         preventing the regression where 0 results were returned.

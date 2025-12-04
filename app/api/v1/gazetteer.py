@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 from typing import Optional
@@ -275,6 +276,7 @@ async def search_wof(
     parent_id: Optional[int] = None,
     offset: int = 0,
     limit: int = 20,
+    exclude_placetypes: Optional[str] = None,
 ):
     """
     Search Who's on First gazetteer.
@@ -288,8 +290,15 @@ async def search_wof(
     - parent_id: ID of the parent place
     - offset: Result offset for pagination
     - limit: Maximum number of results to return
+    - exclude_placetypes: Comma-separated list of placetypes to exclude (default: microhood,neighbourhood,venue)
     """
     try:
+        # Default placetypes to exclude for autosuggestion
+        if exclude_placetypes is None:
+            exclude_placetypes = "microhood,neighbourhood,venue"
+
+        excluded_types = [pt.strip() for pt in exclude_placetypes.split(",") if pt.strip()]
+
         # Build query
         query = select(gazetteer_wof_spr)
 
@@ -316,6 +325,10 @@ async def search_wof(
         if parent_id is not None:
             conditions.append(gazetteer_wof_spr.c.parent_id == parent_id)
 
+        # Exclude confusing placetypes for autosuggestion
+        if excluded_types:
+            conditions.append(~gazetteer_wof_spr.c.placetype.in_(excluded_types))
+
         # Apply conditions to query
         if conditions:
             query = query.where(and_(*conditions))
@@ -333,10 +346,72 @@ async def search_wof(
 
         total_count = await database.fetch_val(count_query)
 
+        # Collect wok_ids for batch fetching ancestors and geojson
+        wok_ids = [result["wok_id"] for result in results]
+
+        # Fetch ancestors for all results in batch
+        ancestors_map = {}
+        if wok_ids:
+            ancestors_query = select(gazetteer_wof_ancestors).where(
+                gazetteer_wof_ancestors.c.wok_id.in_(wok_ids)
+            )
+            ancestors = await database.fetch_all(ancestors_query)
+
+            # Group ancestors by wok_id
+            for ancestor in ancestors:
+                wok_id = ancestor["wok_id"]
+                if wok_id not in ancestors_map:
+                    ancestors_map[wok_id] = []
+                ancestors_map[wok_id].append(dict(ancestor))
+
+            # Fetch ancestor names from spr table
+            ancestor_ids = list(
+                set(
+                    [
+                        a["ancestor_id"]
+                        for ancestors_list in ancestors_map.values()
+                        for a in ancestors_list
+                    ]
+                )
+            )
+            if ancestor_ids:
+                # Compare ancestor_id (Integer) with wok_id (BigInteger) - PostgreSQL handles type coercion
+                ancestor_spr_query = select(gazetteer_wof_spr).where(
+                    gazetteer_wof_spr.c.wok_id.in_(ancestor_ids)
+                )
+                ancestor_sprs = await database.fetch_all(ancestor_spr_query)
+                ancestor_names_map = {spr["wok_id"]: spr["name"] for spr in ancestor_sprs}
+
+                # Add names to ancestors
+                for wok_id, ancestors_list in ancestors_map.items():
+                    for ancestor in ancestors_list:
+                        ancestor["name"] = ancestor_names_map.get(ancestor["ancestor_id"])
+
+        # Fetch GeoJSON for all results in batch
+        geojson_map = {}
+        if wok_ids:
+            geojson_query = (
+                select(gazetteer_wof_geojson)
+                .where(gazetteer_wof_geojson.c.wok_id.in_(wok_ids))
+                .order_by(
+                    # Prefer non-alt geometries, then by source preference
+                    gazetteer_wof_geojson.c.is_alt.asc(),
+                    gazetteer_wof_geojson.c.source.asc(),
+                )
+            )
+            geojson_records = await database.fetch_all(geojson_query)
+
+            # Group by wok_id, keeping only the first (best) one
+            for geojson_record in geojson_records:
+                wok_id = geojson_record["wok_id"]
+                if wok_id not in geojson_map:
+                    geojson_map[wok_id] = dict(geojson_record)
+
         # Format results
         formatted_results = []
         for result in results:
             record = dict(result)
+            wok_id = record["wok_id"]
 
             # Convert decimal values to float for JSON serialization
             for key in [
@@ -350,12 +425,50 @@ async def search_wof(
                 if record.get(key) is not None:
                     record[key] = float(record[key])
 
+            # Get ancestors for this place
+            ancestors = ancestors_map.get(wok_id, [])
+
+            # Build hierarchy: prefer region, county, locality for display
+            hierarchy_parts = []
+            hierarchy_placetypes = ["region", "county", "locality"]
+
+            # Sort ancestors by placetype priority
+            sorted_ancestors = sorted(
+                ancestors,
+                key=lambda a: hierarchy_placetypes.index(a.get("ancestor_placetype", ""))
+                if a.get("ancestor_placetype") in hierarchy_placetypes
+                else 999,
+            )
+
+            for ancestor in sorted_ancestors:
+                if ancestor.get("ancestor_placetype") in hierarchy_placetypes and ancestor.get(
+                    "name"
+                ):
+                    hierarchy_parts.append(ancestor["name"])
+
+            # Build display name: "Name, Parent1, Parent2, Country"
+            display_parts = [record["name"]]
+            display_parts.extend(hierarchy_parts)
+            if record.get("country"):
+                display_parts.append(record["country"])
+            display_name = ", ".join(display_parts)
+
+            # Get GeoJSON for this place
+            geojson_record = geojson_map.get(wok_id)
+            geojson_data = None
+            if geojson_record:
+                try:
+                    geojson_data = json.loads(geojson_record["body"])
+                except (json.JSONDecodeError, TypeError):
+                    geojson_data = None
+
             formatted_results.append(
                 {
                     "id": str(record["wok_id"]),
                     "type": "wof",
                     "attributes": {
                         "name": record["name"],
+                        "display_name": display_name,
                         "placetype": record["placetype"],
                         "country": record["country"],
                         "parent_id": record["parent_id"],
@@ -372,6 +485,8 @@ async def search_wof(
                         "is_superseding": record["is_superseding"],
                         "repo": record["repo"],
                         "lastmodified": record["lastmodified"],
+                        "hierarchy": ancestors,
+                        "geojson": geojson_data,
                     },
                 }
             )
@@ -389,6 +504,7 @@ async def search_wof(
                     "country": country,
                     "is_current": is_current,
                     "parent_id": parent_id,
+                    "exclude_placetypes": exclude_placetypes,
                 },
             },
         }

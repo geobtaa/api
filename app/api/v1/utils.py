@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -22,7 +23,9 @@ def sanitize_for_json(obj: Any) -> Any:
         return {k: sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize_for_json(item) for item in obj]
-    elif hasattr(obj, "isoformat"):  # Handle datetime objects
+    elif isinstance(obj, (datetime, date)):  # Handle datetime and date objects
+        return obj.isoformat()
+    elif hasattr(obj, "isoformat"):  # Handle other objects with isoformat (fallback)
         return obj.isoformat()
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)
@@ -32,6 +35,44 @@ def sanitize_for_json(obj: Any) -> Any:
     elif isinstance(obj, Decimal):
         return float(obj)
     return obj
+
+
+def filter_empty_values(obj: Any) -> Any:
+    """
+    Recursively filter out empty arrays and empty strings from a dictionary or list.
+    Preserves None values and other falsy values like 0 and False.
+
+    Args:
+        obj: The object to filter (dict, list, or other)
+
+    Returns:
+        Filtered object with empty arrays and empty strings removed
+    """
+    if isinstance(obj, dict):
+        filtered = {}
+        for key, value in obj.items():
+            # Recursively filter nested structures
+            filtered_value = filter_empty_values(value)
+            
+            # Skip empty arrays
+            if isinstance(filtered_value, list) and len(filtered_value) == 0:
+                continue
+            
+            # Skip empty strings
+            if isinstance(filtered_value, str) and filtered_value == "":
+                continue
+            
+            # Include the filtered value
+            filtered[key] = filtered_value
+        return filtered
+    elif isinstance(obj, list):
+        # Filter each item in the list
+        filtered = [filter_empty_values(item) for item in obj]
+        # Remove None entries that might result from filtering (if needed)
+        return [item for item in filtered if item is not None or isinstance(item, (bool, int, float))]
+    else:
+        # Return primitive values as-is
+        return obj
 
 
 def create_response(
@@ -61,6 +102,9 @@ def add_thumbnail_url(
 
     image_service = ImageService(item, distribution_context=distribution_context)
     thumbnail_url = image_service.get_thumbnail_url()
+    
+    # Only set thumbnail_url if one was found (or placeholder for processing)
+    # If None, frontend can use resource class (gbl_resourceClass_sm) to show default icon
     item["ui_thumbnail_url"] = thumbnail_url
     return item
 
@@ -191,12 +235,19 @@ def create_jsonapi_resource(resource_data, request_url=None):
             if value is not None:
                 core_attributes[key] = value
 
+    # Filter out empty arrays and empty strings from core_attributes
+    core_attributes = filter_empty_values(core_attributes)
+
     # Restructure UI fields to remove prefixes and organize viewer
     restructured_ui = {}
 
     # Simple field mappings (remove ui_ prefix)
-    if "ui_thumbnail_url" in ui_fields:
-        restructured_ui["thumbnail_url"] = ui_fields["ui_thumbnail_url"]
+    if "ui_thumbnail_url" in ui_fields and ui_fields["ui_thumbnail_url"] is not None:
+        thumbnail_url = ui_fields["ui_thumbnail_url"]
+        restructured_ui["thumbnail_url"] = thumbnail_url
+        # Add placeholder flag if it's a placeholder URL
+        if "/thumbnails/placeholder" in str(thumbnail_url):
+            restructured_ui["thumbnail_placeholder"] = True
     if "ui_citation" in ui_fields:
         restructured_ui["citation"] = ui_fields["ui_citation"]
     if "ui_downloads" in ui_fields:

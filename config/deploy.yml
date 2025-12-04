@@ -84,10 +84,15 @@ accessories:
         xpack.security.enabled: "false"
         ES_JAVA_OPTS: "-Xms2g -Xmx2g"
         cluster.routing.allocation.disk.threshold_enabled: "true"
+        cluster.routing.allocation.disk.watermark.low: "85%"
+        cluster.routing.allocation.disk.watermark.high: "90%"
+        cluster.routing.allocation.disk.watermark.flood_stage: "95%"
     # only listen on localhost
     port: "127.0.0.1:9200:9200"
     directories:
       - esdata:/usr/share/elasticsearch/data
+    # Note: ulimits and healthcheck are not supported in Kamal accessories.
+    # See docs/elasticsearch_production.md for manual ulimits configuration.
 
   paradedb:
     image: paradedb/paradedb:0.18.11

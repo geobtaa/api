@@ -258,6 +258,15 @@ async def get_resource_distributions(
         raise HTTPException(status_code=500, detail=str(e)) from e
 
 
+@router.get("/resources/{id}/links")
+async def get_resource_links(
+    id: str,
+    callback: Optional[str] = Query(None, description="JSONP callback name"),
+):
+    """Get all links for a resource."""
+    return await LinkService.get_resource_links(id)
+
+
 @router.get("/resources/{id}/ogm")
 async def get_resource_ogm(
     id: str,
@@ -315,15 +324,6 @@ async def get_resource_ogm(
     except Exception as e:
         logger.error(f"Error getting Aardvark record for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-
-
-@router.get("/resources/{id}/links")
-async def get_resource_links(
-    id: str,
-    callback: Optional[str] = Query(None, description="JSONP callback name"),
-):
-    """Get all links for a resource."""
-    return await LinkService.get_resource_links(id)
 
 
 @router.get("/resources/{id}/relationships")
@@ -389,8 +389,7 @@ async def get_resource_static_map(
     id: str,
     request: Request = None,
 ):
-    """Get a static map image for a resource based on its locn_geometry (or dcat_bbox as fallback).
-    """
+    """Get a static map image for a resource based on its locn_geometry (or dcat_bbox as fallback)."""
     try:
         # First check if the resource exists and has geometry
         async with async_session() as session:
@@ -506,16 +505,13 @@ async def get_resource_thumbnail(
         image_service = ImageService(resource_dict, distribution_context=distribution_context)
         thumbnail_url = image_service.get_thumbnail_url()
 
-        # Ensure placeholder when none available
-        if not thumbnail_url:
-            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-            thumbnail_url = f"{application_url}/api/v1/thumbnails/placeholder"
-
-        is_placeholder = "/api/v1/thumbnails/placeholder" in thumbnail_url
+        # Determine if it's a placeholder (only true if URL is actually a placeholder)
+        # If thumbnail_url is None, placeholder should be false (frontend uses resource class icon)
+        is_placeholder = bool(thumbnail_url and "/thumbnails/placeholder" in str(thumbnail_url))
 
         response_payload = {
             "id": id,
-            "thumbnail_url": thumbnail_url,
+            "thumbnail_url": thumbnail_url,  # Can be None (use resource class), placeholder URL, or actual thumbnail URL
             "placeholder": is_placeholder,
         }
 
@@ -529,17 +525,23 @@ async def get_resource_thumbnail(
                 image_service._standardize_iiif_url(source_url) if source_url else None
             )
 
-            # If manifest, try to resolve to an image (network call; 2s timeout inside service)
+            # If manifest, try to resolve from cache only (no blocking HTTP calls)
             resolved_url = None
             if (
                 source_url
                 and isinstance(source_url, str)
-                and source_url.endswith(("/manifest", "manifest.json"))
+                and image_service._is_manifest_url(source_url)
             ):
                 try:
-                    resolved_url = image_service.get_iiif_manifest_thumbnail(source_url)
-                    if resolved_url:
-                        resolved_url = image_service._standardize_iiif_url(resolved_url)
+                    # Only check cache - don't fetch manifests synchronously
+                    manifest_cache_key = f"manifest:{source_url}"
+                    cached_manifest_data = image_service.cache.get(manifest_cache_key)
+                    if cached_manifest_data:
+                        import json
+                        manifest_json = json.loads(cached_manifest_data)
+                        resolved_url = image_service._extract_thumbnail_from_manifest_json(manifest_json, source_url)
+                        if resolved_url:
+                            resolved_url = image_service._standardize_iiif_url(resolved_url)
                 except Exception:
                     resolved_url = None
 
