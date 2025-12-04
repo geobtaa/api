@@ -1,6 +1,5 @@
 import json
 import logging
-import math
 import os
 import time
 from typing import Optional
@@ -392,12 +391,12 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
 
     # Normalize any flattened keys into nested structures
     geo_params = _normalize_geo_params(geo_params)
-    
+
     logger.info(f"Normalized geo_params: {geo_params}")
 
     geo_type = geo_params.get("type")
     geo_field = geo_params.get("field", "dcat_centroid")
-    
+
     logger.info(f"Geo filter - type: {geo_type}, field: {geo_field}")
 
     if geo_type == "bbox":
@@ -424,19 +423,19 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
             top_left_lat = float(top_left["lat"])
             bottom_right_lon = float(bottom_right["lon"])
             bottom_right_lat = float(bottom_right["lat"])
-            
+
             # Ensure we have min/max values (handle cases where bbox might be reversed)
             min_lon = min(top_left_lon, bottom_right_lon)
             max_lon = max(top_left_lon, bottom_right_lon)
             min_lat = min(top_left_lat, bottom_right_lat)
             max_lat = max(top_left_lat, bottom_right_lat)
-            
+
             # Envelope coordinates: [[min_lon, max_lat], [max_lon, min_lat]]
             envelope_coords = [
                 [min_lon, max_lat],  # top-left corner
                 [max_lon, min_lat],  # bottom-right corner
             ]
-            
+
             geo_filter = {
                 "geo_shape": {
                     geo_field: {
@@ -448,12 +447,12 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
                     }
                 }
             }
-            
+
             logger.debug(
                 f"Geo filter for {geo_field}: envelope={envelope_coords}, "
                 f"bbox=({min_lon},{max_lat}) to ({max_lon},{min_lat})"
             )
-            
+
             return geo_filter
         else:
             # Use geo_bounding_box for geo_point fields (dcat_centroid)
@@ -583,10 +582,10 @@ async def search_resources(
         # Construct the filter query (legacy fq + new include/exclude)
         filter_clauses = []
         must_not_clauses = []
-        
+
         # Track bbox filter for spatial scoring
         bbox_filter_info = None
-        
+
         if fq:
             for field, values in fq.items():
                 resolved_field = _resolve_filter_field(field)
@@ -611,7 +610,11 @@ async def search_resources(
                         logger.info(f"Geo filter built successfully: {geo_filter}")
                         filter_clauses.append(geo_filter)
                         # Track bbox filter for spatial scoring
-                        if values.get("type") == "bbox" and values.get("top_left") and values.get("bottom_right"):
+                        if (
+                            values.get("type") == "bbox"
+                            and values.get("top_left")
+                            and values.get("bottom_right")
+                        ):
                             bbox_filter_info = {
                                 "top_left": values["top_left"],
                                 "bottom_right": values["bottom_right"],
@@ -620,18 +623,9 @@ async def search_resources(
                     else:
                         logger.warning(f"Failed to build geo filter from values: {values}")
                 elif isinstance(values, list):
-                    # Use terms_set to ensure all specified values must be present
-                    # when the field is an array
-                    filter_clauses.append(
-                        {
-                            "terms_set": {
-                                resolved_field: {
-                                    "terms": values,
-                                    "minimum_should_match_script": {"source": "params.num_terms"},
-                                }
-                            }
-                        }
-                    )
+                    # Use terms to match if ANY of the specified values are present
+                    # This matches the behavior of legacy fq filters (OR logic)
+                    filter_clauses.append({"terms": {resolved_field: values}})
                 else:
                     filter_clauses.append({"term": {resolved_field: values}})
 
@@ -762,34 +756,36 @@ async def search_resources(
             combined_must_not.extend(advanced_query_structure["must_not"])
 
         # Build the bool query combining all clauses
-        bool_query_dict = {
-            "filter": filter_clauses,
-        }
-        
+        bool_query_dict = {}
+
+        # Only include filter if there are filter clauses
+        if filter_clauses:
+            bool_query_dict["filter"] = filter_clauses
+
         logger.info(f"Bool query - filter clauses count: {len(filter_clauses)}")
         if filter_clauses:
             logger.info(f"Filter clauses: {json.dumps(filter_clauses, indent=2)}")
         else:
             logger.warning("No filter clauses found - query will return all results!")
-        
+
         if must_clauses:
             bool_query_dict["must"] = must_clauses
         elif not should_clauses:
             # If no must clauses and no should clauses, match all
             bool_query_dict["must"] = [{"match_all": {}}]
-        
+
         if should_clauses:
             bool_query_dict["should"] = should_clauses
             bool_query_dict["minimum_should_match"] = 1
-        
+
         if combined_must_not:
             bool_query_dict["must_not"] = combined_must_not
-        
+
         # Base query is a plain bool; we will wrap it in script_score when we have
         # bbox info for overlap-based relevance.
         base_query = {"query": {"bool": bool_query_dict}}
         overlap_context = None
-        
+
         # Add bbox overlap-based scoring when bbox filter is present.
         # This uses an approximate IoU between the document's bbox and the query bbox,
         # computed from numeric bbox_* fields and the query bbox bounds, and does NOT
@@ -941,9 +937,7 @@ async def search_resources(
             response_dict = response.body if hasattr(response, "body") else response
         except NotFoundError:
             # Index missing: return empty result structure instead of 500
-            logger.warning(
-                f"Elasticsearch index '{index_name}' not found; returning empty results"
-            )
+            logger.warning(f"Elasticsearch index '{index_name}' not found; returning empty results")
             empty_response = {
                 "hits": {"total": {"value": 0}, "hits": []},
                 "took": 0,
@@ -959,11 +953,7 @@ async def search_resources(
             # fall back to a plain bool query WITHOUT overlap scoring so we still
             # return correct filtered results instead of zero.
             info = getattr(es_error, "info", {}) or {}
-            error_type = (
-                info.get("error", {})
-                .get("root_cause", [{}])[0]
-                .get("type", "")
-            )
+            error_type = info.get("error", {}).get("root_cause", [{}])[0].get("type", "")
             if "script_exception" in error_type or "script_exception" in str(es_error):
                 logger.warning(
                     "Script_score query failed (likely painless compile error); "
@@ -1225,9 +1215,7 @@ async def process_search_response(
                 "score": score,
                 "attributes": {
                     **resource,
-                    **create_viewer_attributes(
-                        resource, distribution_context=distribution_context
-                    ),
+                    **create_viewer_attributes(resource, distribution_context=distribution_context),
                 },
             }
             if overlap_ratio is not None:
@@ -1418,16 +1406,9 @@ async def get_facet_values(
                 if geo_filter:
                     filter_clauses.append(geo_filter)
             elif isinstance(values, list):
-                filter_clauses.append(
-                    {
-                        "terms_set": {
-                            resolved_field: {
-                                "terms": values,
-                                "minimum_should_match_script": {"source": "params.num_terms"},
-                            }
-                        }
-                    }
-                )
+                # Use terms to match if ANY of the specified values are present
+                # This matches the behavior of legacy fq filters (OR logic)
+                filter_clauses.append({"terms": {resolved_field: values}})
             else:
                 filter_clauses.append({"term": {resolved_field: values}})
 

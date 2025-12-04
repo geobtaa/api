@@ -17,7 +17,7 @@ Can be run locally or remotely via Kamal:
 import asyncio
 import os
 import sys
-from typing import Dict, Any
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
@@ -36,6 +36,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 class Colors:
     """ANSI color codes for terminal output."""
+
     GREEN = "\033[92m"
     RED = "\033[91m"
     YELLOW = "\033[93m"
@@ -46,9 +47,9 @@ class Colors:
 
 def print_header(text: str):
     """Print a formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}\n")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}\n")
 
 
 def print_success(text: str):
@@ -199,7 +200,9 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                 # Check for deleted documents (might indicate issues)
                 deleted = index_stats["total"]["docs"]["deleted"]
                 if deleted > 0:
-                    print_warning(f"Found {deleted:,} deleted documents (may need to optimize index)")
+                    print_warning(
+                        f"Found {deleted:,} deleted documents (may need to optimize index)"
+                    )
 
             except NotFoundError:
                 print_error("Index stats not available")
@@ -242,11 +245,23 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                 from db.database import database
 
                 await database.connect()
-                
+
                 # Get DB count based on published_only setting
-                published_only = os.getenv("PUBLISHED_ONLY", "1").strip().lower() in {"1", "true", "t", "yes", "y"}
-                use_b1g_pub_state = os.getenv("USE_B1G_PUBLICATION_STATE", "0").strip().lower() in {"1", "true", "t", "yes", "y"}
-                
+                published_only = os.getenv("PUBLISHED_ONLY", "1").strip().lower() in {
+                    "1",
+                    "true",
+                    "t",
+                    "yes",
+                    "y",
+                }
+                use_b1g_pub_state = os.getenv("USE_B1G_PUBLICATION_STATE", "0").strip().lower() in {
+                    "1",
+                    "true",
+                    "t",
+                    "yes",
+                    "y",
+                }
+
                 if published_only:
                     if use_b1g_pub_state:
                         db_count_sql = (
@@ -259,42 +274,56 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                         )
                 else:
                     db_count_sql = "SELECT COUNT(*) FROM resources"
-                
+
                 db_result = await database.fetch_one(db_count_sql)
                 db_count = int(db_result[0]) if db_result else 0
-                
+
                 await database.disconnect()
-                
+
                 es_count = index_stats["total"]["docs"]["count"]
                 remaining = max(0, db_count - es_count)
                 progress_pct = (es_count / db_count * 100) if db_count > 0 else 0
-                
+
                 print(f"   Database count: {db_count:,}")
                 print(f"   Elasticsearch count: {es_count:,}")
                 print(f"   Remaining: {remaining:,}")
-                
+
                 if db_count == 0:
                     print_warning("Database contains no resources")
                 elif es_count == 0:
                     print_error("Elasticsearch index is empty - reindexing needed")
                     results["issues"].append("Index is empty - data needs to be indexed")
-                    results["recommendations"].append("Run reindexing script: python scripts/reindex.py")
+                    results["recommendations"].append(
+                        "Run reindexing script: python scripts/reindex.py"
+                    )
                 elif remaining == 0:
                     print_success(f"Index is fully synchronized ({db_count:,} documents)")
                 elif progress_pct >= 95:
-                    print_success(f"Index is nearly complete ({progress_pct:.1f}% - {remaining:,} remaining)")
+                    print_success(
+                        f"Index is nearly complete ({progress_pct:.1f}% - {remaining:,} remaining)"
+                    )
                 elif progress_pct >= 50:
-                    print_warning(f"Indexing in progress ({progress_pct:.1f}% - {remaining:,} remaining)")
-                    results["recommendations"].append(f"Reindexing may be in progress - {remaining:,} documents remaining")
+                    print_warning(
+                        f"Indexing in progress ({progress_pct:.1f}% - {remaining:,} remaining)"
+                    )
+                    results["recommendations"].append(
+                        f"Reindexing may be in progress - {remaining:,} documents remaining"
+                    )
                 else:
-                    print_warning(f"Index is incomplete ({progress_pct:.1f}% - {remaining:,} remaining)")
-                    results["issues"].append(f"Index is incomplete - {remaining:,} documents need to be indexed")
-                    results["recommendations"].append("Run reindexing script: python scripts/reindex.py")
-                
+                    print_warning(
+                        f"Index is incomplete ({progress_pct:.1f}% - {remaining:,} remaining)"
+                    )
+                    results["issues"].append(
+                        f"Index is incomplete - {remaining:,} documents need to be indexed"
+                    )
+                    results["recommendations"].append(
+                        "Run reindexing script: python scripts/reindex.py"
+                    )
+
                 results["db_count"] = db_count
                 results["es_count"] = es_count
                 results["sync_progress"] = progress_pct
-                
+
             except Exception as e:
                 print_warning(f"Could not compare DB vs ES counts: {str(e)}")
                 # Don't add to issues since DB connection might not be available in all environments
@@ -334,6 +363,7 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
     except Exception as e:
         print_error(f"Unexpected error during health check: {str(e)}")
         import traceback
+
         traceback.print_exc()
     finally:
         await client.close()
@@ -353,4 +383,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

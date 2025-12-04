@@ -1,8 +1,8 @@
 import json
 import logging
+import math
 import os
 import re
-import math
 from datetime import datetime
 from pathlib import Path
 
@@ -911,7 +911,12 @@ def _update_bbox_metrics(processed_dict, geometry):
     acc = [float("inf"), float("inf"), float("-inf"), float("-inf")]
     _walk(coords, acc)
     minx, miny, maxx, maxy = acc
-    if not math.isfinite(minx) or not math.isfinite(miny) or not math.isfinite(maxx) or not math.isfinite(maxy):
+    if (
+        not math.isfinite(minx)
+        or not math.isfinite(miny)
+        or not math.isfinite(maxx)
+        or not math.isfinite(maxy)
+    ):
         return
 
     processed_dict["bbox_minx"] = minx
@@ -925,4 +930,4 @@ def _update_bbox_metrics(processed_dict, geometry):
     dy = maxy - miny
     lat_km = dy * 111.0
     lon_km = dx * 111.0 * abs(math.cos(math.radians(avg_lat)))
-    processed_dict["bbox_diagonal_km"] = math.sqrt(lat_km ** 2 + lon_km ** 2)
+    processed_dict["bbox_diagonal_km"] = math.sqrt(lat_km**2 + lon_km**2)

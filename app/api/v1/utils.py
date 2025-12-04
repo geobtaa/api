@@ -37,6 +37,44 @@ def sanitize_for_json(obj: Any) -> Any:
     return obj
 
 
+def filter_empty_values(obj: Any) -> Any:
+    """
+    Recursively filter out empty arrays and empty strings from a dictionary or list.
+    Preserves None values and other falsy values like 0 and False.
+
+    Args:
+        obj: The object to filter (dict, list, or other)
+
+    Returns:
+        Filtered object with empty arrays and empty strings removed
+    """
+    if isinstance(obj, dict):
+        filtered = {}
+        for key, value in obj.items():
+            # Recursively filter nested structures
+            filtered_value = filter_empty_values(value)
+            
+            # Skip empty arrays
+            if isinstance(filtered_value, list) and len(filtered_value) == 0:
+                continue
+            
+            # Skip empty strings
+            if isinstance(filtered_value, str) and filtered_value == "":
+                continue
+            
+            # Include the filtered value
+            filtered[key] = filtered_value
+        return filtered
+    elif isinstance(obj, list):
+        # Filter each item in the list
+        filtered = [filter_empty_values(item) for item in obj]
+        # Remove None entries that might result from filtering (if needed)
+        return [item for item in filtered if item is not None or isinstance(item, (bool, int, float))]
+    else:
+        # Return primitive values as-is
+        return obj
+
+
 def create_response(
     content: Dict | JSONResponse, callback: Optional[str] = None, status_code: int = 200
 ) -> JSONResponse:
@@ -193,6 +231,9 @@ def create_jsonapi_resource(resource_data, request_url=None):
             # Only include non-null values in attributes
             if value is not None:
                 core_attributes[key] = value
+
+    # Filter out empty arrays and empty strings from core_attributes
+    core_attributes = filter_empty_values(core_attributes)
 
     # Restructure UI fields to remove prefixes and organize viewer
     restructured_ui = {}

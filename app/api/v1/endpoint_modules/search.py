@@ -15,6 +15,7 @@ from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
 from app.api.v1.utils import (
     create_jsonapi_response,
     create_pagination_links,
+    filter_empty_values,
     process_resource_optimized,
     sanitize_for_json,
 )
@@ -144,6 +145,9 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 obj["attributes"] = filtered_attrs
             else:
                 obj["attributes"] = mapped_attrs
+            
+            # Filter out empty arrays and empty strings from attributes
+            obj["attributes"] = filter_empty_values(obj["attributes"])
             if not meta and "meta" in obj:
                 obj.pop("meta", None)
             processed_resources.append(obj)
@@ -236,9 +240,19 @@ async def search(
 
         # Get the raw query string from the request scope before FastAPI parses it
         # This preserves bracket notation that FastAPI might filter from request.url.query
-        raw_query_string = request.scope.get("query_string", b"").decode("utf-8") if isinstance(request.scope.get("query_string"), bytes) else request.scope.get("query_string", "")
-        query_string = raw_query_string if raw_query_string else (request.url.query if request.url.query else "")
-        logger.info(f"Search GET: raw_query_string length={len(raw_query_string)}, query_string length={len(query_string)}, sample={query_string[:300]}")
+        raw_query_string = (
+            request.scope.get("query_string", b"").decode("utf-8")
+            if isinstance(request.scope.get("query_string"), bytes)
+            else request.scope.get("query_string", "")
+        )
+        query_string = (
+            raw_query_string
+            if raw_query_string
+            else (request.url.query if request.url.query else "")
+        )
+        logger.info(
+            f"Search GET: raw_query_string length={len(raw_query_string)}, query_string length={len(query_string)}, sample={query_string[:300]}"
+        )
         return await _handle_search(
             request,
             {

@@ -22,11 +22,11 @@ import asyncio
 import os
 import sys
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.exceptions import RequestError, NotFoundError
+from elasticsearch.exceptions import NotFoundError, RequestError
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +47,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 
 class Colors:
     """ANSI color codes for terminal output."""
+
     GREEN = "\033[92m"
     RED = "\033[91m"
     YELLOW = "\033[93m"
@@ -57,9 +58,9 @@ class Colors:
 
 def print_header(text: str):
     """Print a formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}\n")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}\n")
 
 
 def print_success(text: str):
@@ -100,8 +101,8 @@ async def ensure_repository(client: AsyncElasticsearch) -> bool:
                     "settings": {
                         "location": REPOSITORY_PATH,
                         "compress": True,
-                    }
-                }
+                    },
+                },
             )
             print_success(f"Repository '{REPOSITORY_NAME}' created successfully")
             return True
@@ -115,7 +116,9 @@ async def ensure_repository(client: AsyncElasticsearch) -> bool:
         return False
 
 
-async def create_snapshot(client: AsyncElasticsearch, snapshot_name: Optional[str] = None) -> Optional[str]:
+async def create_snapshot(
+    client: AsyncElasticsearch, snapshot_name: Optional[str] = None
+) -> Optional[str]:
     """Create a snapshot of the index."""
     if not snapshot_name:
         # Generate snapshot name with timestamp
@@ -137,7 +140,7 @@ async def create_snapshot(client: AsyncElasticsearch, snapshot_name: Optional[st
                     "taken_by": "backup_script",
                     "taken_because": "scheduled_backup",
                     "index": INDEX_NAME,
-                }
+                },
             },
             wait_for_completion=False,  # Don't wait, return immediately
         )
@@ -155,13 +158,12 @@ async def create_snapshot(client: AsyncElasticsearch, snapshot_name: Optional[st
         return None
 
 
-async def get_snapshot_status(client: AsyncElasticsearch, snapshot_name: str) -> Optional[Dict[str, Any]]:
+async def get_snapshot_status(
+    client: AsyncElasticsearch, snapshot_name: str
+) -> Optional[Dict[str, Any]]:
     """Get status of a specific snapshot."""
     try:
-        response = await client.snapshot.get(
-            repository=REPOSITORY_NAME,
-            snapshot=snapshot_name
-        )
+        response = await client.snapshot.get(repository=REPOSITORY_NAME, snapshot=snapshot_name)
         snapshots = response.get("snapshots", [])
         if snapshots:
             return snapshots[0]
@@ -177,10 +179,7 @@ async def get_snapshot_status(client: AsyncElasticsearch, snapshot_name: str) ->
 async def list_snapshots(client: AsyncElasticsearch) -> List[Dict[str, Any]]:
     """List all snapshots in the repository."""
     try:
-        response = await client.snapshot.get(
-            repository=REPOSITORY_NAME,
-            snapshot="_all"
-        )
+        response = await client.snapshot.get(repository=REPOSITORY_NAME, snapshot="_all")
         snapshots = response.get("snapshots", [])
         return sorted(snapshots, key=lambda x: x.get("start_time_in_millis", 0), reverse=True)
     except Exception as e:
@@ -192,7 +191,7 @@ async def restore_snapshot(
     client: AsyncElasticsearch,
     snapshot_name: str,
     rename_index: Optional[str] = None,
-    wait_for_completion: bool = False
+    wait_for_completion: bool = False,
 ) -> bool:
     """Restore a snapshot."""
     print_warning("Restoring a snapshot will overwrite the existing index!")
@@ -215,7 +214,7 @@ async def restore_snapshot(
             repository=REPOSITORY_NAME,
             snapshot=snapshot_name,
             body=restore_body,
-            wait_for_completion=wait_for_completion
+            wait_for_completion=wait_for_completion,
         )
 
         if wait_for_completion:
@@ -238,10 +237,7 @@ async def delete_snapshot(client: AsyncElasticsearch, snapshot_name: str) -> boo
     """Delete a snapshot."""
     print_warning(f"Deleting snapshot '{snapshot_name}'")
     try:
-        await client.snapshot.delete(
-            repository=REPOSITORY_NAME,
-            snapshot=snapshot_name
-        )
+        await client.snapshot.delete(repository=REPOSITORY_NAME, snapshot=snapshot_name)
         print_success(f"Snapshot '{snapshot_name}' deleted successfully")
         return True
     except NotFoundError:
@@ -267,11 +263,15 @@ async def cleanup_old_snapshots(client: AsyncElasticsearch, keep_days: int = 7) 
         snapshot_date = datetime.fromtimestamp(start_time / 1000)
 
         if start_time < cutoff_timestamp:
-            print_info(f"Deleting old snapshot: {snapshot_name} (from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})")
+            print_info(
+                f"Deleting old snapshot: {snapshot_name} (from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
+            )
             if await delete_snapshot(client, snapshot_name):
                 deleted_count += 1
         else:
-            print_info(f"Keeping snapshot: {snapshot_name} (from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})")
+            print_info(
+                f"Keeping snapshot: {snapshot_name} (from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
+            )
 
     return deleted_count
 
@@ -323,7 +323,9 @@ async def main():
     parser.add_argument("--restore-to", type=str, help="Restore to a different index name")
     parser.add_argument("--delete", type=str, help="Delete a snapshot")
     parser.add_argument("--cleanup", action="store_true", help="Delete old snapshots")
-    parser.add_argument("--keep-days", type=int, default=7, help="Days to keep snapshots (default: 7)")
+    parser.add_argument(
+        "--keep-days", type=int, default=7, help="Days to keep snapshots (default: 7)"
+    )
     parser.add_argument("--wait", action="store_true", help="Wait for snapshot/restore to complete")
 
     args = parser.parse_args()
@@ -363,6 +365,7 @@ async def main():
                 print_info("Waiting for snapshot to complete...")
                 # Poll for completion
                 import time
+
                 while True:
                     status = await get_snapshot_status(client, snapshot_name)
                     if status:
@@ -400,7 +403,9 @@ async def main():
 
         elif args.restore:
             restore_index = args.restore_to if args.restore_to else None
-            await restore_snapshot(client, args.restore, rename_index=restore_index, wait_for_completion=args.wait)
+            await restore_snapshot(
+                client, args.restore, rename_index=restore_index, wait_for_completion=args.wait
+            )
 
         elif args.delete:
             await delete_snapshot(client, args.delete)
@@ -412,6 +417,7 @@ async def main():
     except Exception as e:
         print_error(f"Unexpected error: {str(e)}")
         import traceback
+
         traceback.print_exc()
     finally:
         await client.close()
@@ -419,4 +425,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

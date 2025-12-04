@@ -19,11 +19,10 @@ Can be run locally or remotely via Kamal:
 import asyncio
 import os
 import sys
-from typing import Dict, Any, List
 
 from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
-from elasticsearch.exceptions import ConnectionError, NotFoundError
+from elasticsearch.exceptions import NotFoundError
 
 # Load environment variables
 load_dotenv()
@@ -40,6 +39,7 @@ from app.elasticsearch.mappings import INDEX_MAPPING
 
 class Colors:
     """ANSI color codes for terminal output."""
+
     GREEN = "\033[92m"
     RED = "\033[91m"
     YELLOW = "\033[93m"
@@ -50,6 +50,7 @@ class Colors:
 
 class ValidationResult:
     """Track validation results."""
+
     def __init__(self):
         self.passed = []
         self.failed = []
@@ -67,9 +68,9 @@ class ValidationResult:
 
 def print_header(text: str):
     """Print a formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.BLUE}{text}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{'='*60}{Colors.RESET}\n")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'=' * 60}{Colors.RESET}\n")
 
 
 def print_success(text: str):
@@ -107,22 +108,26 @@ async def check_index_replicas(client: AsyncElasticsearch, results: ValidationRe
     try:
         settings = await client.indices.get_settings(index=INDEX_NAME)
         index_settings = settings.get(INDEX_NAME, {}).get("settings", {}).get("index", {})
-        
+
         num_replicas = index_settings.get("number_of_replicas", "0")
         num_shards = index_settings.get("number_of_shards", "1")
-        
+
         print_info(f"Index shards: {num_shards}, replicas: {num_replicas}")
-        
+
         # Check mapping file configuration
-        mapping_replicas = INDEX_MAPPING.get("settings", {}).get("index", {}).get("number_of_replicas", 0)
-        
+        mapping_replicas = (
+            INDEX_MAPPING.get("settings", {}).get("index", {}).get("number_of_replicas", 0)
+        )
+
         if num_replicas == "1" or num_replicas == 1:
             results.add_pass(f"Index has {num_replicas} replica(s) configured for fault tolerance")
             return True
         else:
             results.add_fail(f"Index has {num_replicas} replicas (should be 1 for production)")
             if mapping_replicas != 1:
-                results.add_warning("Mapping file also needs to be updated (number_of_replicas should be 1)")
+                results.add_warning(
+                    "Mapping file also needs to be updated (number_of_replicas should be 1)"
+                )
             return False
     except Exception as e:
         results.add_fail(f"Could not check index replicas: {str(e)}")
@@ -136,21 +141,26 @@ async def check_cluster_settings(client: AsyncElasticsearch, results: Validation
         persistent = settings.get("persistent", {})
         transient = settings.get("transient", {})
         defaults = settings.get("defaults", {})
-        
+
         # Check disk watermarks
         watermark_low = None
         watermark_high = None
         watermark_flood = None
-        
+
         for settings_dict in [persistent, transient, defaults]:
-            cluster_settings = settings_dict.get("cluster", {}).get("routing", {}).get("allocation", {}).get("disk", {})
+            cluster_settings = (
+                settings_dict.get("cluster", {})
+                .get("routing", {})
+                .get("allocation", {})
+                .get("disk", {})
+            )
             if not watermark_low:
                 watermark_low = cluster_settings.get("watermark", {}).get("low")
             if not watermark_high:
                 watermark_high = cluster_settings.get("watermark", {}).get("high")
             if not watermark_flood:
                 watermark_flood = cluster_settings.get("watermark", {}).get("flood_stage")
-        
+
         if watermark_low or watermark_high or watermark_flood:
             results.add_pass("Disk watermarks are configured")
             if watermark_low:
@@ -161,7 +171,9 @@ async def check_cluster_settings(client: AsyncElasticsearch, results: Validation
                 print_info(f"  Flood stage: {watermark_flood}")
             return True
         else:
-            results.add_warning("Disk watermarks not found in cluster settings (may be set via environment)")
+            results.add_warning(
+                "Disk watermarks not found in cluster settings (may be set via environment)"
+            )
             return False
     except Exception as e:
         results.add_warning(f"Could not check cluster settings: {str(e)}")
@@ -173,29 +185,33 @@ async def check_memory_settings(client: AsyncElasticsearch, results: ValidationR
     try:
         nodes_info = await client.nodes.info()
         nodes = nodes_info.get("nodes", {})
-        
+
         if not nodes:
             results.add_warning("Could not get node information")
             return False
-        
+
         # Get first node (for single-node cluster)
         node_id = list(nodes.keys())[0]
         node = nodes[node_id]
-        
+
         jvm = node.get("jvm", {})
         mem_info = jvm.get("mem", {})
         heap_max = mem_info.get("heap_max_in_bytes", 0)
-        heap_max_gb = heap_max / (1024 ** 3)
-        
+        heap_max_gb = heap_max / (1024**3)
+
         print_info(f"JVM heap max: {heap_max_gb:.2f} GB")
-        
+
         if heap_max_gb >= 2.0:
             results.add_pass(f"Memory allocation is adequate ({heap_max_gb:.2f} GB)")
             if heap_max_gb < 4.0:
-                results.add_warning("Consider increasing to 4GB for better performance if resources allow")
+                results.add_warning(
+                    "Consider increasing to 4GB for better performance if resources allow"
+                )
             return True
         else:
-            results.add_fail(f"Memory allocation may be insufficient ({heap_max_gb:.2f} GB, recommended: 2GB+)")
+            results.add_fail(
+                f"Memory allocation may be insufficient ({heap_max_gb:.2f} GB, recommended: 2GB+)"
+            )
             return False
     except Exception as e:
         results.add_warning(f"Could not check memory settings: {str(e)}")
@@ -212,11 +228,15 @@ async def check_backup_repository(client: AsyncElasticsearch, results: Validatio
             return True
         else:
             results.add_warning("No backup repository configured")
-            results.add_warning("Run: python scripts/backup_elasticsearch.py --create (will auto-create repository)")
+            results.add_warning(
+                "Run: python scripts/backup_elasticsearch.py --create (will auto-create repository)"
+            )
             return False
     except NotFoundError:
         results.add_warning("No backup repository configured")
-        results.add_warning("Run: python scripts/backup_elasticsearch.py --create (will auto-create repository)")
+        results.add_warning(
+            "Run: python scripts/backup_elasticsearch.py --create (will auto-create repository)"
+        )
         return False
     except Exception as e:
         results.add_warning(f"Could not check backup repository: {str(e)}")
@@ -227,11 +247,11 @@ def check_client_connection_pooling(results: ValidationResult) -> bool:
     """Check if ES client is properly configured."""
     try:
         from app.elasticsearch.client import es
-        
+
         # Connection pooling is handled automatically by the elasticsearch library
         # The client should have proper timeout and retry settings configured
         # Verify the client is properly initialized
-        transport = getattr(es, 'transport', None)
+        transport = getattr(es, "transport", None)
         if transport:
             results.add_pass("ES client is properly configured (connection pooling is automatic)")
             return True
@@ -248,7 +268,7 @@ async def check_cluster_health(client: AsyncElasticsearch, results: ValidationRe
     try:
         health = await client.cluster.health()
         status = health.get("status", "unknown")
-        
+
         if status == "green":
             results.add_pass("Cluster health is GREEN")
         elif status == "yellow":
@@ -256,10 +276,10 @@ async def check_cluster_health(client: AsyncElasticsearch, results: ValidationRe
             print_info(f"  Unassigned shards: {health.get('unassigned_shards', 0)}")
         else:
             results.add_fail(f"Cluster health is {status.upper()} (critical)")
-        
+
         print_info(f"  Active shards: {health.get('active_shards', 0)}")
         print_info(f"  Nodes: {health.get('number_of_nodes', 0)}")
-        
+
         return status in ["green", "yellow"]
     except Exception as e:
         results.add_fail(f"Could not check cluster health: {str(e)}")
@@ -270,9 +290,10 @@ def check_ulimits(results: ValidationResult) -> bool:
     """Check ulimits (requires system access)."""
     try:
         import resource
+
         soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
         print_info(f"Current process ulimits - soft: {soft}, hard: {hard}")
-        
+
         if soft >= 65536:
             results.add_pass(f"Ulimits are adequate (soft: {soft})")
             return True
@@ -290,11 +311,11 @@ def check_ulimits(results: ValidationResult) -> bool:
 async def validate_production_settings():
     """Run all production validation checks."""
     results = ValidationResult()
-    
+
     print_header("Elasticsearch Production Validation")
     print_info(f"Elasticsearch URL: {ELASTICSEARCH_URL}")
     print_info(f"Index: {INDEX_NAME}\n")
-    
+
     client = AsyncElasticsearch(
         hosts=[ELASTICSEARCH_URL],
         verify_certs=False,
@@ -303,53 +324,53 @@ async def validate_production_settings():
         retry_on_timeout=True,
         max_retries=3,
     )
-    
+
     try:
         # Check connection first
         if not await check_connection(client):
             print_error("Cannot proceed without Elasticsearch connection")
             return results
-        
+
         # Run all checks
         print_header("1. Index Configuration")
         await check_index_replicas(client, results)
-        
+
         print_header("2. Cluster Settings")
         await check_cluster_settings(client, results)
-        
+
         print_header("3. Memory Settings")
         await check_memory_settings(client, results)
-        
+
         print_header("4. Backup Configuration")
         await check_backup_repository(client, results)
-        
+
         print_header("5. Client Configuration")
         check_client_connection_pooling(results)
-        
+
         print_header("6. Cluster Health")
         await check_cluster_health(client, results)
-        
+
         print_header("7. System Limits")
         check_ulimits(results)
-        
+
         # Summary
         print_header("Validation Summary")
-        
+
         if results.passed:
             print_success(f"Passed checks ({len(results.passed)}):")
             for msg in results.passed:
                 print(f"  ✓ {msg}")
-        
+
         if results.warnings:
             print_warning(f"Warnings ({len(results.warnings)}):")
             for msg in results.warnings:
                 print(f"  ⚠ {msg}")
-        
+
         if results.failed:
             print_error(f"Failed checks ({len(results.failed)}):")
             for msg in results.failed:
                 print(f"  ✗ {msg}")
-        
+
         # Overall status
         print_header("Overall Status")
         if not results.failed:
@@ -358,12 +379,13 @@ async def validate_production_settings():
                 print_warning("Review warnings above for optimization opportunities")
         else:
             print_error("Some critical checks failed. Please address the issues above.")
-        
+
         return results
-        
+
     except Exception as e:
         print_error(f"Unexpected error during validation: {str(e)}")
         import traceback
+
         traceback.print_exc()
         return results
     finally:
@@ -373,7 +395,7 @@ async def validate_production_settings():
 async def main():
     """Main entry point."""
     results = await validate_production_settings()
-    
+
     # Exit with appropriate code
     if results.failed:
         sys.exit(1)
@@ -382,4 +404,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

@@ -7,7 +7,7 @@ It can watch logs, compare DB vs ES counts, and check for issues.
 
 Usage:
     python scripts/monitor_reindex.py [--watch] [--check-only]
-    
+
 Options:
     --watch: Continuously monitor (refresh every 10 seconds)
     --check-only: One-time check without watching logs
@@ -20,7 +20,7 @@ import sys
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict
 
 from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
@@ -36,13 +36,18 @@ ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 FAILURE_LOG = os.getenv("FAILURE_LOG", "logs/reindex_failures.log")
 PUBLISHED_ONLY = os.getenv("PUBLISHED_ONLY", "1").strip().lower() in {"1", "true", "t", "yes", "y"}
-USE_B1G_PUB_STATE = (
-    os.getenv("USE_B1G_PUBLICATION_STATE", "0").strip().lower() in {"1", "true", "t", "yes", "y"}
-)
+USE_B1G_PUB_STATE = os.getenv("USE_B1G_PUBLICATION_STATE", "0").strip().lower() in {
+    "1",
+    "true",
+    "t",
+    "yes",
+    "y",
+}
 
 
 class Colors:
     """ANSI color codes."""
+
     GREEN = "\033[92m"
     RED = "\033[91m"
     YELLOW = "\033[93m"
@@ -59,15 +64,15 @@ def clear_screen():
 
 def print_header(text: str):
     """Print formatted header."""
-    print(f"\n{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.RESET}")
+    print(f"\n{Colors.BOLD}{Colors.BLUE}{'=' * 70}{Colors.RESET}")
     print(f"{Colors.BOLD}{Colors.BLUE}{text:^70}{Colors.RESET}")
-    print(f"{Colors.BOLD}{Colors.BLUE}{'='*70}{Colors.RESET}\n")
+    print(f"{Colors.BOLD}{Colors.BLUE}{'=' * 70}{Colors.RESET}\n")
 
 
 def print_section(text: str):
     """Print section divider."""
     print(f"\n{Colors.BOLD}{Colors.CYAN}{text}{Colors.RESET}")
-    print(f"{Colors.CYAN}{'-'*len(text)}{Colors.RESET}")
+    print(f"{Colors.CYAN}{'-' * len(text)}{Colors.RESET}")
 
 
 async def get_db_count() -> int:
@@ -280,9 +285,7 @@ def format_status(status: Dict[str, Any]) -> str:
     elif process.get("running") is False:
         output.append(f"{Colors.YELLOW}⚠{Colors.RESET} reindex.py is not running")
     else:
-        output.append(
-            f"{Colors.YELLOW}?{Colors.RESET} Cannot determine if reindex.py is running"
-        )
+        output.append(f"{Colors.YELLOW}?{Colors.RESET} Cannot determine if reindex.py is running")
 
     # Failures
     failures = status.get("failures", {})
@@ -317,7 +320,9 @@ async def main():
         try:
             while True:
                 clear_screen()
-                print_header(f"Elasticsearch Reindex Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+                print_header(
+                    f"Elasticsearch Reindex Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
 
                 status = await get_reindex_status()
                 print(format_status(status))
@@ -347,4 +352,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

@@ -635,21 +635,21 @@ class TestGetFacetValues:
 
         # Verify ES was called
         mock_es.search.assert_called_once()
-        
+
         # Verify that the filter uses .keyword field
         call_args = mock_es.search.call_args
         query_dict = call_args.kwargs["query"]
-        
+
         # Navigate through the bool query structure to find the filter
         filter_clauses = query_dict["bool"]["filter"]
-        
+
         # Find the terms filter for gbl_resourceClass_sm
         terms_filter = None
         for clause in filter_clauses:
             if "terms" in clause:
                 terms_filter = clause["terms"]
                 break
-        
+
         # Verify that gbl_resourceClass_sm.keyword is used, not gbl_resourceClass_sm
         assert terms_filter is not None, "Expected terms filter not found"
         assert "gbl_resourceClass_sm.keyword" in terms_filter, (
