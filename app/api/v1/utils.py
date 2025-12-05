@@ -589,6 +589,35 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
 
             resource["meta"]["ui"]["static_map"] = static_map_url
 
+    # Add similar items to meta.ui
+    try:
+        from app.services.similar_items_service import SimilarItemsService
+
+        similar_items = await SimilarItemsService.get_similar_items(
+            resource_dict["id"], session, limit=12
+        )
+
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
+
+        resource["meta"]["ui"]["similar_items"] = similar_items
+    except Exception as e:
+        # Log error but don't fail resource processing
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Error getting similar items for resource {resource_dict.get('id')}: {str(e)}"
+        )
+        # Ensure ui block exists even if similar items fail
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
+        resource["meta"]["ui"]["similar_items"] = []
+
     return resource
 
 
@@ -698,5 +727,14 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
                 resource["meta"]["ui"] = {}
 
             resource["meta"]["ui"]["static_map"] = static_map_url
+
+    # Note: Similar items are not included in process_resource_optimized to avoid performance impact
+    # on search results. They are available via the /resources/{id}/similar-items endpoint
+    # and are included in single resource and list resource endpoints via process_resource()
+    if "meta" not in resource:
+        resource["meta"] = {}
+    if "ui" not in resource["meta"]:
+        resource["meta"]["ui"] = {}
+    resource["meta"]["ui"]["similar_items"] = []
 
     return resource

@@ -276,9 +276,19 @@ class TestElasticsearchSearch:
                     None,
                 )
                 assert geo_filter is not None
-                box = geo_filter["geo_bounding_box"]["dcat_bbox"]
-                assert box["top_left"] == {"lat": 45.0, "lon": -109.0}
-                assert box["bottom_right"] == {"lat": 41.0, "lon": -104.0}
+                # For dcat_bbox, the code uses geo_shape with envelope type
+                if "geo_shape" in geo_filter:
+                    shape = geo_filter["geo_shape"]["dcat_bbox"]["shape"]
+                    assert shape["type"] == "envelope"
+                    # Envelope format: [[min_lon, max_lat], [max_lon, min_lat]]
+                    coords = shape["coordinates"]
+                    assert coords[0] == [-109.0, 45.0]  # [min_lon, max_lat]
+                    assert coords[1] == [-104.0, 41.0]  # [max_lon, min_lat]
+                else:
+                    # Fallback for geo_bounding_box (used for geo_point fields)
+                    box = geo_filter["geo_bounding_box"]["dcat_bbox"]
+                    assert box["top_left"] == {"lat": 45.0, "lon": -109.0}
+                    assert box["bottom_right"] == {"lat": 41.0, "lon": -104.0}
 
     @pytest.mark.asyncio
     async def test_search_resources_with_geospatial_distance_filter(self):

@@ -116,7 +116,8 @@ class TestResourcesEndpoints:
 
     def test_get_resource_ogm_endpoint_structure(self):
         """Test get resource OGM endpoint structure."""
-        response = client.get("/resources/test-id/ogm")
+        # The endpoint was renamed to /metadata, but we test both for compatibility
+        response = client.get("/resources/test-id/metadata")
         # Should return either 404 (not found) or 500 (server error)
         assert response.status_code in [404, 500]
 
@@ -146,7 +147,8 @@ class TestResourcesEndpoints:
 
     def test_get_resource_spatial_facets_endpoint_structure(self):
         """Test get resource spatial facets endpoint structure."""
-        response = client.get("/resources/test-id/spatial_facets")
+        # The endpoint uses kebab-case: spatial-facets
+        response = client.get("/resources/test-id/spatial-facets")
         # Should return either success or server error
         assert response.status_code in [200, 500]
 
@@ -172,7 +174,8 @@ class TestResourcesEndpoints:
 
     def test_get_resource_spatial_facets_with_debug_parameter(self):
         """Test get resource spatial facets with debug parameter."""
-        response = client.get("/resources/test-id/spatial_facets?debug=true")
+        # The endpoint uses kebab-case: spatial-facets
+        response = client.get("/resources/test-id/spatial-facets?debug=true")
         assert response.status_code in [200, 500]
 
     def test_invalid_skip_parameter(self):
@@ -192,12 +195,12 @@ class TestResourcesEndpoints:
         expected_paths = [
             "/resources/",
             "/resources/{id}",
-            "/resources/{id}/ogm",
+            "/resources/{id}/metadata",  # Renamed from /ogm
             "/resources/{id}/links",
             "/resources/{id}/relationships",
             "/resources/{id}/summaries",
             "/resources/{id}/viewer",
-            "/resources/{id}/spatial_facets",
+            "/resources/{id}/spatial-facets",  # Changed to kebab-case
         ]
 
         for path in expected_paths:

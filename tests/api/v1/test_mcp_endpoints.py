@@ -45,7 +45,7 @@ class TestMCPEndpoints:
         expected_tools = [
             "search_resources",
             "get_resource",
-            "get_resource_ogm",
+            "get_resource_metadata",  # Renamed from get_resource_ogm
             "list_resources",
             "get_suggestions",
             "get_resource_viewer",
