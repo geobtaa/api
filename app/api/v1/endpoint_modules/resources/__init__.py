@@ -112,7 +112,7 @@ from . import (  # noqa: E402
     similar_items,
     spatial_facets,
     static_map,
-    summaries,
+    # summaries,  # Temporarily disabled - AI-based feature not ready for launch
     thumbnail,
     viewer,
 )
@@ -125,7 +125,8 @@ from .metadata import get_resource_metadata  # noqa: E402
 from .ogm_viewer import get_resource_viewer  # noqa: E402
 from .relationships import get_resource_relationships  # noqa: E402
 from .spatial_facets import get_resource_spatial_facets  # noqa: E402
-from .summaries import get_resource_summaries  # noqa: E402
+
+# from .summaries import get_resource_summaries  # noqa: E402  # Temporarily disabled
 
 # Alias for backward compatibility with tests
 get_resource_ogm = get_resource_metadata

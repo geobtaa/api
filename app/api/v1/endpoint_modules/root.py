@@ -34,7 +34,7 @@ async def api_root(request: Request = None):
                 "/resources/{id}/relationships",
                 "/resources/{id}/spatial-facets",
                 "/resources/{id}/static-map",
-                "/resources/{id}/summaries",
+                # "/resources/{id}/summaries",  # Temporarily disabled - AI feature not ready
                 "/resources/{id}/thumbnails",
                 "/resources/{id}/ogm-viewer",
                 "/thumbnails/placeholder",

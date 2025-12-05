@@ -158,6 +158,8 @@ async def test_get_resource_ogm_not_found(monkeypatch):
     assert resp.status_code == 404
 
 
+# Temporarily disabled - summaries endpoint is commented out
+@pytest.mark.skip(reason="Summaries endpoint is temporarily disabled")
 @pytest.mark.asyncio
 async def test_get_resource_summaries_success(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
@@ -189,6 +191,7 @@ async def test_get_resource_summaries_success(monkeypatch):
     assert hasattr(resp, "body")
 
 
+@pytest.mark.skip(reason="Summaries endpoint is temporarily disabled")
 @pytest.mark.asyncio
 async def test_get_resource_summaries_error(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res

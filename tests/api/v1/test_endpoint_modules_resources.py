@@ -30,7 +30,7 @@ class TestResourcesModuleStructure:
             get_resource_ogm,
             get_resource_relationships,
             get_resource_spatial_facets,
-            get_resource_summaries,
+            # get_resource_summaries,  # Temporarily disabled
             get_resource_viewer,
             list_resources,
             logger,
@@ -49,7 +49,7 @@ class TestResourcesModuleStructure:
         assert callable(get_resource_ogm)
         assert callable(get_resource_links)
         assert callable(get_resource_relationships)
-        assert callable(get_resource_summaries)
+        # assert callable(get_resource_summaries)  # Temporarily disabled
         assert callable(get_resource_viewer)
         assert callable(get_resource_spatial_facets)
 
@@ -135,9 +135,10 @@ class TestResourcesEndpoints:
 
     def test_get_resource_summaries_endpoint_structure(self):
         """Test get resource summaries endpoint structure."""
+        # Endpoint is temporarily disabled
         response = client.get("/resources/test-id/summaries")
-        # Should return either success or server error
-        assert response.status_code in [200, 500]
+        # Should return 404 since endpoint is disabled
+        assert response.status_code == 404
 
     def test_get_resource_viewer_endpoint_structure(self):
         """Test get resource viewer endpoint structure."""
@@ -198,7 +199,7 @@ class TestResourcesEndpoints:
             "/resources/{id}/metadata",  # Renamed from /ogm
             "/resources/{id}/links",
             "/resources/{id}/relationships",
-            "/resources/{id}/summaries",
+            # "/resources/{id}/summaries",  # Temporarily disabled
             "/resources/{id}/viewer",
             "/resources/{id}/spatial-facets",  # Changed to kebab-case
         ]
@@ -226,7 +227,7 @@ class TestResourcesEndpoints:
             get_resource_ogm,
             get_resource_relationships,
             get_resource_spatial_facets,
-            get_resource_summaries,
+            # get_resource_summaries,  # Temporarily disabled - not imported
             get_resource_viewer,
             list_resources,
         )
@@ -236,7 +237,7 @@ class TestResourcesEndpoints:
         assert inspect.iscoroutinefunction(get_resource_ogm)
         assert inspect.iscoroutinefunction(get_resource_links)
         assert inspect.iscoroutinefunction(get_resource_relationships)
-        assert inspect.iscoroutinefunction(get_resource_summaries)
+        # assert inspect.iscoroutinefunction(get_resource_summaries)  # Temporarily disabled
         assert inspect.iscoroutinefunction(get_resource_viewer)
         assert inspect.iscoroutinefunction(get_resource_spatial_facets)
 
