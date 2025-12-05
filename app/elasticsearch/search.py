@@ -1606,3 +1606,78 @@ def process_facet_response(
             "sort": sort,
         },
     }
+
+
+async def find_similar_resources(resource_id: str, limit: int = 12) -> list:
+    """
+    Find similar resources using Elasticsearch more_like_this query.
+
+    Args:
+        resource_id: The ID of the resource to find similar items for
+        limit: Maximum number of similar resources to return (default: 12)
+
+    Returns:
+        List of resource IDs ordered by similarity score
+    """
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    try:
+        # First, check if the resource exists in Elasticsearch
+        try:
+            doc = await es.get(index=index_name, id=resource_id)
+            if not doc:
+                logger.warning(f"Resource {resource_id} not found in Elasticsearch")
+                return []
+        except NotFoundError:
+            logger.warning(f"Resource {resource_id} not found in Elasticsearch")
+            return []
+
+        # Build more_like_this query
+        # Fields to use for similarity matching
+        similar_fields = [
+            "dct_title_s",
+            "dct_description_sm",
+            "summary",
+            "dct_creator_sm",
+            "dct_subject_sm",
+            "dcat_keyword_sm",
+        ]
+
+        mlt_query = {
+            "bool": {
+                "must": [
+                    {
+                        "more_like_this": {
+                            "fields": similar_fields,
+                            "like": [{"_id": resource_id}],
+                            "min_term_freq": 1,
+                            "min_doc_freq": 1,
+                            "max_query_terms": 25,
+                            "minimum_should_match": "30%",
+                        }
+                    }
+                ],
+                "must_not": [{"term": {"id": resource_id}}],
+            }
+        }
+
+        # Execute the query
+        response = await es.search(
+            index=index_name,
+            query=mlt_query,
+            size=limit,
+        )
+        response_dict = response.body if hasattr(response, "body") else response
+
+        # Extract resource IDs from results
+        hits = response_dict.get("hits", {}).get("hits", [])
+        similar_ids = [hit["_source"].get("id") for hit in hits if hit.get("_source", {}).get("id")]
+
+        logger.info(f"Found {len(similar_ids)} similar resources for {resource_id}")
+        return similar_ids
+
+    except Exception as e:
+        logger.error(
+            f"Error finding similar resources for {resource_id}: {str(e)}", exc_info=True
+        )
+        return []

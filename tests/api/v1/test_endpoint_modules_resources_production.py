@@ -53,10 +53,11 @@ class TestResourcesProductionDatabase:
 
     def test_get_resource_summaries_with_real_database(self):
         """Test get resource summaries with real database connection."""
+        # Endpoint is temporarily disabled
         response = client.get("/resources/test-resource-id/summaries")
 
-        # Should return either success or database error
-        assert response.status_code in [200, 500]
+        # Should return 404 since endpoint is disabled
+        assert response.status_code == 404
 
     def test_get_resource_viewer_with_real_database(self):
         """Test get resource viewer with real database connection."""
@@ -70,7 +71,7 @@ class TestResourcesProductionDatabase:
 
     def test_get_resource_spatial_facets_with_real_database(self):
         """Test get resource spatial facets with real database connection."""
-        response = client.get("/resources/test-resource-id/spatial_facets")
+        response = client.get("/resources/test-resource-id/spatial-facets")
 
         # Should return either success or database error
         assert response.status_code in [200, 500]
@@ -102,12 +103,13 @@ class TestResourcesProductionDatabase:
 
     def test_get_resource_summaries_with_jsonp_callback(self):
         """Test get resource summaries with JSONP callback using real database."""
+        # Endpoint is temporarily disabled
         response = client.get("/resources/test-resource-id/summaries?callback=testCallback")
-        assert response.status_code in [200, 500]
+        assert response.status_code == 404
 
     def test_get_resource_spatial_facets_with_debug(self):
         """Test get resource spatial facets with debug parameter using real database."""
-        response = client.get("/resources/test-resource-id/spatial_facets?debug=true")
+        response = client.get("/resources/test-resource-id/spatial-facets?debug=true")
         assert response.status_code in [200, 500]
 
     def test_get_resource_viewer_with_embed(self):
@@ -168,7 +170,7 @@ class TestResourcesProductionDatabase:
             "/resources/?limit=1",
             "/resources/test-resource-id",
             "/resources/test-resource-id/ogm",
-            "/resources/test-resource-id/summaries",
+            # "/resources/test-resource-id/summaries",  # Temporarily disabled
         ]
 
         for endpoint in endpoints:
@@ -178,7 +180,7 @@ class TestResourcesProductionDatabase:
 
     def test_resources_with_real_spatial_facet_service(self):
         """Test spatial facets endpoint with real SpatialFacetService."""
-        response = client.get("/resources/test-resource-id/spatial_facets")
+        response = client.get("/resources/test-resource-id/spatial-facets")
         assert response.status_code in [200, 500]
 
         if response.status_code == 200:
@@ -198,8 +200,8 @@ class TestResourcesProductionDatabase:
         # Test endpoints that use async database operations
         async_endpoints = [
             "/resources/?limit=5",
-            "/resources/test-resource-id/summaries",
-            "/resources/test-resource-id/spatial_facets",
+            # "/resources/test-resource-id/summaries",  # Temporarily disabled
+            "/resources/test-resource-id/spatial-facets",
         ]
 
         for endpoint in async_endpoints:
@@ -232,7 +234,7 @@ class TestResourcesProductionDatabase:
         service_endpoints = [
             "/resources/test-resource-id/links",
             "/resources/test-resource-id/relationships",
-            "/resources/test-resource-id/spatial_facets",
+            "/resources/test-resource-id/spatial-facets",
         ]
 
         for endpoint in service_endpoints:

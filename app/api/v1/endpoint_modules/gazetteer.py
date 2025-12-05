@@ -407,9 +407,10 @@ async def search_wof(
             ancestor_ids = list(
                 set(
                     [
-                        a["ancestor_id"]
+                        a.get("ancestor_id")
                         for ancestors_list in ancestors_map.values()
                         for a in ancestors_list
+                        if a.get("ancestor_id") is not None
                     ]
                 )
             )
@@ -425,7 +426,9 @@ async def search_wof(
                 # Add names to ancestors
                 for _wok_id, ancestors_list in ancestors_map.items():
                     for ancestor in ancestors_list:
-                        ancestor["name"] = ancestor_names_map.get(ancestor["ancestor_id"])
+                        ancestor_id = ancestor.get("ancestor_id")
+                        if ancestor_id is not None:
+                            ancestor["name"] = ancestor_names_map.get(ancestor_id)
 
         # Fetch GeoJSON for all results in batch
         geojson_map = {}
@@ -443,8 +446,8 @@ async def search_wof(
 
             # Group by wok_id, keeping only the first (best) one
             for geojson_record in geojson_records:
-                wok_id = geojson_record["wok_id"]
-                if wok_id not in geojson_map:
+                wok_id = geojson_record.get("wok_id")
+                if wok_id is not None and wok_id not in geojson_map:
                     geojson_map[wok_id] = dict(geojson_record)
 
         # Convert results to JSON:API format
@@ -484,7 +487,7 @@ async def search_wof(
             # Get GeoJSON for this place
             geojson_record = geojson_map.get(wok_id)
             geojson_data = None
-            if geojson_record:
+            if geojson_record and "body" in geojson_record:
                 try:
                     geojson_data = json.loads(geojson_record["body"])
                 except (json.JSONDecodeError, TypeError):

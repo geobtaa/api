@@ -21,7 +21,7 @@ async def mcp_endpoint():
                 "tools": [
                     "search_resources",
                     "get_resource",
-                    "get_resource_ogm",
+                    "get_resource_metadata",
                     "list_resources",
                     "get_suggestions",
                     "get_resource_viewer",
@@ -46,7 +46,7 @@ async def mcp_endpoint():
                         "Get a single GeoBTAA geospatial resource by ID with full "
                         "metadata and UI enhancements"
                     ),
-                    "get_resource_ogm": (
+                    "get_resource_metadata": (
                         "Get just the GeoBTAA Aardvark record for a resource by ID"
                     ),
                     "list_resources": ("List all GeoBTAA geospatial resources with pagination"),

@@ -443,11 +443,19 @@ class SearchService:
                 elif key.startswith(prefix):
                     # Regular parameter like "include_filters[geo][type]"
                     # or "include_filters[geo][top_left][lat]"
+                    # or "include_filters[geo][points][0][lat]"
                     # Remove the prefix, keep the rest (including any nested brackets)
                     geo_param = key[len(prefix) :]
+                    
+                    # Special handling for points array format: "points][0][lat]"
+                    # Handle this before general bracket processing - skip conversion
+                    if geo_param.startswith("points][") and geo_param.count("][") >= 2:
+                        # Keep as "points][0][lat]" format for special handling below
+                        # Don't modify geo_param, it will be handled in the points parsing section
+                        pass
                     # Remove trailing ] if present (for simple params like "type]")
                     # But keep it if it's part of nested structure like "top_left][lat]"
-                    if geo_param.endswith("]"):
+                    elif geo_param.endswith("]"):
                         # Check if this is a nested param (has [ before the final ])
                         last_bracket_idx = geo_param.rfind("[")
                         if last_bracket_idx == -1:
@@ -476,18 +484,50 @@ class SearchService:
                 if not geo_param:
                     continue
 
-                # Handle nested parameters like top_left[lat]
+                # Handle nested parameters like top_left[lat] or points[0][lat]
+                # Note: points][0][lat] format should be passed through to _normalize_geo_params
+                # which handles the conversion from flat keys to nested structure
                 if "[" in geo_param and "]" in geo_param:
-                    # This is a nested parameter like "top_left[lat]"
-                    parent_key = geo_param.split("[")[0]
-                    child_key = geo_param.split("[")[1].split("]")[0]
-                    if parent_key not in geo_filters:
-                        geo_filters[parent_key] = {}
-                    geo_filters[parent_key][child_key] = values[0] if values else None
-                    logger.info(
-                        f"  Added nested param: {parent_key}[{child_key}] = "
-                        f"{values[0] if values else None}"
-                    )
+                    # Check if this is an array-style parameter like "points][0][lat]"
+                    # or "points[0][lat]"
+                    # The format after prefix removal is "points][0][lat]" (with ] between parts)
+                    if geo_param.startswith("points"):
+                        # For points, we need to pass the key through to _normalize_geo_params
+                        # which will handle the conversion. Store it with the original key format.
+                        # The _normalize_geo_params function expects keys like "points][0][lat]"
+                        # So we store it as a flat key that will be processed by normalization
+                        geo_filters[geo_param] = values[0] if values else None
+                        value_str = values[0] if values else None
+                        logger.info(
+                            f"  Added points param (raw): {geo_param} = {value_str}"
+                        )
+                        continue
+                    
+                    # This is a nested parameter like "top_left][lat]" or "top_left[lat]"
+                    if "][" in geo_param:
+                        # Format: "top_left][lat]"
+                        parts = geo_param.split("][")
+                        if len(parts) == 2:
+                            parent_key = parts[0]
+                            child_key = parts[1].rstrip("]")
+                            if parent_key not in geo_filters:
+                                geo_filters[parent_key] = {}
+                            geo_filters[parent_key][child_key] = values[0] if values else None
+                            logger.info(
+                                f"  Added nested param: {parent_key}[{child_key}] = "
+                                f"{values[0] if values else None}"
+                            )
+                    else:
+                        # Format: "top_left[lat]"
+                        parent_key = geo_param.split("[")[0]
+                        child_key = geo_param.split("[")[1].split("]")[0]
+                        if parent_key not in geo_filters:
+                            geo_filters[parent_key] = {}
+                        geo_filters[parent_key][child_key] = values[0] if values else None
+                        logger.info(
+                            f"  Added nested param: {parent_key}[{child_key}] = "
+                            f"{values[0] if values else None}"
+                        )
                 else:
                     # For simple parameters, use the first value if not already set
                     # This handles duplicate parameters by taking the first occurrence
