@@ -302,8 +302,10 @@ class StaticMapService:
             context.add_object(rectangle)
 
             # Render the map (this will auto-center and zoom to fit the objects)
+            # This step requires outbound HTTP requests to fetch map tiles
             # Use render_cairo instead of render_pillow to avoid Pillow 10+ compatibility issues
             try:
+                logger.debug(f"Rendering map for resource {resource_id} (this requires tile downloads)")
                 cairo_surface = context.render_cairo(self.map_width, self.map_height)
                 # Convert cairo ImageSurface to Pillow Image
                 import io
@@ -315,12 +317,37 @@ class StaticMapService:
                 buf.seek(0)
                 image = Image.open(buf)
             except Exception as e:
-                logger.warning(f"Failed to render with cairo, trying pillow: {e}")
+                error_msg = str(e).lower()
+                # Check for network-related errors
+                if any(
+                    keyword in error_msg
+                    for keyword in ["connection", "timeout", "network", "unreachable", "refused"]
+                ):
+                    logger.error(
+                        f"Network error rendering map for resource {resource_id}: {e}\n"
+                        "This may indicate that outbound HTTP traffic is blocked by a firewall.\n"
+                        "The static map service requires outbound access to tile servers.\n"
+                        "Run scripts/debug_static_map.py on the server to diagnose network issues."
+                    )
+                else:
+                    logger.warning(f"Failed to render with cairo, trying pillow: {e}")
                 # Fallback to pillow if cairo fails (may fail with Pillow 10+)
                 try:
                     image = context.render_pillow(self.map_width, self.map_height)
                 except Exception as pillow_error:
-                    logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
+                    error_msg = str(pillow_error).lower()
+                    if any(
+                        keyword in error_msg
+                        for keyword in ["connection", "timeout", "network", "unreachable", "refused"]
+                    ):
+                        logger.error(
+                            f"Network error rendering map with pillow for resource {resource_id}: {pillow_error}\n"
+                            "This may indicate that outbound HTTP traffic is blocked by a firewall.\n"
+                            "The static map service requires outbound access to tile servers.\n"
+                            "Run scripts/debug_static_map.py on the server to diagnose network issues."
+                        )
+                    else:
+                        logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
                     raise
 
             # Save the map to file
