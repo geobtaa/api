@@ -16,15 +16,15 @@ servers:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: uvicorn main:app --host 0.0.0.0 --port 8000
-    directories:
-      - staticmaps:/app/static/maps
+    volumes:
+      - 'btaa-geospatial-api-staticmaps:/app/static/maps'
 
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
-    directories:
-      - staticmaps:/app/static/maps
+    volumes:
+      - 'btaa-geospatial-api-staticmaps:/app/static/maps'
 
   flower:
     hosts:
@@ -117,4 +117,3 @@ volumes:
   - esdata
   - pgdata
   - redisdata
-  - staticmaps:/app/static/maps
