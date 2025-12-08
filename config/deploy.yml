@@ -16,21 +16,43 @@ servers:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: uvicorn main:app --host 0.0.0.0 --port 8000
+    # web stays on the default Kamal network so proxy continues to work
 
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    # Use host networking so Celery workers share the host's outbound connectivity
+    options:
+      network: host
+    env:
+      clear:
+        # Override just the network-related bits for worker containers.
+        # They will talk to accessories via localhost on the host.
+        ELASTICSEARCH_URL:     http://127.0.0.1:9200
+        REDIS_HOST:            127.0.0.1
+        REDIS_PORT:            "6379"
+        REDIS_URL:             redis://127.0.0.1:6379/0
+        CELERY_BROKER_URL:     redis://127.0.0.1:6379/0
+        CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/1
 
   flower:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker flower --port=5555
+    # Flower also uses host networking so its HTTP calls (if any) work like the host
+    options:
+      network: host
+    env:
+      clear:
+        # Same Redis settings as worker
+        REDIS_HOST:            127.0.0.1
+        REDIS_PORT:            "6379"
+        REDIS_URL:             redis://127.0.0.1:6379/0
+        CELERY_BROKER_URL:     redis://127.0.0.1:6379/0
+        CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/1
 
 # Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
-# Remove this section when using multiple web servers and ensure you terminate SSL at your load balancer.
-#
-# Note: If using Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
 proxy:
   ssl: true
   host: <%= ENV['KAMAL_HOST'] %>
@@ -46,6 +68,9 @@ registry:
     - KAMAL_REGISTRY_PASSWORD
 
 # ───────────────── ENV passed into *every* container ────────────────
+# NOTE:
+# - web stays on the Kamal network and uses the Docker service names.
+# - worker/flower override the networking-related vars above to use localhost.
 env:
   clear:
     ELASTICSEARCH_URL:     http://btaa-geospatial-api-elasticsearch:9200
@@ -91,8 +116,6 @@ accessories:
     port: "127.0.0.1:9200:9200"
     directories:
       - esdata:/usr/share/elasticsearch/data
-    # Note: ulimits and healthcheck are not supported in Kamal accessories.
-    # See docs/elasticsearch_production.md for manual ulimits configuration.
 
   paradedb:
     image: paradedb/paradedb:0.18.11
@@ -113,6 +136,8 @@ accessories:
     image: redis:7.4.6-alpine
     roles: [web, worker, flower]
     cmd: redis-server --appendonly yes
+    # only listen on localhost (so host-network workers can reach it safely)
+    port: "127.0.0.1:6379:6379"
     directories:
       - redisdata:/data
 
