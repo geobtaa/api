@@ -1,8 +1,8 @@
 # Name of your application. Used to uniquely configure containers.
 service: btaa-geospatial-api
 
-# Name of the container image.
-image: ghcr.io/ewlarson/btaa-geospatial-api
+# Name of the container image (WITHOUT registry host; Kamal adds registry.server).
+image: ewlarson/btaa-geospatial-api
 
 builder:
   arch: amd64
@@ -16,43 +16,17 @@ servers:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: uvicorn main:app --host 0.0.0.0 --port 8000
-    # web stays on the default Kamal network so proxy continues to work
 
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
-    # Use host networking so Celery workers share the host's outbound connectivity
-    options:
-      network: host
-    env:
-      clear:
-        # Override just the network-related bits for worker containers.
-        # They will talk to accessories via localhost on the host.
-        ELASTICSEARCH_URL:     http://127.0.0.1:9200
-        REDIS_HOST:            127.0.0.1
-        REDIS_PORT:            "6379"
-        REDIS_URL:             redis://127.0.0.1:6379/0
-        CELERY_BROKER_URL:     redis://127.0.0.1:6379/0
-        CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/1
 
   flower:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker flower --port=5555
-    # Flower also uses host networking so its HTTP calls (if any) work like the host
-    options:
-      network: host
-    env:
-      clear:
-        # Same Redis settings as worker
-        REDIS_HOST:            127.0.0.1
-        REDIS_PORT:            "6379"
-        REDIS_URL:             redis://127.0.0.1:6379/0
-        CELERY_BROKER_URL:     redis://127.0.0.1:6379/0
-        CELERY_RESULT_BACKEND: redis://127.0.0.1:6379/1
 
-# Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
 proxy:
   ssl: true
   host: <%= ENV['KAMAL_HOST'] %>
@@ -68,9 +42,6 @@ registry:
     - KAMAL_REGISTRY_PASSWORD
 
 # ───────────────── ENV passed into *every* container ────────────────
-# NOTE:
-# - web stays on the Kamal network and uses the Docker service names.
-# - worker/flower override the networking-related vars above to use localhost.
 env:
   clear:
     ELASTICSEARCH_URL:     http://btaa-geospatial-api-elasticsearch:9200
@@ -112,7 +83,7 @@ accessories:
         cluster.routing.allocation.disk.watermark.low: "85%"
         cluster.routing.allocation.disk.watermark.high: "90%"
         cluster.routing.allocation.disk.watermark.flood_stage: "95%"
-    # only listen on localhost
+    # Optional: expose on host loopback for debugging from the VM
     port: "127.0.0.1:9200:9200"
     directories:
       - esdata:/usr/share/elasticsearch/data
@@ -126,8 +97,6 @@ accessories:
         POSTGRES_DB:   btaa_geospatial_api
       secret:
         - POSTGRES_PASSWORD
-
-    # only listen on localhost
     port: "127.0.0.1:5432:5432"
     directories:
       - pgdata:/var/lib/postgresql/data
@@ -136,8 +105,6 @@ accessories:
     image: redis:7.4.6-alpine
     roles: [web, worker, flower]
     cmd: redis-server --appendonly yes
-    # only listen on localhost (so host-network workers can reach it safely)
-    port: "127.0.0.1:6379:6379"
     directories:
       - redisdata:/data
 
