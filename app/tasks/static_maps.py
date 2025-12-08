@@ -35,14 +35,14 @@ async def generate_map_for_resource(resource_id: str, geometry: Any) -> bool:
     try:
         service = StaticMapService()
 
-        # Check if map already exists
+        # Check if map already exists in Redis
         if service.map_exists(resource_id):
             logger.debug(f"Static map already exists for resource {resource_id}")
             return True
 
-        # Generate the map
-        map_path = service.generate_map(resource_id, geometry)
-        if map_path:
+        # Generate the map (stores in Redis)
+        map_bytes = service.generate_map(resource_id, geometry)
+        if map_bytes:
             logger.info(f"Successfully generated static map for resource {resource_id}")
             return True
         else:

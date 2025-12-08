@@ -2,8 +2,10 @@
 Service for generating static maps from resource geometries.
 
 This service uses py-staticmaps to generate static map images from locn_geometry values.
+Maps are stored in Redis (like thumbnails) for sharing between containers.
 """
 
+import io
 import json
 import logging
 import os
@@ -11,9 +13,14 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+import redis
 import staticmaps
+from dotenv import load_dotenv
 from shapely import wkt as shapely_wkt
 from shapely.geometry import shape
+
+# Load environment variables
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +48,24 @@ class StaticMapService:
         """
         self.map_width = map_width
         self.map_height = map_height
-        self.maps_dir = Path(os.getenv("STATIC_MAPS_DIR", "static/maps"))
-        self.maps_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Setup Redis connection for storing maps (same as images)
+        self.redis_host = os.getenv("REDIS_HOST", "redis")
+        self.redis_port = int(os.getenv("REDIS_PORT", 6379))
+        self.redis_password = os.getenv("REDIS_PASSWORD")
+        self.redis_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
+        
+        try:
+            self.map_cache = redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                password=self.redis_password,
+                db=1,  # Use same DB as images (binary storage)
+                decode_responses=False,  # Binary mode for PNG images
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize Redis connection for static maps: {e}")
+            self.map_cache = None
 
     def _parse_bbox_to_geometry(self, bbox: str) -> Optional[Tuple[float, float, float, float]]:
         """
@@ -227,14 +250,14 @@ class StaticMapService:
 
     def generate_map(self, resource_id: str, geometry: Any) -> Optional[Path]:
         """
-        Generate a static map image from a geometry.
+        Generate a static map image from a geometry and store it in Redis.
 
         Args:
             resource_id: The resource ID
             geometry: Geometry in various formats (GeoJSON dict, WKT string, ENVELOPE string, etc.)
 
         Returns:
-            Path to the generated map file, or None if generation failed
+            PNG image bytes if successful, None if generation failed
         """
         try:
             # Parse the geometry to get bounding box coordinates
@@ -362,12 +385,27 @@ class StaticMapService:
                         logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
                     raise
 
-            # Save the map to file
-            map_path = self.maps_dir / f"{resource_id}.png"
-            image.save(map_path, "PNG")
+            # Save the map to PNG bytes instead of file
+            buf = io.BytesIO()
+            image.save(buf, "PNG")
+            map_bytes = buf.getvalue()
 
-            logger.info(f"Generated static map for resource {resource_id} at {map_path}")
-            return map_path
+            # Store in Redis
+            if self.map_cache:
+                try:
+                    map_key = f"static_map:{resource_id}"
+                    self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
+                    logger.info(
+                        f"Generated and cached static map for resource {resource_id} "
+                        f"(size: {len(map_bytes)} bytes)"
+                    )
+                    return map_bytes
+                except Exception as e:
+                    logger.error(f"Failed to cache static map for {resource_id}: {e}")
+                    return None
+            else:
+                logger.warning("Redis not available, cannot cache static map")
+                return None
 
         except Exception as e:
             logger.error(
@@ -375,29 +413,46 @@ class StaticMapService:
             )
             return None
 
-    def get_map_path(self, resource_id: str) -> Optional[Path]:
+    async def get_cached_map(self, resource_id: str) -> Optional[bytes]:
         """
-        Get the path to a static map file if it exists.
+        Retrieve a cached static map from Redis.
 
         Args:
             resource_id: The resource ID
 
         Returns:
-            Path to the map file if it exists, None otherwise
+            PNG image bytes if found, None otherwise
         """
-        map_path = self.maps_dir / f"{resource_id}.png"
-        if map_path.exists():
-            return map_path
-        return None
+        if not self.map_cache:
+            return None
+        
+        try:
+            map_key = f"static_map:{resource_id}"
+            map_data = self.map_cache.get(map_key)
+            if map_data:
+                logger.debug(f"Serving cached static map for resource {resource_id}")
+                return map_data
+            return None
+        except Exception as e:
+            logger.error(f"Error retrieving cached static map for {resource_id}: {e}")
+            return None
 
     def map_exists(self, resource_id: str) -> bool:
         """
-        Check if a static map exists for a resource.
+        Check if a static map exists in Redis cache.
 
         Args:
             resource_id: The resource ID
 
         Returns:
-            True if the map exists, False otherwise
+            True if the map exists in cache, False otherwise
         """
-        return self.get_map_path(resource_id) is not None
+        if not self.map_cache:
+            return False
+        
+        try:
+            map_key = f"static_map:{resource_id}"
+            return bool(self.map_cache.exists(map_key))
+        except Exception as e:
+            logger.error(f"Error checking if static map exists for {resource_id}: {e}")
+            return False

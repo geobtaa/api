@@ -1,5 +1,5 @@
 from fastapi import HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.sql import select
 
 from app.services.cache_service import cached_endpoint
@@ -37,17 +37,16 @@ async def get_resource_static_map(
             if not geometry:
                 return JSONResponse(content={"error": "Resource has no geometry"}, status_code=404)
 
-        # Check if map already exists
+        # Check if map already exists in Redis
         map_service = StaticMapService()
-        map_path = map_service.get_map_path(id)
-
-        if map_path and map_path.exists():
-            # Return the map image (display inline in browser)
-            # Remove filename parameter to prevent download, browser will display inline
-            return FileResponse(
-                str(map_path),
-                media_type="image/png",
-                headers={"Content-Disposition": "inline"},
+        
+        if map_service.map_exists(id):
+            # Map exists, redirect to the serving endpoint
+            from fastapi.responses import RedirectResponse
+            
+            return RedirectResponse(
+                url=f"/api/v1/static-maps/{id}",
+                status_code=302,
             )
 
         # Map doesn't exist, trigger Celery task to generate it
