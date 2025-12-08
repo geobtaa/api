@@ -164,7 +164,7 @@ class TestSearchService:
             # Verify the structure
             assert "data" in result
             assert "meta" in result
-            assert "query_time" in result
+            assert "queryTime" in result
 
             # If we have data, verify the processing worked
             if result["data"]:
@@ -177,9 +177,9 @@ class TestSearchService:
                 assert "ui_citation" in attributes
 
                 # Verify timing information
-                assert "elasticsearch" in result["query_time"]
-                assert "resource_processing" in result["query_time"]
-                assert "total_response_time" in result["query_time"]
+                assert "elasticsearch" in result["queryTime"]
+                assert "resourceProcessing" in result["queryTime"]
+                assert "totalResponseTime" in result["queryTime"]
 
         except Exception as e:
             # Handle connection errors gracefully
@@ -204,11 +204,11 @@ class TestSearchService:
 
             result = await service.search(q="map", page=1, limit=10)
 
-            # Verify suggestions were moved from meta.suggestions to meta.spelling_suggestions
+            # Verify suggestions were moved from meta.suggestions to meta.spellingSuggestions
             assert "meta" in result
-            assert "spelling_suggestions" in result["meta"]
+            assert "spellingSuggestions" in result["meta"]
             assert "suggestions" not in result["meta"]
-            assert result["meta"]["spelling_suggestions"] == ["map", "mapping", "maps"]
+            assert result["meta"]["spellingSuggestions"] == ["map", "mapping", "maps"]
 
     @pytest.mark.asyncio
     async def test_get_resource_success(self):
@@ -476,21 +476,21 @@ class TestSearchService:
         try:
             result = await service.search(q="test", page=1, limit=2)
 
-            if "query_time" in result:
-                timings = result["query_time"]
+            if "queryTime" in result:
+                timings = result["queryTime"]
 
                 # Should have all timing fields
                 assert "elasticsearch" in timings
-                assert "resource_processing" in timings
-                assert "total_response_time" in timings
+                assert "resourceProcessing" in timings
+                assert "totalResponseTime" in timings
 
                 # Resource processing should have detailed breakdown
-                processing = timings["resource_processing"]
+                processing = timings["resourceProcessing"]
                 assert "total" in processing
-                assert "per_resource" in processing
-                assert "thumbnail_service" in processing
-                assert "citation_service" in processing
-                assert "viewer_service" in processing
+                assert "perResource" in processing
+                assert "thumbnailService" in processing
+                assert "citationService" in processing
+                assert "viewerService" in processing
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -600,9 +600,9 @@ class TestSearchService:
 
             result = await service.search(q="test", page=1, limit=10)
 
-            # Should not have spelling_suggestions in meta
+            # Should not have spellingSuggestions in meta
             assert "meta" in result
-            assert "spelling_suggestions" not in result["meta"]
+            assert "spellingSuggestions" not in result["meta"]
 
     @pytest.mark.asyncio
     async def test_search_with_empty_suggestions(self):
@@ -616,10 +616,10 @@ class TestSearchService:
 
             result = await service.search(q="test", page=1, limit=10)
 
-            # Should have empty spelling_suggestions
+            # Should have empty spellingSuggestions
             assert "meta" in result
-            assert "spelling_suggestions" in result["meta"]
-            assert result["meta"]["spelling_suggestions"] == []
+            assert "spellingSuggestions" in result["meta"]
+            assert result["meta"]["spellingSuggestions"] == []
 
     @pytest.mark.asyncio
     async def test_suggest_with_no_options_in_response(self):

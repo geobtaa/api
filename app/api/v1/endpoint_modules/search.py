@@ -172,8 +172,8 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         "perPage": per_page,
         "query": q,
         "sort": sort,
-        "query_time": results.get("meta", {}).get("query_time", {}),
-        "spelling_suggestions": results.get("meta", {}).get("spelling_suggestions", []),
+        "queryTime": results.get("queryTime", {}),
+        "spellingSuggestions": results.get("meta", {}).get("spellingSuggestions", []),
     }
 
     # Build response with desired key order: jsonapi -> links -> meta -> data -> included

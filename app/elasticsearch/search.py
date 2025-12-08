@@ -42,6 +42,7 @@ KEYWORD_FILTER_FIELDS = {
     "dct_publisher_sm",
     "dcat_theme_sm",
     "dcat_keyword_sm",
+    "time_period",  # Auto-mapped as text with keyword subfield
 }
 
 
@@ -80,6 +81,10 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
         },
         "gbl_indexYear_im": {
             "field": "gbl_indexYear_im",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "time_period": {
+            "field": "time_period.keyword",
             "size": DEFAULT_FACET_SIZE,
         },
         "dct_language_sm": {
@@ -656,6 +661,9 @@ async def search_resources(
             "gbl_indexYear_im": {
                 "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
             },
+            "time_period": {
+                "terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}
+            },
             "dct_language_sm": {
                 "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
             },
@@ -1106,7 +1114,7 @@ async def process_search_response(
             logger.debug("No documents found")
             return {
                 "status": "success",
-                "query_time": {
+                "queryTime": {
                     "elasticsearch": response["took"].__str__() + "ms",
                     "postgresql": "0ms",
                 },
@@ -1232,7 +1240,7 @@ async def process_search_response(
 
         return {
             "status": "success",
-            "query_time": {
+            "queryTime": {
                 "elasticsearch": response["took"].__str__() + "ms",
                 "postgresql": f"{round(pg_query_time)}ms",
             },
@@ -1280,6 +1288,7 @@ def process_aggregations(aggregations, search_criteria):
         "resource_class_agg": "Resource Class",
         "resource_type_agg": "Resource Type",
         "index_year_agg": "Index Year",
+        "time_period": "Time Period",
         "language_agg": "Language",
         "creator_agg": "Creator",
         "provider_agg": "Provider",
@@ -1290,31 +1299,70 @@ def process_aggregations(aggregations, search_criteria):
         "geo_county_agg": "County",
     }
 
-    return [
-        {
-            "type": "facet",
-            "id": agg_name,
-            "attributes": {
-                "label": agg_labels.get(
-                    agg_name, agg_name.replace("_sm", "").replace("_", " ").title()
-                ),
-                "items": [
-                    {
-                        "attributes": {
-                            "label": bucket["key"],
-                            "value": bucket["key"],
-                            "hits": bucket["doc_count"],
-                        },
-                        "links": {
-                            "self": generate_facet_link(agg_name, bucket["key"], search_criteria)
-                        },
-                    }
-                    for bucket in agg_data["buckets"]
-                ],
-            },
-        }
-        for agg_name, agg_data in aggregations.items()
+    processed_facets = []
+
+    # Define time_period ordering (most recent first)
+    time_period_order = [
+        "2025-present",
+        "2020-2024",
+        "2015-2019",
+        "2010-2014",
+        "2005-2009",
+        "2000-2004",
+        "1950-1999",
+        "1900-1949",
+        "1850-1899",
+        "1800-1849",
+        "1700s",
+        "1600s",
+        "1500s",
+        "1400s-earlier",
     ]
+
+    # Process regular aggregations
+    for agg_name, agg_data in aggregations.items():
+        buckets = agg_data.get("buckets", [])
+
+        # Special handling for time_period to enforce chronological order
+        if agg_name == "time_period":
+            # Create a lookup for buckets by key
+            bucket_dict = {bucket["key"]: bucket for bucket in buckets}
+            # Order buckets according to time_period_order
+            ordered_buckets = []
+            for period in time_period_order:
+                if period in bucket_dict:
+                    ordered_buckets.append(bucket_dict[period])
+        else:
+            ordered_buckets = buckets
+
+        processed_facets.append(
+            {
+                "type": "facet",
+                "id": agg_name,
+                "attributes": {
+                    "label": agg_labels.get(
+                        agg_name, agg_name.replace("_sm", "").replace("_", " ").title()
+                    ),
+                    "items": [
+                        {
+                            "attributes": {
+                                "label": bucket["key"],
+                                "value": bucket["key"],
+                                "hits": bucket["doc_count"],
+                            },
+                            "links": {
+                                "self": generate_facet_link(
+                                    agg_name, bucket["key"], search_criteria
+                                )
+                            },
+                        }
+                        for bucket in ordered_buckets
+                    ],
+                },
+            }
+        )
+
+    return processed_facets
 
 
 def generate_facet_link(agg_name, facet_value, search_criteria):
@@ -1362,7 +1410,8 @@ async def get_facet_values(
     """Get facet values for a specific facet field within a search context.
 
     Args:
-        facet_name: The facet field name (e.g., 'dct_spatial_sm', 'schema_provider_s')
+        facet_name: The facet field name (e.g., 'dct_spatial_sm',
+            'schema_provider_s', 'time_period')
         query: Search query string
         fq: Legacy filter queries dict
         include_filters: Include filters dict
@@ -1505,7 +1554,9 @@ async def get_facet_values(
             aggs=search_query["aggs"],
         )
         response_dict = response.body if hasattr(response, "body") else response
-        return response_dict.get("aggregations", {}).get("facet_values", {}).get("buckets", [])
+        buckets = response_dict.get("aggregations", {}).get("facet_values", {}).get("buckets", [])
+
+        return buckets
     except Exception as es_error:
         logger.error(f"Elasticsearch error getting facet values: {str(es_error)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(es_error)) from es_error
@@ -1542,8 +1593,34 @@ def process_facet_response(
             bucket for bucket in buckets if q_facet_lower in str(bucket.get("key", "")).lower()
         ]
 
+    # Define time_period chronological order (most recent first)
+    time_period_order = [
+        "2025-present",
+        "2020-2024",
+        "2015-2019",
+        "2010-2014",
+        "2005-2009",
+        "2000-2004",
+        "1950-1999",
+        "1900-1949",
+        "1850-1899",
+        "1800-1849",
+        "1700s",
+        "1600s",
+        "1500s",
+        "1400s-earlier",
+    ]
+
+    # Special handling for time_period - default to chronological order
+    if facet_name == "time_period" and sort == "count_desc":
+        # Use chronological order for time_period by default
+        bucket_dict = {bucket["key"]: bucket for bucket in filtered_buckets}
+        filtered_buckets = []
+        for period in time_period_order:
+            if period in bucket_dict:
+                filtered_buckets.append(bucket_dict[period])
     # Sort buckets based on sort parameter
-    if sort == "count_desc":
+    elif sort == "count_desc":
         filtered_buckets = sorted(
             filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
         )
@@ -1560,10 +1637,17 @@ def process_facet_response(
             filtered_buckets, key=lambda x: str(x.get("key", "")).lower(), reverse=True
         )
     else:
-        # Default to count_desc
-        filtered_buckets = sorted(
-            filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
-        )
+        # Default to count_desc (or chronological for time_period)
+        if facet_name == "time_period":
+            bucket_dict = {bucket["key"]: bucket for bucket in filtered_buckets}
+            filtered_buckets = []
+            for period in time_period_order:
+                if period in bucket_dict:
+                    filtered_buckets.append(bucket_dict[period])
+        else:
+            filtered_buckets = sorted(
+                filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
+            )
 
     # Calculate pagination
     total_count = len(filtered_buckets)

@@ -59,7 +59,8 @@ async def test_search_success(monkeypatch):
                     {"id": "r1", "score": 0.9, "attributes": {"id": "r1"}},
                     {"id": "r2", "score": 0.8, "attributes": {"id": "r2"}},
                 ],
-                "meta": {"pages": {"total_count": 2, "total_pages": 1}, "query_time": {}},
+                "meta": {"pages": {"total_count": 2, "total_pages": 1}, "suggestions": []},
+                "queryTime": {},
                 "included": [{"type": "agg", "id": "f"}],
             }
 

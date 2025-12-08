@@ -305,7 +305,9 @@ class StaticMapService:
             # This step requires outbound HTTP requests to fetch map tiles
             # Use render_cairo instead of render_pillow to avoid Pillow 10+ compatibility issues
             try:
-                logger.debug(f"Rendering map for resource {resource_id} (this requires tile downloads)")
+                logger.debug(
+                    f"Rendering map for resource {resource_id} (this requires tile downloads)"
+                )
                 cairo_surface = context.render_cairo(self.map_width, self.map_height)
                 # Convert cairo ImageSurface to Pillow Image
                 import io
@@ -338,13 +340,23 @@ class StaticMapService:
                     error_msg = str(pillow_error).lower()
                     if any(
                         keyword in error_msg
-                        for keyword in ["connection", "timeout", "network", "unreachable", "refused"]
+                        for keyword in [
+                            "connection",
+                            "timeout",
+                            "network",
+                            "unreachable",
+                            "refused",
+                        ]
                     ):
                         logger.error(
-                            f"Network error rendering map with pillow for resource {resource_id}: {pillow_error}\n"
-                            "This may indicate that outbound HTTP traffic is blocked by a firewall.\n"
-                            "The static map service requires outbound access to tile servers.\n"
-                            "Run scripts/debug_static_map.py on the server to diagnose network issues."
+                            f"Network error rendering map with pillow for resource "
+                            f"{resource_id}: {pillow_error}\n"
+                            "This may indicate that outbound HTTP traffic is blocked "
+                            "by a firewall.\n"
+                            "The static map service requires outbound access to "
+                            "tile servers.\n"
+                            "Run scripts/debug_static_map.py on the server to "
+                            "diagnose network issues."
                         )
                     else:
                         logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")

@@ -299,7 +299,7 @@ def test_allmaps_attributes_placement():
             assert "meta" in data["data"]
             assert "ui" in data["data"]["meta"]
 
-            # Check that Allmaps attributes are NOT in data.attributes
+            # Check that Allmaps attributes are NOT in data.attributes (ogm or b1g)
             attributes = data["data"]["attributes"]
             allmaps_keys = [
                 "allmaps_id",
@@ -310,9 +310,16 @@ def test_allmaps_attributes_placement():
                 "ui_allmaps_manifest_uri",
             ]
 
+            # Check both ogm and b1g namespaces if they exist
+            ogm_attrs = attributes.get("ogm", {})
+            b1g_attrs = attributes.get("b1g", {})
+            
             for key in allmaps_keys:
-                assert key not in attributes, (
-                    f"Allmaps attribute '{key}' should not be in data.attributes"
+                assert key not in ogm_attrs, (
+                    f"Allmaps attribute '{key}' should not be in data.attributes.ogm"
+                )
+                assert key not in b1g_attrs, (
+                    f"Allmaps attribute '{key}' should not be in data.attributes.b1g"
                 )
 
             # Check that Allmaps attributes ARE in meta.ui.allmaps
@@ -384,11 +391,15 @@ def test_geometry_fields_consistency():
                 # Define the expected clean Aardvark geometry fields
                 expected_geometry_fields = ["locn_geometry", "dcat_bbox", "dcat_centroid"]
 
-                # Check that both endpoints have the same clean geometry fields
+                # Get ogm attributes from both (fields should be in ogm namespace)
+                individual_ogm = individual_attrs.get("ogm", {})
+                search_ogm = search_attrs.get("ogm", {})
+
+                # Check that both endpoints have the same clean geometry fields in ogm
                 for field in expected_geometry_fields:
-                    # Both should have the field
-                    assert field in individual_attrs, f"Individual endpoint missing {field}"
-                    assert field in search_attrs, f"Search endpoint missing {field}"
+                    # Both should have the field in ogm namespace
+                    assert field in individual_ogm, f"Individual endpoint missing {field} in ogm"
+                    assert field in search_ogm, f"Search endpoint missing {field} in ogm"
 
                     # Values should be identical
                     assert individual_attrs[field] == search_attrs[field], (
