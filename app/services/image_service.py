@@ -20,6 +20,40 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+# Shared Redis connection pool to avoid creating new connections for each ImageService instance
+_redis_connection_pool = None
+_redis_image_connection_pool = None
+
+
+def _get_redis_connection_pool():
+    """Get or create shared Redis connection pool for text cache (db=0)."""
+    global _redis_connection_pool
+    if _redis_connection_pool is None:
+        _redis_connection_pool = redis.ConnectionPool(
+            host=os.getenv("REDIS_HOST", "redis"),
+            port=int(os.getenv("REDIS_PORT", 6379)),
+            password=os.getenv("REDIS_PASSWORD"),
+            db=0,
+            decode_responses=True,
+            max_connections=50,
+        )
+    return _redis_connection_pool
+
+
+def _get_redis_image_connection_pool():
+    """Get or create shared Redis connection pool for binary images (db=1)."""
+    global _redis_image_connection_pool
+    if _redis_image_connection_pool is None:
+        _redis_image_connection_pool = redis.ConnectionPool(
+            host=os.getenv("REDIS_HOST", "redis"),
+            port=int(os.getenv("REDIS_PORT", 6379)),
+            password=os.getenv("REDIS_PASSWORD"),
+            db=1,
+            decode_responses=False,
+            max_connections=50,
+        )
+    return _redis_image_connection_pool
+
 
 class ImageService:
     """Service for handling different types of image assets."""
@@ -41,36 +75,28 @@ class ImageService:
         self.distribution_context = distribution_context
         self.by_uri = distribution_context.by_uri
 
-        # Setup Redis connection
+        # Setup Redis connection using shared connection pool (reuse connections)
         self.redis_host = os.getenv("REDIS_HOST", "redis")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-        self.cache = redis.Redis(
-            host=self.redis_host,
-            port=self.redis_port,
-            password=os.getenv("REDIS_PASSWORD"),
-            db=0,
-            decode_responses=True,
-        )
+        
+        # Use shared connection pool to avoid creating new connections for each instance
+        self.cache = redis.Redis(connection_pool=_get_redis_connection_pool())
         self.cache_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days in seconds
 
-        # Setup binary Redis connection for images
-        self.image_cache = redis.Redis(
-            host=self.redis_host,
-            port=self.redis_port,
-            password=os.getenv("REDIS_PASSWORD"),
-            db=1,  # Use different DB for images
-            decode_responses=False,
-        )
+        # Setup binary Redis connection for images using shared connection pool
+        self.image_cache = redis.Redis(connection_pool=_get_redis_image_connection_pool())
 
-        # Setup logging
+        # Setup logging (reuse logger, don't create new handlers for each instance)
         self.logger = logging.getLogger("ImageService")
-        log_path = os.getenv("LOG_PATH", "logs")
-        os.makedirs(log_path, exist_ok=True)
-        log_handler = logging.FileHandler(os.path.join(log_path, "image_service.log"))
-        log_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
-        self.logger.addHandler(log_handler)
-        self.logger.setLevel(logging.INFO)
+        # Only set level if not already configured (avoid reconfiguring on every instance)
+        if not self.logger.handlers:
+            log_path = os.getenv("LOG_PATH", "logs")
+            os.makedirs(log_path, exist_ok=True)
+            log_handler = logging.FileHandler(os.path.join(log_path, "image_service.log"))
+            log_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+            self.logger.addHandler(log_handler)
+            self.logger.setLevel(logging.INFO)
 
         # print(f"Document WXS: {self.metadata.get('gbl_wxsidentifier_s')}")
 
