@@ -1,7 +1,6 @@
 from typing import Optional
 
 from fastapi import HTTPException, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import create_response

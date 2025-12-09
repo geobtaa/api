@@ -1,5 +1,5 @@
 from fastapi import HTTPException, Request
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
 from app.services.cache_service import cached_endpoint

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import HTTPException, Query
+from fastapi import Query
 from fastapi.responses import JSONResponse
 
 from app.api.v1.utils import create_response

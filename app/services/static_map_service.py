@@ -5,7 +5,6 @@ This service uses py-staticmaps to generate static map images from locn_geometry
 Maps are stored in Redis (like thumbnails) for sharing between containers.
 """
 
-import io
 import json
 import logging
 import os
