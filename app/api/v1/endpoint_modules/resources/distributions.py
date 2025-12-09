@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.sql import select
 
-from app.api.v1.utils import create_jsonapi_response, sanitize_for_json
+from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.cache_service import cached_endpoint
 from db.models import resources
 
@@ -61,22 +61,12 @@ async def get_resource_distributions(
                 dist_dict = sanitize_for_json(dict(dist._mapping))
                 distributions_list.append(dist_dict)
 
-            # Create JSON:API compliant response
-            request_url = str(request.url) if request else None
-            jsonapi_response = create_jsonapi_response(
-                data={
-                    "type": "distributions",
-                    "id": id,
-                    "attributes": {
-                        "distributions": distributions_list,
-                        "count": len(distributions_list),
-                    },
-                },
-                request_url=request_url,
-                callback=callback,
-            )
+            response_payload = {
+                "id": id,
+                "distributions": distributions_list,
+            }
 
-            return JSONResponse(content=jsonapi_response)
+            return create_response(response_payload, callback)
 
     except Exception as e:
         logger.error(f"Error getting distributions for resource {id}: {str(e)}", exc_info=True)
