@@ -2,7 +2,7 @@
 
 {% include-markdown "includes/wip.md" %}
 
-**Version:** 0.1.1-pre-alpha   **Status:** *DRAFT*   **Release Date:** 2025‑08‑22
+**Version:** 0.3.0-pre-alpha   **Status:** *DRAFT*   **Release Date:** 2025‑12‑09
 
 ## Editors
 
@@ -42,6 +42,8 @@ The goal of this specification is to enable consistent client and server impleme
 
 | Version | Date | Notes |
 | :---- | :---- | :---- |
+| 0.3.0-pre-alpha | 2025-12-09 | Endpoints added for facet pagination, search supporting adv_q param for advanced search, lots of polish and refinement. |
+| 0.2.0-pre-alpha | 2025-10-23 | Search endpoint enchancements. Support for additional parameters: search_field, fields, facets, include and exclude filters, and meta |
 | 0.1.1-pre-alpha | 2025‑08‑22 | Broad revisions. |
 | 0.1.0-pre-alpha | 2025‑07‑22 | Initial draft. |
 

@@ -42,17 +42,17 @@ A collection of semantic web resources that provide standardized data models and
 
 ### For API Users
 
-1. **Read the [API Documentation](api/index.md)** - Complete specification and examples
-2. **Check [Authentication](api/authentication.md)** - API key requirements
-3. **Explore [Endpoints](api/requests.md)** - Available API operations
-4. **Review [Rate Limits](api/rate_limiting.md)** - Usage guidelines
+1. **Read the [API Documentation](specification/index.md)** - Complete specification and examples
+2. **Check [Authentication](specification/authentication.md)** - API key requirements
+3. **Explore [Endpoints](specification/requests.md)** - Available API operations
+4. **Review [Rate Limits](specification/rate_limiting.md)** - Usage guidelines
 
 ### For Linked Data Developers
 
 1. **Browse [Linked Data Assets](linked-data/)** - Contexts, profiles, and schemas
 2. **Check [Schemas](linked-data/schemas.md)** - JSON Schema validation
 3. **Review [API Reference](linked-data/reference.md)** - Technical specifications
-4. **Explore [Standards](api/standards.md)** - Compliance and interoperability
+4. **Explore [Standards](specification/standards.md)** - Compliance and interoperability
 
 ## Use Cases
 

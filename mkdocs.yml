@@ -1,7 +1,7 @@
 site_name: BTAA Geospatial API &amp; Linked Data
 site_description: "BTAA Geospatial API and linked data assets: contexts, profiles, schemas, etc."
 copyright: "&copy; 2025 BTAA GIN"
-repo_url: https://github.com/geobtaa/ld
+repo_url: https://github.com/geobtaa/api
 
 theme:
   name: material
@@ -85,25 +85,30 @@ extra:
 nav:
 - 'Home':
   - 'Overview': index.md
-  - 'BTAA Geospatial API': api/index.md
+  - 'BTAA Geospatial API': specification/index.md
   - 'Linked Data': linked-data/index.md
 
 - 'API':
-  - 'Specification': 'api/index.md'
-  - 'Standards': 'api/standards.md'
-  - 'Metadata': 'api/metadata.md'
-  - 'Protocol': 'api/protocol.md'
-  - 'Authentication': 'api/authentication.md'
-  - 'Rate Limiting': 'api/rate_limiting.md'
-  - 'Requests (Endpoints)': 'api/requests.md'
-  - 'Responses': 'api/responses.md'
-  - 'Parameters': 'api/parameters.md'
-  - 'Model Context Protocol': 'api/model_context_protocol.md'
-  - 'Error Handling': 'api/error_handling.md'
-  - 'Security': 'api/security.md'
+  - 'Specification': 'specification/index.md'
+  - 'Requests (Endpoints)': 'specification/requests.md'
+  - 'Standards': 'specification/standards.md'
+  - 'Metadata': 'specification/metadata.md'
+  - 'Protocol': 'specification/protocol.md'
+  - 'Authentication': 'specification/authentication.md'
+  - 'Rate Limiting': 'specification/rate_limiting.md'
+  - 'Response Objects': 'specification/response_objects.md'
+  - 'Parameters': 'specification/parameters.md'
+  - 'Model Context Protocol': 'specification/model_context_protocol.md'
+  - 'Error Handling': 'specification/error_handling.md'
+  - 'Security': 'specification/security.md'
 
 - 'Linked Data':
   - 'Overview': 'linked-data/index.md'
   - 'Contexts': 'linked-data/contexts.md'
   - 'Profiles': 'linked-data/profiles.md'
   - 'Schemas': 'linked-data/schemas.md'
+
+- 'Tutorial':
+  - 'Overview': 'specification/tutorial/index.md'
+  - 'Presentation': 'specification/tutorial/presentation.html'
+  - 'Code Examples': 'specification/tutorial/examples.html'

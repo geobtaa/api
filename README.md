@@ -13,8 +13,8 @@ This repository includes comprehensive documentation built with MkDocs. You can:
 ## Quick Start
 
 1. Install dependencies: `pip install -r requirements.txt`
-2. Start documentation server: `mkdocs serve`
-3. Open your browser to `http://127.0.0.1:8000/`
+2. Start documentation server: `mkdocs serve` (or `mkdocs serve --dev-addr 127.0.0.1:8001` for a different port)
+3. Open your browser to `http://127.0.0.1:8000/` (or `http://127.0.0.1:8001/` if using a custom port)
 
 ## Repository Structure
 

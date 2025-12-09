@@ -95,3 +95,292 @@ label[for="__drawer"] {
 .md-nav__list>*:first-child {
     margin-top: 0;
 }
+
+/* Prevent text wrapping in first column of tables */
+.md-typeset table td:first-child,
+.md-typeset table th:first-child {
+    white-space: nowrap;
+}
+
+/* Tutorial-specific styles */
+.example-block {
+    background-color: #f9f9f9;
+    border: 1px solid #ddd;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    border-radius: 8px;
+}
+
+.example-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.badge {
+    background-color: #000000;
+    color: #0088CE;
+    padding: 0.2rem 0.6rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: bold;
+}
+
+/* Run button styles */
+.run-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-top: 10px;
+    transition: transform 0.2s;
+}
+
+.run-btn:hover {
+    transform: scale(1.05);
+}
+
+.run-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Output area */
+.output-area {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 0px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    display: none;
+}
+
+.output-area.visible {
+    display: block;
+}
+
+/* Copy button */
+.copy-btn {
+    position: absolute;
+    top: 10px;
+    right: 24px;
+    background: #2d3748;
+    color: white;
+    border: 1px solid #4a5568;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s;
+    z-index: 10;
+}
+
+.copy-btn:hover {
+    background: #4a5568;
+}
+
+.copy-btn:active {
+    transform: scale(0.95);
+}
+
+/* Tab styles */
+.tabs {
+    display: flex;
+    margin-bottom: 0;
+    background: #2d3748;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+    overflow: hidden;
+    margin-top: 20px;
+}
+
+.tab-btn {
+    background: transparent;
+    border: none;
+    color: #a0aec0;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-btn:hover {
+    color: white;
+    background: #4a5568;
+}
+
+.tab-btn.active {
+    color: white;
+    background: #4a5568;
+    border-bottom: 2px solid #667eea;
+}
+
+.tab-content {
+    display: none;
+    background: #2d2d2d;
+    border-bottom-left-radius: 8px;
+    border-bottom-right-radius: 8px;
+    min-height: 200px;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.tab-content pre {
+    margin: 0;
+    border-radius: 0 0 8px 8px;
+    border: none;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.json-area {
+    color: #d4d4d4;
+    font-family: 'Courier New', monospace;
+    padding: 15px;
+    white-space: pre !important;
+    overflow-x: auto;
+}
+
+/* Slide styles for tutorial */
+#slide-container {
+    position: relative;
+    min-height: 600px;
+}
+
+.slide {
+    display: none;
+}
+
+.slide.active {
+    display: block;
+    animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Controls */
+.controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin: 30px 0;
+    padding: 20px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 10px;
+}
+
+.controls button {
+    background: white;
+    color: #667eea;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.controls button:hover:not(:disabled) {
+    background: #f7fafc;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#fullscreenBtn {
+    font-size: 20px;
+    padding: 8px 16px;
+}
+
+#slide-indicator {
+    color: white;
+    font-weight: 600;
+    min-width: 120px;
+    text-align: center;
+}
+
+/* Collapsible example sections */
+
+.example-block {
+    margin-top: 1rem;
+    margin-bottom: 0rem;
+}
+.example-header > h3 {
+    margin: 0.5rem 0rem 0rem 0rem;
+}
+
+.example-collapsible {
+    margin: 1.5rem 0;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+    overflow: hidden;
+}
+
+.example-collapsible summary {
+    margin-bottom: 1rem
+    padding: 0.5rem;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 1.1em;
+    color: #772424;
+    background-color: #f0f0f0;
+    user-select: none;
+    list-style: none;
+    position: relative;
+    transition: background-color 0.2s;
+}
+
+.example-collapsible summary::-webkit-details-marker {
+    display: none;
+}
+
+.example-collapsible summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 0.5rem;
+    transition: transform 0.2s;
+    color: #772424;
+}
+
+.example-collapsible[open] summary::before {
+    transform: rotate(90deg);
+}
+
+.example-collapsible summary:hover {
+    background-color: #e8e8e8;
+}
+
+.example-collapsible > *:not(summary) {
+    padding: 0 1.5rem 1.5rem 1.5rem;
+}
+
+/* Override Prism theme margin for code blocks */
+pre[class*=language-] {
+    margin: 0 !important;
+}
