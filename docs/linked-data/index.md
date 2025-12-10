@@ -67,12 +67,11 @@ We adhere to established standards and best practices:
 
 - [JSON-LD](https://json-ld.org/) for data serialization
 - [OpenGeoMetadata](https://opengeometadata.org/) for geospatial metadata standards
-- []
 - [JSON Schema](https://json-schema.org/) for validation
 
 ## Contact
 
 For questions about our linked data assets or to contribute, please:
-- [Open an issue](https://github.com/geobtaa/ld/issues) on GitHub
+- [Open an issue](https://github.com/geobtaa/api/issues) on GitHub
 - Contact the BTAA Geospatial Data Working Group
 - Join our community discussions 

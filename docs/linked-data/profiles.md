@@ -30,7 +30,7 @@ JSON-LD profiles are specifications that define how to use JSON-LD in a particul
 
 **Purpose**: Comprehensive geospatial resource description using the OpenGeoMetadata Aardvark schema with BTAA-specific extensions
 
-**File**: [`profiles/ogm-aardvark-btaa.profile.jsonld`](../profiles/ogm-aardvark-btaa.profile.jsonld)
+**File**: [`https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld`](https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld)
 
 **Scope**: JSON:API Resource attributes for maps, datasets, imagery, and collections in the BTAA network
 
@@ -97,7 +97,7 @@ The profile requires at least one of the following temporal properties:
 
 ```json
 {
-  "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
+  "@context": "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld",
   "@type": "Dataset",
   "id": "msn-id-1897",
   "dct_title_s": "Wisconsin Population Density 2020",
@@ -119,7 +119,7 @@ The profile requires at least one of the following temporal properties:
 
 **Purpose**: Non-RDF UI overlay for BTAA resources carried in JSON:API Resource meta
 
-**File**: [`profiles/ogm-ui.profile.jsonld`](../profiles/ogm-ui.profile.jsonld)
+**File**: [`https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld`](https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld)
 
 **Scope**: UI-specific metadata for viewer integration and citation display
 

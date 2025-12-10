@@ -17,7 +17,7 @@ Review a slide deck from the original presentation. [Google Slides - BTAA Geospa
 ### **BTAA Geospatial API**
 A read-only, OpenGeoMetadata API-compliant web service for programmatically accessing, searching, and retrieving metadata records that conform to the BTAA GIN's extended-OGM Aardvark schema.
 
-[BTAA Geospatial API Documentation :octicons-arrow-right-24:](/api){ .md-button .md-button--primary }
+[BTAA Geospatial API Specification :octicons-arrow-right-24:](/specification){ .md-button .md-button--primary }
 
 #### Key Features
 
@@ -30,7 +30,7 @@ A read-only, OpenGeoMetadata API-compliant web service for programmatically acce
 ### **Linked Data Assets**
 A collection of semantic web resources that provide standardized data models and schemas for BTAA geospatial metadata.
 
-[Linked Data Asset Documentation :octicons-arrow-right-24:](/ld){ .md-button .md-button--primary }
+[Linked Data Asset Documentation :octicons-arrow-right-24:](/linked-data/){ .md-button .md-button--primary }
 
 **Available Assets:**
 

@@ -18,7 +18,7 @@ Schemas in this repository define:
 
 ### OGM Aardvark Resource Record for BTAA Geospatial
 
-**File**: [`schemas/ogm-aardvark-btaa.schema.json`](../schemas/ogm-aardvark-btaa.schema.json)
+**File**: [`https://gin.btaa.org/api/v1/ld/schemas/ogm-aardvark-btaa.schema.json`](https://gin.btaa.org/api/v1/ld/schemas/ogm-aardvark-btaa.schema.json)
 
 Validates OpenGeoMetadata Aardvark schema fields with BTAA custom elements for geospatial resource records.
 
@@ -169,8 +169,8 @@ Schemas work alongside JSON-LD contexts to provide both structural validation an
 
 ```json
 {
-  "$schema": "https://gin.btaa.org/ld/schemas/ogm-aardvark-btaa.schema.json",
-  "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
+  "$schema": "https://gin.btaa.org/api/v1/ld/schemas/ogm-aardvark-btaa.schema.json",
+  "@context": "https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld",
   "@type": "Dataset",
   "id": "validated-resource",
   "dct_title_s": "Validated Dataset",
@@ -182,7 +182,7 @@ Schemas work alongside JSON-LD contexts to provide both structural validation an
 
 All schemas are registered with canonical URIs:
 
-- `https://gin.btaa.org/ld/schemas/ogm-aardvark-btaa.schema.json`
+- `https://gin.btaa.org/api/v1/ld/schemas/ogm-aardvark-btaa.schema.json`
 
 These URIs can be referenced in `$schema` fields for IDE support and validation tools.
 

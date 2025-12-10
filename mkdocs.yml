@@ -90,7 +90,7 @@ nav:
 
 - 'API':
   - 'Specification': 'specification/index.md'
-  - 'Requests (Endpoints)': 'specification/requests.md'
+  - 'Endpoints': 'specification/endpoints.md'
   - 'Standards': 'specification/standards.md'
   - 'Metadata': 'specification/metadata.md'
   - 'Protocol': 'specification/protocol.md'

@@ -1,4 +1,4 @@
-# Requests (Endpoints)
+# Endpoints
 
 <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
 <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
@@ -12,6 +12,11 @@ packages = ["requests", "pyodide-http"]
 </py-config>
 
 {% include-markdown "includes/wip.md" %}
+
+## API Swagger Documentation
+
+### Development Server
+https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/docs
 
 ## Search Endpoint
 
@@ -107,7 +112,6 @@ Supports both GET (simple) and POST (complex) forms.
         'resource-citation': 'example-resource-citation',
         'resource-downloads': 'example-resource-downloads',
         'resource-similar-items': 'example-resource-similar-items',
-        'resource-location': 'example-resource-location',
         'resource-static-map': 'example-resource-static-map',
         'resource-thumbnail': 'example-resource-thumbnail',
         'resource-viewer': 'example-resource-viewer'
@@ -184,6 +188,45 @@ Supports both GET (simple) and POST (complex) forms.
 | `meta` | boolean | Include META (default true) |
 | `adv_q` | string | JSON array of advanced query clauses. Example: `{'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}` | 
 
+## Search Facet Pagination
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/search/facets/{facet_name}` | Get paginated, sortable facet values for a specific facet field within a search resultset. |
+
+#### Interactive Example: Search Facet Pagination
+
+{% include "includes/examples/example-26-facet-pagination.html" %}
+
+**Parameters**
+
+| Name | Type | Req? | Description |
+| :---- | :---- | :---- | :---- |
+| `facet_name` | string | ✔️ | Facet field name (e.g., `gbl_resourceClass_sm`) |
+| `q` | string |  | Search query to filter resultset |
+| `page` | integer |  | Page number (minimum: 1, default: 1) |
+| `per_page` | integer |  | Facet values per page (1-100, default: 10) |
+| `sort` | string |  | Sort option: `count_desc`, `count_asc`, `alpha_asc`, `alpha_desc` (default: `count_desc`) |
+| `q_facet` | string |  | Search query to filter facet values |
+| `adv_q` | string |  | JSON array of advanced query clauses. Each clause: `{'op': 'AND\|OR\|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}` |
+
+## Search Autosuggestions
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/suggest` | Get search suggestions. |
+
+#### Interactive Example: Search Autosuggestions
+
+{% include "includes/examples/example-27-suggest.html" %}
+
+**Parameters**
+
+| Name | Type | Req? | Description |
+| :---- | :---- | :---- | :---- |
+| `q` | string | ✔️ | Search query for suggestions |
+| `callback` | string |  | JSONP callback name |
+
 ## Resource Endpoint
 
 | Method | Path | Notes |
@@ -235,13 +278,6 @@ Supports both GET (simple) and POST (complex) forms.
 <summary><strong>Resource — Links</strong></summary>
 
 {% include "includes/examples/example-14-resource-links.html" %}
-
-</details>
-
-<details id="example-resource-location" class="example-collapsible">
-<summary><strong>Resource — Location</strong></summary>
-
-{% include "includes/examples/example-22-resource-location.html" %}
 
 </details>
 

@@ -19,7 +19,7 @@ Contexts in this repository define:
 
 The primary context for GeoBTAA metadata records, extending the OpenGeoMetadata Aardvark schema with BTAA-specific elements.
 
-**File**: [`contexts/ogm-aardvark-btaa.context.jsonld`](../contexts/ogm-aardvark-btaa.context.jsonld)
+**File**: [`https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld`](https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld)
 
 This context provides mappings for:
 
@@ -62,7 +62,7 @@ This context provides mappings for:
 
 A specialized context for OpenGeoMetadata UI components and viewer integrations.
 
-**File**: [`contexts/ogm-ui.context.jsonld`](../contexts/ogm-ui.context.jsonld)
+**File**: [`https://gin.btaa.org/api/v1/ld/contexts/ogm-ui.context.jsonld`](https://gin.btaa.org/api/v1/ld/contexts/ogm-ui.context.jsonld)
 
 This context provides mappings for:
 
@@ -77,7 +77,7 @@ This context provides mappings for:
 
 ```json
 {
-  "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
+  "@context": "https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld",
   "@type": "Dataset",
   "dct_title_s": "Example Geospatial Dataset",
   "dct_creator_sm": ["University of Example"],
@@ -91,8 +91,8 @@ This context provides mappings for:
 ```json
 {
   "@context": [
-    "https://raw.githubusercontent.com/geobtaa/ld/main/contexts/btaa-aardvark.context.jsonld",
-    "https://raw.githubusercontent.com/geobtaa/ld/main/contexts/ogm-ui.context.jsonld"
+    "https://gin.btaa.org/api/v1/ld/contexts/ogm-aardvark-btaa.context.jsonld",
+    "https://gin.btaa.org/api/v1/ld/contexts/ogm-ui.context.jsonld"
   ],
   "@type": "Dataset",
   "dct_title_s": "Example Dataset",
