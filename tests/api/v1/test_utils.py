@@ -303,8 +303,8 @@ class TestCreateJsonapiResponse:
         result = create_jsonapi_response(data)
 
         profiles = result["jsonapi"]["profile"]
-        assert "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld" in profiles
-        assert "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld" in profiles
+        assert "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld" in profiles
+        assert "https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld" in profiles
 
 
 class TestCreateJsonapiResource:
@@ -408,7 +408,6 @@ class TestCreateJsonapiResource:
         result = create_jsonapi_resource(resource_data)
 
         assert "b1g" in result["attributes"]
-        assert "ogm" not in result["attributes"]
 
 
 class TestCreatePaginationLinks:

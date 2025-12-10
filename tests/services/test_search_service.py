@@ -251,7 +251,6 @@ class TestSearchService:
             result = await service.get_resource("test-id", include_relationships=True)
 
             if "data" in result:
-                attributes = result["data"]["attributes"]
                 # UI fields should be in meta.ui, not in attributes
                 # Check meta.ui structure instead
                 assert "meta" in result["data"]

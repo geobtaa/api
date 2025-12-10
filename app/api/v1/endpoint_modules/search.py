@@ -124,7 +124,8 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         for rd in resource_data:
             d = lookup.get(rd["id"]) or {}
             obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
-            # obj["attributes"] is already nested with "ogm" and "b1g" structure from create_jsonapi_resource
+            # obj["attributes"] is already nested with "ogm" and "b1g" structure
+            # from create_jsonapi_resource
             attrs = obj.get("attributes", {})
             
             # Attach ES scoring and overlap ratio info into per-resource meta for debugging
