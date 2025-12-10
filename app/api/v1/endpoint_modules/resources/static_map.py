@@ -11,7 +11,6 @@ from . import RESOURCE_CACHE_TTL, async_session, logger, router
 
 
 @router.get("/resources/{id}/static-map")
-@router.get("/resources/{id}/location")
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource_static_map(
     id: str,
