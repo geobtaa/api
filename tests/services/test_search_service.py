@@ -172,9 +172,17 @@ class TestSearchService:
                 assert "attributes" in first_resource
                 attributes = first_resource["attributes"]
 
-                # These should be added by the processing loop
-                assert "ui_thumbnail_url" in attributes
-                assert "ui_citation" in attributes
+                # Attributes should be nested with ogm and/or b1g structure
+                assert isinstance(attributes, dict)
+                # Check for nested structure (ogm and/or b1g)
+                if "ogm" in attributes:
+                    assert isinstance(attributes["ogm"], dict)
+                if "b1g" in attributes:
+                    assert isinstance(attributes["b1g"], dict)
+                
+                # UI fields should be in meta.ui, not in attributes
+                assert "ui_thumbnail_url" not in attributes
+                assert "ui_citation" not in attributes
 
                 # Verify timing information
                 assert "elasticsearch" in result["queryTime"]
@@ -244,7 +252,10 @@ class TestSearchService:
 
             if "data" in result:
                 attributes = result["data"]["attributes"]
-                assert "ui_relationships" in attributes
+                # UI fields should be in meta.ui, not in attributes
+                # Check meta.ui structure instead
+                assert "meta" in result["data"]
+                assert "ui" in result["data"]["meta"]
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -262,8 +273,13 @@ class TestSearchService:
 
             if "data" in result:
                 attributes = result["data"]["attributes"]
-                assert "ui_summaries" in attributes
-                assert isinstance(attributes["ui_summaries"], list)
+                # Attributes should have nested structure (ogm and/or b1g)
+                assert isinstance(attributes, dict)
+                # UI fields should be in meta.ui, not in attributes
+                assert "meta" in result["data"]
+                assert "ui" in result["data"]["meta"]
+                assert "similar_items" in result["data"]["meta"]["ui"]
+                assert isinstance(result["data"]["meta"]["ui"]["similar_items"], list)
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -284,8 +300,14 @@ class TestSearchService:
             if "data" in result:
                 attributes = result["data"]["attributes"]
                 # Should not have these fields
-                assert "ui_relationships" not in attributes
-                assert "ui_summaries" not in attributes
+                # UI fields should not be in attributes (they're in meta.ui)
+                # Attributes should only contain ogm and/or b1g
+                if "ogm" in attributes:
+                    assert "ui_relationships" not in attributes["ogm"]
+                    assert "ui_summaries" not in attributes["ogm"]
+                if "b1g" in attributes:
+                    assert "ui_relationships" not in attributes["b1g"]
+                    assert "ui_summaries" not in attributes["b1g"]
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -320,10 +342,15 @@ class TestSearchService:
 
                     assert "data" in result
                     attributes = result["data"]["attributes"]
+                    # Attributes should have nested structure (ogm and/or b1g)
+                    assert isinstance(attributes, dict)
+                    # dct_references_s should be in ogm namespace
+                    assert "ogm" in attributes
+                    assert "dct_references_s" in attributes["ogm"]
                     # Should be parsed as dict, not string
-                    assert isinstance(attributes["dct_references_s"], dict)
+                    assert isinstance(attributes["ogm"]["dct_references_s"], dict)
                     assert (
-                        attributes["dct_references_s"]["download"] == "http://example.com/download"
+                        attributes["ogm"]["dct_references_s"]["download"] == "http://example.com/download"
                     )
                 except Exception as e:
                     # Handle event loop issues gracefully
@@ -353,8 +380,13 @@ class TestSearchService:
 
                     assert "data" in result
                     attributes = result["data"]["attributes"]
+                    # Attributes should have nested structure (ogm and/or b1g)
+                    assert isinstance(attributes, dict)
+                    # dct_references_s should be in ogm namespace
+                    assert "ogm" in attributes
+                    assert "dct_references_s" in attributes["ogm"]
                     # Should remain as string when JSON parsing fails
-                    assert attributes["dct_references_s"] == "invalid json{"
+                    assert attributes["ogm"]["dct_references_s"] == "invalid json{"
                 except Exception as e:
                     # Handle event loop issues gracefully
                     assert "event loop" in str(e).lower() or "connection" in str(e).lower()

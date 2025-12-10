@@ -634,9 +634,10 @@ class TestResourceEndpointsEnhanced:
         assert response.status_code == 200
         data = response.json()
 
-        assert "data" in data
-        assert len(data["data"]) == 1
-        assert data["data"][0]["type"] == "link"
+        assert "id" in data
+        assert data["id"] == "test-resource-id"
+        assert "links" in data
+        assert isinstance(data["links"], dict)
 
     @patch("app.services.relationship_service.RelationshipService.get_resource_relationships")
     def test_get_resource_relationships_success(self, mock_get_relationships):
@@ -650,6 +651,7 @@ class TestResourceEndpointsEnhanced:
         assert response.status_code == 200
         data = response.json()
 
-        assert "data" in data
-        assert len(data["data"]) == 1
-        assert data["data"][0]["type"] == "relationship"
+        assert "id" in data
+        assert data["id"] == "test-resource-id"
+        assert "relationships" in data
+        assert isinstance(data["relationships"], dict)

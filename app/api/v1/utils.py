@@ -182,8 +182,8 @@ def create_jsonapi_response(data, request_url=None, callback=None):
         "jsonapi": {
             "version": "1.1",
             "profile": [
-                "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
-                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld",
+                "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld",
+                "https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld",
             ],
         }
     }
