@@ -1,5 +1,7 @@
 import json
 import logging
+import os
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
 
@@ -11,6 +13,7 @@ from app.services.distribution_repository import (
     build_distribution_context,
     fetch_distribution_context,
 )
+from app.services.ogm_field_mapper import OGMFieldMapper
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +24,9 @@ def sanitize_for_json(obj: Any) -> Any:
         return {k: sanitize_for_json(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [sanitize_for_json(item) for item in obj]
-    elif hasattr(obj, "isoformat"):  # Handle datetime objects
+    elif isinstance(obj, (datetime, date)):  # Handle datetime and date objects
+        return obj.isoformat()
+    elif hasattr(obj, "isoformat"):  # Handle other objects with isoformat (fallback)
         return obj.isoformat()
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)
@@ -31,6 +36,48 @@ def sanitize_for_json(obj: Any) -> Any:
     elif isinstance(obj, Decimal):
         return float(obj)
     return obj
+
+
+def filter_empty_values(obj: Any) -> Any:
+    """
+    Recursively filter out empty arrays and empty strings from a dictionary or list.
+    Preserves None values and other falsy values like 0 and False.
+
+    Args:
+        obj: The object to filter (dict, list, or other)
+
+    Returns:
+        Filtered object with empty arrays and empty strings removed
+    """
+    if isinstance(obj, dict):
+        filtered = {}
+        for key, value in obj.items():
+            # Recursively filter nested structures
+            filtered_value = filter_empty_values(value)
+            
+            # Skip empty arrays
+            if isinstance(filtered_value, list) and len(filtered_value) == 0:
+                continue
+            
+            # Skip empty strings
+            if isinstance(filtered_value, str) and filtered_value == "":
+                continue
+            
+            # Include the filtered value
+            filtered[key] = filtered_value
+        return filtered
+    elif isinstance(obj, list):
+        # Filter each item in the list
+        filtered = [filter_empty_values(item) for item in obj]
+        # Remove None entries that might result from filtering (if needed)
+        return [
+            item
+            for item in filtered
+            if item is not None or isinstance(item, (bool, int, float))
+        ]
+    else:
+        # Return primitive values as-is
+        return obj
 
 
 def create_response(
@@ -60,6 +107,9 @@ def add_thumbnail_url(
 
     image_service = ImageService(item, distribution_context=distribution_context)
     thumbnail_url = image_service.get_thumbnail_url()
+    
+    # Only set thumbnail_url if one was found (or placeholder for processing)
+    # If None, frontend can use resource class (gbl_resourceClass_sm) to show default icon
     item["ui_thumbnail_url"] = thumbnail_url
     return item
 
@@ -132,8 +182,8 @@ def create_jsonapi_response(data, request_url=None, callback=None):
         "jsonapi": {
             "version": "1.1",
             "profile": [
-                "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
-                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld",
+                "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld",
+                "https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld",
             ],
         }
     }
@@ -190,12 +240,46 @@ def create_jsonapi_resource(resource_data, request_url=None):
             if value is not None:
                 core_attributes[key] = value
 
+    # Filter out empty arrays and empty strings from core_attributes
+    core_attributes = filter_empty_values(core_attributes)
+
+    # Get resource ID for root level (required by JSON:API spec)
+    resource_id = core_attributes.get("id") or resource_data.get("id", "")
+
+    # Separate OGM Aardvark fields from B1G custom fields
+    ogm_fields = {}
+    b1g_fields = {}
+    ogm_aardvark_field_set = OGMFieldMapper.get_ogm_aardvark_fields()
+
+    # Classify each field (including 'id' which goes into ogm namespace)
+    for key, value in core_attributes.items():
+        if key in ogm_aardvark_field_set:
+            ogm_fields[key] = value
+        else:
+            # All other fields (B1G custom fields and legacy/internal fields) go to b1g
+            b1g_fields[key] = value
+
+    # Filter empty values from both dictionaries
+    ogm_fields = filter_empty_values(ogm_fields)
+    b1g_fields = filter_empty_values(b1g_fields)
+
+    # Build nested attributes structure
+    nested_attributes = {}
+    if ogm_fields:
+        nested_attributes["ogm"] = ogm_fields
+    if b1g_fields:
+        nested_attributes["b1g"] = b1g_fields
+
     # Restructure UI fields to remove prefixes and organize viewer
     restructured_ui = {}
 
     # Simple field mappings (remove ui_ prefix)
-    if "ui_thumbnail_url" in ui_fields:
-        restructured_ui["thumbnail_url"] = ui_fields["ui_thumbnail_url"]
+    if "ui_thumbnail_url" in ui_fields and ui_fields["ui_thumbnail_url"] is not None:
+        thumbnail_url = ui_fields["ui_thumbnail_url"]
+        restructured_ui["thumbnail_url"] = thumbnail_url
+        # Add placeholder flag if it's a placeholder URL
+        if "/thumbnails/placeholder" in str(thumbnail_url):
+            restructured_ui["thumbnail_placeholder"] = True
     if "ui_citation" in ui_fields:
         restructured_ui["citation"] = ui_fields["ui_citation"]
     if "ui_downloads" in ui_fields:
@@ -226,8 +310,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
     # Create the resource structure
     resource = {
         "type": "resource",
-        "id": str(resource_data.get("id", "")),
-        "attributes": core_attributes,
+        "id": str(resource_id),
+        "attributes": nested_attributes if nested_attributes else {},
         "meta": {
             "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
             "@type": "BtaaAardvarkRecord",
@@ -516,6 +600,52 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         # Wrap Allmaps attributes in an allmaps object
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
 
+    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox)
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    if geometry:
+        from app.services.static_map_service import StaticMapService
+
+        map_service = StaticMapService()
+        if map_service.map_exists(resource_dict["id"]):
+            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+            static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+
+            if "meta" not in resource:
+                resource["meta"] = {}
+            if "ui" not in resource["meta"]:
+                resource["meta"]["ui"] = {}
+
+            resource["meta"]["ui"]["static_map"] = static_map_url
+
+    # Add similar items to meta.ui
+    try:
+        from app.services.similar_items_service import SimilarItemsService
+
+        similar_items = await SimilarItemsService.get_similar_items(
+            resource_dict["id"], session, limit=12
+        )
+
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
+
+        resource["meta"]["ui"]["similar_items"] = similar_items
+    except Exception as e:
+        # Log error but don't fail resource processing
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.warning(
+            f"Error getting similar items for resource {resource_dict.get('id')}: {str(e)}"
+        )
+        # Ensure ui block exists even if similar items fail
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
+        resource["meta"]["ui"]["similar_items"] = []
+
     return resource
 
 
@@ -608,5 +738,31 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
 
         # Wrap Allmaps attributes in an allmaps object
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+
+    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox)
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    if geometry:
+        from app.services.static_map_service import StaticMapService
+
+        map_service = StaticMapService()
+        if map_service.map_exists(resource_dict["id"]):
+            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+            static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+
+            if "meta" not in resource:
+                resource["meta"] = {}
+            if "ui" not in resource["meta"]:
+                resource["meta"]["ui"] = {}
+
+            resource["meta"]["ui"]["static_map"] = static_map_url
+
+    # Note: Similar items are not included in process_resource_optimized to avoid performance impact
+    # on search results. They are available via the /resources/{id}/similar-items endpoint
+    # and are included in single resource and list resource endpoints via process_resource()
+    if "meta" not in resource:
+        resource["meta"] = {}
+    if "ui" not in resource["meta"]:
+        resource["meta"]["ui"] = {}
+    resource["meta"]["ui"]["similar_items"] = []
 
     return resource

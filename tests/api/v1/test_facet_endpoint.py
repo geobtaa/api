@@ -665,3 +665,82 @@ class TestFacetEndpointIntegration:
         response = await async_client.get("/api/v1/search/facets/schema_provider_s")
 
         assert response.status_code == 200
+
+    @patch("app.elasticsearch.search.es")
+    @patch("app.api.v1.endpoint_modules.search.SearchService")
+    async def test_fq_field_resolution_integration(
+        self,
+        mock_search_service,
+        mock_es,
+        async_client: AsyncClient,
+    ):
+        """Test that fq parameters correctly resolve to .keyword fields in Elasticsearch queries.
+
+        This test ensures that filter queries like fq[gbl_resourceClass_sm][]=Maps
+        are correctly resolved to gbl_resourceClass_sm.keyword in the Elasticsearch query,
+        preventing the regression where 0 results were returned.
+        """
+        # Mock Elasticsearch response
+        mock_es_response = MagicMock()
+        mock_es_response.body = {
+            "aggregations": {
+                "facet_values": {
+                    "buckets": [
+                        {"key": "Illinois", "doc_count": 5},
+                        {"key": "Minnesota", "doc_count": 3},
+                    ]
+                }
+            }
+        }
+        mock_es.search = AsyncMock(return_value=mock_es_response)
+
+        # Mock SearchService to return the filter query as extracted from URL
+        mock_service_instance = MagicMock()
+        # This simulates what extract_filter_queries returns from fq[gbl_resourceClass_sm][]=Maps
+        mock_service_instance.extract_filter_queries.return_value = {
+            "gbl_resourceClass_sm": ["Maps"]
+        }
+        mock_service_instance.extract_new_style_filters.return_value = ({}, {})
+        mock_search_service.return_value = mock_service_instance
+
+        # Make request matching the user's reported issue
+        adv_q = json.dumps([{"op": "AND", "f": "dct_title_s", "q": "illinois"}])
+        response = await async_client.get(
+            f"/api/v1/search/facets/dct_spatial_sm"
+            f"?format=json"
+            f"&adv_q={adv_q}"
+            f"&fq[gbl_resourceClass_sm][]=Maps"
+            f"&page=1"
+            f"&per_page=10"
+            f"&sort=count_desc"
+        )
+
+        # Should succeed
+        assert response.status_code == 200
+
+        # Verify that Elasticsearch was called
+        mock_es.search.assert_called_once()
+
+        # Verify that the filter query uses .keyword field
+        call_args = mock_es.search.call_args
+        query_dict = call_args.kwargs["query"]
+
+        # Navigate through the bool query structure to find the filter
+        filter_clauses = query_dict["bool"]["filter"]
+
+        # Find the terms filter for gbl_resourceClass_sm
+        terms_filter = None
+        for clause in filter_clauses:
+            if "terms" in clause:
+                terms_filter = clause["terms"]
+                # Check if this is the filter we're looking for
+                if "gbl_resourceClass_sm.keyword" in terms_filter:
+                    break
+
+        # Verify that gbl_resourceClass_sm.keyword is used, not gbl_resourceClass_sm
+        assert terms_filter is not None, "Expected terms filter with .keyword not found"
+        assert "gbl_resourceClass_sm.keyword" in terms_filter, (
+            f"Expected 'gbl_resourceClass_sm.keyword' in filter, "
+            f"but got: {list(terms_filter.keys())}"
+        )
+        assert terms_filter["gbl_resourceClass_sm.keyword"] == ["Maps"]

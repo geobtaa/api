@@ -19,6 +19,7 @@ INDEX_MAPPING = {
                 "fields": {"keyword": {"type": "keyword"}},
             },
             "gbl_indexYear_im": {"type": "integer"},
+            "time_period": {"type": "keyword"},
             "dct_language_sm": {
                 "type": "text",
                 "fields": {"keyword": {"type": "keyword"}},
@@ -54,27 +55,30 @@ INDEX_MAPPING = {
             },
             "dct_subject_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "dcat_theme_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
             "dcat_keyword_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {"keyword": {"type": "keyword"}},
             },
+            # Date-ish fields that often contain free-form or fuzzy text (e.g. "1656-1677?" or
+            # "2021-08-31 to *"). We index them as keywords so Elasticsearch never tries to parse
+            # them as strict dates.
             "dct_temporal_sm": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "type": "keyword",
+                "normalizer": "lowercase",
             },
             "dct_issued_s": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "type": "keyword",
+                "normalizer": "lowercase",
             },
             "gbl_daterange_drsim": {
-                "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "type": "keyword",
+                "normalizer": "lowercase",
             },
             "locn_geometry": {
                 "type": "geo_shape",
@@ -89,6 +93,11 @@ INDEX_MAPPING = {
                 "ignore_malformed": True,
             },
             "dcat_centroid": {"type": "geo_point", "ignore_malformed": True},
+            "bbox_minx": {"type": "double"},
+            "bbox_maxx": {"type": "double"},
+            "bbox_miny": {"type": "double"},
+            "bbox_maxy": {"type": "double"},
+            "bbox_diagonal_km": {"type": "double"},
             "gbl_mdmodified_dt": {"type": "date", "ignore_malformed": True},
             # Legacy references blob retained for compatibility (disabled indexing)
             "dct_references_s": {"type": "object", "enabled": False},
@@ -133,7 +142,7 @@ INDEX_MAPPING = {
     "settings": {
         "index": {
             "number_of_shards": 1,
-            "number_of_replicas": 0,
+            "number_of_replicas": 1,
             "analysis": {
                 "normalizer": {
                     "lowercase": {"type": "custom", "char_filter": [], "filter": ["lowercase"]}

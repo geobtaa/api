@@ -68,11 +68,11 @@ class TestOGMMCPService:
 
     @pytest.mark.asyncio
     async def test_get_resource_ogm_tool(self):
-        """Test the get_resource_ogm tool."""
+        """Test the get_resource_metadata tool (formerly get_resource_ogm)."""
         service = OGMMCPService()
 
         # Test with real data - this may fail in test environment due to DB connection issues
-        result = await service._get_resource_ogm({"id": "stanford-wt473hz7153"})
+        result = await service._get_resource_metadata({"id": "stanford-wt473hz7153"})
 
         assert result is not None
         # In test environment, database connection might fail, so we accept both success and error

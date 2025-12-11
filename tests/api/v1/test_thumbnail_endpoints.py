@@ -4,13 +4,24 @@ Tests for the thumbnail endpoints.
 These endpoints handle serving placeholder thumbnails and cached thumbnail images.
 """
 
+import io
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from PIL import Image
 
 from app.api.v1.endpoint_modules.thumbnails import router
+
+
+def create_valid_jpeg_image() -> bytes:
+    """Create a minimal valid JPEG image for testing."""
+    # Create a 1x1 pixel JPEG image
+    img = Image.new("RGB", (1, 1), color="red")
+    buffer = io.BytesIO()
+    img.save(buffer, format="JPEG")
+    return buffer.getvalue()
 
 
 @pytest.fixture
@@ -78,7 +89,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_success(self, client):
         """Test successful thumbnail retrieval."""
         test_image_hash = "test_hash_123"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -127,7 +138,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_cache_headers(self, client):
         """Test that cached thumbnails have proper caching headers."""
         test_image_hash = "test_hash_123"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -152,11 +163,12 @@ class TestThumbnailEndpoints:
             "hash_with_numbers_123",
             "hash_with_mixed_Case_456",
         ]
+        test_image_data = create_valid_jpeg_image()
 
         for image_hash in test_cases:
             with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
                 mock_service = MagicMock()
-                mock_service.get_cached_image = AsyncMock(return_value=b"fake_image_data")
+                mock_service.get_cached_image = AsyncMock(return_value=test_image_data)
                 mock_service_class.return_value = mock_service
 
                 response = client.get(f"/thumbnails/{image_hash}")
@@ -179,7 +191,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_special_characters_in_hash(self, client):
         """Test thumbnail retrieval with special characters in hash."""
         test_image_hash = "hash%20with%20encoded%20chars"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -194,7 +206,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_very_long_hash(self, client):
         """Test thumbnail retrieval with very long hash."""
         test_image_hash = "a" * 1000  # Very long hash
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -210,7 +222,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_multiple_calls(self, client):
         """Test multiple thumbnail retrieval calls."""
         test_image_hash = "test_hash_123"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -229,7 +241,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_service_initialization(self, client):
         """Test that ImageService is initialized with empty resource dict."""
         test_image_hash = "test_hash_123"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -293,7 +305,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_content_type_validation(self, client):
         """Test that thumbnails return correct content types."""
         test_image_hash = "test_hash_123"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()
@@ -313,7 +325,7 @@ class TestThumbnailEndpoints:
     def test_get_thumbnail_response_size(self, client):
         """Test that thumbnail responses have correct content size."""
         test_image_hash = "test_hash_123"
-        test_image_data = b"fake_jpeg_image_data"
+        test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
             mock_service = MagicMock()

@@ -126,7 +126,7 @@ class TestMappings:
 
         index_settings = settings["index"]
         assert index_settings["number_of_shards"] == 1
-        assert index_settings["number_of_replicas"] == 0
+        assert index_settings["number_of_replicas"] == 1
 
         # Test analysis settings
         assert "analysis" in index_settings
@@ -154,15 +154,25 @@ class TestMappings:
             "dct_subject_sm",
             "dcat_theme_sm",
             "dcat_keyword_sm",
-            "dct_temporal_sm",
-            "dct_issued_s",
-            "gbl_daterange_drsim",
             "summary",
         ]
 
         for field in text_fields:
             if field in properties:
                 assert properties[field]["type"] == "text"
+
+        # Date-ish fields that often contain free-form or fuzzy text (e.g. "1656-1677?" or
+        # "2021-08-31 to *") are indexed as keywords to prevent Elasticsearch from trying
+        # to parse them as strict dates
+        keyword_date_fields = [
+            "dct_temporal_sm",
+            "dct_issued_s",
+            "gbl_daterange_drsim",
+        ]
+
+        for field in keyword_date_fields:
+            if field in properties:
+                assert properties[field]["type"] == "keyword"
 
         # Fields that were keywords are now text with a keyword subfield
         text_with_keyword_fields = [

@@ -303,8 +303,8 @@ class TestCreateJsonapiResponse:
         result = create_jsonapi_response(data)
 
         profiles = result["jsonapi"]["profile"]
-        assert "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld" in profiles
-        assert "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld" in profiles
+        assert "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld" in profiles
+        assert "https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld" in profiles
 
 
 class TestCreateJsonapiResource:
@@ -312,16 +312,19 @@ class TestCreateJsonapiResource:
 
     def test_create_jsonapi_resource_basic(self):
         """Test creating basic JSON:API resource."""
-        resource_data = {"id": "123", "title": "Test Resource"}
+        resource_data = {"id": "123", "dct_title_s": "Test Resource"}
         result = create_jsonapi_resource(resource_data)
 
         assert result["id"] == "123"
         assert result["type"] == "resource"
         assert "attributes" in result
+        # Should have nested ogm structure
+        assert "ogm" in result["attributes"]
+        assert "dct_title_s" in result["attributes"]["ogm"]
 
     def test_create_jsonapi_resource_with_request_url(self):
         """Test creating JSON:API resource with request URL."""
-        resource_data = {"id": "123", "title": "Test Resource"}
+        resource_data = {"id": "123", "dct_title_s": "Test Resource"}
         result = create_jsonapi_resource(
             resource_data, request_url="http://example.com/api/resources/123"
         )
@@ -330,10 +333,11 @@ class TestCreateJsonapiResource:
         # Let's check what the actual structure is
         assert result["id"] == "123"
         assert result["type"] == "resource"
+        assert "ogm" in result["attributes"]
 
     def test_create_jsonapi_resource_id_from_data(self):
         """Test that resource ID is extracted from data."""
-        resource_data = {"gbl_resourceIdentifier_sm": "test-id", "title": "Test"}
+        resource_data = {"gbl_resourceIdentifier_sm": "test-id", "dct_title_s": "Test"}
         result = create_jsonapi_resource(resource_data)
 
         # The function should use the ID field if present, or extract from gbl_resourceIdentifier_sm
@@ -343,14 +347,67 @@ class TestCreateJsonapiResource:
         """Test creating JSON:API resource with relationships."""
         resource_data = {
             "id": "123",
-            "title": "Test Resource",
-            "relationships": {"parent": {"id": "456"}},
+            "dct_title_s": "Test Resource",
+            "ui_relationships": {"parent": {"id": "456"}},
         }
         result = create_jsonapi_resource(resource_data)
 
-        # Check if relationships are preserved in attributes or as top-level
+        # Check if relationships are preserved in meta.ui
         assert result["id"] == "123"
         assert result["type"] == "resource"
+        assert "ogm" in result["attributes"]
+
+    def test_create_jsonapi_resource_ogm_and_b1g_separation(self):
+        """Test that OGM Aardvark fields are separated from B1G fields."""
+        resource_data = {
+            "id": "123",
+            "dct_title_s": "Test Title",  # OGM field
+            "gbl_resourceClass_sm": ["Datasets"],  # OGM field
+            "b1g_code_s": "BTA-001",  # B1G field
+            "b1g_status_s": "active",  # B1G field
+            "layer_geom_type_s": "polygon",  # Legacy field -> B1G
+        }
+        result = create_jsonapi_resource(resource_data)
+
+        assert result["id"] == "123"
+        assert result["type"] == "resource"
+        assert "attributes" in result
+        
+        # OGM fields should be in ogm namespace (including id)
+        assert "ogm" in result["attributes"]
+        assert "id" in result["attributes"]["ogm"]  # id appears in both places
+        assert result["attributes"]["ogm"]["id"] == "123"
+        assert "dct_title_s" in result["attributes"]["ogm"]
+        assert "gbl_resourceClass_sm" in result["attributes"]["ogm"]
+        
+        # B1G fields should be in b1g namespace
+        assert "b1g" in result["attributes"]
+        assert "b1g_code_s" in result["attributes"]["b1g"]
+        assert "b1g_status_s" in result["attributes"]["b1g"]
+        assert "layer_geom_type_s" in result["attributes"]["b1g"]
+
+    def test_create_jsonapi_resource_only_ogm_fields(self):
+        """Test resource with only OGM fields."""
+        resource_data = {
+            "id": "123",
+            "dct_title_s": "Test Title",
+            "dct_description_sm": ["Description"],
+        }
+        result = create_jsonapi_resource(resource_data)
+
+        assert "ogm" in result["attributes"]
+        assert "b1g" not in result["attributes"]
+
+    def test_create_jsonapi_resource_only_b1g_fields(self):
+        """Test resource with only B1G fields."""
+        resource_data = {
+            "id": "123",
+            "b1g_code_s": "BTA-001",
+            "b1g_status_s": "active",
+        }
+        result = create_jsonapi_resource(resource_data)
+
+        assert "b1g" in result["attributes"]
 
 
 class TestCreatePaginationLinks:

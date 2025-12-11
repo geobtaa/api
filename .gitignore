@@ -194,6 +194,9 @@ data/duckdb/*
 # OpenGeoMetadata data
 data/opengeometadata/*
 
+# Static maps
+static/maps/*
+
 # Kamal secrets
 .kamal/secrets
 

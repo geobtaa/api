@@ -112,7 +112,7 @@ class OGMMCPService:
                         },
                     ),
                     Tool(
-                        name="get_resource_ogm",
+                        name="get_resource_metadata",
                         description=("Get just the GeoBTAA Aardvark record for a resource by ID"),
                         inputSchema={
                             "type": "object",
@@ -199,8 +199,8 @@ class OGMMCPService:
                     return await self._search_resources(arguments)
                 elif name == "get_resource":
                     return await self._get_resource(arguments)
-                elif name == "get_resource_ogm":
-                    return await self._get_resource_ogm(arguments)
+                elif name == "get_resource_metadata":
+                    return await self._get_resource_metadata(arguments)
                 elif name == "list_resources":
                     return await self._list_resources(arguments)
                 elif name == "get_suggestions":
@@ -326,7 +326,7 @@ class OGMMCPService:
                 isError=True,
             )
 
-    async def _get_resource_ogm(self, arguments: Dict[str, Any]) -> CallToolResult:
+    async def _get_resource_metadata(self, arguments: Dict[str, Any]) -> CallToolResult:
         """Get Aardvark record for a resource."""
         try:
             # Validate arguments
@@ -379,7 +379,7 @@ class OGMMCPService:
                     content=[TextContent(type="text", text=json.dumps(aardvark_record, indent=2))]
                 )
         except Exception as e:
-            logger.error(f"Error in _get_resource_ogm: {e}", exc_info=True)
+            logger.error(f"Error in _get_resource_metadata: {e}", exc_info=True)
             return CallToolResult(
                 content=[TextContent(type="text", text=f"Database connection error: {str(e)}")],
                 isError=True,
@@ -476,7 +476,7 @@ class OGMMCPService:
 
             # Build the record URL for the viewer
             base_url = "http://localhost:8000"
-            record_url = f"{base_url}/api/v1/resources/{resource_id}/ogm"
+            record_url = f"{base_url}/api/v1/resources/{resource_id}/metadata"
 
             # Create the HTML content
             html_content = f"""
@@ -760,7 +760,7 @@ async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any]:
                 },
             },
             {
-                "name": "get_resource_ogm",
+                "name": "get_resource_metadata",
                 "description": "Get just the OpenGeoMetadata Aardvark record for a resource by ID",
                 "inputSchema": {
                     "type": "object",
@@ -845,8 +845,8 @@ async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any]:
                 result = await mcp_service._search_resources(arguments)
             elif tool_name == "get_resource":
                 result = await mcp_service._get_resource(arguments)
-            elif tool_name == "get_resource_ogm":
-                result = await mcp_service._get_resource_ogm(arguments)
+            elif tool_name == "get_resource_metadata":
+                result = await mcp_service._get_resource_metadata(arguments)
             elif tool_name == "list_resources":
                 result = await mcp_service._list_resources(arguments)
             elif tool_name == "get_suggestions":

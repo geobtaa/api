@@ -164,7 +164,7 @@ class TestSearchService:
             # Verify the structure
             assert "data" in result
             assert "meta" in result
-            assert "query_time" in result
+            assert "queryTime" in result
 
             # If we have data, verify the processing worked
             if result["data"]:
@@ -172,14 +172,22 @@ class TestSearchService:
                 assert "attributes" in first_resource
                 attributes = first_resource["attributes"]
 
-                # These should be added by the processing loop
-                assert "ui_thumbnail_url" in attributes
-                assert "ui_citation" in attributes
+                # Attributes should be nested with ogm and/or b1g structure
+                assert isinstance(attributes, dict)
+                # Check for nested structure (ogm and/or b1g)
+                if "ogm" in attributes:
+                    assert isinstance(attributes["ogm"], dict)
+                if "b1g" in attributes:
+                    assert isinstance(attributes["b1g"], dict)
+                
+                # UI fields should be in meta.ui, not in attributes
+                assert "ui_thumbnail_url" not in attributes
+                assert "ui_citation" not in attributes
 
                 # Verify timing information
-                assert "elasticsearch" in result["query_time"]
-                assert "resource_processing" in result["query_time"]
-                assert "total_response_time" in result["query_time"]
+                assert "elasticsearch" in result["queryTime"]
+                assert "resourceProcessing" in result["queryTime"]
+                assert "totalResponseTime" in result["queryTime"]
 
         except Exception as e:
             # Handle connection errors gracefully
@@ -204,11 +212,11 @@ class TestSearchService:
 
             result = await service.search(q="map", page=1, limit=10)
 
-            # Verify suggestions were moved from meta.suggestions to meta.spelling_suggestions
+            # Verify suggestions were moved from meta.suggestions to meta.spellingSuggestions
             assert "meta" in result
-            assert "spelling_suggestions" in result["meta"]
+            assert "spellingSuggestions" in result["meta"]
             assert "suggestions" not in result["meta"]
-            assert result["meta"]["spelling_suggestions"] == ["map", "mapping", "maps"]
+            assert result["meta"]["spellingSuggestions"] == ["map", "mapping", "maps"]
 
     @pytest.mark.asyncio
     async def test_get_resource_success(self):
@@ -243,8 +251,10 @@ class TestSearchService:
             result = await service.get_resource("test-id", include_relationships=True)
 
             if "data" in result:
-                attributes = result["data"]["attributes"]
-                assert "ui_relationships" in attributes
+                # UI fields should be in meta.ui, not in attributes
+                # Check meta.ui structure instead
+                assert "meta" in result["data"]
+                assert "ui" in result["data"]["meta"]
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -262,8 +272,13 @@ class TestSearchService:
 
             if "data" in result:
                 attributes = result["data"]["attributes"]
-                assert "ui_summaries" in attributes
-                assert isinstance(attributes["ui_summaries"], list)
+                # Attributes should have nested structure (ogm and/or b1g)
+                assert isinstance(attributes, dict)
+                # UI fields should be in meta.ui, not in attributes
+                assert "meta" in result["data"]
+                assert "ui" in result["data"]["meta"]
+                assert "similar_items" in result["data"]["meta"]["ui"]
+                assert isinstance(result["data"]["meta"]["ui"]["similar_items"], list)
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -284,8 +299,14 @@ class TestSearchService:
             if "data" in result:
                 attributes = result["data"]["attributes"]
                 # Should not have these fields
-                assert "ui_relationships" not in attributes
-                assert "ui_summaries" not in attributes
+                # UI fields should not be in attributes (they're in meta.ui)
+                # Attributes should only contain ogm and/or b1g
+                if "ogm" in attributes:
+                    assert "ui_relationships" not in attributes["ogm"]
+                    assert "ui_summaries" not in attributes["ogm"]
+                if "b1g" in attributes:
+                    assert "ui_relationships" not in attributes["b1g"]
+                    assert "ui_summaries" not in attributes["b1g"]
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -320,10 +341,15 @@ class TestSearchService:
 
                     assert "data" in result
                     attributes = result["data"]["attributes"]
+                    # Attributes should have nested structure (ogm and/or b1g)
+                    assert isinstance(attributes, dict)
+                    # dct_references_s should be in ogm namespace
+                    assert "ogm" in attributes
+                    assert "dct_references_s" in attributes["ogm"]
                     # Should be parsed as dict, not string
-                    assert isinstance(attributes["dct_references_s"], dict)
+                    assert isinstance(attributes["ogm"]["dct_references_s"], dict)
                     assert (
-                        attributes["dct_references_s"]["download"] == "http://example.com/download"
+                        attributes["ogm"]["dct_references_s"]["download"] == "http://example.com/download"
                     )
                 except Exception as e:
                     # Handle event loop issues gracefully
@@ -353,8 +379,13 @@ class TestSearchService:
 
                     assert "data" in result
                     attributes = result["data"]["attributes"]
+                    # Attributes should have nested structure (ogm and/or b1g)
+                    assert isinstance(attributes, dict)
+                    # dct_references_s should be in ogm namespace
+                    assert "ogm" in attributes
+                    assert "dct_references_s" in attributes["ogm"]
                     # Should remain as string when JSON parsing fails
-                    assert attributes["dct_references_s"] == "invalid json{"
+                    assert attributes["ogm"]["dct_references_s"] == "invalid json{"
                 except Exception as e:
                     # Handle event loop issues gracefully
                     assert "event loop" in str(e).lower() or "connection" in str(e).lower()
@@ -476,21 +507,21 @@ class TestSearchService:
         try:
             result = await service.search(q="test", page=1, limit=2)
 
-            if "query_time" in result:
-                timings = result["query_time"]
+            if "queryTime" in result:
+                timings = result["queryTime"]
 
                 # Should have all timing fields
                 assert "elasticsearch" in timings
-                assert "resource_processing" in timings
-                assert "total_response_time" in timings
+                assert "resourceProcessing" in timings
+                assert "totalResponseTime" in timings
 
                 # Resource processing should have detailed breakdown
-                processing = timings["resource_processing"]
+                processing = timings["resourceProcessing"]
                 assert "total" in processing
-                assert "per_resource" in processing
-                assert "thumbnail_service" in processing
-                assert "citation_service" in processing
-                assert "viewer_service" in processing
+                assert "perResource" in processing
+                assert "thumbnailService" in processing
+                assert "citationService" in processing
+                assert "viewerService" in processing
 
         except Exception as e:
             error_msg = str(e).lower()
@@ -600,9 +631,9 @@ class TestSearchService:
 
             result = await service.search(q="test", page=1, limit=10)
 
-            # Should not have spelling_suggestions in meta
+            # Should not have spellingSuggestions in meta
             assert "meta" in result
-            assert "spelling_suggestions" not in result["meta"]
+            assert "spellingSuggestions" not in result["meta"]
 
     @pytest.mark.asyncio
     async def test_search_with_empty_suggestions(self):
@@ -616,10 +647,10 @@ class TestSearchService:
 
             result = await service.search(q="test", page=1, limit=10)
 
-            # Should have empty spelling_suggestions
+            # Should have empty spellingSuggestions
             assert "meta" in result
-            assert "spelling_suggestions" in result["meta"]
-            assert result["meta"]["spelling_suggestions"] == []
+            assert "spellingSuggestions" in result["meta"]
+            assert result["meta"]["spellingSuggestions"] == []
 
     @pytest.mark.asyncio
     async def test_suggest_with_no_options_in_response(self):

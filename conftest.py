@@ -10,14 +10,46 @@ from urllib.parse import urlparse
 import asyncio
 import atexit
 
-# Load test environment variables
+# Load .env first to get POSTGRES_PASSWORD
+# Try to read POSTGRES_PASSWORD directly from .env file if load_dotenv doesn't work
+postgres_password = None
+if os.path.exists(".env"):
+    try:
+        import re
+        with open(".env") as f:
+            content = f.read()
+            match = re.search(r'POSTGRES_PASSWORD=["\']?([^"\'\n]+)["\']?', content)
+            if match:
+                postgres_password = match.group(1)
+    except Exception:
+        pass
+
+# Load .env (may not work if quotes are an issue)
+load_dotenv(".env", override=False)
+# Use the directly read value if load_dotenv didn't set it
+if postgres_password and not os.getenv("POSTGRES_PASSWORD"):
+    os.environ["POSTGRES_PASSWORD"] = postgres_password
+
+# Load test environment variables (may override other vars)
 load_dotenv(".env.test", override=True)
+# Restore POSTGRES_PASSWORD if it was set in .env but not in .env.test
+if postgres_password and not os.getenv("POSTGRES_PASSWORD"):
+    os.environ["POSTGRES_PASSWORD"] = postgres_password
+
+# Fix DATABASE_URL if it contains the wrong password
+if postgres_password and os.getenv("DATABASE_URL"):
+    database_url = os.getenv("DATABASE_URL")
+    # Replace password in DATABASE_URL if it's "postgres"
+    if ":postgres@" in database_url:
+        database_url = database_url.replace(":postgres@", f":{postgres_password}@")
+        os.environ["DATABASE_URL"] = database_url
 
 # Configure tests to piggy-back on primary Docker services with isolated test DB/indices
 # Default to the main compose ports (ParadeDB 2345, ES 9200, Redis 6379)
 TEST_DB_NAME = os.getenv("TEST_DB_NAME", "btaa_ogm_api_test")
 DB_USER = os.getenv("DB_USER", "postgres")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "postgres")
+# Check POSTGRES_PASSWORD first (from .env), then DB_PASSWORD, then default to "postgres"
+DB_PASSWORD = os.getenv("POSTGRES_PASSWORD") or os.getenv("DB_PASSWORD", "postgres")
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_PORT = os.getenv("DB_PORT", "2345")
 
@@ -36,6 +68,7 @@ db_host = parsed.hostname
 db_port = parsed.port
 
 # Create test database engine for migrations (synchronous)
+# Ensure SYNC_DATABASE_URL also has the correct password
 SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
 engine = create_engine(SYNC_DATABASE_URL)
 

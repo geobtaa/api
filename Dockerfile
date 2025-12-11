@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y \
     libjpeg-dev \
     zlib1g-dev \
     libpng-dev \
+    libcairo2-dev \
     gdal-bin \
     libgdal-dev \
     curl \
@@ -39,11 +40,17 @@ COPY scripts ./scripts
 # Copy the rest of the application
 COPY . .
 
+# Give uv more time to download large wheels (like pyproj)
+ENV UV_HTTP_TIMEOUT=300
+
+# Optional: slightly reduce concurrency if your connection is bursty
+# ENV UV_CONCURRENT_DOWNLOADS=4
+
 # Install Python dependencies
 RUN uv pip install -e . --system
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs and static maps directories
+RUN mkdir -p logs static/maps
 
 # Expose port
 EXPOSE 8000

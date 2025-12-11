@@ -1,12 +1,14 @@
 import hashlib
+import io
 import logging
 import os
-from typing import Optional
+from typing import Optional, Tuple
 
 import redis
 import requests
 from celery import Celery
 from dotenv import load_dotenv
+from PIL import Image
 
 # Load environment variables from .env file
 load_dotenv()
@@ -53,6 +55,7 @@ celery_app.conf.update(
         "app.tasks.spatial_facets",
         "app.tasks.allmaps",
         "app.tasks.api_usage_enrichment",
+        "app.tasks.static_maps",
     ],
 )
 
@@ -92,15 +95,49 @@ def fetch_and_cache_image(self, url: str) -> bool:
             logger.warning(f"Redis unavailable during exists() for {resolved_url}: {redis_err}")
 
         logger.info(f"Fetching image: {resolved_url}")
-        response = requests.get(resolved_url, timeout=15)
+        # Use User-Agent header to avoid 403 errors from servers that block bots
+        headers = {
+            "User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"
+        }
+        response = requests.get(resolved_url, timeout=15, headers=headers)
+        
+        # Don't retry 403/401 errors - they indicate authorization issues
+        if response.status_code in (401, 403):
+            logger.warning(
+                f"Authorization error ({response.status_code}) "
+                f"for {resolved_url}. Not caching."
+            )
+            return False
+            
         response.raise_for_status()
+
+        # Validate that the response is actually an image
+        content_type = response.headers.get("Content-Type", "")
+        is_valid, detected_type = _validate_image_content(response.content, content_type)
+        
+        if not is_valid:
+            logger.error(
+                f"❌ Invalid image content from {resolved_url}: "
+                f"Content-Type={content_type}, detected_type={detected_type}, "
+                f"first_bytes={response.content[:100]!r}"
+            )
+            # Don't cache invalid content - return False to indicate failure
+            return False
 
         # Cache image if Redis is available; otherwise, skip caching without retry storms
         if redis_available:
             try:
                 ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
+                # Store image content with detected type (prepend type as metadata)
+                # We'll use a simple format: store content as-is, content type in separate key
                 redis_client.setex(image_key, ttl, response.content)
-                logger.info(f"Successfully cached image: {resolved_url}")
+                # Store content type metadata separately (optional, for faster lookups)
+                type_key = f"image_type:{image_key.split(':')[1]}"
+                redis_client.setex(type_key, ttl, detected_type or "image/jpeg")
+                logger.info(
+                    f"✅ Successfully cached valid image: {resolved_url} "
+                    f"(type: {detected_type}, size: {len(response.content)} bytes)"
+                )
                 return True
             except Exception as redis_err:
                 logger.warning(
@@ -111,6 +148,13 @@ def fetch_and_cache_image(self, url: str) -> bool:
             logger.warning(f"Skipping cache store for {resolved_url}: Redis unavailable")
             return False
     except requests.RequestException as http_err:
+        # Don't retry 403/401 errors - they indicate authorization issues that won't resolve
+        if isinstance(http_err, requests.HTTPError) and hasattr(http_err.response, 'status_code'):
+            if http_err.response.status_code in (401, 403):
+                logger.warning(
+                    f"Authorization error (401/403) for {url}: {http_err}. Not retrying."
+                )
+                return False
         logger.error(f"HTTP error caching image {url}: {http_err}")
         self.retry(exc=http_err, countdown=60, max_retries=3)
         return False
@@ -122,15 +166,100 @@ def fetch_and_cache_image(self, url: str) -> bool:
 
 def _looks_like_manifest_url(url: str) -> bool:
     """Heuristic to detect IIIF manifest URLs by path patterns."""
+    if not url:
+        return False
     lowered = url.lower()
     return (
-        "/iiif/manifest" in lowered
-        or "/iiif3/manifest" in lowered
-        or "presentation" in lowered
-        and lowered.endswith((".json", "/manifest"))
-        or lowered.endswith("/manifest")
-        or lowered.endswith("manifest.json")
+        url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json"))
+        or "/manifest" in url
+        or (".json" in url and ("iiif" in lowered or "/object/" in url or "/collection/" in url))
+        or ("/api/" in url and ("iiif" in lowered or "image" in lowered))
+        or "/cgi/i/image/api/" in lowered  # U of Michigan pattern
     )
+
+
+def _validate_image_content(
+    content: bytes, content_type: Optional[str] = None
+) -> Tuple[bool, Optional[str]]:
+    """
+    Validate that content is a valid image and return its detected MIME type.
+    
+    Args:
+        content: The binary content to validate
+        content_type: Optional Content-Type header from HTTP response
+        
+    Returns:
+        Tuple of (is_valid, detected_mime_type)
+    """
+    if not content or len(content) < 4:
+        return False, None
+    
+    # Check Content-Type header first (but don't trust it blindly)
+    if content_type:
+        content_type_lower = content_type.lower().split(";")[0].strip()
+        # Reject non-image content types
+        if not content_type_lower.startswith("image/"):
+            logger.warning(f"Content-Type indicates non-image: {content_type}")
+            return False, None
+    
+    # Check magic bytes (file signatures) for common image formats
+    magic_bytes = content[:4]
+    
+    # JPEG: FF D8 FF
+    if magic_bytes[:3] == b"\xff\xd8\xff":
+        try:
+            Image.open(io.BytesIO(content)).verify()
+            return True, "image/jpeg"
+        except Exception as e:
+            logger.warning(f"Invalid JPEG: {e}")
+            return False, None
+    
+    # PNG: 89 50 4E 47
+    if magic_bytes == b"\x89PNG":
+        try:
+            Image.open(io.BytesIO(content)).verify()
+            return True, "image/png"
+        except Exception as e:
+            logger.warning(f"Invalid PNG: {e}")
+            return False, None
+    
+    # GIF: 47 49 46 38 (GIF8)
+    if magic_bytes[:3] == b"GIF" or (len(content) > 6 and content[:6] in [b"GIF87a", b"GIF89a"]):
+        try:
+            Image.open(io.BytesIO(content)).verify()
+            return True, "image/gif"
+        except Exception as e:
+            logger.warning(f"Invalid GIF: {e}")
+            return False, None
+    
+    # WebP: RIFF...WEBP (check first 12 bytes)
+    if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        try:
+            Image.open(io.BytesIO(content)).verify()
+            return True, "image/webp"
+        except Exception as e:
+            logger.warning(f"Invalid WebP: {e}")
+            return False, None
+    
+    # Try PIL to validate as fallback (for other formats like TIFF, BMP, etc.)
+    try:
+        img = Image.open(io.BytesIO(content))
+        img.verify()
+        # PIL can identify the format
+        format_map = {
+            "JPEG": "image/jpeg",
+            "PNG": "image/png",
+            "GIF": "image/gif",
+            "WEBP": "image/webp",
+            "TIFF": "image/tiff",
+            "BMP": "image/bmp",
+            "ICO": "image/x-icon",
+        }
+        detected_type = format_map.get(img.format, "image/jpeg")
+        return True, detected_type
+    except Exception as e:
+        logger.warning(f"PIL validation failed: {e}")
+        return False, None
 
 
 def _resolve_image_url(url: str) -> str:

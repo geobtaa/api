@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import re
 from datetime import datetime
@@ -112,6 +113,64 @@ def _coerce_integer_or_list(value):
     return iv if iv is not None else None
 
 
+def _calculate_time_period_from_year(year_value):
+    """Calculate the time period bucket for a given year value.
+
+    Args:
+        year_value: Integer year value or list of integers (takes first year if list)
+
+    Returns:
+        String representing the time period bucket, or None if no valid year
+    """
+    # Handle list/array of years - use the first one
+    if isinstance(year_value, list):
+        if not year_value:
+            return None
+        year_value = year_value[0]
+
+    # Handle None or invalid values
+    if year_value is None:
+        return None
+
+    # Convert to int if possible
+    try:
+        year = int(year_value)
+    except (ValueError, TypeError):
+        return None
+
+    # Calculate time period
+    if year < 1400:
+        return "1400s-earlier"
+    elif year < 1500:
+        return "1400s-earlier"
+    elif year < 1600:
+        return "1500s"
+    elif year < 1700:
+        return "1600s"
+    elif year < 1800:
+        return "1700s"
+    elif year < 1850:
+        return "1800-1849"
+    elif year < 1900:
+        return "1850-1899"
+    elif year < 1950:
+        return "1900-1949"
+    elif year < 2000:
+        return "1950-1999"
+    elif year < 2005:
+        return "2000-2004"
+    elif year < 2010:
+        return "2005-2009"
+    elif year < 2015:
+        return "2010-2014"
+    elif year < 2020:
+        return "2015-2019"
+    elif year < 2025:
+        return "2020-2024"
+    else:
+        return "2025-present"
+
+
 def _coerce_boolean(value):
     if isinstance(value, bool):
         return value
@@ -209,6 +268,9 @@ async def process_resource(resource_dict):
                             if normalized_type:
                                 processed_geometry["type"] = normalized_type
                         processed_dict[key] = processed_geometry
+                        # When we have a normalized bbox geometry, compute numeric bbox metrics
+                        if key == "dcat_bbox":
+                            _update_bbox_metrics(processed_dict, processed_geometry)
                     else:
                         processed_dict[key] = None
         else:
@@ -219,6 +281,16 @@ async def process_resource(resource_dict):
     if summaries:
         first = summaries[0]
         processed_dict["summary"] = first.get("summary") or None
+
+    # Calculate and add time_period facet
+    time_period = _calculate_time_period_from_year(processed_dict.get("gbl_indexYear_im"))
+    if time_period:
+        processed_dict["time_period"] = time_period
+
+    # Calculate and add time_period facet from gbl_indexYear_im
+    time_period = _calculate_time_period_from_year(processed_dict.get("gbl_indexYear_im"))
+    if time_period:
+        processed_dict["time_period"] = time_period
 
     # Add spatial facet data
     spatial_facets = await get_spatial_facets(processed_dict["id"])
@@ -882,3 +954,48 @@ async def reindex_resources():
     except Exception as e:
         logger.error(f"Error during reindexing: {str(e)}", exc_info=True)
         raise
+
+
+def _update_bbox_metrics(processed_dict, geometry):
+    """Compute numeric bbox metrics (minx, maxx, miny, maxy, diagonal_km)."""
+    if not geometry or not isinstance(geometry, dict):
+        return
+    coords = geometry.get("coordinates")
+    if not coords:
+        return
+
+    def _walk(c, acc):
+        if isinstance(c, (list, tuple)):
+            if len(c) == 2 and all(isinstance(v, (int, float)) for v in c):
+                x, y = float(c[0]), float(c[1])
+                acc[0] = min(acc[0], x)
+                acc[1] = min(acc[1], y)
+                acc[2] = max(acc[2], x)
+                acc[3] = max(acc[3], y)
+            else:
+                for v in c:
+                    _walk(v, acc)
+
+    acc = [float("inf"), float("inf"), float("-inf"), float("-inf")]
+    _walk(coords, acc)
+    minx, miny, maxx, maxy = acc
+    if (
+        not math.isfinite(minx)
+        or not math.isfinite(miny)
+        or not math.isfinite(maxx)
+        or not math.isfinite(maxy)
+    ):
+        return
+
+    processed_dict["bbox_minx"] = minx
+    processed_dict["bbox_maxx"] = maxx
+    processed_dict["bbox_miny"] = miny
+    processed_dict["bbox_maxy"] = maxy
+
+    # Approximate diagonal length in km for later scoring heuristics
+    avg_lat = (miny + maxy) / 2.0
+    dx = maxx - minx
+    dy = maxy - miny
+    lat_km = dy * 111.0
+    lon_km = dx * 111.0 * abs(math.cos(math.radians(avg_lat)))
+    processed_dict["bbox_diagonal_km"] = math.sqrt(lat_km**2 + lon_km**2)

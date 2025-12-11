@@ -140,3 +140,62 @@ class OGMFieldMapper:
             "dct_identifier_sm",
             "dct_format_s",
         ]
+
+    @classmethod
+    def get_ogm_aardvark_fields(cls) -> set:
+        """
+        Returns the set of all OGM Aardvark field names from the official schema.
+        This is used to classify fields as OGM Aardvark vs B1G custom fields.
+        
+        Based on the OGM Aardvark JSON schema:
+        https://opengeometadata.org/schema/geoblacklight-schema-aardvark.json
+
+        Returns:
+            Set of OGM Aardvark field names (including 'id' which appears both at
+            root level per JSON:API and in ogm namespace)
+        """
+        return {
+            # Standard OGM Aardvark fields from the schema
+            "id",  # Required Aardvark field, also appears at root level per JSON:API
+            "dct_title_s",
+            "dct_alternative_sm",
+            "dct_description_sm",
+            "dct_language_sm",
+            "gbl_displayNote_sm",
+            "dct_creator_sm",
+            "dct_publisher_sm",
+            "schema_provider_s",
+            "gbl_resourceClass_sm",
+            "gbl_resourceType_sm",
+            "dct_subject_sm",
+            "dcat_theme_sm",
+            "dcat_keyword_sm",
+            "dct_temporal_sm",
+            "dct_issued_s",
+            "gbl_indexYear_im",
+            "gbl_dateRange_drsim",
+            "dct_spatial_sm",
+            "locn_geometry",
+            "dcat_bbox",
+            "dcat_centroid",
+            "dct_relation_sm",
+            "pcdm_memberOf_sm",
+            "dct_isPartOf_sm",
+            "dct_source_sm",
+            "dct_isVersionOf_sm",
+            "dct_replaces_sm",
+            "dct_isReplacedBy_sm",
+            "dct_rights_sm",
+            "dct_rightsHolder_sm",
+            "dct_license_sm",
+            "dct_accessRights_s",
+            "dct_format_s",
+            "gbl_fileSize_s",
+            "gbl_wxsIdentifier_s",
+            "dct_references_s",
+            "dct_identifier_sm",
+            "gbl_mdModified_dt",
+            "gbl_mdVersion_s",
+            "gbl_suppressed_b",
+            "gbl_georeferenced_b",
+        }

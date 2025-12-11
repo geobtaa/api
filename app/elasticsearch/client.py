@@ -6,7 +6,10 @@ from elasticsearch import AsyncElasticsearch
 
 load_dotenv()
 
-# Create the AsyncElasticsearch client with minimal settings
+# Create the AsyncElasticsearch client with proper timeout and retry settings
+# Note: Connection pooling is handled automatically by the elasticsearch library
+# The "too many open files" issue is addressed by configuring ulimits on the host system
+# See scripts/setup_elasticsearch_ulimits.sh for host-level configuration
 es = AsyncElasticsearch(
     os.getenv("ELASTICSEARCH_URL", "http://elasticsearch:9200"),
     verify_certs=False,  # For development only
