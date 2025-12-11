@@ -1,0 +1,283 @@
+<div class="example-block">
+    <div class="example-header">
+        <h3>Resource OGM Viewer Retrieval</h3>
+        <span class="badge">Resource</span>
+    </div>
+    <p><strong>Goal:</strong> Get the Aardvark record as HTML presented in the OGM Viewer.</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/resources/{id}/ogm-viewer</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-18" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-18')">Python</button>
+        <button id="btn-tab-response-18" class="tab-btn" onclick="openTab(event, 'tab-response-18')">HTML
+            Response</button>
+        <button id="btn-tab-output-18" class="tab-btn"
+            onclick="openTab(event, 'tab-output-18')">Output</button>
+    </div>
+
+    <div id="tab-python-18" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-18')">📋 Copy</button>
+        <pre><code id="code-18" class="language-python">import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Get OGM Viewer HTML for a resource
+resource_id = "ark28722-s7vs38"
+response = requests.get(f"{BASE_URL}/resources/{resource_id}/ogm-viewer")
+
+if response.status_code == 200:
+    html_content = response.text
+    print(f"✅ OGM Viewer HTML for resource: {resource_id}")
+    print(f"Content-Type: {response.headers.get('Content-Type', 'N/A')}")
+    print(f"HTML length: {len(html_content)} characters")
+    print(f"\nFirst 500 characters of HTML:")
+    print(html_content[:500])
+else:
+    print(f"❌ Error: {response.status_code}")</code></pre>
+    </div>
+
+    <div id="tab-response-18" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('html-18')">📋 Copy</button>
+        <div id="html-response-18" style="padding: 15px; background: #1e1e1e; color: #d4d4d4; max-height: 600px; overflow: auto;">
+            <p style="color: #d4d4d4;">Click "Run" to see the HTML response...</p>
+        </div>
+        <pre id="html-18" style="display: none; margin-top: 10px;"><code class="language-html"></code></pre>
+    </div>
+
+    <div id="tab-output-18" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-18')">📋 Copy</button>
+        <div class="output-area" id="output-18">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-18">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def set_html_content(display_id, code_id, html_text):
+    """Display HTML content in both rendered and code views"""
+    import base64
+    
+    # Display rendered HTML in a scrollable container
+    display_el = document.getElementById(display_id)
+    if display_el:
+        # Use base64 encoding for the iframe to avoid escaping issues
+        html_bytes = html_text.encode('utf-8')
+        html_encoded = base64.b64encode(html_bytes).decode('utf-8')
+        
+        display_el.innerHTML = f'''
+            <div style="margin-bottom: 15px;">
+                <strong style="color: #d4d4d4;">Rendered HTML:</strong>
+            </div>
+            <iframe src="data:text/html;base64,{html_encoded}" 
+                    style="width: 100%; height: 500px; border: 1px solid #4a5568; border-radius: 4px; background: white;">
+            </iframe>
+            <div style="margin-top: 15px; margin-bottom: 10px;">
+                <strong style="color: #d4d4d4;">HTML Source Code (scroll down to see all):</strong>
+            </div>
+        '''
+    
+    # Display HTML code for copying (show it below the iframe)
+    code_el = document.getElementById(code_id)
+    if code_el:
+        code_el.style.display = "block"
+        code_el.style.maxHeight = "400px"
+        code_el.style.overflow = "auto"
+        code_element = code_el.querySelector('code')
+        if code_element:
+            code_element.textContent = html_text
+            try:
+                Prism.highlightElement(code_element)
+            except Exception:
+                pass
+
+def mark_tab_complete(tab_btn_id):
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        if example_num == 18:
+            resp_btn.innerText = "HTML Response"
+        elif example_num in [22, 23]:
+            resp_btn.innerText = "Image Response"
+        else:
+            resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_18(event):
+    """Example: Resource OGM Viewer Retrieval"""
+    output_id = "output-18"
+    btn_id = "run-btn-18"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+    
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(18)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+        
+        clear_output(output_id)
+        show_output(output_id)
+        resource_id = "ark28722-s7vs38"
+        print_to_output(output_id, f"🔄 Running Example: Fetching OGM Viewer HTML for {resource_id}...")
+        print_to_output(output_id, "ℹ️ Note: Browser console warnings about 'unsafe headers' are harmless and can be ignored.")
+        
+        # Make the request (browser may show warnings about headers, but request will still work)
+        try:
+            response = requests.get(f"{BASE_URL}/resources/{resource_id}/ogm-viewer", timeout=30)
+            print_to_output(output_id, f"✅ Request completed. Status: {response.status_code}")
+        except Exception as req_error:
+            print_to_output(output_id, f"❌ Request failed: {str(req_error)}")
+            print_to_output(output_id, f"Error type: {type(req_error).__name__}")
+            raise
+        
+        if response.status_code == 200:
+            html_content = response.text
+            content_type = response.headers.get('Content-Type', 'text/html')
+            
+            print_to_output(output_id, f"✅ Status: {response.status_code}")
+            print_to_output(output_id, f"OGM Viewer HTML for resource: {resource_id}")
+            print_to_output(output_id, f"Content-Type: {content_type}")
+            print_to_output(output_id, f"HTML length: {len(html_content)} characters")
+            
+            try:
+                # Display HTML in response tab
+                set_html_content("html-response-18", "html-18", html_content)
+                mark_tab_complete("btn-tab-response-18")
+            except Exception as display_error:
+                print_to_output(output_id, f"⚠️ Warning: Could not display HTML in response tab: {str(display_error)}")
+            
+            try:
+                # Display HTML preview in output (first 1000 chars)
+                print_to_output(output_id, f"\nHTML Preview (first 1000 characters):")
+                preview_text = html_content[:1000]
+                # Escape HTML for display
+                preview_text = preview_text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+                preview_html = f'<pre style="background: #2d2d2d; padding: 10px; border-radius: 4px; overflow-x: auto; color: #d4d4d4; font-size: 12px;">{preview_text}...</pre>'
+                print_to_output(output_id, preview_html, is_html=True)
+            except Exception as preview_error:
+                print_to_output(output_id, f"⚠️ Warning: Could not display HTML preview: {str(preview_error)}")
+            
+            try:
+                # Also show rendered HTML in an iframe
+                print_to_output(output_id, f"\nRendered HTML Preview:")
+                # Use base64 encoding for the iframe to avoid escaping issues
+                import base64
+                html_bytes = html_content.encode('utf-8')
+                html_encoded = base64.b64encode(html_bytes).decode('utf-8')
+                iframe_html = f'<iframe src="data:text/html;base64,{html_encoded}" style="width: 100%; height: 400px; border: 1px solid #4a5568; border-radius: 4px; background: white;"></iframe>'
+                print_to_output(output_id, iframe_html, is_html=True)
+            except Exception as iframe_error:
+                print_to_output(output_id, f"⚠️ Warning: Could not display HTML in iframe: {str(iframe_error)}")
+                # Fallback: just show a link to view the HTML
+                print_to_output(output_id, f"HTML content received successfully. Check the 'HTML Response' tab to view it.")
+            
+            mark_tab_complete("btn-tab-output-18")
+            btn.innerText = "✅ Complete!"
+        else:
+            print_to_output(output_id, f"❌ Error: {response.status_code}")
+            print_to_output(output_id, response.text)
+            btn.innerText = "❌ Error"
+            
+    except Exception as e:
+        import traceback
+        error_msg = f"❌ Error: {str(e)}"
+        print_to_output(output_id, error_msg)
+        print_to_output(output_id, f"Error type: {type(e).__name__}")
+        try:
+            import traceback
+            tb = traceback.format_exc()
+            print_to_output(output_id, f"Traceback:\n{tb}")
+        except:
+            pass
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+document.getElementById("run-btn-18").onclick = example_18
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+function openTab(evt, tabId) {
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+

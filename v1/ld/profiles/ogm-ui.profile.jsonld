@@ -1,0 +1,66 @@
+{
+  "id": "https://gin.btaa.org/profile/ui-hints",
+  "title": "OGM UI Hints Profile for BTAA",
+  "description": "Non-RDF UI overlay carried in JSON:API Resource meta for BTAA.",
+  "version": "1.0.0",
+  "status": "stable",
+  "updated": "2025-08-22",
+  "appliesTo": {
+      "jsonapiType": "resource",
+      "resourceKinds": [
+          "map",
+          "dataset",
+          "imagery",
+          "collection"
+      ],
+      "notes": "Applies to the `data.meta` object."
+  },
+  "artifacts": {
+      "jsonldContext": [
+          "https://gin.btaa.org/ld/contexts/ogm-ui.context.jsonld"
+      ],
+      "jsonSchemas": [
+          "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld"
+      ],
+      "shacl": [],
+      "examples": [
+          "https://ogm.geo4lib.app/api/v1/resources/msn-id-1897"
+      ]
+  },
+  "constraints": {
+      "required": [],
+      "recommended": [
+          "ui.citation",
+          "ui.viewer.protocol",
+          "ui.viewer.endpoint"
+      ],
+      "cardinality": {
+          "ui": "0..1",
+          "ui.citation": "0..1",
+          "ui.viewer": "0..1",
+          "ui.viewer.protocol": "0..1",
+          "ui.viewer.endpoint": "0..1",
+          "ui.viewer.geometry": "0..1"
+      },
+      "enums": {
+          "ui.viewer.protocol": [
+              "iiif_manifest",
+              "tilejson",
+              "wms",
+              "wmts",
+              "xyz",
+              "arcgis"
+          ]
+      }
+  },
+  "compatibility": {
+      "conformsTo": [
+          "https://www.rfc-editor.org/rfc/rfc6906"
+      ],
+      "notes": "This profile is intentionally non-RDF; terms live under the ogm-ui namespace."
+  },
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "maintainers": [
+      "OpenGeoMetadata community"
+  ]
+}

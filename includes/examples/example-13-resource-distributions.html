@@ -1,0 +1,210 @@
+<div class="example-block">
+    <div class="example-header">
+        <h3>Resource Distributions</h3>
+        <span class="badge">Resource</span>
+    </div>
+    <p><strong>Goal:</strong> Get distribution information for a resource.</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/resources/{id}/distributions</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-13" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-13')">Python</button>
+        <button id="btn-tab-response-13" class="tab-btn" onclick="openTab(event, 'tab-response-13')">API
+            Response</button>
+        <button id="btn-tab-output-13" class="tab-btn"
+            onclick="openTab(event, 'tab-output-13')">Output</button>
+    </div>
+
+    <div id="tab-python-13" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-13')">📋 Copy</button>
+        <pre><code id="code-13" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Get distributions for a resource
+resource_id = "ark28722-s7vs38"
+response = requests.get(f"{BASE_URL}/resources/{resource_id}/distributions")
+data = response.json()
+
+print(f"Distributions for resource: {resource_id}")
+for dist in data.get('data', []):
+    attrs = dist.get('attributes', {})
+    print(f"Type: {attrs.get('dcat_distribution_type_s', 'N/A')}")
+    print(f"URL: {attrs.get('dcat_access_url_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-13" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-13')">📋 Copy</button>
+        <pre><code id="json-13" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-13" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-13')">📋 Copy</button>
+        <div class="output-area" id="output-13">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-13">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_13(event):
+    """Example: Resource Distributions"""
+    output_id = "output-13"
+    btn_id = "run-btn-13"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+    
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(13)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+        
+        clear_output(output_id)
+        show_output(output_id)
+        resource_id = "ark28722-s7vs38"
+        print_to_output(output_id, f"🔄 Running Example: Fetching distributions for {resource_id}...")
+        
+        response = requests.get(f"{BASE_URL}/resources/{resource_id}/distributions")
+        
+        if response.status_code == 200:
+            data = response.json()
+            set_json_content("json-13", data)
+            mark_tab_complete("btn-tab-response-13")
+            
+            print_to_output(output_id, f"✅ Status: {response.status_code}")
+            print_to_output(output_id, f"Distributions for resource: {resource_id}")
+            
+            # Handle different response structures
+            distributions = []
+            if isinstance(data, dict):
+                distributions = data.get('data', [])
+            elif isinstance(data, list):
+                distributions = data
+            
+            if distributions:
+                for dist in distributions:
+                    if isinstance(dist, dict):
+                        # Handle JSON:API format
+                        if 'attributes' in dist:
+                            attrs = dist.get('attributes', {})
+                            print_to_output(output_id, f"\nType: {attrs.get('dcat_distribution_type_s', 'N/A')}")
+                            print_to_output(output_id, f"URL: {attrs.get('dcat_access_url_s', 'N/A')}")
+                        else:
+                            # Handle direct attribute format
+                            print_to_output(output_id, f"\nType: {dist.get('dcat_distribution_type_s', 'N/A')}")
+                            print_to_output(output_id, f"URL: {dist.get('dcat_access_url_s', 'N/A')}")
+                    else:
+                        print_to_output(output_id, f"\nDistribution: {dist}")
+            else:
+                print_to_output(output_id, "No distributions found.")
+            
+            mark_tab_complete("btn-tab-output-13")
+            btn.innerText = "✅ Complete!"
+        else:
+            print_to_output(output_id, f"❌ Error: {response.status_code}")
+            print_to_output(output_id, response.text)
+            btn.innerText = "❌ Error"
+            
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+document.getElementById("run-btn-13").onclick = example_13
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+function openTab(evt, tabId) {
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
