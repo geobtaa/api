@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import HTTPException, Query, Request
 from sqlalchemy.sql import select
 
-from app.api.v1.utils import create_jsonapi_response
+from app.api.v1.utils import create_response
 from app.services.spatial_facet_service import SpatialFacetService
 from db.models import resources
 
@@ -27,9 +27,11 @@ async def get_resource_spatial_facets(
 
             if not row:
                 # Return empty response for nonexistent resource
-                response_data = {"id": id, "type": "spatial_facets", "attributes": {}}
-                request_url = str(request.url) if request else None
-                return create_jsonapi_response(response_data, request_url, callback)
+                response_payload = {
+                    "id": id,
+                    "spatial_facets": {},
+                }
+                return create_response(response_payload, callback)
 
             # Convert to dict
             resource_dict = dict(row._mapping)
@@ -45,11 +47,12 @@ async def get_resource_spatial_facets(
             # Add spatial facets after dcat_bbox
             attributes.update(spatial_facets)
 
-            # Create JSON:API compliant response
-            response_data = {"id": id, "type": "spatial_facets", "attributes": attributes}
+            response_payload = {
+                "id": id,
+                "spatial_facets": attributes,
+            }
 
-            request_url = str(request.url) if request else None
-            return create_jsonapi_response(response_data, request_url, callback)
+            return create_response(response_payload, callback)
 
     except Exception as e:
         logger.error(f"Error getting spatial facets for resource {id}: {str(e)}", exc_info=True)

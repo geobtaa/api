@@ -86,7 +86,7 @@ class TestRootEndpoints:
         # Check attributes
         attributes = api_info["attributes"]
         assert attributes["api"] == "BTAA Geospatial API"
-        assert attributes["version"] == "0.2.0-dev"
+        assert attributes["version"] == "0.3.0-pre-alpha"
         assert "description" in attributes
         assert "endpoints" in attributes
         assert isinstance(attributes["endpoints"], list)
@@ -102,12 +102,11 @@ class TestRootEndpoints:
         endpoints = attributes["endpoints"]
 
         # Check for key endpoints
+        # Note: /gazetteers is not in the list because it's hidden from schema
         expected_endpoints = [
             "/resources",
             "/search",
             "/thumbnails/placeholder",
-            "/gazetteers",
-            "/shapefiles/query",
         ]
 
         for endpoint in expected_endpoints:
@@ -136,7 +135,7 @@ class TestRootEndpoints:
         attributes = data["data"]["attributes"]
         version = attributes["version"]
 
-        assert version == "0.2.0-dev"
+        assert version == "0.3.0-pre-alpha"
 
     def test_api_root_with_request_url(self):
         """Test API root with request URL in response."""

@@ -158,26 +158,26 @@ class SearchService:
                 docs_processed += 1
 
             process_time = time.time() - process_start
-            timings["resource_processing"] = {
+            timings["resourceProcessing"] = {
                 "total": f"{(process_time * 1000):.0f}ms",
-                "per_resource": (
+                "perResource": (
                     f"{((process_time / docs_processed) * 1000):.0f}ms"
                     if docs_processed > 0
                     else "0ms"
                 ),
-                "thumbnail_service": f"{(thumbnail_time * 1000):.0f}ms",
-                "citation_service": f"{(citation_time * 1000):.0f}ms",
-                "viewer_service": f"{(viewer_time * 1000):.0f}ms",
+                "thumbnailService": f"{(thumbnail_time * 1000):.0f}ms",
+                "citationService": f"{(citation_time * 1000):.0f}ms",
+                "viewerService": f"{(viewer_time * 1000):.0f}ms",
             }
 
             total_time = time.time() - start_time
-            timings["total_response_time"] = f"{(total_time * 1000):.0f}ms"
+            timings["totalResponseTime"] = f"{(total_time * 1000):.0f}ms"
 
-            results["query_time"] = timings
+            results["queryTime"] = timings
 
             # Extract and add suggestions to meta if they exist
             if isinstance(results, dict) and "meta" in results and "suggestions" in results["meta"]:
-                results["meta"]["spelling_suggestions"] = results["meta"].pop("suggestions")
+                results["meta"]["spellingSuggestions"] = results["meta"].pop("suggestions")
 
             # Sanitize the entire results object for JSON
             sanitized_results = sanitize_for_json(results)

@@ -4,7 +4,7 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
-from app.api.v1.utils import create_jsonapi_response
+from app.api.v1.utils import create_response
 from app.services.cache_service import cached_endpoint
 from app.services.similar_items_service import SimilarItemsService
 from db.models import resources
@@ -33,19 +33,12 @@ async def get_resource_similar_items(
             # Get similar items
             similar_items = await SimilarItemsService.get_similar_items(id, session, limit=12)
 
-            # Create JSON:API compliant response
-            request_url = str(request.url) if request else None
-            jsonapi_response = create_jsonapi_response(
-                data={
-                    "type": "similar_items",
-                    "id": id,
-                    "attributes": {"similar_items": similar_items, "count": len(similar_items)},
-                },
-                request_url=request_url,
-                callback=callback,
-            )
+            response_payload = {
+                "id": id,
+                "similar_items": similar_items,
+            }
 
-            return JSONResponse(content=jsonapi_response)
+            return create_response(response_payload, callback)
 
     except Exception as e:
         logger.error(f"Error getting similar items for resource {id}: {str(e)}", exc_info=True)

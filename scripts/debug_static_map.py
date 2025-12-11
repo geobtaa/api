@@ -8,16 +8,17 @@ This script tests:
 3. Network error handling
 """
 
-import asyncio
 import logging
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.services.static_map_service import StaticMapService
+from app.services.static_map_service import StaticMapService  # noqa: E402
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -28,9 +29,6 @@ logger = logging.getLogger(__name__)
 
 def test_tile_server_connectivity():
     """Test if we can reach the Carto tile server."""
-    import urllib.request
-    import urllib.error
-
     test_url = "http://a.basemaps.cartocdn.com/rastertiles/light_all/1/0/0.png"
     logger.info(f"Testing connectivity to tile server: {test_url}")
 
@@ -89,10 +87,15 @@ def test_py_staticmaps_import():
     try:
         import staticmaps
 
-        logger.info(f"✓ py-staticmaps imported successfully (version: {staticmaps.__version__ if hasattr(staticmaps, '__version__') else 'unknown'})")
+        version = (
+            staticmaps.__version__
+            if hasattr(staticmaps, "__version__")
+            else "unknown"
+        )
+        logger.info(f"✓ py-staticmaps imported successfully (version: {version})")
 
         # Try creating a context
-        context = staticmaps.Context()
+        staticmaps.Context()
         logger.info("✓ Created staticmaps.Context()")
 
         return True

@@ -13,6 +13,7 @@ from app.services.distribution_repository import (
     build_distribution_context,
     fetch_distribution_context,
 )
+from app.services.ogm_field_mapper import OGMFieldMapper
 
 logger = logging.getLogger(__name__)
 
@@ -181,8 +182,8 @@ def create_jsonapi_response(data, request_url=None, callback=None):
         "jsonapi": {
             "version": "1.1",
             "profile": [
-                "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
-                "https://gin.btaa.org/ld/profiles/ogm-ui.profile.jsonld",
+                "https://gin.btaa.org/api/v1/ld/profiles/ogm-b1g.profile.jsonld",
+                "https://gin.btaa.org/api/v1/ld/profiles/ogm-ui.profile.jsonld",
             ],
         }
     }
@@ -242,6 +243,33 @@ def create_jsonapi_resource(resource_data, request_url=None):
     # Filter out empty arrays and empty strings from core_attributes
     core_attributes = filter_empty_values(core_attributes)
 
+    # Get resource ID for root level (required by JSON:API spec)
+    resource_id = core_attributes.get("id") or resource_data.get("id", "")
+
+    # Separate OGM Aardvark fields from B1G custom fields
+    ogm_fields = {}
+    b1g_fields = {}
+    ogm_aardvark_field_set = OGMFieldMapper.get_ogm_aardvark_fields()
+
+    # Classify each field (including 'id' which goes into ogm namespace)
+    for key, value in core_attributes.items():
+        if key in ogm_aardvark_field_set:
+            ogm_fields[key] = value
+        else:
+            # All other fields (B1G custom fields and legacy/internal fields) go to b1g
+            b1g_fields[key] = value
+
+    # Filter empty values from both dictionaries
+    ogm_fields = filter_empty_values(ogm_fields)
+    b1g_fields = filter_empty_values(b1g_fields)
+
+    # Build nested attributes structure
+    nested_attributes = {}
+    if ogm_fields:
+        nested_attributes["ogm"] = ogm_fields
+    if b1g_fields:
+        nested_attributes["b1g"] = b1g_fields
+
     # Restructure UI fields to remove prefixes and organize viewer
     restructured_ui = {}
 
@@ -282,8 +310,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
     # Create the resource structure
     resource = {
         "type": "resource",
-        "id": str(resource_data.get("id", "")),
-        "attributes": core_attributes,
+        "id": str(resource_id),
+        "attributes": nested_attributes if nested_attributes else {},
         "meta": {
             "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
             "@type": "BtaaAardvarkRecord",

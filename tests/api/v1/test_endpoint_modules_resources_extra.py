@@ -266,8 +266,12 @@ async def test_get_resource_spatial_facets_exists(monkeypatch):
     resp = await res.get_resource_spatial_facets(
         "r1", callback=None, debug=False, request=DummyRequest()
     )
-    assert isinstance(resp, dict)
-    assert resp.get("data", {}).get("type") == "spatial_facets"
+    # Response should be a JSONResponse, check body content
+    assert hasattr(resp, "body")
+    import json
+    data = json.loads(resp.body.decode())
+    assert "id" in data
+    assert "spatial_facets" in data
 
 
 @pytest.mark.asyncio
@@ -289,8 +293,14 @@ async def test_get_resource_spatial_facets_missing(monkeypatch):
     resp = await res.get_resource_spatial_facets(
         "x", callback=None, debug=False, request=DummyRequest()
     )
-    assert isinstance(resp, dict)
-    assert resp.get("data", {}).get("attributes") == {}
+    # Response should be a JSONResponse, check body content
+    assert hasattr(resp, "body")
+    import json
+    data = json.loads(resp.body.decode())
+    assert "id" in data
+    assert data["id"] == "x"
+    assert "spatial_facets" in data
+    assert data["spatial_facets"] == {}
 
 
 @pytest.mark.asyncio

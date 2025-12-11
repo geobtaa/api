@@ -19,6 +19,7 @@ INDEX_MAPPING = {
                 "fields": {"keyword": {"type": "keyword"}},
             },
             "gbl_indexYear_im": {"type": "integer"},
+            "time_period": {"type": "keyword"},
             "dct_language_sm": {
                 "type": "text",
                 "fields": {"keyword": {"type": "keyword"}},

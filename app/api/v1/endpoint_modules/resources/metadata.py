@@ -62,8 +62,13 @@ async def get_resource_metadata(
             except Exception:
                 pass
 
-            # Return just the cleaned attributes (the Aardvark record)
-            return create_response(aardvark_record, callback)
+            # Wrap in standard helper endpoint format
+            response_payload = {
+                "id": id,
+                "metadata": aardvark_record,
+            }
+
+            return create_response(response_payload, callback)
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
         raise

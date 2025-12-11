@@ -83,48 +83,47 @@ def filter_resource_fields(resource_dict: dict, fields_param: Optional[str]) -> 
 # Import all endpoint modules to register routes
 # These imports must come after router/constants are defined
 # Export FastAPI imports for testing
-from fastapi import HTTPException, Query, Request  # noqa: E402
-from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402
+from fastapi import HTTPException, Query, Request  # noqa: E402, I001
+from fastapi.responses import HTMLResponse, JSONResponse  # noqa: E402, I001
 
 # Export classes and utilities for testing
-from app.api.v1.utils import (  # noqa: E402
+from app.api.v1.utils import (  # noqa: E402, I001
     create_jsonapi_response,
     create_response,
     process_resource,
     sanitize_for_json,
 )
-from app.services.link_service import LinkService  # noqa: E402
-from app.services.ogm_field_mapper import OGMFieldMapper  # noqa: E402
-from app.services.relationship_service import RelationshipService  # noqa: E402
-from app.services.spatial_facet_service import SpatialFacetService  # noqa: E402
-from db.models import resources  # noqa: E402
+from app.services.link_service import LinkService  # noqa: E402, I001
+from app.services.ogm_field_mapper import OGMFieldMapper  # noqa: E402, I001
+from app.services.relationship_service import RelationshipService  # noqa: E402, I001
+from app.services.spatial_facet_service import SpatialFacetService  # noqa: E402, I001
+from db.models import resources  # noqa: E402, I001
 
-from . import (  # noqa: E402
+from . import (  # noqa: E402, I001
+    list,
+    get,
     citation,
     distributions,
     downloads,
-    get,
     links,
-    list,
     metadata,
     ogm_viewer,
     relationships,
     similar_items,
     spatial_facets,
     static_map,
-    # summaries,  # Temporarily disabled - AI-based feature not ready for launch
     thumbnail,
     viewer,
 )
 
 # Export endpoint functions for testing
-from .get import get_resource  # noqa: E402
-from .links import get_resource_links  # noqa: E402
-from .list import list_resources  # noqa: E402
-from .metadata import get_resource_metadata  # noqa: E402
-from .ogm_viewer import get_resource_viewer  # noqa: E402
-from .relationships import get_resource_relationships  # noqa: E402
-from .spatial_facets import get_resource_spatial_facets  # noqa: E402
+from .get import get_resource  # noqa: E402, I001
+from .links import get_resource_links  # noqa: E402, I001
+from .list import list_resources  # noqa: E402, I001
+from .metadata import get_resource_metadata  # noqa: E402, I001
+from .ogm_viewer import get_resource_viewer  # noqa: E402, I001
+from .relationships import get_resource_relationships  # noqa: E402, I001
+from .spatial_facets import get_resource_spatial_facets  # noqa: E402, I001
 
 # from .summaries import get_resource_summaries  # noqa: E402  # Temporarily disabled
 

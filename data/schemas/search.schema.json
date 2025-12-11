@@ -2,34 +2,15 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Search endpointAPI Response",
   "type": "object",
-  "required": ["status", "query_time", "meta", "data"],
+  "required": ["status", "meta", "data"],
   "properties": {
     "status": {
       "type": "string",
       "enum": ["success", "error"]
     },
-    "query_time": {
-      "type": "object",
-      "required": ["cache", "elasticsearch", "item_processing", "total_response_time"],
-      "properties": {
-        "cache": { "type": "string" },
-        "elasticsearch": { "type": "string" },
-        "item_processing": {
-          "type": "object",
-          "properties": {
-            "total": { "type": "string" },
-            "per_item": { "type": "string" },
-            "thumbnail_service": { "type": "string" },
-            "citation_service": { "type": "string" },
-            "viewer_service": { "type": "string" }
-          }
-        },
-        "total_response_time": { "type": "string" }
-      }
-    },
     "meta": {
       "type": "object",
-      "required": ["pages", "spelling_suggestions"],
+      "required": ["pages", "queryTime", "spellingSuggestions"],
       "properties": {
         "pages": {
           "type": "object",
@@ -46,7 +27,26 @@
             "last_page?": { "type": "boolean" }
           }
         },
-        "spelling_suggestions": {
+        "queryTime": {
+          "type": "object",
+          "properties": {
+            "cache": { "type": "string" },
+            "elasticsearch": { "type": "string" },
+            "resourceProcessing": {
+              "type": "object",
+              "properties": {
+                "total": { "type": "string" },
+                "perResource": { "type": "string" },
+                "thumbnailService": { "type": "string" },
+                "citationService": { "type": "string" },
+                "viewerService": { "type": "string" }
+              }
+            },
+            "totalResponseTime": { "type": "string" },
+            "postgresql": { "type": "string" }
+          }
+        },
+        "spellingSuggestions": {
           "type": "array",
           "items": { "type": "string" }
         }

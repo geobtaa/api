@@ -412,3 +412,44 @@ class TestOGMFieldMapper:
         assert result != original_dict
         assert "gbl_mdVersion_s" in result
         assert "gbl_mdversion_s" not in result
+
+    def test_get_ogm_aardvark_fields(self):
+        """Test getting the set of OGM Aardvark fields."""
+        ogm_fields = OGMFieldMapper.get_ogm_aardvark_fields()
+
+        assert isinstance(ogm_fields, set)
+        assert len(ogm_fields) > 0
+
+        # Verify it contains standard OGM Aardvark fields
+        expected_fields = [
+            "dct_title_s",
+            "dct_description_sm",
+            "dct_language_sm",
+            "gbl_resourceClass_sm",
+            "gbl_resourceType_sm",
+            "dct_accessRights_s",
+            "locn_geometry",
+            "dcat_bbox",
+            "dcat_centroid",
+            "gbl_mdVersion_s",
+            "gbl_suppressed_b",
+            "gbl_georeferenced_b",
+        ]
+
+        for field in expected_fields:
+            assert field in ogm_fields, f"Expected field {field} not in OGM Aardvark fields"
+
+        # Verify it does NOT contain B1G fields
+        b1g_fields = ["b1g_code_s", "b1g_status_s", "b1g_dct_accrualMethod_s"]
+        for field in b1g_fields:
+            msg = f"B1G field {field} should not be in OGM Aardvark fields"
+            assert field not in ogm_fields, msg
+
+        # Verify it DOES contain 'id' (required Aardvark field, also at root level)
+        assert "id" in ogm_fields
+
+        # Verify it does NOT contain legacy/internal fields
+        legacy_fields = ["layer_geom_type_s", "solr_year_i", "layer_id_s"]
+        for field in legacy_fields:
+            msg = f"Legacy field {field} should not be in OGM Aardvark fields"
+            assert field not in ogm_fields, msg
