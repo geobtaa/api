@@ -6,7 +6,7 @@ Welcome to the BTAA Geoportal API training resource. This site is designed to ac
 
 Here you will find the presentation materials, learning objectives, and a comprehensive set of Python code examples to get you started.
 
-[Start Presentation](presentation.html){ .md-button }
+[Start Presentation](presentation){ .md-button }
 
 ## Learning Objectives
 

@@ -1,9 +1,17 @@
 <style>
+/* Tutorial slide wrapper - keeps content within site layout */
+.tutorial-slide-wrapper {
+    margin: 2rem 0;
+    padding: 2rem;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 /* Slideshow Styles for Tutorial */
 #slide-container {
-    min-height: 50vh;
-    display: flex;
-    align-items: center;
+    min-height: 400px;
+    padding: 2rem 0;
 }
 
 .slide {
@@ -14,6 +22,18 @@
 
 .slide.active {
     display: block;
+}
+
+.slide h2 {
+    color: #005E8E;
+    border-bottom: 2px solid #005E8E;
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+}
+
+.slide h3 {
+    color: #772424;
+    margin-top: 1.5rem;
 }
 
 @keyframes fadeIn {
@@ -71,21 +91,57 @@
     text-align: center;
 }
 
-/* Fullscreen styles */
-:fullscreen {
+/* Fullscreen styles - hide site header/footer only in fullscreen */
+html:fullscreen body.tutorial-fullscreen {
     background: #1a202c;
 }
 
-:fullscreen .md-main__inner {
-    max-width: 100%;
-    padding: 40px;
+html:fullscreen body.tutorial-fullscreen .md-header,
+html:fullscreen body.tutorial-fullscreen .md-tabs,
+html:fullscreen body.tutorial-fullscreen .md-footer {
+    display: none !important;
 }
 
-:fullscreen .slide {
+html:fullscreen body.tutorial-fullscreen .md-main {
+    margin-top: 0 !important;
+}
+
+html:fullscreen body.tutorial-fullscreen .md-main__inner {
+    max-width: 100%;
+    padding: 40px;
+    margin-top: 0;
+}
+
+html:fullscreen body.tutorial-fullscreen .tutorial-slide-wrapper {
+    margin: 0;
+    padding: 40px;
+    box-shadow: none;
+    border-radius: 0;
+    background: #1a202c;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+html:fullscreen body.tutorial-fullscreen .slide {
     font-size: 1.2em;
+    color: #fff;
+}
+
+html:fullscreen body.tutorial-fullscreen .slide h2,
+html:fullscreen body.tutorial-fullscreen .slide h3 {
+    color: #fff;
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+html:fullscreen body.tutorial-fullscreen .controls {
+    margin-top: auto;
 }
 </style>
 
+<div class="tutorial-slide-wrapper">
 <div id="slide-container">
     <div class="slide active">
         <h2>1. Introduction</h2>
@@ -116,7 +172,7 @@
             <li><code>include_filters</code>: Target specific fields (e.g.,
                 <code>include_filters[gbl_resourceClass_sm][]=Maps</code>).
             </li>
-            <li><code>page</code> & <code>per_page</code>: Control pagination.</li>
+            <li><code>page</code> &amp; <code>per_page</code>: Control pagination.</li>
             <li><code>sort</code>: Order results (e.g., <code>year_asc</code>, <code>relevance</code>).</li>
         </ul>
     </div>
@@ -192,19 +248,20 @@
         <p>We have prepared 10 practical "recipes" or examples to demonstrate common tasks, from basic searching
             to
             extracting IIIF manifests for map viewers.</p>
-        <a href="examples.html" class="md-button">View Code Examples</a>
+        <a href="../examples" class="md-button">View Code Examples</a>
     </div>
 </div>
 
 <div class="controls">
-    <button id="prevBtn" onclick="changeSlide(-1)" disabled>← Previous</button>
+    <button id="prevBtn" onclick="changeSlide(-1)" disabled>&larr; Previous</button>
     <select id="slideSelect" onchange="jumpToSlide(this.value)"
         style="padding: 10px; border-radius: 5px; border: none; background: rgba(255,255,255,0.95); color: #4a5568; font-weight: 600; font-size: 14px; cursor: pointer; max-width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
         <!-- Populated by JS -->
     </select>
     <span id="slide-indicator" style="display: none;">Slide 1 of 5</span>
-    <button id="nextBtn" onclick="changeSlide(1)">Next →</button>
-    <button id="fullscreenBtn" onclick="toggleFullscreen()" title="Toggle Fullscreen">⛶</button>
+    <button id="nextBtn" onclick="changeSlide(1)">Next &rarr;</button>
+    <button id="fullscreenBtn" onclick="toggleFullscreen()" title="Toggle Fullscreen">&#99798;</button>
+</div>
 </div>
 
 <script>
@@ -268,14 +325,26 @@
 
     // Fullscreen Toggle
     function toggleFullscreen() {
+        const wrapper = document.querySelector('.tutorial-slide-wrapper');
         if (!document.fullscreenElement) {
+            // Add class to body to indicate tutorial fullscreen mode
+            document.body.classList.add('tutorial-fullscreen');
             document.documentElement.requestFullscreen().catch(err => {
+                document.body.classList.remove('tutorial-fullscreen');
                 console.log(`Error attempting to enable full-screen mode: ${err.message} (${err.name})`);
             });
         } else {
+            document.body.classList.remove('tutorial-fullscreen');
             document.exitFullscreen();
         }
     }
+
+    // Remove class when exiting fullscreen via ESC key
+    document.addEventListener('fullscreenchange', () => {
+        if (!document.fullscreenElement) {
+            document.body.classList.remove('tutorial-fullscreen');
+        }
+    });
 
     // Keyboard navigation
     document.addEventListener('keydown', (e) => {

@@ -110,5 +110,5 @@ nav:
 
 - 'Tutorial':
   - 'Overview': 'specification/tutorial/index.md'
-  - 'Presentation': 'specification/tutorial/presentation.html'
-  - 'Code Examples': 'specification/tutorial/examples.html'
+  - 'Presentation': 'specification/tutorial/presentation.md'
+  - 'Code Examples': 'specification/tutorial/examples.md'
