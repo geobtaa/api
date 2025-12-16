@@ -322,7 +322,7 @@ packages = ["requests", "pyodide-http"]
                     </div>
             <p>11 Recipes for Success with the BTAA Geoportal API</p>
             <p>Download the full runnable Python script containing all these examples, or run them directly in your browser below!</p>
-            <p><a href="btaa_api_examples.py" class="btn" download>Download Python Script</a></p>
+            <p><a href="../btaa_api_examples.py" class="btn" download>Download Python Script</a></p>
             <p style="margin-top: 30px; color: #718096;">Use the navigation buttons below or arrow keys to move between examples.</p>
         </div>
 
