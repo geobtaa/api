@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from db.config import DATABASE_URL
 from db.migrations.add_enrichment_type import add_enrichment_type_column
 from db.migrations.add_fast_gazetteer import add_fast_gazetteer
+from db.migrations.api_rate_limiting import init_api_rate_limiting
 from db.migrations.create_ai_enrichments import create_ai_enrichments_table
 from db.migrations.create_fast_embeddings import create_fast_embeddings_table
 from db.migrations.create_gazetteer_tables import create_gazetteer_tables
@@ -88,6 +89,10 @@ async def run_migrations():
         # Rename remaining constraints and indexes
         logger.info("Renaming remaining constraints and indexes...")
         await rename_remaining_constraints(engine)
+
+        # Initialize API rate limiting schema and tiers (idempotent)
+        logger.info("Initializing API rate limiting schema and tiers...")
+        init_api_rate_limiting()
 
     except Exception as e:
         logger.error(f"Error running migrations: {str(e)}")

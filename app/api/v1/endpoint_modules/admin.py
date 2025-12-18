@@ -3,6 +3,7 @@ from typing import Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.security import HTTPBasic
+from pydantic import BaseModel
 
 from app.api.v1.auth import verify_credentials
 from app.api.v1.utils import create_response, sanitize_for_json
@@ -16,6 +17,7 @@ from app.services.admin_service import (
     ResourceProcessingError,
     ResourceProcessingService,
 )
+from app.services.api_key_service import APIKeyService
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,21 @@ def get_admin_service() -> AdminService:
 
 # Module-level singleton for dependency injection
 _admin_service_dependency = Depends(get_admin_service)
+
+# API Key Service instance (handles its own async engine and session)
+api_key_service = APIKeyService()
+
+
+# Pydantic models for request/response
+class CreateAPIKeyRequest(BaseModel):
+    tier_name: str
+    name: Optional[str] = None
+
+
+class UpdateAPIKeyRequest(BaseModel):
+    tier_name: Optional[str] = None
+    is_active: Optional[bool] = None
+    name: Optional[str] = None
 
 
 @router.post("/cache/clear")
@@ -135,4 +152,99 @@ async def identify_geo_entities(
             f"Unexpected error triggering geographic entity identification "
             f"for resource {id}: {str(e)}"
         )
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# API Key Management Endpoints
+
+
+@router.post("/api-keys")
+async def create_api_key(
+    request: CreateAPIKeyRequest,
+):
+    """Create a new API key."""
+    try:
+        result = await api_key_service.create_api_key(
+            tier_name=request.tier_name,
+            name=request.name,
+        )
+
+        if result is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to create API key. Tier '{request.tier_name}' may not exist.",
+            )
+
+        return create_response(result)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating API key: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/api-keys")
+async def list_api_keys():
+    """List all API keys."""
+    try:
+        keys = await api_key_service.list_api_keys()
+        return create_response({"keys": keys})
+    except Exception as e:
+        logger.error(f"Error listing API keys: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.patch("/api-keys/{key_id}")
+async def update_api_key(
+    key_id: int,
+    request: UpdateAPIKeyRequest,
+):
+    """Update an API key."""
+    try:
+        updated = await api_key_service.update_api_key_by_id(
+            key_id=key_id,
+            tier_name=request.tier_name,
+            is_active=request.is_active,
+            name=request.name,
+        )
+
+        if not updated:
+            # Could be missing key, missing tier, or no fields to update
+            raise HTTPException(status_code=400, detail="Failed to update API key")
+
+        return create_response({"message": "API key updated successfully"})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating API key: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.delete("/api-keys/{key_id}")
+async def revoke_api_key(key_id: int):
+    """Revoke (deactivate) an API key."""
+    try:
+        # Use service method that handles its own async session (NullPool) to
+        # avoid cross-event-loop issues with the shared database connection.
+        success = await api_key_service.revoke_api_key_by_id(key_id)
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to revoke API key")
+
+        return create_response({"message": "API key revoked successfully"})
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error revoking API key: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/api-tiers")
+async def list_api_tiers():
+    """List all service tiers."""
+    try:
+        tiers = await api_key_service.list_tiers()
+        return create_response({"tiers": tiers})
+    except Exception as e:
+        logger.error(f"Error listing API tiers: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e

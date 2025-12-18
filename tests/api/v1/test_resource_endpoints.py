@@ -9,6 +9,7 @@ from app.services.relationship_service import RelationshipService
 client = TestClient(app)
 
 
+@pytest.mark.unit
 def test_relationship_service_initialization():
     """Test that RelationshipService can be initialized."""
     # Simple test that the service can be created
@@ -17,6 +18,7 @@ def test_relationship_service_initialization():
     assert hasattr(service, "get_resource_relationships")
 
 
+@pytest.mark.unit
 def test_resource_endpoints_exist():
     """Test that the resource endpoints are properly configured."""
     # Test that the app has the expected routes
@@ -32,6 +34,7 @@ def test_resource_endpoints_exist():
     assert "/api/v1/resources/{id}/spatial-facets" in routes  # Changed to kebab-case
 
 
+@pytest.mark.unit
 def test_resource_endpoint_structure():
     """Test the basic structure of resource endpoints without external dependencies."""
     # This test verifies the endpoint structure without making actual requests
@@ -46,6 +49,7 @@ def test_resource_endpoint_structure():
     assert app.title == "BTAA Geospatial API"
 
 
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_resource_endpoint_404_handling():
     """Test that the resource endpoint properly handles 404 errors."""
@@ -60,6 +64,7 @@ async def test_resource_endpoint_404_handling():
     assert hasattr(app, "exception_handlers")
 
 
+@pytest.mark.unit
 def test_ogm_endpoint_structure():
     """Test that the metadata endpoint is properly configured (formerly OGM)."""
     routes = [route.path for route in app.routes]
@@ -76,6 +81,7 @@ def test_ogm_endpoint_structure():
     assert metadata_route.methods == {"GET"}
 
 
+@pytest.mark.unit
 def test_viewer_endpoint_structure():
     """Test that the viewer endpoint is properly configured."""
     routes = [route.path for route in app.routes]
@@ -92,6 +98,8 @@ def test_viewer_endpoint_structure():
     assert viewer_route.methods == {"GET"}
 
 
+@pytest.mark.integration
+@pytest.mark.database
 def test_ogm_endpoint_404_handling():
     """Test that the metadata endpoint returns 404 for non-existent resources."""
     # Test with a non-existent resource ID

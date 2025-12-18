@@ -771,8 +771,13 @@ class TestImageServiceCacheInteractions:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
+    @pytest.mark.slow
     def test_queue_thumbnail_processing_with_real_service(self):
-        """Test thumbnail processing queue with real service."""
+        """Test thumbnail processing queue with real service.
+        
+        This test is marked as slow because it may wait for Celery/Redis timeouts.
+        Skip slow tests with: pytest -m "not slow"
+        """
         metadata = {"id": "test-doc"}
 
         try:
@@ -835,14 +840,20 @@ class TestImageServiceCacheInteractions:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
+    @pytest.mark.slow
     def test_manifest_fetching_with_real_requests(self):
-        """Test manifest fetching with real HTTP requests."""
+        """Test manifest fetching with real HTTP requests.
+        
+        This test is marked as slow because it makes real HTTP requests with 5s timeouts.
+        Skip slow tests with: pytest -m "not slow"
+        """
         metadata = {"id": "test-doc"}
 
         try:
             service = ImageService(metadata)
 
             # Test with various manifest URLs
+            # Each request has a 5s timeout, so this can take up to 15s total
             test_urls = [
                 "https://example.com/manifest.json",
                 "http://example.com/iiif/manifest",
@@ -1049,13 +1060,18 @@ class TestImageServiceEdgeCases:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_manifest_url_extraction_edge_cases(self):
-        """Test manifest URL extraction with various formats."""
+        """Test manifest URL extraction with various formats.
+        
+        Note: This test may be slow if Redis connection times out.
+        The Redis connection pool now has 1s timeouts to prevent hanging.
+        """
         metadata = {"id": "test-doc"}
 
         try:
             service = ImageService(metadata)
 
             # Test various manifest reference formats
+            # This only tests URL extraction, not manifest fetching (which would be slow)
             test_cases = [
                 {
                     "https://iiif.io/api/presentation/2/context.json": "http://example.com/manifest1.json"
@@ -1067,6 +1083,8 @@ class TestImageServiceEdgeCases:
 
             for references in test_cases:
                 result = service._get_thumbnail_source_url(references)
+                # _get_thumbnail_source_url only extracts URLs, doesn't fetch manifests
+                # So this should be fast - just string processing
                 assert result in references.values()
 
         except Exception as e:

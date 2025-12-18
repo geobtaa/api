@@ -48,10 +48,14 @@ class TestAdminModuleStructure:
         # Prefix is applied by including router with prefix; here router itself may be ''
         assert len(router.routes) > 0
 
-        # Check that all routes use POST method
+        # Check that routes use valid HTTP methods (POST, GET, PATCH, DELETE)
+        valid_methods = {"POST", "GET", "PATCH", "DELETE"}
         for route in router.routes:
             if hasattr(route, "methods"):
-                assert "POST" in route.methods
+                # Routes should use at least one valid HTTP method
+                assert len(route.methods & valid_methods) > 0, (
+                    f"Route {route.path} has invalid methods: {route.methods}"
+                )
 
     def test_dependency_injection(self):
         """Test that dependency injection is properly configured."""

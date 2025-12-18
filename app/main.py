@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
@@ -14,6 +15,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
+from app.middleware.rate_limit_middleware import RateLimitMiddleware
+from db.config import DATABASE_URL
 from db.database import database
 
 # Load environment variables from .env file
@@ -47,7 +50,21 @@ async def lifespan(app: FastAPI):
         await database.connect()
         logger.info("Connected to database")
     except Exception as e:
-        logger.error(f"Failed to connect to database: {str(e)}")
+        # Log a safe, redacted view of the database URL for easier diagnosis
+        try:
+            parsed = urlparse(DATABASE_URL) if DATABASE_URL else None
+            if parsed:
+                safe_location = f"{parsed.hostname or ''}{parsed.path or ''}"
+            else:
+                safe_location = "<unknown>"
+        except Exception:
+            safe_location = "<unparseable>"
+
+        logger.error(
+            "Failed to connect to database at %s: %s",
+            safe_location,
+            str(e),
+        )
         raise
 
     try:
@@ -131,6 +148,9 @@ app.add_middleware(
 
 # Add cross-origin headers middleware
 app.add_middleware(CrossOriginHeadersMiddleware)
+
+# Add rate limiting middleware (after CORS, before routes)
+app.add_middleware(RateLimitMiddleware)
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")

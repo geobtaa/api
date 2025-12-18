@@ -54,6 +54,7 @@ celery_app.conf.update(
         "app.tasks.ocr",
         "app.tasks.spatial_facets",
         "app.tasks.allmaps",
+        "app.tasks.api_usage_enrichment",
         "app.tasks.static_maps",
     ],
 )

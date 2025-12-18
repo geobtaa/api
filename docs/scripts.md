@@ -146,6 +146,47 @@ Several scripts require specific environment variables:
 
 - `OPENAI_API_KEY`: Required by `generate_fast_embeddings.py`
 - `REDIS_HOST` and `REDIS_PORT`: Used by `clear_cache.py`
+
+### API rate limiting and service tiers
+
+Rate limiting for the public API is enforced by middleware backed by Redis:
+
+- Tables and seed data are created by the standard migration script:
+
+  ```bash
+  .venv/bin/python scripts/run_migrations.py
+  ```
+
+  This will ensure:
+
+  - `api_service_tiers` – service tier definitions and per-minute limits
+  - `api_keys` – hashed API keys associated with tiers
+  - `api_usage_logs` – analytics for incoming requests
+
+- Runtime configuration is controlled via environment variables (see also `README.md`):
+
+  ```bash
+  RATE_LIMIT_ENABLED=true
+  RATE_LIMIT_REDIS_DB=2
+  REDIS_HOST=redis
+  REDIS_PORT=6379
+  REDIS_PASSWORD=optional_password
+  ```
+
+To create and manage API keys from the command line, you can call the admin endpoints with basic auth, for example:
+
+```bash
+curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" \
+  -X POST "http://localhost:8000/api/v1/admin/api-keys" \
+  -H "Content-Type: application/json" \
+  -d '{"tier_name": "anonymous", "name": "local test key"}'
+```
+
+The response will include the plaintext `api_key` (shown once) and the numeric `key_id`. You can then use the key in API requests via:
+
+- `X-API-Key` header
+- `Authorization: Bearer <api_key>` header
+- `api_key=<api_key>` query parameter
 - `LOG_PATH`: Optional path for log files
 
 ## Logging
