@@ -8,8 +8,17 @@ from urllib.parse import urlparse, urlunparse
 from dotenv import load_dotenv
 from sqlalchemy import create_engine, text
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables with support for test environment
+BASE_DIR = Path(__file__).resolve().parents[2]
+APP_ENV = os.getenv("APP_ENV", "development")
+
+if APP_ENV == "test":
+    # In test mode, layer .env.test over .env
+    load_dotenv(BASE_DIR / ".env", override=False)
+    load_dotenv(BASE_DIR / ".env.test", override=True)
+else:
+    # Default: behave like original script, loading .env from project root
+    load_dotenv(BASE_DIR / ".env", override=False)
 
 # Add the project root directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))

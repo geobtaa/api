@@ -13,6 +13,13 @@ endif
 # Can be overridden with: COVERAGE_THRESHOLD=25 make test
 COVERAGE_THRESHOLD ?= 50
 
+# Number of parallel workers for pytest-xdist
+# Default: 4 (to avoid hitting PostgreSQL connection limits)
+# Can be overridden with: PARALLEL_WORKERS=8 make test
+# Use 'auto' to use all CPU cores (may hit connection limits with many cores)
+# Set to 0 or empty to disable parallelism
+PARALLEL_WORKERS ?= 4
+
 # Run both linting and formatting checks (without modifying files)
 lint:
 	@echo "Checking code with ruff..."
@@ -42,12 +49,32 @@ test:
 		docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "CREATE DATABASE btaa_geospatial_api_test WITH TEMPLATE btaa_geospatial_api OWNER postgres;"'; \
 	fi
 	@echo "Running tests with coverage threshold of $(COVERAGE_THRESHOLD)%..."
-	pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD)
+	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
+		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
+		pytest -n $(PARALLEL_WORKERS) --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
+	else \
+		echo "Running tests sequentially..."; \
+		pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
+	fi
 
 # Run just the tests without coverage threshold (for debugging)
 test-no-coverage:
 	@echo "Running tests without coverage threshold..."
-	pytest --full-trace
+	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
+		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
+		pytest -n $(PARALLEL_WORKERS) --full-trace; \
+	else \
+		pytest --full-trace; \
+	fi
+
+# Run tests in parallel without coverage (fastest option for local development)
+test-fast:
+	@echo "Running tests in parallel without coverage (fast mode)..."
+	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
+		pytest -n $(PARALLEL_WORKERS); \
+	else \
+		pytest -n 4; \
+	fi
 
 # Force a fresh clone of the test database
 test-fresh-db:

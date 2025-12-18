@@ -53,7 +53,9 @@ class TestAdminModuleStructure:
         for route in router.routes:
             if hasattr(route, "methods"):
                 # Routes should use at least one valid HTTP method
-                assert len(route.methods & valid_methods) > 0, f"Route {route.path} has invalid methods: {route.methods}"
+                assert len(route.methods & valid_methods) > 0, (
+                    f"Route {route.path} has invalid methods: {route.methods}"
+                )
 
     def test_dependency_injection(self):
         """Test that dependency injection is properly configured."""

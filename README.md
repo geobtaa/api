@@ -195,6 +195,86 @@ The API automatically logs all requests to the `api_usage_logs` table for analyt
 - Referrer and UTM parameters
 - Query parameters (stored in JSON properties field)
 
+### Service tiers, API keys, and rate limiting
+
+The public API supports **service tiers** and **API key–based rate limiting**.
+
+- **Service tiers** are defined in the `api_service_tiers` table and seeded by the migrations into tiers such as:
+  - `btaa_primary` / `btaa_secondary` – internal BTAA applications with unlimited access
+  - `btaa_member_primary` / `btaa_member_affiliated` – member applications with higher limits
+  - `general_registered` – registered external users
+  - `anonymous` – unauthenticated access with the lowest limits
+- **API keys** are stored (hashed) in the `api_keys` table and associated with a tier.
+- **Rate limits** are enforced per tier, per identifier (API key hash or IP address) using Redis.
+
+#### How clients authenticate
+
+Clients can authenticate with an API key in one of three ways (in order of precedence):
+
+- `X-API-Key` header:
+
+  ```http
+  X-API-Key: your-api-key-here
+  ```
+
+- `Authorization` header with Bearer token:
+
+  ```http
+  Authorization: Bearer your-api-key-here
+  ```
+
+- `api_key` query parameter:
+
+  ```text
+  GET /api/v1/search?q=roads&api_key=your-api-key-here
+  ```
+
+If no valid API key is provided, the request is treated as **anonymous** and uses the anonymous tier’s rate limit.
+
+#### Admin API for managing keys and tiers
+
+Admin users (protected by HTTP Basic auth with `ADMIN_USERNAME` / `ADMIN_PASSWORD`) can manage keys and inspect tiers:
+
+- `POST /api/v1/admin/api-keys` – create a new API key for a given `tier_name`.
+  - Request body: `{ "tier_name": "anonymous", "name": "optional friendly name" }`
+  - Response includes the **plaintext** `api_key` once, plus `key_id` and `tier_name`.
+- `GET /api/v1/admin/api-keys` – list existing keys and their tiers.
+- `PATCH /api/v1/admin/api-keys/{key_id}` – update `tier_name`, `is_active`, or `name`.
+- `DELETE /api/v1/admin/api-keys/{key_id}` – revoke (deactivate) a key.
+- `GET /api/v1/admin/api-tiers` – list all tiers, limits, and descriptions.
+
+The admin endpoints are intended for trusted operators only; do **not** expose them directly to the public internet without appropriate protections (e.g., network restrictions, stronger auth).
+
+#### Rate limiting behavior
+
+Rate limiting is enforced by middleware in front of all non-admin API routes:
+
+- Configuration is controlled via environment variables:
+
+  ```text
+  RATE_LIMIT_ENABLED=true     # Enable/disable rate limiting middleware
+  RATE_LIMIT_REDIS_DB=2       # Redis database used for rate limiting
+  REDIS_HOST=redis            # Redis host
+  REDIS_PORT=6379             # Redis port
+  REDIS_PASSWORD=optional_password
+  ```
+
+- For each request, the middleware:
+  - Resolves the caller’s **tier** from the API key (if provided) or falls back to the `anonymous` tier.
+  - Uses Redis to track the number of requests per minute per `(tier_name, identifier)`, where `identifier` is the API key hash or client IP (via `X-Forwarded-For` or socket address).
+  - Enforces the tier’s `requests_per_minute` limit.
+
+When rate limiting is enabled, responses include:
+
+- `X-RateLimit-Limit` – the allowed number of requests per minute for the current tier (or `unlimited`).
+- `X-RateLimit-Remaining` – remaining requests in the current window (or `unlimited`).
+- `X-RateLimit-Reset` – UNIX timestamp when the window resets.
+
+If a client exceeds its rate limit:
+
+- The API returns **HTTP 429 Too Many Requests** with a JSON body describing the error.
+- The response includes `Retry-After` and `X-RateLimit-*` headers indicating when to retry.
+
 ### Enrichment with User Agent Parsing
 
 API usage logs are automatically enriched in the background with:

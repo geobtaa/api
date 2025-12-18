@@ -11,6 +11,7 @@ def test_client():
         yield client
 
 
+@pytest.mark.unit
 def test_application_startup():
     """Test that the application starts without errors."""
     client = TestClient(app)
@@ -18,6 +19,7 @@ def test_application_startup():
     assert response.status_code == 200
 
 
+@pytest.mark.unit
 def test_api_docs_available():
     """Test that the API documentation is available."""
     client = TestClient(app)
@@ -26,6 +28,7 @@ def test_api_docs_available():
     assert "swagger" in response.text.lower()
 
 
+@pytest.mark.unit
 def test_redoc_available():
     """Test that the ReDoc documentation is available."""
     client = TestClient(app)
@@ -34,6 +37,8 @@ def test_redoc_available():
     assert "redoc" in response.text.lower()
 
 
+@pytest.mark.integration
+@pytest.mark.database
 def test_api_version():
     """Test that the API root returns a response with version info."""
     client = TestClient(app)

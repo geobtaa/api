@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import Query, Request
+from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
@@ -27,7 +27,8 @@ async def get_resource_viewer_data(
             row = result.fetchone()
 
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                # Align with tests: return 404 with {"detail": "Resource not found"}
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             resource_dict = sanitize_for_json(dict(row._mapping))
 

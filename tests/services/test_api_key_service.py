@@ -10,6 +10,7 @@ import pytest
 from app.services.api_key_service import APIKeyService
 
 
+@pytest.mark.unit
 class TestAPIKeyService:
     """Test cases for APIKeyService."""
 

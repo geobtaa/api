@@ -14,7 +14,9 @@ import sys
 from pathlib import Path
 
 # Add the project root directory to Python path
-sys.path.append(str(Path(__file__).parent.parent))
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.append(str(PROJECT_ROOT))
 
 from db.migrations.create_api_rate_limiting_tables import create_api_rate_limiting_tables
 from db.migrations.initialize_api_tiers import initialize_api_tiers

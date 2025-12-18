@@ -2,6 +2,7 @@
 Tests for the rate limit middleware.
 """
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -35,9 +36,13 @@ class TestRateLimitMiddleware:
     def test_extract_api_key_from_bearer(self, middleware):
         """Test extracting API key from Authorization Bearer header."""
         request = MagicMock(spec=Request)
-        request.headers.get = MagicMock(
-            side_effect=lambda key, default=None: "Bearer test-api-key" if key == "Authorization" else default
-        )
+        # Helper function to keep line length within limits
+        def _get_header(key, default=None):
+            if key == "Authorization":
+                return "Bearer test-api-key"
+            return default
+
+        request.headers.get = MagicMock(side_effect=_get_header)
         request.query_params.get = MagicMock(return_value=None)
 
         api_key = middleware._extract_api_key(request)
@@ -102,12 +107,13 @@ class TestRateLimitMiddleware:
         """Test that middleware skips rate limiting when disabled."""
         with patch("app.middleware.rate_limit_middleware.RATE_LIMIT_ENABLED", False):
             request = MagicMock(spec=Request)
-            call_next = AsyncMock(return_value=JSONResponse(content={}))
+            call_next = AsyncMock(return_value=JSONResponse(content={}, status_code=200))
 
             response = await middleware.dispatch(request, call_next)
 
             call_next.assert_called_once_with(request)
             assert response is not None
+            assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_dispatch_admin_endpoint_skipped(self, middleware):
@@ -147,9 +153,19 @@ class TestRateLimitMiddleware:
             return_value=(False, 0, 1234567890)
         )
 
-        call_next = AsyncMock()
+        # Simulate downstream handler returning a normal response
+        call_next = AsyncMock(return_value=JSONResponse(content={}, status_code=200))
 
-        response = await middleware.dispatch(request, call_next)
+        # Force rate limiting on and bypass flag off for this test
+        with patch.dict(
+            os.environ,
+            {
+                "RATE_LIMIT_ENABLED": "true",
+                "DISABLE_RATE_LIMIT_FOR_TESTS": "false",
+            },
+            clear=False,
+        ):
+            response = await middleware.dispatch(request, call_next)
 
         assert response.status_code == 429
         assert "Rate limit exceeded" in str(response.body)

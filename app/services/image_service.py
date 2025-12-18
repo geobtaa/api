@@ -36,6 +36,8 @@ def _get_redis_connection_pool():
             db=0,
             decode_responses=True,
             max_connections=50,
+            socket_connect_timeout=1.0,  # 1 second timeout to prevent hanging in tests
+            socket_timeout=1.0,  # 1 second socket timeout
         )
     return _redis_connection_pool
 
@@ -51,6 +53,8 @@ def _get_redis_image_connection_pool():
             db=1,
             decode_responses=False,
             max_connections=50,
+            socket_connect_timeout=1.0,  # 1 second timeout to prevent hanging in tests
+            socket_timeout=1.0,  # 1 second socket timeout
         )
     return _redis_image_connection_pool
 

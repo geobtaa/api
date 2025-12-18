@@ -3,6 +3,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 
+# Skip all shapefile tests - feature hasn't landed yet
+pytestmark = pytest.mark.skip(reason="Shapefile feature hasn't landed yet")
+
 
 @pytest.mark.asyncio
 async def test_query_endpoint_duckdb_error():

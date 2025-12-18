@@ -24,6 +24,12 @@ class RateLimitService:
     _instance = None
     _redis_client = None
 
+    @classmethod
+    def reset_instance(cls):
+        """Reset the singleton instance (used in tests to avoid cross-test leakage)."""
+        cls._instance = None
+        cls._redis_client = None
+
     def __new__(cls):
         """Singleton pattern to avoid multiple Redis connections."""
         if cls._instance is None:
@@ -122,6 +128,10 @@ class RateLimitService:
         Returns:
             Dictionary with rate limit headers
         """
+        # Handle unlimited tier (None means unlimited)
+        # Explicitly check for None using 'is None' (not falsy check, since 0 is a valid limit)
+        # This check must come first before any type validation
+        # Use explicit None check to avoid any potential issues with mock objects or proxies
         if requests_per_minute is None:
             return {
                 "X-RateLimit-Limit": "unlimited",
@@ -129,12 +139,25 @@ class RateLimitService:
                 "X-RateLimit-Reset": str(int(time.time()) + 60),
             }
 
+        # Ensure requests_per_minute is a valid non-negative integer
+        # Note: 0 is a valid limit (no requests allowed), only None means unlimited
+        # This validation will catch any type issues early
+        if not isinstance(requests_per_minute, int):
+            raise ValueError(
+                f"requests_per_minute must be an integer, got {type(requests_per_minute)} "
+                f"(value: {requests_per_minute}, repr: {repr(requests_per_minute)})"
+            )
+        if requests_per_minute < 0:
+            raise ValueError(f"requests_per_minute must be non-negative, got {requests_per_minute}")
+
         # If remaining and reset_time not provided, calculate them (without incrementing)
         if remaining is None or reset_time is None:
             remaining, reset_time = await self._get_current_rate_limit_status(
                 tier_name, identifier, requests_per_minute
             )
 
+        # Return headers with the provided or calculated values
+        # Convert to string explicitly to ensure correct type
         return {
             "X-RateLimit-Limit": str(requests_per_minute),
             "X-RateLimit-Remaining": str(remaining),

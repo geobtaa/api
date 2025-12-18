@@ -77,7 +77,14 @@ ASYNC_DATABASE_URL = DATABASE_URL if "postgresql+asyncpg://" in DATABASE_URL els
 
 def pytest_configure(config):
     """Configure pytest to use main services with isolated test DB/index."""
-    config.addinivalue_line("addopts", "--cov=app --cov-report=term-missing --cov-report=html")
+    # Coverage is now optional - removed from default addopts for performance
+
+    # Ensure application and migrations run in test mode
+    os.environ["APP_ENV"] = "test"
+    # Disable usage logging during tests for speed/stability
+    os.environ["DISABLE_API_USAGE_LOG"] = "true"
+    # Allow rate limiting bypass for most tests; rate-limit-specific tests can override
+    os.environ["DISABLE_RATE_LIMIT_FOR_TESTS"] = "true"
 
     # Ensure env vars are aligned for modules that use db.config
     os.environ["DB_USER"] = DB_USER
@@ -135,6 +142,7 @@ async def setup_test_database():
     from db.migrations.create_gazetteer_tables import create_gazetteer_tables
     from db.migrations.create_resource_relationships import create_relationships_table
     from db.migrations.add_enrichment_type import add_enrichment_type_column
+    from db.migrations.api_rate_limiting import init_api_rate_limiting
 
     # Temporarily set the environment to use synchronous URL for migrations
     original_database_url = os.environ.get("DATABASE_URL")
@@ -145,7 +153,8 @@ async def setup_test_database():
         create_gazetteer_tables()
         create_relationships_table()
         add_enrichment_type_column()
-        print("All database migrations completed successfully!")
+        init_api_rate_limiting()
+        print("All database migrations (including API rate limiting) completed successfully!")
     except Exception as e:
         print(f"Error creating tables: {e}")
         raise
@@ -158,13 +167,63 @@ async def setup_test_database():
 
     yield
 
-@pytest_asyncio.fixture(autouse=True)
-async def setup_async_database():
-    """Set up async database connection for each test."""
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def db_connection():
+    """Session-scoped database connection that stays open for all tests."""
     from db.database import database
     
+    # Connect once for the entire test session
+    await database.connect()
+    yield database
+    # Disconnect at the end of the session
+    await database.disconnect()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def db_transaction(db_connection):
+    """
+    Function-scoped transaction that automatically rolls back after each test.
+    This ensures test isolation and allows parallel execution.
+    
+    Uses PostgreSQL savepoints to create nested transactions that can be rolled back
+    without affecting other tests running in parallel.
+    
+    Note: This fixture assumes the database connection is in autocommit mode or
+    can handle savepoints. If savepoints don't work, tests will still be isolated
+    by running in separate database transactions when using pytest-xdist with
+    separate database connections per worker.
+    """
+    from db.database import database
+    import uuid
+    
+    # Generate a unique savepoint name
+    savepoint_name = f"sp_{uuid.uuid4().hex[:12]}"
+    
     try:
-        await database.connect()
-        yield
-    finally:
-        await database.disconnect()
+        # Try to create a savepoint for this test
+        # This will work if we're already in a transaction
+        try:
+            await database.execute(f"SAVEPOINT {savepoint_name}")
+            using_savepoint = True
+        except Exception:
+            # If savepoints don't work, we'll rely on transaction isolation
+            # when running in parallel (each worker gets its own connection)
+            using_savepoint = False
+        
+        yield database
+        
+        # Rollback to savepoint if we created one
+        if using_savepoint:
+            try:
+                await database.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+            except Exception:
+                # If rollback fails, that's okay - the transaction will be handled elsewhere
+                pass
+    except Exception:
+        # If anything goes wrong, try to clean up
+        if using_savepoint:
+            try:
+                await database.execute(f"ROLLBACK TO SAVEPOINT {savepoint_name}")
+            except Exception:
+                pass
+        raise

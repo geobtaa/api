@@ -1,11 +1,13 @@
 import logging
 from datetime import datetime
+import os
 from typing import Dict, Optional
 from urllib.parse import urlparse
 
 from sqlalchemy import insert
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.tasks.api_usage_enrichment import enrich_api_usage_log
 from db.config import DATABASE_URL
@@ -13,8 +15,8 @@ from db.models import api_usage_logs
 
 logger = logging.getLogger(__name__)
 
-# Create async engine and session
-engine = create_async_engine(DATABASE_URL)
+# Create async engine and session; use NullPool to avoid cross-event-loop issues
+engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -42,6 +44,12 @@ class APIUsageLogService:
             response_time_ms: Response time in milliseconds
             status_code: HTTP status code
         """
+        # Fast path: skip logging when disabled or during tests to avoid cross-loop overhead
+        if os.getenv("DISABLE_API_USAGE_LOG", "false").lower() == "true":
+            return
+        if os.getenv("APP_ENV") == "test":
+            return
+
         try:
             # Extract basic request info
             endpoint = request.url.path

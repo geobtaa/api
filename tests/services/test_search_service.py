@@ -9,9 +9,12 @@ import pytest
 from app.services.search_service import SearchService
 
 
+@pytest.mark.integration
+@pytest.mark.elasticsearch
 class TestSearchService:
     """Test cases for SearchService class."""
 
+    @pytest.mark.unit
     def test_search_service_initialization(self):
         """Test that the SearchService can be initialized."""
         service = SearchService()

@@ -1,13 +1,8 @@
-import os
-
 from databases import Database
-from dotenv import load_dotenv
-
-# Load environment variables from .env file
-load_dotenv()
-
-# Get the database URL from the environment variable
-DATABASE_URL = os.getenv("DATABASE_URL")
+from db.config import DATABASE_URL
 
 # Create the database instance
+# Note: When running tests in parallel, limit the number of workers to avoid
+# hitting PostgreSQL's max_connections limit. Each worker process creates
+# its own connection pool. Default worker count is set to 4 in Makefile.
 database = Database(DATABASE_URL)
