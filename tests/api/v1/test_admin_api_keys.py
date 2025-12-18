@@ -70,7 +70,9 @@ class TestAdminAPIKeysLifecycle:
         if create_resp.status_code != 200:
             error_data = create_resp.json()
             # More detailed error message
-            pytest.fail(f"API key creation failed with status {create_resp.status_code}: {error_data}")
+            pytest.fail(
+                f"API key creation failed with status {create_resp.status_code}: {error_data}"
+            )
         assert create_resp.status_code == 200
         created: Dict = create_resp.json()
         assert "api_key" in created  # plaintext key shown once

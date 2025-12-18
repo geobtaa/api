@@ -4,7 +4,6 @@ from typing import Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.security import HTTPBasic
 from pydantic import BaseModel
-from sqlalchemy import select
 
 from app.api.v1.auth import verify_credentials
 from app.api.v1.utils import create_response, sanitize_for_json
@@ -19,7 +18,6 @@ from app.services.admin_service import (
     ResourceProcessingService,
 )
 from app.services.api_key_service import APIKeyService
-from db.models import api_keys
 
 logger = logging.getLogger(__name__)
 

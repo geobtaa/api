@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import NullPool
 
 from db.config import DATABASE_URL
 from db.models import api_keys, api_service_tiers
@@ -14,9 +15,9 @@ from db.models import api_keys, api_service_tiers
 logger = logging.getLogger(__name__)
 
 # Dedicated async engine/session for API key operations.
-# Use NullPool to avoid sharing connections across event loops (e.g., TestClient threads/xdist workers),
-# which can otherwise trigger "Future attached to a different loop" errors.
-from sqlalchemy.pool import NullPool
+# Use NullPool to avoid sharing connections across event loops
+# (e.g., TestClient threads/xdist workers), which can otherwise trigger
+# "Future attached to a different loop" errors.
 
 engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
