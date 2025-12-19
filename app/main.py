@@ -15,6 +15,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
+from app.middleware.api_proxy_middleware import APIProxyMiddleware
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
 from db.config import DATABASE_URL
 from db.database import database
@@ -149,7 +150,11 @@ app.add_middleware(
 # Add cross-origin headers middleware
 app.add_middleware(CrossOriginHeadersMiddleware)
 
-# Add rate limiting middleware (after CORS, before routes)
+# Add API proxy middleware (handles /api-proxy/ routes with API key injection)
+# Must be before rate limiting middleware so API key is available for rate limit checks
+app.add_middleware(APIProxyMiddleware)
+
+# Add rate limiting middleware (after CORS and API proxy, before routes)
 app.add_middleware(RateLimitMiddleware)
 
 # Include routers
