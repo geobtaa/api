@@ -366,6 +366,7 @@ api_keys = Table(
     Column("created_at", TIMESTAMP, nullable=False),
     Column("updated_at", TIMESTAMP, nullable=False),
     Column("last_used_at", TIMESTAMP, nullable=True),
+    Column("allowed_ips", JSON, nullable=True),  # JSON array of allowed IP addresses
 )
 
 # API usage logs table (for future analytics, inspired by Ahoy's comprehensive tracking)

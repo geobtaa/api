@@ -43,6 +43,21 @@ services:
     networks: [elastic]
     command: ["uvicorn","main:app","--host","0.0.0.0","--port","8000","--log-level","debug"]
 
+  nginx:
+    image: nginx:alpine
+    container_name: btaa-geospatial-api-nginx
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./config/nginx-dev.conf.template:/etc/nginx/templates/default.conf.template:ro
+    environment:
+      - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
+    depends_on:
+      api:
+        condition: service_started
+    networks: [elastic]
+    restart: unless-stopped
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
     container_name: btaa-geospatial-api-elasticsearch

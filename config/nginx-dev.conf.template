@@ -1,0 +1,60 @@
+server {
+    listen 8080;
+    server_name localhost;
+
+    # Increase body size limit for large requests
+    client_max_body_size 100M;
+
+    # BFF Proxy: Proxies API requests with API key (server-side, hidden from browser)
+    # React app should call: /api-proxy/search?q=test
+    # This will proxy to: http://api:8000/api/v1/search?q=test with X-API-Key header
+    location /api-proxy/ {
+        # Remove /api-proxy prefix and proxy to API
+        rewrite ^/api-proxy/(.*) /api/v1/$1 break;
+        
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        
+        # Add API key server-side (hidden from browser)
+        proxy_set_header X-API-Key ${BTAA_GEOSPATIAL_API_KEY};
+        
+        # Rewrite redirect Location headers to go through the proxy
+        # This handles cases where the API returns redirects (e.g., static-map → static-maps)
+        proxy_redirect /api/v1/ /api-proxy/;
+        proxy_redirect http://$host/api/v1/ http://$host/api-proxy/;
+        proxy_redirect http://$http_host/api/v1/ http://$host/api-proxy/;
+        
+        # Timeouts for long-running requests
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+
+    # Direct proxy to API (for backward compatibility, no API key)
+    # Use this for admin endpoints or direct access
+    location / {
+        proxy_pass http://api:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+
+        # CORS headers are handled by the API, so we just pass through
+        # Timeouts for long-running requests
+        proxy_connect_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_read_timeout 300s;
+    }
+
+    # Health check endpoint
+    location /health {
+        proxy_pass http://api:8000/health;
+        access_log off;
+    }
+}
+

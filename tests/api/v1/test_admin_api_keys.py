@@ -110,3 +110,74 @@ class TestAdminAPIKeysLifecycle:
         assert revoke_resp.status_code == 200
         revoke_data = revoke_resp.json()
         assert "message" in revoke_data
+
+    def test_create_api_key_with_ip_whitelist(self, admin_client: TestClient):
+        """Test creating an API key with IP whitelist."""
+        initialize_api_tiers()
+
+        create_payload = {
+            "tier_name": "anonymous",
+            "name": "test-key-with-ips",
+            "allowed_ips": ["192.168.1.1", "10.0.0.1"],
+        }
+        create_resp = admin_client.post(
+            "/api/v1/admin/api-keys",
+            json=create_payload,
+            auth=self.auth,
+        )
+        assert create_resp.status_code == 200
+        created = create_resp.json()
+        assert "api_key" in created
+        key_id = created["key_id"]
+
+        # Verify IP whitelist is stored
+        list_resp = admin_client.get("/api/v1/admin/api-keys", auth=self.auth)
+        assert list_resp.status_code == 200
+        listed = list_resp.json()
+        key = next(k for k in listed["keys"] if k["id"] == key_id)
+        assert key["allowed_ips"] == ["192.168.1.1", "10.0.0.1"]
+
+    def test_create_api_key_with_invalid_ip(self, admin_client: TestClient):
+        """Test creating an API key with invalid IP address."""
+        initialize_api_tiers()
+
+        create_payload = {
+            "tier_name": "anonymous",
+            "name": "test-key-invalid-ip",
+            "allowed_ips": ["invalid-ip-address"],
+        }
+        create_resp = admin_client.post(
+            "/api/v1/admin/api-keys",
+            json=create_payload,
+            auth=self.auth,
+        )
+        assert create_resp.status_code == 400
+        assert "Invalid IP address" in create_resp.json()["detail"]
+
+    def test_update_api_key_ip_whitelist(self, admin_client: TestClient):
+        """Test updating an API key's IP whitelist."""
+        initialize_api_tiers()
+
+        # Create key without IP restriction
+        create_payload = {"tier_name": "anonymous", "name": "test-key"}
+        create_resp = admin_client.post(
+            "/api/v1/admin/api-keys",
+            json=create_payload,
+            auth=self.auth,
+        )
+        assert create_resp.status_code == 200
+        key_id = create_resp.json()["key_id"]
+
+        # Update with IP whitelist
+        update_payload = {"allowed_ips": ["192.168.1.100"]}
+        update_resp = admin_client.patch(
+            f"/api/v1/admin/api-keys/{key_id}",
+            json=update_payload,
+            auth=self.auth,
+        )
+        assert update_resp.status_code == 200
+
+        # Verify IP whitelist is updated
+        list_resp = admin_client.get("/api/v1/admin/api-keys", auth=self.auth)
+        key = next(k for k in list_resp.json()["keys"] if k["id"] == key_id)
+        assert key["allowed_ips"] == ["192.168.1.100"]

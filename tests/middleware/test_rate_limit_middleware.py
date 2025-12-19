@@ -102,6 +102,92 @@ class TestRateLimitMiddleware:
 
         assert identifier == "192.168.1.1"
 
+    def test_extract_ip_address_from_forwarded_for(self, middleware):
+        """Test extracting IP address from X-Forwarded-For header."""
+        request = MagicMock(spec=Request)
+        request.headers.get = MagicMock(
+            side_effect=lambda key, default=None: "192.168.1.1, 10.0.0.1"
+            if key == "X-Forwarded-For"
+            else default
+        )
+        request.client = None
+
+        ip_address = middleware._extract_ip_address(request)
+
+        assert ip_address == "192.168.1.1"
+
+    def test_extract_ip_address_from_client(self, middleware):
+        """Test extracting IP address from client host."""
+        request = MagicMock(spec=Request)
+        request.headers.get = MagicMock(return_value=None)
+        request.client = MagicMock()
+        request.client.host = "192.168.1.2"
+
+        ip_address = middleware._extract_ip_address(request)
+
+        assert ip_address == "192.168.1.2"
+
+    def test_extract_ip_address_none(self, middleware):
+        """Test extracting IP address when none available."""
+        request = MagicMock(spec=Request)
+        request.headers.get = MagicMock(return_value=None)
+        request.client = None
+
+        ip_address = middleware._extract_ip_address(request)
+
+        assert ip_address is None
+
+    @pytest.mark.asyncio
+    async def test_get_tier_info_with_ip_whitelist_allowed(self, middleware):
+        """Test tier info retrieval when IP is in whitelist."""
+        request_ip = "192.168.1.1"
+        api_key = "test-key"
+
+        # Mock validate_api_key to return tier info (IP is whitelisted)
+        tier_info = {
+            "tier_id": 1,
+            "tier_name": "general_registered",
+            "display_name": "General Registered",
+            "requests_per_minute": 100,
+            "api_key_id": 1,
+            "key_hash": "test-hash",
+        }
+
+        middleware.api_key_service.validate_api_key = AsyncMock(return_value=tier_info)
+
+        result = await middleware._get_tier_info(api_key, request_ip)
+
+        assert result == tier_info
+        middleware.api_key_service.validate_api_key.assert_called_once_with(
+            api_key, request_ip
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_tier_info_with_ip_whitelist_rejected(self, middleware):
+        """Test tier info retrieval when IP is not in whitelist (falls back to anonymous)."""
+        request_ip = "192.168.1.999"  # Not whitelisted
+        api_key = "test-key"
+
+        # Mock validate_api_key to return None (IP restriction failed)
+        middleware.api_key_service.validate_api_key = AsyncMock(return_value=None)
+        anonymous_tier = {
+            "tier_id": 6,
+            "tier_name": "anonymous",
+            "display_name": "Anonymous",
+            "requests_per_minute": 10,
+        }
+        middleware.api_key_service.get_anonymous_tier = AsyncMock(
+            return_value=anonymous_tier
+        )
+
+        result = await middleware._get_tier_info(api_key, request_ip)
+
+        assert result == anonymous_tier
+        middleware.api_key_service.validate_api_key.assert_called_once_with(
+            api_key, request_ip
+        )
+        middleware.api_key_service.get_anonymous_tier.assert_called_once()
+
     @pytest.mark.asyncio
     async def test_dispatch_rate_limit_disabled(self, middleware):
         """Test that middleware skips rate limiting when disabled."""

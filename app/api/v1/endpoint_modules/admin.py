@@ -1,5 +1,6 @@
+import ipaddress
 import logging
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from fastapi.security import HTTPBasic
@@ -25,6 +26,22 @@ security = HTTPBasic()
 router = APIRouter(dependencies=[Depends(verify_credentials)])
 
 
+def validate_ip_addresses(ip_list: List[str]) -> None:
+    """Validate a list of IP addresses.
+
+    Raises HTTPException if any IP address is invalid.
+    Supports both IPv4 and IPv6 addresses.
+    """
+    for ip_str in ip_list:
+        try:
+            ipaddress.ip_address(ip_str)
+        except ValueError as err:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid IP address: {ip_str}. Must be a valid IPv4 or IPv6 address.",
+            ) from err
+
+
 def get_admin_service() -> AdminService:
     """Dependency injection for AdminService."""
     cache_management_service = CacheManagementService()
@@ -44,12 +61,14 @@ api_key_service = APIKeyService()
 class CreateAPIKeyRequest(BaseModel):
     tier_name: str
     name: Optional[str] = None
+    allowed_ips: Optional[List[str]] = None
 
 
 class UpdateAPIKeyRequest(BaseModel):
     tier_name: Optional[str] = None
     is_active: Optional[bool] = None
     name: Optional[str] = None
+    allowed_ips: Optional[List[str]] = None
 
 
 @router.post("/cache/clear")
@@ -164,9 +183,14 @@ async def create_api_key(
 ):
     """Create a new API key."""
     try:
+        # Validate IP addresses if provided
+        if request.allowed_ips:
+            validate_ip_addresses(request.allowed_ips)
+
         result = await api_key_service.create_api_key(
             tier_name=request.tier_name,
             name=request.name,
+            allowed_ips=request.allowed_ips,
         )
 
         if result is None:
@@ -199,13 +223,26 @@ async def update_api_key(
     key_id: int,
     request: UpdateAPIKeyRequest,
 ):
-    """Update an API key."""
+    """Update an API key.
+    
+    Note: To remove IP restrictions, pass allowed_ips as an empty list [].
+    To keep IP restrictions unchanged, omit the allowed_ips field.
+    """
     try:
+        # Validate IP addresses if provided
+        if request.allowed_ips is not None:
+            # Empty list means remove restriction (will be handled by service)
+            if request.allowed_ips:
+                validate_ip_addresses(request.allowed_ips)
+        
+        allowed_ips_update = request.allowed_ips
+        
         updated = await api_key_service.update_api_key_by_id(
             key_id=key_id,
             tier_name=request.tier_name,
             is_active=request.is_active,
             name=request.name,
+            allowed_ips=allowed_ips_update,
         )
 
         if not updated:

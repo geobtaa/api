@@ -59,8 +59,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Extract API key from header or query parameter
         api_key = self._extract_api_key(request)
 
+        # Extract IP address for IP whitelist checks
+        request_ip = self._extract_ip_address(request)
+
         # Determine tier
-        tier_info = await self._get_tier_info(api_key)
+        tier_info = await self._get_tier_info(api_key, request_ip)
 
         if tier_info is None:
             # If we can't determine tier, allow request but log warning
@@ -188,15 +191,37 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         return None
 
-    async def _get_tier_info(self, api_key: Optional[str]) -> Optional[dict]:
+    def _extract_ip_address(self, request: Request) -> Optional[str]:
+        """Extract IP address from request.
+
+        Checks X-Forwarded-For header first (for proxies/load balancers),
+        then falls back to direct client IP.
+        """
+        # Check for forwarded IP (from proxy/load balancer)
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            # Take the first IP in the chain
+            return forwarded_for.split(",")[0].strip()
+
+        # Fall back to direct client IP
+        if request.client:
+            return request.client.host
+
+        return None
+
+    async def _get_tier_info(
+        self, api_key: Optional[str], request_ip: Optional[str]
+    ) -> Optional[dict]:
         """Get tier information for the request."""
         if api_key:
-            # Validate API key and get tier
-            tier_info = await self.api_key_service.validate_api_key(api_key)
+            # Validate API key and get tier (pass IP for whitelist check)
+            tier_info = await self.api_key_service.validate_api_key(api_key, request_ip)
             if tier_info:
                 return tier_info
-            # Invalid key, treat as anonymous
-            logger.warning("Invalid API key provided, treating as anonymous")
+            # Invalid key or IP restriction, treat as anonymous
+            logger.warning(
+                "Invalid API key provided or IP restriction failed, treating as anonymous"
+            )
 
         # No key or invalid key - use anonymous tier
         return await self.api_key_service.get_anonymous_tier()
@@ -208,15 +233,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return tier_info["key_hash"]
 
         # Use IP address for anonymous requests
-        # Check for forwarded IP (from proxy/load balancer)
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # Take the first IP in the chain
-            return forwarded_for.split(",")[0].strip()
-
-        # Fall back to direct client IP
-        if request.client:
-            return request.client.host
+        ip_address = self._extract_ip_address(request)
+        if ip_address:
+            return ip_address
 
         # Last resort: use a default identifier
         return "unknown"

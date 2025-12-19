@@ -74,6 +74,15 @@ The application uses several services:
   - Web interface for monitoring Celery tasks
   - Access at http://localhost:5555
 
+* [Nginx](https://nginx.org/) (Reverse proxy - development only)
+  - Port: 8080
+  - Reverse proxy that sits in front of the API
+  - Sets `X-Forwarded-For` headers for proper IP address detection
+  - Required for API key IP whitelist functionality in development
+  - Access API through nginx at http://localhost:8080
+  - Direct API access still available at http://localhost:8000
+  - **Note**: This is development-only and does not affect production deployments (Kamal uses Traefik)
+
 Start all services:
 ```bash
 docker compose up -d
@@ -133,11 +142,61 @@ docker run -d -p 8000:8000 ewlarson/btaa-geospatial-api:latest
 
 This will start the API server on port 8000.
 
+## API Access
+
+### Development Setup
+
+The API is accessible in multiple ways during development:
+
+1. **Via Nginx BFF Proxy (Recommended for React apps)**
+   - URL: http://localhost:8080/api-proxy/*
+   - Example: `http://localhost:8080/api-proxy/search?q=test`
+   - Automatically adds API key server-side (hidden from browser)
+   - Sets `X-Forwarded-For` headers correctly
+   - **Use this for client-side React applications** - API key is never exposed
+   - Requires `BTAA_GEOSPATIAL_API_KEY` environment variable in `.env` file
+
+2. **Via Nginx Direct Proxy (For backward compatibility)**
+   - URL: http://localhost:8080/*
+   - Example: `http://localhost:8080/api/v1/search?q=test`
+   - Sets `X-Forwarded-For` headers correctly
+   - Does NOT add API key automatically
+   - Use for admin endpoints or when you want to pass your own API key
+
+3. **Direct API Access**
+   - URL: http://localhost:8000
+   - Useful for admin endpoints and testing
+   - Does not set `X-Forwarded-For` headers (IP whitelist may not work as expected)
+
+**Note**: In production, Traefik (configured via Kamal) handles reverse proxy functionality and sets `X-Forwarded-For` headers automatically.
+
+### Setting Up the BFF Proxy
+
+To use the BFF proxy (recommended for React apps), add your API key to your `.env` file:
+
+```bash
+BTAA_GEOSPATIAL_API_KEY=your-api-key-here
+```
+
+Then restart nginx:
+```bash
+docker compose restart nginx
+```
+
+Your React app should call:
+```typescript
+// Instead of: fetch('http://localhost:8000/api/v1/search?q=test')
+// Use:
+fetch('http://localhost:8080/api-proxy/search?q=test')
+```
+
+The API key will be automatically added server-side and never exposed to the browser.
+
 ## Endpoints
 
 ### GET /docs
 
-[http://localhost:8000/docs](http://localhost:8000/docs)
+[http://localhost:8000/docs](http://localhost:8000/docs) or [http://localhost:8080/docs](http://localhost:8080/docs)
 
 Returns the API documentation.
 
