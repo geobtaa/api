@@ -61,6 +61,7 @@ env:
     PYTHONPATH:            /app
     CORS_ORIGINS:          "*"
     STATIC_MAPS_DIR:       /app/static/maps
+    RATE_LIMIT_ENABLED:    false
 
   secret:
     - POSTGRES_PASSWORD
