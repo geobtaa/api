@@ -1,7 +1,7 @@
 import logging
 from typing import Any, Dict, List
 
-from ..services.cache_service import ENDPOINT_CACHE, invalidate_cache_with_prefix
+from ..services.cache_service import ENDPOINT_CACHE, CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -18,17 +18,13 @@ async def invalidate_document_caches(doc_ids: List[str]) -> bool:
     try:
         logger.info(f"Invalidating caches for documents: {doc_ids}")
 
-        # Invalidate search cache (affects all searches)
-        await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
+        cache = CacheService()
+        # Invalidate search/suggest caches (affects all searches/suggestions)
+        await cache.invalidate_tags(["search", "suggest"])
 
-        # Invalidate suggest cache (affects all suggestions)
-        await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
-
-        # Invalidate specific document caches
+        # Invalidate specific document/resource caches
         for doc_id in doc_ids:
-            # Create a cache key pattern similar to how the cached_endpoint decorator does it
-            document_prefix = f"app.api.v1.endpoints:get_document:{doc_id}"
-            await invalidate_cache_with_prefix(document_prefix)
+            await cache.invalidate_tags([f"resource:{doc_id}"])
 
         logger.info("Cache invalidation completed successfully")
         return True

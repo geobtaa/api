@@ -22,7 +22,7 @@ class TestSearchService:
         assert hasattr(service, "index_name")
         assert hasattr(service, "es")
         # In test environment, the index name might be different
-        assert service.index_name in ["btaa_ogm_api", "btaa_ogm_api_test"]
+        assert service.index_name in ["btaa_geospatial_api", "btaa_ogm_api_test", "btaa_ogm_api"]
 
     @pytest.mark.asyncio
     async def test_search_with_id_field_in_multi_match(self):

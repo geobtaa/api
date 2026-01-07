@@ -34,14 +34,15 @@ class CacheManagementService:
     async def clear_cache_by_type(self, cache_type: Optional[str] = None) -> Dict[str, Any]:
         """Clear cache by type or all cache if not specified."""
         try:
+            # Prefer tag invalidation (fast, correct) over brittle prefix scans.
             if cache_type == "search" or cache_type is None or cache_type == "all":
-                await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
+                await self.cache_service.invalidate_tags(["search"])
 
             if cache_type == "resource" or cache_type is None or cache_type == "all":
-                await invalidate_cache_with_prefix("app.api.v1.endpoints:get_resource")
+                await self.cache_service.invalidate_tags(["resource"])
 
             if cache_type == "suggest" or cache_type is None or cache_type == "all":
-                await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
+                await self.cache_service.invalidate_tags(["suggest"])
 
             if cache_type == "all" or cache_type is None:
                 await self.cache_service.flush_all()
@@ -92,8 +93,8 @@ class ReindexingService:
             # When reindexing, invalidate all search and suggest caches
             if ENDPOINT_CACHE:
                 logger.info("Invalidating search and suggest caches")
-                await invalidate_cache_with_prefix("app.api.v1.endpoints:search")
-                await invalidate_cache_with_prefix("app.api.v1.endpoints:suggest")
+                cache = CacheService()
+                await cache.invalidate_tags(["search", "suggest"])
 
             result = await reindex_resources()
 
@@ -232,7 +233,7 @@ class ResourceProcessingService:
             logger.info(f"Started summary task {summary_task.id} for resource {resource_id}")
 
             # Invalidate the resource cache since we'll be updating it
-            await invalidate_cache_with_prefix(f"resource:{resource_id}")
+            await self.cache_service.invalidate_tags([f"resource:{resource_id}", "search"])
 
             return summary_task.id
         except Exception as e:
@@ -253,7 +254,7 @@ class ResourceProcessingService:
             )
 
             # Invalidate the resource cache since we'll be updating it
-            await invalidate_cache_with_prefix(f"resource:{resource_id}")
+            await self.cache_service.invalidate_tags([f"resource:{resource_id}", "search"])
 
             return geo_entities_task.id
         except Exception as e:

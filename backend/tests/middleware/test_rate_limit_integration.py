@@ -93,7 +93,7 @@ def rate_limited_client(monkeypatch):
     )
 
     # Force the middleware to use a simple, fixed tier
-    async def fake_get_tier_info(self, api_key):  # pragma: no cover - small shim
+    async def fake_get_tier_info(self, api_key, request_ip):  # pragma: no cover - small shim
         return {
             "tier_id": 1,
             "tier_name": "anonymous",

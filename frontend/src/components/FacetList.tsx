@@ -1,0 +1,240 @@
+import { useState } from 'react';
+import { useSearchParams } from 'react-router';
+import { MinusCircle } from 'lucide-react';
+import { FACET_LABELS, normalizeFacetId } from '../utils/facetLabels';
+import { CONFIGURED_FACETS } from '../constants/facets';
+import { FacetMoreModal } from './search/FacetMoreModal';
+
+// New JSON:API facet structure
+interface JsonApiFacet {
+  type: 'facet';
+  id: string;
+  attributes: {
+    label: string;
+    items: Array<{
+      attributes: {
+        label: string;
+        value: string | number;
+        hits: number;
+      };
+      links: {
+        self: string;
+      };
+    }>;
+  };
+}
+
+interface FacetListProps {
+  facets: JsonApiFacet[];
+}
+
+export function FacetList({ facets }: FacetListProps) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [activeFacetModal, setActiveFacetModal] = useState<{
+    id: string;
+    label: string;
+  } | null>(null);
+
+  // Helper function to check if a facet is active
+  const isFacetActive = (field: string, value: string | number) => {
+    const normalized = normalizeFacetId(field);
+    const primary = searchParams.getAll(`include_filters[${normalized}][]`);
+    if (primary.includes(value.toString())) return true;
+    // Also check legacy param key if different
+    if (normalized !== field) {
+      const legacy = searchParams.getAll(`fq[${field}][]`);
+      if (legacy.includes(value.toString())) return true;
+    }
+    return false;
+  };
+
+  // Helper function to toggle a facet
+  const handleFacetClick = (field: string, value: string | number) => {
+    const newParams = new URLSearchParams(searchParams);
+    const normalized = normalizeFacetId(field);
+    const facetKey = `include_filters[${normalized}][]`;
+
+    if (isFacetActive(field, value)) {
+      // Remove the facet if it's active (clean both legacy and new keys)
+      const currentValuesNew = newParams.getAll(facetKey);
+      const legacyKey = normalized !== field ? `fq[${field}][]` : null;
+      const currentValuesOld = legacyKey ? newParams.getAll(legacyKey) : [];
+
+      // Delete both keys
+      newParams.delete(facetKey);
+      if (legacyKey) newParams.delete(legacyKey);
+
+      // Merge remaining values under normalized key
+      [...currentValuesNew, ...currentValuesOld]
+        .filter((v) => v !== value.toString())
+        .forEach((v) => newParams.append(facetKey, v));
+    } else {
+      // Add the facet if it's not active
+      newParams.append(facetKey, value.toString());
+    }
+
+    setSearchParams(newParams);
+  };
+
+  const isFacetExcluded = (field: string, value: string | number) => {
+    const normalized = normalizeFacetId(field);
+    return searchParams
+      .getAll(`exclude_filters[${normalized}][]`)
+      .includes(value.toString());
+  };
+
+  const handleFacetExclude = (field: string, value: string | number) => {
+    const newParams = new URLSearchParams(searchParams);
+    const normalized = normalizeFacetId(field);
+    const excludeKey = `exclude_filters[${normalized}][]`;
+    // Toggle exclude (if already excluded, remove it)
+    const existing = newParams.getAll(excludeKey);
+    if (existing.includes(value.toString())) {
+      newParams.delete(excludeKey);
+      existing
+        .filter((v) => v !== value.toString())
+        .forEach((v) => newParams.append(excludeKey, v));
+    } else {
+      newParams.append(excludeKey, value.toString());
+    }
+    setSearchParams(newParams);
+  };
+
+  if (!facets || facets.length === 0) {
+    return <div className="text-gray-500">No facets available</div>;
+  }
+
+  // Filter facets to only show those with items and convert to the expected format
+  const availableFacets = facets
+    .filter(
+      (facet) => facet.attributes.items && facet.attributes.items.length > 0
+    )
+    .map((facet) => ({
+      id: normalizeFacetId(facet.id),
+      label: facet.attributes.label,
+      items: facet.attributes.items.map((item) => ({
+        label: item.attributes.label,
+        value: item.attributes.value,
+        hits: item.attributes.hits,
+        url: item.links.self,
+      })),
+    }));
+
+  // Order facets according to CONFIGURED_FACETS and filter to only show configured ones
+  const orderedFacets = CONFIGURED_FACETS.map((facetId) => {
+    const facet = availableFacets.find((f) => f.id === facetId);
+    return facet;
+  }).filter((facet): facet is NonNullable<typeof facet> => facet !== undefined);
+
+  if (orderedFacets.length === 0) {
+    return (
+      <div className="text-gray-500">No facets available for this search</div>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-6">
+        {orderedFacets.map((facet) => {
+          const facetLabel = FACET_LABELS[facet.id] || facet.label;
+          const displayItems = facet.items.slice(0, 10);
+          const hasMore = facet.items.length > 10;
+
+          return (
+            <div key={facet.id} className="border-b pb-4">
+              <h3 className="font-semibold text-gray-900 mb-2">{facetLabel}</h3>
+              <ul className="space-y-1">
+                {displayItems.map((item) => {
+                  const isActive = isFacetActive(facet.id, item.value);
+                  const excluded = isFacetExcluded(facet.id, item.value);
+
+                  return (
+                    <li
+                      key={`${facet.id}-${item.value}`}
+                      className="group flex items-center gap-2"
+                    >
+                      <button
+                        onClick={() => handleFacetClick(facet.id, item.value)}
+                        className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
+                          isActive
+                            ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
+                      >
+                        <span>{item.label}</span>
+                        <span
+                          className={`${
+                            isActive ? 'text-blue-400' : 'text-gray-400'
+                          }`}
+                        >
+                          ({item.hits})
+                        </span>
+                        {isActive && (
+                          <span className="text-blue-400 ml-auto">×</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleFacetExclude(facet.id, item.value)}
+                        className={`ml-1 p-1 rounded transition-colors ${
+                          excluded
+                            ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                            : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                        } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                        aria-label={
+                          excluded ? 'Remove exclusion' : 'Exclude this value'
+                        }
+                        title={
+                          excluded ? 'Remove exclusion' : 'Exclude this value'
+                        }
+                      >
+                        <MinusCircle className="w-4 h-4" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {hasMore && (
+                <button
+                  onClick={() =>
+                    setActiveFacetModal({
+                      id: facet.id,
+                      label: facetLabel,
+                    })
+                  }
+                  className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  More &raquo;
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {activeFacetModal && (
+        <FacetMoreModal
+          facetId={activeFacetModal.id}
+          facetLabel={activeFacetModal.label}
+          isOpen
+          onClose={() => setActiveFacetModal(null)}
+          searchParams={searchParams}
+          onToggleInclude={(value) =>
+            handleFacetClick(activeFacetModal.id, value)
+          }
+          onToggleExclude={(value) =>
+            handleFacetExclude(activeFacetModal.id, value)
+          }
+          onToggleFacetInclude={(field, value) =>
+            handleFacetClick(field, value)
+          }
+          onToggleFacetExclude={(field, value) =>
+            handleFacetExclude(field, value)
+          }
+          isValueIncluded={(value) => isFacetActive(activeFacetModal.id, value)}
+          isValueExcluded={(value) =>
+            isFacetExcluded(activeFacetModal.id, value)
+          }
+        />
+      )}
+    </>
+  );
+}

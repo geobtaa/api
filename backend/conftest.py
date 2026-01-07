@@ -59,6 +59,20 @@ DATABASE_URL = os.getenv(
     f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{TEST_DB_NAME}"
 )
 
+# Convert Docker hostnames to localhost when running tests outside Docker
+# This handles cases where DATABASE_URL is set from .env with Docker service names
+is_docker = os.getenv("IS_DOCKER") == "true"
+if not is_docker and DATABASE_URL:
+    parsed = urlparse(DATABASE_URL)
+    docker_hostnames = ["paradedb", "btaa-geospatial-api-paradedb", "btaa-geospatial-api-paradedb-1"]
+    if parsed.hostname in docker_hostnames:
+        # Replace Docker hostname with localhost and use port 2345 (Docker mapped port)
+        new_netloc = f"{parsed.username}:{parsed.password}@localhost:2345"
+        DATABASE_URL = parsed._replace(netloc=new_netloc).geturl()
+        # Update DB_HOST to match
+        DB_HOST = "localhost"
+        DB_PORT = "2345"
+
 # Parse database URL
 parsed = urlparse(DATABASE_URL)
 db_name = parsed.path[1:]  # Remove leading '/'

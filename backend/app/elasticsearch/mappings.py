@@ -142,7 +142,7 @@ INDEX_MAPPING = {
     "settings": {
         "index": {
             "number_of_shards": 1,
-            "number_of_replicas": 1,
+            "number_of_replicas": 0,  # 0 for single-node development clusters
             "analysis": {
                 "normalizer": {
                     "lowercase": {"type": "custom", "char_filter": [], "filter": ["lowercase"]}

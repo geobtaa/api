@@ -2,6 +2,12 @@
 
 ![BTAA Geospatial API](docs/btaa_geospatial_api.png)
 
+## Monorepo Structure
+
+This repository is organized as a monorepo:
+- **`/backend`** - FastAPI application (Python)
+- **`/frontend`** - React UI application (TypeScript/JavaScript)
+
 ## Development
 
 Install dependencies using `uv` (recommended):
@@ -74,14 +80,13 @@ The application uses several services:
   - Web interface for monitoring Celery tasks
   - Access at http://localhost:5555
 
-* [Nginx](https://nginx.org/) (Reverse proxy - development only)
-  - Port: 8080
-  - Reverse proxy that sits in front of the API
-  - Sets `X-Forwarded-For` headers for proper IP address detection
-  - Required for API key IP whitelist functionality in development
-  - Access API through nginx at http://localhost:8080
-  - Direct API access still available at http://localhost:8000
-  - **Note**: This is development-only and does not affect production deployments (Kamal uses Traefik)
+* [React Router v7 Frontend](https://reactrouter.com/) (SSR Frontend)
+  - Port: 3000
+  - Server-side rendered React application
+  - Handles all frontend routing
+  - Makes server-side API calls with API key (never exposed to client)
+  - Access at http://localhost:3000
+  - **Note**: FastAPI now only serves API endpoints at http://localhost:8000
 
 Start all services:
 ```bash
@@ -120,7 +125,8 @@ This script will populate the item_relationships triplestore.
 This script will create and populate the application ES index.
 
 ```bash
-.venv/bin/python run_index.py
+cd backend
+.venv/bin/python scripts/reindex.py
 ```
 
 ## Run the Gazetteers
@@ -128,7 +134,8 @@ This script will create and populate the application ES index.
 This script will download and import all the gazetteer data.
 
 ```bash
-.venv/bin/python run_gazetteers.py
+cd backend
+.venv/bin/python scripts/run_gazetteers.py
 ```
 
 ## Docker Hub
@@ -142,63 +149,70 @@ docker run -d -p 8000:8000 ewlarson/btaa-geospatial-api:latest
 
 This will start the API server on port 8000.
 
-## API Access
+## Frontend Application (React Router v7 SSR)
 
-### Development Setup
+> **📚 Detailed Migration Guide**: See [REACT_ROUTER_V7_MIGRATION.md](docs/REACT_ROUTER_V7_MIGRATION.md) for comprehensive migration documentation, troubleshooting, and best practices.
 
-The API is accessible in multiple ways during development:
+The frontend is a **server-side rendered** React application using React Router v7. This architecture provides:
 
-1. **Via Nginx BFF Proxy (Recommended for React apps)**
-   - URL: http://localhost:8080/api-proxy/*
-   - Example: `http://localhost:8080/api-proxy/search?q=test`
-   - Automatically adds API key server-side (hidden from browser)
-   - Sets `X-Forwarded-For` headers correctly
-   - **Use this for client-side React applications** - API key is never exposed
-   - Requires `BTAA_GEOSPATIAL_API_KEY` environment variable in `.env` file
+- **Secure API Key Management**: API calls are made server-side with the API key stored in environment variables, never exposed to the client
+- **Unlimited API Access**: Traffic through the React app gets unlimited API access via server-side API calls
+- **SEO-Friendly**: Server-side rendering improves SEO and initial page load performance
+- **Progressive Enhancement**: Forms and navigation work without JavaScript
 
-2. **Via Nginx Direct Proxy (For backward compatibility)**
-   - URL: http://localhost:8080/*
-   - Example: `http://localhost:8080/api/v1/search?q=test`
-   - Sets `X-Forwarded-For` headers correctly
-   - Does NOT add API key automatically
-   - Use for admin endpoints or when you want to pass your own API key
+### Accessing the Frontend
 
-3. **Direct API Access**
-   - URL: http://localhost:8000
-   - Useful for admin endpoints and testing
-   - Does not set `X-Forwarded-For` headers (IP whitelist may not work as expected)
+- **Frontend Application**: http://localhost:3000
+  - All frontend routes are handled by React Router v7
+  - API calls are made server-side in loader functions
 
-**Note**: In production, Traefik (configured via Kamal) handles reverse proxy functionality and sets `X-Forwarded-For` headers automatically.
+### Direct API Access
 
-### Setting Up the BFF Proxy
+- **API Server**: http://localhost:8000
+  - Direct access to FastAPI endpoints
+  - Useful for testing and admin operations
+  - Rate limiting applies to direct API access
 
-To use the BFF proxy (recommended for React apps), add your API key to your `.env` file:
+### Environment Configuration
+
+The frontend requires the following environment variables (set in `docker-compose.yml` or `.env`):
 
 ```bash
+# API base URL (used for server-side API calls)
+API_BASE_URL=http://api:8000/api/v1
+
+# API key for server-side API calls (never exposed to client)
 BTAA_GEOSPATIAL_API_KEY=your-api-key-here
 ```
 
-Then restart nginx:
+The API key is used in React Router v7 **loaders** (server-side functions) to fetch data. It is never sent to the client browser.
+
+#### Forms in React Router v7
+
+React Router v7 provides an enhanced `Form` component with progressive enhancement. See [Form Examples](docs/REACT_ROUTER_V7_FORM_EXAMPLES.md) for detailed examples and migration guidance.
+
+> **📚 Detailed Migration Guide**: See [REACT_ROUTER_V7_MIGRATION.md](docs/REACT_ROUTER_V7_MIGRATION.md) for comprehensive migration documentation, troubleshooting, and best practices.
+
+### Development
+
+To develop the frontend locally:
+
 ```bash
-docker compose restart nginx
+cd frontend
+npm install
+npm run dev
 ```
 
-Your React app should call:
-```typescript
-// Instead of: fetch('http://localhost:8000/api/v1/search?q=test')
-// Use:
-fetch('http://localhost:8080/api-proxy/search?q=test')
-```
-
-The API key will be automatically added server-side and never exposed to the browser.
+This starts the React Router v7 development server with hot reload.
 
 ## Endpoints
 
-### GET /docs
+### API Documentation
 
-[http://localhost:8000/docs](http://localhost:8000/docs) or [http://localhost:8080/docs](http://localhost:8080/docs)
+- **API Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Frontend**: [http://localhost:3000](http://localhost:3000)
 
-Returns the API documentation.
+The API documentation is available at `/docs` on the API server. The frontend application runs on port 3000.
 
 ## Caching
 

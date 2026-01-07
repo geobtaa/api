@@ -19,6 +19,7 @@ from app.services.admin_service import (
     ResourceProcessingService,
 )
 from app.services.api_key_service import APIKeyService
+from app.services.cache_service import CacheService
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,46 @@ async def clear_cache(
     except Exception as e:
         logger.error(f"Unexpected error clearing cache: {str(e)}")
         return create_response({"error": f"Failed to clear cache: {str(e)}"}, status_code=500)
+
+
+class CachePurgeRequest(BaseModel):
+    tags: Optional[List[str]] = None
+    prefix: Optional[str] = None
+    flush_all: bool = False
+
+
+@router.post("/cache/purge")
+async def purge_cache(
+    body: CachePurgeRequest,
+):
+    """Aggressive cache purge.
+
+    - tags: invalidates by tag (recommended)
+    - prefix: invalidates by key prefix (fallback)
+    - flush_all: nukes Redis DB (emergency)
+    """
+    cache = CacheService()
+    try:
+        if body.flush_all:
+            ok = await cache.flush_all()
+            return create_response({"ok": bool(ok), "mode": "flush_all"})
+
+        if body.tags:
+            deleted = await cache.invalidate_tags(body.tags)
+            return create_response({"ok": True, "mode": "tags", "deleted": deleted, "tags": body.tags})
+
+        if body.prefix:
+            from app.services.cache_service import invalidate_cache_with_prefix
+
+            ok = await invalidate_cache_with_prefix(body.prefix)
+            return create_response({"ok": bool(ok), "mode": "prefix", "prefix": body.prefix})
+
+        raise HTTPException(status_code=400, detail="Provide tags, prefix, or flush_all")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error purging cache: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
 
 @router.post("/reindex")

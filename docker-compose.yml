@@ -24,6 +24,7 @@ services:
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=changeme
       - IS_DOCKER=true
+      - PYTHONPATH=/app/backend
     ports:
       - "127.0.0.1:8000:8000"
     ulimits:
@@ -41,22 +42,77 @@ services:
       - ./logs:/app/logs
       - .:/app
     networks: [elastic]
-    command: ["uvicorn","main:app","--host","0.0.0.0","--port","8000","--log-level","debug"]
+    command: ["bash", "-lc", "cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug"]
 
-  nginx:
-    image: nginx:alpine
-    container_name: btaa-geospatial-api-nginx
-    ports:
-      - "127.0.0.1:8080:8080"
-    volumes:
-      - ./config/nginx-dev.conf.template:/etc/nginx/templates/default.conf.template:ro
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # Client-side (Vite) API base URL: browser should hit the local API
+        # (SSR uses API_BASE_URL below).
+        VITE_API_BASE_URL: "http://localhost:8000/api/v1"
+        VITE_USE_JSONP: "false"
+        VITE_ENFORCE_HTTPS: "false"
+    container_name: btaa-geospatial-api-frontend
     environment:
+      - API_BASE_URL=http://api:8000/api/v1
       - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
+      - NODE_ENV=production
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       api:
         condition: service_started
     networks: [elastic]
     restart: unless-stopped
+
+  # Fast dev loop: no image rebuilds for code changes.
+  # Use with: `docker compose --profile dev up -d frontend-dev`
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      # Use the deps layer: it has node_modules installed, but doesn't waste time building.
+      target: deps
+    container_name: btaa-geospatial-api-frontend-dev
+    working_dir: /app
+    environment:
+      # Vite reads these at dev-server start. Prefer the local API in dev.
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_USE_JSONP=false
+      - VITE_ENFORCE_HTTPS=false
+      # React Router server-side loaders in dev (runs inside this container)
+      - API_BASE_URL=http://api:8000/api/v1
+      - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
+      - NODE_ENV=development
+    command: sh -lc "npm run dev -- --host 0.0.0.0 --port 3000"
+    volumes:
+      # Mount source/config (but NOT node_modules) so we can hot-reload without rebuilds.
+      - ./frontend/app:/app/app
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+      - ./frontend/scripts:/app/scripts
+      - ./frontend/server:/app/server
+      - ./frontend/index.html:/app/index.html
+      - ./frontend/package.json:/app/package.json
+      - ./frontend/vite.config.ts:/app/vite.config.ts
+      - ./frontend/react-router.config.ts:/app/react-router.config.ts
+      - ./frontend/tsconfig.json:/app/tsconfig.json
+      - ./frontend/tsconfig.node.json:/app/tsconfig.node.json
+      - ./frontend/tsconfig.app.json:/app/tsconfig.app.json
+      - ./frontend/postcss.config.js:/app/postcss.config.js
+      - ./frontend/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/eslint.config.js:/app/eslint.config.js
+      - ./frontend/vitest.config.ts:/app/vitest.config.ts
+    ports:
+      - "127.0.0.1:3000:3000"
+    depends_on:
+      api:
+        condition: service_started
+    networks: [elastic]
+    restart: unless-stopped
+    profiles: ["dev"]
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
@@ -132,7 +188,7 @@ services:
       dockerfile: Dockerfile
     container_name: btaa-geospatial-api-celery
     # pass broker/backend explicitly in case your app doesn't read envs:
-    command: celery -A app.tasks.worker worker --loglevel=INFO
+    command: bash -lc "cd /app/backend && celery -A app.tasks.worker worker --loglevel=INFO"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -142,6 +198,7 @@ services:
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - REDIS_TTL=604800
       - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/backend
       - LOG_LEVEL=DEBUG
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
@@ -160,14 +217,14 @@ services:
       context: .
     container_name: btaa-geospatial-api-flower
     # tell Flower where the broker is
-    command: bash -lc "cd /app && celery -A app.tasks.worker flower --port=5555 --broker=redis://:${REDIS_PASSWORD}@redis:6379/0"
+    command: bash -lc "cd /app/backend && celery -A app.tasks.worker flower --port=5555 --broker=redis://:${REDIS_PASSWORD}@redis:6379/0"
     ports:
       - "127.0.0.1:5555:5555"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
-      - PYTHONPATH=/app
+      - PYTHONPATH=/app/backend
       - LOG_LEVEL=DEBUG
     networks: [elastic]
     depends_on:

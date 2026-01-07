@@ -23,19 +23,19 @@ PARALLEL_WORKERS ?= 4
 # Run both linting and formatting checks (without modifying files)
 lint:
 	@echo "Checking code with ruff..."
-	ruff check app/ tests/ scripts/
+	ruff check backend/app/ backend/tests/ backend/scripts/
 
 # Format code in-place
 format:
 	@echo "Formatting code with ruff..."
-	ruff format app/ tests/ scripts/
-	ruff check --fix app/ tests/ scripts/
+	ruff format backend/app/ backend/tests/ backend/scripts/
+	ruff check --fix backend/app/ backend/tests/ backend/scripts/
 
 # Check formatting only (for CI)
 lint-check:
 	@echo "Checking formatting with ruff..."
-	ruff format --check app/ tests/ scripts/
-	ruff check app/ tests/ scripts/
+	ruff format --check backend/app/ backend/tests/ backend/scripts/
+	ruff check backend/app/ backend/tests/ backend/scripts/
 
 # Run just the tests with coverage threshold
 test:
@@ -51,10 +51,10 @@ test:
 	@echo "Running tests with coverage threshold of $(COVERAGE_THRESHOLD)%..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
 		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
-		pytest -n $(PARALLEL_WORKERS) --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
+		cd backend && pytest -n $(PARALLEL_WORKERS) --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
 	else \
 		echo "Running tests sequentially..."; \
-		pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
+		cd backend && pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
 	fi
 
 # Run just the tests without coverage threshold (for debugging)
@@ -62,18 +62,18 @@ test-no-coverage:
 	@echo "Running tests without coverage threshold..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
 		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
-		pytest -n $(PARALLEL_WORKERS) --full-trace; \
+		cd backend && pytest -n $(PARALLEL_WORKERS) --full-trace; \
 	else \
-		pytest --full-trace; \
+		cd backend && pytest --full-trace; \
 	fi
 
 # Run tests in parallel without coverage (fastest option for local development)
 test-fast:
 	@echo "Running tests in parallel without coverage (fast mode)..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
-		pytest -n $(PARALLEL_WORKERS); \
+		cd backend && pytest -n $(PARALLEL_WORKERS); \
 	else \
-		pytest -n 4; \
+		cd backend && pytest -n 4; \
 	fi
 
 # Force a fresh clone of the test database
@@ -89,7 +89,7 @@ test-coverage-compare:
 	@echo "Running tests with coverage comparison..."
 	@if [ -n "$$BASELINE_COVERAGE" ]; then \
 		echo "Baseline coverage: $$BASELINE_COVERAGE%"; \
-		pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml; \
+		cd backend && pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml; \
 		CURRENT_COVERAGE=$$(grep -o 'line-rate="[^"]*"' coverage.xml | head -1 | sed 's/line-rate="\([^"]*\)"/\1/' | awk '{printf "%.0f", $$1 * 100}'); \
 		echo "Current coverage: $$CURRENT_COVERAGE%"; \
 		if [ -n "$$CURRENT_COVERAGE" ]; then \
@@ -194,7 +194,7 @@ reindex:
 		set -e; \
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
-		python scripts/reindex.py'
+		cd /app/backend && python scripts/reindex.py'
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 

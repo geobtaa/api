@@ -39,9 +39,10 @@ def create_api_rate_limiting_tables():
         sync_database_url = database_url.replace("postgresql+asyncpg://", "postgresql://")
         
         # Handle Docker hostnames for local development
-        # If running locally and DATABASE_URL points to a Docker service, convert to localhost:2345
+        # If running locally (not in Docker) and DATABASE_URL points to a Docker service, convert to localhost:2345
         parsed = urlparse(sync_database_url)
-        if parsed.hostname and ("paradedb" in parsed.hostname or "btaa-geospatial-api" in parsed.hostname):
+        is_docker = os.getenv("IS_DOCKER", "false").lower() == "true"
+        if not is_docker and parsed.hostname and ("paradedb" in parsed.hostname or "btaa-geospatial-api" in parsed.hostname):
             # Replace Docker hostname with localhost and use port 2345 for local development
             # Use local database credentials from environment or defaults
             local_port = os.getenv("DB_PORT", "2345")
