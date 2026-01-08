@@ -18,7 +18,12 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     headers: { Accept: accept },
   });
 
-  // Return the upstream response (status/body/headers) directly.
-  return upstream;
+  // Important: sanitize encoding/length headers to avoid browser decode failures when
+  // Node's fetch stack transparently decompresses upstream bodies.
+  const headers = new Headers(upstream.headers);
+  headers.delete("content-encoding");
+  headers.delete("content-length");
+
+  return new Response(upstream.body, { status: upstream.status, headers });
 }
 
