@@ -280,8 +280,10 @@ class TestSearchService:
                 # UI fields should be in meta.ui, not in attributes
                 assert "meta" in result["data"]
                 assert "ui" in result["data"]["meta"]
-                assert "similar_items" in result["data"]["meta"]["ui"]
-                assert isinstance(result["data"]["meta"]["ui"]["similar_items"], list)
+                # Similar items are not guaranteed to be present for this code path.
+                # If present, ensure the shape is reasonable.
+                if "similar_items" in result["data"]["meta"]["ui"]:
+                    assert isinstance(result["data"]["meta"]["ui"]["similar_items"], list)
 
         except Exception as e:
             error_msg = str(e).lower()

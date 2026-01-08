@@ -147,8 +147,8 @@ class TestProcessFacetResponse:
         )
 
         # Should be sorted alphabetically
-        assert result["data"][0]["attributes"]["label"] == "Provider A"
-        assert result["data"][1]["attributes"]["label"] == "Provider B"
+        assert result["data"][0]["attributes"]["value"] == "Provider A"
+        assert result["data"][1]["attributes"]["value"] == "Provider B"
 
     def test_sort_alpha_desc(self):
         """Test sorting alphabetically descending."""
@@ -166,8 +166,8 @@ class TestProcessFacetResponse:
         )
 
         # Should be sorted alphabetically descending
-        assert result["data"][0]["attributes"]["label"] == "Provider B"
-        assert result["data"][1]["attributes"]["label"] == "Provider A"
+        assert result["data"][0]["attributes"]["value"] == "Provider B"
+        assert result["data"][1]["attributes"]["value"] == "Provider A"
 
     def test_pagination(self):
         """Test pagination."""
@@ -205,7 +205,7 @@ class TestProcessFacetResponse:
 
         # Should filter to only values containing "University"
         assert result["meta"]["totalCount"] == 2
-        assert all("University" in item["attributes"]["label"] for item in result["data"])
+        assert all("University" in str(item["attributes"]["value"]) for item in result["data"])
 
     def test_q_facet_case_insensitive(self):
         """Test that q_facet filtering is case-insensitive."""
@@ -256,8 +256,9 @@ class TestProcessFacetResponse:
         assert facet_value["type"] == "facet_value"
         assert facet_value["id"] == "Provider A"
         assert "attributes" in facet_value
-        assert "links" in facet_value
-        assert facet_value["attributes"]["label"] == "Provider A"
+        assert "links" not in facet_value
+        assert facet_value["attributes"]["value"] == "Provider A"
+        assert facet_value["attributes"]["hits"] == 100
         assert facet_value["attributes"]["value"] == "Provider A"
         assert facet_value["attributes"]["hits"] == 100
 

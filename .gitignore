@@ -194,6 +194,7 @@ backend/data/duckdb/*
 
 # OpenGeoMetadata data
 backend/data/opengeometadata/*
+backend/data/harvest_dumps/*
 
 # Static maps
 backend/static/maps/*

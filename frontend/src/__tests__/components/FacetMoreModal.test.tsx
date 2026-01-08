@@ -2,6 +2,7 @@ import { render, screen, fireEvent, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { FacetMoreModal } from '../../components/search/FacetMoreModal';
+import { MemoryRouter } from 'react-router';
 
 const mockSetPage = vi.fn();
 const mockSetSort = vi.fn();
@@ -58,7 +59,6 @@ describe('FacetMoreModal', () => {
           type: 'facet_value' as const,
           id: 'beta',
           attributes: {
-            label: 'Beta',
             value: 'beta',
             hits: 21,
           },
@@ -86,23 +86,27 @@ describe('FacetMoreModal', () => {
     });
   });
 
+  const renderWithRouter = (ui: React.ReactElement) =>
+    render(<MemoryRouter>{ui}</MemoryRouter>);
+
   it('does not render when closed', () => {
-    render(<FacetMoreModal {...defaultProps} isOpen={false} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} isOpen={false} />);
     expect(screen.queryByText(/More options for/)).not.toBeInTheDocument();
   });
 
   it('renders facet values when open', () => {
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
     expect(
       screen.getByRole('heading', { name: /More options for Resource Type/i })
     ).toBeInTheDocument();
     expect(screen.getByText('Alpha')).toBeInTheDocument();
-    expect(screen.getByText('Beta')).toBeInTheDocument();
+    // Second value has no label; should fall back to rendering the value
+    expect(screen.getByText('beta')).toBeInTheDocument();
   });
 
   it('invokes include and exclude callbacks', async () => {
     const user = userEvent.setup();
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     const alphaRow = screen.getByText('Alpha').closest('li');
     expect(alphaRow).not.toBeNull();
@@ -120,7 +124,7 @@ describe('FacetMoreModal', () => {
 
   it('changes sort order when selection changes', async () => {
     const user = userEvent.setup();
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     await user.selectOptions(
       screen.getByDisplayValue('Result Count (High → Low)'),
@@ -131,7 +135,7 @@ describe('FacetMoreModal', () => {
 
   it('submits facet search query', async () => {
     const user = userEvent.setup();
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     await user.type(
       screen.getByPlaceholderText('Search within facet values'),
@@ -144,7 +148,7 @@ describe('FacetMoreModal', () => {
 
   it('resets facet search query', async () => {
     const user = userEvent.setup();
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: /Reset/i }));
     expect(mockResetFacetQuery).toHaveBeenCalled();
@@ -185,21 +189,21 @@ describe('FacetMoreModal', () => {
     });
 
     const user = userEvent.setup();
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: /Next/i }));
     expect(mockSetPage).toHaveBeenCalledWith(2);
   });
 
   it('closes when Escape key is pressed', () => {
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     fireEvent.keyDown(window, { key: 'Escape' });
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
   it('closes when clicking on the overlay background', () => {
-    render(<FacetMoreModal {...defaultProps} />);
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
     fireEvent.mouseDown(screen.getByTestId('facet-modal-overlay'));
     expect(defaultProps.onClose).toHaveBeenCalled();
@@ -213,7 +217,7 @@ describe('FacetMoreModal', () => {
       ),
     };
 
-    render(<FacetMoreModal {...props} />);
+    renderWithRouter(<FacetMoreModal {...props} />);
 
     expect(screen.getByText(/Current search context/i)).toBeInTheDocument();
     expect(screen.getByText(/Search:/)).toBeInTheDocument();
@@ -230,7 +234,7 @@ describe('FacetMoreModal', () => {
       ),
     };
 
-    render(<FacetMoreModal {...props} />);
+    renderWithRouter(<FacetMoreModal {...props} />);
 
     await user.click(
       screen.getByRole('button', {

@@ -21,6 +21,7 @@ from app.elasticsearch.search import (
     get_facet_aggregation_config,
     get_facet_values,
     get_search_criteria,
+    generate_facet_apply_template,
     process_facet_response,
 )
 from app.services.cache_service import cached_endpoint
@@ -475,6 +476,17 @@ async def get_facet(
             facet_data["meta"]["totalPages"],
             pagination_type="page",
             allowed_params=FACET_ALLOWED_PARAMS,
+        )
+        # Single template link to apply a value from this facet while preserving current context
+        links["applyTemplate"] = generate_facet_apply_template(
+            facet_name,
+            {
+                "q": q,
+                "include_filters": include_filters,
+                "exclude_filters": exclude_filters,
+                "fq": filter_query,
+                "adv_q": parsed_adv_q,
+            },
         )
 
         # Build JSON:API response

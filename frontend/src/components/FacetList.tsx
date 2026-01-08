@@ -6,26 +6,43 @@ import { CONFIGURED_FACETS } from '../constants/facets';
 import { FacetMoreModal } from './search/FacetMoreModal';
 
 // New JSON:API facet structure
+type JsonApiFacetItemTuple = [value: string | number, hits: number];
+
 interface JsonApiFacet {
   type: 'facet';
   id: string;
+  links?: {
+    applyTemplate?: string;
+  };
   attributes: {
     label: string;
-    items: Array<{
-      attributes: {
-        label: string;
-        value: string | number;
-        hits: number;
-      };
-      links: {
-        self: string;
-      };
-    }>;
+    items:
+      | Array<{
+          attributes: {
+            label?: string;
+            value: string | number;
+            hits: number;
+          };
+          links?: {
+            self: string;
+          };
+        }>
+      | JsonApiFacetItemTuple[];
   };
 }
 
 interface FacetListProps {
   facets: JsonApiFacet[];
+}
+
+function isCompactTupleItems(
+  items: JsonApiFacet['attributes']['items']
+): items is JsonApiFacetItemTuple[] {
+  return (
+    Array.isArray(items) &&
+    items.length > 0 &&
+    Array.isArray((items as unknown[])[0])
+  );
 }
 
 export function FacetList({ facets }: FacetListProps) {
@@ -40,10 +57,13 @@ export function FacetList({ facets }: FacetListProps) {
     const normalized = normalizeFacetId(field);
     const primary = searchParams.getAll(`include_filters[${normalized}][]`);
     if (primary.includes(value.toString())) return true;
-    // Also check legacy param key if different
+    // Also check legacy param key(s) for backward compatibility.
+    // We check both the raw field and the normalized field because either may appear in URLs.
+    const legacyRaw = searchParams.getAll(`fq[${field}][]`);
+    if (legacyRaw.includes(value.toString())) return true;
     if (normalized !== field) {
-      const legacy = searchParams.getAll(`fq[${field}][]`);
-      if (legacy.includes(value.toString())) return true;
+      const legacyNorm = searchParams.getAll(`fq[${normalized}][]`);
+      if (legacyNorm.includes(value.toString())) return true;
     }
     return false;
   };
@@ -53,19 +73,22 @@ export function FacetList({ facets }: FacetListProps) {
     const newParams = new URLSearchParams(searchParams);
     const normalized = normalizeFacetId(field);
     const facetKey = `include_filters[${normalized}][]`;
+    const legacyKeyRaw = `fq[${field}][]`;
+    const legacyKeyNorm = normalized !== field ? `fq[${normalized}][]` : null;
 
     if (isFacetActive(field, value)) {
       // Remove the facet if it's active (clean both legacy and new keys)
       const currentValuesNew = newParams.getAll(facetKey);
-      const legacyKey = normalized !== field ? `fq[${field}][]` : null;
-      const currentValuesOld = legacyKey ? newParams.getAll(legacyKey) : [];
+      const currentValuesOldRaw = newParams.getAll(legacyKeyRaw);
+      const currentValuesOldNorm = legacyKeyNorm ? newParams.getAll(legacyKeyNorm) : [];
 
       // Delete both keys
       newParams.delete(facetKey);
-      if (legacyKey) newParams.delete(legacyKey);
+      newParams.delete(legacyKeyRaw);
+      if (legacyKeyNorm) newParams.delete(legacyKeyNorm);
 
       // Merge remaining values under normalized key
-      [...currentValuesNew, ...currentValuesOld]
+      [...currentValuesNew, ...currentValuesOldRaw, ...currentValuesOldNorm]
         .filter((v) => v !== value.toString())
         .forEach((v) => newParams.append(facetKey, v));
     } else {
@@ -111,13 +134,21 @@ export function FacetList({ facets }: FacetListProps) {
     )
     .map((facet) => ({
       id: normalizeFacetId(facet.id),
+      rawId: facet.id,
       label: facet.attributes.label,
-      items: facet.attributes.items.map((item) => ({
-        label: item.attributes.label,
-        value: item.attributes.value,
-        hits: item.attributes.hits,
-        url: item.links.self,
-      })),
+      items: isCompactTupleItems(facet.attributes.items)
+        ? facet.attributes.items.map(([value, hits]) => ({
+            label: String(value),
+            value,
+            hits,
+            url: undefined as string | undefined,
+          }))
+        : facet.attributes.items.map((item) => ({
+            label: item.attributes.label ?? String(item.attributes.value),
+            value: item.attributes.value,
+            hits: item.attributes.hits,
+            url: item.links?.self,
+          })),
     }));
 
   // Order facets according to CONFIGURED_FACETS and filter to only show configured ones
@@ -145,8 +176,8 @@ export function FacetList({ facets }: FacetListProps) {
               <h3 className="font-semibold text-gray-900 mb-2">{facetLabel}</h3>
               <ul className="space-y-1">
                 {displayItems.map((item) => {
-                  const isActive = isFacetActive(facet.id, item.value);
-                  const excluded = isFacetExcluded(facet.id, item.value);
+                  const isActive = isFacetActive(facet.rawId, item.value);
+                  const excluded = isFacetExcluded(facet.rawId, item.value);
 
                   return (
                     <li
@@ -154,7 +185,7 @@ export function FacetList({ facets }: FacetListProps) {
                       className="group flex items-center gap-2"
                     >
                       <button
-                        onClick={() => handleFacetClick(facet.id, item.value)}
+                        onClick={() => handleFacetClick(facet.rawId, item.value)}
                         className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
                           isActive
                             ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
@@ -174,7 +205,7 @@ export function FacetList({ facets }: FacetListProps) {
                         )}
                       </button>
                       <button
-                        onClick={() => handleFacetExclude(facet.id, item.value)}
+                        onClick={() => handleFacetExclude(facet.rawId, item.value)}
                         className={`ml-1 p-1 rounded transition-colors ${
                           excluded
                             ? 'text-red-600 bg-red-50 hover:bg-red-100'
@@ -197,7 +228,7 @@ export function FacetList({ facets }: FacetListProps) {
                 <button
                   onClick={() =>
                     setActiveFacetModal({
-                      id: facet.id,
+                      id: facet.rawId,
                       label: facetLabel,
                     })
                   }

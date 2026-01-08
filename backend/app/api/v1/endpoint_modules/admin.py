@@ -1,8 +1,12 @@
 import ipaddress
 import logging
+import os
+import html as _html
+from pathlib import Path
 from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.security import HTTPBasic
 from pydantic import BaseModel
 
@@ -20,6 +24,8 @@ from app.services.admin_service import (
 )
 from app.services.api_key_service import APIKeyService
 from app.services.cache_service import CacheService
+from app.services.ogm_harvest.repository import OGMHarvestRepository
+from app.tasks.ogm_harvest import ogm_harvest_all, ogm_harvest_repo
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +62,7 @@ _admin_service_dependency = Depends(get_admin_service)
 
 # API Key Service instance (handles its own async engine and session)
 api_key_service = APIKeyService()
+ogm_repo = OGMHarvestRepository()
 
 
 # Pydantic models for request/response
@@ -70,6 +77,19 @@ class UpdateAPIKeyRequest(BaseModel):
     is_active: Optional[bool] = None
     name: Optional[str] = None
     allowed_ips: Optional[List[str]] = None
+
+
+class UpdateOGMRepoRequest(BaseModel):
+    ogm_enabled: Optional[bool] = None
+    ogm_watch_mode: Optional[str] = None  # weekly|webhook|both|manual
+    ogm_notes: Optional[str] = None
+    ogm_tags: Optional[dict] = None
+
+
+class TriggerOGMHarvestRequest(BaseModel):
+    ogm_repo_name: Optional[str] = None
+    ogm_all: bool = False
+    ogm_trigger: str = "manual"
 
 
 @router.post("/cache/clear")
@@ -326,3 +346,327 @@ async def list_api_tiers():
     except Exception as e:
         logger.error(f"Error listing API tiers: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+# --- OpenGeoMetadata (OGM) admin endpoints ---
+
+
+@router.get("/ogm/repos")
+async def list_ogm_repos():
+    """List configured OGM repos (watch list)."""
+    repos = await ogm_repo.list_repos()
+    return create_response({"repos": repos})
+
+
+@router.patch("/ogm/repos/{repo_name}")
+async def update_ogm_repo(repo_name: str, body: UpdateOGMRepoRequest):
+    """Create or update a repo watch entry."""
+    if body.ogm_watch_mode is not None:
+        mode = body.ogm_watch_mode.lower().strip()
+        if mode not in {"weekly", "webhook", "both", "manual"}:
+            raise HTTPException(status_code=400, detail="Invalid ogm_watch_mode")
+    await ogm_repo.upsert_repo(
+        ogm_repo_name=repo_name,
+        ogm_enabled=body.ogm_enabled if body.ogm_enabled is not None else True,
+        ogm_watch_mode=body.ogm_watch_mode or "weekly",
+        ogm_notes=body.ogm_notes,
+        ogm_tags=body.ogm_tags,
+    )
+    saved = await ogm_repo.get_repo(repo_name)
+    return create_response({"repo": saved})
+
+
+@router.post("/ogm/harvest")
+async def trigger_ogm_harvest(body: TriggerOGMHarvestRequest):
+    """Trigger a harvest for a single repo or all repos (enqueues Celery)."""
+    if body.ogm_all:
+        task = ogm_harvest_all.delay(trigger=body.ogm_trigger)
+        return create_response({"queued": "all", "task_id": task.id})
+
+    if not body.ogm_repo_name:
+        raise HTTPException(status_code=400, detail="Provide ogm_repo_name or set ogm_all=true")
+
+    task = ogm_harvest_repo.delay(repo_name=body.ogm_repo_name, trigger=body.ogm_trigger)
+    return create_response({"queued": body.ogm_repo_name, "task_id": task.id})
+
+
+@router.get("/ogm/harvest/runs")
+async def list_ogm_harvest_runs(
+    repo_name: Optional[str] = Query(None, description="Filter by ogm_repo_name"),
+    status: Optional[str] = Query(None, description="Filter by ogm_status"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    runs = await ogm_repo.list_harvest_runs(
+        ogm_repo_name=repo_name,
+        ogm_status=status,
+        limit=limit,
+        offset=offset,
+    )
+    return create_response({"runs": runs})
+
+
+@router.get("/ogm/harvest/runs/{run_id}")
+async def get_ogm_harvest_run(run_id: int):
+    run = await ogm_repo.get_harvest_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return create_response({"run": run})
+
+
+@router.get("/ogm/harvest/status")
+async def ogm_harvest_status(
+    include_celery: bool = Query(False, description="Include Celery active tasks (best-effort)"),
+    runs_limit: int = Query(200, ge=1, le=1000, description="How many recent runs to summarize"),
+    format: str = Query("html", description="Response format: html|json"),
+):
+    """
+    Single-pane-of-glass OGM harvest status.
+
+    This is designed to give you visibility without needing Flower/log tailing.
+    """
+    runs = await ogm_repo.list_harvest_runs(limit=runs_limit, offset=0)
+    repos = await ogm_repo.list_repos()
+
+    counts = {"running": 0, "success": 0, "failed": 0, "other": 0}
+    for r in runs:
+        s = (r.get("ogm_status") or "").lower()
+        if s in counts:
+            counts[s] += 1
+        else:
+            counts["other"] += 1
+
+    running_runs = [r for r in runs if (r.get("ogm_status") or "").lower() == "running"]
+
+    celery_active = None
+    if include_celery:
+        try:
+            import asyncio as _asyncio
+            from app.tasks.worker import celery_app
+
+            def _inspect_active():
+                insp = celery_app.control.inspect(timeout=1.0)
+                return insp.active() or {}
+
+            celery_active = await _asyncio.to_thread(_inspect_active)
+        except Exception:
+            celery_active = {"error": "celery inspect failed"}
+
+    payload = {
+        "counts_last_runs": counts,
+        "running_runs": running_runs,
+        "repos": repos,
+        "celery_active": celery_active,
+    }
+
+    if (format or "").lower() == "json":
+        return create_response(payload)
+
+    # --- HTML view (human-friendly) ---
+    from datetime import datetime, timezone
+
+    def _parse_dt(s: Optional[str]) -> Optional[datetime]:
+        if not s:
+            return None
+        try:
+            # stored as ISO without timezone
+            return datetime.fromisoformat(s)
+        except Exception:
+            return None
+
+    def _age(dt: Optional[datetime]) -> str:
+        if not dt:
+            return "-"
+        delta = datetime.now(timezone.utc).replace(tzinfo=None) - dt
+        secs = int(delta.total_seconds())
+        if secs < 0:
+            return "0s"
+        if secs < 60:
+            return f"{secs}s"
+        mins = secs // 60
+        if mins < 60:
+            return f"{mins}m"
+        hrs = mins // 60
+        return f"{hrs}h{mins % 60:02d}m"
+
+    # Index latest run per repo (from provided runs list, already desc by ogm_id)
+    latest_by_repo = {}
+    for r in runs:
+        repo_name = r.get("ogm_repo_name")
+        if repo_name and repo_name not in latest_by_repo:
+            latest_by_repo[repo_name] = r
+
+    # Sort repos for stable scan
+    repos_sorted = sorted(repos, key=lambda r: (r.get("ogm_enabled") is not True, r.get("ogm_repo_name") or ""))
+
+    rows_html = []
+    for repo in repos_sorted:
+        name = repo.get("ogm_repo_name") or ""
+        enabled = bool(repo.get("ogm_enabled"))
+        watch_mode = (repo.get("ogm_watch_mode") or "").lower()
+        last_status = (repo.get("ogm_last_harvest_status") or "").lower() or "-"
+        last_started = _parse_dt(repo.get("ogm_last_harvest_started_at"))
+        last_completed = _parse_dt(repo.get("ogm_last_harvest_completed_at"))
+
+        run = latest_by_repo.get(name) or {}
+        run_id = run.get("ogm_id")
+        run_status = (run.get("ogm_status") or "").lower() or "-"
+        started = _parse_dt(run.get("ogm_started_at"))
+        completed = _parse_dt(run.get("ogm_completed_at"))
+        stats = run.get("ogm_stats_json") or {}
+        stage = stats.get("stage") or "-"
+        updated_at = stats.get("updated_at") or None
+        # updated_at stored as ISO string with Z; keep as-is for display, but compute age if parseable
+        upd_dt = None
+        if isinstance(updated_at, str):
+            try:
+                s = updated_at.rstrip("Z")
+                upd_dt = datetime.fromisoformat(s)
+            except Exception:
+                upd_dt = None
+        imported = stats.get("imported")
+        errors = stats.get("errors")
+
+        err = run.get("ogm_error") or ""
+        err_short = (err[:160] + "…") if len(err) > 160 else err
+
+        # duration: if running, show age since started; else duration between started/completed
+        if started and not completed:
+            dur = _age(started)
+        elif started and completed:
+            dur_secs = int((completed - started).total_seconds())
+            dur = f"{dur_secs}s" if dur_secs < 60 else f"{dur_secs // 60}m{dur_secs % 60:02d}s"
+        else:
+            dur = "-"
+
+        css_class = "ok" if run_status == "success" else ("bad" if run_status == "failed" else ("run" if run_status == "running" else ""))
+        enabled_txt = "yes" if enabled else "no"
+
+        rows_html.append(
+            "<tr class='{cls}'>"
+            "<td><code>{name}</code></td>"
+            "<td>{enabled}</td>"
+            "<td><code>{mode}</code></td>"
+            "<td><code>{status}</code></td>"
+            "<td><code>{stage}</code></td>"
+            "<td>{run_id}</td>"
+            "<td>{dur}</td>"
+            "<td>{upd}</td>"
+            "<td>{imp}</td>"
+            "<td>{errs}</td>"
+            "<td><small>{err}</small></td>"
+            "</tr>".format(
+                cls=_html.escape(css_class),
+                name=_html.escape(name),
+                enabled=_html.escape(enabled_txt),
+                mode=_html.escape(watch_mode or "-"),
+                status=_html.escape(run_status),
+                stage=_html.escape(str(stage)),
+                run_id=_html.escape(str(run_id) if run_id is not None else "-"),
+                dur=_html.escape(dur),
+                upd=_html.escape((_age(upd_dt) + " ago") if upd_dt else "-"),
+                imp=_html.escape(str(imported) if imported is not None else "-"),
+                errs=_html.escape(str(errors) if errors is not None else "-"),
+                err=_html.escape(err_short) if err_short else "",
+            )
+        )
+
+    html_body = f"""
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OGM Harvest Status</title>
+  <style>
+    body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 16px; }}
+    .meta {{ margin-bottom: 12px; color: #333; }}
+    .meta code {{ background: #f2f2f2; padding: 2px 6px; border-radius: 4px; }}
+    table {{ border-collapse: collapse; width: 100%; }}
+    th, td {{ border: 1px solid #ddd; padding: 8px; vertical-align: top; }}
+    th {{ position: sticky; top: 0; background: #fafafa; text-align: left; }}
+    tr.run td {{ background: #fffceb; }}
+    tr.ok td {{ background: #f0fff4; }}
+    tr.bad td {{ background: #fff5f5; }}
+    small {{ color: #444; }}
+  </style>
+  <meta http-equiv="refresh" content="10" />
+</head>
+<body>
+  <h2>OGM Harvest Status</h2>
+  <div class="meta">
+    <div><strong>Counts (last {runs_limit} runs)</strong>: running={counts["running"]}, success={counts["success"]}, failed={counts["failed"]}, other={counts["other"]}</div>
+    <div><strong>Auto-refresh</strong>: every 10 seconds</div>
+    <div><strong>JSON</strong>: <code>?format=json</code></div>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>repo</th>
+        <th>enabled</th>
+        <th>watch</th>
+        <th>run_status</th>
+        <th>stage</th>
+        <th>run_id</th>
+        <th>duration</th>
+        <th>last_update</th>
+        <th>imported</th>
+        <th>errors</th>
+        <th>error</th>
+      </tr>
+    </thead>
+    <tbody>
+      {''.join(rows_html)}
+    </tbody>
+  </table>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html_body, status_code=200)
+
+
+@router.get("/ogm/repos/{repo_name}/missing")
+async def list_ogm_missing(
+    repo_name: str,
+    limit: int = Query(200, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+):
+    missing = await ogm_repo.list_missing_for_repo(repo_name, limit=limit, offset=offset)
+    return create_response({"repo": repo_name, "missing": missing})
+
+
+@router.get("/ogm/harvest/runs/{run_id}/dumps")
+async def get_ogm_dump_manifest(run_id: int):
+    run = await ogm_repo.get_harvest_run(run_id)
+    if not run or not run.get("ogm_dump_dir"):
+        raise HTTPException(status_code=404, detail="Dump not found for run")
+    dump_dir = Path(run["ogm_dump_dir"])
+    manifest_path = dump_dir / "manifest.json"
+    if not manifest_path.exists():
+        raise HTTPException(status_code=404, detail="manifest.json not found")
+    return FileResponse(str(manifest_path), media_type="application/json")
+
+
+@router.get("/ogm/harvest/runs/{run_id}/dumps/{filename}")
+async def download_ogm_dump_file(run_id: int, filename: str):
+    run = await ogm_repo.get_harvest_run(run_id)
+    if not run or not run.get("ogm_dump_dir"):
+        raise HTTPException(status_code=404, detail="Dump not found for run")
+
+    dump_dir = Path(run["ogm_dump_dir"])
+    # Prevent path traversal
+    candidate = (dump_dir / filename).resolve()
+    if dump_dir.resolve() not in candidate.parents and candidate != dump_dir.resolve():
+        raise HTTPException(status_code=400, detail="Invalid filename")
+
+    if not candidate.exists() or not candidate.is_file():
+        raise HTTPException(status_code=404, detail="File not found")
+
+    # Basic content type mapping
+    media_type = "application/octet-stream"
+    if filename.endswith(".json") or filename.endswith(".ndjson"):
+        media_type = "application/json"
+    elif filename.endswith(".parquet"):
+        media_type = "application/octet-stream"
+
+    return FileResponse(str(candidate), media_type=media_type, filename=filename)

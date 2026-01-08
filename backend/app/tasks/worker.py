@@ -14,24 +14,41 @@ from PIL import Image
 load_dotenv()
 
 # Setup logging
+log_dir = os.getenv("LOG_PATH", "logs")
+try:
+    os.makedirs(log_dir, exist_ok=True)
+except Exception:
+    # If we can't create the directory (permissions/RO FS), fall back to stdout-only logging.
+    log_dir = ""
+
+log_handlers = [logging.StreamHandler()]
+if log_dir:
+    try:
+        log_handlers.append(
+            logging.FileHandler(os.path.join(log_dir, "app.log"), mode="a", encoding="utf-8")
+        )
+    except Exception:
+        # If file logging is unavailable, continue with stdout-only.
+        pass
+
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler(
-            os.path.join(os.getenv("LOG_PATH", "logs"), "app.log"), mode="a", encoding="utf-8"
-        ),
-    ],
+    handlers=log_handlers,
 )
 logger = logging.getLogger(__name__)
 
 # Setup Celery
-celery_app = Celery(
-    "tasks",
-    broker=f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/0",
-    backend=f"redis://{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/0",
+broker_url = os.getenv(
+    "CELERY_BROKER_URL",
+    f"redis://:{os.getenv('REDIS_PASSWORD','')}@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/0",
 )
+result_backend = os.getenv(
+    "CELERY_RESULT_BACKEND",
+    f"redis://:{os.getenv('REDIS_PASSWORD','')}@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/1",
+)
+
+celery_app = Celery("tasks", broker=broker_url, backend=result_backend)
 
 # Configure Celery
 celery_app.conf.update(
@@ -43,6 +60,8 @@ celery_app.conf.update(
     worker_hijack_root_logger=False,  # Don't let Celery hijack the root logger
     worker_redirect_stdouts=False,  # Don't redirect stdout/stderr
     task_track_started=True,  # Track when tasks are started
+    worker_send_task_events=True,  # Needed for Flower visibility
+    task_send_sent_event=True,  # Show SENT state in Flower
     task_time_limit=300,  # 5 minute timeout for tasks
     task_soft_time_limit=240,  # Soft timeout 4 minutes
     worker_prefetch_multiplier=1,  # Process one task at a time
@@ -56,6 +75,7 @@ celery_app.conf.update(
         "app.tasks.allmaps",
         "app.tasks.api_usage_enrichment",
         "app.tasks.static_maps",
+        "app.tasks.ogm_harvest",
     ],
 )
 
@@ -101,8 +121,10 @@ def fetch_and_cache_image(self, url: str) -> bool:
         }
         response = requests.get(resolved_url, timeout=15, headers=headers)
         
-        # Don't retry 403/401 errors - they indicate authorization issues
-        if response.status_code in (401, 403):
+        # Don't retry non-recoverable bot-block/authorization responses.
+        # - 401/403: auth
+        # - 418: common bot-block response (e.g., MSU)
+        if response.status_code in (401, 403, 418):
             logger.warning(
                 f"Authorization error ({response.status_code}) "
                 f"for {resolved_url}. Not caching."
@@ -148,11 +170,12 @@ def fetch_and_cache_image(self, url: str) -> bool:
             logger.warning(f"Skipping cache store for {resolved_url}: Redis unavailable")
             return False
     except requests.RequestException as http_err:
-        # Don't retry 403/401 errors - they indicate authorization issues that won't resolve
+        # Don't retry non-recoverable bot-block/authorization responses.
         if isinstance(http_err, requests.HTTPError) and hasattr(http_err.response, 'status_code'):
-            if http_err.response.status_code in (401, 403):
+            if http_err.response.status_code in (401, 403, 418):
                 logger.warning(
-                    f"Authorization error (401/403) for {url}: {http_err}. Not retrying."
+                    f"Non-retryable HTTP status ({http_err.response.status_code}) "
+                    f"for {url}: {http_err}. Not retrying."
                 )
                 return False
         logger.error(f"HTTP error caching image {url}: {http_err}")

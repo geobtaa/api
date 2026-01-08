@@ -57,6 +57,19 @@ function SearchContent() {
 
   const totalPages = Math.ceil(searchTotalResults / perPage);
 
+  const hasAnySearchCriteria =
+    searchParams.has('q') ||
+    searchParams.has('adv_q') ||
+    Array.from(searchParams.keys()).some(
+      (key) =>
+        key.startsWith('include_filters[') ||
+        key.startsWith('exclude_filters[') ||
+        key.startsWith('fq[')
+    );
+
+  const shouldShowSearchingPlaceholder =
+    !error && hasAnySearchCriteria && !searchResults && !searchIsLoading;
+
   const handlePageChange = (newPage: number) => {
     updateSearch({ page: newPage });
   };
@@ -243,12 +256,16 @@ function SearchContent() {
               ) : (
                 <>
                   <div className="mb-6 flex justify-between items-center">
-                    <h2 className="text-lg text-gray-600">
-                      Showing results{' '}
-                      {Math.min((page - 1) * perPage + 1, searchTotalResults)}-
-                      {Math.min(page * perPage, searchTotalResults)} of{' '}
-                      {searchTotalResults}
-                    </h2>
+                    {searchIsLoading || shouldShowSearchingPlaceholder ? (
+                      <h2 className="text-lg text-gray-600">Searching…</h2>
+                    ) : (
+                      <h2 className="text-lg text-gray-600">
+                        Showing results{' '}
+                        {Math.min((page - 1) * perPage + 1, searchTotalResults)}-
+                        {Math.min(page * perPage, searchTotalResults)} of{' '}
+                        {searchTotalResults}
+                      </h2>
+                    )}
                     <SortControl
                       options={
                         searchResults?.included

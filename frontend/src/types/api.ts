@@ -87,13 +87,15 @@ export interface ParsedFacet {
   value: string;
 }
 
+type FacetItemTuple = [value: string | number, hits: number];
+
 interface FacetItem {
   attributes: {
-    label: string;
+    label?: string;
     value: string | number;
     hits: number;
   };
-  links: {
+  links?: {
     self: string;
   };
 }
@@ -101,9 +103,13 @@ interface FacetItem {
 interface Facet {
   type: 'facet';
   id: string;
+  links?: {
+    applyTemplate?: string;
+  };
   attributes: {
     label: string;
-    items: FacetItem[];
+    // Backend may return either legacy verbose items or compact tuples.
+    items: FacetItem[] | FacetItemTuple[];
   };
 }
 
@@ -117,7 +123,7 @@ export interface FacetValue {
   type: 'facet_value' | 'facet-item';
   id: string;
   attributes: {
-    label: string;
+    label?: string;
     value: string | number;
     hits: number;
   };

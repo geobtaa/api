@@ -57,6 +57,53 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `fq[geo_region_agg][]`      | string[] | No       | Filter by region/state using spatial facets (maps to `geo_region`)                               | `fq[geo_region_agg][]=12345|0|Minnesota`         |
 | `fq[geo_county_agg][]`      | string[] | No       | Filter by county using spatial facets (maps to `geo_county`)                                     | `fq[geo_county_agg][]=12345|0|MN|Hennepin County` |
 
+## Facets in the response (JSON:API `included`)
+
+Search results include facet aggregations in the top-level JSON:API `included` array.
+
+### Facet resource shape (compact)
+
+Each facet is a JSON:API-like resource:
+
+- `type`: `"facet"`
+- `id`: the facet field name (e.g. `dct_spatial_sm`, `gbl_resourceClass_sm`, `geo_region`)
+- `attributes.label`: human-readable label
+- `attributes.items`: **compact** array of tuples: `[[value, hits], ...]`
+- `links.applyTemplate`: single URL template for “apply this facet value in the current search context”
+  - placeholder: `{value}`
+  - callers must URL-encode the substituted value
+
+Example (illustrative):
+
+```json
+{
+  "type": "facet",
+  "id": "dct_spatial_sm",
+  "links": {
+    "applyTemplate": "/api/v1/search?q=&include_filters%5Bdct_spatial_sm%5D%5B%5D={value}"
+  },
+  "attributes": {
+    "label": "Spatial Coverage",
+    "items": [["Minnesota", 5757], ["Wisconsin", 1234]]
+  }
+}
+```
+
+Notes:
+
+- Older clients may still use legacy query params (`fq[...][]`). Newer clients should prefer `include_filters[...][]` / `exclude_filters[...][]`.
+- Frontends typically **do not need** per-item facet URLs; they can update query params directly.
+
+## Facet values endpoint (`/api/v1/search/facets/{facet_name}`)
+
+The facet values endpoint is used for pagination/sorting/search-within-facet. It returns:
+
+- `data`: array of `facet_value` resources with minimal attributes:
+  - `attributes.value`
+  - `attributes.hits`
+  - `attributes.label` may be omitted (clients can display `String(value)`)
+- `links.applyTemplate`: single template URL to apply a facet value in the current search context
+
 ## Spatial Facets
 
 The search endpoint includes spatial hierarchical facets that provide geographic filtering capabilities. These facets use Who's on First (WOF) identifiers and are formatted as pipe-delimited strings:

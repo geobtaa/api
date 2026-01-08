@@ -423,6 +423,11 @@ class SearchService:
         logger.info(f"extract_new_style_filters: Geo-related keys: {geo_keys}")
         logger.info(f"extract_new_style_filters: All keys sample: {list(raw_params.keys())[:10]}")
 
+        # Convenience filters (non-bracket style) for common client use cases.
+        # Example: ogm_repo[]=edu.stanford.purl&ogm_repo[]=edu.umn
+        if "ogm_repo[]" in raw_params:
+            include_filters.setdefault("ogm_repo", []).extend(raw_params.get("ogm_repo[]") or [])
+
         # Handle geospatial filters
         geo_filters = {}
         for key, values in raw_params.items():

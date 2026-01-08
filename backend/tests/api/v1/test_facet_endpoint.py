@@ -91,18 +91,12 @@ class TestFacetEndpointSuccess:
                 {
                     "type": "facet_value",
                     "id": "Provider A",
-                    "attributes": {"label": "Provider A", "value": "Provider A", "hits": 100},
-                    "links": {
-                        "self": "/api/v1/search?include_filters[schema_provider_s][]=Provider A"
-                    },
+                    "attributes": {"value": "Provider A", "hits": 100},
                 },
                 {
                     "type": "facet_value",
                     "id": "Provider B",
-                    "attributes": {"label": "Provider B", "value": "Provider B", "hits": 50},
-                    "links": {
-                        "self": "/api/v1/search?include_filters[schema_provider_s][]=Provider B"
-                    },
+                    "attributes": {"value": "Provider B", "hits": 50},
                 },
             ],
             "meta": {
@@ -131,6 +125,7 @@ class TestFacetEndpointSuccess:
         assert "data" in data
         assert "meta" in data
         assert "links" in data
+        assert "applyTemplate" in data["links"]
         assert data["meta"]["facetName"] == "schema_provider_s"
         assert data["meta"]["sort"] == "count_desc"
 

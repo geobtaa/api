@@ -41,6 +41,10 @@ REDIS_PASSWORD=optional_password
 REDIS_DB=0
 ```
 
+### Docker Compose note
+
+If you run the API via Docker Compose, ensure the `api` service passes `ENDPOINT_CACHE` through from `.env` (rather than hard-coding it), so local toggles like `ENDPOINT_CACHE=false` take effect after a container recreate.
+
 ### Useful debug/ops flags
 
 ```text

@@ -1,7 +1,7 @@
 # rui
 React UI for our exploratory data api
 
-![RUI Screenshot](docs/rui.png)
+![RUI Screenshot](../docs/frontend/rui.png)
 
 ## Development
 

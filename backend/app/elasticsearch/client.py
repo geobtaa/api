@@ -4,7 +4,11 @@ import os
 from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
 
-load_dotenv()
+try:
+    load_dotenv()
+except (OSError, PermissionError):
+    # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
+    pass
 
 # Create the AsyncElasticsearch client with proper timeout and retry settings
 # Note: Connection pooling is handled automatically by the elasticsearch library
@@ -45,6 +49,19 @@ async def init_elasticsearch():
             )
         else:
             logger.info(f"Index {index_name} already exists")
+            # Ensure newly-added fields exist in mappings (non-destructive).
+            try:
+                current = await es.indices.get_mapping(index=index_name)
+                props = (
+                    (current.get(index_name, {}) or {}).get("mappings", {}) or {}
+                ).get("properties", {}) or {}
+                if "ogm_repo" not in props:
+                    logger.info("Adding missing mapping field: ogm_repo")
+                    await es.indices.put_mapping(
+                        index=index_name, properties={"ogm_repo": {"type": "keyword"}}
+                    )
+            except Exception as e:
+                logger.warning(f"Could not ensure mappings for {index_name}: {e}")
 
     except Exception as e:
         logger.error(f"Elasticsearch initialization error: {str(e)}", exc_info=True)

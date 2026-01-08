@@ -24,6 +24,8 @@ vi.mock('../../utils/facetLabels', () => ({
     dct_temporal_sm: 'Year',
     dct_spatial_sm: 'Location',
   },
+  // For unit tests we keep facet IDs stable (no remapping).
+  normalizeFacetId: (id: string) => id,
 }));
 
 vi.mock('../../constants/facets', () => ({
@@ -223,6 +225,36 @@ describe('FacetList Component', () => {
       expect(screen.getByText('Paper Maps')).toBeInTheDocument();
       expect(screen.getByText('MIT Libraries')).toBeInTheDocument();
       expect(screen.getByText('2023')).toBeInTheDocument();
+    });
+
+    it('renders facets when items are compact tuples', () => {
+      const compactFacetData = [
+        {
+          type: 'facet' as const,
+          id: 'dct_spatial_sm',
+          links: {
+            applyTemplate:
+              '/api/v1/search?q=&include_filters%5Bdct_spatial_sm%5D%5B%5D={value}',
+          },
+          attributes: {
+            label: 'Location',
+            items: [
+              ['Minnesota', 5757],
+              ['Wisconsin', 1234],
+            ],
+          },
+        },
+      ];
+
+      render(
+        <TestWrapper>
+          <FacetList facets={compactFacetData} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('Location')).toBeInTheDocument();
+      expect(screen.getByText('Minnesota')).toBeInTheDocument();
+      expect(screen.getByText('Wisconsin')).toBeInTheDocument();
     });
 
     it('displays hit counts for each facet item', () => {
@@ -671,9 +703,11 @@ describe('FacetList Component', () => {
       const buttons = screen.getAllByRole('button');
       expect(buttons.length).toBeGreaterThan(0);
 
-      // Each button should have accessible text
+      // Each button should have accessible text OR an aria-label (icon buttons).
       buttons.forEach((button) => {
-        expect(button).toHaveTextContent(/.+/);
+        const hasText = (button.textContent || '').trim().length > 0;
+        const hasAriaLabel = (button.getAttribute('aria-label') || '').trim().length > 0;
+        expect(hasText || hasAriaLabel).toBe(true);
       });
     });
 

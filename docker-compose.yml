@@ -7,6 +7,8 @@ services:
     container_name: btaa-geospatial-api-app
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
+      - DB_POOL_MIN=${DB_POOL_MIN:-1}
+      - DB_POOL_MAX=${DB_POOL_MAX:-10}
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - ELASTICSEARCH_INDEX=btaa_geospatial_api
       - LOG_PATH=/app/logs
@@ -19,7 +21,10 @@ services:
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - LOG_LEVEL=DEBUG
-      - ENDPOINT_CACHE=true
+      # Allow .env to control endpoint caching (default: true)
+      - ENDPOINT_CACHE=${ENDPOINT_CACHE:-true}
+      # Optional: emit X-Cache headers when caching is enabled
+      - CACHE_DEBUG_HEADERS=${CACHE_DEBUG_HEADERS:-false}
       - GAZETTEER_CACHE_TTL=3600
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=changeme
@@ -187,19 +192,26 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: btaa-geospatial-api-celery
-    # pass broker/backend explicitly in case your app doesn't read envs:
-    command: bash -lc "cd /app/backend && celery -A app.tasks.worker worker --loglevel=INFO"
+    # Concurrency is configurable; keep DB pools capped (DB_POOL_MAX) to protect Postgres.
+    # -E enables task events so Flower can show task progress.
+    command: bash -lc "cd /app/backend && celery -A app.tasks.worker worker -E --loglevel=INFO --concurrency=${CELERY_WORKER_CONCURRENCY:-2} --prefetch-multiplier=1"
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
+      # Keep Celery DB pool small to avoid exhausting Postgres when many tasks queue up
+      - DB_POOL_MIN=1
+      - DB_POOL_MAX=2
+      - CELERY_WORKER_CONCURRENCY=${CELERY_WORKER_CONCURRENCY:-2}
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - REDIS_TTL=604800
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app/backend
+      - LOG_PATH=/app/logs
       - LOG_LEVEL=DEBUG
+      - IS_DOCKER=true
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
     volumes:
@@ -216,16 +228,25 @@ services:
     build:
       context: .
     container_name: btaa-geospatial-api-flower
-    # tell Flower where the broker is
-    command: bash -lc "cd /app/backend && celery -A app.tasks.worker flower --port=5555 --broker=redis://:${REDIS_PASSWORD}@redis:6379/0"
+    # IMPORTANT: celery args (like --broker) must come before `flower` subcommand.
+    command: bash -lc "cd /app/backend && celery -A app.tasks.worker --broker=redis://:${REDIS_PASSWORD}@redis:6379/0 flower --port=5555"
     ports:
       - "127.0.0.1:5555:5555"
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
+      - DB_POOL_MIN=1
+      - DB_POOL_MAX=2
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
+      # Allow Flower's /api/* endpoints without auth (useful for local debugging).
+      - FLOWER_UNAUTHENTICATED_API=true
       - PYTHONPATH=/app/backend
+      - LOG_PATH=/app/logs
       - LOG_LEVEL=DEBUG
+      - IS_DOCKER=true
+    volumes:
+      - ./logs:/app/logs
+      - .:/app
     networks: [elastic]
     depends_on:
       redis:

@@ -401,3 +401,50 @@ api_usage_logs = Table(
     # Custom properties/metadata for the request (Ahoy-inspired event properties)
     Column("properties", JSON, nullable=True),
 )
+
+# OpenGeoMetadata Harvesting / Admin tables
+
+ogm_repos = Table(
+    "ogm_repos",
+    metadata,
+    Column("ogm_repo_name", String(255), primary_key=True),
+    Column("ogm_enabled", Boolean, nullable=False, server_default="true"),
+    Column("ogm_watch_mode", String(20), nullable=False, server_default="weekly"),
+    Column("ogm_last_harvest_started_at", TIMESTAMP, nullable=True),
+    Column("ogm_last_harvest_completed_at", TIMESTAMP, nullable=True),
+    Column("ogm_last_harvest_status", String(20), nullable=True),
+    Column("ogm_last_commit_sha", String(64), nullable=True),
+    Column("ogm_notes", Text, nullable=True),
+    Column("ogm_tags", JSON, nullable=True),
+    Column("ogm_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("ogm_updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+ogm_harvest_runs = Table(
+    "ogm_harvest_runs",
+    metadata,
+    Column("ogm_id", Integer, primary_key=True, autoincrement=True),
+    Column("ogm_repo_name", String(255), nullable=False, index=True),
+    Column("ogm_trigger", String(20), nullable=False),
+    Column("ogm_started_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("ogm_completed_at", TIMESTAMP, nullable=True),
+    Column("ogm_status", String(20), nullable=True),
+    Column("ogm_stats_json", JSON, nullable=True),
+    Column("ogm_dump_dir", Text, nullable=True),
+    Column("ogm_error", Text, nullable=True),
+    Column("ogm_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+ogm_resource_state = Table(
+    "ogm_resource_state",
+    metadata,
+    Column("ogm_repo_name", String(255), primary_key=True, index=True),
+    Column("ogm_resource_id", String(255), primary_key=True, index=True),
+    Column("ogm_first_seen_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("ogm_last_seen_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("ogm_missing_since", TIMESTAMP, nullable=True),
+    Column("ogm_source_path", Text, nullable=True),
+    Column("ogm_source_commit_sha", String(64), nullable=True),
+    Column("ogm_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("ogm_updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)

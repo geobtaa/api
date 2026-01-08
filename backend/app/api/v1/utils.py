@@ -600,22 +600,23 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         # Wrap Allmaps attributes in an allmaps object
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
 
-    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox)
+    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox).
+    #
+    # Note: we intentionally do NOT check whether the static map already exists in Redis.
+    # The `/api/v1/resources/{id}/static-map` endpoint handles:
+    # - 302 redirect to `/api/v1/static-maps/{id}` when cached
+    # - 202 + kicks off background generation when missing
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
     if geometry:
-        from app.services.static_map_service import StaticMapService
+        application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+        static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
 
-        map_service = StaticMapService()
-        if map_service.map_exists(resource_dict["id"]):
-            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-            static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
 
-            if "meta" not in resource:
-                resource["meta"] = {}
-            if "ui" not in resource["meta"]:
-                resource["meta"]["ui"] = {}
-
-            resource["meta"]["ui"]["static_map"] = static_map_url
+        resource["meta"]["ui"]["static_map"] = static_map_url
 
     # Add similar items to meta.ui
     try:
@@ -739,30 +740,22 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
         # Wrap Allmaps attributes in an allmaps object
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
 
-    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox)
+    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox).
+    # See notes above in process_resource().
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
     if geometry:
-        from app.services.static_map_service import StaticMapService
+        application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+        static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
 
-        map_service = StaticMapService()
-        if map_service.map_exists(resource_dict["id"]):
-            application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-            static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+        if "meta" not in resource:
+            resource["meta"] = {}
+        if "ui" not in resource["meta"]:
+            resource["meta"]["ui"] = {}
 
-            if "meta" not in resource:
-                resource["meta"] = {}
-            if "ui" not in resource["meta"]:
-                resource["meta"]["ui"] = {}
+        resource["meta"]["ui"]["static_map"] = static_map_url
 
-            resource["meta"]["ui"]["static_map"] = static_map_url
-
-    # Note: Similar items are not included in process_resource_optimized to avoid performance impact
-    # on search results. They are available via the /resources/{id}/similar-items endpoint
-    # and are included in single resource and list resource endpoints via process_resource()
-    if "meta" not in resource:
-        resource["meta"] = {}
-    if "ui" not in resource["meta"]:
-        resource["meta"]["ui"] = {}
-    resource["meta"]["ui"]["similar_items"] = []
+    # Note: Similar items are intentionally omitted from process_resource_optimized to avoid
+    # per-result similarity lookups on search results. Clients should fetch them lazily
+    # via the `/api/v1/resources/{id}/similar-items` endpoint when needed.
 
     return resource

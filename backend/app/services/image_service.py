@@ -16,7 +16,11 @@ from app.services.distribution_repository import (
 )
 
 # Load environment variables from .env file
-load_dotenv()
+try:
+    load_dotenv()
+except (OSError, PermissionError):
+    # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
+    pass
 
 logger = logging.getLogger(__name__)
 

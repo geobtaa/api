@@ -2,7 +2,11 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+try:
+    load_dotenv()
+except (OSError, PermissionError):
+    # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
+    pass
 
 # Get database configuration from environment variables
 # Use DATABASE_URL if provided, otherwise construct from individual components

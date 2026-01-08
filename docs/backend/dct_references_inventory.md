@@ -33,7 +33,7 @@ The legacy `dct_references_s` JSON blob is still referenced across the codebase.
 - `tests/test_mappings.py`, `tests/load_test_fixtures.py`, `tests/fixtures/gbl_fixtures_data.csv` – include references to the JSON blob.
 
 ### Documentation
-- `docs/old_database_migration.md`, `docs/distribution_tables.md` – mention the field as the historical storage mechanism.
+- `docs/backend/old_database_migration.md`, `docs/backend/distribution_tables.md` – mention the field as the historical storage mechanism.
 
 ### Frontend Build Artifact
 - `frontend/dist/assets/index-*.js` – legacy bundle still looks for `dct_references_s` keys (to be updated alongside backend changes).

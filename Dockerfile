@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y \
     libgdal-dev \
     curl \
     ca-certificates \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 # Set GDAL version

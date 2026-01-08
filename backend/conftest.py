@@ -25,13 +25,20 @@ if os.path.exists(".env"):
         pass
 
 # Load .env (may not work if quotes are an issue)
-load_dotenv(".env", override=False)
+try:
+    load_dotenv(".env", override=False)
+except (OSError, PermissionError):
+    # In sandboxed test environments, .env may be unreadable. Continue with defaults/env.
+    pass
 # Use the directly read value if load_dotenv didn't set it
 if postgres_password and not os.getenv("POSTGRES_PASSWORD"):
     os.environ["POSTGRES_PASSWORD"] = postgres_password
 
 # Load test environment variables (may override other vars)
-load_dotenv(".env.test", override=True)
+try:
+    load_dotenv(".env.test", override=True)
+except (OSError, PermissionError):
+    pass
 # Restore POSTGRES_PASSWORD if it was set in .env but not in .env.test
 if postgres_password and not os.getenv("POSTGRES_PASSWORD"):
     os.environ["POSTGRES_PASSWORD"] = postgres_password

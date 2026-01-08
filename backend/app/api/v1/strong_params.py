@@ -33,6 +33,8 @@ SEARCH_ALLOWED_PARAMS = [
     # Dynamic include/exclude filters (placeholder notation for validation/docs)
     "include_filters[field][]",
     "exclude_filters[field][]",
+    # Convenience multi-select repo filter (OGM)
+    "ogm_repo[]",
 ]
 
 # Facet endpoint allowed parameters
@@ -61,6 +63,8 @@ FACET_ALLOWED_PARAMS = [
     # Dynamic include/exclude filters (placeholder notation for validation/docs)
     "include_filters[field][]",
     "exclude_filters[field][]",
+    # Convenience multi-select repo filter (OGM)
+    "ogm_repo[]",
 ]
 
 # Gazetteer endpoint allowed parameters

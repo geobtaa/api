@@ -34,17 +34,28 @@ export function HomePage() {
             (item.id === 'gbl_resourceClass_sm' ||
               item.id === 'resource_class_agg')
         );
-        const facetCounts =
-          (resourceClassFacet?.attributes &&
-          'items' in resourceClassFacet.attributes
-            ? resourceClassFacet.attributes.items?.reduce(
-                (acc, item) => {
-                  acc[item.attributes.value as string] = item.attributes.hits;
-                  return acc;
-                },
-                {} as Record<string, number>
-              )
-            : {}) || {};
+
+        const facetCounts: Record<string, number> = {};
+        const rawItems = (resourceClassFacet as any)?.attributes?.items;
+
+        if (Array.isArray(rawItems)) {
+          // New compact encoding: [[value, hits], ...]
+          if (rawItems.length > 0 && Array.isArray(rawItems[0])) {
+            (rawItems as Array<[string | number, number]>).forEach(([value, hits]) => {
+              facetCounts[String(value)] = Number(hits) || 0;
+            });
+          } else {
+            // Legacy encoding: [{ attributes: { value, hits, ... } }, ...]
+            (rawItems as Array<any>).forEach((item) => {
+              const value = item?.attributes?.value;
+              const hits = item?.attributes?.hits;
+              if (value !== undefined) {
+                facetCounts[String(value)] = Number(hits) || 0;
+              }
+            });
+          }
+        }
+
         setResourceCounts(facetCounts);
       } catch (error) {
         console.error('Error fetching resource counts:', error);

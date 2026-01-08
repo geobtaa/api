@@ -16,7 +16,11 @@ from db.models import resources
 from .client import es
 
 # Load environment variables from .env file
-load_dotenv()
+try:
+    load_dotenv()
+except (OSError, PermissionError):
+    # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +279,30 @@ async def process_resource(resource_dict):
                         processed_dict[key] = None
         else:
             processed_dict[key] = value
+
+    # Derive OGM repo facet/filter field from admin tags.
+    # Source-of-truth tag format stored in Postgres: "ogm_repo:<repo_name>"
+    tags = processed_dict.get("b1g_adminTags_sm")
+    if tags:
+        if isinstance(tags, str):
+            tags_list = [tags]
+        elif isinstance(tags, list):
+            tags_list = [str(t) for t in tags if t is not None]
+        else:
+            tags_list = [str(tags)]
+
+        ogm_repo_values = []
+        seen = set()
+        for t in tags_list:
+            if not isinstance(t, str):
+                continue
+            if t.startswith("ogm_repo:"):
+                repo_name = t[len("ogm_repo:") :].strip()
+                if repo_name and repo_name not in seen:
+                    seen.add(repo_name)
+                    ogm_repo_values.append(repo_name)
+        if ogm_repo_values:
+            processed_dict["ogm_repo"] = ogm_repo_values
 
     # Add top-level summary only to avoid dynamic mapping conflicts
     summaries = await get_resource_summaries(processed_dict["id"])
@@ -809,6 +837,8 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
     total_resources = len(resources_data)
     total_indexed = 0
     total_errors = 0
+    total_created = 0
+    total_updated = 0
     failure_logger = _get_failure_logger()
 
     logger.info(f"Starting individual indexing of {total_resources} resources...")
@@ -826,8 +856,13 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
             )
 
             # Check if successful
-            if response.get("result") in ["created", "updated"]:
+            result_status = response.get("result")
+            if result_status in ["created", "updated"]:
                 total_indexed += 1
+                if result_status == "created":
+                    total_created += 1
+                elif result_status == "updated":
+                    total_updated += 1
             else:
                 logger.warning(f"Unexpected result for {doc_id}: {response.get('result')}")
                 # Log a structured line with the full response for post-mortem
@@ -890,7 +925,13 @@ async def perform_individual_indexing(resources_data, index_name, batch_size=100
         f"{total_errors} errors out of {total_resources} total resources"
     )
 
-    return {"indexed": total_indexed, "errors": total_errors, "total": total_resources}
+    return {
+        "indexed": total_indexed,
+        "created": total_created,
+        "updated": total_updated,
+        "errors": total_errors,
+        "total": total_resources,
+    }
 
 
 async def reindex_resources():
@@ -908,16 +949,27 @@ async def reindex_resources():
 
         await init_elasticsearch()
 
-        # Process items in chunks
-        chunk_size = 1000  # Adjust this based on your needs
-        offset = 0
+        # Process items in chunks.
+        #
+        # IMPORTANT: Do NOT use OFFSET pagination without an ORDER BY. Postgres does not
+        # guarantee row order unless explicitly ordered, so OFFSET-based pagination can
+        # skip rows and/or return duplicates across pages. That leads to major
+        # Postgres-vs-ES count discrepancies (exactly the symptom we observed).
+        #
+        # Use keyset pagination by id instead: WHERE id > last_id ORDER BY id LIMIT N.
+        chunk_size = 1000
+        last_id = None
         total_processed = 0  # number of items fetched/attempted this run
         total_indexed = 0
         total_errors = 0
+        total_created = 0
+        total_updated = 0
 
         while True:
             # Fetch a chunk of documents from the database
-            query = resources.select().offset(offset).limit(chunk_size)
+            query = resources.select().order_by(resources.c.id).limit(chunk_size)
+            if last_id is not None:
+                query = query.where(resources.c.id > last_id)
             chunk = await database.fetch_all(query)
 
             if not chunk:
@@ -931,23 +983,36 @@ async def reindex_resources():
                 result = await perform_individual_indexing(processed_resources, index_name)
                 total_processed += result.get("total", len(processed_resources))
                 total_indexed += result.get("indexed", 0)
+                total_created += result.get("created", 0)
+                total_updated += result.get("updated", 0)
                 total_errors += result.get("errors", 0)
                 logger.info(
                     f"Progress: attempted={total_processed}, "
                     f"indexed={total_indexed}, errors={total_errors}"
                 )
 
-            offset += chunk_size
+            # Advance keyset cursor based on the highest id in the chunk (since it's ordered)
+            try:
+                last_row = chunk[-1]
+                # databases returns Record-like objects; dict() is safe
+                last_id = (dict(last_row)).get("id")
+            except Exception:
+                # Fallback: if we can't determine last_id, stop to avoid an infinite loop.
+                logger.error("Failed to advance reindex cursor (last_id). Stopping reindex loop.")
+                break
 
         if total_processed > 0:
             return {
                 "attempted": total_processed,
                 "indexed": total_indexed,
+                "created": total_created,
+                "updated": total_updated,
                 "errors": total_errors,
                 "message": (
                     f"Indexing finished: {total_indexed} indexed, "
                     f"{total_errors} errors out of {total_processed} attempted"
                 ),
+                "pagination": "keyset_by_id",
             }
         return {"message": "No resources to index", "attempted": 0, "indexed": 0, "errors": 0}
 

@@ -4,66 +4,105 @@ INDEX_MAPPING = {
             "id": {"type": "keyword"},
             "dct_title_s": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                # Guard against "immense term" failures for very long titles:
+                # keyword terms > 32766 bytes cause document_parsing_exception.
+                "fields": {
+                    "keyword": {
+                        "type": "keyword",
+                        "normalizer": "lowercase",
+                        "ignore_above": 8191,
+                    }
+                },
             },
             "dct_spatial_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "gbl_resourceClass_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "gbl_resourceType_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "gbl_indexYear_im": {"type": "integer"},
             "time_period": {"type": "keyword"},
             "dct_language_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "dct_creator_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "schema_provider_s": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
+            },
+            # OpenGeoMetadata repo facet/filter (derived at index-time from b1g_adminTags_sm)
+            "ogm_repo": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 256}},
             },
             "dct_accessRights_s": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "gbl_georeferenced_b": {"type": "boolean"},
             "dct_alternative_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {
+                    "keyword": {
+                        "type": "keyword",
+                        "normalizer": "lowercase",
+                        "ignore_above": 8191,
+                    }
+                },
             },
             "dct_description_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                # NOTE: descriptions can be extremely long; ensure oversized terms are dropped
+                # rather than rejecting the entire document.
+                "fields": {
+                    "keyword": {
+                        "type": "keyword",
+                        "normalizer": "lowercase",
+                        "ignore_above": 8191,
+                    }
+                },
             },
             "gbl_displaynote_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {
+                    "keyword": {
+                        "type": "keyword",
+                        "normalizer": "lowercase",
+                        "ignore_above": 8191,
+                    }
+                },
             },
             "dct_publisher_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {
+                    "keyword": {
+                        "type": "keyword",
+                        "normalizer": "lowercase",
+                        "ignore_above": 8191,
+                    }
+                },
             },
             "dct_subject_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "dcat_theme_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "dcat_keyword_sm": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword"}},
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             # Date-ish fields that often contain free-form or fuzzy text (e.g. "1656-1677?" or
             # "2021-08-31 to *"). We index them as keywords so Elasticsearch never tries to parse
@@ -71,14 +110,17 @@ INDEX_MAPPING = {
             "dct_temporal_sm": {
                 "type": "keyword",
                 "normalizer": "lowercase",
+                "ignore_above": 8191,
             },
             "dct_issued_s": {
                 "type": "keyword",
                 "normalizer": "lowercase",
+                "ignore_above": 8191,
             },
             "gbl_daterange_drsim": {
                 "type": "keyword",
                 "normalizer": "lowercase",
+                "ignore_above": 8191,
             },
             "locn_geometry": {
                 "type": "geo_shape",
@@ -120,10 +162,16 @@ INDEX_MAPPING = {
             "b1g_dcat_spatialResolutionInMeters_sm": {"type": "keyword"},
             "b1g_geodcat_spatialResolutionAsText_sm": {"type": "keyword"},
             "b1g_dct_provenanceStatement_sm": {"type": "keyword"},
-            "b1g_adminTags_sm": {"type": "keyword"},
+            "b1g_adminTags_sm": {"type": "keyword", "ignore_above": 256},
             "summary": {
                 "type": "text",
-                "fields": {"keyword": {"type": "keyword", "normalizer": "lowercase"}},
+                "fields": {
+                    "keyword": {
+                        "type": "keyword",
+                        "normalizer": "lowercase",
+                        "ignore_above": 8191,
+                    }
+                },
             },
             # Spatial facet fields for faceting
             "geo_global": {"type": "boolean"},

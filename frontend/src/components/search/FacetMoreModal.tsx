@@ -417,6 +417,8 @@ export function FacetMoreModal({
               {items.map((item) => {
                 const included = isValueIncluded(item.attributes.value);
                 const excluded = isValueExcluded(item.attributes.value);
+                const displayLabel =
+                  item.attributes.label ?? String(item.attributes.value);
                 return (
                   <li
                     key={`${facetId}-${item.id || item.attributes.value}`}
@@ -424,7 +426,7 @@ export function FacetMoreModal({
                   >
                     <div className="flex-1">
                       <div className="text-sm font-medium text-gray-900">
-                        {item.attributes.label}
+                        {displayLabel}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
                         ({item.attributes.hits})
@@ -454,8 +456,8 @@ export function FacetMoreModal({
                         }`}
                         aria-label={
                           included
-                            ? `Remove ${item.attributes.label} from included filters`
-                            : `Include ${item.attributes.label}`
+                            ? `Remove ${displayLabel} from included filters`
+                            : `Include ${displayLabel}`
                         }
                       >
                         <PlusCircle
@@ -472,8 +474,8 @@ export function FacetMoreModal({
                         }`}
                         aria-label={
                           excluded
-                            ? `Remove ${item.attributes.label} from excluded filters`
-                            : `Exclude ${item.attributes.label}`
+                            ? `Remove ${displayLabel} from excluded filters`
+                            : `Exclude ${displayLabel}`
                         }
                       >
                         <MinusCircle

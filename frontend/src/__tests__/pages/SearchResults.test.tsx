@@ -1,19 +1,45 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { BrowserRouter } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
+import { vi } from 'vitest';
+
+vi.mock('../../components/search/GeospatialFilterMap', () => ({
+  GeospatialFilterMap: () => (
+    <button type="button" aria-label="zoom in">
+      Zoom in
+    </button>
+  ),
+}));
+
+vi.mock('../../hooks/useSearch', () => ({
+  useSearch: () => ({
+    query: '',
+    results: null,
+    isLoading: false,
+    error: null,
+    page: 1,
+    perPage: 10,
+    totalResults: 0,
+    facets: [],
+    excludeFacets: [],
+    advancedQuery: [],
+    sort: 'relevance',
+    updateSearch: vi.fn(),
+  }),
+}));
 
 describe('Search Results Page', () => {
-  const renderSearchResults = () => {
+  const renderSearchResults = (initialEntry: string = '/search') => {
     render(
-      <BrowserRouter>
+      <MemoryRouter initialEntries={[initialEntry]}>
         <ApiProvider>
           <DebugProvider>
             <SearchPage />
           </DebugProvider>
         </ApiProvider>
-      </BrowserRouter>
+      </MemoryRouter>
     );
   };
 
@@ -30,5 +56,11 @@ describe('Search Results Page', () => {
     expect(
       screen.getByRole('button', { name: /zoom in/i })
     ).toBeInTheDocument();
+  });
+
+  it('shows “Searching…” placeholder before results are available (instead of 0-0 of 0)', () => {
+    renderSearchResults('/search?q=');
+    expect(screen.getByText('Searching…')).toBeInTheDocument();
+    expect(screen.queryByText(/Showing results/i)).not.toBeInTheDocument();
   });
 });

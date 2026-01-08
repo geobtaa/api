@@ -18,7 +18,11 @@ from db.models import resources
 from .client import es
 
 # Load environment variables from .env file
-load_dotenv()
+try:
+    load_dotenv()
+except (OSError, PermissionError):
+    # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +30,7 @@ logger = logging.getLogger(__name__)
 GEO_COUNTRY_FACET_SIZE = int(os.getenv("GEO_COUNTRY_FACET_SIZE", "20"))
 GEO_REGION_FACET_SIZE = int(os.getenv("GEO_REGION_FACET_SIZE", "50"))
 GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
+OGM_REPO_FACET_SIZE = int(os.getenv("OGM_REPO_FACET_SIZE", "200"))
 DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
@@ -43,6 +48,7 @@ KEYWORD_FILTER_FIELDS = {
     "dcat_theme_sm",
     "dcat_keyword_sm",
     "time_period",  # Auto-mapped as text with keyword subfield
+    "ogm_repo",
 }
 
 
@@ -98,6 +104,11 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
         "schema_provider_s": {
             "field": "schema_provider_s.keyword",
             "size": DEFAULT_FACET_SIZE,
+        },
+        "ogm_repo": {
+            # ogm_repo is mapped as text with a keyword subfield (for aggs/filters)
+            "field": "ogm_repo.keyword",
+            "size": OGM_REPO_FACET_SIZE,
         },
         "dct_accessRights_s": {
             "field": "dct_accessRights_s.keyword",
@@ -673,6 +684,9 @@ async def search_resources(
             "schema_provider_s": {
                 "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
             },
+            "ogm_repo": {
+                "terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}
+            },
             "dct_accessRights_s": {
                 "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
             },
@@ -952,7 +966,14 @@ async def search_resources(
                 "aggregations": {},
             }
             return await process_search_response(
-                empty_response, limit, skip, search_criteria, overlap_context=None
+                empty_response,
+                limit,
+                skip,
+                search_criteria,
+                overlap_context=None,
+                include_filters=include_filters,
+                exclude_filters=exclude_filters,
+                adv_q=adv_q,
             )
         except Exception as es_error:
             logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
@@ -984,7 +1005,14 @@ async def search_resources(
                         else fallback_response
                     )
                     return await process_search_response(
-                        fallback_dict, limit, skip, search_criteria, overlap_context=None
+                        fallback_dict,
+                        limit,
+                        skip,
+                        search_criteria,
+                        overlap_context=None,
+                        include_filters=include_filters,
+                        exclude_filters=exclude_filters,
+                        adv_q=adv_q,
                     )
                 except Exception as fallback_error:
                     logger.error(
@@ -1006,7 +1034,14 @@ async def search_resources(
             raise HTTPException(status_code=500, detail=error_detail) from es_error
 
         return await process_search_response(
-            response_dict, limit, skip, search_criteria, overlap_context=overlap_context
+            response_dict,
+            limit,
+            skip,
+            search_criteria,
+            overlap_context=overlap_context,
+            include_filters=include_filters,
+            exclude_filters=exclude_filters,
+            adv_q=adv_q,
         )
 
     except Exception as e:
@@ -1084,7 +1119,14 @@ def get_sort_options(search_criteria):
 
 
 async def process_search_response(
-    response, limit, skip, search_criteria, overlap_context: dict | None = None
+    response,
+    limit,
+    skip,
+    search_criteria,
+    overlap_context: dict | None = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
+    adv_q: Optional[list] = None,
 ):
     """Process Elasticsearch response and format for API output."""
     try:
@@ -1234,7 +1276,16 @@ async def process_search_response(
         pg_query_time = (time.time() - start_time) * 1000
 
         included = [
-            *process_aggregations(response.get("aggregations", {}), search_criteria),
+            *process_aggregations(
+                response.get("aggregations", {}),
+                {
+                    "q": search_criteria.get("query"),
+                    "include_filters": include_filters,
+                    "exclude_filters": exclude_filters,
+                    "fq": search_criteria.get("filters"),
+                    "adv_q": adv_q,
+                },
+            ),
             *get_sort_options(search_criteria),
         ]
 
@@ -1279,7 +1330,105 @@ async def process_search_response(
         ) from e
 
 
-def process_aggregations(aggregations, search_criteria):
+def _flatten_bracket_params(prefix: str, value) -> list[tuple[str, str]]:
+    """
+    Flatten nested objects into bracket-style query params.
+
+    Example:
+      prefix='include_filters[geo]' and value={'top_left': {'lat': 1}}
+      -> [('include_filters[geo][top_left][lat]', '1')]
+    """
+
+    params: list[tuple[str, str]] = []
+
+    def _walk(key_prefix: str, v):
+        if v is None:
+            return
+        if isinstance(v, dict):
+            for k, child in v.items():
+                _walk(f"{key_prefix}[{k}]", child)
+            return
+        if isinstance(v, (list, tuple)):
+            for i, child in enumerate(v):
+                _walk(f"{key_prefix}[{i}]", child)
+            return
+        params.append((key_prefix, str(v)))
+
+    _walk(prefix, value)
+    return params
+
+
+def generate_facet_apply_template(facet_id: str, search_context: dict) -> str:
+    """
+    Generate a single URL template to apply a facet value while preserving the
+    current search context.
+
+    Placeholder: `{value}` (caller should URL-encode substituted value).
+    """
+
+    base_url = os.getenv("APPLICATION_URL", "http://localhost:8000") + "/api/v1/search"
+
+    q = (search_context or {}).get("q") or ""
+    include_filters = (search_context or {}).get("include_filters") or {}
+    exclude_filters = (search_context or {}).get("exclude_filters") or {}
+    fq = (search_context or {}).get("fq") or {}
+    adv_q = (search_context or {}).get("adv_q")
+
+    query_params: dict[str, list[str] | str] = {"q": q}
+
+    # Preserve advanced query clauses if present (as a compact JSON string)
+    if adv_q:
+        try:
+            query_params["adv_q"] = json.dumps(adv_q, separators=(",", ":"))
+        except Exception:
+            # If something unexpected is passed, just skip it rather than breaking links
+            pass
+
+    # Preserve include filters (new style). Geo is nested.
+    if isinstance(include_filters, dict):
+        for field, values in include_filters.items():
+            if field == "geo" and isinstance(values, dict):
+                for k, v in _flatten_bracket_params("include_filters[geo]", values):
+                    query_params.setdefault(k, []).append(v)  # type: ignore[arg-type]
+                continue
+
+            if isinstance(values, list):
+                for v in values:
+                    query_params.setdefault(f"include_filters[{field}][]", []).append(str(v))  # type: ignore[arg-type]
+            else:
+                query_params.setdefault(f"include_filters[{field}][]", []).append(str(values))  # type: ignore[arg-type]
+
+    # Preserve exclude filters (new style).
+    if isinstance(exclude_filters, dict):
+        for field, values in exclude_filters.items():
+            if isinstance(values, list):
+                for v in values:
+                    query_params.setdefault(f"exclude_filters[{field}][]", []).append(str(v))  # type: ignore[arg-type]
+            else:
+                query_params.setdefault(f"exclude_filters[{field}][]", []).append(str(values))  # type: ignore[arg-type]
+
+    # Preserve legacy fq filters by converting them to include_filters in the URL.
+    # Note: fq keys may include `.keyword` suffix from ES field resolution.
+    if isinstance(fq, dict):
+        for field, values in fq.items():
+            facet_key = str(field).replace(".keyword", "")
+            if isinstance(values, list):
+                for v in values:
+                    query_params.setdefault(f"include_filters[{facet_key}][]", []).append(str(v))  # type: ignore[arg-type]
+            else:
+                query_params.setdefault(f"include_filters[{facet_key}][]", []).append(str(values))  # type: ignore[arg-type]
+
+    # Add the facet value placeholder to apply this facet.
+    sentinel = "__FACET_VALUE__"
+    query_params.setdefault(f"include_filters[{facet_id}][]", []).append(sentinel)  # type: ignore[arg-type]
+
+    # urlencode will percent-encode the sentinel safely; swap it back to `{value}`.
+    query_string = urlencode(query_params, doseq=True)
+    query_string = query_string.replace(sentinel, "{value}")
+    return f"{base_url}?{query_string}"
+
+
+def process_aggregations(aggregations, search_context: dict):
     """Transform Elasticsearch aggregations into JSON:API includes."""
     # Define custom labels for aggregations
     agg_labels = {
@@ -1292,6 +1441,7 @@ def process_aggregations(aggregations, search_criteria):
         "language_agg": "Language",
         "creator_agg": "Creator",
         "provider_agg": "Provider",
+        "ogm_repo": "OGM Repo",
         "access_rights_agg": "Access Rights",
         "georeferenced_agg": "Georeferenced",
         "geo_country_agg": "Country",
@@ -1339,25 +1489,13 @@ def process_aggregations(aggregations, search_criteria):
             {
                 "type": "facet",
                 "id": agg_name,
+                "links": {"applyTemplate": generate_facet_apply_template(agg_name, search_context)},
                 "attributes": {
                     "label": agg_labels.get(
                         agg_name, agg_name.replace("_sm", "").replace("_", " ").title()
                     ),
-                    "items": [
-                        {
-                            "attributes": {
-                                "label": bucket["key"],
-                                "value": bucket["key"],
-                                "hits": bucket["doc_count"],
-                            },
-                            "links": {
-                                "self": generate_facet_link(
-                                    agg_name, bucket["key"], search_criteria
-                                )
-                            },
-                        }
-                        for bucket in ordered_buckets
-                    ],
+                    # Compact encoding: [value, hits]
+                    "items": [[bucket["key"], bucket["doc_count"]] for bucket in ordered_buckets],
                 },
             }
         )
@@ -1661,20 +1799,14 @@ def process_facet_response(
         facet_value = bucket.get("key", "")
         doc_count = bucket.get("doc_count", 0)
 
-        # Generate link for this facet value
-        facet_link = generate_facet_link(facet_name, facet_value, search_criteria)
-
         facet_items.append(
             {
                 "type": "facet_value",
                 "id": str(facet_value),
                 "attributes": {
-                    "label": str(facet_value),
-                    "value": str(facet_value),
+                    # Minimal payload: label is redundant (frontend can render String(value))
+                    "value": facet_value,
                     "hits": doc_count,
-                },
-                "links": {
-                    "self": facet_link,
                 },
             }
         )
