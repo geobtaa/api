@@ -73,6 +73,8 @@ env:
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
+    # IMPORTANT: tells db/config.py not to rewrite Docker hostnames to localhost:2345
+    IS_DOCKER:             "true"
     CORS_ORIGINS:          "*"
     STATIC_MAPS_DIR:       /app/static/maps
     RATE_LIMIT_ENABLED:    "true"
