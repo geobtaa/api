@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import type { GeoDocument } from '../../types/api';
-import { getApiBasePath } from '../../services/api';
 
 interface StaticResultMapProps {
   result: GeoDocument;
@@ -13,15 +12,9 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
   const geometry = result.meta?.ui?.viewer?.geometry;
 
   // Build static map URL
-  // Authentication is handled by the NGINX BFF proxy server-side
+  // Served by the SSR server, which injects the API key server-side.
   const getStaticMapUrl = (): string => {
-    const apiBasePath = getApiBasePath();
-    const baseUrl = `${apiBasePath}/resources/${result.id}/static-map`;
-    
-    // Create URL object - all URLs are absolute (pointing to BFF proxy)
-    const url = new URL(baseUrl);
-    
-    return url.toString();
+    return `/resources/${result.id}/static-map`;
   };
 
   // If no geometry, show placeholder

@@ -20,7 +20,10 @@ export async function serverFetch(
     : `${API_BASE_URL}/${endpoint}`;
 
   const headers = new Headers(options.headers);
-  headers.set("Accept", "application/vnd.api+json, application/json");
+  // Default to JSON:API unless caller provided an Accept header (e.g., for images).
+  if (!headers.has("Accept")) {
+    headers.set("Accept", "application/vnd.api+json, application/json");
+  }
 
   if (API_KEY) {
     headers.set("X-API-Key", API_KEY);

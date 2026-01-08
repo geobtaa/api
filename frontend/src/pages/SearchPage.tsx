@@ -6,7 +6,6 @@ import { ErrorMessage } from '../components/ErrorMessage';
 import { SearchConstraints } from '../components/search/SearchConstraints';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
-import { useSearch } from '../hooks/useSearch';
 import type { AdvancedClause, FacetFilter } from '../types/search';
 import { FacetList } from '../components/FacetList';
 // import { MapView } from '../components/search/MapView';
@@ -14,9 +13,18 @@ import { MapProvider } from '../context/MapContext';
 import { SortControl } from '../components/search/SortControl';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
 import { GeospatialFilterMap } from '../components/search/GeospatialFilterMap';
+import { parseSearchParams } from '../utils/searchParams';
+import type { JsonApiResponse } from '../types/api';
+
+type SearchPageProps = {
+  // Loader-provided results (SSR/server-side).
+  searchResults?: JsonApiResponse | null;
+  // Navigation state from the route (client transitions).
+  isLoading?: boolean;
+};
 
 // Create a separate component for the search content
-function SearchContent() {
+function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   console.log('🔄 SearchContent rendering...');
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,31 +39,30 @@ function SearchContent() {
 
   const {
     query,
-    results: searchResults,
-    isLoading: searchIsLoading,
-    error,
     page,
-    perPage,
-    totalResults: searchTotalResults,
     facets: searchFacets,
     excludeFacets: searchExcludeFacets,
     advancedQuery,
-    sort,
-    updateSearch,
-  } = useSearch();
+  } = parseSearchParams(searchParams);
+  const sort = searchParams.get('sort') || 'relevance';
+
+  const perPage = searchResults?.meta?.perPage || 10;
+  const searchTotalResults = searchResults?.meta?.totalCount || 0;
+  const totalPages = Math.ceil(searchTotalResults / perPage);
+
+  // For now, treat API errors as “no results” and let ErrorMessage show when needed.
+  const error = (searchResults as any)?.error ? String((searchResults as any).error) : null;
 
   console.log('📊 SearchContent state:', {
     query,
     resultsCount: searchResults?.data?.length || 0,
-    isLoading: searchIsLoading,
+    isLoading,
     error: !!error,
     page,
     totalResults: searchTotalResults,
     facetsCount: searchFacets.length,
     sort,
   });
-
-  const totalPages = Math.ceil(searchTotalResults / perPage);
 
   const hasAnySearchCriteria =
     searchParams.has('q') ||
@@ -68,11 +75,75 @@ function SearchContent() {
     );
 
   const shouldShowSearchingPlaceholder =
-    !error && hasAnySearchCriteria && !searchResults && !searchIsLoading;
+    !error && hasAnySearchCriteria && !searchResults && isLoading;
 
-  const handlePageChange = (newPage: number) => {
-    updateSearch({ page: newPage });
+  const updateSearch = ({
+    query,
+    page,
+    facets,
+    sort: newSort,
+    excludeFacets: nextExcludeFacets,
+    advancedQuery: nextAdvancedQuery,
+  }: {
+    query?: string;
+    page?: number;
+    facets?: FacetFilter[];
+    excludeFacets?: FacetFilter[];
+    advancedQuery?: AdvancedClause[];
+    sort?: string;
+  }) => {
+    const newParams = new URLSearchParams(searchParams);
+
+    if (query !== undefined) {
+      // Always set 'q' param, even if empty, to ensure loader is invoked.
+      newParams.set('q', query);
+      newParams.delete('page'); // Reset page when query changes
+    }
+
+    if (page !== undefined) {
+      if (page > 1) newParams.set('page', page.toString());
+      else newParams.delete('page');
+    }
+
+    if (newSort !== undefined) {
+      if (newSort !== 'relevance') newParams.set('sort', newSort);
+      else newParams.delete('sort');
+    }
+
+    if (facets !== undefined) {
+      Array.from(newParams.keys())
+        .filter((key) => key.startsWith('include_filters[') || key.startsWith('fq['))
+        .forEach((key) => newParams.delete(key));
+      facets.forEach(({ field, value }) => newParams.append(`include_filters[${field}][]`, value));
+    }
+
+    if (nextExcludeFacets !== undefined) {
+      Array.from(newParams.keys())
+        .filter((key) => key.startsWith('exclude_filters['))
+        .forEach((key) => newParams.delete(key));
+      nextExcludeFacets.forEach(({ field, value }) =>
+        newParams.append(`exclude_filters[${field}][]`, value),
+      );
+    }
+
+    if (nextAdvancedQuery !== undefined) {
+      if (nextAdvancedQuery.length > 0) {
+        const serialized = nextAdvancedQuery.map(({ op, field, q }) => ({
+          op,
+          f: field,
+          q,
+        }));
+        newParams.set('adv_q', JSON.stringify(serialized));
+      } else {
+        newParams.delete('adv_q');
+      }
+      newParams.delete('page');
+    }
+
+    setSearchParams(newParams);
   };
+
+  const handlePageChange = (newPage: number) => updateSearch({ page: newPage });
 
   const handleRemoveFacet = (facetToRemove: FacetFilter) => {
     const updatedFacets = searchFacets.filter(
@@ -256,7 +327,7 @@ function SearchContent() {
               ) : (
                 <>
                   <div className="mb-6 flex justify-between items-center">
-                    {searchIsLoading || shouldShowSearchingPlaceholder ? (
+                    {isLoading || shouldShowSearchingPlaceholder ? (
                       <h2 className="text-lg text-gray-600">Searching…</h2>
                     ) : (
                       <h2 className="text-lg text-gray-600">
@@ -283,12 +354,12 @@ function SearchContent() {
 
                   <SearchResults
                     results={searchResults?.data || []}
-                    isLoading={searchIsLoading}
+                    isLoading={isLoading}
                     totalResults={searchTotalResults}
                     currentPage={page}
                   />
 
-                  {!searchIsLoading && totalPages > 1 && (
+                  {!isLoading && totalPages > 1 && (
                     <Pagination
                       currentPage={page}
                       totalPages={totalPages}
@@ -306,10 +377,10 @@ function SearchContent() {
   );
 }
 
-export function SearchPage() {
+export function SearchPage({ searchResults, isLoading }: SearchPageProps) {
   return (
     <MapProvider>
-      <SearchContent />
+      <SearchContent searchResults={searchResults ?? null} isLoading={isLoading ?? false} />
     </MapProvider>
   );
 }

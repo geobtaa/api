@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Settings, X, MapPin } from 'lucide-react';
-import { fetchSuggestions, fetchNominatimSearch } from '../services/api';
+import { fetchNominatimSearch } from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { GazetteerPlace } from '../types/api';
 
@@ -71,11 +71,17 @@ export function SearchField({
   useEffect(() => {
     const fetchSuggestionsDebounced = setTimeout(async () => {
       if (query.trim() && !isPlaceInputFocused) {
-        const results = await fetchSuggestions(query);
+        // IMPORTANT: Do not call the API directly from the browser when rate limiting is enabled.
+        // `/suggest` is served by the SSR server, which injects the API key server-side.
+        const res = await fetch(`/suggest?q=${encodeURIComponent(query.trim())}`, {
+          headers: { Accept: 'application/json' },
+        });
+        const json = await res.json();
+        const data = Array.isArray(json?.data) ? json.data : [];
         setSuggestions(
-          results.map((r) => ({
-            text: r.attributes.text,
-            title: r.attributes.title,
+          data.map((r: any) => ({
+            text: r?.attributes?.text ?? '',
+            title: r?.attributes?.title ?? '',
           }))
         );
       } else {
