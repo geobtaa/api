@@ -429,22 +429,25 @@ describe('BookmarksPage', () => {
             id: 'mit-001145244',
             type: 'document',
             attributes: {
-              dct_title_s: 'MIT Paper Map',
-              dct_description_sm: ['A paper map from MIT'],
-              gbl_resourceClass_sm: ['Paper Maps'],
+              ogm: {
+                id: 'mit-001145244',
+                dct_title_s: 'MIT Paper Map',
+                dct_description_sm: ['A paper map from MIT'],
+                gbl_resourceClass_sm: ['Paper Maps'],
+              },
             },
           },
         ],
         included: [
           {
             type: 'facet',
-            id: 'resource_class_agg',
-            attributes: { label: 'Resource Class' },
+            id: 'gbl_resourceClass_sm',
+            attributes: { label: 'Resource Class', items: [['Paper Maps', 1]] },
           },
           {
             type: 'facet',
-            id: 'provider_agg',
-            attributes: { label: 'Provider' },
+            id: 'schema_provider_s',
+            attributes: { label: 'Provider', items: [['MIT Libraries', 1]] },
           },
         ],
       };
@@ -510,22 +513,28 @@ describe('BookmarksPage', () => {
             id: 'mit-001145244',
             type: 'document',
             attributes: {
-              dct_title_s: 'MIT Paper Map',
-              dct_description_sm: ['A paper map from MIT'],
-              gbl_resourceClass_sm: ['Paper Maps'],
+              ogm: {
+                id: 'mit-001145244',
+                dct_title_s: 'MIT Paper Map',
+                dct_description_sm: ['A paper map from MIT'],
+                gbl_resourceClass_sm: ['Paper Maps'],
+              },
             },
           },
         ],
         included: [
           {
             type: 'facet',
-            id: 'resource_class_agg', // This should be included (configured facet)
-            attributes: { label: 'Resource Class' },
+            id: 'gbl_resourceClass_sm', // This should be included (configured facet)
+            attributes: { label: 'Resource Class', items: [['Paper Maps', 1]] },
           },
           {
             type: 'facet',
             id: 'unconfigured_facet', // This should be filtered out
-            attributes: { label: 'Unconfigured Facet' },
+            attributes: {
+              label: 'Unconfigured Facet',
+              items: [['Ignore Me', 1]],
+            },
           },
         ],
       };

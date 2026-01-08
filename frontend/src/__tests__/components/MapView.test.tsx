@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
 import { MapView } from '../../components/search/MapView';
 import { MapProvider } from '../../context/MapContext';
 import type { GeoDocument } from '../../types/api';
@@ -37,11 +38,14 @@ const mockFixtureData: GeoDocument[] = [
     id: 'mit-001145244',
     type: 'document',
     attributes: {
-      dct_title_s: 'Nondigitized paper map with library catalog link',
-      dct_description_sm: ['A historical paper map from MIT collections'],
-      dct_temporal_sm: ['1950'],
-      dc_publisher_sm: ['MIT Libraries'],
-      gbl_resourceClass_sm: ['Paper Maps'],
+      ogm: {
+        id: 'mit-001145244',
+        dct_title_s: 'Nondigitized paper map with library catalog link',
+        dct_description_sm: ['A historical paper map from MIT collections'],
+        dct_temporal_sm: ['1950'],
+        dc_publisher_sm: ['MIT Libraries'],
+        gbl_resourceClass_sm: ['Paper Maps'],
+      },
     },
     meta: {
       ui: {
@@ -59,11 +63,14 @@ const mockFixtureData: GeoDocument[] = [
     id: 'nyu-2451-34564',
     type: 'document',
     attributes: {
-      dct_title_s: 'Point dataset with WMS and WFS',
-      dct_description_sm: ['A point dataset with web mapping services'],
-      dct_temporal_sm: ['2020'],
-      dc_publisher_sm: ['NYU Libraries'],
-      gbl_resourceClass_sm: ['Point Data'],
+      ogm: {
+        id: 'nyu-2451-34564',
+        dct_title_s: 'Point dataset with WMS and WFS',
+        dct_description_sm: ['A point dataset with web mapping services'],
+        dct_temporal_sm: ['2020'],
+        dc_publisher_sm: ['NYU Libraries'],
+        gbl_resourceClass_sm: ['Point Data'],
+      },
     },
     meta: {
       ui: {
@@ -81,7 +88,9 @@ const mockFixtureData: GeoDocument[] = [
 
 // Test wrapper component
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
-  <MapProvider>{children}</MapProvider>
+  <MemoryRouter>
+    <MapProvider>{children}</MapProvider>
+  </MemoryRouter>
 );
 
 describe('MapView', () => {
@@ -206,11 +215,14 @@ describe('MapView', () => {
           id: 'no-geometry-1',
           type: 'document',
           attributes: {
-            dct_title_s: 'No geometry result 1',
-            dct_description_sm: ['A result without geometry'],
-            dct_temporal_sm: ['2023'],
-            dc_publisher_sm: ['Test Publisher'],
-            gbl_resourceClass_sm: ['Dataset'],
+            ogm: {
+              id: 'no-geometry-1',
+              dct_title_s: 'No geometry result 1',
+              dct_description_sm: ['A result without geometry'],
+              dct_temporal_sm: ['2023'],
+              dc_publisher_sm: ['Test Publisher'],
+              gbl_resourceClass_sm: ['Dataset'],
+            },
           },
           meta: {
             ui: {
@@ -244,11 +256,14 @@ describe('MapView', () => {
           id: 'missing-meta',
           type: 'document',
           attributes: {
-            dct_title_s: 'Missing meta result',
-            dct_description_sm: ['A result with missing meta'],
-            dct_temporal_sm: ['2023'],
-            dc_publisher_sm: ['Test Publisher'],
-            gbl_resourceClass_sm: ['Dataset'],
+            ogm: {
+              id: 'missing-meta',
+              dct_title_s: 'Missing meta result',
+              dct_description_sm: ['A result with missing meta'],
+              dct_temporal_sm: ['2023'],
+              dc_publisher_sm: ['Test Publisher'],
+              gbl_resourceClass_sm: ['Dataset'],
+            },
           },
           meta: null,
         },
@@ -273,11 +288,14 @@ describe('MapView', () => {
           id: 'missing-viewer',
           type: 'document',
           attributes: {
-            dct_title_s: 'Missing viewer result',
-            dct_description_sm: ['A result with missing viewer'],
-            dct_temporal_sm: ['2023'],
-            dc_publisher_sm: ['Test Publisher'],
-            gbl_resourceClass_sm: ['Dataset'],
+            ogm: {
+              id: 'missing-viewer',
+              dct_title_s: 'Missing viewer result',
+              dct_description_sm: ['A result with missing viewer'],
+              dct_temporal_sm: ['2023'],
+              dc_publisher_sm: ['Test Publisher'],
+              gbl_resourceClass_sm: ['Dataset'],
+            },
           },
           meta: {
             ui: {
@@ -307,11 +325,14 @@ describe('MapView', () => {
           id: 'point-geometry',
           type: 'document',
           attributes: {
-            dct_title_s: 'Point geometry',
-            dct_description_sm: ['A point result'],
-            dct_temporal_sm: ['2023'],
-            dc_publisher_sm: ['Test Publisher'],
-            gbl_resourceClass_sm: ['Dataset'],
+            ogm: {
+              id: 'point-geometry',
+              dct_title_s: 'Point geometry',
+              dct_description_sm: ['A point result'],
+              dct_temporal_sm: ['2023'],
+              dc_publisher_sm: ['Test Publisher'],
+              gbl_resourceClass_sm: ['Dataset'],
+            },
           },
           meta: {
             ui: {
@@ -329,11 +350,14 @@ describe('MapView', () => {
           id: 'polygon-geometry',
           type: 'document',
           attributes: {
-            dct_title_s: 'Polygon geometry',
-            dct_description_sm: ['A polygon result'],
-            dct_temporal_sm: ['2023'],
-            dc_publisher_sm: ['Test Publisher'],
-            gbl_resourceClass_sm: ['Dataset'],
+            ogm: {
+              id: 'polygon-geometry',
+              dct_title_s: 'Polygon geometry',
+              dct_description_sm: ['A polygon result'],
+              dct_temporal_sm: ['2023'],
+              dc_publisher_sm: ['Test Publisher'],
+              gbl_resourceClass_sm: ['Dataset'],
+            },
           },
           meta: {
             ui: {

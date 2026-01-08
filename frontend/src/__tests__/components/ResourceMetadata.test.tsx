@@ -155,7 +155,7 @@ describe('ResourceMetadata Component', () => {
       render(<ResourceMetadata item={realFixtureWithAllFields} />);
 
       // Check for all section headings
-      expect(screen.getByText('Source')).toBeInTheDocument();
+      expect(screen.getByText('Provider')).toBeInTheDocument();
       expect(screen.getByText('Publishers')).toBeInTheDocument();
       expect(screen.getByText('Creators')).toBeInTheDocument();
       expect(screen.getByText('Geographic Coverage')).toBeInTheDocument();
@@ -166,9 +166,9 @@ describe('ResourceMetadata Component', () => {
     it('renders source information correctly', () => {
       render(<ResourceMetadata item={realFixtureWithAllFields} />);
 
-      expect(screen.getByText('Source')).toBeInTheDocument();
+      expect(screen.getByText('Provider')).toBeInTheDocument();
 
-      const sourceSection = screen.getByText('Source').closest('div');
+      const sourceSection = screen.getByText('Provider').closest('div');
       const sourceText = sourceSection?.querySelector('p');
       expect(sourceText).toHaveTextContent('MIT Libraries');
     });
@@ -264,7 +264,7 @@ describe('ResourceMetadata Component', () => {
       render(<ResourceMetadata item={realFixtureWithMinimalFields} />);
 
       // These sections should not be present
-      expect(screen.queryByText('Source')).not.toBeInTheDocument();
+      expect(screen.queryByText('Provider')).not.toBeInTheDocument();
       expect(screen.queryByText('Publishers')).not.toBeInTheDocument();
       expect(screen.queryByText('Creators')).not.toBeInTheDocument();
       expect(screen.queryByText('Geographic Coverage')).not.toBeInTheDocument();
@@ -282,11 +282,11 @@ describe('ResourceMetadata Component', () => {
       render(<ResourceMetadata item={partialItem} />);
 
       // Should render these
-      expect(screen.getByText('Source')).toBeInTheDocument();
+      expect(screen.getByText('Provider')).toBeInTheDocument();
       expect(screen.getByText('Publishers')).toBeInTheDocument();
 
-      // Check that NYU Libraries appears in both Source and Publishers
-      const sourceSection = screen.getByText('Source').closest('div');
+      // Check that NYU Libraries appears in both Provider and Publishers
+      const sourceSection = screen.getByText('Provider').closest('div');
       const sourceText = sourceSection?.querySelector('p');
       expect(sourceText).toHaveTextContent('NYU Libraries');
 
@@ -333,7 +333,7 @@ describe('ResourceMetadata Component', () => {
       render(<ResourceMetadata item={itemWithNullFields} />);
 
       // Should not render any sections
-      expect(screen.queryByText('Source')).not.toBeInTheDocument();
+      expect(screen.queryByText('Provider')).not.toBeInTheDocument();
       expect(screen.queryByText('Publishers')).not.toBeInTheDocument();
       expect(screen.queryByText('Creators')).not.toBeInTheDocument();
       expect(screen.queryByText('Geographic Coverage')).not.toBeInTheDocument();
@@ -361,7 +361,7 @@ describe('ResourceMetadata Component', () => {
       render(<ResourceMetadata item={realFixtureWithAllFields} />);
 
       const leftColumn = screen
-        .getByText('Source')
+        .getByText('Provider')
         .closest('div')?.parentElement;
       expect(leftColumn).toHaveClass('space-y-6');
 
@@ -374,7 +374,7 @@ describe('ResourceMetadata Component', () => {
     it('applies correct heading styles', () => {
       render(<ResourceMetadata item={realFixtureWithAllFields} />);
 
-      const sourceHeading = screen.getByText('Source');
+      const sourceHeading = screen.getByText('Provider');
       expect(sourceHeading).toHaveClass(
         'text-sm',
         'font-medium',
@@ -385,7 +385,7 @@ describe('ResourceMetadata Component', () => {
     it('applies correct text styles to content', () => {
       render(<ResourceMetadata item={realFixtureWithAllFields} />);
 
-      const sourceSection = screen.getByText('Source').closest('div');
+      const sourceSection = screen.getByText('Provider').closest('div');
       const sourceText = sourceSection?.querySelector('p');
       expect(sourceText).toHaveClass('mt-1', 'text-gray-900');
     });
@@ -431,7 +431,7 @@ describe('ResourceMetadata Component', () => {
         expect(heading).toHaveClass('text-gray-500');
       });
 
-      const sourceSection = screen.getByText('Source').closest('div');
+      const sourceSection = screen.getByText('Provider').closest('div');
       const contentText = sourceSection?.querySelector('p');
       expect(contentText).toHaveClass('text-gray-900');
     });
@@ -503,7 +503,7 @@ describe('ResourceMetadata Component', () => {
     it('renders with different fixture data types', () => {
       render(<ResourceMetadata item={realFixtureWithPolygonData} />);
 
-      expect(screen.getByText('Source')).toBeInTheDocument();
+      expect(screen.getByText('Provider')).toBeInTheDocument();
       expect(screen.getByText('Publishers')).toBeInTheDocument();
       expect(screen.getByText('Creators')).toBeInTheDocument();
       expect(screen.getByText('Tufts GIS Staff')).toBeInTheDocument();
@@ -517,8 +517,8 @@ describe('ResourceMetadata Component', () => {
       expect(screen.getByText('Date Issued')).toBeInTheDocument();
       expect(screen.getByText('2019')).toBeInTheDocument();
 
-      // Check that Tufts University appears in both Source and Publishers
-      const sourceSection = screen.getByText('Source').closest('div');
+      // Check that Tufts University appears in both Provider and Publishers
+      const sourceSection = screen.getByText('Provider').closest('div');
       const sourceText = sourceSection?.querySelector('p');
       expect(sourceText).toHaveTextContent('Tufts University');
 

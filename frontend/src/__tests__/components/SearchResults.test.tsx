@@ -14,11 +14,14 @@ const mockFixtureData: GeoDocument[] = [
     id: 'mit-001145244',
     type: 'document',
     attributes: {
-      dct_title_s: 'Nondigitized paper map with library catalog link',
-      dct_description_sm: ['A historical paper map from MIT collections'],
-      dct_temporal_sm: ['1950'],
-      dc_publisher_sm: ['MIT Libraries'],
-      gbl_resourceClass_sm: ['Paper Maps'],
+      ogm: {
+        id: 'mit-001145244',
+        dct_title_s: 'Nondigitized paper map with library catalog link',
+        dct_description_sm: ['A historical paper map from MIT collections'],
+        dct_temporal_sm: ['1950'],
+        dc_publisher_sm: ['MIT Libraries'],
+        gbl_resourceClass_sm: ['Paper Maps'],
+      },
     },
     meta: {
       ui: {
@@ -36,11 +39,14 @@ const mockFixtureData: GeoDocument[] = [
     id: 'nyu-2451-34564',
     type: 'document',
     attributes: {
-      dct_title_s: 'Point dataset with WMS and WFS',
-      dct_description_sm: ['A point dataset with web mapping services'],
-      dct_temporal_sm: ['2020'],
-      dc_publisher_sm: ['NYU Libraries'],
-      gbl_resourceClass_sm: ['Point Data'],
+      ogm: {
+        id: 'nyu-2451-34564',
+        dct_title_s: 'Point dataset with WMS and WFS',
+        dct_description_sm: ['A point dataset with web mapping services'],
+        dct_temporal_sm: ['2020'],
+        dc_publisher_sm: ['NYU Libraries'],
+        gbl_resourceClass_sm: ['Point Data'],
+      },
     },
     meta: {
       ui: {
@@ -58,11 +64,14 @@ const mockFixtureData: GeoDocument[] = [
     id: 'tufts-cambridgegrid100-04',
     type: 'document',
     attributes: {
-      dct_title_s: 'Polygon dataset with WFS, WMS, and FGDC metadata',
-      dct_description_sm: ['A comprehensive polygon dataset'],
-      dct_temporal_sm: ['2019', '2020'],
-      dc_publisher_sm: ['Tufts University', 'Cambridge Grid'],
-      gbl_resourceClass_sm: ['Polygon Data'],
+      ogm: {
+        id: 'tufts-cambridgegrid100-04',
+        dct_title_s: 'Polygon dataset with WFS, WMS, and FGDC metadata',
+        dct_description_sm: ['A comprehensive polygon dataset'],
+        dct_temporal_sm: ['2019', '2020'],
+        dc_publisher_sm: ['Tufts University', 'Cambridge Grid'],
+        gbl_resourceClass_sm: ['Polygon Data'],
+      },
     },
     meta: {
       ui: {
@@ -88,11 +97,14 @@ const mockFixtureData: GeoDocument[] = [
     id: 'stanford-dp018hs9766',
     type: 'document',
     attributes: {
-      dct_title_s: 'Restricted raster layer with WMS and metadata',
-      dct_description_sm: ['A restricted access raster dataset'],
-      dct_temporal_sm: ['2021'],
-      dc_publisher_sm: ['Stanford University'],
-      gbl_resourceClass_sm: ['Raster Data'],
+      ogm: {
+        id: 'stanford-dp018hs9766',
+        dct_title_s: 'Restricted raster layer with WMS and metadata',
+        dct_description_sm: ['A restricted access raster dataset'],
+        dct_temporal_sm: ['2021'],
+        dc_publisher_sm: ['Stanford University'],
+        gbl_resourceClass_sm: ['Raster Data'],
+      },
     },
     meta: {
       ui: {
@@ -522,8 +534,11 @@ describe('SearchResults Component', () => {
         id: 'incomplete-test',
         type: 'document',
         attributes: {
-          dct_title_s: 'Test Title',
-          // Missing other attributes
+          ogm: {
+            id: 'incomplete-test',
+            dct_title_s: 'Test Title',
+            // Missing other ogm fields is fine
+          },
         },
         meta: {
           ui: {
@@ -554,7 +569,7 @@ describe('SearchResults Component', () => {
         id: 'no-geometry-test',
         type: 'document',
         attributes: {
-          dct_title_s: 'No Geometry Test',
+          ogm: { id: 'no-geometry-test', dct_title_s: 'No Geometry Test' },
         },
         meta: {
           ui: {
@@ -586,7 +601,10 @@ describe('SearchResults Component', () => {
         id: 'non-string-title',
         type: 'document',
         attributes: {
-          dct_title_s: 12345 as unknown as string, // Non-string title
+          ogm: {
+            id: 'non-string-title',
+            dct_title_s: 12345 as unknown as string, // Non-string title
+          },
         },
         meta: {
           ui: {

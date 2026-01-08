@@ -1,15 +1,19 @@
 import io
 import logging
+import os
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from PIL import Image
 
 from app.services.image_service import ImageService
+from app.services.cache_service import cache_control_header, weak_etag_from_body
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 
 
 def _detect_image_type(image_data: bytes) -> str:
@@ -106,14 +110,15 @@ async def get_placeholder_thumbnail():
         content=placeholder_svg,
         media_type="image/svg+xml",
         headers={
-            "Cache-Control": "public, max-age=3600",  # Cache for 1 hour
+            # Placeholders must not be cached aggressively or clients/CDNs can get pinned.
+            "Cache-Control": "no-store",
             "X-Placeholder": "true",
         },
     )
 
 
 @router.get("/thumbnails/{image_hash}")
-async def get_thumbnail(image_hash: str):
+async def get_thumbnail(image_hash: str, request: Request):
     """Serve a cached thumbnail image."""
     try:
         # Create service without resource (we only need cache access)
@@ -145,8 +150,20 @@ async def get_thumbnail(image_hash: str):
     # Detect the actual image type
     content_type = _detect_image_type(image_data)
 
+    etag = weak_etag_from_body(image_data)
+    headers = {
+        "ETag": etag,
+        "Cache-Control": cache_control_header(ttl_seconds=ASSET_CACHE_TTL_SECONDS),
+        # If anything ends up being compressed, this avoids representation mixups.
+        "Vary": "Accept-Encoding",
+    }
+
+    inm = request.headers.get("if-none-match")
+    if inm and inm == etag:
+        return Response(status_code=304, headers=headers)
+
     return Response(
         content=image_data,
         media_type=content_type,
-        headers={"Cache-Control": "public, max-age=31536000"},  # Cache for 1 year
+        headers=headers,
     )

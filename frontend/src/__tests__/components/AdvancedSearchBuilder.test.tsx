@@ -1,6 +1,8 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import userEvent from '@testing-library/user-event';
 import { AdvancedSearchBuilder } from '../../components/search/AdvancedSearchBuilder';
 
 describe('AdvancedSearchBuilder', () => {
@@ -12,13 +14,15 @@ describe('AdvancedSearchBuilder', () => {
     const onReset = vi.fn();
 
     render(
-      <AdvancedSearchBuilder
-        clauses={[]}
-        onApply={onApply}
-        onCancel={onCancel}
-        onReset={onReset}
-        {...props}
-      />
+      <MemoryRouter>
+        <AdvancedSearchBuilder
+          clauses={[]}
+          onApply={onApply}
+          onCancel={onCancel}
+          onReset={onReset}
+          {...props}
+        />
+      </MemoryRouter>
     );
 
     return { onApply, onCancel, onReset };
@@ -47,16 +51,20 @@ describe('AdvancedSearchBuilder', () => {
     expect(operatorSelects).toHaveLength(2);
   });
 
-  it('calls onApply with sanitized clauses', () => {
-    const { onApply } = renderBuilder();
-
-    const valueInput = screen.getByLabelText('Value');
-    fireEvent.change(valueInput, { target: { value: '  Water  ' } });
+  it('calls onApply with sanitized clauses', async () => {
+    const user = userEvent.setup();
+    const { onApply } = renderBuilder({
+      clauses: [{ op: 'AND', field: 'dct_title_s', q: '' }],
+    });
 
     const fieldSelect = screen.getByLabelText('Field');
-    fireEvent.change(fieldSelect, { target: { value: 'dct_description_sm' } });
+    await user.selectOptions(fieldSelect, 'dct_description_sm');
 
-    fireEvent.click(screen.getByRole('button', { name: /apply/i }));
+    const valueInput = screen.getByLabelText('Value');
+    await user.clear(valueInput as HTMLInputElement);
+    await user.type(valueInput as HTMLInputElement, '  Water  ');
+
+    await user.click(screen.getByRole('button', { name: /apply/i }));
 
     expect(onApply).toHaveBeenCalledWith([
       { op: 'AND', field: 'dct_description_sm', q: 'Water' },

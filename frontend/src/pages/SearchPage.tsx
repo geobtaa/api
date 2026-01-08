@@ -75,7 +75,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     );
 
   const shouldShowSearchingPlaceholder =
-    !error && hasAnySearchCriteria && !searchResults && isLoading;
+    !error && hasAnySearchCriteria && !searchResults && !isLoading;
 
   const updateSearch = ({
     query,

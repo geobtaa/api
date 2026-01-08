@@ -16,6 +16,7 @@ import { ResourceBreadcrumbs } from './ResourceBreadcrumbs';
 import { ResourceSubtitle } from './ResourceSubtitle';
 import { CitationTable } from './CitationTable';
 import { FullDetailsTable } from './FullDetailsTable';
+import type { GeoDocumentDetails } from '../../types/api';
 
 interface SearchState {
   searchResults: Array<{ id: string }>;
@@ -25,29 +26,10 @@ interface SearchState {
   currentPage: number;
 }
 
-// First, let's define an interface for our item data
+// Wrapper for resource details returned by the API service.
+// `fetchResourceDetails()` returns the JSON:API `data` object (a GeoDocumentDetails).
 interface ItemData {
-  data: {
-    attributes: {
-      ui_viewer_protocol?: string;
-      ui_viewer_endpoint?: string;
-      ui_viewer_geometry?: string;
-      gbl_wxsidentifier_s?: string;
-      dct_accessRights_s?: string;
-      id?: string;
-      dct_title_s: string;
-      attributes?: {
-        ui_citation?: string;
-      };
-    };
-    meta?: {
-      ui?: {
-        relationships?: Record<string, unknown>;
-        [key: string]: unknown;
-      };
-      [key: string]: unknown;
-    };
-  };
+  data: GeoDocumentDetails;
 }
 
 // New component for index map
@@ -119,28 +101,32 @@ export function ResourceView() {
   const fetchNextPage = async () => {
     if (!searchState) return null;
     const nextPage = searchState.currentPage + 1;
+    const urlParams = new URLSearchParams(searchState.searchUrl.split('?')[1] || '');
+    const q = urlParams.get('q') || '';
     const results = await fetchSearchResults(
-      new URLSearchParams(searchState.searchUrl).get('q') || '',
+      q,
       nextPage,
       10,
       [], // You'll need to pass the current facets here
       setLastApiUrl
     );
-    return results.response.docs;
+    return results.data;
   };
 
   // Function to fetch previous page of results
   const fetchPrevPage = async () => {
     if (!searchState) return null;
     const prevPage = searchState.currentPage - 1;
+    const urlParams = new URLSearchParams(searchState.searchUrl.split('?')[1] || '');
+    const q = urlParams.get('q') || '';
     const results = await fetchSearchResults(
-      new URLSearchParams(searchState.searchUrl).get('q') || '',
+      q,
       prevPage,
       10,
       [], // You'll need to pass the current facets here
       setLastApiUrl
     );
-    return results.response.docs;
+    return results.data;
   };
 
   // Handle next result click
@@ -209,7 +195,7 @@ export function ResourceView() {
         const jsonData = await fetchResourceDetails(id, (url) =>
           setLastApiUrl(url)
         );
-        setData(jsonData);
+        setData({ data: jsonData });
       } catch (err) {
         const message =
           err instanceof ApiError
@@ -236,7 +222,7 @@ export function ResourceView() {
     return <ErrorMessage message={error} />;
   }
 
-  const viewerProtocol = data?.data?.attributes?.ui_viewer_protocol;
+  const viewerProtocol = data?.data?.meta?.ui?.viewer?.protocol;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -326,7 +312,7 @@ export function ResourceView() {
                   {viewerProtocol === 'open_index_map' && <IndexMap />}
 
                   {/* Add Full Details table */}
-                  <FullDetailsTable data={data} />
+                  <FullDetailsTable data={data.data} />
                 </div>
 
                 {/* Metadata */}
@@ -336,10 +322,10 @@ export function ResourceView() {
                   </div>
 
                   {/* Update to use the correct nested path */}
-                  {data?.data?.attributes?.attributes?.ui_citation && (
+                  {data?.data?.meta?.ui?.citation && (
                     <div className="mt-6">
                       <CitationTable
-                        citation={data.data.attributes.attributes.ui_citation}
+                        citation={data.data.meta.ui.citation}
                         permalink={window.location.href}
                       />
                     </div>

@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.api.v1.endpoint_modules.thumbnails import router
+from app.services.cache_service import weak_etag_from_body
 
 
 def create_valid_jpeg_image() -> bytes:
@@ -47,7 +48,7 @@ class TestThumbnailEndpoints:
 
         assert response.status_code == 200
         assert response.headers["content-type"] == "image/svg+xml"
-        assert response.headers["cache-control"] == "public, max-age=3600"
+        assert response.headers["cache-control"] == "no-store"
         assert response.headers["x-placeholder"] == "true"
 
         # Verify SVG content
@@ -82,7 +83,7 @@ class TestThumbnailEndpoints:
         headers = response.headers
 
         # Verify caching headers
-        assert headers["cache-control"] == "public, max-age=3600"
+        assert headers["cache-control"] == "no-store"
         assert headers["x-placeholder"] == "true"
         assert headers["content-type"] == "image/svg+xml"
 
@@ -100,7 +101,8 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 200
             assert response.headers["content-type"] == "image/jpeg"
-            assert response.headers["cache-control"] == "public, max-age=31536000"
+            assert "s-maxage=" in response.headers["cache-control"]
+            assert response.headers["etag"] == weak_etag_from_body(test_image_data)
             assert response.content == test_image_data
 
             # Verify service was called correctly
@@ -150,9 +152,34 @@ class TestThumbnailEndpoints:
             assert response.status_code == 200
             headers = response.headers
 
-            # Verify long-term caching headers for cached images
-            assert headers["cache-control"] == "public, max-age=31536000"
+            # Verify revalidation-style caching headers for cached images
+            assert headers["cache-control"].startswith("public, max-age=0")
+            assert "s-maxage=" in headers["cache-control"]
+            assert "stale-while-revalidate=" in headers["cache-control"]
+            assert "stale-if-error=" in headers["cache-control"]
             assert headers["content-type"] == "image/jpeg"
+            assert headers["etag"] == weak_etag_from_body(test_image_data)
+
+    def test_get_thumbnail_etag_304(self, client):
+        """Test conditional request support (If-None-Match -> 304)."""
+        test_image_hash = "test_hash_123"
+        test_image_data = create_valid_jpeg_image()
+
+        with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.get_cached_image = AsyncMock(return_value=test_image_data)
+            mock_service_class.return_value = mock_service
+
+            first = client.get(f"/thumbnails/{test_image_hash}")
+            assert first.status_code == 200
+            etag = first.headers["etag"]
+
+            second = client.get(
+                f"/thumbnails/{test_image_hash}",
+                headers={"If-None-Match": etag},
+            )
+            assert second.status_code == 304
+            assert second.headers["etag"] == etag
 
     def test_get_thumbnail_different_image_hashes(self, client):
         """Test thumbnail retrieval with different image hashes."""

@@ -25,7 +25,7 @@ Overrides:
 
 ## Data + ops
 
-- `make reindex`: reindex resources into Elasticsearch
+- `make reindex`: reindex resources into Elasticsearch (same logic as hitting `/api/v1/admin/reindex`)
 - `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`
 - `make db-import`: import dump to remote via Kamal (destructive)

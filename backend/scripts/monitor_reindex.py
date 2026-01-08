@@ -2,7 +2,7 @@
 """
 Monitor Elasticsearch Reindexing Progress
 
-This script monitors the reindex.py script progress and Elasticsearch health.
+This script monitors reindex progress and Elasticsearch health.
 It can watch logs, compare DB vs ES counts, and check for issues.
 
 Usage:
@@ -123,13 +123,16 @@ async def check_elasticsearch_health(client: AsyncElasticsearch) -> Dict[str, An
 
 
 def check_reindex_process() -> Dict[str, Any]:
-    """Check if reindex.py is currently running."""
+    """Check if a reindex script is currently running."""
     import subprocess
 
     try:
-        # Check for python process running reindex.py
+        # Check for python process running a known reindex script
+        #
+        # - scripts/reindex_admin.py (same as /admin/reindex)
+        # - scripts/reindex.py (resilient reindexer)
         result = subprocess.run(
-            ["pgrep", "-f", "reindex.py"],
+            ["pgrep", "-f", "reindex_admin.py|reindex.py"],
             capture_output=True,
             text=True,
         )
@@ -146,7 +149,7 @@ def check_reindex_process() -> Dict[str, Any]:
                 capture_output=True,
                 text=True,
             )
-            if "reindex.py" in result.stdout:
+            if "reindex_admin.py" in result.stdout or "reindex.py" in result.stdout:
                 return {"running": True}
             return {"running": False}
         except Exception:
@@ -281,11 +284,13 @@ def format_status(status: Dict[str, Any]) -> str:
     if process.get("running"):
         pids = process.get("pids", [])
         pid_str = ", ".join(pids) if pids else "?"
-        output.append(f"\n{Colors.GREEN}✓{Colors.RESET} reindex.py is running (PID: {pid_str})")
+        output.append(
+            f"\n{Colors.GREEN}✓{Colors.RESET} reindex is running (PID: {pid_str})"
+        )
     elif process.get("running") is False:
-        output.append(f"{Colors.YELLOW}⚠{Colors.RESET} reindex.py is not running")
+        output.append(f"{Colors.YELLOW}⚠{Colors.RESET} reindex is not running")
     else:
-        output.append(f"{Colors.YELLOW}?{Colors.RESET} Cannot determine if reindex.py is running")
+        output.append(f"{Colors.YELLOW}?{Colors.RESET} Cannot determine if reindex is running")
 
     # Failures
     failures = status.get("failures", {})

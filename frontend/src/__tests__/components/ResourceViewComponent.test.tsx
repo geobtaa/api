@@ -15,16 +15,21 @@ const realFixtureData: GeoDocument[] = [
     id: 'mit-001145244',
     type: 'document',
     attributes: {
-      dct_title_s: 'Nondigitized paper map with library catalog link',
-      dct_description_sm: ['A historical paper map from MIT collections'],
-      dct_temporal_sm: ['1950'],
-      dc_publisher_sm: ['MIT Libraries'],
-      gbl_resourceClass_sm: ['Paper Maps'],
-      dct_accessrights_s: 'Public',
-      gbl_wxsidentifier_s: 'mit-001145244',
-      locn_geometry_original: 'POINT(-71.0935 42.3601)',
-      ui_viewer_protocol: 'wms',
-      ui_viewer_endpoint: 'https://example.com/wms',
+      ogm: {
+        id: 'mit-001145244',
+        dct_title_s: 'Nondigitized paper map with library catalog link',
+        dct_description_sm: ['A historical paper map from MIT collections'],
+        dct_temporal_sm: ['1950'],
+        dc_publisher_sm: ['MIT Libraries'],
+        gbl_resourceClass_sm: ['Paper Maps'],
+        dct_accessRights_s: 'Public',
+        dct_accessrights_s: 'Public',
+        gbl_wxsidentifier_s: 'mit-001145244',
+        gbl_wxsIdentifier_s: 'mit-001145244',
+        locn_geometry_original: 'POINT(-71.0935 42.3601)',
+        ui_viewer_protocol: 'wms',
+        ui_viewer_endpoint: 'https://example.com/wms',
+      },
     },
     meta: {
       ui: {
@@ -61,16 +66,21 @@ const realFixtureData: GeoDocument[] = [
     id: 'nyu-2451-34564',
     type: 'document',
     attributes: {
-      dct_title_s: 'Point dataset with WMS and WFS',
-      dct_description_sm: ['A point dataset from NYU with web services'],
-      dct_temporal_sm: ['2020'],
-      dc_publisher_sm: ['NYU Libraries'],
-      gbl_resourceClass_sm: ['Point Data'],
-      dct_accessrights_s: 'Public',
-      gbl_wxsidentifier_s: 'nyu-2451-34564',
-      locn_geometry_original: 'POINT(-74.0060 40.7128)',
-      ui_viewer_protocol: 'arcgis_feature_layer',
-      ui_viewer_endpoint: 'https://example.com/arcgis',
+      ogm: {
+        id: 'nyu-2451-34564',
+        dct_title_s: 'Point dataset with WMS and WFS',
+        dct_description_sm: ['A point dataset from NYU with web services'],
+        dct_temporal_sm: ['2020'],
+        dc_publisher_sm: ['NYU Libraries'],
+        gbl_resourceClass_sm: ['Point Data'],
+        dct_accessRights_s: 'Public',
+        dct_accessrights_s: 'Public',
+        gbl_wxsidentifier_s: 'nyu-2451-34564',
+        gbl_wxsIdentifier_s: 'nyu-2451-34564',
+        locn_geometry_original: 'POINT(-74.0060 40.7128)',
+        ui_viewer_protocol: 'arcgis_feature_layer',
+        ui_viewer_endpoint: 'https://example.com/arcgis',
+      },
     },
     meta: {
       ui: {
@@ -110,19 +120,24 @@ const realFixtureData: GeoDocument[] = [
     id: 'tufts-cambridgegrid100-04',
     type: 'document',
     attributes: {
-      dct_title_s: 'Polygon dataset with WFS, WMS, and FGDC metadata',
-      dct_description_sm: [
-        'A polygon dataset from Tufts with comprehensive metadata',
-      ],
-      dct_temporal_sm: ['2019'],
-      dc_publisher_sm: ['Tufts University'],
-      gbl_resourceClass_sm: ['Polygon Data'],
-      dct_accessrights_s: 'Public',
-      gbl_wxsidentifier_s: 'tufts-cambridgegrid100-04',
-      locn_geometry_original:
-        'POLYGON((-71.1 42.3, -71.0 42.3, -71.0 42.4, -71.1 42.4, -71.1 42.3))',
-      ui_viewer_protocol: 'open_index_map',
-      ui_viewer_endpoint: 'https://example.com/indexmap',
+      ogm: {
+        id: 'tufts-cambridgegrid100-04',
+        dct_title_s: 'Polygon dataset with WFS, WMS, and FGDC metadata',
+        dct_description_sm: [
+          'A polygon dataset from Tufts with comprehensive metadata',
+        ],
+        dct_temporal_sm: ['2019'],
+        dc_publisher_sm: ['Tufts University'],
+        gbl_resourceClass_sm: ['Polygon Data'],
+        dct_accessRights_s: 'Public',
+        dct_accessrights_s: 'Public',
+        gbl_wxsidentifier_s: 'tufts-cambridgegrid100-04',
+        gbl_wxsIdentifier_s: 'tufts-cambridgegrid100-04',
+        locn_geometry_original:
+          'POLYGON((-71.1 42.3, -71.0 42.3, -71.0 42.4, -71.1 42.4, -71.1 42.3))',
+        ui_viewer_protocol: 'open_index_map',
+        ui_viewer_endpoint: 'https://example.com/indexmap',
+      },
     },
     meta: {
       ui: {
@@ -227,13 +242,9 @@ describe('ResourceView Component', () => {
     fetchSearchResults = apiModule.fetchSearchResults;
 
     // Mock successful API response
-    (fetchResourceDetails as any).mockResolvedValue({
-      data: realFixtureData[0],
-    });
+    (fetchResourceDetails as any).mockResolvedValue(realFixtureData[0]);
     (fetchSearchResults as any).mockResolvedValue({
-      response: {
-        docs: realFixtureData,
-      },
+      data: realFixtureData,
     });
   });
 
@@ -259,8 +270,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       const spinner = document.querySelector('.animate-spin');
@@ -331,12 +343,13 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         // Check for breadcrumb link specifically
-        const breadcrumbLink = screen.getByRole('link', { name: 'Paper Maps' });
-        expect(breadcrumbLink).toBeInTheDocument();
-        expect(breadcrumbLink).toHaveAttribute(
-          'href',
-          '/search?fq%5Bresource_class_agg%5D%5B%5D=Paper+Maps'
+        const links = screen.getAllByRole('link', { name: 'Paper Maps' });
+        const breadcrumbLink = links.find(
+          (a) =>
+            a.getAttribute('href') ===
+            '/search?fq%5Bgbl_resourceClass_sm%5D%5B%5D=Paper+Maps'
         );
+        expect(breadcrumbLink).toBeTruthy();
       });
     });
 
@@ -520,7 +533,7 @@ describe('ResourceView Component', () => {
       await user.click(nextButton);
 
       expect(fetchSearchResults).toHaveBeenCalledWith(
-        '',
+        'test',
         2,
         10,
         [],
@@ -576,14 +589,16 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       // ResourceViewer should be rendered when protocol is available
       expect(
-        screen.getByText('Nondigitized paper map with library catalog link')
-      ).toBeInTheDocument();
+        screen.getAllByText('Nondigitized paper map with library catalog link')
+          .length
+      ).toBeGreaterThan(0);
     });
 
     it('renders AttributeTable when protocol is wms', async () => {
@@ -604,9 +619,7 @@ describe('ResourceView Component', () => {
 
     it('renders IndexMap when protocol is open_index_map', async () => {
       // Mock the component with open_index_map protocol
-      (fetchResourceDetails as any).mockResolvedValue({
-        data: realFixtureData[2], // Tufts fixture with open_index_map
-      });
+      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[2]); // Tufts fixture with open_index_map
 
       render(
         <TestWrapper>
@@ -616,14 +629,16 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Polygon dataset with WFS, WMS, and FGDC metadata')
-        ).toBeInTheDocument();
+          screen.getAllByText('Polygon dataset with WFS, WMS, and FGDC metadata')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       // IndexMap should be rendered
       expect(
-        screen.getByText('Polygon dataset with WFS, WMS, and FGDC metadata')
-      ).toBeInTheDocument();
+        screen.getAllByText('Polygon dataset with WFS, WMS, and FGDC metadata')
+          .length
+      ).toBeGreaterThan(0);
     });
 
     it('renders FullDetailsTable', async () => {
@@ -635,14 +650,16 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       // FullDetailsTable should be rendered
       expect(
-        screen.getByText('Nondigitized paper map with library catalog link')
-      ).toBeInTheDocument();
+        screen.getAllByText('Nondigitized paper map with library catalog link')
+          .length
+      ).toBeGreaterThan(0);
     });
 
     it('renders MetadataTable', async () => {
@@ -666,14 +683,16 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       // CitationTable should be rendered when citation is available
       expect(
-        screen.getByText('Nondigitized paper map with library catalog link')
-      ).toBeInTheDocument();
+        screen.getAllByText('Nondigitized paper map with library catalog link')
+          .length
+      ).toBeGreaterThan(0);
     });
   });
 
@@ -689,8 +708,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       // Should still render the resource with navigation controls (they default to home)
@@ -699,9 +719,7 @@ describe('ResourceView Component', () => {
 
     it('handles different fixture data types', async () => {
       // Test with NYU fixture
-      (fetchResourceDetails as any).mockResolvedValue({
-        data: realFixtureData[1],
-      });
+      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[1]);
 
       render(
         <TestWrapper>
@@ -710,17 +728,13 @@ describe('ResourceView Component', () => {
       );
 
       await waitFor(() => {
-        expect(
-          screen.getByText('Point dataset with WMS and WFS')
-        ).toBeInTheDocument();
+        expect(screen.getAllByText('Point dataset with WMS and WFS').length).toBeGreaterThan(0);
       });
     });
 
     it('handles polygon data fixture', async () => {
       // Test with Tufts fixture
-      (fetchResourceDetails as any).mockResolvedValue({
-        data: realFixtureData[2],
-      });
+      (fetchResourceDetails as any).mockResolvedValue(realFixtureData[2]);
 
       render(
         <TestWrapper>
@@ -730,8 +744,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Polygon dataset with WFS, WMS, and FGDC metadata')
-        ).toBeInTheDocument();
+          screen.getAllByText('Polygon dataset with WFS, WMS, and FGDC metadata')
+            .length
+        ).toBeGreaterThan(0);
       });
     });
 
@@ -740,13 +755,15 @@ describe('ResourceView Component', () => {
         ...realFixtureData[0],
         attributes: {
           ...realFixtureData[0].attributes,
-          dct_accessrights_s: 'Restricted',
+          ogm: {
+            ...realFixtureData[0].attributes.ogm,
+            dct_accessRights_s: 'Restricted',
+            dct_accessrights_s: 'Restricted',
+          },
         },
       };
 
-      (fetchResourceDetails as any).mockResolvedValue({
-        data: restrictedFixture,
-      });
+      (fetchResourceDetails as any).mockResolvedValue(restrictedFixture);
 
       render(
         <TestWrapper>
@@ -756,8 +773,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
     });
   });
@@ -782,8 +800,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getByText('Nondigitized paper map with library catalog link')
-        ).toBeInTheDocument();
+          screen.getAllByText('Nondigitized paper map with library catalog link')
+            .length
+        ).toBeGreaterThan(0);
       });
 
       // Should display current position

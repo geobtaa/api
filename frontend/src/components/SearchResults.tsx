@@ -60,6 +60,10 @@ export function SearchResults({
   return (
     <div className="space-y-6">
       {results.map((result, index) => {
+        const ogm = result?.attributes?.ogm;
+        const title = ogm?.dct_title_s ?? '(Untitled)';
+        const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
+
         // Add detailed debugging
         console.log('Raw result object:', {
           id: result.id,
@@ -74,14 +78,14 @@ export function SearchResults({
         console.log('Full result object:', result);
         console.log('Result thumbnail debug:', {
           id: result.id,
-          title: result.attributes.ogm.dct_title_s,
+          title,
           thumbnailUrl: result.meta?.ui?.thumbnail_url,
-          resourceClass: result.attributes.ogm.gbl_resourceClass_sm?.[0],
+          resourceClass,
         });
 
         // Debug individual result
         console.log(`Rendering result ${result.id}:`, {
-          title: result.attributes.ogm.dct_title_s,
+          title,
           thumbnail: result.meta?.ui?.thumbnail_url,
         });
 
@@ -109,7 +113,7 @@ export function SearchResults({
                   <div className="h-48 w-48 rounded-l-lg">
                     <img
                       src={result.meta.ui.thumbnail_url}
-                      alt={`Thumbnail for ${result.attributes.ogm.dct_title_s}`}
+                      alt={`Thumbnail for ${title}`}
                       className="h-48 w-48 object-cover rounded-l-lg"
                       onError={(e) => {
                         console.error(
@@ -129,9 +133,7 @@ export function SearchResults({
                   </div>
                 ) : (
                   <div className="h-48 w-48 flex items-center justify-center bg-gray-50 rounded-l-lg">
-                    {getResourceIcon(
-                      result.attributes.ogm.gbl_resourceClass_sm?.[0]
-                    )}
+                    {getResourceIcon(resourceClass)}
                   </div>
                 )}
               </div>
@@ -162,39 +164,36 @@ export function SearchResults({
                     className="flex-1"
                   >
                     <h2 className="text-xl font-semibold text-blue-600 hover:text-blue-800">
-                      {typeof result.attributes.ogm.dct_title_s === 'string'
-                        ? result.attributes.ogm.dct_title_s
-                        : String(result.attributes.ogm.dct_title_s)}
+                      {typeof title === 'string' ? title : String(title)}
                     </h2>
                   </Link>
                 </div>
 
                 {/* Temporal information and Description (inline) */}
-                {(result.attributes.ogm.dct_temporal_sm &&
-                  Array.isArray(result.attributes.ogm.dct_temporal_sm) &&
-                  result.attributes.ogm.dct_temporal_sm.length > 0) ||
-                (result.attributes.ogm.dct_description_sm &&
-                  Array.isArray(result.attributes.ogm.dct_description_sm) &&
-                  result.attributes.ogm.dct_description_sm.length > 0) ? (
+                {(ogm?.dct_temporal_sm &&
+                  Array.isArray(ogm.dct_temporal_sm) &&
+                  ogm.dct_temporal_sm.length > 0) ||
+                (ogm?.dct_description_sm &&
+                  Array.isArray(ogm.dct_description_sm) &&
+                  ogm.dct_description_sm.length > 0) ? (
                   <p className="text-gray-600 mb-4 line-clamp-3">
-                    {result.attributes.ogm.dct_temporal_sm &&
-                      Array.isArray(result.attributes.ogm.dct_temporal_sm) &&
-                      result.attributes.ogm.dct_temporal_sm.length > 0 && (
+                    {ogm?.dct_temporal_sm &&
+                      Array.isArray(ogm.dct_temporal_sm) &&
+                      ogm.dct_temporal_sm.length > 0 && (
                         <span className="text-gray-500 text-sm">
-                          {result.attributes.ogm.dct_temporal_sm
+                          {ogm.dct_temporal_sm
                             .map((item) =>
                               typeof item === 'string' ? item : String(item)
                             )
                             .join(', ')}{' '}
                         </span>
                       )}
-                    {result.attributes.ogm.dct_description_sm &&
-                      Array.isArray(result.attributes.ogm.dct_description_sm) &&
-                      result.attributes.ogm.dct_description_sm.length > 0 &&
-                      (typeof result.attributes.ogm.dct_description_sm[0] ===
-                      'string'
-                        ? result.attributes.ogm.dct_description_sm[0]
-                        : String(result.attributes.ogm.dct_description_sm[0]))}
+                    {ogm?.dct_description_sm &&
+                      Array.isArray(ogm.dct_description_sm) &&
+                      ogm.dct_description_sm.length > 0 &&
+                      (typeof ogm.dct_description_sm[0] === 'string'
+                        ? ogm.dct_description_sm[0]
+                        : String(ogm.dct_description_sm[0]))}
                   </p>
                 ) : null}
 
@@ -202,23 +201,23 @@ export function SearchResults({
                 {(() => {
                   // Get subjects from dct_subjects_sm or dct_subject_sm
                   const subjects =
-                    (result.attributes.ogm.dct_subjects_sm &&
-                    Array.isArray(result.attributes.ogm.dct_subjects_sm) &&
-                    result.attributes.ogm.dct_subjects_sm.length > 0
-                      ? result.attributes.ogm.dct_subjects_sm
+                    (ogm?.dct_subjects_sm &&
+                    Array.isArray(ogm.dct_subjects_sm) &&
+                    ogm.dct_subjects_sm.length > 0
+                      ? ogm.dct_subjects_sm
                       : null) ||
-                    (result.attributes.ogm.dct_subject_sm &&
-                    Array.isArray(result.attributes.ogm.dct_subject_sm) &&
-                    result.attributes.ogm.dct_subject_sm.length > 0
-                      ? result.attributes.ogm.dct_subject_sm
+                    (ogm?.dct_subject_sm &&
+                    Array.isArray(ogm.dct_subject_sm) &&
+                    ogm.dct_subject_sm.length > 0
+                      ? ogm.dct_subject_sm
                       : null);
 
                   // Get themes from dcat_theme_sm
                   const themes =
-                    result.attributes.ogm.dcat_theme_sm &&
-                    Array.isArray(result.attributes.ogm.dcat_theme_sm) &&
-                    result.attributes.ogm.dcat_theme_sm.length > 0
-                      ? result.attributes.ogm.dcat_theme_sm
+                    ogm?.dcat_theme_sm &&
+                    Array.isArray(ogm.dcat_theme_sm) &&
+                    ogm.dcat_theme_sm.length > 0
+                      ? ogm.dcat_theme_sm
                       : null;
 
                   // Helper to create search URL for a tag
@@ -235,7 +234,7 @@ export function SearchResults({
                   };
 
                   // Determine which field name to use for subjects
-                  const subjectField = result.attributes.ogm.dct_subjects_sm
+                  const subjectField = ogm?.dct_subjects_sm
                     ? 'dct_subjects_sm'
                     : 'dct_subject_sm';
 
@@ -283,13 +282,13 @@ export function SearchResults({
                 })()}
 
                 <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                  {result.attributes.ogm.dc_publisher_sm &&
-                    Array.isArray(result.attributes.ogm.dc_publisher_sm) &&
-                    result.attributes.ogm.dc_publisher_sm.length > 0 && (
+                  {ogm?.dc_publisher_sm &&
+                    Array.isArray(ogm.dc_publisher_sm) &&
+                    ogm.dc_publisher_sm.length > 0 && (
                       <div className="flex items-center gap-1">
                         <BookOpen size={16} />
                         <span>
-                          {result.attributes.ogm.dc_publisher_sm
+                          {ogm.dc_publisher_sm
                             .map((item) =>
                               typeof item === 'string' ? item : String(item)
                             )

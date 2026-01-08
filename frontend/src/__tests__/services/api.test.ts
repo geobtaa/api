@@ -37,7 +37,9 @@ describe('API Service', () => {
     mockPerformance.now.mockClear();
 
     // Set up test environment variables
-    (import.meta.env as any).VITE_API_BASE_URL = 'https://test-api.example.com';
+    (import.meta.env as any).VITE_API_BASE_URL =
+      'https://test-api.example.com/api/v1';
+    // CSRF token is not used for API requests (avoids CORS preflight).
     (import.meta.env as any).VITE_CSRF_TOKEN = 'test-csrf-token';
     (import.meta.env as any).VITE_ENFORCE_HTTPS = 'true';
     (import.meta.env as any).VITE_USE_JSONP = 'false';
@@ -91,13 +93,16 @@ describe('API Service', () => {
             id: 'mit-001145244',
             type: 'document',
             attributes: {
-              dct_title_s: 'Nondigitized paper map with library catalog link',
-              dct_description_sm: [
-                'A historical paper map from MIT collections',
-              ],
-              dct_temporal_sm: ['1950'],
-              dc_publisher_sm: ['MIT Libraries'],
-              gbl_resourceClass_sm: ['Paper Maps'],
+              ogm: {
+                id: 'mit-001145244',
+                dct_title_s: 'Nondigitized paper map with library catalog link',
+                dct_description_sm: [
+                  'A historical paper map from MIT collections',
+                ],
+                dct_temporal_sm: ['1950'],
+                dc_publisher_sm: ['MIT Libraries'],
+                gbl_resourceClass_sm: ['Paper Maps'],
+              },
             },
             meta: {
               ui: {
@@ -124,12 +129,10 @@ describe('API Service', () => {
 
       expect(result).toEqual(mockResponse);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('https://test-api.example.com/search'),
+        expect.stringContaining('https://test-api.example.com/api/v1/search'),
         expect.objectContaining({
           headers: expect.objectContaining({
             Accept: 'application/vnd.api+json, application/json',
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': expect.any(String),
           }),
         })
       );
@@ -194,7 +197,7 @@ describe('API Service', () => {
       expect(result).toEqual(mockResponse);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining(
-          'fq%5Bgbl_resourceClass_sm%5D%5B%5D=Paper+Maps'
+          'include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Paper+Maps'
         ),
         expect.any(Object)
       );
@@ -313,7 +316,7 @@ describe('API Service', () => {
       await fetchSearchResults('test', 1, 10, [], onApiCall);
 
       expect(onApiCall).toHaveBeenCalledWith(
-        expect.stringContaining('https://test-api.example.com/search')
+        expect.stringContaining('https://test-api.example.com/api/v1/search')
       );
     });
 
@@ -360,7 +363,7 @@ describe('API Service', () => {
       await fetchSearchResults('test');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('http://localhost:8000/api/v1/search'),
+        expect.stringContaining('localhost:8000/api/v1/search'),
         expect.any(Object)
       );
 
@@ -408,7 +411,7 @@ describe('API Service', () => {
       expect(result).toEqual(mockResourceDetails);
       expect(mockFetch).toHaveBeenCalledWith(
         expect.stringContaining(
-          'https://test-api.example.com/resources/mit-001145244'
+          'https://test-api.example.com/api/v1/resources/mit-001145244'
         ),
         expect.any(Object)
       );
@@ -450,7 +453,7 @@ describe('API Service', () => {
 
       expect(onApiCall).toHaveBeenCalledWith(
         expect.stringContaining(
-          'https://test-api.example.com/resources/nyu-2451-34564'
+          'https://test-api.example.com/api/v1/resources/nyu-2451-34564'
         )
       );
     });
@@ -497,7 +500,7 @@ describe('API Service', () => {
       await fetchResourceDetails('test-id');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('http://localhost:8000/api/v1/resources/test-id'),
+        expect.stringContaining('localhost:8000/api/v1/resources/test-id'),
         expect.any(Object)
       );
 
@@ -609,7 +612,7 @@ describe('API Service', () => {
       await fetchSuggestions('test');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('https://geo.btaa.org/api/v1/suggest'),
+        expect.stringContaining('localhost:8000/api/v1/suggest'),
         expect.any(Object)
       );
 
@@ -687,7 +690,7 @@ describe('API Service', () => {
 
       expect(result).toEqual(mockResponse);
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('fq%5Bid_agg%5D%5B%5D=mit-001145244'),
+        expect.stringContaining('fq%5Bid%5D%5B%5D=mit-001145244'),
         expect.any(Object)
       );
     });
@@ -736,7 +739,7 @@ describe('API Service', () => {
       await fetchBookmarkedResources(['test-id'], onApiCall);
 
       expect(onApiCall).toHaveBeenCalledWith(
-        expect.stringContaining('https://test-api.example.com/search/')
+        expect.stringContaining('https://test-api.example.com/api/v1/search/')
       );
     });
 
@@ -812,7 +815,7 @@ describe('API Service', () => {
       await fetchBookmarkedResources(['test-id']);
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('http://localhost:8000/api/v1/'),
+        expect.stringContaining('localhost:8000/api/v1/'),
         expect.any(Object)
       );
 
@@ -840,7 +843,7 @@ describe('API Service', () => {
       // Override environment to use HTTP URL
       const originalEnv = import.meta.env.VITE_API_BASE_URL;
       (import.meta.env as any).VITE_API_BASE_URL =
-        'http://test-api.example.com';
+        'http://test-api.example.com/api/v1';
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
@@ -850,7 +853,7 @@ describe('API Service', () => {
       await fetchSearchResults('test');
 
       expect(mockFetch).toHaveBeenCalledWith(
-        expect.stringContaining('https://test-api.example.com/search'),
+        expect.stringContaining('https://test-api.example.com/api/v1/search'),
         expect.any(Object)
       );
 
@@ -909,13 +912,16 @@ describe('API Service', () => {
             id: 'mit-001145244',
             type: 'document',
             attributes: {
-              dct_title_s: 'Nondigitized paper map with library catalog link',
-              dct_description_sm: [
-                'A historical paper map from MIT collections',
-              ],
-              dct_temporal_sm: ['1950'],
-              dc_publisher_sm: ['MIT Libraries'],
-              gbl_resourceClass_sm: ['Paper Maps'],
+              ogm: {
+                id: 'mit-001145244',
+                dct_title_s: 'Nondigitized paper map with library catalog link',
+                dct_description_sm: [
+                  'A historical paper map from MIT collections',
+                ],
+                dct_temporal_sm: ['1950'],
+                dc_publisher_sm: ['MIT Libraries'],
+                gbl_resourceClass_sm: ['Paper Maps'],
+              },
             },
             meta: {
               ui: {

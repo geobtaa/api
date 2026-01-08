@@ -2,6 +2,19 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { LocationMap } from '../../components/resource/LocationMap';
 
+// LocationMap lazily loads a Leaflet-based client component after mount. In unit tests,
+// we mock it to a deterministic static component.
+vi.mock('../../components/resource/LocationMap.client', () => ({
+  default: ({ geometry }: { geometry: unknown }) => (
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+        <h2 className="text-lg font-semibold text-gray-900">Location</h2>
+      </div>
+      <div className="h-[300px] w-full" data-geometry={JSON.stringify(geometry)} />
+    </div>
+  ),
+}));
+
 // Mock console methods to avoid test output noise
 const consoleSpy = {
   log: vi.spyOn(console, 'log').mockImplementation(() => {}),
@@ -21,7 +34,7 @@ describe('LocationMap', () => {
   });
 
   describe('Component Rendering', () => {
-    it('renders the map container with proper structure', () => {
+    it('renders the map container with proper structure', async () => {
       // Using real fixture data from MIT Libraries
       const mitPointGeometry = {
         type: 'Point' as const,
@@ -30,7 +43,8 @@ describe('LocationMap', () => {
 
       render(<LocationMap geometry={mitPointGeometry} />);
 
-      expect(screen.getByText('Location')).toBeInTheDocument();
+      // LocationMap is lazy-loaded after mount; wait for the client component.
+      expect(await screen.findByText('Location')).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent(
         'Location'
       );

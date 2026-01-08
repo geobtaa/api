@@ -41,14 +41,20 @@ const realFixtureData: GeoDocument[] = [
     id: 'mit-001145244',
     type: 'document',
     attributes: {
-      dct_title_s: 'Nondigitized paper map with library catalog link',
-      dct_description_sm: ['A historical paper map from MIT collections'],
-      dct_temporal_sm: ['1950'],
-      dc_publisher_sm: ['MIT Libraries'],
-      gbl_resourceClass_sm: ['Paper Maps'],
-      dct_accessrights_s: 'Public',
-      gbl_wxsidentifier_s: 'mit-001145244',
-      locn_geometry_original: 'POINT(-71.0935 42.3601)',
+      ogm: {
+        id: 'mit-001145244',
+        dct_title_s: 'Nondigitized paper map with library catalog link',
+        dct_description_sm: ['A historical paper map from MIT collections'],
+        dct_temporal_sm: ['1950'],
+        dc_publisher_sm: ['MIT Libraries'],
+        gbl_resourceClass_sm: ['Paper Maps'],
+        dct_accessRights_s: 'Public',
+        // Some parts of the UI still reference the legacy lowercase key.
+        dct_accessrights_s: 'Public',
+        gbl_wxsidentifier_s: 'mit-001145244',
+        gbl_wxsIdentifier_s: 'mit-001145244',
+        locn_geometry_original: 'POINT(-71.0935 42.3601)',
+      },
     },
     meta: {
       ui: {
@@ -85,14 +91,19 @@ const realFixtureData: GeoDocument[] = [
     id: 'nyu-2451-34564',
     type: 'document',
     attributes: {
-      dct_title_s: 'Point dataset with WMS and WFS',
-      dct_description_sm: ['A point dataset from NYU with web services'],
-      dct_temporal_sm: ['2020'],
-      dc_publisher_sm: ['NYU Libraries'],
-      gbl_resourceClass_sm: ['Point Data'],
-      dct_accessrights_s: 'Public',
-      gbl_wxsidentifier_s: 'nyu-2451-34564',
-      locn_geometry_original: 'POINT(-74.0060 40.7128)',
+      ogm: {
+        id: 'nyu-2451-34564',
+        dct_title_s: 'Point dataset with WMS and WFS',
+        dct_description_sm: ['A point dataset from NYU with web services'],
+        dct_temporal_sm: ['2020'],
+        dc_publisher_sm: ['NYU Libraries'],
+        gbl_resourceClass_sm: ['Point Data'],
+        dct_accessRights_s: 'Public',
+        dct_accessrights_s: 'Public',
+        gbl_wxsidentifier_s: 'nyu-2451-34564',
+        gbl_wxsIdentifier_s: 'nyu-2451-34564',
+        locn_geometry_original: 'POINT(-74.0060 40.7128)',
+      },
     },
     meta: {
       ui: {
@@ -132,17 +143,22 @@ const realFixtureData: GeoDocument[] = [
     id: 'tufts-cambridgegrid100-04',
     type: 'document',
     attributes: {
-      dct_title_s: 'Polygon dataset with WFS, WMS, and FGDC metadata',
-      dct_description_sm: [
-        'A polygon dataset from Tufts with comprehensive metadata',
-      ],
-      dct_temporal_sm: ['2019'],
-      dc_publisher_sm: ['Tufts University'],
-      gbl_resourceClass_sm: ['Polygon Data'],
-      dct_accessrights_s: 'Public',
-      gbl_wxsidentifier_s: 'tufts-cambridgegrid100-04',
-      locn_geometry_original:
-        'POLYGON((-71.1 42.3, -71.0 42.3, -71.0 42.4, -71.1 42.4, -71.1 42.3))',
+      ogm: {
+        id: 'tufts-cambridgegrid100-04',
+        dct_title_s: 'Polygon dataset with WFS, WMS, and FGDC metadata',
+        dct_description_sm: [
+          'A polygon dataset from Tufts with comprehensive metadata',
+        ],
+        dct_temporal_sm: ['2019'],
+        dc_publisher_sm: ['Tufts University'],
+        gbl_resourceClass_sm: ['Polygon Data'],
+        dct_accessRights_s: 'Public',
+        dct_accessrights_s: 'Public',
+        gbl_wxsidentifier_s: 'tufts-cambridgegrid100-04',
+        gbl_wxsIdentifier_s: 'tufts-cambridgegrid100-04',
+        locn_geometry_original:
+          'POLYGON((-71.1 42.3, -71.0 42.3, -71.0 42.4, -71.1 42.4, -71.1 42.3))',
+      },
     },
     meta: {
       ui: {
@@ -187,15 +203,20 @@ const realFixtureData: GeoDocument[] = [
     id: 'stanford-dp018hs9766',
     type: 'document',
     attributes: {
-      dct_title_s: 'Restricted raster layer with WMS and metadata',
-      dct_description_sm: ['A restricted raster dataset from Stanford'],
-      dct_temporal_sm: ['2021'],
-      dc_publisher_sm: ['Stanford University'],
-      gbl_resourceClass_sm: ['Raster Data'],
-      dct_accessrights_s: 'Restricted',
-      gbl_wxsidentifier_s: 'stanford-dp018hs9766',
-      locn_geometry_original:
-        'POLYGON((-122.2 37.4, -122.1 37.4, -122.1 37.5, -122.2 37.5, -122.2 37.4))',
+      ogm: {
+        id: 'stanford-dp018hs9766',
+        dct_title_s: 'Restricted raster layer with WMS and metadata',
+        dct_description_sm: ['A restricted raster dataset from Stanford'],
+        dct_temporal_sm: ['2021'],
+        dc_publisher_sm: ['Stanford University'],
+        gbl_resourceClass_sm: ['Raster Data'],
+        dct_accessRights_s: 'Restricted',
+        dct_accessrights_s: 'Restricted',
+        gbl_wxsidentifier_s: 'stanford-dp018hs9766',
+        gbl_wxsIdentifier_s: 'stanford-dp018hs9766',
+        locn_geometry_original:
+          'POLYGON((-122.2 37.4, -122.1 37.4, -122.1 37.5, -122.2 37.5, -122.2 37.4))',
+      },
     },
     meta: {
       ui: {
@@ -577,7 +598,7 @@ describe('ResourceView Component', () => {
         ).toBeInTheDocument();
       });
 
-      const prevButton = screen.getByText('Prev');
+      const prevButton = screen.getByTitle('Previous');
       await user.click(prevButton);
 
       expect(mockNavigate).toHaveBeenCalledWith('/resources/mit-001145244', {
@@ -613,6 +634,7 @@ describe('ResourceView Component', () => {
     });
 
     it('handles previous navigation to previous page', async () => {
+      const user = userEvent.setup();
 
       // Set to first item in current page
       const searchStateFirstItem = {
@@ -642,7 +664,7 @@ describe('ResourceView Component', () => {
         ).toBeInTheDocument();
       });
 
-      const prevButton = screen.getByText('Prev');
+      const prevButton = screen.getByTitle('Previous');
       await user.click(prevButton);
 
       expect(fetchSearchResults).toHaveBeenCalled();
@@ -887,7 +909,10 @@ describe('ResourceView Component', () => {
         id: 'minimal-resource',
         type: 'document',
         attributes: {
-          dct_title_s: 'Minimal Resource',
+          ogm: {
+            id: 'minimal-resource',
+            dct_title_s: 'Minimal Resource',
+          },
         },
         meta: {
           ui: {
@@ -914,7 +939,7 @@ describe('ResourceView Component', () => {
       });
 
       // Should still render the basic structure
-      expect(screen.getByText('Back')).toBeInTheDocument();
+      expect(screen.getByTitle('Back to Search Results')).toBeInTheDocument();
     });
 
     it('handles different fixture data types', async () => {

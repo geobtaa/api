@@ -4,23 +4,30 @@ import { vi } from 'vitest';
 // Mock API functions
 vi.mock('./services/api', () => ({
   fetchSearchResults: vi.fn().mockResolvedValue({
-    data: [],
+    jsonapi: { version: '1.1', profile: [] },
+    links: { self: '/api/v1/search', first: '/api/v1/search', last: '/api/v1/search' },
     meta: {
-      total: 0,
-      page: 1,
-      per_page: 10,
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: 1,
+      perPage: 10,
+      query: '',
     },
+    data: [],
     included: [],
   }),
   fetchResourceDetails: vi.fn().mockResolvedValue({
     id: 'test-id',
-    type: 'document',
+    type: 'resource',
     attributes: {
-      dct_title_s: 'Test Resource',
-      dct_description_sm: ['Test description'],
-      dct_temporal_sm: ['2023'],
-      dc_publisher_sm: ['Test Publisher'],
-      gbl_resourceClass_sm: ['Dataset'],
+      ogm: {
+        id: 'test-id',
+        dct_title_s: 'Test Resource',
+        dct_description_sm: ['Test description'],
+        dct_temporal_sm: ['2023'],
+        dc_publisher_sm: ['Test Publisher'],
+        gbl_resourceClass_sm: ['Dataset'],
+      },
     },
     meta: {
       ui: {
@@ -45,12 +52,16 @@ vi.mock('./services/api', () => ({
     },
   ]),
   fetchBookmarkedResources: vi.fn().mockResolvedValue({
-    data: [],
+    jsonapi: { version: '1.1', profile: [] },
+    links: { self: '/api/v1/bookmarks', first: '/api/v1/bookmarks', last: '/api/v1/bookmarks' },
     meta: {
-      total: 0,
-      page: 1,
-      per_page: 10,
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: 1,
+      perPage: 10,
+      query: '',
     },
+    data: [],
     included: [],
   }),
 }));

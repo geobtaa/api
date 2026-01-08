@@ -353,8 +353,12 @@ describe('searchParams', () => {
       const result = buildSearchParams(params);
 
       expect(result.get('q')).toBe('geospatial data');
-      expect(result.get('fq[dc_publisher_sm][]')).toBe('MIT Libraries');
-      expect(result.get('fq[gbl_resourceClass_sm][]')).toBe('Dataset');
+      expect(result.get('include_filters[dc_publisher_sm][]')).toBe(
+        'MIT Libraries'
+      );
+      expect(result.get('include_filters[gbl_resourceClass_sm][]')).toBe(
+        'Dataset'
+      );
     });
 
     it('builds parameters with multiple facets for same field', () => {
@@ -371,7 +375,7 @@ describe('searchParams', () => {
       const result = buildSearchParams(params);
 
       expect(result.get('q')).toBe('maps');
-      expect(result.getAll('fq[dc_publisher_sm][]')).toEqual([
+      expect(result.getAll('include_filters[dc_publisher_sm][]')).toEqual([
         'MIT Libraries',
         'Harvard University',
       ]);
@@ -404,8 +408,8 @@ describe('searchParams', () => {
       const result = buildSearchParams(params);
 
       expect(result.get('q')).toBe('geographic data');
-      expect(result.get('fq[dct_temporal_sm][]')).toBe('2020');
-      expect(result.get('fq[dc_subject_sm][]')).toBe(
+      expect(result.get('include_filters[dct_temporal_sm][]')).toBe('2020');
+      expect(result.get('include_filters[dc_subject_sm][]')).toBe(
         'Geographic Information Systems'
       );
     });
@@ -424,10 +428,12 @@ describe('searchParams', () => {
       const result = buildSearchParams(params);
 
       expect(result.get('q')).toBe('test');
-      expect(result.get('fq[dc_publisher_sm][]')).toBe(
+      expect(result.get('include_filters[dc_publisher_sm][]')).toBe(
         'MIT Libraries & Archives'
       );
-      expect(result.get('fq[dc_subject_sm][]')).toBe('GIS & Remote Sensing');
+      expect(result.get('include_filters[dc_subject_sm][]')).toBe(
+        'GIS & Remote Sensing'
+      );
     });
 
     it('handles URL-encoded values', () => {
@@ -441,7 +447,9 @@ describe('searchParams', () => {
       const result = buildSearchParams(params);
 
       expect(result.get('q')).toBe('geographic information systems');
-      expect(result.get('fq[dc_publisher_sm][]')).toBe('MIT Libraries');
+      expect(result.get('include_filters[dc_publisher_sm][]')).toBe(
+        'MIT Libraries'
+      );
     });
 
     it('serializes advanced query clauses', () => {
@@ -506,8 +514,10 @@ describe('searchParams', () => {
 
       const result = buildSearchParams(params);
 
-      expect(result.get('fq[dct_temporal_sm][]')).toBe('2023');
-      expect(result.get('fq[gbl_resourceClass_sm][]')).toBe('Dataset');
+      expect(result.get('include_filters[dct_temporal_sm][]')).toBe('2023');
+      expect(result.get('include_filters[gbl_resourceClass_sm][]')).toBe(
+        'Dataset'
+      );
     });
 
     it('handles empty facet values', () => {
@@ -523,8 +533,10 @@ describe('searchParams', () => {
 
       const result = buildSearchParams(params);
 
-      expect(result.get('fq[dc_publisher_sm][]')).toBe('');
-      expect(result.get('fq[gbl_resourceClass_sm][]')).toBe('Dataset');
+      expect(result.get('include_filters[dc_publisher_sm][]')).toBe('');
+      expect(result.get('include_filters[gbl_resourceClass_sm][]')).toBe(
+        'Dataset'
+      );
     });
   });
 

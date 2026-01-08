@@ -295,7 +295,7 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                     print_error("Elasticsearch index is empty - reindexing needed")
                     results["issues"].append("Index is empty - data needs to be indexed")
                     results["recommendations"].append(
-                        "Run reindexing script: python scripts/reindex.py"
+                        "Run reindexing script: python scripts/reindex_admin.py"
                     )
                 elif remaining == 0:
                     print_success(f"Index is fully synchronized ({db_count:,} documents)")
@@ -318,7 +318,7 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                         f"Index is incomplete - {remaining:,} documents need to be indexed"
                     )
                     results["recommendations"].append(
-                        "Run reindexing script: python scripts/reindex.py"
+                        "Run reindexing script: python scripts/reindex_admin.py"
                     )
 
                 results["db_count"] = db_count

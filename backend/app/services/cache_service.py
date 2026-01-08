@@ -72,6 +72,26 @@ def _weak_etag_from_body(body: bytes) -> str:
     return f'W/"{digest}"'
 
 
+def weak_etag_from_body(body: bytes) -> str:
+    """Public helper for computing weak ETags from response bytes."""
+    return _weak_etag_from_body(body)
+
+
+def cache_control_header(*, ttl_seconds: int) -> str:
+    """Shared Cache-Control policy for cached responses.
+
+    Browsers revalidate (max-age=0) while shared caches can store and serve stale
+    while revalidating / on error.
+    """
+    hard_ttl = int(os.getenv("CACHE_HARD_TTL_SECONDS", str(int(ttl_seconds) * 2)))
+    swr = max(0, hard_ttl - int(ttl_seconds))
+    sie = max(0, int(STALE_IF_ERROR_SECONDS))
+    return (
+        f"public, max-age=0, s-maxage={int(ttl_seconds)}, "
+        f"stale-while-revalidate={int(swr)}, stale-if-error={int(sie)}"
+    )
+
+
 def _log_cache_event(event: str, **fields: Any) -> None:
     """Optional structured-ish cache event logging for observability."""
     if not CACHE_LOG_EVENTS:
@@ -414,15 +434,7 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
 
     def decorator(func):
         def _cache_control_header(*, ttl_seconds: int) -> str:
-            # public API: prefer proxies/CDNs to revalidate (max-age=0) but allow
-            # shared caching (s-maxage) and SWR/stale-if-error semantics.
-            hard_ttl = int(os.getenv("CACHE_HARD_TTL_SECONDS", str(int(ttl_seconds) * 2)))
-            swr = max(0, hard_ttl - int(ttl_seconds))
-            sie = max(0, int(STALE_IF_ERROR_SECONDS))
-            return (
-                f"public, max-age=0, s-maxage={int(ttl_seconds)}, "
-                f"stale-while-revalidate={int(swr)}, stale-if-error={int(sie)}"
-            )
+            return cache_control_header(ttl_seconds=ttl_seconds)
 
         async def _refresh_in_background(
             *,

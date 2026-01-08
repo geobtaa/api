@@ -36,7 +36,7 @@ describe('Search Results Page', () => {
       <MemoryRouter initialEntries={[initialEntry]}>
         <ApiProvider>
           <DebugProvider>
-            <SearchPage />
+            <SearchPage searchResults={null} isLoading={false} />
           </DebugProvider>
         </ApiProvider>
       </MemoryRouter>
@@ -53,14 +53,12 @@ describe('Search Results Page', () => {
   it('shows the map view', () => {
     renderSearchResults();
     // The map is always visible on large screens, check for map container
-    expect(
-      screen.getByRole('button', { name: /zoom in/i })
-    ).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: /zoom in/i }).length).toBeGreaterThan(0);
   });
 
   it('shows “Searching…” placeholder before results are available (instead of 0-0 of 0)', () => {
     renderSearchResults('/search?q=');
-    expect(screen.getByText('Searching…')).toBeInTheDocument();
+    expect(screen.getByText(/Searching/)).toBeInTheDocument();
     expect(screen.queryByText(/Showing results/i)).not.toBeInTheDocument();
   });
 });

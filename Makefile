@@ -189,12 +189,12 @@ db-sync: db-export db-import
 
 # Reindex all resources into Elasticsearch
 reindex:
-	@echo "Reindexing all resources into Elasticsearch (resilient)..."
+	@echo "Reindexing all resources into Elasticsearch (same logic as /admin/reindex)..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
-		cd /app/backend && python scripts/reindex.py'
+		cd /app/backend && python scripts/reindex_admin.py'
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 
