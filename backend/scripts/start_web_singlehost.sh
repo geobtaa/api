@@ -1,9 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Ensure we can find Python console scripts installed into the image venv.
+# NOTE: Kamal runs `bash -lc ...` which can reset PATH; this makes it explicit.
+export PATH="/opt/venv/bin:$PATH"
+
 echo "[start_web_singlehost] starting FastAPI (uvicorn) on 127.0.0.1:8001"
 cd /app/backend
-uvicorn app.main:app --host 127.0.0.1 --port 8001 &
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 &
 UVICORN_PID=$!
 
 echo "[start_web_singlehost] starting SSR (react-router-serve) on 0.0.0.0:3000"
