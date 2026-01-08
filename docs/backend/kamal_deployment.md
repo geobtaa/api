@@ -5,16 +5,23 @@
 This deployment runs on `lib-btaageoapi-dev-app-01.oit.umn.edu` with:
 
 **Application Containers:**
-- **Web**: FastAPI app (port 8000, SSL via Traefik)
+- **Web**: Single-host router + SSR + API (public port 8000 via Traefik)
 - **Worker**: Celery worker for background tasks
 - **Flower**: Celery monitoring UI (port 5555, internal)
 
 **Accessories (Managed Services):**
 - **ParadeDB 0.18.11**: PostgreSQL with extensions (pg_search, postgis, vector, pg_ivm)
 - **Elasticsearch 9.0.0**: Search indexing
-- **Redis 7.4.6-alpine**: Caching & Celery broker
+- **Redis 7.4.6-alpine**: Caching & Celery broker (password-protected)
 
 **URL**: https://lib-btaageoapi-dev-app-01.oit.umn.edu
+
+### Single-host routing behavior
+
+This deployment serves both the SSR frontend and the API from the same hostname:
+
+- **SSR UI**: `https://<host>/`
+- **API**: `https://<host>/api/...` (e.g. `/api/v1/search`, `/api/docs`)
 
 ## Prerequisites
 
@@ -50,6 +57,9 @@ export KAMAL_REGISTRY_USERNAME=your_github_username
 # Registry password (GitHub Personal Access Token with packages:write)
 KAMAL_REGISTRY_PASSWORD=your_github_token_here
 
+# Redis password (required; used for caching + rate limiting + celery broker)
+REDIS_PASSWORD=your_redis_password_here
+
 # PostgreSQL password
 POSTGRES_PASSWORD=your_postgres_password_here
 
@@ -63,6 +73,9 @@ ADMIN_PASSWORD=your_admin_password_here
 # OpenAI API credentials (for LLM features)
 OPENAI_API_KEY=your_openai_key_here
 OPENAI_MODEL=gpt-3.5-turbo
+
+# API key used by the SSR server for server-side loaders (server-only; not exposed to browser)
+BTAA_GEOSPATIAL_API_KEY=your_frontend_api_key_here
 EOF
 
 # Secure the file
@@ -110,7 +123,7 @@ exit
 Point your domain to your server:
 
 ```
-A record: api.yourdomain.com → YOUR_SERVER_IP
+A record: yourdomain.com → YOUR_SERVER_IP
 ```
 
 Wait for DNS propagation (can take up to 48 hours, usually much faster).
@@ -258,7 +271,9 @@ ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
 
 Your application has multiple containers:
 
-1. **Web** (FastAPI): Main API server on port 8000
+1. **Web** (single-host): Public router on port 8000 that serves:
+   - SSR on `/` (Node server on internal port 3000)
+   - API on `/api/*` (FastAPI on internal port 8001)
 2. **Worker** (Celery): Background task processing for async jobs
 3. **Flower**: Celery monitoring UI on port 5555
 4. **Accessories**:
@@ -277,7 +292,8 @@ servers:
   web:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: uvicorn main:app --host 0.0.0.0 --port 8000 --workers 4
+    # Single-host: nginx (public :8000) routes /api/* -> uvicorn (:8001) and / -> SSR (:3000)
+    cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
 
   worker:
     hosts:
@@ -296,6 +312,39 @@ proxy:
   app_port: 8000
   healthcheck:
     path: /api/docs
+```
+
+### Frontend SSR configuration notes
+
+- The SSR server uses runtime env var `API_BASE_URL` for server-side requests. In the single-host image it defaults to:
+  - `http://127.0.0.1:8000/api/v1` (goes through the internal router)
+- The browser bundle uses build arg `VITE_API_BASE_URL` and should be set to:
+  - `https://<host>/api/v1`
+
+### Caching + rate limiting env vars (production)
+
+Recommended baseline (set via Kamal `env.clear` / `env.secret` in `config/deploy.yml`):
+
+```text
+# Redis connectivity
+REDIS_HOST=btaa-geospatial-api-redis
+REDIS_PORT=6379
+REDIS_PASSWORD=... (secret)
+
+# Separate Redis DBs
+REDIS_DB=0
+RATE_LIMIT_REDIS_DB=2
+
+# Enable middleware enforcement
+RATE_LIMIT_ENABLED=true
+
+# Endpoint caching controls
+ENDPOINT_CACHE=true
+GAZETTEER_CACHE_TTL=3600
+CACHE_DEBUG_HEADERS=false
+CACHE_LOG_EVENTS=false
+CACHE_VERSION=v2
+CACHE_APP_VERSION= (optional)
 ```
 
 ### ParadeDB Configuration
