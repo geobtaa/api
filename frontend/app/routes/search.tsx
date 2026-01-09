@@ -3,6 +3,8 @@ import { useLoaderData, useNavigation } from "react-router";
 import { SearchPage } from "../../src/pages/SearchPage";
 import { serverFetchJson } from "../lib/server-api";
 import type { JsonApiResponse } from "../../src/types/api";
+import { useEffect } from "react";
+import { useApi } from "../../src/context/ApiContext";
 
 /**
  * Loader function that runs server-side to fetch search results.
@@ -31,7 +33,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (!hasAnyCriteria) return { searchResults: null };
 
   const searchResults = await serverFetchJson<JsonApiResponse>(`/search?${apiParams.toString()}`);
-  return { searchResults };
+  // Provide a browser-usable URL for "Last API Request" (same-origin /api/v1).
+  const lastApiUrl = `/api/v1/search?${apiParams.toString()}`;
+  return { searchResults, lastApiUrl };
 }
 
 /**
@@ -39,8 +43,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
  * Uses loader data (and subsequent revalidation) for all search results.
  */
 export default function Search() {
-  const { searchResults } = useLoaderData<typeof loader>();
+  const { searchResults, lastApiUrl } = useLoaderData<typeof loader>();
   const navigation = useNavigation();
   const isLoading = navigation.state !== "idle";
+  const { setLastApiUrl } = useApi();
+
+  // Keep footer's "Last API Request" in sync with SSR loader calls without re-fetching in the browser.
+  useEffect(() => {
+    if (lastApiUrl) setLastApiUrl(lastApiUrl);
+  }, [lastApiUrl, setLastApiUrl]);
+
   return <SearchPage searchResults={searchResults} isLoading={isLoading} />;
 }

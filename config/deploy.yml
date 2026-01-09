@@ -77,7 +77,7 @@ env:
     IS_DOCKER:             "true"
     CORS_ORIGINS:          "*"
     STATIC_MAPS_DIR:       /app/static/maps
-    RATE_LIMIT_ENABLED:    "true"
+    RATE_LIMIT_ENABLED:    "false"
 
   secret:
     - REDIS_PASSWORD

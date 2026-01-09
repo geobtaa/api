@@ -1026,7 +1026,11 @@ describe('ResourceView Component', () => {
 
       // Should render Stanford-specific content
       expect(screen.getAllByText('Raster Data')).toHaveLength(2);
-      expect(screen.getByText('Documentation')).toBeInTheDocument();
+      // "Documentation" appears both in the resource UI and in the global footer link;
+      // assert specifically on the resource UI control.
+      expect(
+        screen.getByRole('button', { name: 'Documentation' })
+      ).toBeInTheDocument();
     });
 
     it('handles navigation errors gracefully', async () => {

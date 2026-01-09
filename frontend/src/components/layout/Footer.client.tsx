@@ -11,10 +11,6 @@ export function Footer({ id }: FooterProps) {
   const { lastApiUrl } = useApi();
   const { showDetails, toggleDetails } = useDebug();
 
-  if (!lastApiUrl) {
-    return null;
-  }
-
   return (
     <footer className="bg-white shadow-sm">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
@@ -63,25 +59,34 @@ export function Footer({ id }: FooterProps) {
           </div>
 
           {/* API URL Row */}
-          <div className="text-sm text-gray-500">
-            <p className="mb-2">Last API Request:</p>
-            <a
-              href={lastApiUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group block"
-            >
-              <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
-                <code className="flex-1 overflow-x-auto text-blue-600">
-                  {lastApiUrl}
-                </code>
-                <ExternalLink
-                  size={14}
-                  className="text-gray-400 group-hover:text-blue-500"
-                />
+          {lastApiUrl ? (
+            <div className="text-sm text-gray-500">
+              <p className="mb-2">Last API Request:</p>
+              <a
+                href={lastApiUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group block"
+              >
+                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
+                  <code className="flex-1 overflow-x-auto text-blue-600">
+                    {lastApiUrl}
+                  </code>
+                  <ExternalLink
+                    size={14}
+                    className="text-gray-400 group-hover:text-blue-500"
+                  />
+                </div>
+              </a>
+            </div>
+          ) : (
+            <div className="text-sm text-gray-400">
+              <p className="mb-2">Last API Request:</p>
+              <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                <code className="block overflow-x-auto">None yet</code>
               </div>
-            </a>
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </footer>
