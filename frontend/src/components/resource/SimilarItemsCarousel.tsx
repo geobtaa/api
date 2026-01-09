@@ -28,6 +28,22 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
     (item as unknown as { meta?: { thumbnail_url?: string } })?.meta
       ?.thumbnail_url;
 
+  const toSsrThumbnailUrl = (url: string): string => {
+    // Route API thumbnail URLs through SSR to avoid browser/IP rate limiting.
+    try {
+      const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
+        return u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+      }
+      return url;
+    } catch {
+      if (url.startsWith('/api/v1/thumbnails/')) {
+        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+      }
+      return url;
+    }
+  };
+
   const resourceClass = item?.attributes?.ogm?.gbl_resourceClass_sm?.[0];
   const provider = item?.attributes?.ogm?.schema_provider_s;
 
@@ -61,7 +77,7 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
           thumbnailUrl.trim() !== '' &&
           !imageError ? (
             <img
-              src={thumbnailUrl}
+              src={toSsrThumbnailUrl(thumbnailUrl)}
               alt={title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={(e) => {

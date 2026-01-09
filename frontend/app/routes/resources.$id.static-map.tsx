@@ -27,3 +27,9 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   return new Response(upstream.body, { status: upstream.status, headers });
 }
 
+// Route modules are more reliably included when they have a default export.
+// This route is image-only, so it renders nothing.
+export default function StaticMapRoute() {
+  return null;
+}
+

@@ -5,20 +5,6 @@ interface StaticResultMapProps {
   result: GeoDocument;
 }
 
-function coerceToSameOriginPath(url: string): string {
-  // Prefer relative URLs so images work behind proxies and avoid mixed-content issues.
-  // If the URL is absolute and same-origin, strip to path+search.
-  try {
-    const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
-    if (typeof window !== 'undefined' && u.origin === window.location.origin) {
-      return `${u.pathname}${u.search}`;
-    }
-    return u.toString();
-  } catch {
-    return url;
-  }
-}
-
 export function StaticResultMap({ result }: StaticResultMapProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -26,13 +12,10 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
   const geometry = result.meta?.ui?.viewer?.geometry;
 
   // Build static map URL
-  // Prefer the API-provided static map URL (meta.ui.static_map), otherwise fall back
-  // to the public API endpoint. This avoids relying on the frontend SSR "static-map"
-  // resource route, which may not be present in all deployments.
+  // Always serve through SSR so the server can include the API key and avoid
+  // client-side rate limiting (static-map generation/cached serving can be chatty).
   const getStaticMapUrl = (): string => {
-    const apiProvided = (result.meta as any)?.ui?.static_map as string | undefined;
-    const fallback = `/api/v1/resources/${result.id}/static-map`;
-    return coerceToSameOriginPath(apiProvided || fallback);
+    return `/resources/${result.id}/static-map`;
   };
 
   // If no geometry, show placeholder

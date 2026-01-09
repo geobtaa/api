@@ -26,6 +26,27 @@ export function SearchResults({
   const { setHoveredGeometry } = useMap();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
+  const toSsrThumbnailUrl = (url: string): string => {
+    // If backend gives us an API URL, route through SSR so requests use the server-held API key.
+    // Example: https://host/api/v1/thumbnails/<hash>  ->  /thumbnails/<hash>
+    //          /api/v1/thumbnails/placeholder        ->  /thumbnails/placeholder
+    try {
+      const u = new URL(
+        url,
+        typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
+      );
+      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
+        return u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+      }
+      return url;
+    } catch {
+      if (url.startsWith('/api/v1/thumbnails/')) {
+        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+      }
+      return url;
+    }
+  };
+
   // Calculate absolute index in full result set
   const getAbsoluteIndex = (relativeIndex: number) => {
     return (currentPage - 1) * 10 + relativeIndex + 1;
@@ -112,7 +133,7 @@ export function SearchResults({
                 !imageErrors.has(result.id) ? (
                   <div className="h-48 w-48 rounded-l-lg">
                     <img
-                      src={result.meta.ui.thumbnail_url}
+                      src={toSsrThumbnailUrl(result.meta.ui.thumbnail_url)}
                       alt={`Thumbnail for ${title}`}
                       className="h-48 w-48 object-cover rounded-l-lg"
                       onError={(e) => {
