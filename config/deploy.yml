@@ -58,10 +58,10 @@ env:
     ELASTICSEARCH_INDEX:   btaa_geospatial_api
     REDIS_TTL:             "604800"
     LOG_LEVEL:             DEBUG
-    ENDPOINT_CACHE:        "false"
-    CACHE_DEBUG_HEADERS:   "false"
+    ENDPOINT_CACHE:        "true"
+    CACHE_DEBUG_HEADERS:   "true"
     CACHE_LOG_EVENTS:      "false"
-    CACHE_VERSION:         "v2"
+    CACHE_VERSION:         "2026-01-09"
     # Optional: bump this to force a new cache namespace without flushing Redis
     CACHE_APP_VERSION:     ""
     REDIS_TIMEOUT_SECONDS: "0.5"
@@ -77,7 +77,7 @@ env:
     IS_DOCKER:             "true"
     CORS_ORIGINS:          "*"
     STATIC_MAPS_DIR:       /app/static/maps
-    RATE_LIMIT_ENABLED:    "false"
+    RATE_LIMIT_ENABLED:    "true"
 
   secret:
     - REDIS_PASSWORD
