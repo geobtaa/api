@@ -62,7 +62,12 @@ You can run the test suite using:
 make test
 ```
 
-This executes pytest with the configuration in `pytest.ini`, which includes automatic coverage reporting.
+This runs pytest (optionally in parallel) with a **wall-clock timeout** so the suite can’t hang forever.
+
+- **Default timeout**: 180 seconds (3 minutes) for the entire run
+- **Override**:
+  - `WALLCLOCK_TIMEOUT_SECONDS=0 make test` (disable timeout; debug only)
+  - `WALLCLOCK_TIMEOUT_SECONDS=900 make test` (15 minutes)
 
 ## Running Individual Tests
 

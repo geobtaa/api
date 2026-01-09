@@ -13,6 +13,35 @@ const CACHE_KEY = 'resource_classes_cache';
 const CACHE_TIMESTAMP_KEY = 'resource_classes_cache_timestamp';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
+type FacetItemTuple = [value: string | number, hits: number];
+type FacetItemObject = {
+  attributes: {
+    value: string | number;
+    hits: number;
+    label?: string;
+  };
+};
+
+function isFacetItemTuple(item: unknown): item is FacetItemTuple {
+  return (
+    Array.isArray(item) &&
+    item.length >= 2 &&
+    (typeof item[0] === 'string' || typeof item[0] === 'number') &&
+    typeof item[1] === 'number'
+  );
+}
+
+function isFacetItemObject(item: unknown): item is FacetItemObject {
+  if (!item || typeof item !== 'object') return false;
+  const obj = item as { attributes?: unknown };
+  if (!obj.attributes || typeof obj.attributes !== 'object') return false;
+  const attrs = obj.attributes as { value?: unknown; hits?: unknown };
+  return (
+    (typeof attrs.value === 'string' || typeof attrs.value === 'number') &&
+    typeof attrs.hits === 'number'
+  );
+}
+
 function getCachedResourceClasses(): ResourceClassItem[] | null {
   try {
     const cached = localStorage.getItem(CACHE_KEY);
@@ -99,12 +128,32 @@ export function ResourceClassFilterTabs() {
           resourceClassFacet?.attributes &&
           'items' in resourceClassFacet.attributes
         ) {
-          const items: ResourceClassItem[] =
-            resourceClassFacet.attributes.items?.map((item) => ({
-              value: item.attributes.value as string,
-              label: item.attributes.label || (item.attributes.value as string),
-              hits: item.attributes.hits,
-            })) || [];
+          const rawItems = (resourceClassFacet.attributes as { items?: unknown })
+            .items;
+
+          const items: ResourceClassItem[] = Array.isArray(rawItems)
+            ? rawItems
+                .map((item: unknown): ResourceClassItem | null => {
+                  // Backend may return compact tuples: [value, hits]
+                  if (isFacetItemTuple(item)) {
+                    const [value, hits] = item;
+                    const v = String(value);
+                    return { value: v, label: v, hits };
+                  }
+
+                  // Or verbose objects: { attributes: { value, hits, label? } }
+                  if (isFacetItemObject(item)) {
+                    const v = String(item.attributes.value);
+                    const label = String(item.attributes.label ?? item.attributes.value);
+                    return { value: v, label, hits: item.attributes.hits };
+                  }
+
+                  return null;
+                })
+                .filter(
+                  (x): x is ResourceClassItem => x !== null && x.value.length > 0
+                )
+            : [];
 
           // Sort by hits (descending), with "Other" placed last
           const sortedItems = sortResourceClasses(items);

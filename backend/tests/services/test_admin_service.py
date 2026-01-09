@@ -26,71 +26,79 @@ class TestCacheManagementService:
     async def test_clear_cache_by_type_search(self):
         """Test clearing search cache."""
         mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
+        mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        with patch("app.services.admin_service.invalidate_cache_with_prefix") as mock_invalidate:
-            result = await service.clear_cache_by_type("search")
+        result = await service.clear_cache_by_type("search")
 
-            assert result["message"] == "Cache cleared successfully: search"
-            mock_invalidate.assert_called_once_with("app.api.v1.endpoints:search")
+        assert result["message"] == "Cache cleared successfully: search"
+        mock_cache_service.invalidate_tags.assert_awaited_once_with(["search"])
+        mock_cache_service.flush_all.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_clear_cache_by_type_resource(self):
         """Test clearing resource cache."""
         mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
+        mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        with patch("app.services.admin_service.invalidate_cache_with_prefix") as mock_invalidate:
-            result = await service.clear_cache_by_type("resource")
+        result = await service.clear_cache_by_type("resource")
 
-            assert result["message"] == "Cache cleared successfully: resource"
-            mock_invalidate.assert_called_once_with("app.api.v1.endpoints:get_resource")
+        assert result["message"] == "Cache cleared successfully: resource"
+        mock_cache_service.invalidate_tags.assert_awaited_once_with(["resource"])
+        mock_cache_service.flush_all.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_clear_cache_by_type_suggest(self):
         """Test clearing suggest cache."""
         mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
+        mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        with patch("app.services.admin_service.invalidate_cache_with_prefix") as mock_invalidate:
-            result = await service.clear_cache_by_type("suggest")
+        result = await service.clear_cache_by_type("suggest")
 
-            assert result["message"] == "Cache cleared successfully: suggest"
-            mock_invalidate.assert_called_once_with("app.api.v1.endpoints:suggest")
+        assert result["message"] == "Cache cleared successfully: suggest"
+        mock_cache_service.invalidate_tags.assert_awaited_once_with(["suggest"])
+        mock_cache_service.flush_all.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_clear_cache_by_type_all(self):
         """Test clearing all cache."""
         mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
         mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        with patch(
-            "app.services.admin_service.invalidate_cache_with_prefix", new_callable=AsyncMock
-        ) as mock_invalidate:
-            result = await service.clear_cache_by_type("all")
+        result = await service.clear_cache_by_type("all")
 
-            assert result["message"] == "Cache cleared successfully: all"
-            # When cache_type is "all", it should invalidate all types AND flush all
-            assert mock_invalidate.call_count == 3
-            mock_cache_service.flush_all.assert_called_once()
+        assert result["message"] == "Cache cleared successfully: all"
+        # When cache_type is "all", it should invalidate all types AND flush all.
+        # invalidate_tags is called once per tag group.
+        assert mock_cache_service.invalidate_tags.await_count == 3
+        mock_cache_service.invalidate_tags.assert_any_await(["search"])
+        mock_cache_service.invalidate_tags.assert_any_await(["resource"])
+        mock_cache_service.invalidate_tags.assert_any_await(["suggest"])
+        mock_cache_service.flush_all.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_clear_cache_by_type_none(self):
         """Test clearing all cache when no type specified."""
         mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
         mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        with patch(
-            "app.services.admin_service.invalidate_cache_with_prefix", new_callable=AsyncMock
-        ) as mock_invalidate:
-            result = await service.clear_cache_by_type(None)
+        result = await service.clear_cache_by_type(None)
 
-            assert result["message"] == "Cache cleared successfully: all"
-            # Should invalidate all types
-            assert mock_invalidate.call_count == 3
-            mock_cache_service.flush_all.assert_called_once()
+        assert result["message"] == "Cache cleared successfully: all"
+        assert mock_cache_service.invalidate_tags.await_count == 3
+        mock_cache_service.invalidate_tags.assert_any_await(["search"])
+        mock_cache_service.invalidate_tags.assert_any_await(["resource"])
+        mock_cache_service.invalidate_tags.assert_any_await(["suggest"])
+        mock_cache_service.flush_all.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_clear_cache_error(self):
@@ -119,9 +127,18 @@ class TestReindexingService:
 
         with (
             patch("app.services.admin_service.ENDPOINT_CACHE", True),
-            patch("app.services.admin_service.invalidate_cache_with_prefix") as mock_invalidate,
+            patch.object(
+                ReindexingService,
+                "check_spatial_facet_readiness",
+                new_callable=AsyncMock,
+                return_value={"ready": True, "progress": 100, "indexed_resources": 1000, "total_resources": 1000},
+            ),
+            patch("app.services.admin_service.CacheService") as mock_cache_cls,
             patch("app.services.admin_service.reindex_resources") as mock_reindex,
         ):
+            mock_cache = Mock()
+            mock_cache.invalidate_tags = AsyncMock()
+            mock_cache_cls.return_value = mock_cache
             mock_reindex.return_value = {"indexed": 100}
 
             result = await service.reindex_all_resources()
@@ -129,7 +146,7 @@ class TestReindexingService:
             assert result["status"] == "success"
             assert result["message"] == "Reindexing completed"
             assert result["details"] == {"indexed": 100}
-            assert mock_invalidate.call_count == 2
+            mock_cache.invalidate_tags.assert_awaited_once_with(["search", "suggest"])
             mock_reindex.assert_called_once()
 
     @pytest.mark.asyncio
@@ -139,7 +156,13 @@ class TestReindexingService:
 
         with (
             patch("app.services.admin_service.ENDPOINT_CACHE", False),
-            patch("app.services.admin_service.invalidate_cache_with_prefix") as mock_invalidate,
+            patch.object(
+                ReindexingService,
+                "check_spatial_facet_readiness",
+                new_callable=AsyncMock,
+                return_value={"ready": True},
+            ),
+            patch("app.services.admin_service.CacheService") as mock_cache_cls,
             patch("app.services.admin_service.reindex_resources") as mock_reindex,
         ):
             mock_reindex.return_value = {"indexed": 50}
@@ -148,7 +171,7 @@ class TestReindexingService:
 
             assert result["status"] == "success"
             assert result["details"] == {"indexed": 50}
-            mock_invalidate.assert_not_called()
+            mock_cache_cls.assert_not_called()
             mock_reindex.assert_called_once()
 
     @pytest.mark.asyncio
@@ -305,14 +328,11 @@ class TestResourceProcessingService:
     @pytest.mark.asyncio
     async def test_start_summarization_task_success(self, mock_resource_data):
         """Test successful summarization task start."""
-        service = ResourceProcessingService()
+        mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
+        service = ResourceProcessingService(cache_service=mock_cache_service)
 
-        with (
-            patch("app.services.admin_service.generate_resource_summary") as mock_task,
-            patch(
-                "app.services.admin_service.invalidate_cache_with_prefix", new_callable=AsyncMock
-            ) as mock_invalidate,
-        ):
+        with patch("app.services.admin_service.generate_resource_summary") as mock_task:
             mock_task_instance = Mock()
             mock_task_instance.id = "task-123"
             mock_task.delay.return_value = mock_task_instance
@@ -328,19 +348,18 @@ class TestResourceProcessingService:
                 asset_path="https://example.com/data.zip",
                 asset_type="download",
             )
-            mock_invalidate.assert_called_once_with("resource:test-resource-1")
+            mock_cache_service.invalidate_tags.assert_awaited_once_with(
+                ["resource:test-resource-1", "search"]
+            )
 
     @pytest.mark.asyncio
     async def test_start_geo_entities_task_success(self, mock_resource_data):
         """Test successful geo entities task start."""
-        service = ResourceProcessingService()
+        mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock()
+        service = ResourceProcessingService(cache_service=mock_cache_service)
 
-        with (
-            patch("app.services.admin_service.generate_geo_entities") as mock_task,
-            patch(
-                "app.services.admin_service.invalidate_cache_with_prefix", new_callable=AsyncMock
-            ) as mock_invalidate,
-        ):
+        with patch("app.services.admin_service.generate_geo_entities") as mock_task:
             mock_task_instance = Mock()
             mock_task_instance.id = "task-456"
             mock_task.delay.return_value = mock_task_instance
@@ -351,7 +370,9 @@ class TestResourceProcessingService:
             mock_task.delay.assert_called_once_with(
                 resource_id="test-resource-1", metadata=mock_resource_data
             )
-            mock_invalidate.assert_called_once_with("resource:test-resource-1")
+            mock_cache_service.invalidate_tags.assert_awaited_once_with(
+                ["resource:test-resource-1", "search"]
+            )
 
 
 class TestAdminService:

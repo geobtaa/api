@@ -176,27 +176,35 @@ class TestCacheServiceBasicOperations:
 class TestCacheServiceKeyGeneration:
     """Test cases for cache key generation."""
 
+    def _assert_cache_key_shape(self, key: str, *, namespace: str):
+        assert key.startswith("cache:")
+        parts = key.split(":")
+        # cache:<cache_version>[:<cache_app_version>]:<namespace>:<digest>
+        assert parts[0] == "cache"
+        assert len(parts) >= 4
+        assert parts[-2] == namespace
+        digest = parts[-1]
+        assert len(digest) == 32
+        assert all(c in "0123456789abcdef" for c in digest)
+
     def test_generate_cache_key_with_simple_args(self):
         """Test generating cache keys with simple arguments."""
         key = CacheService.generate_cache_key("test_prefix", "arg1", 123, True)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38  # "cache:" + 32 char MD5 hash
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_with_kwargs(self):
         """Test generating cache keys with keyword arguments."""
         key = CacheService.generate_cache_key("test_prefix", param1="value1", param2=456)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_with_complex_types(self):
         """Test generating cache keys with complex data types."""
         complex_data = {"nested": {"data": [1, 2, 3]}}
         key = CacheService.generate_cache_key("test_prefix", complex_data)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_consistency(self):
         """Test that cache key generation is consistent."""
@@ -223,16 +231,14 @@ class TestCacheServiceKeyGeneration:
         """Test generating cache keys with None values."""
         key = CacheService.generate_cache_key("test_prefix", None, param1=None)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_with_unicode(self):
         """Test generating cache keys with Unicode characters."""
         unicode_data = "test-ñ-émojis-中文"
         key = CacheService.generate_cache_key("test_prefix", unicode_data)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_with_various_types(self):
         """Test generating cache keys with various data types."""
@@ -250,24 +256,21 @@ class TestCacheServiceKeyGeneration:
 
         for _test_name, test_value in test_cases:
             key = CacheService.generate_cache_key("test_prefix", test_value)
-            assert key.startswith("cache:")
-            assert len(key) == 38
+            self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_with_long_strings(self):
         """Test generating cache keys with long strings."""
         long_string = "a" * 1000
         key = CacheService.generate_cache_key("test_prefix", long_string)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38  # Hash should always be same length
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
     def test_generate_cache_key_with_special_characters(self):
         """Test generating cache keys with special characters."""
         special_chars = "!@#$%^&*()_+-=[]{}|;':\",./<>?"
         key = CacheService.generate_cache_key("test_prefix", special_chars)
 
-        assert key.startswith("cache:")
-        assert len(key) == 38
+        self._assert_cache_key_shape(key, namespace="test_prefix")
 
 
 class TestCacheServiceEdgeCases:

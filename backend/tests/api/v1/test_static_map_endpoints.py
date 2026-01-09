@@ -74,7 +74,7 @@ class TestStaticMapsEndpoint:
 
 
 class TestResourceStaticMapEndpoint:
-    @patch("app.api.v1.endpoint_modules.resources.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
     def test_resource_static_map_processing_placeholder_is_image_no_store(self, mock_session, client):
         # Mock DB row with geometry
         mock_session_instance = AsyncMock()
@@ -105,7 +105,7 @@ class TestResourceStaticMapEndpoint:
             assert resp.headers["cache-control"] == "no-store"
             assert resp.headers["x-placeholder"] == "true"
 
-    @patch("app.api.v1.endpoint_modules.resources.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
     def test_resource_static_map_redirect_no_store_when_exists(self, mock_session, client):
         # Mock DB row with geometry
         mock_session_instance = AsyncMock()

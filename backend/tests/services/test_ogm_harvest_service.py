@@ -18,8 +18,11 @@ class TestOGMHarvestService:
         # Ensure tables exist in the integration DB
         create_ogm_harvest_tables()
 
-    @pytest.mark.asyncio
+    @pytest.mark.asyncio(scope="session")
     async def test_import_and_missing_tracking_and_tags(self, tmp_path):
+        # This test exercises the global `db.database.database` (databases/asyncpg).
+        # The underlying asyncpg pool is bound to the event loop that created it.
+        # Run this test on the session loop to avoid "Future attached to a different loop".
         repo_name = "edu.stanford.purl"
         record_a = {
             "id": "test-ogm-a",
