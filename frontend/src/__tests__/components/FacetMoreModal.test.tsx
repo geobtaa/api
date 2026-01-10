@@ -104,6 +104,46 @@ describe('FacetMoreModal', () => {
     expect(screen.getByText('beta')).toBeInTheDocument();
   });
 
+  it('does not treat the hits/count as the label', () => {
+    vi.mocked(useFacetModal).mockReturnValueOnce({
+      items: [
+        {
+          type: 'facet_value' as const,
+          id: 'Subject Term',
+          attributes: {
+            // BUGGY SHAPE we want to guard against: label accidentally equals hits
+            label: '12',
+            value: 'Subject Term',
+            hits: 12,
+          },
+        },
+      ],
+      meta: {
+        totalCount: 1,
+        totalPages: 1,
+        currentPage: 1,
+        perPage: 10,
+      },
+      page: 1,
+      perPage: 10,
+      sort: 'count_desc' as const,
+      qFacet: '',
+      isLoading: false,
+      hasLoaded: true,
+      error: null,
+      setPage: mockSetPage,
+      setPerPage: vi.fn(),
+      setSort: mockSetSort,
+      setFacetQuery: mockSetFacetQuery,
+      resetFacetQuery: mockResetFacetQuery,
+      refetch: vi.fn(),
+    });
+
+    renderWithRouter(<FacetMoreModal {...defaultProps} />);
+    expect(screen.getByText('Subject Term')).toBeInTheDocument();
+    expect(screen.queryByText(/^12$/)).not.toBeInTheDocument();
+  });
+
   it('invokes include and exclude callbacks', async () => {
     const user = userEvent.setup();
     renderWithRouter(<FacetMoreModal {...defaultProps} />);

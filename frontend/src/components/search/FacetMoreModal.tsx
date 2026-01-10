@@ -12,6 +12,7 @@ import { useSearchParams } from 'react-router';
 import { useFacetModal } from '../../hooks/useFacetModal';
 import type { FacetValuesSort } from '../../types/api';
 import { FACET_LABELS, normalizeFacetId } from '../../utils/facetLabels';
+import { getFacetValueDisplayLabel } from '../../utils/facetDisplay';
 import { humanizeFieldName } from '../../constants/fieldLabels';
 
 interface FacetMoreModalProps {
@@ -415,13 +416,13 @@ export function FacetMoreModal({
           ) : (
             <ul className="divide-y divide-gray-200">
               {items.map((item) => {
-                const included = isValueIncluded(item.attributes.value);
-                const excluded = isValueExcluded(item.attributes.value);
-                const displayLabel =
-                  item.attributes.label ?? String(item.attributes.value);
+                const rawValue = item.attributes.value ?? item.id;
+                const included = isValueIncluded(rawValue);
+                const excluded = isValueExcluded(rawValue);
+                const displayLabel = getFacetValueDisplayLabel(item);
                 return (
                   <li
-                    key={`${facetId}-${item.id || item.attributes.value}`}
+                    key={`${facetId}-${item.id || String(rawValue)}`}
                     className="flex items-center justify-between px-6 py-3 gap-4"
                   >
                     <div className="flex-1">
@@ -448,7 +449,7 @@ export function FacetMoreModal({
                     </div>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onToggleInclude(item.attributes.value)}
+                        onClick={() => onToggleInclude(rawValue)}
                         className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
                           included
                             ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
@@ -466,7 +467,7 @@ export function FacetMoreModal({
                         {included ? 'Included' : 'Include'}
                       </button>
                       <button
-                        onClick={() => onToggleExclude(item.attributes.value)}
+                        onClick={() => onToggleExclude(rawValue)}
                         className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
                           excluded
                             ? 'border-rose-400 text-rose-600 bg-rose-50 hover:bg-rose-100'

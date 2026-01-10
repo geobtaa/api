@@ -9,6 +9,7 @@ import {
 } from '../../constants/fieldLabels';
 import { fetchFacetValues } from '../../services/api';
 import type { FacetValue } from '../../types/api';
+import { getFacetValueDisplayLabel } from '../../utils/facetDisplay';
 
 interface AdvancedSearchBuilderProps {
   clauses: AdvancedClause[];
@@ -633,8 +634,11 @@ export function AdvancedSearchBuilder({
                         </div>
                       ) : (
                         autocomplete.suggestions.map((suggestion, index) => {
-                          const value = String(suggestion.attributes.value);
-                          const label = suggestion.attributes.label;
+                          const rawValue =
+                            suggestion.attributes.value ?? suggestion.id;
+                          const value = String(rawValue);
+                          const displayLabel =
+                            getFacetValueDisplayLabel(suggestion);
                           const hits = suggestion.attributes.hits;
                           const isSelected =
                             index === autocomplete.selectedIndex;
@@ -658,7 +662,7 @@ export function AdvancedSearchBuilder({
                               }
                             >
                               <div className="text-sm text-gray-900">
-                                {label}
+                                {displayLabel}
                               </div>
                               {hits !== undefined && (
                                 <div className="text-xs text-gray-500">
