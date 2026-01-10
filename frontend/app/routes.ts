@@ -5,9 +5,10 @@ export default [
   index("routes/_index.tsx"),
   route("search", "routes/search.tsx"),
   route("resources/:id", "routes/resources.$id.tsx"),
-  route("resources/:id/static-map", "routes/resources.$id.static-map.tsx"),
-  route("thumbnails/placeholder", "routes/thumbnails.placeholder.tsx"),
-  route("thumbnails/:image_hash", "routes/thumbnails.$image_hash.tsx"),
+  // Resource routes (return non-HTML responses via loaders)
+  route("resources/:id/static-map", "routes/resources.$id.static-map.ts"),
+  route("thumbnails/placeholder", "routes/thumbnails.placeholder.ts"),
+  route("thumbnails/:image_hash", "routes/thumbnails.$image_hash.ts"),
   route("iiif/manifest", "routes/iiif.manifest.ts"),
   route("suggest", "routes/suggest.ts"),
   route("bookmarks", "routes/bookmarks.tsx"),

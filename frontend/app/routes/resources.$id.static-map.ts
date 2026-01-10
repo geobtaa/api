@@ -2,12 +2,10 @@ import type { LoaderFunctionArgs } from "react-router";
 import { serverFetch } from "../lib/server-api";
 
 /**
- * SSR-served static map image.
+ * SSR-served static map image (resource route).
  *
  * The browser requests: /resources/:id/static-map
- * The SSR server fetches from the API using the server-only API key and streams the image back.
- *
- * This avoids exposing the API key to the client while keeping rate limiting enabled.
+ * The SSR server fetches from the API using the server-only API key and returns image bytes.
  */
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const { id } = params;
@@ -18,18 +16,11 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     headers: { Accept: accept },
   });
 
-  // Important: sanitize encoding/length headers to avoid browser decode failures when
-  // Node's fetch stack transparently decompresses upstream bodies.
+  const body = await upstream.arrayBuffer();
   const headers = new Headers(upstream.headers);
   headers.delete("content-encoding");
   headers.delete("content-length");
 
-  return new Response(upstream.body, { status: upstream.status, headers });
-}
-
-// Route modules are more reliably included when they have a default export.
-// This route is image-only, so it renders nothing.
-export default function StaticMapRoute() {
-  return null;
+  return new Response(body, { status: upstream.status, headers });
 }
 

@@ -2,12 +2,10 @@ import type { LoaderFunctionArgs } from "react-router";
 import { serverFetch } from "../lib/server-api";
 
 /**
- * SSR-served thumbnail image.
+ * SSR-served thumbnail image (resource route).
  *
  * The browser requests: /thumbnails/:image_hash
- * The SSR server fetches from the API using the server-only API key and streams the image back.
- *
- * This keeps thumbnails from being rate-limited by anonymous/IP tiers in the browser.
+ * The SSR server fetches from the API using the server-only API key and returns image bytes.
  */
 export async function loader({ params, request }: LoaderFunctionArgs) {
   const { image_hash } = params as { image_hash?: string };
@@ -18,15 +16,11 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     headers: { Accept: accept },
   });
 
-  // Avoid content decoding issues when Node transparently decompresses upstream.
+  const body = await upstream.arrayBuffer();
   const headers = new Headers(upstream.headers);
   headers.delete("content-encoding");
   headers.delete("content-length");
 
-  return new Response(upstream.body, { status: upstream.status, headers });
-}
-
-export default function ThumbnailRoute() {
-  return null;
+  return new Response(body, { status: upstream.status, headers });
 }
 
