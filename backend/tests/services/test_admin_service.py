@@ -104,17 +104,13 @@ class TestCacheManagementService:
     async def test_clear_cache_error(self):
         """Test cache clearing error handling."""
         mock_cache_service = Mock()
+        mock_cache_service.invalidate_tags = AsyncMock(side_effect=Exception("Cache error"))
         service = CacheManagementService(mock_cache_service)
 
-        with patch(
-            "app.services.admin_service.invalidate_cache_with_prefix", new_callable=AsyncMock
-        ) as mock_invalidate:
-            mock_invalidate.side_effect = Exception("Cache error")
+        with pytest.raises(CacheManagementError) as exc_info:
+            await service.clear_cache_by_type("search")
 
-            with pytest.raises(CacheManagementError) as exc_info:
-                await service.clear_cache_by_type("search")
-
-            assert "Failed to clear cache" in str(exc_info.value)
+        assert "Failed to clear cache" in str(exc_info.value)
 
 
 class TestReindexingService:
@@ -131,7 +127,12 @@ class TestReindexingService:
                 ReindexingService,
                 "check_spatial_facet_readiness",
                 new_callable=AsyncMock,
-                return_value={"ready": True, "progress": 100, "indexed_resources": 1000, "total_resources": 1000},
+                return_value={
+                    "ready": True,
+                    "progress": 100,
+                    "indexed_resources": 1000,
+                    "total_resources": 1000,
+                },
             ),
             patch("app.services.admin_service.CacheService") as mock_cache_cls,
             patch("app.services.admin_service.reindex_resources") as mock_reindex,

@@ -372,14 +372,14 @@ class TestCreateJsonapiResource:
         assert result["id"] == "123"
         assert result["type"] == "resource"
         assert "attributes" in result
-        
+
         # OGM fields should be in ogm namespace (including id)
         assert "ogm" in result["attributes"]
         assert "id" in result["attributes"]["ogm"]  # id appears in both places
         assert result["attributes"]["ogm"]["id"] == "123"
         assert "dct_title_s" in result["attributes"]["ogm"]
         assert "gbl_resourceClass_sm" in result["attributes"]["ogm"]
-        
+
         # B1G fields should be in b1g namespace
         assert "b1g" in result["attributes"]
         assert "b1g_code_s" in result["attributes"]["b1g"]

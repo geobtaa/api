@@ -1,7 +1,6 @@
+import html as _html
 import ipaddress
 import logging
-import os
-import html as _html
 from pathlib import Path
 from typing import List, Optional
 
@@ -135,7 +134,9 @@ async def purge_cache(
 
         if body.tags:
             deleted = await cache.invalidate_tags(body.tags)
-            return create_response({"ok": True, "mode": "tags", "deleted": deleted, "tags": body.tags})
+            return create_response(
+                {"ok": True, "mode": "tags", "deleted": deleted, "tags": body.tags}
+            )
 
         if body.prefix:
             from app.services.cache_service import invalidate_cache_with_prefix
@@ -285,7 +286,7 @@ async def update_api_key(
     request: UpdateAPIKeyRequest,
 ):
     """Update an API key.
-    
+
     Note: To remove IP restrictions, pass allowed_ips as an empty list [].
     To keep IP restrictions unchanged, omit the allowed_ips field.
     """
@@ -295,9 +296,9 @@ async def update_api_key(
             # Empty list means remove restriction (will be handled by service)
             if request.allowed_ips:
                 validate_ip_addresses(request.allowed_ips)
-        
+
         allowed_ips_update = request.allowed_ips
-        
+
         updated = await api_key_service.update_api_key_by_id(
             key_id=key_id,
             tier_name=request.tier_name,
@@ -442,6 +443,7 @@ async def ogm_harvest_status(
     if include_celery:
         try:
             import asyncio as _asyncio
+
             from app.tasks.worker import celery_app
 
             def _inspect_active():
@@ -497,16 +499,15 @@ async def ogm_harvest_status(
             latest_by_repo[repo_name] = r
 
     # Sort repos for stable scan
-    repos_sorted = sorted(repos, key=lambda r: (r.get("ogm_enabled") is not True, r.get("ogm_repo_name") or ""))
+    repos_sorted = sorted(
+        repos, key=lambda r: (r.get("ogm_enabled") is not True, r.get("ogm_repo_name") or "")
+    )
 
     rows_html = []
     for repo in repos_sorted:
         name = repo.get("ogm_repo_name") or ""
         enabled = bool(repo.get("ogm_enabled"))
         watch_mode = (repo.get("ogm_watch_mode") or "").lower()
-        last_status = (repo.get("ogm_last_harvest_status") or "").lower() or "-"
-        last_started = _parse_dt(repo.get("ogm_last_harvest_started_at"))
-        last_completed = _parse_dt(repo.get("ogm_last_harvest_completed_at"))
 
         run = latest_by_repo.get(name) or {}
         run_id = run.get("ogm_id")
@@ -516,7 +517,8 @@ async def ogm_harvest_status(
         stats = run.get("ogm_stats_json") or {}
         stage = stats.get("stage") or "-"
         updated_at = stats.get("updated_at") or None
-        # updated_at stored as ISO string with Z; keep as-is for display, but compute age if parseable
+        # updated_at stored as ISO string with Z; keep as-is for display.
+        # Compute age if parseable.
         upd_dt = None
         if isinstance(updated_at, str):
             try:
@@ -539,7 +541,11 @@ async def ogm_harvest_status(
         else:
             dur = "-"
 
-        css_class = "ok" if run_status == "success" else ("bad" if run_status == "failed" else ("run" if run_status == "running" else ""))
+        css_class = (
+            "ok"
+            if run_status == "success"
+            else ("bad" if run_status == "failed" else ("run" if run_status == "running" else ""))
+        )
         enabled_txt = "yes" if enabled else "no"
 
         rows_html.append(
@@ -571,6 +577,12 @@ async def ogm_harvest_status(
             )
         )
 
+    counts_html = (
+        f"<div><strong>Counts (last {runs_limit} runs)</strong>: "
+        f"running={counts['running']}, success={counts['success']}, "
+        f"failed={counts['failed']}, other={counts['other']}</div>"
+    )
+
     html_body = f"""
 <!doctype html>
 <html>
@@ -579,7 +591,10 @@ async def ogm_harvest_status(
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>OGM Harvest Status</title>
   <style>
-    body {{ font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 16px; }}
+    body {{
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      margin: 16px;
+    }}
     .meta {{ margin-bottom: 12px; color: #333; }}
     .meta code {{ background: #f2f2f2; padding: 2px 6px; border-radius: 4px; }}
     table {{ border-collapse: collapse; width: 100%; }}
@@ -595,7 +610,7 @@ async def ogm_harvest_status(
 <body>
   <h2>OGM Harvest Status</h2>
   <div class="meta">
-    <div><strong>Counts (last {runs_limit} runs)</strong>: running={counts["running"]}, success={counts["success"]}, failed={counts["failed"]}, other={counts["other"]}</div>
+    {counts_html}
     <div><strong>Auto-refresh</strong>: every 10 seconds</div>
     <div><strong>JSON</strong>: <code>?format=json</code></div>
   </div>
@@ -616,7 +631,7 @@ async def ogm_harvest_status(
       </tr>
     </thead>
     <tbody>
-      {''.join(rows_html)}
+      {"".join(rows_html)}
     </tbody>
   </table>
 </body>

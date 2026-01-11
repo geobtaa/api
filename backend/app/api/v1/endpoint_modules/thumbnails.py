@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from PIL import Image
 
-from app.services.image_service import ImageService
 from app.services.cache_service import cache_control_header, weak_etag_from_body
+from app.services.image_service import ImageService
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +19,19 @@ ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 def _detect_image_type(image_data: bytes) -> str:
     """
     Detect the MIME type of image data by examining its content.
-    
+
     Args:
         image_data: The binary image data
-        
+
     Returns:
         MIME type string (defaults to 'image/jpeg' if detection fails)
     """
     if not image_data or len(image_data) < 4:
         return "image/jpeg"
-    
+
     # Check magic bytes first
     magic_bytes = image_data[:4]
-    
+
     # JPEG: FF D8 FF
     if magic_bytes[:3] == b"\xff\xd8\xff":
         try:
@@ -39,7 +39,7 @@ def _detect_image_type(image_data: bytes) -> str:
             return "image/jpeg"
         except Exception:
             pass
-    
+
     # PNG: 89 50 4E 47
     if magic_bytes == b"\x89PNG":
         try:
@@ -47,7 +47,7 @@ def _detect_image_type(image_data: bytes) -> str:
             return "image/png"
         except Exception:
             pass
-    
+
     # GIF: 47 49 46 38 (GIF8)
     is_gif = magic_bytes[:3] == b"GIF" or (
         len(image_data) > 6 and image_data[:6] in [b"GIF87a", b"GIF89a"]
@@ -58,7 +58,7 @@ def _detect_image_type(image_data: bytes) -> str:
             return "image/gif"
         except Exception:
             pass
-    
+
     # WebP: RIFF...WEBP
     if len(image_data) >= 12 and image_data[:4] == b"RIFF" and image_data[8:12] == b"WEBP":
         try:
@@ -66,7 +66,7 @@ def _detect_image_type(image_data: bytes) -> str:
             return "image/webp"
         except Exception:
             pass
-    
+
     # Try PIL as fallback
     try:
         img = Image.open(io.BytesIO(image_data))
@@ -83,7 +83,7 @@ def _detect_image_type(image_data: bytes) -> str:
         return format_map.get(img.format, "image/jpeg")
     except Exception:
         pass
-    
+
     # Default fallback
     return "image/jpeg"
 

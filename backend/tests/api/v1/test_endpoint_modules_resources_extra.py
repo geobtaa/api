@@ -158,50 +158,8 @@ async def test_get_resource_ogm_not_found(monkeypatch):
     assert resp.status_code == 404
 
 
-# Temporarily disabled - summaries endpoint is commented out
-@pytest.mark.skip(reason="Summaries endpoint is temporarily disabled")
-@pytest.mark.asyncio
-async def test_get_resource_summaries_success(monkeypatch):
-    from app.api.v1.endpoint_modules import resources as res
-
-    class R:
-        def __init__(self, m):
-            self._m = m
-
-        def __iter__(self):
-            return iter(self._m.items())
-
-        def items(self):
-            return self._m.items()
-
-    rows = [R({"id": 1}), R({"id": 2})]
-    res.async_session = lambda: DummySession(fetchall_rows=rows)
-
-    class DummyRequest:
-        def __init__(self):
-            from starlette.datastructures import URL
-
-            self._url = URL("http://test/resources/r1/summaries")
-
-        @property
-        def url(self):
-            return self._url
-
-    resp = await res.get_resource_summaries("r1", callback=None, request=DummyRequest())
-    assert hasattr(resp, "body")
-
-
-@pytest.mark.skip(reason="Summaries endpoint is temporarily disabled")
-@pytest.mark.asyncio
-async def test_get_resource_summaries_error(monkeypatch):
-    from app.api.v1.endpoint_modules import resources as res
-
-    res.async_session = lambda: DummySession(raise_on="execute")
-    from fastapi import HTTPException
-
-    with pytest.raises(HTTPException):
-        await res.get_resource_summaries("r1", callback=None, request=None)
-
+# Summaries endpoint tests removed - endpoint is commented out and not available
+# If the endpoint is re-enabled, these tests should be restored
 
 @pytest.mark.asyncio
 async def test_get_resource_viewer_found(monkeypatch):
@@ -269,6 +227,7 @@ async def test_get_resource_spatial_facets_exists(monkeypatch):
     # Response should be a JSONResponse, check body content
     assert hasattr(resp, "body")
     import json
+
     data = json.loads(resp.body.decode())
     assert "id" in data
     assert "spatial_facets" in data
@@ -296,6 +255,7 @@ async def test_get_resource_spatial_facets_missing(monkeypatch):
     # Response should be a JSONResponse, check body content
     assert hasattr(resp, "body")
     import json
+
     data = json.loads(resp.body.decode())
     assert "id" in data
     assert data["id"] == "x"

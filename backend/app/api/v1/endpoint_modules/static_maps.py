@@ -6,8 +6,8 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from PIL import Image
 
-from app.services.static_map_service import StaticMapService
 from app.services.cache_service import cache_control_header, weak_etag_from_body
+from app.services.static_map_service import StaticMapService
 
 logger = logging.getLogger(__name__)
 
@@ -60,4 +60,3 @@ async def get_static_map(resource_id: str, request: Request):
         media_type="image/png",
         headers=headers,
     )
-

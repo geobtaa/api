@@ -62,4 +62,3 @@ async def list_resources(
     except Exception as e:
         logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
-

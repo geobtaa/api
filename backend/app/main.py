@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
-from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -101,8 +101,10 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+
 # Optional: compress responses (negotiated via Accept-Encoding)
-# - GZipMiddleware supports gzip only; brotli should typically be handled at the edge (e.g., CDN/Nginx).
+# - GZipMiddleware supports gzip only; brotli should typically be handled at the edge
+#   (e.g., CDN/Nginx).
 # - Disabled automatically during tests to avoid surprising header-level assertions.
 def _env_flag(name: str, default: str = "false") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}

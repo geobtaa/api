@@ -45,4 +45,3 @@ async def get_resource_citation(
     except Exception as e:
         logger.error(f"Error getting citation for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-

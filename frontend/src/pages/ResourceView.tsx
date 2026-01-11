@@ -20,6 +20,7 @@ import { LocationMap } from '../components/resource/LocationMap';
 import { DownloadsTable } from '../components/resource/DownloadsTable';
 import { LinksTable } from '../components/resource/LinksTable';
 import { SimilarItemsCarousel } from '../components/resource/SimilarItemsCarousel';
+import { formatCount } from '../utils/formatNumber';
 
 // Define types for search results
 interface SearchResult {
@@ -456,7 +457,7 @@ export function ResourceView({
 
                   {isMounted && searchState && (
                     <span className="text-gray-500 px-2">
-                      {displayIndex} of {searchState.totalResults}
+                      {formatCount(displayIndex)} of {formatCount(searchState.totalResults)}
                     </span>
                   )}
 

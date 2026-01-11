@@ -6,6 +6,7 @@ import type {
   MapFeatureClickPayload,
 } from '../../types/map';
 import { fetchGeoJsonForLevel } from '../../services/geojson';
+import { formatCount } from '../../utils/formatNumber';
 
 // Normalize for loose matching between API labels and GeoJSON names
 function normalizeName(name: string): string {
@@ -112,7 +113,7 @@ export function MapUpdaterCountry({
         layer.bindPopup(`
           <div>
             <h3>${featureName}</h3>
-            <p><strong>Resources:</strong> ${hits}</p>
+            <p><strong>Resources:</strong> ${formatCount(hits)}</p>
             <p><strong>Level:</strong> country</p>
           </div>
         `);

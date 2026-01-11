@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
-import shutil
 
 
 @dataclass(frozen=True)
@@ -49,7 +49,9 @@ class OGMRepoSync:
             text=True,
         )
         head_sha = self._head_sha(repo_dir)
-        return RepoSyncResult(repo_name=repo_name, repo_dir=repo_dir, head_sha=head_sha, action="clone")
+        return RepoSyncResult(
+            repo_name=repo_name, repo_dir=repo_dir, head_sha=head_sha, action="clone"
+        )
 
     def _pull(self, repo_name: str, repo_dir: Path) -> RepoSyncResult:
         subprocess.run(
@@ -59,7 +61,9 @@ class OGMRepoSync:
             text=True,
         )
         head_sha = self._head_sha(repo_dir)
-        return RepoSyncResult(repo_name=repo_name, repo_dir=repo_dir, head_sha=head_sha, action="pull")
+        return RepoSyncResult(
+            repo_name=repo_name, repo_dir=repo_dir, head_sha=head_sha, action="pull"
+        )
 
     def _head_sha(self, repo_dir: Path) -> Optional[str]:
         try:
@@ -73,4 +77,3 @@ class OGMRepoSync:
             return sha or None
         except Exception:
             return None
-

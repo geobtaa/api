@@ -32,15 +32,17 @@ async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False
 
 def get_async_session():
     """Get async session - allows tests to mock async_session.
-    
+
     This function uses the module's async_session attribute, which tests can mock.
     """
     import sys
+
     # Get the current module (resources.__init__)
     module = sys.modules[__name__]
     # Use the module's async_session attribute (which tests can replace)
-    session_factory = getattr(module, 'async_session', async_session)
+    session_factory = getattr(module, "async_session", async_session)
     return session_factory()
+
 
 base_url = os.getenv("APPLICATION_URL", "http://localhost:8000/api/v1/")
 
@@ -129,4 +131,3 @@ from .spatial_facets import get_resource_spatial_facets  # noqa: E402, I001
 
 # Alias for backward compatibility with tests
 get_resource_ogm = get_resource_metadata
-

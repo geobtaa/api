@@ -6,6 +6,7 @@ import type {
   MapFeatureClickPayload,
 } from '../../types/map';
 import { fetchGeoJsonForLevel } from '../../services/geojson';
+import { formatCount } from '../../utils/formatNumber';
 
 // Color scale shared with other updaters
 function getColor(intensity: number): string {
@@ -95,7 +96,7 @@ export function MapUpdaterRegion({
         layer.bindPopup(`
           <div>
             <h3>${featureName}</h3>
-            <p><strong>Resources:</strong> ${hits}</p>
+            <p><strong>Resources:</strong> ${formatCount(hits)}</p>
             <p><strong>Level:</strong> region</p>
           </div>
         `);

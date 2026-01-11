@@ -182,7 +182,7 @@ class TestSearchService:
                     assert isinstance(attributes["ogm"], dict)
                 if "b1g" in attributes:
                     assert isinstance(attributes["b1g"], dict)
-                
+
                 # UI fields should be in meta.ui, not in attributes
                 assert "ui_thumbnail_url" not in attributes
                 assert "ui_citation" not in attributes
@@ -354,7 +354,8 @@ class TestSearchService:
                     # Should be parsed as dict, not string
                     assert isinstance(attributes["ogm"]["dct_references_s"], dict)
                     assert (
-                        attributes["ogm"]["dct_references_s"]["download"] == "http://example.com/download"
+                        attributes["ogm"]["dct_references_s"]["download"]
+                        == "http://example.com/download"
                     )
                 except Exception as e:
                     # Handle event loop issues gracefully

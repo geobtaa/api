@@ -7,8 +7,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-import duckdb
-
 
 @dataclass(frozen=True)
 class OGMRunDumpPaths:
@@ -82,14 +80,23 @@ class OGMHarvestDumpWriter:
         # - If no records were written, skip parquet generation (avoid read_json_auto failures).
         parquet_written = False
         try:
-            if self.count > 0 and self.paths.dataset_ndjson.exists() and self.paths.dataset_ndjson.stat().st_size > 0:
+            if (
+                self.count > 0
+                and self.paths.dataset_ndjson.exists()
+                and self.paths.dataset_ndjson.stat().st_size > 0
+            ):
+                # Lazy import to avoid requiring duckdb at module import time
+                import duckdb
+
                 ndjson_path = str(self.paths.dataset_ndjson).replace("'", "''")
                 parquet_path = str(self.paths.dataset_parquet).replace("'", "''")
                 con = duckdb.connect()
                 try:
-                    con.execute(
-                        f"COPY (SELECT * FROM read_json_auto('{ndjson_path}')) TO '{parquet_path}' (FORMAT 'parquet')"
+                    sql = (
+                        f"COPY (SELECT * FROM read_json_auto('{ndjson_path}')) "
+                        f"TO '{parquet_path}' (FORMAT 'parquet')"
                     )
+                    con.execute(sql)
                     parquet_written = True
                 finally:
                     con.close()
@@ -111,4 +118,3 @@ class OGMHarvestDumpWriter:
         }
         self.paths.manifest_json.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         return self.paths
-

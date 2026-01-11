@@ -82,4 +82,3 @@ async def _ogm_harvest_all_async(trigger: str) -> Dict[str, Any]:
         task_ids.append(task.id)
 
     return {"enqueued": len(task_ids), "repo_names": selected, "task_ids": task_ids}
-

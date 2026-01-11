@@ -857,7 +857,7 @@ describe('FacetList Component', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByText('(999999)')).toBeInTheDocument();
+      expect(screen.getByText('(999,999)')).toBeInTheDocument();
     });
   });
 

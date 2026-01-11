@@ -19,6 +19,7 @@
     "test": "vitest",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
+    "coverage": "vitest --coverage",
     "test:coverage": "vitest --coverage",
     "test:coverage:ui": "vitest --coverage --ui"
   },

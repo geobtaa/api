@@ -45,4 +45,3 @@ async def get_resource_downloads(
     except Exception as e:
         logger.error(f"Error getting downloads for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
-

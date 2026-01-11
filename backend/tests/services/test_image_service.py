@@ -774,7 +774,7 @@ class TestImageServiceCacheInteractions:
     @pytest.mark.slow
     def test_queue_thumbnail_processing_with_real_service(self):
         """Test thumbnail processing queue with real service.
-        
+
         This test is marked as slow because it may wait for Celery/Redis timeouts.
         Skip slow tests with: pytest -m "not slow"
         """
@@ -843,7 +843,7 @@ class TestImageServiceCacheInteractions:
     @pytest.mark.slow
     def test_manifest_fetching_with_real_requests(self):
         """Test manifest fetching with real HTTP requests.
-        
+
         This test is marked as slow because it makes real HTTP requests with 5s timeouts.
         Skip slow tests with: pytest -m "not slow"
         """
@@ -1061,7 +1061,7 @@ class TestImageServiceEdgeCases:
 
     def test_manifest_url_extraction_edge_cases(self):
         """Test manifest URL extraction with various formats.
-        
+
         Note: This test may be slow if Redis connection times out.
         The Redis connection pool now has 1s timeouts to prevent hanging.
         """

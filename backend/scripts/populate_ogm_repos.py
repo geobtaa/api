@@ -40,7 +40,11 @@ def _sync_database_url(database_url: str) -> str:
     is_docker = os.getenv("IS_DOCKER", "false").lower() == "true"
     if not is_docker and sync_url:
         parsed = urlparse(sync_url)
-        docker_hostnames = {"paradedb", "btaa-geospatial-api-paradedb", "btaa-geospatial-api-paradedb-1"}
+        docker_hostnames = {
+            "paradedb",
+            "btaa-geospatial-api-paradedb",
+            "btaa-geospatial-api-paradedb-1",
+        }
         if parsed.hostname in docker_hostnames:
             new_netloc = f"{parsed.username}:{parsed.password}@localhost:2345"
             sync_url = urlunparse(parsed._replace(netloc=new_netloc))
@@ -70,7 +74,9 @@ def list_org_repos(org: str, token: Optional[str], per_page: int = 100) -> List[
             timeout=30,
         )
         if resp.status_code != 200:
-            raise RuntimeError(f"GitHub API error listing repos: {resp.status_code} {resp.text[:500]}")
+            raise RuntimeError(
+                f"GitHub API error listing repos: {resp.status_code} {resp.text[:500]}"
+            )
         batch = resp.json()
         if not isinstance(batch, list) or not batch:
             break
@@ -79,7 +85,9 @@ def list_org_repos(org: str, token: Optional[str], per_page: int = 100) -> List[
     return repos
 
 
-def repo_has_metadata_aardvark(org: str, repo_name: str, default_branch: Optional[str], token: Optional[str]) -> bool:
+def repo_has_metadata_aardvark(
+    org: str, repo_name: str, default_branch: Optional[str], token: Optional[str]
+) -> bool:
     # GitHub contents API for a directory returns a JSON array (200) if present, 404 if missing.
     url = f"https://api.github.com/repos/{org}/{repo_name}/contents/metadata-aardvark"
     params = {}
@@ -131,7 +139,9 @@ def build_repo_row(repo: Dict[str, Any], *, has_aardvark: bool) -> Dict[str, Any
     }
 
 
-def upsert_rows(sync_db_url: str, rows: List[Dict[str, Any]], dry_run: bool = False) -> Tuple[int, int]:
+def upsert_rows(
+    sync_db_url: str, rows: List[Dict[str, Any]], dry_run: bool = False
+) -> Tuple[int, int]:
     if not rows:
         return (0, 0)
     engine = create_engine(sync_db_url)
@@ -164,8 +174,12 @@ def upsert_rows(sync_db_url: str, rows: List[Dict[str, Any]], dry_run: bool = Fa
 
 def main():
     parser = argparse.ArgumentParser(description="Populate ogm_repos from GitHub org repos")
-    parser.add_argument("--org", default="OpenGeoMetadata", help="GitHub org name (default: OpenGeoMetadata)")
-    parser.add_argument("--github-token", default=None, help="GitHub token (or set GITHUB_TOKEN env var)")
+    parser.add_argument(
+        "--org", default="OpenGeoMetadata", help="GitHub org name (default: OpenGeoMetadata)"
+    )
+    parser.add_argument(
+        "--github-token", default=None, help="GitHub token (or set GITHUB_TOKEN env var)"
+    )
     parser.add_argument("--per-page", type=int, default=100, help="GitHub API per_page (max 100)")
     parser.add_argument("--limit", type=int, default=None, help="Limit number of repos processed")
     parser.add_argument("--dry-run", action="store_true", help="Do not write to the database")
@@ -226,4 +240,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

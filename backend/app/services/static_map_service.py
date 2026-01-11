@@ -47,13 +47,13 @@ class StaticMapService:
         """
         self.map_width = map_width
         self.map_height = map_height
-        
+
         # Setup Redis connection for storing maps (same as images)
         self.redis_host = os.getenv("REDIS_HOST", "redis")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.redis_password = os.getenv("REDIS_PASSWORD")
         self.redis_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
-        
+
         try:
             self.map_cache = redis.Redis(
                 host=self.redis_host,
@@ -424,7 +424,7 @@ class StaticMapService:
         """
         if not self.map_cache:
             return None
-        
+
         try:
             map_key = f"static_map:{resource_id}"
             map_data = self.map_cache.get(map_key)
@@ -448,7 +448,7 @@ class StaticMapService:
         """
         if not self.map_cache:
             return False
-        
+
         try:
             map_key = f"static_map:{resource_id}"
             return bool(self.map_cache.exists(map_key))

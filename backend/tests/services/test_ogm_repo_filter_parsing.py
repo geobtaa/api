@@ -11,4 +11,3 @@ def test_ogm_repo_bracket_filter_maps_to_include_filters():
     )
     assert exclude_filters == {}
     assert include_filters.get("ogm_repo") == ["edu.stanford.purl", "edu.umn"]
-

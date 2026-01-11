@@ -21,6 +21,7 @@ def _rate_limit_enabled() -> bool:
 def _bypass_rate_limit_for_tests() -> bool:
     return os.getenv("DISABLE_RATE_LIMIT_FOR_TESTS", "false").lower() == "true"
 
+
 # Backwards-compatible module-level constants (used by some tests that patch them)
 RATE_LIMIT_ENABLED = _rate_limit_enabled()
 DISABLE_RATE_LIMIT_FOR_TESTS = _bypass_rate_limit_for_tests()
@@ -44,9 +45,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Skip rate limiting when test bypass flag is set, unless explicitly forced
         if _bypass_rate_limit_for_tests() and not request.headers.get("X-Force-RateLimit"):
-            logger.debug(
-                "Rate limiting bypassed for tests (DISABLE_RATE_LIMIT_FOR_TESTS=true)"
-            )
+            logger.debug("Rate limiting bypassed for tests (DISABLE_RATE_LIMIT_FOR_TESTS=true)")
             return await call_next(request)
 
         # Skip rate limiting for admin endpoints (already protected)

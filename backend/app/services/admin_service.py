@@ -11,7 +11,7 @@ from typing import Any, Dict, Optional, Tuple
 from sqlalchemy import select
 
 from app.elasticsearch.index import reindex_resources
-from app.services.cache_service import ENDPOINT_CACHE, CacheService, invalidate_cache_with_prefix
+from app.services.cache_service import ENDPOINT_CACHE, CacheService
 from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,

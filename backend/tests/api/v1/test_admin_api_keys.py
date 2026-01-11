@@ -51,14 +51,14 @@ class TestAdminAPIKeysLifecycle:
         # Ensure tiers exist (idempotent, safe to call multiple times)
         # This uses synchronous connection that commits immediately
         initialize_api_tiers()
-        
+
         # Verify tier exists before creating key (helps debug if tier lookup fails)
         tiers_resp = admin_client.get("/api/v1/admin/api-tiers", auth=self.auth)
         assert tiers_resp.status_code == 200
         tiers_data = tiers_resp.json()
         tier_names = {t["tier_name"] for t in tiers_data["tiers"]}
         assert "anonymous" in tier_names, f"Anonymous tier not found. Available tiers: {tier_names}"
-        
+
         # 1. Create key for anonymous tier (exists in seed data)
         create_payload = {"tier_name": "anonymous", "name": "test-key"}
         create_resp = admin_client.post(

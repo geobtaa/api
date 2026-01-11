@@ -71,4 +71,3 @@ async def get_resource_distributions(
     except Exception as e:
         logger.error(f"Error getting distributions for resource {id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
-

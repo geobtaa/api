@@ -1,2 +1,1 @@
 """OpenGeoMetadata harvesting services."""
-

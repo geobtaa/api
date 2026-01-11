@@ -87,7 +87,10 @@ def main() -> int:
     if not cmd:
         print("[run_with_timeout] ERROR: no command provided", file=sys.stderr)
         print(
-            "Usage: WALLCLOCK_TIMEOUT_SECONDS=1800 python scripts/run_with_timeout.py <cmd> [args...]",
+            (
+                "Usage: WALLCLOCK_TIMEOUT_SECONDS=1800 "
+                "python scripts/run_with_timeout.py <cmd> [args...]"
+            ),
             file=sys.stderr,
         )
         return 2
@@ -106,7 +109,10 @@ def main() -> int:
                 if timeout_seconds and (time.time() - start) > timeout_seconds:
                     elapsed = time.time() - start
                     print(
-                        f"[run_with_timeout] TIMEOUT after {elapsed:.1f}s (limit={timeout_seconds:.1f}s).",
+                        (
+                            f"[run_with_timeout] TIMEOUT after {elapsed:.1f}s "
+                            f"(limit={timeout_seconds:.1f}s)."
+                        ),
                         file=sys.stderr,
                     )
                     _print_last_heartbeat(stderr=True)
@@ -116,7 +122,8 @@ def main() -> int:
                         try:
                             os.killpg(proc.pid, signal.SIGUSR1)
                             print(
-                                "[run_with_timeout] sent SIGUSR1 to process group for traceback dump",
+                                "[run_with_timeout] sent SIGUSR1 to process group for "
+                                "traceback dump",
                                 file=sys.stderr,
                             )
                         except Exception:
@@ -153,7 +160,8 @@ def main() -> int:
                         try:
                             os.killpg(proc.pid, signal.SIGTERM)
                             print(
-                                "[run_with_timeout] still running after grace; sent SIGTERM to process group",
+                                "[run_with_timeout] still running after grace; sent "
+                                "SIGTERM to process group",
                                 file=sys.stderr,
                             )
                         except Exception:
@@ -189,4 +197,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

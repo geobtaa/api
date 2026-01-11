@@ -158,9 +158,7 @@ class OGMResourceImporter:
         out["b1g_adminTags_sm"] = deduped
 
         # Coerce timestamp/date columns to proper Python types for asyncpg.
-        timestamp_fields = {
-            c.name for c in resources.c if c.type.__class__.__name__ == "TIMESTAMP"
-        }
+        timestamp_fields = {c.name for c in resources.c if c.type.__class__.__name__ == "TIMESTAMP"}
         date_fields = {c.name for c in resources.c if c.type.__class__.__name__ == "Date"}
 
         for f in timestamp_fields:
@@ -230,8 +228,12 @@ class OGMResourceImporter:
                     row = {c.name: normalized.get(c.name) for c in resources.c}
 
                     stmt = pg_insert(resources).values(row)
-                    update_map = {c.name: stmt.excluded[c.name] for c in resources.c if c.name != "id"}
-                    stmt = stmt.on_conflict_do_update(index_elements=[resources.c.id], set_=update_map)
+                    update_map = {
+                        c.name: stmt.excluded[c.name] for c in resources.c if c.name != "id"
+                    }
+                    stmt = stmt.on_conflict_do_update(
+                        index_elements=[resources.c.id], set_=update_map
+                    )
                     await database.execute(stmt)
 
                     # Mark seen for missing tracking
@@ -272,7 +274,8 @@ class OGMResourceImporter:
         run_started_at = run_started_at or datetime.utcnow()
 
         # asyncpg/Postgres has a hard limit on number of bind parameters per statement (32767).
-        # Our bulk UPSERT is row_count * column_count parameters; clamp batch_size to stay under the limit.
+        # Our bulk UPSERT is row_count * column_count parameters; clamp batch_size to
+        # stay under the limit.
         # Use a little headroom to avoid edge cases.
         PARAM_LIMIT = 32767
         HEADROOM = 256
@@ -309,7 +312,8 @@ class OGMResourceImporter:
         async def _flush_rows(rows: List[Dict[str, Any]], seen: List[Dict[str, Any]]) -> int:
             """
             Try a bulk upsert. If it fails, bisect to isolate bad records and continue.
-            Runs each attempt inside its own transaction so one bad record doesn't poison the whole repo.
+            Runs each attempt inside its own transaction so one bad record doesn't poison
+            the whole repo.
             """
             if not rows:
                 return 0
@@ -373,7 +377,11 @@ class OGMResourceImporter:
                 if len(batch_rows) >= batch_size:
                     await _flush()
             except Exception as e:
-                logger.warning("OGM record normalization/enqueue failed; skipping. repo=%s err=%s", repo_name, str(e))
+                logger.warning(
+                    "OGM record normalization/enqueue failed; skipping. repo=%s err=%s",
+                    repo_name,
+                    str(e),
+                )
                 stats["errors"] += 1
 
         # flush remaining
@@ -384,4 +392,3 @@ class OGMResourceImporter:
 
         await self.repo.mark_missing_stale(repo_name, run_started_at=run_started_at)
         return stats
-

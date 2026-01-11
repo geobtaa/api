@@ -14,6 +14,7 @@ import type { FacetValuesSort } from '../../types/api';
 import { FACET_LABELS, normalizeFacetId } from '../../utils/facetLabels';
 import { getFacetValueDisplayLabel } from '../../utils/facetDisplay';
 import { humanizeFieldName } from '../../constants/fieldLabels';
+import { formatCount } from '../../utils/formatNumber';
 
 interface FacetMoreModalProps {
   facetId: string;
@@ -430,7 +431,7 @@ export function FacetMoreModal({
                         {displayLabel}
                       </div>
                       <div className="text-xs text-gray-500 mt-1">
-                        ({item.attributes.hits})
+                        ({formatCount(item.attributes.hits)})
                       </div>
                       <div className="mt-2 flex items-center gap-2 text-xs">
                         {included && (
@@ -502,7 +503,7 @@ export function FacetMoreModal({
 
         <footer className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-gray-600">
-            Showing page {page} of {totalPages} • {totalCount} total values
+            Showing page {page} of {totalPages} • {formatCount(totalCount)} total values
           </div>
           <div className="flex items-center gap-2">
             <button

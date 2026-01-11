@@ -1,3 +1,5 @@
+# ruff: noqa: E402
+
 """
 Debug tool: find resources that exist in Postgres but are missing from Elasticsearch,
 then attempt to index them individually and record the exact failure reasons.
@@ -19,7 +21,7 @@ import json
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 from sqlalchemy import select
 
@@ -40,7 +42,10 @@ def _parse_args(argv: List[str]) -> argparse.Namespace:
         "--repo",
         dest="repo_name",
         default=None,
-        help="Limit to resources tagged with b1g_adminTags_sm containing ogm_repo:<repo> (e.g. edu.stanford.purl)",
+        help=(
+            "Limit to resources tagged with b1g_adminTags_sm containing ogm_repo:<repo> "
+            "(e.g. edu.stanford.purl)"
+        ),
     )
     p.add_argument(
         "--index",
@@ -199,4 +204,3 @@ async def main(argv: List[str]) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(main(sys.argv[1:])))
-

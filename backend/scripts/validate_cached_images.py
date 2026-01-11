@@ -4,6 +4,7 @@ Script to validate cached thumbnail images and remove invalid entries.
 
 This script checks all cached images in Redis and removes entries that are not valid images.
 """
+
 import io
 import logging
 import os
@@ -27,7 +28,7 @@ def is_valid_image(content: bytes) -> bool:
     """Check if content is a valid image."""
     if not content or len(content) < 4:
         return False
-    
+
     try:
         img = Image.open(io.BytesIO(content))
         img.verify()
@@ -43,18 +44,18 @@ def validate_cached_images(dry_run: bool = True):
     # If IS_DOCKER is set, use 'redis' as host (Docker network)
     # Otherwise, try localhost first, then fall back to 'redis'
     is_docker = os.getenv("IS_DOCKER", "").lower() in ("true", "1", "yes")
-    
+
     if is_docker:
         redis_host = os.getenv("REDIS_HOST", "redis")
     else:
         # Try localhost first (for Docker port mapping)
         redis_host = os.getenv("REDIS_HOST", "localhost")
-    
+
     redis_port = int(os.getenv("REDIS_PORT", 6379))
     redis_password = os.getenv("REDIS_PASSWORD")
-    
+
     logger.info(f"Connecting to Redis at {redis_host}:{redis_port} (Docker mode: {is_docker})")
-    
+
     try:
         redis_client = redis.Redis(
             host=redis_host,
@@ -100,26 +101,26 @@ def validate_cached_images(dry_run: bool = True):
                 "   docker-compose exec api python scripts/validate_cached_images.py"
             )
             raise
-    
+
     logger.info("Scanning Redis for cached images...")
-    
+
     # Scan all keys that start with "image:"
     cursor = 0
     total_checked = 0
     invalid_count = 0
     valid_count = 0
-    
+
     while True:
         cursor, keys = redis_client.scan(cursor, match="image:*", count=100)
-        
+
         for key in keys:
             total_checked += 1
             key_str = key.decode() if isinstance(key, bytes) else key
             image_hash = key_str.split(":", 1)[1] if ":" in key_str else key_str
-            
+
             try:
                 image_data = redis_client.get(key)
-                
+
                 if not image_data:
                     logger.warning(f"Empty cache entry: {key_str}")
                     if not dry_run:
@@ -127,7 +128,7 @@ def validate_cached_images(dry_run: bool = True):
                         logger.info(f"Deleted empty entry: {key_str}")
                     invalid_count += 1
                     continue
-                
+
                 if is_valid_image(image_data):
                     valid_count += 1
                     if total_checked % 100 == 0:
@@ -142,27 +143,27 @@ def validate_cached_images(dry_run: bool = True):
                         f"size: {len(image_data)} bytes, "
                         f"first_bytes: {image_data[:100]!r})"
                     )
-                    
+
                     if not dry_run:
                         # Also delete the associated type key if it exists
                         type_key = f"image_type:{image_hash}"
                         redis_client.delete(key, type_key)
                         logger.info(f"Deleted invalid entry: {key_str} and {type_key}")
-                    
+
             except Exception as e:
                 logger.error(f"Error checking {key_str}: {e}")
                 invalid_count += 1
-        
+
         if cursor == 0:
             break
-    
+
     logger.info(
         f"\n=== Validation Complete ==="
         f"\nTotal checked: {total_checked}"
         f"\nValid images: {valid_count}"
         f"\nInvalid entries: {invalid_count}"
     )
-    
+
     if dry_run:
         logger.info("\nThis was a dry run. Run with --fix to remove invalid entries.")
     else:
@@ -171,7 +172,7 @@ def validate_cached_images(dry_run: bool = True):
 
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(
         description="Validate cached thumbnail images",
         epilog="""
@@ -189,9 +190,9 @@ Examples:
         action="store_true",
         help="Actually remove invalid entries (default is dry run)",
     )
-    
+
     args = parser.parse_args()
-    
+
     try:
         validate_cached_images(dry_run=not args.fix)
     except redis.exceptions.ConnectionError:
@@ -204,4 +205,3 @@ Examples:
     except Exception as e:
         logger.error(f"Error: {e}", exc_info=True)
         sys.exit(1)
-

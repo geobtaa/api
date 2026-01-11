@@ -52,9 +52,9 @@ async def init_elasticsearch():
             # Ensure newly-added fields exist in mappings (non-destructive).
             try:
                 current = await es.indices.get_mapping(index=index_name)
-                props = (
-                    (current.get(index_name, {}) or {}).get("mappings", {}) or {}
-                ).get("properties", {}) or {}
+                props = ((current.get(index_name, {}) or {}).get("mappings", {}) or {}).get(
+                    "properties", {}
+                ) or {}
                 if "ogm_repo" not in props:
                     logger.info("Adding missing mapping field: ogm_repo")
                     await es.indices.put_mapping(

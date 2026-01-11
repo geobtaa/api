@@ -14,13 +14,29 @@ def client():
     return TestClient(app)
 
 
-@pytest.fixture
+@pytest.fixture(scope="function")
 async def async_client():
     """Return an async HTTP client for testing."""
     from httpx import ASGITransport
+    from db.database import database
+
+    # Always disconnect and reconnect to ensure we're using this event loop's connection pool
+    # This avoids "Future attached to a different loop" errors when running multiple tests
+    try:
+        await database.disconnect()
+    except Exception:
+        pass  # Ignore errors if not connected
+    await database.connect()
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:
-        yield ac
+        try:
+            yield ac
+        finally:
+            # Clean up: disconnect after test to avoid connection pool issues
+            try:
+                await database.disconnect()
+            except Exception:
+                pass
 
 
 @pytest.fixture

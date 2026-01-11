@@ -14,6 +14,7 @@ import { SortControl } from '../components/search/SortControl';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
 import { GeospatialFilterMap } from '../components/search/GeospatialFilterMap';
 import { parseSearchParams } from '../utils/searchParams';
+import { formatCount } from '../utils/formatNumber';
 import type { JsonApiResponse } from '../types/api';
 
 type SearchPageProps = {
@@ -323,9 +324,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                     ) : (
                       <h2 className="text-lg text-gray-600">
                         Showing results{' '}
-                        {Math.min((page - 1) * perPage + 1, searchTotalResults)}-
-                        {Math.min(page * perPage, searchTotalResults)} of{' '}
-                        {searchTotalResults}
+                        {formatCount(Math.min((page - 1) * perPage + 1, searchTotalResults))}-
+                        {formatCount(Math.min(page * perPage, searchTotalResults))} of{' '}
+                        {formatCount(searchTotalResults)}
                       </h2>
                     )}
                     <SortControl

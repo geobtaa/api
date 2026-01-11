@@ -1,4 +1,3 @@
-import os
 from datetime import datetime, timedelta
 
 import pytest
@@ -47,18 +46,27 @@ class TestOGMHarvestService:
 
         try:
             # Clean up any leftovers from previous runs
-            await database.execute(delete(ogm_resource_state).where(ogm_resource_state.c.ogm_repo_name == repo_name))
+            await database.execute(
+                delete(ogm_resource_state).where(ogm_resource_state.c.ogm_repo_name == repo_name)
+            )
             await database.execute(delete(ogm_repos).where(ogm_repos.c.ogm_repo_name == repo_name))
-            await database.execute(delete(resources).where(resources.c.id.in_(["test-ogm-a", "test-ogm-b"])))
+            await database.execute(
+                delete(resources).where(resources.c.id.in_(["test-ogm-a", "test-ogm-b"]))
+            )
 
             # Ensure repo exists
-            await repo.upsert_repo(ogm_repo_name=repo_name, ogm_enabled=True, ogm_watch_mode="weekly")
+            await repo.upsert_repo(
+                ogm_repo_name=repo_name, ogm_enabled=True, ogm_watch_mode="weekly"
+            )
 
             # First run: A and B present
             run1_started = datetime.utcnow()
             stats1 = await importer.upsert_stream(
                 repo_name=repo_name,
-                record_stream=[(record_a, "metadata-aardvark/a.json"), (record_b, "metadata-aardvark/b.json")],
+                record_stream=[
+                    (record_a, "metadata-aardvark/a.json"),
+                    (record_b, "metadata-aardvark/b.json"),
+                ],
                 source_commit_sha="deadbeef",
                 batch_size=2,
                 run_started_at=run1_started,
@@ -66,7 +74,9 @@ class TestOGMHarvestService:
             assert stats1["imported"] == 2
 
             # Verify tags injected
-            row_a = await database.fetch_one(select(resources).where(resources.c.id == "test-ogm-a"))
+            row_a = await database.fetch_one(
+                select(resources).where(resources.c.id == "test-ogm-a")
+            )
             assert row_a is not None
             tags = row_a["b1g_adminTags_sm"] or []
             assert f"ogm_repo:{repo_name}" in tags
@@ -101,9 +111,16 @@ class TestOGMHarvestService:
         finally:
             # Cleanup
             try:
-                await database.execute(delete(ogm_resource_state).where(ogm_resource_state.c.ogm_repo_name == repo_name))
-                await database.execute(delete(ogm_repos).where(ogm_repos.c.ogm_repo_name == repo_name))
-                await database.execute(delete(resources).where(resources.c.id.in_(["test-ogm-a", "test-ogm-b"])))
+                await database.execute(
+                    delete(ogm_resource_state).where(
+                        ogm_resource_state.c.ogm_repo_name == repo_name
+                    )
+                )
+                await database.execute(
+                    delete(ogm_repos).where(ogm_repos.c.ogm_repo_name == repo_name)
+                )
+                await database.execute(
+                    delete(resources).where(resources.c.id.in_(["test-ogm-a", "test-ogm-b"]))
+                )
             except Exception:
                 pass
-

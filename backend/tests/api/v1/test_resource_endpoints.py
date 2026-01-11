@@ -321,7 +321,7 @@ def test_allmaps_attributes_placement():
             # Check both ogm and b1g namespaces if they exist
             ogm_attrs = attributes.get("ogm", {})
             b1g_attrs = attributes.get("b1g", {})
-            
+
             for key in allmaps_keys:
                 assert key not in ogm_attrs, (
                     f"Allmaps attribute '{key}' should not be in data.attributes.ogm"

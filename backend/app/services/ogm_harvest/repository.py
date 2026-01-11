@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import and_, select, update
+from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db.database import database
@@ -163,7 +163,9 @@ class OGMHarvestRepository:
         return [dict(r) for r in rows]
 
     async def get_harvest_run(self, ogm_id: int) -> Optional[Dict[str, Any]]:
-        row = await database.fetch_one(select(ogm_harvest_runs).where(ogm_harvest_runs.c.ogm_id == ogm_id))
+        row = await database.fetch_one(
+            select(ogm_harvest_runs).where(ogm_harvest_runs.c.ogm_id == ogm_id)
+        )
         return dict(row) if row else None
 
     async def list_missing_for_repo(
@@ -232,7 +234,10 @@ class OGMHarvestRepository:
             ogm_updated_at=now,
         )
         stmt = stmt.on_conflict_do_update(
-            index_elements=[ogm_resource_state.c.ogm_repo_name, ogm_resource_state.c.ogm_resource_id],
+            index_elements=[
+                ogm_resource_state.c.ogm_repo_name,
+                ogm_resource_state.c.ogm_resource_id,
+            ],
             set_={
                 "ogm_last_seen_at": stmt.excluded.ogm_last_seen_at,
                 "ogm_missing_since": None,
@@ -281,7 +286,10 @@ class OGMHarvestRepository:
 
         stmt = pg_insert(ogm_resource_state).values(rows)
         stmt = stmt.on_conflict_do_update(
-            index_elements=[ogm_resource_state.c.ogm_repo_name, ogm_resource_state.c.ogm_resource_id],
+            index_elements=[
+                ogm_resource_state.c.ogm_repo_name,
+                ogm_resource_state.c.ogm_resource_id,
+            ],
             set_={
                 "ogm_last_seen_at": stmt.excluded.ogm_last_seen_at,
                 "ogm_missing_since": None,
@@ -313,4 +321,3 @@ class OGMHarvestRepository:
         )
         rows = await database.fetch_all(stmt)
         return len(rows)
-

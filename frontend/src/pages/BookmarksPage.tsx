@@ -11,6 +11,7 @@ import { FacetList } from '../components/FacetList';
 import { MapView } from '../components/search/MapView';
 import { SortControl } from '../components/search/SortControl';
 import { CONFIGURED_FACETS } from '../constants/facets';
+import { formatCount } from '../utils/formatNumber';
 
 export function BookmarksPage() {
   const { bookmarks } = useBookmarks();
@@ -64,7 +65,7 @@ export function BookmarksPage() {
             <div className="py-6">
               <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  Bookmarked Resources ({bookmarks.length})
+                  Bookmarked Resources ({formatCount(bookmarks.length)})
                 </h1>
                 {results?.included?.filter((item) => item.type === 'sort')
                   .length > 0 && (

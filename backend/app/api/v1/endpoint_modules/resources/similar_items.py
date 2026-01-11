@@ -43,4 +43,3 @@ async def get_resource_similar_items(
     except Exception as e:
         logger.error(f"Error getting similar items for resource {id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e)) from e
-

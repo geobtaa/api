@@ -41,11 +41,17 @@ logger = logging.getLogger(__name__)
 # Setup Celery
 broker_url = os.getenv(
     "CELERY_BROKER_URL",
-    f"redis://:{os.getenv('REDIS_PASSWORD','')}@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/0",
+    (
+        f"redis://:{os.getenv('REDIS_PASSWORD', '')}"
+        f"@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/0"
+    ),
 )
 result_backend = os.getenv(
     "CELERY_RESULT_BACKEND",
-    f"redis://:{os.getenv('REDIS_PASSWORD','')}@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/1",
+    (
+        f"redis://:{os.getenv('REDIS_PASSWORD', '')}"
+        f"@{os.getenv('REDIS_HOST', 'redis')}:{os.getenv('REDIS_PORT', 6379)}/1"
+    ),
 )
 
 celery_app = Celery("tasks", broker=broker_url, backend=result_backend)
@@ -116,27 +122,24 @@ def fetch_and_cache_image(self, url: str) -> bool:
 
         logger.info(f"Fetching image: {resolved_url}")
         # Use User-Agent header to avoid 403 errors from servers that block bots
-        headers = {
-            "User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"
-        }
+        headers = {"User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"}
         response = requests.get(resolved_url, timeout=15, headers=headers)
-        
+
         # Don't retry non-recoverable bot-block/authorization responses.
         # - 401/403: auth
         # - 418: common bot-block response (e.g., MSU)
         if response.status_code in (401, 403, 418):
             logger.warning(
-                f"Authorization error ({response.status_code}) "
-                f"for {resolved_url}. Not caching."
+                f"Authorization error ({response.status_code}) for {resolved_url}. Not caching."
             )
             return False
-            
+
         response.raise_for_status()
 
         # Validate that the response is actually an image
         content_type = response.headers.get("Content-Type", "")
         is_valid, detected_type = _validate_image_content(response.content, content_type)
-        
+
         if not is_valid:
             logger.error(
                 f"❌ Invalid image content from {resolved_url}: "
@@ -171,7 +174,7 @@ def fetch_and_cache_image(self, url: str) -> bool:
             return False
     except requests.RequestException as http_err:
         # Don't retry non-recoverable bot-block/authorization responses.
-        if isinstance(http_err, requests.HTTPError) and hasattr(http_err.response, 'status_code'):
+        if isinstance(http_err, requests.HTTPError) and hasattr(http_err.response, "status_code"):
             if http_err.response.status_code in (401, 403, 418):
                 logger.warning(
                     f"Non-retryable HTTP status ({http_err.response.status_code}) "
@@ -206,17 +209,17 @@ def _validate_image_content(
 ) -> Tuple[bool, Optional[str]]:
     """
     Validate that content is a valid image and return its detected MIME type.
-    
+
     Args:
         content: The binary content to validate
         content_type: Optional Content-Type header from HTTP response
-        
+
     Returns:
         Tuple of (is_valid, detected_mime_type)
     """
     if not content or len(content) < 4:
         return False, None
-    
+
     # Check Content-Type header first (but don't trust it blindly)
     if content_type:
         content_type_lower = content_type.lower().split(";")[0].strip()
@@ -224,10 +227,10 @@ def _validate_image_content(
         if not content_type_lower.startswith("image/"):
             logger.warning(f"Content-Type indicates non-image: {content_type}")
             return False, None
-    
+
     # Check magic bytes (file signatures) for common image formats
     magic_bytes = content[:4]
-    
+
     # JPEG: FF D8 FF
     if magic_bytes[:3] == b"\xff\xd8\xff":
         try:
@@ -236,7 +239,7 @@ def _validate_image_content(
         except Exception as e:
             logger.warning(f"Invalid JPEG: {e}")
             return False, None
-    
+
     # PNG: 89 50 4E 47
     if magic_bytes == b"\x89PNG":
         try:
@@ -245,7 +248,7 @@ def _validate_image_content(
         except Exception as e:
             logger.warning(f"Invalid PNG: {e}")
             return False, None
-    
+
     # GIF: 47 49 46 38 (GIF8)
     if magic_bytes[:3] == b"GIF" or (len(content) > 6 and content[:6] in [b"GIF87a", b"GIF89a"]):
         try:
@@ -254,7 +257,7 @@ def _validate_image_content(
         except Exception as e:
             logger.warning(f"Invalid GIF: {e}")
             return False, None
-    
+
     # WebP: RIFF...WEBP (check first 12 bytes)
     if len(content) >= 12 and content[:4] == b"RIFF" and content[8:12] == b"WEBP":
         try:
@@ -263,7 +266,7 @@ def _validate_image_content(
         except Exception as e:
             logger.warning(f"Invalid WebP: {e}")
             return False, None
-    
+
     # Try PIL to validate as fallback (for other formats like TIFF, BMP, etc.)
     try:
         img = Image.open(io.BytesIO(content))

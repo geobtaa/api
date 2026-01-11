@@ -52,7 +52,9 @@ async def ogm_webhook(request: Request):
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON payload") from None
 
-    repo_full = (payload.get("repository") or {}).get("full_name")  # e.g. OpenGeoMetadata/edu.stanford.purl
+    repo_full = (payload.get("repository") or {}).get(
+        "full_name"
+    )  # e.g. OpenGeoMetadata/edu.stanford.purl
     if not isinstance(repo_full, str) or "/" not in repo_full:
         raise HTTPException(status_code=400, detail="Missing repository.full_name")
 
@@ -72,4 +74,3 @@ async def ogm_webhook(request: Request):
 
     task = ogm_harvest_repo.delay(repo_name=repo_name, trigger="webhook")
     return {"ok": True, "queued": repo_name, "task_id": task.id}
-

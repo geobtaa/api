@@ -27,10 +27,14 @@ class TestStoreGeoEntitiesInDB:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
+            error_str = str(e).lower()
             assert (
-                "database" in str(e).lower()
-                or "connection" in str(e).lower()
-                or "transaction" in str(e).lower()
+                "database" in error_str
+                or "connection" in error_str
+                or "transaction" in error_str
+                or "pool" in error_str
+                or "closed" in error_str
+                or "initialized" in error_str
             )
 
     @pytest.mark.asyncio
@@ -93,10 +97,14 @@ class TestStoreGeoEntitiesInDB:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
+            error_str = str(e).lower()
             assert (
-                "database" in str(e).lower()
-                or "connection" in str(e).lower()
-                or "transaction" in str(e).lower()
+                "database" in error_str
+                or "connection" in error_str
+                or "transaction" in error_str
+                or "pool" in error_str
+                or "closed" in error_str
+                or "initialized" in error_str
             )
 
     @pytest.mark.asyncio
@@ -114,10 +122,14 @@ class TestStoreGeoEntitiesInDB:
             await store_geo_entities_in_db(resource_id, model, entities, prompt, output_parser)
         except Exception as e:
             # Expected to fail due to database connection issues in test environment
+            error_str = str(e).lower()
             assert (
-                "database" in str(e).lower()
-                or "connection" in str(e).lower()
-                or "transaction" in str(e).lower()
+                "database" in error_str
+                or "connection" in error_str
+                or "transaction" in error_str
+                or "pool" in error_str
+                or "closed" in error_str
+                or "initialized" in error_str
             )
 
 

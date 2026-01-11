@@ -194,11 +194,7 @@ class APIKeyService:
                 else:
                     insert_values["allowed_ips"] = None
 
-                insert_stmt = (
-                    api_keys.insert()
-                    .values(**insert_values)
-                    .returning(api_keys.c.id)
-                )
+                insert_stmt = api_keys.insert().values(**insert_values).returning(api_keys.c.id)
 
                 result = await session.execute(insert_stmt)
                 key_id = result.scalar_one_or_none()
@@ -318,9 +314,7 @@ class APIKeyService:
                             "tier_display_name": m["tier_display_name"],
                             "name": m["name"],
                             "is_active": m["is_active"],
-                            "created_at": m["created_at"].isoformat()
-                            if m["created_at"]
-                            else None,
+                            "created_at": m["created_at"].isoformat() if m["created_at"] else None,
                             "last_used_at": m["last_used_at"].isoformat()
                             if m["last_used_at"]
                             else None,
@@ -405,9 +399,7 @@ class APIKeyService:
                 update_values["updated_at"] = datetime.utcnow()
 
                 update_stmt = (
-                    api_keys.update()
-                    .where(api_keys.c.id == key_id)
-                    .values(**update_values)
+                    api_keys.update().where(api_keys.c.id == key_id).values(**update_values)
                 )
                 await session.execute(update_stmt)
                 await session.commit()

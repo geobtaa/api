@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Generator, Iterable, Tuple
+from typing import Dict, Generator, Iterable
 
 
 @dataclass(frozen=True)
@@ -55,4 +55,3 @@ def extract_record_id(record: Dict) -> str | None:
         or record.get("dc_identifier_s")
         or record.get("dct_identifier_s")
     )
-

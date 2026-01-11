@@ -87,7 +87,7 @@ class ImageService:
         self.redis_host = os.getenv("REDIS_HOST", "redis")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-        
+
         # Use shared connection pool to avoid creating new connections for each instance
         self.cache = redis.Redis(connection_pool=_get_redis_connection_pool())
         self.cache_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days in seconds
@@ -122,12 +122,10 @@ class ImageService:
         try:
             self.logger.info(f"🐌 Cache MISS for manifest {manifest_url}")
             # Use User-Agent header to avoid 403 errors from servers that block bots
-            headers = {
-                "User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"
-            }
+            headers = {"User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"}
             # Increased timeout for slow servers
             response = requests.get(manifest_url, timeout=5.0, headers=headers)
-            
+
             # Don't try to parse 403/401 responses - they indicate authorization issues
             if response.status_code in (401, 403):
                 self.logger.warning(
@@ -135,7 +133,7 @@ class ImageService:
                     f"for manifest {manifest_url}. Cannot fetch."
                 )
                 return None
-                
+
             response.raise_for_status()
             manifest_data = response.json()
 
@@ -198,9 +196,7 @@ class ImageService:
             elif manifest_json.get("items"):
                 # Check for thumbnail in first canvas (items[0].thumbnail)
                 first_canvas = (
-                    manifest_json.get("items", [{}])[0]
-                    if manifest_json.get("items")
-                    else {}
+                    manifest_json.get("items", [{}])[0] if manifest_json.get("items") else {}
                 )
                 if first_canvas.get("thumbnail"):
                     canvas_thumb = first_canvas["thumbnail"]
@@ -227,14 +223,14 @@ class ImageService:
                     if isinstance(service, list) and service:
                         # Service is an array, get first element
                         service = service[0]
-                    
+
                     if isinstance(service, dict):
                         body_service_id = service.get("@id") or service.get("id")
                     elif isinstance(service, str):
                         body_service_id = service
                     else:
                         body_service_id = None
-                    
+
                     if body_service_id:
                         self.logger.debug(f"Found body service ID: {body_service_id}")
                         return f"{body_service_id}/full/400,/0/default.jpg"
@@ -359,11 +355,11 @@ class ImageService:
                                 )
                                 if resolved_url:
                                     resolved_url = self._standardize_iiif_url(resolved_url)
-                                    
+
                                     # Check if the resolved image URL is already cached
                                     image_hash = hashlib.sha256(resolved_url.encode()).hexdigest()
                                     image_key = f"image:{image_hash}"
-                                    
+
                                     if self.image_cache.exists(image_key):
                                         self.logger.info(
                                             f"🚀 Cache HIT for resolved manifest image {doc_id}"
@@ -379,17 +375,16 @@ class ImageService:
                     except Exception as e:
                         # If Redis is unavailable, fall back to non-cached behavior
                         self.logger.debug(
-                            f"Redis unavailable while checking manifest cache "
-                            f"for {doc_id}: {e}"
+                            f"Redis unavailable while checking manifest cache for {doc_id}: {e}"
                         )
-                    
+
                     # Manifest not cached or resolution failed - queue for background processing
                     # DO NOT fetch manifest synchronously - this blocks the API response
                     self.logger.info(
                         f"🚀 Queueing manifest resolution for {doc_id}: {thumbnail_url}"
                     )
                     self._queue_thumbnail_processing(thumbnail_url, doc_id)
-                    
+
                     # Return None - frontend will use resource class icon until ready
                     return None
                 else:

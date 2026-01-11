@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 
 from app.main import app
 
@@ -49,8 +50,7 @@ def mock_suggest_response():
 
 @pytest.mark.integration
 @pytest.mark.elasticsearch
-@pytest.mark.asyncio
-async def test_search_endpoint_with_real_data():
+def test_search_endpoint_with_real_data(client: TestClient):
     """Test the search endpoint using actual test data."""
     # Call endpoint with a search query that should return results
     response = client.get("/api/v1/search?q=minnesota&page=1&limit=10")
@@ -77,8 +77,7 @@ async def test_search_endpoint_with_real_data():
 
 @pytest.mark.integration
 @pytest.mark.elasticsearch
-@pytest.mark.asyncio
-async def test_search_with_sort():
+def test_search_with_sort(client: TestClient):
     """Test the search endpoint with sorting."""
     # Call endpoint with sort parameter
     response = client.get("/api/v1/search?q=test&sort=year_desc")
@@ -97,10 +96,10 @@ async def test_search_with_sort():
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_search_with_filters():
+async def test_search_with_filters(async_client: AsyncClient):
     """Test the search endpoint with filters."""
     # Call endpoint with filter parameters
-    response = client.get(
+    response = await async_client.get(
         "/api/v1/search?q=test&fq[dct_spatial_sm][]=Minnesota&fq[schema_provider_s][]=Test%20Provider"
     )
 
@@ -116,10 +115,10 @@ async def test_search_with_filters():
 
 
 @pytest.mark.asyncio
-async def test_suggest_endpoint():
+async def test_suggest_endpoint(async_client: AsyncClient):
     """Test the suggest endpoint."""
     # Call endpoint
-    response = client.get("/api/v1/suggest?q=min")
+    response = await async_client.get("/api/v1/suggest?q=min")
 
     # Verify the response
     assert response.status_code == 200
@@ -131,16 +130,16 @@ async def test_suggest_endpoint():
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_search_pagination():
+async def test_search_pagination(async_client: AsyncClient):
     """Test search pagination."""
     # Test first page
-    response1 = client.get("/api/v1/search?q=test&page=1&limit=5")
+    response1 = await async_client.get("/api/v1/search?q=test&page=1&limit=5")
     _check_elasticsearch_error(response1)
     assert response1.status_code == 200
     data1 = response1.json()
 
     # Test second page
-    response2 = client.get("/api/v1/search?q=test&page=2&limit=5")
+    response2 = await async_client.get("/api/v1/search?q=test&page=2&limit=5")
     _check_elasticsearch_error(response2)
     assert response2.status_code == 200
     data2 = response2.json()
@@ -155,9 +154,9 @@ async def test_search_pagination():
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_search_empty_query():
+async def test_search_empty_query(async_client: AsyncClient):
     """Test search with empty query."""
-    response = client.get("/api/v1/search")
+    response = await async_client.get("/api/v1/search")
     _check_elasticsearch_error(response)
     assert response.status_code == 200
     data = response.json()
@@ -170,13 +169,13 @@ async def test_search_empty_query():
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_search_by_resource_id():
+async def test_search_by_resource_id(async_client: AsyncClient):
     """Test searching for a resource by its ID."""
     # Use a known resource ID that exists in the test data
     test_resource_id = "stanford-hj948rn6493"
 
     # Call endpoint with resource ID as search query
-    response = client.get(f"/api/v1/search?q={test_resource_id}")
+    response = await async_client.get(f"/api/v1/search?q={test_resource_id}")
 
     # Check for Elasticsearch errors
     _check_elasticsearch_error(response)
@@ -212,13 +211,13 @@ async def test_search_by_resource_id():
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_search_by_partial_resource_id():
+async def test_search_by_partial_resource_id(async_client: AsyncClient):
     """Test searching for a resource by partial ID."""
     # Use a partial resource ID that should match multiple resources
     partial_id = "stanford"
 
     # Call endpoint with partial ID as search query
-    response = client.get(f"/api/v1/search?q={partial_id}&per_page=5")
+    response = await async_client.get(f"/api/v1/search?q={partial_id}&per_page=5")
 
     # Check for Elasticsearch errors
     _check_elasticsearch_error(response)
@@ -251,13 +250,13 @@ async def test_search_by_partial_resource_id():
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_search_id_boost_priority():
+async def test_search_id_boost_priority(async_client: AsyncClient):
     """Test that exact ID matches are given higher priority than partial matches."""
     # Use a resource ID that might also appear in other fields
     test_resource_id = "stanford-hj948rn6493"
 
     # Call endpoint with the exact ID
-    response = client.get(f"/api/v1/search?q={test_resource_id}&per_page=10")
+    response = await async_client.get(f"/api/v1/search?q={test_resource_id}&per_page=10")
 
     # Check for Elasticsearch errors
     _check_elasticsearch_error(response)

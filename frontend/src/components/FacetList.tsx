@@ -4,6 +4,7 @@ import { ChevronDown, MinusCircle } from 'lucide-react';
 import { FACET_LABELS, normalizeFacetId } from '../utils/facetLabels';
 import { CONFIGURED_FACETS } from '../constants/facets';
 import { FacetMoreModal } from './search/FacetMoreModal';
+import { formatCount } from '../utils/formatNumber';
 
 // New JSON:API facet structure
 type JsonApiFacetItemTuple = [value: string | number, hits: number];
@@ -248,70 +249,70 @@ export function FacetList({ facets }: FacetListProps) {
               </summary>
 
               <div className="pt-1">
-                <ul className="space-y-1">
-                  {displayItems.map((item) => {
-                    const isActive = isFacetActive(facet.rawId, item.value);
-                    const excluded = isFacetExcluded(facet.rawId, item.value);
+              <ul className="space-y-1">
+                {displayItems.map((item) => {
+                  const isActive = isFacetActive(facet.rawId, item.value);
+                  const excluded = isFacetExcluded(facet.rawId, item.value);
 
-                    return (
-                      <li
-                        key={`${facet.id}-${item.value}`}
-                        className="group flex items-center gap-2"
+                  return (
+                    <li
+                      key={`${facet.id}-${item.value}`}
+                      className="group flex items-center gap-2"
+                    >
+                      <button
+                        onClick={() => handleFacetClick(facet.rawId, item.value)}
+                        className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
+                          isActive
+                            ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
+                            : 'text-gray-600 hover:text-gray-900'
+                        }`}
                       >
-                        <button
-                          onClick={() => handleFacetClick(facet.rawId, item.value)}
-                          className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
-                            isActive
-                              ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
-                              : 'text-gray-600 hover:text-gray-900'
+                        <span>{item.label}</span>
+                        <span
+                          className={`${
+                            isActive ? 'text-blue-400' : 'text-gray-400'
                           }`}
                         >
-                          <span>{item.label}</span>
-                          <span
-                            className={`${
-                              isActive ? 'text-blue-400' : 'text-gray-400'
-                            }`}
-                          >
-                            ({item.hits})
-                          </span>
-                          {isActive && (
-                            <span className="text-blue-400 ml-auto">×</span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleFacetExclude(facet.rawId, item.value)}
-                          className={`ml-1 p-1 rounded transition-colors ${
-                            excluded
-                              ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                              : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
-                          } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
-                          aria-label={
-                            excluded ? 'Remove exclusion' : 'Exclude this value'
-                          }
-                          title={
-                            excluded ? 'Remove exclusion' : 'Exclude this value'
-                          }
-                        >
-                          <MinusCircle className="w-4 h-4" />
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-                {hasMore && (
-                  <button
-                    onClick={() =>
-                      setActiveFacetModal({
-                        id: facet.rawId,
-                        label: facetLabel,
-                      })
-                    }
-                    className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                  >
-                    More &raquo;
-                  </button>
-                )}
-              </div>
+                          ({formatCount(item.hits)})
+                        </span>
+                        {isActive && (
+                          <span className="text-blue-400 ml-auto">×</span>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => handleFacetExclude(facet.rawId, item.value)}
+                        className={`ml-1 p-1 rounded transition-colors ${
+                          excluded
+                            ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                            : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                        } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                        aria-label={
+                          excluded ? 'Remove exclusion' : 'Exclude this value'
+                        }
+                        title={
+                          excluded ? 'Remove exclusion' : 'Exclude this value'
+                        }
+                      >
+                        <MinusCircle className="w-4 h-4" />
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+              {hasMore && (
+                <button
+                  onClick={() =>
+                    setActiveFacetModal({
+                      id: facet.rawId,
+                      label: facetLabel,
+                    })
+                  }
+                  className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                >
+                  More &raquo;
+                </button>
+              )}
+            </div>
             </details>
           );
         })}

@@ -98,9 +98,6 @@ class SimilarItemsService:
             return similar_items
 
         except Exception as e:
-            logger.error(
-                f"Error getting similar items for {resource_id}: {str(e)}", exc_info=True
-            )
+            logger.error(f"Error getting similar items for {resource_id}: {str(e)}", exc_info=True)
             # Return empty list on error to avoid breaking resource processing
             return []
-

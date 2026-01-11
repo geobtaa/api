@@ -451,7 +451,7 @@ class SearchService:
                     # or "include_filters[geo][points][0][lat]"
                     # Remove the prefix, keep the rest (including any nested brackets)
                     geo_param = key[len(prefix) :]
-                    
+
                     # Special handling for points array format: "points][0][lat]"
                     # Handle this before general bracket processing - skip conversion
                     if geo_param.startswith("points][") and geo_param.count("][") >= 2:
@@ -503,11 +503,9 @@ class SearchService:
                         # So we store it as a flat key that will be processed by normalization
                         geo_filters[geo_param] = values[0] if values else None
                         value_str = values[0] if values else None
-                        logger.info(
-                            f"  Added points param (raw): {geo_param} = {value_str}"
-                        )
+                        logger.info(f"  Added points param (raw): {geo_param} = {value_str}")
                         continue
-                    
+
                     # This is a nested parameter like "top_left][lat]" or "top_left[lat]"
                     if "][" in geo_param:
                         # Format: "top_left][lat]"

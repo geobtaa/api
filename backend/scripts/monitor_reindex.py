@@ -284,9 +284,7 @@ def format_status(status: Dict[str, Any]) -> str:
     if process.get("running"):
         pids = process.get("pids", [])
         pid_str = ", ".join(pids) if pids else "?"
-        output.append(
-            f"\n{Colors.GREEN}✓{Colors.RESET} reindex is running (PID: {pid_str})"
-        )
+        output.append(f"\n{Colors.GREEN}✓{Colors.RESET} reindex is running (PID: {pid_str})")
     elif process.get("running") is False:
         output.append(f"{Colors.YELLOW}⚠{Colors.RESET} reindex is not running")
     else:

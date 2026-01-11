@@ -48,7 +48,9 @@ async def harvest_repo(
 
         # Dump + streaming import
         dump_writer = OGMHarvestDumpWriter(repo_name=repo_name, run_id=run_id)
-        record_stream = ((ref.record, ref.source_path) for ref in read_aardvark_records(sync_result.repo_dir))
+        record_stream = (
+            (ref.record, ref.source_path) for ref in read_aardvark_records(sync_result.repo_dir)
+        )
 
         await repo.update_harvest_run(
             ogm_id=run_id,
@@ -77,7 +79,11 @@ async def harvest_repo(
         )
         await repo.update_harvest_run(
             ogm_id=run_id,
-            ogm_stats_json={**(stats or {}), "stage": "dumps", "updated_at": datetime.utcnow().isoformat() + "Z"},
+            ogm_stats_json={
+                **(stats or {}),
+                "stage": "dumps",
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+            },
         )
         dump_paths = dump_writer.finalize(
             repo_name=repo_name,
@@ -120,7 +126,10 @@ async def harvest_repo(
         try:
             await repo.update_harvest_run(
                 ogm_id=run_id,
-                ogm_stats_json={"stage": "failed", "updated_at": datetime.utcnow().isoformat() + "Z"},
+                ogm_stats_json={
+                    "stage": "failed",
+                    "updated_at": datetime.utcnow().isoformat() + "Z",
+                },
                 ogm_error=str(e),
             )
         except Exception:
@@ -136,4 +145,3 @@ async def harvest_repo(
             ogm_last_commit_sha=None,
         )
         raise
-

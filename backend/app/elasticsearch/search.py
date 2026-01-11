@@ -672,9 +672,7 @@ async def search_resources(
             "gbl_indexYear_im": {
                 "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
             },
-            "time_period": {
-                "terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}
-            },
+            "time_period": {"terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}},
             "dct_language_sm": {
                 "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
             },
@@ -684,9 +682,7 @@ async def search_resources(
             "schema_provider_s": {
                 "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
             },
-            "ogm_repo": {
-                "terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}
-            },
+            "ogm_repo": {"terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}},
             "dct_accessRights_s": {
                 "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
             },
@@ -695,7 +691,9 @@ async def search_resources(
             },
             # Spatial facet aggregations with configurable sizes
             # Note: These fields are text with .keyword subfields in the actual index
-            "geo_country": {"terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}},
+            "geo_country": {
+                "terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}
+            },
             "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
             "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
         }
@@ -1893,7 +1891,5 @@ async def find_similar_resources(resource_id: str, limit: int = 12) -> list:
         return similar_ids
 
     except Exception as e:
-        logger.error(
-            f"Error finding similar resources for {resource_id}: {str(e)}", exc_info=True
-        )
+        logger.error(f"Error finding similar resources for {resource_id}: {str(e)}", exc_info=True)
         return []

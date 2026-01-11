@@ -87,11 +87,7 @@ def test_py_staticmaps_import():
     try:
         import staticmaps
 
-        version = (
-            staticmaps.__version__
-            if hasattr(staticmaps, "__version__")
-            else "unknown"
-        )
+        version = staticmaps.__version__ if hasattr(staticmaps, "__version__") else "unknown"
         logger.info(f"✓ py-staticmaps imported successfully (version: {version})")
 
         # Try creating a context
@@ -178,4 +174,3 @@ def main():
 if __name__ == "__main__":
     success = main()
     sys.exit(0 if success else 1)
-

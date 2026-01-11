@@ -102,7 +102,7 @@ class TestRateLimitService:
         # Explicitly pass 100 as an integer to ensure it's not treated as None
         # Use a local variable to avoid any potential issues with argument passing
         requests_per_minute: int = 100
-        
+
         # Verify the value before calling
         assert requests_per_minute is not None, "requests_per_minute should not be None"
         assert isinstance(requests_per_minute, int), (
@@ -111,19 +111,19 @@ class TestRateLimitService:
         assert requests_per_minute == 100, (
             f"requests_per_minute should be 100, got {requests_per_minute}"
         )
-        
+
         # Verify the service method exists and is callable
-        assert hasattr(rate_limit_service, 'get_rate_limit_headers')
+        assert hasattr(rate_limit_service, "get_rate_limit_headers")
         method = rate_limit_service.get_rate_limit_headers
         assert callable(method)
-        
+
         # Call the method with explicit keyword arguments to ensure correct parameter mapping
         headers = await rate_limit_service.get_rate_limit_headers(
             tier_name="general_registered",
             identifier="test_identifier",
             requests_per_minute=requests_per_minute,
             remaining=50,
-            reset_time=1234567890
+            reset_time=1234567890,
         )
 
         # Verify the limit is set correctly (not "unlimited")
@@ -138,9 +138,7 @@ class TestRateLimitService:
             )
         expected_limit = "100"
         actual_limit = headers["X-RateLimit-Limit"]
-        assert actual_limit == expected_limit, (
-            f"Expected '100', got '{actual_limit}'"
-        )
+        assert actual_limit == expected_limit, f"Expected '100', got '{actual_limit}'"
         assert headers["X-RateLimit-Remaining"] == "50"
         assert headers["X-RateLimit-Reset"] == "1234567890"
 

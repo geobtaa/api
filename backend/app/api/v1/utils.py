@@ -54,15 +54,15 @@ def filter_empty_values(obj: Any) -> Any:
         for key, value in obj.items():
             # Recursively filter nested structures
             filtered_value = filter_empty_values(value)
-            
+
             # Skip empty arrays
             if isinstance(filtered_value, list) and len(filtered_value) == 0:
                 continue
-            
+
             # Skip empty strings
             if isinstance(filtered_value, str) and filtered_value == "":
                 continue
-            
+
             # Include the filtered value
             filtered[key] = filtered_value
         return filtered
@@ -71,9 +71,7 @@ def filter_empty_values(obj: Any) -> Any:
         filtered = [filter_empty_values(item) for item in obj]
         # Remove None entries that might result from filtering (if needed)
         return [
-            item
-            for item in filtered
-            if item is not None or isinstance(item, (bool, int, float))
+            item for item in filtered if item is not None or isinstance(item, (bool, int, float))
         ]
     else:
         # Return primitive values as-is
@@ -107,7 +105,7 @@ def add_thumbnail_url(
 
     image_service = ImageService(item, distribution_context=distribution_context)
     thumbnail_url = image_service.get_thumbnail_url()
-    
+
     # Only set thumbnail_url if one was found (or placeholder for processing)
     # If None, frontend can use resource class (gbl_resourceClass_sm) to show default icon
     item["ui_thumbnail_url"] = thumbnail_url

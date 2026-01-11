@@ -59,4 +59,3 @@ async def get_resource_spatial_facets(
         raise HTTPException(
             status_code=500, detail=f"Error retrieving spatial facets: {str(e)}"
         ) from e
-

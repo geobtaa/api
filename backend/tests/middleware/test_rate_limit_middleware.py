@@ -36,6 +36,7 @@ class TestRateLimitMiddleware:
     def test_extract_api_key_from_bearer(self, middleware):
         """Test extracting API key from Authorization Bearer header."""
         request = MagicMock(spec=Request)
+
         # Helper function to keep line length within limits
         def _get_header(key, default=None):
             if key == "Authorization":
@@ -158,9 +159,7 @@ class TestRateLimitMiddleware:
         result = await middleware._get_tier_info(api_key, request_ip)
 
         assert result == tier_info
-        middleware.api_key_service.validate_api_key.assert_called_once_with(
-            api_key, request_ip
-        )
+        middleware.api_key_service.validate_api_key.assert_called_once_with(api_key, request_ip)
 
     @pytest.mark.asyncio
     async def test_get_tier_info_with_ip_whitelist_rejected(self, middleware):
@@ -176,16 +175,12 @@ class TestRateLimitMiddleware:
             "display_name": "Anonymous",
             "requests_per_minute": 10,
         }
-        middleware.api_key_service.get_anonymous_tier = AsyncMock(
-            return_value=anonymous_tier
-        )
+        middleware.api_key_service.get_anonymous_tier = AsyncMock(return_value=anonymous_tier)
 
         result = await middleware._get_tier_info(api_key, request_ip)
 
         assert result == anonymous_tier
-        middleware.api_key_service.validate_api_key.assert_called_once_with(
-            api_key, request_ip
-        )
+        middleware.api_key_service.validate_api_key.assert_called_once_with(api_key, request_ip)
         middleware.api_key_service.get_anonymous_tier.assert_called_once()
 
     @pytest.mark.asyncio

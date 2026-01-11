@@ -2,7 +2,8 @@
 Tests for static map endpoints.
 
 - /static-maps/{resource_id}: serves cached PNG bytes (from Redis) with ETag + revalidation headers.
-- /resources/{id}/static-map: always serves an image (SVG placeholder while generating) and is no-store.
+- /resources/{id}/static-map: always serves an image (SVG placeholder while generating) and is
+  no-store.
 """
 
 import io
@@ -13,8 +14,8 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from PIL import Image
 
-from app.api.v1.endpoint_modules.static_maps import router as static_maps_router
 from app.api.v1.endpoint_modules.resources import router as resources_router
+from app.api.v1.endpoint_modules.static_maps import router as static_maps_router
 from app.services.cache_service import weak_etag_from_body
 
 
@@ -75,7 +76,9 @@ class TestStaticMapsEndpoint:
 
 class TestResourceStaticMapEndpoint:
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
-    def test_resource_static_map_processing_placeholder_is_image_no_store(self, mock_session, client):
+    def test_resource_static_map_processing_placeholder_is_image_no_store(
+        self, mock_session, client
+    ):
         # Mock DB row with geometry
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
@@ -90,9 +93,12 @@ class TestResourceStaticMapEndpoint:
         mock_result.fetchone.return_value = mock_row
         mock_session_instance.execute.return_value = mock_result
 
-        with patch("app.api.v1.endpoint_modules.resources.static_map.StaticMapService") as svc_cls, patch(
-            "app.api.v1.endpoint_modules.resources.static_map.generate_static_map"
-        ) as gen_task:
+        with (
+            patch("app.api.v1.endpoint_modules.resources.static_map.StaticMapService") as svc_cls,
+            patch(
+                "app.api.v1.endpoint_modules.resources.static_map.generate_static_map"
+            ) as gen_task,
+        ):
             svc = MagicMock()
             svc.map_exists.return_value = False
             svc_cls.return_value = svc
@@ -130,4 +136,3 @@ class TestResourceStaticMapEndpoint:
             assert resp.status_code == 302
             assert resp.headers["location"] == "/api/v1/static-maps/test-resource-id"
             assert resp.headers["cache-control"] == "no-store"
-

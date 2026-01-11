@@ -146,7 +146,7 @@ class OGMFieldMapper:
         """
         Returns the set of all OGM Aardvark field names from the official schema.
         This is used to classify fields as OGM Aardvark vs B1G custom fields.
-        
+
         Based on the OGM Aardvark JSON schema:
         https://opengeometadata.org/schema/geoblacklight-schema-aardvark.json
 

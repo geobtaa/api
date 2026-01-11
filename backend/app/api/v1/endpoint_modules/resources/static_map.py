@@ -6,7 +6,7 @@ from app.services.static_map_service import StaticMapService
 from app.tasks.static_maps import generate_static_map
 from db.models import resources
 
-from . import RESOURCE_CACHE_TTL, async_session, logger, router
+from . import async_session, logger, router
 
 
 @router.get("/resources/{id}/static-map")
@@ -16,6 +16,7 @@ async def get_resource_static_map(
 ):
     """Get a static map image for a resource based on its locn_geometry or dcat_bbox."""
     try:
+
         def _svg_placeholder(*, title: str, subtitle: str) -> Response:
             svg = f"""
             <svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">
@@ -56,7 +57,7 @@ async def get_resource_static_map(
 
         # Check if map already exists in Redis
         map_service = StaticMapService()
-        
+
         if map_service.map_exists(id):
             # Map exists, redirect to the serving endpoint
             return RedirectResponse(
@@ -85,13 +86,12 @@ async def get_resource_static_map(
         logger.error(f"Error getting static map for resource {id}: {str(e)}", exc_info=True)
         return Response(
             content=(
-                "<svg width=\"800\" height=\"600\" xmlns=\"http://www.w3.org/2000/svg\">"
-                "<rect width=\"800\" height=\"600\" fill=\"#f8fafc\" stroke=\"#e5e7eb\" stroke-width=\"2\"/>"
-                "<text x=\"400\" y=\"310\" font-family=\"Arial, sans-serif\" font-size=\"16\" "
-                "text-anchor=\"middle\" fill=\"#334155\">Map unavailable</text>"
+                '<svg width="800" height="600" xmlns="http://www.w3.org/2000/svg">'
+                '<rect width="800" height="600" fill="#f8fafc" stroke="#e5e7eb" stroke-width="2"/>'
+                '<text x="400" y="310" font-family="Arial, sans-serif" font-size="16" '
+                'text-anchor="middle" fill="#334155">Map unavailable</text>'
                 "</svg>"
             ),
             media_type="image/svg+xml",
             headers={"Cache-Control": "no-store", "X-Placeholder": "true"},
         )
-

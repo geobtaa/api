@@ -17,6 +17,7 @@ import { ResourceSubtitle } from './ResourceSubtitle';
 import { CitationTable } from './CitationTable';
 import { FullDetailsTable } from './FullDetailsTable';
 import type { GeoDocumentDetails } from '../../types/api';
+import { formatCount } from '../../utils/formatNumber';
 
 interface SearchState {
   searchResults: Array<{ id: string }>;
@@ -258,8 +259,8 @@ export function ResourceView() {
 
                   {searchState && (
                     <span className="text-gray-500 px-2">
-                      {searchState?.currentIndex + 1} of{' '}
-                      {searchState?.totalResults}
+                      {formatCount(searchState?.currentIndex + 1)} of{' '}
+                      {formatCount(searchState?.totalResults)}
                     </span>
                   )}
 

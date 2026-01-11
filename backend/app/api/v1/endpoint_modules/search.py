@@ -18,10 +18,10 @@ from app.api.v1.utils import (
     sanitize_for_json,
 )
 from app.elasticsearch.search import (
+    generate_facet_apply_template,
     get_facet_aggregation_config,
     get_facet_values,
     get_search_criteria,
-    generate_facet_apply_template,
     process_facet_response,
 )
 from app.services.cache_service import cached_endpoint
@@ -113,22 +113,30 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             resource_data.append({"id": rid, "score": score, "bbox_overlap_ratio": overlap})
 
     # Step 3: Batch fetch resource data
-    async with async_session() as session:
-        query = select(resources).where(resources.c.id.in_([r["id"] for r in resource_data]))
-        result = await session.execute(query)
-        rows = result.fetchall()
-        lookup = {dict(row._mapping)["id"]: sanitize_for_json(dict(row._mapping)) for row in rows}
+    lookup = {}
+    if resource_data:
+        try:
+            async with async_session() as session:
+                query = select(resources).where(resources.c.id.in_([r["id"] for r in resource_data]))
+                result = await session.execute(query)
+                rows = result.fetchall()
+                lookup = {dict(row._mapping)["id"]: sanitize_for_json(dict(row._mapping)) for row in rows}
+        except Exception as e:
+            # If database query fails (e.g., connection pool closed), log and continue with empty lookup
+            # This allows the endpoint to return empty results rather than crashing
+            logger.warning(f"Database query failed in search endpoint: {str(e)}")
+            lookup = {}
 
-        # Process resources
-        processed_resources = []
+    # Process resources
+    processed_resources = []
 
-        for rd in resource_data:
+    for rd in resource_data:
             d = lookup.get(rd["id"]) or {}
             obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
             # obj["attributes"] is already nested with "ogm" and "b1g" structure
             # from create_jsonapi_resource
             attrs = obj.get("attributes", {})
-            
+
             # Attach ES scoring and overlap ratio info into per-resource meta for debugging
             if rd.get("score") is not None:
                 obj.setdefault("meta", {})
@@ -142,7 +150,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 requested = [f.strip() for f in fields.split(",") if f.strip()]
                 if "id" not in requested:
                     requested.append("id")
-                
+
                 # Filter nested attributes (ogm and b1g)
                 filtered_attrs = {}
                 if "ogm" in attrs:
@@ -153,12 +161,12 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                     filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
                     if filtered_b1g:
                         filtered_attrs["b1g"] = filtered_b1g
-                
+
                 obj["attributes"] = filtered_attrs
             else:
                 # Use nested attributes as-is
                 obj["attributes"] = attrs
-            
+
             # Filter out empty arrays and empty strings from nested attributes
             # filter_empty_values already handles nested dicts recursively
             obj["attributes"] = filter_empty_values(obj["attributes"])

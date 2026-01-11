@@ -334,8 +334,7 @@ async def search_wof(
     exclude_placetypes: Optional[str] = Query(
         None,
         description=(
-            "Comma-separated list of placetypes to exclude "
-            "(default: microhood,neighbourhood,venue)"
+            "Comma-separated list of placetypes to exclude (default: microhood,neighbourhood,venue)"
         ),
     ),
     request: Request = None,

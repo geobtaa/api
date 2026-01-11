@@ -1,5 +1,6 @@
 // Summary bar displaying current query, total resources, and count of features for level
 import type { ZoomLevel, GeoFacetItem } from '../../types/map';
+import { formatCount } from '../../utils/formatNumber';
 
 interface Props {
   zoomLevel: ZoomLevel;
@@ -23,7 +24,7 @@ export function StatsBar({
         </div>
         <div>
           Total Resources:{' '}
-          <span className="font-semibold">{totalResources}</span>
+          <span className="font-semibold">{formatCount(totalResources)}</span>
         </div>
         <div>
           {zoomLevel === 'country'
@@ -31,7 +32,7 @@ export function StatsBar({
             : zoomLevel === 'region'
               ? 'Regions'
               : 'Counties'}
-          :<span className="font-semibold"> {dataForLevel.length}</span>
+          :<span className="font-semibold"> {formatCount(dataForLevel.length)}</span>
         </div>
       </div>
       <div className="ml-auto text-right">

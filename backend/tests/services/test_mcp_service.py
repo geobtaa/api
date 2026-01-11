@@ -48,7 +48,7 @@ class TestOGMMCPService:
     @pytest.mark.asyncio
     async def test_get_resource_tool(self):
         """Test the get_resource tool.
-        
+
         This test is marked as slow because it makes real database/Elasticsearch queries.
         Skip slow tests with: pytest -m "not slow"
         """
@@ -57,10 +57,11 @@ class TestOGMMCPService:
         # Test with real data - this may fail in test environment due to DB connection issues
         # Add timeout to prevent hanging on slow database/ES queries
         import asyncio
+
         try:
             result = await asyncio.wait_for(
                 service._get_resource({"id": "stanford-wt473hz7153"}),
-                timeout=5.0  # 5 second timeout
+                timeout=5.0,  # 5 second timeout
             )
         except asyncio.TimeoutError:
             pytest.skip("Test timed out - database/Elasticsearch query took too long")

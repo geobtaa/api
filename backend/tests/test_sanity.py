@@ -26,7 +26,11 @@ def test_api_docs_available():
     response = client.get("/api/docs")
     assert response.status_code == 200
     # Accept either swagger UI or fallback HTML (when templates aren't available)
-    assert "swagger" in response.text.lower() or "openapi" in response.text.lower() or "btaa geospatial api" in response.text.lower()
+    assert (
+        "swagger" in response.text.lower()
+        or "openapi" in response.text.lower()
+        or "btaa geospatial api" in response.text.lower()
+    )
 
 
 @pytest.mark.unit

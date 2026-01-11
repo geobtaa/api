@@ -12,11 +12,8 @@ from urllib.parse import parse_qsl, urlencode
 
 import redis.asyncio as redis
 from dotenv import load_dotenv
-
 from starlette.datastructures import Headers
 from starlette.responses import Response
-
-from app.api.v1.utils import JSONResponse
 
 # Load environment variables from .env file
 load_dotenv()
@@ -251,7 +248,9 @@ class CacheService:
 
         try:
             serialized = json.dumps(value)
-            return await _redis_call(self._redis_client.set(key, serialized.encode("utf-8"), ex=ttl))
+            return await _redis_call(
+                self._redis_client.set(key, serialized.encode("utf-8"), ex=ttl)
+            )
         except Exception as e:
             logger.error(f"Error setting cache: {str(e)}")
             return False
@@ -312,6 +311,15 @@ class CacheService:
         if not self._redis_client or not ENDPOINT_CACHE:
             return False
 
+        try:
+            # Value doesn't matter; we just need NX with expiry.
+            ok = await _redis_call(
+                self._redis_client.set(lock_key, b"1", nx=True, ex=REDIS_LOCK_TTL_SECONDS)
+            )
+            return bool(ok)
+        except Exception:
+            return False
+
     @staticmethod
     def _tagset_key(tag: str) -> str:
         safe = str(tag).replace(" ", "_")
@@ -358,13 +366,21 @@ class CacheService:
                 if not members:
                     continue
                 for raw_key in members:
-                    cache_key = raw_key.decode("utf-8") if isinstance(raw_key, (bytes, bytearray)) else str(raw_key)
+                    cache_key = (
+                        raw_key.decode("utf-8")
+                        if isinstance(raw_key, (bytes, bytearray))
+                        else str(raw_key)
+                    )
                     keytags_key = self._keytags_key(cache_key)
                     other_tags = await _redis_call(self._redis_client.smembers(keytags_key))
                     if other_tags:
                         pipe = self._redis_client.pipeline(transaction=False)
                         for ot in other_tags:
-                            otag = ot.decode("utf-8") if isinstance(ot, (bytes, bytearray)) else str(ot)
+                            otag = (
+                                ot.decode("utf-8")
+                                if isinstance(ot, (bytes, bytearray))
+                                else str(ot)
+                            )
                             pipe.srem(self._tagset_key(otag), cache_key.encode("utf-8"))
                         pipe.delete(keytags_key)
                         pipe.delete(cache_key)
@@ -378,14 +394,6 @@ class CacheService:
         except Exception as e:
             logger.error(f"Error invalidating tags {list(tags)}: {e}")
         return deleted
-        try:
-            # Value doesn't matter; we just need NX with expiry.
-            ok = await _redis_call(
-                self._redis_client.set(lock_key, b"1", nx=True, ex=REDIS_LOCK_TTL_SECONDS)
-            )
-            return bool(ok)
-        except Exception:
-            return False
 
     @staticmethod
     def generate_cache_key(namespace: str, *args, **kwargs) -> str:
@@ -460,7 +468,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
 
                         now = _now_epoch()
                         soft_exp = now + float(ttl_seconds)
-                        hard_ttl = int(os.getenv("CACHE_HARD_TTL_SECONDS", str(int(ttl_seconds) * 2)))
+                        hard_ttl = int(
+                            os.getenv("CACHE_HARD_TTL_SECONDS", str(int(ttl_seconds) * 2))
+                        )
                         hard_exp = now + float(hard_ttl)
                         redis_ttl = max(1, int(hard_exp - now))
 
@@ -475,7 +485,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                             "body_b64": _b64encode(body),
                         }
                         await cache_service.set_record(cache_key, record, ttl_seconds=redis_ttl)
-                        _log_cache_event("refresh_store", namespace=key_namespace, redis_ttl=redis_ttl)
+                        _log_cache_event(
+                            "refresh_store", namespace=key_namespace, redis_ttl=redis_ttl
+                        )
             except Exception as e:
                 # Extend stale window on failure (stale-if-error) so we can keep serving
                 # a previously cached value during upstream outages.
@@ -618,12 +630,18 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
 
                 start = _now_epoch()
                 result = await func(*args, **kwargs)
-                _log_cache_event("recompute_done", namespace=namespace, ms=int((_now_epoch() - start) * 1000))
+                _log_cache_event(
+                    "recompute_done", namespace=namespace, ms=int((_now_epoch() - start) * 1000)
+                )
 
                 # Only cache successful, non-streaming responses.
                 if isinstance(result, Response) and getattr(result, "body", None) is not None:
                     if result.status_code == 200:
-                        body: bytes = result.body if isinstance(result.body, (bytes, bytearray)) else bytes(result.body)
+                        body: bytes = (
+                            result.body
+                            if isinstance(result.body, (bytes, bytearray))
+                            else bytes(result.body)
+                        )
                         etag = _weak_etag_from_body(body)
                         headers = _filter_cacheable_headers(result.headers)
 

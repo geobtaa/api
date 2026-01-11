@@ -262,17 +262,13 @@ class TestElasticsearchSearch:
                     bool_query = search_query["script_score"]["query"]["bool"]
                 else:
                     bool_query = search_query["bool"]
-                
+
                 # Filter should exist when geo filter is present
                 assert "filter" in bool_query
                 filters = bool_query["filter"]
                 # For dcat_bbox field, it uses geo_shape, not geo_bounding_box
                 geo_filter = next(
-                    (
-                        f
-                        for f in filters
-                        if "geo_shape" in f or "geo_bounding_box" in f
-                    ),
+                    (f for f in filters if "geo_shape" in f or "geo_bounding_box" in f),
                     None,
                 )
                 assert geo_filter is not None

@@ -16,6 +16,7 @@ import {
   Search,
 } from 'lucide-react';
 import { fetchSearchResults } from '../services/api';
+import { formatCount } from '../utils/formatNumber';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -271,7 +272,7 @@ export function HomePage() {
                       </span>
                     </div>
                     <span className="text-sm text-gray-500 group-hover:text-gray-700">
-                      {!isLoading ? resource.count : ''}
+                      {!isLoading ? formatCount(resource.count) : ''}
                     </span>
                   </button>
                 ))}
