@@ -296,23 +296,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Facets - Collapsible on mobile */}
             <div className="lg:col-span-3">
-              <details className="lg:hidden mb-4">
-                <summary className="text-lg font-semibold cursor-pointer py-2">
-                  Filter Results
-                </summary>
+              <div className="space-y-4">
                 <GeospatialFilterMap />
-                {searchResults?.included ? (
-                  <FacetList
-                    facets={searchResults.included.filter(
-                      (item) => item.type === 'facet'
-                    )}
-                  />
-                ) : (
-                  <div className="text-gray-500">Loading facets...</div>
-                )}
-              </details>
-              <div className="hidden lg:block">
-                <GeospatialFilterMap />
+
                 {searchResults?.included ? (
                   <FacetList
                     facets={searchResults.included.filter(

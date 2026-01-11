@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
-import { MinusCircle } from 'lucide-react';
+import { ChevronDown, MinusCircle } from 'lucide-react';
 import { FACET_LABELS, normalizeFacetId } from '../utils/facetLabels';
 import { CONFIGURED_FACETS } from '../constants/facets';
 import { FacetMoreModal } from './search/FacetMoreModal';
@@ -34,6 +34,12 @@ interface JsonApiFacet {
 interface FacetListProps {
   facets: JsonApiFacet[];
 }
+
+const DEFAULT_OPEN_FACET_IDS = new Set<string>([
+  'dct_spatial_sm', // Place
+  'gbl_resourceClass_sm', // Resource Class
+  'gbl_resourceType_sm', // Resource Type
+]);
 
 function isCompactTupleItems(
   items: JsonApiFacet['attributes']['items']
@@ -163,6 +169,36 @@ export function FacetList({ facets }: FacetListProps) {
     );
   }
 
+  // Derive "forced open" facet groups from the current URL params.
+  // This is computed without effects to avoid render loops.
+  const forcedOpenFacetIds = useMemo(() => {
+    const key = searchParams.toString();
+    // If there are no params, fast-path empty.
+    if (!key) return new Set<string>();
+
+    const hasAny = (k: string) => searchParams.getAll(k).length > 0;
+    const forced = new Set<string>();
+    for (const facet of orderedFacets) {
+      const norm = normalizeFacetId(facet.id);
+      const raw = normalizeFacetId(facet.rawId);
+
+      if (hasAny(`include_filters[${norm}][]`)) forced.add(facet.id);
+      else if (hasAny(`exclude_filters[${norm}][]`)) forced.add(facet.id);
+      else if (hasAny(`fq[${norm}][]`)) forced.add(facet.id);
+      else if (raw !== norm && hasAny(`fq[${raw}][]`)) forced.add(facet.id);
+    }
+    return forced;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderedFacets, searchParams.toString()]);
+
+  // Track user toggles separately from default/forced-open behavior.
+  // - opened: user explicitly opened this facet
+  // - closed: user explicitly closed this facet (used to override default-open facets)
+  const [accordion, setAccordion] = useState<{
+    opened: Set<string>;
+    closed: Set<string>;
+  }>(() => ({ opened: new Set(), closed: new Set() }));
+
   return (
     <>
       <div className="space-y-6">
@@ -170,74 +206,113 @@ export function FacetList({ facets }: FacetListProps) {
           const facetLabel = FACET_LABELS[facet.id] || facet.label;
           const displayItems = facet.items.slice(0, 10);
           const hasMore = facet.items.length > 10;
+          const isForcedOpen = forcedOpenFacetIds.has(facet.id);
+          const isOpen = isForcedOpen
+            ? true
+            : accordion.opened.has(facet.id)
+              ? true
+              : accordion.closed.has(facet.id)
+                ? false
+                : DEFAULT_OPEN_FACET_IDS.has(facet.id);
 
           return (
-            <div key={facet.id} className="border-b pb-4">
-              <h3 className="font-semibold text-gray-900 mb-2">{facetLabel}</h3>
-              <ul className="space-y-1">
-                {displayItems.map((item) => {
-                  const isActive = isFacetActive(facet.rawId, item.value);
-                  const excluded = isFacetExcluded(facet.rawId, item.value);
+            <details
+              key={facet.id}
+              open={isOpen}
+              onToggle={(e) => {
+                const nextOpen = (e.currentTarget as HTMLDetailsElement).open;
+                setAccordion((prev) => {
+                  if (!nextOpen && isForcedOpen) return prev;
 
-                  return (
-                    <li
-                      key={`${facet.id}-${item.value}`}
-                      className="group flex items-center gap-2"
-                    >
-                      <button
-                        onClick={() => handleFacetClick(facet.rawId, item.value)}
-                        className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
-                          isActive
-                            ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
+                  const opened = new Set(prev.opened);
+                  const closed = new Set(prev.closed);
+
+                  if (nextOpen) {
+                    opened.add(facet.id);
+                    closed.delete(facet.id);
+                  } else {
+                    opened.delete(facet.id);
+                    // Only track "closed" overrides for default-open facets.
+                    if (DEFAULT_OPEN_FACET_IDS.has(facet.id)) closed.add(facet.id);
+                    else closed.delete(facet.id);
+                  }
+
+                  return { opened, closed };
+                });
+              }}
+              className="group border-b pb-4"
+            >
+              <summary className="flex items-center justify-between cursor-pointer select-none py-2">
+                <h3 className="font-semibold text-gray-900">{facetLabel}</h3>
+                <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
+              </summary>
+
+              <div className="pt-1">
+                <ul className="space-y-1">
+                  {displayItems.map((item) => {
+                    const isActive = isFacetActive(facet.rawId, item.value);
+                    const excluded = isFacetExcluded(facet.rawId, item.value);
+
+                    return (
+                      <li
+                        key={`${facet.id}-${item.value}`}
+                        className="group flex items-center gap-2"
                       >
-                        <span>{item.label}</span>
-                        <span
-                          className={`${
-                            isActive ? 'text-blue-400' : 'text-gray-400'
+                        <button
+                          onClick={() => handleFacetClick(facet.rawId, item.value)}
+                          className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
+                            isActive
+                              ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
+                              : 'text-gray-600 hover:text-gray-900'
                           }`}
                         >
-                          ({item.hits})
-                        </span>
-                        {isActive && (
-                          <span className="text-blue-400 ml-auto">×</span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleFacetExclude(facet.rawId, item.value)}
-                        className={`ml-1 p-1 rounded transition-colors ${
-                          excluded
-                            ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                            : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
-                        } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
-                        aria-label={
-                          excluded ? 'Remove exclusion' : 'Exclude this value'
-                        }
-                        title={
-                          excluded ? 'Remove exclusion' : 'Exclude this value'
-                        }
-                      >
-                        <MinusCircle className="w-4 h-4" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {hasMore && (
-                <button
-                  onClick={() =>
-                    setActiveFacetModal({
-                      id: facet.rawId,
-                      label: facetLabel,
-                    })
-                  }
-                  className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                >
-                  More &raquo;
-                </button>
-              )}
-            </div>
+                          <span>{item.label}</span>
+                          <span
+                            className={`${
+                              isActive ? 'text-blue-400' : 'text-gray-400'
+                            }`}
+                          >
+                            ({item.hits})
+                          </span>
+                          {isActive && (
+                            <span className="text-blue-400 ml-auto">×</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleFacetExclude(facet.rawId, item.value)}
+                          className={`ml-1 p-1 rounded transition-colors ${
+                            excluded
+                              ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                              : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                          } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                          aria-label={
+                            excluded ? 'Remove exclusion' : 'Exclude this value'
+                          }
+                          title={
+                            excluded ? 'Remove exclusion' : 'Exclude this value'
+                          }
+                        >
+                          <MinusCircle className="w-4 h-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {hasMore && (
+                  <button
+                    onClick={() =>
+                      setActiveFacetModal({
+                        id: facet.rawId,
+                        label: facetLabel,
+                      })
+                    }
+                    className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    More &raquo;
+                  </button>
+                )}
+              </div>
+            </details>
           );
         })}
       </div>

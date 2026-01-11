@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { GeoDocument } from '../../types/api';
 
 interface StaticResultMapProps {
@@ -8,8 +8,25 @@ interface StaticResultMapProps {
 export function StaticResultMap({ result }: StaticResultMapProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const imgRef = useRef<HTMLImageElement | null>(null);
 
   const geometry = result.meta?.ui?.viewer?.geometry;
+
+  // If we navigate between result sets, reset loading/error state.
+  useEffect(() => {
+    setImageError(false);
+    setIsLoading(true);
+  }, [result.id]);
+
+  // Handle cases where the image is already in the browser cache and the `load`
+  // event can fire before React attaches the handler.
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img) return;
+    if (img.complete && img.naturalWidth > 0) {
+      setIsLoading(false);
+    }
+  }, [result.id]);
 
   // Build static map URL
   // Always serve through SSR so the server can include the API key and avoid
@@ -44,6 +61,7 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
         </div>
       )}
       <img
+        ref={imgRef}
         src={getStaticMapUrl()}
         alt={`Map for ${result.attributes.ogm.dct_title_s}`}
         className="h-full w-full object-cover"
