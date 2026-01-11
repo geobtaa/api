@@ -27,7 +27,7 @@ async def get_resource_viewer(
 
         # Build the record URL for the viewer
         base_url = os.getenv("APPLICATION_URL", "http://localhost:8000")
-        record_url = f"{base_url}/api/v1/resources/{id}/metadata"
+        record_url = f"{base_url}/api/v1/resources/{id}/metadata/ogm"
 
         # Create the HTML content
         html_content = f"""

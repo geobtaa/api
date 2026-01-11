@@ -132,52 +132,53 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             logger.warning(f"Database query failed in search endpoint: {str(e)}")
             lookup = {}
 
-    # Process resources
+    # Process resources (initialize outside the if block to avoid UnboundLocalError)
     processed_resources = []
 
-    for rd in resource_data:
-        d = lookup.get(rd["id"]) or {}
-        obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
-        # obj["attributes"] is already nested with "ogm" and "b1g" structure
-        # from create_jsonapi_resource
-        attrs = obj.get("attributes", {})
+    if resource_data:
+        for rd in resource_data:
+            d = lookup.get(rd["id"]) or {}
+            obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
+            # obj["attributes"] is already nested with "ogm" and "b1g" structure
+            # from create_jsonapi_resource
+            attrs = obj.get("attributes", {})
 
-        # Attach ES scoring and overlap ratio info into per-resource meta for debugging
-        if rd.get("score") is not None:
-            obj.setdefault("meta", {})
-            obj["meta"]["score"] = rd["score"]
-        if rd.get("bbox_overlap_ratio") is not None:
-            obj.setdefault("meta", {})
-            obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
+            # Attach ES scoring and overlap ratio info into per-resource meta for debugging
+            if rd.get("score") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["score"] = rd["score"]
+            if rd.get("bbox_overlap_ratio") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
 
-        if isinstance(fields, str) and fields.strip():
-            # Handle field filtering for nested attributes structure
-            requested = [f.strip() for f in fields.split(",") if f.strip()]
-            if "id" not in requested:
-                requested.append("id")
+            if isinstance(fields, str) and fields.strip():
+                # Handle field filtering for nested attributes structure
+                requested = [f.strip() for f in fields.split(",") if f.strip()]
+                if "id" not in requested:
+                    requested.append("id")
 
-            # Filter nested attributes (ogm and b1g)
-            filtered_attrs = {}
-            if "ogm" in attrs:
-                filtered_ogm = {k: v for k, v in attrs["ogm"].items() if k in requested}
-                if filtered_ogm:
-                    filtered_attrs["ogm"] = filtered_ogm
-            if "b1g" in attrs:
-                filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
-                if filtered_b1g:
-                    filtered_attrs["b1g"] = filtered_b1g
+                # Filter nested attributes (ogm and b1g)
+                filtered_attrs = {}
+                if "ogm" in attrs:
+                    filtered_ogm = {k: v for k, v in attrs["ogm"].items() if k in requested}
+                    if filtered_ogm:
+                        filtered_attrs["ogm"] = filtered_ogm
+                if "b1g" in attrs:
+                    filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
+                    if filtered_b1g:
+                        filtered_attrs["b1g"] = filtered_b1g
 
-            obj["attributes"] = filtered_attrs
-        else:
-            # Use nested attributes as-is
-            obj["attributes"] = attrs
+                obj["attributes"] = filtered_attrs
+            else:
+                # Use nested attributes as-is
+                obj["attributes"] = attrs
 
-        # Filter out empty arrays and empty strings from nested attributes
-        # filter_empty_values already handles nested dicts recursively
-        obj["attributes"] = filter_empty_values(obj["attributes"])
-        if not meta and "meta" in obj:
-            obj.pop("meta", None)
-        processed_resources.append(obj)
+            # Filter out empty arrays and empty strings from nested attributes
+            # filter_empty_values already handles nested dicts recursively
+            obj["attributes"] = filter_empty_values(obj["attributes"])
+            if not meta and "meta" in obj:
+                obj.pop("meta", None)
+            processed_resources.append(obj)
 
     # Step 4: Build JSON:API response
     pages_info = result_obj.get("meta", {}).get("pages", {})

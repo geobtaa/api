@@ -110,10 +110,12 @@ def test_ogm_endpoint_404_handling():
 
     if response.status_code == 404:
         data = response.json()
-        # The endpoint may return either {"error": "..."} or {"message": "..."} format
-        assert "error" in data or "message" in data
+        # The endpoint may return {"error": "..."}, {"message": "..."}, or {"detail": "..."} format
+        assert "error" in data or "message" in data or "detail" in data
         if "error" in data:
             assert data["error"] == "Resource not found"
+        elif "detail" in data:
+            assert data["detail"] == "Resource not found"
     elif response.status_code == 500:
         # Database connection issues are acceptable in test environment
         data = response.json()
@@ -139,7 +141,7 @@ def test_viewer_endpoint_404_handling():
 
 
 def test_ogm_endpoint_success_response():
-    """Test that the metadata endpoint returns proper Aardvark metadata structure."""
+    """Test that the metadata endpoint returns proper OGM and B1G metadata structure."""
     # Test with a known resource ID (this may fail if no data exists, but we can test the structure)
     try:
         response = client.get("/api/v1/resources/stanford-wt473hz7153/metadata")
@@ -153,28 +155,30 @@ def test_ogm_endpoint_success_response():
             assert "type" not in data
             assert "attributes" not in data
 
-            # Should have an ID field
-            assert "id" in data
+            # Should have ogm and/or b1g blocks
+            assert "ogm" in data or "b1g" in data
 
-            # Should have some Aardvark fields (not all may be present)
-            aardvark_fields = [
-                "dct_title_s",
-                "dct_description_sm",
-                "gbl_resourceClass_sm",
-                "gbl_mdVersion_s",
-                "schema_provider_s",
-            ]
+            # If ogm block exists, should have some Aardvark fields
+            if "ogm" in data:
+                ogm_data = data["ogm"]
+                aardvark_fields = [
+                    "dct_title_s",
+                    "dct_description_sm",
+                    "gbl_resourceClass_sm",
+                    "gbl_mdVersion_s",
+                    "schema_provider_s",
+                ]
 
-            # At least some of these fields should be present
-            present_fields = [field for field in aardvark_fields if field in data]
-            assert len(present_fields) > 0
+                # At least some of these fields should be present
+                present_fields = [field for field in aardvark_fields if field in ogm_data]
+                assert len(present_fields) > 0
 
-            # Should not have null values (our filtering should work)
-            for _key, value in data.items():
-                assert value is not None
-                if isinstance(value, list):
-                    assert len(value) > 0
-                    assert not all(item is None or item == "" for item in value)
+                # Should not have null values (our filtering should work)
+                for _key, value in ogm_data.items():
+                    assert value is not None
+                    if isinstance(value, list):
+                        assert len(value) > 0
+                        assert not all(item is None or item == "" for item in value)
 
         elif response.status_code == 500:
             # Database connection issues are acceptable in test environment
@@ -214,8 +218,8 @@ def test_viewer_endpoint_success_response():
             assert "<ogm-viewer" in content
             assert "ogm-viewer" in content
 
-            # Should contain the record URL (now uses /metadata instead of /ogm)
-            assert "/api/v1/resources/stanford-wt473hz7153/metadata" in content
+            # Should contain the record URL (now uses /metadata/ogm)
+            assert "/api/v1/resources/stanford-wt473hz7153/metadata/ogm" in content
 
             # Should load the OGM viewer script
             assert "https://unpkg.com/ogm-viewer" in content

@@ -36,6 +36,8 @@ async def api_root(request: Request = None):
                 "/resources/{id}/links",
                 "/resources/{id}/location",
                 "/resources/{id}/metadata",
+                "/resources/{id}/metadata/ogm",
+                "/resources/{id}/metadata/b1g",
                 "/resources/{id}/ogm-viewer",
                 "/resources/{id}/relationships",
                 "/resources/{id}/similar-items",
