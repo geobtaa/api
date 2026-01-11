@@ -8,6 +8,7 @@
 # --- Python envs & builds ---
 .venv/
 env/
+venv/
 dist/
 build/
 .eggs/
@@ -15,7 +16,16 @@ build/
 
 # --- Node/JS ---
 node_modules/
+**/node_modules/
 *.tsbuildinfo
+**/.vite/
+**/.cache/
+**/dist/
+**/build/
+**/coverage/
+**/htmlcov/
+**/*.map
+**/dist/
 
 # --- OS / editors ---
 .DS_Store
@@ -70,6 +80,9 @@ logs/
 elasticsearch-data/
 paradedb-data/
 data/
+backend/data/
+backend/logs/
+backend/tmp/
 
 # --- Optional: keep small in-repo samples available to builds ---
 #!samples/**

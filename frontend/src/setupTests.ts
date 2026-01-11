@@ -1,0 +1,67 @@
+import '@testing-library/jest-dom';
+import { vi } from 'vitest';
+
+// Mock API functions
+vi.mock('./services/api', () => ({
+  fetchSearchResults: vi.fn().mockResolvedValue({
+    jsonapi: { version: '1.1', profile: [] },
+    links: { self: '/api/v1/search', first: '/api/v1/search', last: '/api/v1/search' },
+    meta: {
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: 1,
+      perPage: 10,
+      query: '',
+    },
+    data: [],
+    included: [],
+  }),
+  fetchResourceDetails: vi.fn().mockResolvedValue({
+    id: 'test-id',
+    type: 'resource',
+    attributes: {
+      ogm: {
+        id: 'test-id',
+        dct_title_s: 'Test Resource',
+        dct_description_sm: ['Test description'],
+        dct_temporal_sm: ['2023'],
+        dc_publisher_sm: ['Test Publisher'],
+        gbl_resourceClass_sm: ['Dataset'],
+      },
+    },
+    meta: {
+      ui: {
+        thumbnail_url: null,
+        viewer: {
+          geometry: {
+            type: 'Point',
+            coordinates: [-93.265, 44.9778],
+          },
+        },
+      },
+    },
+  }),
+  fetchSuggestions: vi.fn().mockResolvedValue([
+    {
+      id: 'suggestion-1',
+      type: 'suggestion',
+      attributes: {
+        text: 'minnesota',
+        title: 'Minnesota',
+      },
+    },
+  ]),
+  fetchBookmarkedResources: vi.fn().mockResolvedValue({
+    jsonapi: { version: '1.1', profile: [] },
+    links: { self: '/api/v1/bookmarks', first: '/api/v1/bookmarks', last: '/api/v1/bookmarks' },
+    meta: {
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: 1,
+      perPage: 10,
+      query: '',
+    },
+    data: [],
+    included: [],
+  }),
+}));

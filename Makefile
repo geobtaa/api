@@ -20,22 +20,38 @@ COVERAGE_THRESHOLD ?= 50
 # Set to 0 or empty to disable parallelism
 PARALLEL_WORKERS ?= 4
 
+# Hard stop for a "hung" test run (seconds). 0 disables.
+# CI expectation: the *entire* suite should return quickly; keep this tight by default.
+# Override examples:
+#   - WALLCLOCK_TIMEOUT_SECONDS=0 make test        # no timeout (debug only)
+#   - WALLCLOCK_TIMEOUT_SECONDS=900 make test      # 15 minutes
+WALLCLOCK_TIMEOUT_SECONDS ?= 60
+
+# On timeout, we send SIGINT first so pytest can print its normal summary.
+# If it doesn't exit within the grace period, we escalate to SIGTERM/SIGKILL.
+TIMEOUT_GRACE_SECONDS ?= 20
+
+# Default: don't print giant stack dumps on timeout (keeps output readable).
+# Enable only when debugging a true deadlock/hang:
+#   TIMEOUT_DUMP_STACKS=1 make test-no-coverage
+TIMEOUT_DUMP_STACKS ?= 0
+
 # Run both linting and formatting checks (without modifying files)
 lint:
 	@echo "Checking code with ruff..."
-	ruff check app/ tests/ scripts/
+	ruff check backend/app/ backend/tests/ backend/scripts/
 
 # Format code in-place
 format:
 	@echo "Formatting code with ruff..."
-	ruff format app/ tests/ scripts/
-	ruff check --fix app/ tests/ scripts/
+	ruff format backend/app/ backend/tests/ backend/scripts/
+	ruff check --fix backend/app/ backend/tests/ backend/scripts/
 
 # Check formatting only (for CI)
 lint-check:
 	@echo "Checking formatting with ruff..."
-	ruff format --check app/ tests/ scripts/
-	ruff check app/ tests/ scripts/
+	ruff format --check backend/app/ backend/tests/ backend/scripts/
+	ruff check backend/app/ backend/tests/ backend/scripts/
 
 # Run just the tests with coverage threshold
 test:
@@ -51,10 +67,14 @@ test:
 	@echo "Running tests with coverage threshold of $(COVERAGE_THRESHOLD)%..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
 		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
-		pytest -n $(PARALLEL_WORKERS) --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
+		cd backend && \
+		WALLCLOCK_TIMEOUT_SECONDS="$(WALLCLOCK_TIMEOUT_SECONDS)" TIMEOUT_GRACE_SECONDS="$(TIMEOUT_GRACE_SECONDS)" TIMEOUT_DUMP_STACKS="$(TIMEOUT_DUMP_STACKS)" \
+		python scripts/run_with_timeout.py python -X faulthandler -m pytest -n $(PARALLEL_WORKERS) --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
 	else \
 		echo "Running tests sequentially..."; \
-		pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
+		cd backend && \
+		WALLCLOCK_TIMEOUT_SECONDS="$(WALLCLOCK_TIMEOUT_SECONDS)" TIMEOUT_GRACE_SECONDS="$(TIMEOUT_GRACE_SECONDS)" TIMEOUT_DUMP_STACKS="$(TIMEOUT_DUMP_STACKS)" \
+		python scripts/run_with_timeout.py python -X faulthandler -m pytest --cov=app --cov-report=term-missing --cov-report=html --cov-fail-under=$(COVERAGE_THRESHOLD); \
 	fi
 
 # Run just the tests without coverage threshold (for debugging)
@@ -62,18 +82,26 @@ test-no-coverage:
 	@echo "Running tests without coverage threshold..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
 		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
-		pytest -n $(PARALLEL_WORKERS) --full-trace; \
+		cd backend && \
+		WALLCLOCK_TIMEOUT_SECONDS="$(WALLCLOCK_TIMEOUT_SECONDS)" TIMEOUT_GRACE_SECONDS="$(TIMEOUT_GRACE_SECONDS)" TIMEOUT_DUMP_STACKS="$(TIMEOUT_DUMP_STACKS)" \
+		python scripts/run_with_timeout.py python -X faulthandler -m pytest -n $(PARALLEL_WORKERS) --full-trace; \
 	else \
-		pytest --full-trace; \
+		cd backend && \
+		WALLCLOCK_TIMEOUT_SECONDS="$(WALLCLOCK_TIMEOUT_SECONDS)" TIMEOUT_GRACE_SECONDS="$(TIMEOUT_GRACE_SECONDS)" TIMEOUT_DUMP_STACKS="$(TIMEOUT_DUMP_STACKS)" \
+		python scripts/run_with_timeout.py python -X faulthandler -m pytest --full-trace; \
 	fi
 
 # Run tests in parallel without coverage (fastest option for local development)
 test-fast:
 	@echo "Running tests in parallel without coverage (fast mode)..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
-		pytest -n $(PARALLEL_WORKERS); \
+		cd backend && \
+		WALLCLOCK_TIMEOUT_SECONDS="$(WALLCLOCK_TIMEOUT_SECONDS)" TIMEOUT_GRACE_SECONDS="$(TIMEOUT_GRACE_SECONDS)" TIMEOUT_DUMP_STACKS="$(TIMEOUT_DUMP_STACKS)" \
+		python scripts/run_with_timeout.py python -X faulthandler -m pytest -n $(PARALLEL_WORKERS); \
 	else \
-		pytest -n 4; \
+		cd backend && \
+		WALLCLOCK_TIMEOUT_SECONDS="$(WALLCLOCK_TIMEOUT_SECONDS)" TIMEOUT_GRACE_SECONDS="$(TIMEOUT_GRACE_SECONDS)" TIMEOUT_DUMP_STACKS="$(TIMEOUT_DUMP_STACKS)" \
+		python scripts/run_with_timeout.py python -X faulthandler -m pytest -n 4; \
 	fi
 
 # Force a fresh clone of the test database
@@ -89,7 +117,7 @@ test-coverage-compare:
 	@echo "Running tests with coverage comparison..."
 	@if [ -n "$$BASELINE_COVERAGE" ]; then \
 		echo "Baseline coverage: $$BASELINE_COVERAGE%"; \
-		pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml; \
+		cd backend && pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml; \
 		CURRENT_COVERAGE=$$(grep -o 'line-rate="[^"]*"' coverage.xml | head -1 | sed 's/line-rate="\([^"]*\)"/\1/' | awk '{printf "%.0f", $$1 * 100}'); \
 		echo "Current coverage: $$CURRENT_COVERAGE%"; \
 		if [ -n "$$CURRENT_COVERAGE" ]; then \
@@ -189,12 +217,12 @@ db-sync: db-export db-import
 
 # Reindex all resources into Elasticsearch
 reindex:
-	@echo "Reindexing all resources into Elasticsearch (resilient)..."
+	@echo "Reindexing all resources into Elasticsearch (same logic as /admin/reindex)..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
-		python scripts/reindex.py'
+		cd /app/backend && python scripts/reindex_admin.py'
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 

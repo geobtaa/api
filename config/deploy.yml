@@ -6,6 +6,12 @@ image: ewlarson/btaa-geospatial-api
 
 builder:
   arch: amd64
+  dockerfile: Dockerfile.kamal
+  args:
+    # Browser bundle should call the API on the same host (single-host routing)
+    VITE_API_BASE_URL: "https://<%= ENV['KAMAL_HOST'] %>/api/v1"
+    VITE_USE_JSONP: "false"
+    VITE_ENFORCE_HTTPS: "true"
 
 ssh:
   user: <%= ENV['KAMAL_SSH_USER'] %>
@@ -15,7 +21,7 @@ servers:
   web:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: uvicorn main:app --host 0.0.0.0 --port 8000
+    cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
 
   worker:
     hosts:
@@ -47,28 +53,41 @@ env:
     ELASTICSEARCH_URL:     http://btaa-geospatial-api-elasticsearch:9200
     REDIS_HOST:            btaa-geospatial-api-redis
     REDIS_PORT:            "6379"
-    REDIS_URL:             redis://btaa-geospatial-api-redis:6379/0
-    CELERY_BROKER_URL:     redis://btaa-geospatial-api-redis:6379/0
-    CELERY_RESULT_BACKEND: redis://btaa-geospatial-api-redis:6379/1
+    REDIS_DB:              "0"
+    RATE_LIMIT_REDIS_DB:   "2"
     ELASTICSEARCH_INDEX:   btaa_geospatial_api
     REDIS_TTL:             "604800"
     LOG_LEVEL:             DEBUG
     ENDPOINT_CACHE:        "true"
+    CACHE_DEBUG_HEADERS:   "true"
+    CACHE_LOG_EVENTS:      "false"
+    CACHE_VERSION:         "2026-01-09-A"
+    # Optional: bump this to force a new cache namespace without flushing Redis
+    CACHE_APP_VERSION:     ""
+    REDIS_TIMEOUT_SECONDS: "0.5"
+    CACHE_LOCK_WAIT_SECONDS: "0.25"
+    STALE_IF_ERROR_SECONDS: "300"
+    MAX_STALE_EXTENSION_SECONDS: "3600"
     GAZETTEER_CACHE_TTL:   "3600"
     APP_MODE:              production
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
+    # IMPORTANT: tells db/config.py not to rewrite Docker hostnames to localhost:2345
+    IS_DOCKER:             "true"
     CORS_ORIGINS:          "*"
     STATIC_MAPS_DIR:       /app/static/maps
+    RATE_LIMIT_ENABLED:    "true"
 
   secret:
+    - REDIS_PASSWORD
     - POSTGRES_PASSWORD
     - DATABASE_URL
     - OPENAI_API_KEY
     - OPENAI_MODEL
     - ADMIN_USERNAME
     - ADMIN_PASSWORD
+    - BTAA_GEOSPATIAL_API_KEY
 
 # ────────────── Accessories (one per Compose service) ──────────────
 accessories:
@@ -105,7 +124,10 @@ accessories:
   redis:
     image: redis:7.4.6-alpine
     roles: [web, worker, flower]
-    cmd: redis-server --appendonly yes
+    env:
+      secret:
+        - REDIS_PASSWORD
+    cmd: sh -lc 'redis-server --appendonly yes --protected-mode yes --bind 0.0.0.0 --requirepass "$REDIS_PASSWORD"'
     directories:
       - redisdata:/data
 

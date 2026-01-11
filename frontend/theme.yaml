@@ -1,0 +1,105 @@
+default_theme: "btaa"
+
+themes:
+  btaa:
+    label: "Big Ten Academic Alliance (BTAA)"
+    institution:
+      name: "BTAA Geoportal"
+      logo_url: "/btaa-logo.png"
+      logo_lockup:
+        separator: "pipe"
+        right_text: "Geoportal"
+        right_text_style:
+          font_family: "\"Work Sans\", -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, Helvetica, Arial, sans-serif"
+      header:
+        # Match BTAA branding: bigger logo + lockup, tighter spacing.
+        logo_height_rem: 5
+        lockup_gap_rem: 0.75
+        lockup_separator_height_rem: 3.5
+        lockup_text_size_rem: 2
+      hero_text: "Search geospatial resources from the Big Ten Academic Alliance and the OpenGeoMetadata community."
+      hero_description: "Browse and download GIS data, maps, and other geospatial resources."
+    branding:
+      colors:
+        primary: "#003C5B"
+        active: "#2563EB"
+      fonts:
+        sans: "Inter, sans-serif"
+    api:
+      base_url: "http://localhost:8000/api/v1"
+      search_path: "/search"
+      default_query_params: []
+    homepage:
+      featured:
+        - title: "Featured Collections"
+          field: "gbl_resourceClass_sm"
+          value: "Datasets"
+          sort: "year_desc"
+          limit: 4
+        - title: "Featured Maps"
+          field: "gbl_resourceClass_sm"
+          value: "Maps"
+          sort: "title_asc"
+          limit: 4
+
+  uwmadison:
+    label: "University of Wisconsin–Madison"
+    institution:
+      name: "UW–Madison Geoportal"
+      logo_url: "/uw-madison-logo.svg"
+      hero_text: "Search geospatial resources from the University of Wisconsin–Madison and the OpenGeoMetadata community."
+      hero_description: "Browse and download GIS data, maps, and other geospatial resources."
+    branding:
+      colors:
+        primary: "#C5050C"
+        active: "#9B0000"
+      fonts:
+        sans: "Inter, sans-serif"
+    api:
+      base_url: "http://localhost:8000/api/v1"
+      search_path: "/search"
+      default_query_params: []
+    homepage:
+      featured:
+        - title: "Featured Collections"
+          field: "gbl_resourceClass_sm"
+          value: "Datasets"
+          sort: "year_desc"
+          limit: 4
+        - title: "Featured Maps"
+          field: "gbl_resourceClass_sm"
+          value: "Maps"
+          sort: "title_asc"
+          limit: 4
+
+  nyu:
+    label: "New York University"
+    institution:
+      name: "NYU Spatial Data Repository"
+      logo_url: "/nyu-logo.svg"
+      hero_text: "Search geospatial resources from New York University and the OpenGeoMetadata community."
+      hero_description: "Browse and download GIS data, maps, and other geospatial resources."
+    branding:
+      colors:
+        primary: "#57068C"
+        active: "#8900E1"
+      fonts:
+        sans: "Inter, sans-serif"
+    api:
+      base_url: "http://localhost:8000/api/v1"
+      search_path: "/search"
+      default_query_params:
+        - "include_filters[ogm_repo][]=edu.nyu"
+    homepage:
+      featured:
+        - title: "Featured Collections"
+          field: "gbl_resourceClass_sm"
+          value: "Datasets"
+          sort: "year_desc"
+          limit: 4
+        - title: "Featured Maps"
+          field: "gbl_resourceClass_sm"
+          value: "Maps"
+          sort: "title_asc"
+          limit: 4
+

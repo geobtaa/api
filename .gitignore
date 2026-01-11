@@ -27,6 +27,11 @@ share/python-wheels/
 *.egg
 MANIFEST
 
+# Frontend SSR (React Router) uses `frontend/app/lib/*` for server-only utilities.
+# The generic `lib/` ignore above would otherwise exclude these files.
+!frontend/app/lib/
+!frontend/app/lib/**
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -165,37 +170,39 @@ cython_debug/
 #.idea/
 
 # Data
+data/*
 
 # Fixtures
-data/fixtures/*.csv
+backend/data/fixtures/*.csv
 
 # Gazetteer data
-data/gazetteers/**/*.csv
-data/gazetteers/**/*.txt
-data/gazetteers/**/*.db
-data/gazetteers/**/*.bz2
-data/gazetteers/**/*.marcxml
-data/gazetteers/**/*.zip
+backend/data/gazetteers/**/*.csv
+backend/data/gazetteers/**/*.txt
+backend/data/gazetteers/**/*.db
+backend/data/gazetteers/**/*.bz2
+backend/data/gazetteers/**/*.marcxml
+backend/data/gazetteers/**/*.zip
 
 # Elasticsearch data
-data/elasticsearch/*
-data/elasticsearch_test/*
+backend/data/elasticsearch/*
+backend/data/elasticsearch_test/*
 
 # Postgres data
-data/postgres/*
-data/postgres_test/*
+backend/data/postgres/*
+backend/data/postgres_test/*
 
 # Redis data
-data/redis/*
+backend/data/redis/*
 
 # DuckDB data
-data/duckdb/*
+backend/data/duckdb/*
 
 # OpenGeoMetadata data
-data/opengeometadata/*
+backend/data/opengeometadata/*
+backend/data/harvest_dumps/*
 
 # Static maps
-static/maps/*
+backend/static/maps/*
 
 # Kamal secrets
 .kamal/secrets

@@ -1,0 +1,14 @@
+node_modules/
+dist/
+build/
+coverage/
+.cache/
+.vite/
+.turbo/
+.next/
+.DS_Store
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.*

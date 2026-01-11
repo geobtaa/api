@@ -1,0 +1,1899 @@
+import json
+import logging
+import os
+import time
+from typing import Optional
+from urllib.parse import urlencode
+
+from dotenv import load_dotenv
+from elasticsearch.exceptions import NotFoundError
+from fastapi import HTTPException
+from sqlalchemy.sql import text
+
+from app.services.distribution_repository import fetch_distribution_context_map
+from app.services.viewer_service import create_viewer_attributes  # Updated import
+from db.database import database
+from db.models import resources
+
+from .client import es
+
+# Load environment variables from .env file
+try:
+    load_dotenv()
+except (OSError, PermissionError):
+    # In sandboxed environments, .env may be unreadable. Continue with defaults/env.
+    pass
+
+logger = logging.getLogger(__name__)
+
+# Facet size configuration
+GEO_COUNTRY_FACET_SIZE = int(os.getenv("GEO_COUNTRY_FACET_SIZE", "20"))
+GEO_REGION_FACET_SIZE = int(os.getenv("GEO_REGION_FACET_SIZE", "50"))
+GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
+OGM_REPO_FACET_SIZE = int(os.getenv("OGM_REPO_FACET_SIZE", "200"))
+DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
+
+# Fields that should use their `.keyword` subfield for aggregations and filters
+# Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
+KEYWORD_FILTER_FIELDS = {
+    "dct_spatial_sm",
+    "gbl_resourceClass_sm",
+    "gbl_resourceType_sm",
+    "dct_language_sm",
+    "dct_creator_sm",
+    "schema_provider_s",
+    "dct_accessRights_s",
+    "dct_subject_sm",
+    "dct_publisher_sm",
+    "dcat_theme_sm",
+    "dcat_keyword_sm",
+    "time_period",  # Auto-mapped as text with keyword subfield
+    "ogm_repo",
+}
+
+
+def _resolve_filter_field(field: str) -> str:
+    """Return the appropriate ES field for filtering."""
+    if field in KEYWORD_FILTER_FIELDS:
+        return f"{field}.keyword"
+    return field
+
+
+def get_facet_aggregation_config(facet_name: str) -> dict:
+    """Get Elasticsearch aggregation configuration for a given facet name.
+
+    Args:
+        facet_name: The facet field name (e.g., 'dct_spatial_sm', 'schema_provider_s')
+
+    Returns:
+        Dictionary with aggregation configuration including field and size
+
+    Raises:
+        ValueError: If facet_name is not a valid facet field
+    """
+    # Map facet names to their aggregation configurations
+    facet_configs = {
+        "dct_spatial_sm": {
+            "field": "dct_spatial_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_resourceClass_sm": {
+            "field": "gbl_resourceClass_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_resourceType_sm": {
+            "field": "gbl_resourceType_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_indexYear_im": {
+            "field": "gbl_indexYear_im",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "time_period": {
+            "field": "time_period.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_language_sm": {
+            "field": "dct_language_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_creator_sm": {
+            "field": "dct_creator_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "schema_provider_s": {
+            "field": "schema_provider_s.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "ogm_repo": {
+            # ogm_repo is mapped as text with a keyword subfield (for aggs/filters)
+            "field": "ogm_repo.keyword",
+            "size": OGM_REPO_FACET_SIZE,
+        },
+        "dct_accessRights_s": {
+            "field": "dct_accessRights_s.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "gbl_georeferenced_b": {
+            "field": "gbl_georeferenced_b",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_subject_sm": {
+            "field": "dct_subject_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dct_publisher_sm": {
+            "field": "dct_publisher_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dcat_theme_sm": {
+            "field": "dcat_theme_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "dcat_keyword_sm": {
+            "field": "dcat_keyword_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "geo_country": {
+            "field": "geo_country.keyword",
+            "size": GEO_COUNTRY_FACET_SIZE,
+        },
+        "geo_region": {
+            "field": "geo_region.keyword",
+            "size": GEO_REGION_FACET_SIZE,
+        },
+        "geo_county": {
+            "field": "geo_county.keyword",
+            "size": GEO_COUNTY_FACET_SIZE,
+        },
+    }
+
+    if facet_name not in facet_configs:
+        raise ValueError(f"Invalid facet name: {facet_name}")
+
+    return facet_configs[facet_name]
+
+
+def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list = None):
+    """Return the currently applied search criteria."""
+    return {
+        "query": query,
+        "filters": fq,
+        "pagination": {"skip": skip, "limit": limit},
+        "sort": sort or [{"_score": "desc"}],
+    }
+
+
+def _normalize_geo_params(geo_params: dict) -> dict:
+    """Normalize flattened bracket keys into nested geo params structure.
+
+    Examples of flattened keys this handles:
+    - center][lat, center][lon
+    - top_left][lat, bottom_right][lon
+    - points][0][lat, points][1][lon
+    - shape][type, shape][coordinates][0][0]
+    """
+    if not isinstance(geo_params, dict):
+        return {}
+
+    normalized: dict = {}
+
+    def ensure_dict(parent: dict, key: str) -> dict:
+        if key not in parent or not isinstance(parent[key], dict):
+            parent[key] = {}
+        return parent[key]
+
+    def ensure_list(parent: dict, key: str, size: int) -> list:
+        if key not in parent or not isinstance(parent[key], list):
+            parent[key] = []
+        lst = parent[key]
+        while len(lst) <= size:
+            lst.append(None)
+        return lst
+
+    def coerce_numeric(val):
+        try:
+            return float(val) if val is not None else None
+        except (TypeError, ValueError):
+            return val
+
+    for raw_key, raw_value in geo_params.items():
+        # Handle already structured payloads (e.g., POST body)
+        if raw_key in {"type", "field", "distance", "relation"}:
+            if isinstance(raw_value, list) and raw_value:
+                normalized[raw_key] = raw_value[0]
+            else:
+                normalized[raw_key] = raw_value
+            continue
+
+        if raw_key in {"center", "top_left", "bottom_right"} and isinstance(raw_value, dict):
+            normalized[raw_key] = {
+                coord_key: coerce_numeric(coord_val) for coord_key, coord_val in raw_value.items()
+            }
+            continue
+
+        if raw_key == "points" and isinstance(raw_value, list):
+            points_list = []
+            for point in raw_value:
+                if isinstance(point, dict):
+                    points_list.append(
+                        {
+                            coord_key: coerce_numeric(coord_val)
+                            for coord_key, coord_val in point.items()
+                        }
+                    )
+            if points_list:
+                normalized["points"] = points_list
+            continue
+
+        if raw_key == "shape" and isinstance(raw_value, dict):
+            normalized["shape"] = raw_value
+            continue
+
+        # Values may come as lists from parse_qs; take the first where appropriate
+        value = raw_value[0] if isinstance(raw_value, list) and raw_value else raw_value
+
+        # Tokenize keys like 'center][lat' or 'points][0][lat' or 'shape][coordinates][0][0]'
+        tokens = raw_key.replace("][", "|").replace("[", "|").replace("]", "").split("|")
+        tokens = [t for t in tokens if t]
+        if not tokens:
+            continue
+
+        head = tokens[0]
+
+        if head in {"center", "top_left", "bottom_right"}:
+            target = ensure_dict(normalized, head)
+            if len(tokens) >= 2 and tokens[1] in {"lat", "lon"}:
+                try:
+                    target[tokens[1]] = float(value) if value is not None else None
+                except (TypeError, ValueError):
+                    target[tokens[1]] = value
+            continue
+
+        if head == "points":
+            if len(tokens) >= 3 and tokens[1].isdigit():
+                idx = int(tokens[1])
+                lst = ensure_list(normalized, "points", idx)
+                if lst[idx] is None or not isinstance(lst[idx], dict):
+                    lst[idx] = {}
+                key = tokens[2]
+                try:
+                    lst[idx][key] = float(value) if value is not None else None
+                except (TypeError, ValueError):
+                    lst[idx][key] = value
+            continue
+
+        if head == "shape":
+            shape_dict = ensure_dict(normalized, "shape")
+            if len(tokens) >= 2 and tokens[1] == "type":
+                shape_dict["type"] = value
+                continue
+            if len(tokens) >= 2 and tokens[1] == "coordinates":
+                # coordinates might be e.g. [0][0] and [1][1]
+                if len(tokens) >= 4 and tokens[2].isdigit() and tokens[3].isdigit():
+                    outer_idx = int(tokens[2])
+                    inner_idx = int(tokens[3])
+                    # Ensure 2D list
+                    if "coordinates" not in shape_dict or not isinstance(
+                        shape_dict.get("coordinates"), list
+                    ):
+                        shape_dict["coordinates"] = []
+                    coords = shape_dict["coordinates"]
+                    while len(coords) <= outer_idx:
+                        coords.append([])
+                    while len(coords[outer_idx]) <= inner_idx:
+                        coords[outer_idx].append(None)
+                    try:
+                        coords[outer_idx][inner_idx] = float(value) if value is not None else None
+                    except (TypeError, ValueError):
+                        coords[outer_idx][inner_idx] = value
+                continue
+
+    return normalized or geo_params
+
+
+def _build_advanced_query(adv_q: list) -> dict:
+    """Build Elasticsearch bool query from advanced query clauses.
+
+    Args:
+        adv_q: List of query clause dicts with keys: op, f, q
+
+    Returns:
+        Dict with must, should, must_not lists for bool query
+    """
+    must_clauses = []
+    should_clauses = []
+    must_not_clauses = []
+
+    # Fields to search when "all_fields" is specified (same as regular q parameter)
+    ALL_FIELDS_SEARCH_FIELDS = [
+        "id^5",
+        "dct_title_s^3",
+        "dct_description_sm^2",
+        "summary^2",
+        "dct_creator_sm^2",
+        "dct_subject_sm^1.5",
+        "dcat_keyword_sm^1.5",
+        "dct_publisher_sm",
+        "schema_provider_s",
+        "dct_spatial_sm",
+        "gbl_displaynote_sm",
+    ]
+
+    # Check if there are any OR clauses
+    has_or_clauses = any(
+        clause.get("op", "").upper() == "OR" for clause in adv_q if clause.get("op")
+    )
+
+    # If there are OR clauses, check if all non-NOT clauses are on the same field
+    # If so, treat them all as OR clauses (even if some are marked as AND)
+    # This handles the case: [{"op":"AND","f":"field","q":"A"}, {"op":"OR","f":"field","q":"B"}]
+    # which should be interpreted as: field contains A OR B
+    treat_all_as_or = False
+    if has_or_clauses:
+        # Get all non-NOT clauses
+        non_not_clauses = [clause for clause in adv_q if clause.get("op", "").upper() != "NOT"]
+        if non_not_clauses:
+            # Check if all non-NOT clauses are on the same field
+            first_field = non_not_clauses[0].get("f")
+            all_same_field = all(clause.get("f") == first_field for clause in non_not_clauses)
+            # If all on same field, treat all non-NOT clauses as OR
+            if all_same_field:
+                treat_all_as_or = True
+
+    for clause in adv_q:
+        # Extract op, f, q from clause
+        operator = clause.get("op")
+        field = clause.get("f")
+        query = clause.get("q")
+
+        # Normalize operator to uppercase
+        if operator:
+            operator = operator.upper()
+
+        # Build query based on field type
+        if field and field.lower() in ("all_fields", "all", "*"):
+            # For "all_fields", use query_string across multiple fields
+            # (same as regular q parameter). query_string handles quotes natively,
+            # so use the original query text
+            query_clause = {
+                "query_string": {
+                    "query": query,
+                    "fields": ALL_FIELDS_SEARCH_FIELDS,
+                    "default_operator": "AND",
+                    "analyze_wildcard": True,
+                    "allow_leading_wildcard": True,
+                }
+            }
+        else:
+            # For specific fields, use match query
+            # Check if query is a phrase (wrapped in quotes) and extract it
+            is_phrase = len(query) >= 2 and query.startswith('"') and query.endswith('"')
+            phrase = query[1:-1] if is_phrase else query
+            # Use simple match query - Elasticsearch will handle both analyzed and keyword fields
+            query_clause = {"match": {field: {"query": phrase, "operator": "and"}}}
+
+        # Route to appropriate clause list based on operator
+        # Special handling: if there are OR clauses and all non-NOT clauses are on the same field,
+        # treat all non-NOT clauses as OR (even if marked as AND)
+        if operator == "NOT":
+            must_not_clauses.append(query_clause)
+        elif treat_all_as_or:
+            # If we're in "OR mode" (all same field with OR clauses), put everything in should
+            should_clauses.append(query_clause)
+        elif operator == "AND":
+            must_clauses.append(query_clause)
+        elif operator == "OR":
+            should_clauses.append(query_clause)
+
+    return {
+        "must": must_clauses,
+        "should": should_clauses,
+        "must_not": must_not_clauses,
+    }
+
+
+def _build_geospatial_filter(geo_params: dict) -> dict | None:
+    """Build Elasticsearch geospatial filter from geo parameters.
+
+    Supports:
+    - bbox: bounding box with top_left and bottom_right coordinates
+    - distance: radius search with center point and distance
+    - polygon: polygon search with array of points
+    - shape: shape search with relation and shape definition
+    """
+    if not isinstance(geo_params, dict):
+        return None
+
+    # Normalize any flattened keys into nested structures
+    geo_params = _normalize_geo_params(geo_params)
+
+    logger.info(f"Normalized geo_params: {geo_params}")
+
+    geo_type = geo_params.get("type")
+    geo_field = geo_params.get("field", "dcat_centroid")
+
+    logger.info(f"Geo filter - type: {geo_type}, field: {geo_field}")
+
+    if geo_type == "bbox":
+        top_left = geo_params.get("top_left", {})
+        bottom_right = geo_params.get("bottom_right", {})
+
+        if not all(
+            [
+                top_left.get("lat"),
+                top_left.get("lon"),
+                bottom_right.get("lat"),
+                bottom_right.get("lon"),
+            ]
+        ):
+            logger.warning("Invalid bbox parameters: missing lat/lon coordinates")
+            return None
+
+        # Use geo_shape query for geo_shape fields (dcat_bbox, locn_geometry)
+        # Use geo_bounding_box for geo_point fields (dcat_centroid)
+        if geo_field in ["dcat_bbox", "locn_geometry"]:
+            # Use envelope type for bounding boxes (more efficient than polygon)
+            # Envelope format: [[min_lon, max_lat], [max_lon, min_lat]]
+            top_left_lon = float(top_left["lon"])
+            top_left_lat = float(top_left["lat"])
+            bottom_right_lon = float(bottom_right["lon"])
+            bottom_right_lat = float(bottom_right["lat"])
+
+            # Ensure we have min/max values (handle cases where bbox might be reversed)
+            min_lon = min(top_left_lon, bottom_right_lon)
+            max_lon = max(top_left_lon, bottom_right_lon)
+            min_lat = min(top_left_lat, bottom_right_lat)
+            max_lat = max(top_left_lat, bottom_right_lat)
+
+            # Envelope coordinates: [[min_lon, max_lat], [max_lon, min_lat]]
+            envelope_coords = [
+                [min_lon, max_lat],  # top-left corner
+                [max_lon, min_lat],  # bottom-right corner
+            ]
+
+            geo_filter = {
+                "geo_shape": {
+                    geo_field: {
+                        "shape": {
+                            "type": "envelope",
+                            "coordinates": envelope_coords,
+                        },
+                        "relation": "intersects",
+                    }
+                }
+            }
+
+            logger.debug(
+                f"Geo filter for {geo_field}: envelope={envelope_coords}, "
+                f"bbox=({min_lon},{max_lat}) to ({max_lon},{min_lat})"
+            )
+
+            return geo_filter
+        else:
+            # Use geo_bounding_box for geo_point fields (dcat_centroid)
+            return {
+                "geo_bounding_box": {
+                    geo_field: {
+                        "top_left": {"lat": float(top_left["lat"]), "lon": float(top_left["lon"])},
+                        "bottom_right": {
+                            "lat": float(bottom_right["lat"]),
+                            "lon": float(bottom_right["lon"]),
+                        },
+                    }
+                }
+            }
+
+    elif geo_type == "distance":
+        center = geo_params.get("center", {})
+        distance = geo_params.get("distance", "10km")
+
+        if not all([center.get("lat"), center.get("lon")]):
+            logger.warning("Invalid distance parameters: missing center coordinates")
+            return None
+
+        return {
+            "geo_distance": {
+                "distance": distance,
+                geo_field: {"lat": float(center["lat"]), "lon": float(center["lon"])},
+            }
+        }
+
+    elif geo_type == "polygon":
+        points = geo_params.get("points", [])
+
+        if not points or len(points) < 3:
+            logger.warning("Invalid polygon parameters: need at least 3 points")
+            return None
+
+        # Convert points to Elasticsearch polygon format (lon/lat order)
+        coordinates = []
+        for point in points:
+            if not all([point.get("lat"), point.get("lon")]):
+                logger.warning("Invalid polygon point: missing lat/lon")
+                return None
+            coordinates.append([float(point["lon"]), float(point["lat"])])
+
+        # Close the polygon by adding the first point at the end
+        if coordinates[0] != coordinates[-1]:
+            coordinates.append(coordinates[0])
+
+        relation = str(geo_params.get("relation", "intersects")).lower()
+        allowed_relations = {"intersects", "within", "contains", "disjoint"}
+        if relation not in allowed_relations:
+            relation = "intersects"
+
+        return {
+            "geo_shape": {
+                geo_field: {
+                    "relation": relation,
+                    "shape": {
+                        "type": "polygon",
+                        "coordinates": [coordinates],
+                    },
+                }
+            }
+        }
+
+    elif geo_type == "shape":
+        relation = geo_params.get("relation", "intersects")
+        shape = geo_params.get("shape", {})
+
+        if not shape:
+            logger.warning("Invalid shape parameters: missing shape definition")
+            return None
+
+        shape_type = shape.get("type")
+        coordinates = shape.get("coordinates", [])
+
+        if shape_type == "envelope" and len(coordinates) == 2:
+            # Convert envelope coordinates to proper format
+            envelope_coords = [
+                [float(coordinates[0][0]), float(coordinates[0][1])],  # top_left
+                [float(coordinates[1][0]), float(coordinates[1][1])],  # bottom_right
+            ]
+
+            return {
+                "geo_shape": {
+                    geo_field: {
+                        "shape": {"type": "envelope", "coordinates": envelope_coords},
+                        "relation": relation,
+                    }
+                }
+            }
+        else:
+            logger.warning(f"Unsupported shape type: {shape_type}")
+            return None
+
+    else:
+        logger.warning(f"Unsupported geo type: {geo_type}")
+        return None
+
+
+async def search_resources(
+    query: str = None,
+    fq: dict = None,
+    skip: int = 0,
+    limit: int = 20,
+    sort: list = None,
+    search_fields: str | None = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
+    facets: Optional[str] = None,
+    adv_q: Optional[list] = None,
+):
+    """Search resources in Elasticsearch with optional filters, sorting, and spelling
+    suggestions."""
+    # Ensure limit is not zero to avoid division by zero errors
+    if limit <= 0:
+        limit = 20  # Default to 20 if limit is zero or negative
+
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    try:
+        # Get the current search criteria
+        search_criteria = get_search_criteria(query, fq, skip, limit, sort)
+        logger.debug(f"Search criteria: {search_criteria}")
+
+        # Construct the filter query (legacy fq + new include/exclude)
+        filter_clauses = []
+        must_not_clauses = []
+
+        # Track bbox filter for spatial scoring
+        bbox_filter_info = None
+
+        if fq:
+            for field, values in fq.items():
+                resolved_field = _resolve_filter_field(field)
+                logger.debug(
+                    f"Processing filter - Field: {field}, "
+                    f"Resolved: {resolved_field}, Values: {values}"
+                )
+                if isinstance(values, list):
+                    filter_clauses.append({"terms": {resolved_field: values}})
+                else:
+                    filter_clauses.append({"term": {resolved_field: values}})
+
+        if include_filters:
+            for field, values in include_filters.items():
+                resolved_field = _resolve_filter_field(field)
+
+                # Handle geospatial queries
+                if field == "geo" and isinstance(values, dict):
+                    logger.info(f"Building geo filter from values: {values}")
+                    geo_filter = _build_geospatial_filter(values)
+                    if geo_filter:
+                        logger.info(f"Geo filter built successfully: {geo_filter}")
+                        filter_clauses.append(geo_filter)
+                        # Track bbox filter for spatial scoring
+                        if (
+                            values.get("type") == "bbox"
+                            and values.get("top_left")
+                            and values.get("bottom_right")
+                        ):
+                            bbox_filter_info = {
+                                "top_left": values["top_left"],
+                                "bottom_right": values["bottom_right"],
+                                "field": values.get("field", "dcat_centroid"),
+                            }
+                    else:
+                        logger.warning(f"Failed to build geo filter from values: {values}")
+                elif isinstance(values, list):
+                    # Use terms to match if ANY of the specified values are present
+                    # This matches the behavior of legacy fq filters (OR logic)
+                    filter_clauses.append({"terms": {resolved_field: values}})
+                else:
+                    filter_clauses.append({"term": {resolved_field: values}})
+
+        if exclude_filters:
+            for field, values in exclude_filters.items():
+                resolved_field = _resolve_filter_field(field)
+
+                if isinstance(values, list):
+                    must_not_clauses.append({"terms": {resolved_field: values}})
+                else:
+                    must_not_clauses.append({"term": {resolved_field: values}})
+
+        # Optionally filter which aggs to include
+        allowed_aggs = None
+        if facets:
+            allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
+
+        full_aggs = {
+            "dct_spatial_sm": {
+                "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_resourceClass_sm": {
+                "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_resourceType_sm": {
+                "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_indexYear_im": {
+                "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+            },
+            "time_period": {
+                "terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "dct_language_sm": {
+                "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "dct_creator_sm": {
+                "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "schema_provider_s": {
+                "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "ogm_repo": {
+                "terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}
+            },
+            "dct_accessRights_s": {
+                "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
+            },
+            "gbl_georeferenced_b": {
+                "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+            },
+            # Spatial facet aggregations with configurable sizes
+            # Note: These fields are text with .keyword subfields in the actual index
+            "geo_country": {"terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}},
+            "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
+            "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
+        }
+
+        selected_aggs = (
+            {k: v for k, v in full_aggs.items() if k in allowed_aggs} if allowed_aggs else full_aggs
+        )
+
+        # Build the search query
+        # Support both q and adv_q simultaneously
+        must_clauses = []
+        should_clauses = []
+        combined_must_not = list(must_not_clauses)
+
+        # Build query from q parameter if provided
+        query_value = search_criteria.get("query")
+        if query_value and query_value.strip():
+            query_text = query_value.strip()
+            is_phrase = (
+                len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
+            )
+            phrase = query_text[1:-1] if is_phrase else query_text
+
+            # If specific fields are requested (and not 'all_fields'),
+            # use multi_match across provided fields
+            scoped = bool(search_fields) and search_fields.strip().lower() != "all_fields"
+            if scoped:
+                requested_fields = [f.strip() for f in search_fields.split(",") if f.strip()]
+                # Prefer exact matches via .keyword when available,
+                # but also search the analyzed field
+                expanded_fields = []
+                for f in requested_fields:
+                    expanded_fields.append(f)
+                    expanded_fields.append(f"{f}.keyword")
+
+                must_clauses.append(
+                    {
+                        "multi_match": {
+                            "query": phrase,
+                            "type": "best_fields" if not is_phrase else "phrase",
+                            "operator": "AND",
+                            "fields": expanded_fields,
+                        }
+                    }
+                )
+            else:
+                # Default behavior across boosted fields using query_string
+                must_clauses.append(
+                    {
+                        "query_string": {
+                            "query": query_text,
+                            "fields": [
+                                "id^5",
+                                "dct_title_s^3",
+                                "dct_description_sm^2",
+                                "summary^2",
+                                "dct_creator_sm^2",
+                                "dct_subject_sm^1.5",
+                                "dcat_keyword_sm^1.5",
+                                "dct_publisher_sm",
+                                "schema_provider_s",
+                                "dct_spatial_sm",
+                                "gbl_displaynote_sm",
+                            ],
+                            "default_operator": "AND",
+                            "analyze_wildcard": True,
+                            "allow_leading_wildcard": True,
+                        }
+                    }
+                )
+
+        # Build advanced query clauses if provided
+        if adv_q:
+            advanced_query_structure = _build_advanced_query(adv_q)
+            # Add advanced query AND clauses to must
+            must_clauses.extend(advanced_query_structure["must"])
+            # Add advanced query OR clauses to should
+            should_clauses.extend(advanced_query_structure["should"])
+            # Add advanced query NOT clauses to must_not
+            combined_must_not.extend(advanced_query_structure["must_not"])
+
+        # Build the bool query combining all clauses
+        bool_query_dict = {}
+
+        # Only include filter if there are filter clauses
+        if filter_clauses:
+            bool_query_dict["filter"] = filter_clauses
+
+        logger.info(f"Bool query - filter clauses count: {len(filter_clauses)}")
+        if filter_clauses:
+            logger.info(f"Filter clauses: {json.dumps(filter_clauses, indent=2)}")
+        else:
+            logger.warning("No filter clauses found - query will return all results!")
+
+        if must_clauses:
+            bool_query_dict["must"] = must_clauses
+        elif not should_clauses:
+            # If no must clauses and no should clauses, match all
+            bool_query_dict["must"] = [{"match_all": {}}]
+
+        if should_clauses:
+            bool_query_dict["should"] = should_clauses
+            bool_query_dict["minimum_should_match"] = 1
+
+        if combined_must_not:
+            bool_query_dict["must_not"] = combined_must_not
+
+        # Base query is a plain bool; we will wrap it in script_score when we have
+        # bbox info for overlap-based relevance.
+        base_query = {"query": {"bool": bool_query_dict}}
+        overlap_context = None
+
+        # Add bbox overlap-based scoring when bbox filter is present.
+        # This uses an approximate IoU between the document's bbox and the query bbox,
+        # computed from numeric bbox_* fields and the query bbox bounds, and does NOT
+        # use centroids at all.
+        if bbox_filter_info:
+            top_left = bbox_filter_info["top_left"]
+            bottom_right = bbox_filter_info["bottom_right"]
+
+            # Query bbox bounds (x = lon, y = lat)
+            q_minx = min(float(top_left["lon"]), float(bottom_right["lon"]))
+            q_maxx = max(float(top_left["lon"]), float(bottom_right["lon"]))
+            q_miny = min(float(bottom_right["lat"]), float(top_left["lat"]))
+            q_maxy = max(float(bottom_right["lat"]), float(top_left["lat"]))
+
+            # Persist query bbox bounds so we can later compute a concrete
+            # bbox_overlap_ratio per hit in Python for the API meta block.
+            overlap_context = {
+                "qMinX": q_minx,
+                "qMaxX": q_maxx,
+                "qMinY": q_miny,
+                "qMaxY": q_maxy,
+            }
+
+            base_query = {
+                "query": {
+                    "script_score": {
+                        "query": {"bool": bool_query_dict},
+                        "script": {
+                            "source": """
+                                // Read document bbox from numeric bbox_* fields
+                                if (doc['bbox_minx'].size() == 0 ||
+                                    doc['bbox_maxx'].size() == 0 ||
+                                    doc['bbox_miny'].size() == 0 ||
+                                    doc['bbox_maxy'].size() == 0) {
+                                    return _score;
+                                }
+                                double dMinX;
+                                double dMinY;
+                                double dMaxX;
+                                double dMaxY;
+                                try {
+                                    dMinX = doc['bbox_minx'].value;
+                                    dMinY = doc['bbox_miny'].value;
+                                    dMaxX = doc['bbox_maxx'].value;
+                                    dMaxY = doc['bbox_maxy'].value;
+                                } catch (Exception e) {
+                                    return _score;
+                                }
+
+                                // Query bbox
+                                double qMinX = params.qMinX;
+                                double qMaxX = params.qMaxX;
+                                double qMinY = params.qMinY;
+                                double qMaxY = params.qMaxY;
+
+                                // Intersection bbox
+                                double ix1 = Math.max(dMinX, qMinX);
+                                double iy1 = Math.max(dMinY, qMinY);
+                                double ix2 = Math.min(dMaxX, qMaxX);
+                                double iy2 = Math.min(dMaxY, qMaxY);
+
+                                double iw = Math.max(0.0, ix2 - ix1);
+                                double ih = Math.max(0.0, iy2 - iy1);
+                                double intersection = iw * ih;
+                                double docArea = Math.max(0.0, (dMaxX - dMinX) * (dMaxY - dMinY));
+                                double queryArea = Math.max(0.0, (qMaxX - qMinX) * (qMaxY - qMinY));
+
+                                if (intersection <= 0.0 || docArea <= 0.0 || queryArea <= 0.0) {
+                                    // If we can't establish a meaningful overlap,
+                                    // push this document to the bottom of the
+                                    // relevance ranking for bbox queries.
+                                    return 0.0;
+                                }
+
+                                double unionArea = docArea + queryArea - intersection;
+                                if (unionArea <= 0.0) {
+                                    return 0.0;
+                                }
+
+                                // Overlap similarity: IoU between document bbox and query bbox.
+                                // This is high (near 1.0) only when the two extents are similar
+                                // in both size and location.
+                                double overlapRatio = intersection / unionArea;
+                                if (overlapRatio < 0.0) {
+                                    overlapRatio = 0.0;
+                                } else if (overlapRatio > 1.0) {
+                                    overlapRatio = 1.0;
+                                }
+
+                                // Combine base score (text relevance when present) with IoU.
+                                double baseScore = _score;
+                                // Keep scores positive and emphasize high-overlap maps.
+                                return baseScore * (0.1 + 0.9 * overlapRatio);
+                            """,
+                            "params": {
+                                "qMinX": q_minx,
+                                "qMaxX": q_maxx,
+                                "qMinY": q_miny,
+                                "qMaxY": q_maxy,
+                            },
+                        },
+                    }
+                }
+            }
+
+        search_query = {
+            **base_query,
+            "from": skip,
+            "size": limit,
+            "sort": sort or [{"_score": "desc"}],
+            "track_total_hits": True,
+            "aggs": selected_aggs,
+        }
+
+        # Add suggestions if q parameter was provided
+        if search_criteria.get("query") and search_criteria["query"].strip():
+            search_query["suggest"] = {
+                "text": search_criteria["query"],
+                "simple_phrase": {
+                    "phrase": {
+                        "field": "dct_title_s",
+                        "size": 1,
+                        "gram_size": 3,
+                        "direct_generator": [
+                            {"field": "dct_title_s", "suggest_mode": "always"},
+                            {"field": "dct_description_sm", "suggest_mode": "always"},
+                        ],
+                        "highlight": {"pre_tag": "<em>", "post_tag": "</em>"},
+                    }
+                },
+            }
+
+        # If neither q nor adv_q provided, search_query already has match_all in must
+
+        logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
+
+        try:
+            # Call ES using keyword args so tests can inspect 'query' and 'suggest'
+            response = await es.search(
+                index=index_name,
+                query=search_query["query"],
+                from_=skip,
+                size=limit,
+                sort=sort or [{"_score": "desc"}],
+                track_total_hits=True,
+                aggs=search_query["aggs"],
+                suggest=search_query.get("suggest"),
+            )
+            response_dict = response.body if hasattr(response, "body") else response
+        except NotFoundError:
+            # Index missing: return empty result structure instead of 500
+            logger.warning(f"Elasticsearch index '{index_name}' not found; returning empty results")
+            empty_response = {
+                "hits": {"total": {"value": 0}, "hits": []},
+                "took": 0,
+                "aggregations": {},
+            }
+            return await process_search_response(
+                empty_response,
+                limit,
+                skip,
+                search_criteria,
+                overlap_context=None,
+                include_filters=include_filters,
+                exclude_filters=exclude_filters,
+                adv_q=adv_q,
+            )
+        except Exception as es_error:
+            logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
+
+            # If the failure is due to script_score (e.g. painless compile error),
+            # fall back to a plain bool query WITHOUT overlap scoring so we still
+            # return correct filtered results instead of zero.
+            info = getattr(es_error, "info", {}) or {}
+            error_type = info.get("error", {}).get("root_cause", [{}])[0].get("type", "")
+            if "script_exception" in error_type or "script_exception" in str(es_error):
+                logger.warning(
+                    "Script_score query failed (likely painless compile error); "
+                    "falling back to plain bool query without overlap scoring."
+                )
+                try:
+                    fallback_response = await es.search(
+                        index=index_name,
+                        query={"bool": bool_query_dict},
+                        from_=skip,
+                        size=limit,
+                        sort=sort or [{"_score": "desc"}],
+                        track_total_hits=True,
+                        aggs=selected_aggs,
+                        suggest=search_query.get("suggest"),
+                    )
+                    fallback_dict = (
+                        fallback_response.body
+                        if hasattr(fallback_response, "body")
+                        else fallback_response
+                    )
+                    return await process_search_response(
+                        fallback_dict,
+                        limit,
+                        skip,
+                        search_criteria,
+                        overlap_context=None,
+                        include_filters=include_filters,
+                        exclude_filters=exclude_filters,
+                        adv_q=adv_q,
+                    )
+                except Exception as fallback_error:
+                    logger.error(
+                        f"Fallback bool query after script failure also errored: {fallback_error}",
+                        exc_info=True,
+                    )
+
+            # If we get here, propagate a detailed HTTP error
+            error_detail = {
+                "message": "Elasticsearch query failed",
+                "error": str(es_error),
+                "query": search_query,
+                "index": index_name,
+            }
+            if hasattr(es_error, "info"):
+                error_detail["info"] = es_error.info
+            if hasattr(es_error, "status_code"):
+                error_detail["status_code"] = es_error.status_code
+            raise HTTPException(status_code=500, detail=error_detail) from es_error
+
+        return await process_search_response(
+            response_dict,
+            limit,
+            skip,
+            search_criteria,
+            overlap_context=overlap_context,
+            include_filters=include_filters,
+            exclude_filters=exclude_filters,
+            adv_q=adv_q,
+        )
+
+    except Exception as e:
+        logger.error(f"Search documents error: {str(e)}", exc_info=True)
+        raise
+
+
+def get_sort_options(search_criteria):
+    """Generate sort options for the response."""
+    base_url = os.getenv("APPLICATION_URL") + "/api/v1/search"
+    current_params = {"q": search_criteria["query"] or "", "search_field": "all_fields"}
+
+    # Add any existing filters to the params
+    if search_criteria["filters"]:
+        for field, values in search_criteria["filters"].items():
+            if isinstance(values, list):
+                for value in values:
+                    current_params[f"fq[{field}][]"] = value
+            else:
+                current_params[f"fq[{field}][]"] = values
+
+    sort_options = [
+        {
+            "type": "sort",
+            "id": "relevance",
+            "attributes": {"label": "Relevance"},
+            "links": {
+                "self": (
+                    f"{base_url}?{urlencode({**current_params, 'sort': 'relevance'}, doseq=True)}"
+                )
+            },
+        },
+        {
+            "type": "sort",
+            "id": "year_desc",
+            "attributes": {"label": "Year (Newest first)"},
+            "links": {
+                "self": (
+                    f"{base_url}?{urlencode({**current_params, 'sort': 'year_desc'}, doseq=True)}"
+                )
+            },
+        },
+        {
+            "type": "sort",
+            "id": "year_asc",
+            "attributes": {"label": "Year (Oldest first)"},
+            "links": {
+                "self": (
+                    f"{base_url}?{urlencode({**current_params, 'sort': 'year_asc'}, doseq=True)}"
+                )
+            },
+        },
+        {
+            "type": "sort",
+            "id": "title_asc",
+            "attributes": {"label": "Title (A-Z)"},
+            "links": {
+                "self": (
+                    f"{base_url}?{urlencode({**current_params, 'sort': 'title_asc'}, doseq=True)}"
+                )
+            },
+        },
+        {
+            "type": "sort",
+            "id": "title_desc",
+            "attributes": {"label": "Title (Z-A)"},
+            "links": {
+                "self": (
+                    f"{base_url}?{urlencode({**current_params, 'sort': 'title_desc'}, doseq=True)}"
+                )
+            },
+        },
+    ]
+    return sort_options
+
+
+async def process_search_response(
+    response,
+    limit,
+    skip,
+    search_criteria,
+    overlap_context: dict | None = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
+    adv_q: Optional[list] = None,
+):
+    """Process Elasticsearch response and format for API output."""
+    try:
+        total_hits = response["hits"]["total"]["value"]
+        logger.info(f"Total hits: {total_hits}")
+
+        hits = response["hits"]["hits"]
+        document_ids = [hit["_source"]["id"] for hit in hits]
+        logger.info(f"Found document IDs: {document_ids}")
+
+        # Process spelling suggestions
+        suggestions = []
+        if "suggest" in response:
+            simple_phrase = response["suggest"].get("simple_phrase", [])
+            for suggestion in simple_phrase:
+                if suggestion.get("options"):
+                    for option in suggestion["options"]:
+                        suggestions.append(
+                            {
+                                "text": option.get("text"),
+                                "highlighted": option.get("highlighted"),
+                                "score": option.get("score"),
+                            }
+                        )
+
+        if not document_ids:
+            logger.debug("No documents found")
+            return {
+                "status": "success",
+                "queryTime": {
+                    "elasticsearch": response["took"].__str__() + "ms",
+                    "postgresql": "0ms",
+                },
+                "meta": {
+                    "pages": {
+                        "current_page": (skip // limit) + 1,
+                        "next_page": None,
+                        "prev_page": (skip // limit) if skip > 0 else None,
+                        "total_pages": 0,
+                        "limit_value": limit,
+                        "offset_value": skip,
+                        "total_count": total_hits,
+                        "first_page?": True,
+                        "last_page?": True,
+                    },
+                    "suggestions": suggestions,  # Add suggestions to meta
+                },
+                "data": [],
+                "included": [],
+            }
+
+        start_time = time.time()
+        # Create a CASE statement to preserve the order of document_ids
+        order_case = (
+            "CASE "
+            + " ".join(
+                f"WHEN id = '{doc_id}' THEN {index}" for index, doc_id in enumerate(document_ids)
+            )
+            + " END"
+        )
+
+        query = (
+            resources.select().where(resources.c.id.in_(document_ids)).order_by(text(order_case))
+        )
+
+        resource_rows = await database.fetch_all(query)
+        processed_resources = []
+
+        distribution_contexts = await fetch_distribution_context_map(
+            [resource["id"] for resource in resource_rows]
+        )
+
+        # Precompute lookups from id -> score and id -> bbox_overlap_ratio so we can
+        # expose them in the API layer meta block. The ratio is computed as the
+        # fraction of the document bbox area that lies inside the query bbox,
+        # mirroring the Painless scoring script semantics.
+        id_to_score: dict[str, float] = {}
+        id_to_overlap: dict[str, float] = {}
+
+        def _compute_overlap_ratio(hit_dict: dict, ctx: dict) -> float | None:
+            try:
+                src = hit_dict.get("_source", {})
+                d_minx = float(src["bbox_minx"])
+                d_maxx = float(src["bbox_maxx"])
+                d_miny = float(src["bbox_miny"])
+                d_maxy = float(src["bbox_maxy"])
+            except (KeyError, TypeError, ValueError):
+                return None
+
+            q_minx = float(ctx["qMinX"])
+            q_maxx = float(ctx["qMaxX"])
+            q_miny = float(ctx["qMinY"])
+            q_maxy = float(ctx["qMaxY"])
+
+            ix1 = max(d_minx, q_minx)
+            iy1 = max(d_miny, q_miny)
+            ix2 = min(d_maxx, q_maxx)
+            iy2 = min(d_maxy, q_maxy)
+
+            iw = max(0.0, ix2 - ix1)
+            ih = max(0.0, iy2 - iy1)
+            intersection = iw * ih
+            doc_area = max(0.0, (d_maxx - d_minx) * (d_maxy - d_miny))
+            query_area = max(0.0, (q_maxx - q_minx) * (q_maxy - q_miny))
+            if intersection <= 0.0 or doc_area <= 0.0 or query_area <= 0.0:
+                return 0.0
+
+            union_area = doc_area + query_area - intersection
+            if union_area <= 0.0:
+                return 0.0
+
+            ratio = intersection / union_area
+            if ratio < 0.0:
+                ratio = 0.0
+            elif ratio > 1.0:
+                ratio = 1.0
+            return ratio
+
+        for hit in hits:
+            rid = hit["_source"]["id"]
+            id_to_score[rid] = hit.get("_score", 0.0)
+            if overlap_context:
+                ratio = _compute_overlap_ratio(hit, overlap_context)
+                if ratio is not None:
+                    id_to_overlap[rid] = ratio
+
+        for resource in resource_rows:
+            rid = resource["id"]
+            distribution_context = distribution_contexts.get(rid)
+            score = id_to_score.get(rid, 0.0)
+            overlap_ratio = id_to_overlap.get(rid)
+
+            doc: dict = {
+                "type": "document",
+                "id": rid,
+                "score": score,
+                "attributes": {
+                    **resource,
+                    **create_viewer_attributes(resource, distribution_context=distribution_context),
+                },
+            }
+            if overlap_ratio is not None:
+                doc["bbox_overlap_ratio"] = overlap_ratio
+
+            processed_resources.append(doc)
+
+        pg_query_time = (time.time() - start_time) * 1000
+
+        included = [
+            *process_aggregations(
+                response.get("aggregations", {}),
+                {
+                    "q": search_criteria.get("query"),
+                    "include_filters": include_filters,
+                    "exclude_filters": exclude_filters,
+                    "fq": search_criteria.get("filters"),
+                    "adv_q": adv_q,
+                },
+            ),
+            *get_sort_options(search_criteria),
+        ]
+
+        return {
+            "status": "success",
+            "queryTime": {
+                "elasticsearch": response["took"].__str__() + "ms",
+                "postgresql": f"{round(pg_query_time)}ms",
+            },
+            "meta": {
+                "pages": {
+                    "current_page": (skip // limit) + 1,
+                    "next_page": ((skip // limit) + 2) if (skip + limit) < total_hits else None,
+                    "prev_page": (skip // limit) if skip > 0 else None,
+                    "total_pages": (
+                        (total_hits // limit) + (1 if total_hits % limit > 0 else 0)
+                        if limit > 0
+                        else 0
+                    ),
+                    "limit_value": limit,
+                    "offset_value": skip,
+                    "total_count": total_hits,
+                    "first_page?": (skip == 0),
+                    "last_page?": (skip + limit) >= total_hits,
+                },
+                "suggestions": suggestions,  # Add suggestions to meta
+            },
+            "data": processed_resources,
+            "included": included,
+        }
+
+    except Exception as e:
+        import traceback
+
+        error_trace = traceback.format_exc()
+        logger.error(f"Process response error: {str(e)}", exc_info=True)
+        logger.error(f"Full traceback:\n{error_trace}")
+        logger.error(f"Response body: {response}")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": str(e), "traceback": error_trace, "response": response},
+        ) from e
+
+
+def _flatten_bracket_params(prefix: str, value) -> list[tuple[str, str]]:
+    """
+    Flatten nested objects into bracket-style query params.
+
+    Example:
+      prefix='include_filters[geo]' and value={'top_left': {'lat': 1}}
+      -> [('include_filters[geo][top_left][lat]', '1')]
+    """
+
+    params: list[tuple[str, str]] = []
+
+    def _walk(key_prefix: str, v):
+        if v is None:
+            return
+        if isinstance(v, dict):
+            for k, child in v.items():
+                _walk(f"{key_prefix}[{k}]", child)
+            return
+        if isinstance(v, (list, tuple)):
+            for i, child in enumerate(v):
+                _walk(f"{key_prefix}[{i}]", child)
+            return
+        params.append((key_prefix, str(v)))
+
+    _walk(prefix, value)
+    return params
+
+
+def generate_facet_apply_template(facet_id: str, search_context: dict) -> str:
+    """
+    Generate a single URL template to apply a facet value while preserving the
+    current search context.
+
+    Placeholder: `{value}` (caller should URL-encode substituted value).
+    """
+
+    base_url = os.getenv("APPLICATION_URL", "http://localhost:8000") + "/api/v1/search"
+
+    q = (search_context or {}).get("q") or ""
+    include_filters = (search_context or {}).get("include_filters") or {}
+    exclude_filters = (search_context or {}).get("exclude_filters") or {}
+    fq = (search_context or {}).get("fq") or {}
+    adv_q = (search_context or {}).get("adv_q")
+
+    query_params: dict[str, list[str] | str] = {"q": q}
+
+    # Preserve advanced query clauses if present (as a compact JSON string)
+    if adv_q:
+        try:
+            query_params["adv_q"] = json.dumps(adv_q, separators=(",", ":"))
+        except Exception:
+            # If something unexpected is passed, just skip it rather than breaking links
+            pass
+
+    # Preserve include filters (new style). Geo is nested.
+    if isinstance(include_filters, dict):
+        for field, values in include_filters.items():
+            if field == "geo" and isinstance(values, dict):
+                for k, v in _flatten_bracket_params("include_filters[geo]", values):
+                    query_params.setdefault(k, []).append(v)  # type: ignore[arg-type]
+                continue
+
+            if isinstance(values, list):
+                for v in values:
+                    query_params.setdefault(f"include_filters[{field}][]", []).append(str(v))  # type: ignore[arg-type]
+            else:
+                query_params.setdefault(f"include_filters[{field}][]", []).append(str(values))  # type: ignore[arg-type]
+
+    # Preserve exclude filters (new style).
+    if isinstance(exclude_filters, dict):
+        for field, values in exclude_filters.items():
+            if isinstance(values, list):
+                for v in values:
+                    query_params.setdefault(f"exclude_filters[{field}][]", []).append(str(v))  # type: ignore[arg-type]
+            else:
+                query_params.setdefault(f"exclude_filters[{field}][]", []).append(str(values))  # type: ignore[arg-type]
+
+    # Preserve legacy fq filters by converting them to include_filters in the URL.
+    # Note: fq keys may include `.keyword` suffix from ES field resolution.
+    if isinstance(fq, dict):
+        for field, values in fq.items():
+            facet_key = str(field).replace(".keyword", "")
+            if isinstance(values, list):
+                for v in values:
+                    query_params.setdefault(f"include_filters[{facet_key}][]", []).append(str(v))  # type: ignore[arg-type]
+            else:
+                query_params.setdefault(f"include_filters[{facet_key}][]", []).append(str(values))  # type: ignore[arg-type]
+
+    # Add the facet value placeholder to apply this facet.
+    sentinel = "__FACET_VALUE__"
+    query_params.setdefault(f"include_filters[{facet_id}][]", []).append(sentinel)  # type: ignore[arg-type]
+
+    # urlencode will percent-encode the sentinel safely; swap it back to `{value}`.
+    query_string = urlencode(query_params, doseq=True)
+    query_string = query_string.replace(sentinel, "{value}")
+    return f"{base_url}?{query_string}"
+
+
+def process_aggregations(aggregations, search_context: dict):
+    """Transform Elasticsearch aggregations into JSON:API includes."""
+    # Define custom labels for aggregations
+    agg_labels = {
+        "id_agg": "ID",
+        "spatial_agg": "Spatial Coverage",
+        "resource_class_agg": "Resource Class",
+        "resource_type_agg": "Resource Type",
+        "index_year_agg": "Index Year",
+        "time_period": "Time Period",
+        "language_agg": "Language",
+        "creator_agg": "Creator",
+        "provider_agg": "Provider",
+        "ogm_repo": "OGM Repo",
+        "access_rights_agg": "Access Rights",
+        "georeferenced_agg": "Georeferenced",
+        "geo_country_agg": "Country",
+        "geo_region_agg": "Region",
+        "geo_county_agg": "County",
+    }
+
+    processed_facets = []
+
+    # Define time_period ordering (most recent first)
+    time_period_order = [
+        "2025-present",
+        "2020-2024",
+        "2015-2019",
+        "2010-2014",
+        "2005-2009",
+        "2000-2004",
+        "1950-1999",
+        "1900-1949",
+        "1850-1899",
+        "1800-1849",
+        "1700s",
+        "1600s",
+        "1500s",
+        "1400s-earlier",
+    ]
+
+    # Process regular aggregations
+    for agg_name, agg_data in aggregations.items():
+        buckets = agg_data.get("buckets", [])
+
+        # Special handling for time_period to enforce chronological order
+        if agg_name == "time_period":
+            # Create a lookup for buckets by key
+            bucket_dict = {bucket["key"]: bucket for bucket in buckets}
+            # Order buckets according to time_period_order
+            ordered_buckets = []
+            for period in time_period_order:
+                if period in bucket_dict:
+                    ordered_buckets.append(bucket_dict[period])
+        else:
+            ordered_buckets = buckets
+
+        processed_facets.append(
+            {
+                "type": "facet",
+                "id": agg_name,
+                "links": {"applyTemplate": generate_facet_apply_template(agg_name, search_context)},
+                "attributes": {
+                    "label": agg_labels.get(
+                        agg_name, agg_name.replace("_sm", "").replace("_", " ").title()
+                    ),
+                    # Compact encoding: [value, hits]
+                    "items": [[bucket["key"], bucket["doc_count"]] for bucket in ordered_buckets],
+                },
+            }
+        )
+
+    return processed_facets
+
+
+def generate_facet_link(agg_name, facet_value, search_criteria):
+    """Generate a link for a facet with current search parameters.
+
+    Uses include_filters format for consistency with the new search endpoint.
+    """
+    from urllib.parse import urlencode
+
+    base_url = os.getenv("APPLICATION_URL", "http://localhost:8000") + "/api/v1/search"
+    query_params = {
+        "q": search_criteria["query"] or "",
+    }
+
+    # Add existing filters using include_filters format
+    if search_criteria.get("filters"):
+        for key, values in search_criteria["filters"].items():
+            # Convert ES field names back to facet names (remove .keyword suffix if present)
+            facet_key = key.replace(".keyword", "")
+            if isinstance(values, list):
+                for value in values:
+                    query_params.setdefault(f"include_filters[{facet_key}][]", []).append(value)
+            else:
+                query_params.setdefault(f"include_filters[{facet_key}][]", []).append(values)
+
+    # Add the new facet filter
+    # Remove .keyword suffix if present for consistency
+    facet_key = agg_name.replace(".keyword", "")
+    query_params.setdefault(f"include_filters[{facet_key}][]", []).append(facet_value)
+
+    query_string = urlencode(query_params, doseq=True)
+    return f"{base_url}?{query_string}"
+
+
+async def get_facet_values(
+    facet_name: str,
+    query: str = None,
+    fq: dict = None,
+    include_filters: dict | None = None,
+    exclude_filters: dict | None = None,
+    adv_q: Optional[list] = None,
+    q_facet: Optional[str] = None,
+    size: int = 1000,
+):
+    """Get facet values for a specific facet field within a search context.
+
+    Args:
+        facet_name: The facet field name (e.g., 'dct_spatial_sm',
+            'schema_provider_s', 'time_period')
+        query: Search query string
+        fq: Legacy filter queries dict
+        include_filters: Include filters dict
+        exclude_filters: Exclude filters dict
+        adv_q: Advanced query clauses
+        q_facet: Optional search query to filter facet values (client-side filtering)
+        size: Maximum number of facet values to retrieve from ES (default: 1000)
+
+    Returns:
+        Raw Elasticsearch aggregation buckets
+
+    Raises:
+        ValueError: If facet_name is invalid
+        HTTPException: If Elasticsearch query fails
+    """
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    # Get facet aggregation configuration
+    facet_config = get_facet_aggregation_config(facet_name)
+    agg_field = facet_config["field"]
+
+    # Build the same filter query structure as search_resources
+    filter_clauses = []
+    must_not_clauses = []
+
+    if fq:
+        for field, values in fq.items():
+            resolved_field = _resolve_filter_field(field)
+            if isinstance(values, list):
+                filter_clauses.append({"terms": {resolved_field: values}})
+            else:
+                filter_clauses.append({"term": {resolved_field: values}})
+
+    if include_filters:
+        for field, values in include_filters.items():
+            resolved_field = _resolve_filter_field(field)
+
+            # Handle geospatial queries
+            if field == "geo" and isinstance(values, dict):
+                geo_filter = _build_geospatial_filter(values)
+                if geo_filter:
+                    filter_clauses.append(geo_filter)
+            elif isinstance(values, list):
+                # Use terms to match if ANY of the specified values are present
+                # This matches the behavior of legacy fq filters (OR logic)
+                filter_clauses.append({"terms": {resolved_field: values}})
+            else:
+                filter_clauses.append({"term": {resolved_field: values}})
+
+    if exclude_filters:
+        for field, values in exclude_filters.items():
+            resolved_field = _resolve_filter_field(field)
+            if isinstance(values, list):
+                must_not_clauses.append({"terms": {resolved_field: values}})
+            else:
+                must_not_clauses.append({"term": {resolved_field: values}})
+
+    # Build query clauses (same as search_resources)
+    must_clauses = []
+    should_clauses = []
+    combined_must_not = list(must_not_clauses)
+
+    # Build query from q parameter if provided
+    if query:
+        query_text = query or ""
+        # Note: is_phrase and phrase are calculated for consistency with search_resources,
+        # but query_string handles quotes natively, so we use query_text directly
+        is_phrase = len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
+        _phrase = query_text[1:-1] if is_phrase else query_text  # Unused but kept for consistency
+
+        must_clauses.append(
+            {
+                "query_string": {
+                    "query": query_text,
+                    "fields": [
+                        "id^5",
+                        "dct_title_s^3",
+                        "dct_description_sm^2",
+                        "summary^2",
+                        "dct_creator_sm^2",
+                        "dct_subject_sm^1.5",
+                        "dcat_keyword_sm^1.5",
+                        "dct_publisher_sm",
+                        "schema_provider_s",
+                        "dct_spatial_sm",
+                        "gbl_displaynote_sm",
+                    ],
+                    "default_operator": "AND",
+                    "analyze_wildcard": True,
+                    "allow_leading_wildcard": True,
+                }
+            }
+        )
+
+    # Build advanced query clauses if provided
+    if adv_q:
+        advanced_query_structure = _build_advanced_query(adv_q)
+        must_clauses.extend(advanced_query_structure["must"])
+        should_clauses.extend(advanced_query_structure["should"])
+        combined_must_not.extend(advanced_query_structure["must_not"])
+
+    # Build the bool query
+    bool_query_dict = {"filter": filter_clauses}
+
+    if must_clauses:
+        bool_query_dict["must"] = must_clauses
+    elif not should_clauses:
+        bool_query_dict["must"] = [{"match_all": {}}]
+
+    if should_clauses:
+        bool_query_dict["should"] = should_clauses
+        bool_query_dict["minimum_should_match"] = 1
+
+    if combined_must_not:
+        bool_query_dict["must_not"] = combined_must_not
+
+    # Build aggregation with large size to get all values for sorting/filtering
+    agg_config = {"terms": {"field": agg_field, "size": size}}
+
+    # Optionally use ES include parameter for filtering (but we'll do client-side for simplicity)
+    if q_facet:
+        # Use regex pattern matching in ES for better performance on large datasets
+        # Escape special regex characters
+        import re
+
+        escaped_query = re.escape(q_facet)
+        agg_config["terms"]["include"] = f".*{escaped_query}.*"
+
+    search_query = {
+        "query": {"bool": bool_query_dict},
+        "size": 0,  # We only want aggregations, not documents
+        "aggs": {"facet_values": agg_config},
+    }
+
+    try:
+        response = await es.search(
+            index=index_name,
+            query=search_query["query"],
+            size=0,
+            aggs=search_query["aggs"],
+        )
+        response_dict = response.body if hasattr(response, "body") else response
+        buckets = response_dict.get("aggregations", {}).get("facet_values", {}).get("buckets", [])
+
+        return buckets
+    except Exception as es_error:
+        logger.error(f"Elasticsearch error getting facet values: {str(es_error)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(es_error)) from es_error
+
+
+def process_facet_response(
+    buckets: list,
+    facet_name: str,
+    search_criteria: dict,
+    page: int = 1,
+    per_page: int = 10,
+    sort: str = "count_desc",
+    q_facet: Optional[str] = None,
+) -> dict:
+    """Process and format facet aggregation buckets into paginated JSON:API response.
+
+    Args:
+        buckets: Raw aggregation buckets from Elasticsearch
+        facet_name: The facet field name
+        search_criteria: Search criteria dict (for generating links)
+        page: Page number (1-based)
+        per_page: Items per page
+        sort: Sort option ('count_desc', 'count_asc', 'alpha_asc', 'alpha_desc')
+        q_facet: Optional search query to filter facet values
+
+    Returns:
+        Dictionary with processed facet data ready for JSON:API formatting
+    """
+    # Apply client-side filtering if q_facet provided (case-insensitive)
+    filtered_buckets = buckets
+    if q_facet:
+        q_facet_lower = q_facet.lower()
+        filtered_buckets = [
+            bucket for bucket in buckets if q_facet_lower in str(bucket.get("key", "")).lower()
+        ]
+
+    # Define time_period chronological order (most recent first)
+    time_period_order = [
+        "2025-present",
+        "2020-2024",
+        "2015-2019",
+        "2010-2014",
+        "2005-2009",
+        "2000-2004",
+        "1950-1999",
+        "1900-1949",
+        "1850-1899",
+        "1800-1849",
+        "1700s",
+        "1600s",
+        "1500s",
+        "1400s-earlier",
+    ]
+
+    # Special handling for time_period - default to chronological order
+    if facet_name == "time_period" and sort == "count_desc":
+        # Use chronological order for time_period by default
+        bucket_dict = {bucket["key"]: bucket for bucket in filtered_buckets}
+        filtered_buckets = []
+        for period in time_period_order:
+            if period in bucket_dict:
+                filtered_buckets.append(bucket_dict[period])
+    # Sort buckets based on sort parameter
+    elif sort == "count_desc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
+        )
+    elif sort == "count_asc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=False
+        )
+    elif sort == "alpha_asc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: str(x.get("key", "")).lower(), reverse=False
+        )
+    elif sort == "alpha_desc":
+        filtered_buckets = sorted(
+            filtered_buckets, key=lambda x: str(x.get("key", "")).lower(), reverse=True
+        )
+    else:
+        # Default to count_desc (or chronological for time_period)
+        if facet_name == "time_period":
+            bucket_dict = {bucket["key"]: bucket for bucket in filtered_buckets}
+            filtered_buckets = []
+            for period in time_period_order:
+                if period in bucket_dict:
+                    filtered_buckets.append(bucket_dict[period])
+        else:
+            filtered_buckets = sorted(
+                filtered_buckets, key=lambda x: x.get("doc_count", 0), reverse=True
+            )
+
+    # Calculate pagination
+    total_count = len(filtered_buckets)
+    total_pages = max(1, (total_count + per_page - 1) // per_page) if per_page > 0 else 1
+    skip = (page - 1) * per_page
+    paginated_buckets = filtered_buckets[skip : skip + per_page]
+
+    # Format facet values as JSON:API resources
+    facet_items = []
+    for bucket in paginated_buckets:
+        facet_value = bucket.get("key", "")
+        doc_count = bucket.get("doc_count", 0)
+
+        facet_items.append(
+            {
+                "type": "facet_value",
+                "id": str(facet_value),
+                "attributes": {
+                    # Minimal payload: label is redundant (frontend can render String(value))
+                    "value": facet_value,
+                    "hits": doc_count,
+                },
+            }
+        )
+
+    return {
+        "data": facet_items,
+        "meta": {
+            "totalCount": total_count,
+            "totalPages": total_pages,
+            "currentPage": page,
+            "perPage": per_page,
+            "facetName": facet_name,
+            "sort": sort,
+        },
+    }
+
+
+async def find_similar_resources(resource_id: str, limit: int = 12) -> list:
+    """
+    Find similar resources using Elasticsearch more_like_this query.
+
+    Args:
+        resource_id: The ID of the resource to find similar items for
+        limit: Maximum number of similar resources to return (default: 12)
+
+    Returns:
+        List of resource IDs ordered by similarity score
+    """
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    try:
+        # First, check if the resource exists in Elasticsearch
+        try:
+            doc = await es.get(index=index_name, id=resource_id)
+            if not doc:
+                logger.warning(f"Resource {resource_id} not found in Elasticsearch")
+                return []
+        except NotFoundError:
+            logger.warning(f"Resource {resource_id} not found in Elasticsearch")
+            return []
+
+        # Build more_like_this query
+        # Fields to use for similarity matching
+        similar_fields = [
+            "dct_title_s",
+            "dct_description_sm",
+            "summary",
+            "dct_creator_sm",
+            "dct_subject_sm",
+            "dcat_keyword_sm",
+        ]
+
+        mlt_query = {
+            "bool": {
+                "must": [
+                    {
+                        "more_like_this": {
+                            "fields": similar_fields,
+                            "like": [{"_id": resource_id}],
+                            "min_term_freq": 1,
+                            "min_doc_freq": 1,
+                            "max_query_terms": 25,
+                            "minimum_should_match": "30%",
+                        }
+                    }
+                ],
+                "must_not": [{"term": {"id": resource_id}}],
+            }
+        }
+
+        # Execute the query
+        response = await es.search(
+            index=index_name,
+            query=mlt_query,
+            size=limit,
+        )
+        response_dict = response.body if hasattr(response, "body") else response
+
+        # Extract resource IDs from results
+        hits = response_dict.get("hits", {}).get("hits", [])
+        similar_ids = [hit["_source"].get("id") for hit in hits if hit.get("_source", {}).get("id")]
+
+        logger.info(f"Found {len(similar_ids)} similar resources for {resource_id}")
+        return similar_ids
+
+    except Exception as e:
+        logger.error(
+            f"Error finding similar resources for {resource_id}: {str(e)}", exc_info=True
+        )
+        return []
