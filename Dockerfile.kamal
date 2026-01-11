@@ -68,6 +68,10 @@ COPY backend/pyproject.toml backend/uv.lock ./
 COPY backend/scripts ./scripts
 COPY backend/ ./backend/
 
+# Copy static and templates directories for API docs (from backend/ to /app/)
+COPY backend/static ./static
+COPY backend/templates ./templates
+
 # Ensure entrypoint script is executable (git perms may not preserve +x)
 RUN chmod +x /app/scripts/start_web_singlehost.sh
 

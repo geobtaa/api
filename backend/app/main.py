@@ -8,7 +8,11 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.openapi.docs import get_swagger_ui_oauth2_redirect_html
+from fastapi.openapi.docs import (
+    get_redoc_html,
+    get_swagger_ui_html,
+    get_swagger_ui_oauth2_redirect_html,
+)
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -216,19 +220,33 @@ async def global_exception_handler(request: Request, exc: Exception):
 # if os.path.exists(assets_dir):
 #     app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
 
-# Institution-branded docs assets (monorepo: static/templates at repo root)
+# Institution-branded docs assets
 # Use absolute paths based on known container structure, or relative paths when not in Docker
 # Check if we're in Docker by looking for /app directory, otherwise use relative paths
 if os.path.exists("/app"):
-    STATIC_DIR = os.path.join("/app", "static")
-    TEMPLATES_DIR = os.path.join("/app", "templates")
+    # In Docker: check both possible locations
+    # - Production (Dockerfile.kamal): /app/templates and /app/static
+    # - Development (docker-compose): /app/backend/templates and /app/backend/static
+    # Check if template file exists in production location first
+    prod_template = os.path.join("/app", "templates", "docs.html")
+    dev_template = os.path.join("/app", "backend", "templates", "docs.html")
+    if os.path.exists(prod_template):
+        # Production: templates copied to /app/templates
+        STATIC_DIR = os.path.join("/app", "static")
+        TEMPLATES_DIR = os.path.join("/app", "templates")
+    elif os.path.exists(dev_template):
+        # Development: templates at /app/backend/templates (mounted volume)
+        STATIC_DIR = os.path.join("/app", "backend", "static")
+        TEMPLATES_DIR = os.path.join("/app", "backend", "templates")
+    else:
+        # Fallback: try production directories even if template doesn't exist yet
+        STATIC_DIR = os.path.join("/app", "static")
+        TEMPLATES_DIR = os.path.join("/app", "templates")
 else:
-    # When running outside Docker (e.g., tests), use relative paths from backend/
-    # Go up to repo root, then to static/templates
+    # When running outside Docker, use paths relative to backend directory
     backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    repo_root = os.path.dirname(backend_dir)
-    STATIC_DIR = os.path.join(repo_root, "static")
-    TEMPLATES_DIR = os.path.join(repo_root, "templates")
+    STATIC_DIR = os.path.join(backend_dir, "static")
+    TEMPLATES_DIR = os.path.join(backend_dir, "templates")
 
 # Only create directories if they don't exist and we have write access
 # Skip in test environments where these directories may not be needed
@@ -256,19 +274,16 @@ else:
 async def custom_docs(request: Request) -> HTMLResponse:
     # Check if templates are available and the template file exists
     template_path = os.path.join(TEMPLATES_DIR, "docs.html") if TEMPLATES_DIR else None
+    # Construct OAuth2 redirect URL (since docs_url=None, we need to build it manually)
+    oauth2_redirect_url = str(request.url_for("swagger_oauth2_redirect"))
     if templates is None or not template_path or not os.path.exists(template_path):
-        # If templates aren't available (e.g., in tests), return a simple HTML response
-        return HTMLResponse(
-            content=f"""
-            <html>
-                <head><title>BTAA Geospatial API — Endpoints</title></head>
-                <body>
-                    <h1>BTAA Geospatial API — Endpoints</h1>
-                    <p>Templates not available. Please check the templates directory.</p>
-                    <p><a href="{app.openapi_url}">OpenAPI Schema</a></p>
-                </body>
-            </html>
-            """
+        # Fallback to FastAPI's built-in Swagger UI if templates aren't available
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " — Swagger UI",
+            oauth2_redirect_url=oauth2_redirect_url,
+            swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
+            swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
         )
     try:
         return templates.TemplateResponse(
@@ -280,18 +295,13 @@ async def custom_docs(request: Request) -> HTMLResponse:
             },
         )
     except Exception:
-        # If template rendering fails, return a simple HTML response
-        return HTMLResponse(
-            content=f"""
-            <html>
-                <head><title>BTAA Geospatial API — Endpoints</title></head>
-                <body>
-                    <h1>BTAA Geospatial API — Endpoints</h1>
-                    <p>Template rendering failed. Please check the templates directory.</p>
-                    <p><a href="{app.openapi_url}">OpenAPI Schema</a></p>
-                </body>
-            </html>
-            """
+        # Fallback to FastAPI's built-in Swagger UI if template rendering fails
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url,
+            title=app.title + " — Swagger UI",
+            oauth2_redirect_url=oauth2_redirect_url,
+            swagger_js_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js",
+            swagger_css_url="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css",
         )
 
 
