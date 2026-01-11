@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-labelledby="title desc">
+  <title id="title">GeoData@Wisconsin</title>
+  <desc id="desc">An original stacked-layers icon with the text GeoData@Wisconsin, for the UW–Madison theme.</desc>
+
+  <!-- Transparent background for use on colored headers -->
+  <rect width="520" height="120" fill="none" />
+
+  <!-- Icon: three abstract "layers" (original geometry) -->
+  <g transform="translate(24,24)" fill="none" stroke="#ffffff" stroke-width="6" stroke-linejoin="round" stroke-linecap="round" opacity="0.95">
+    <!-- back layer -->
+    <path d="M44 4 L76 20 L44 36 L12 20 Z" />
+    <!-- middle layer -->
+    <path d="M44 20 L76 36 L44 52 L12 36 Z" opacity="0.85" />
+    <!-- front layer -->
+    <path d="M44 36 L76 52 L44 68 L12 52 Z" opacity="0.75" />
+  </g>
+
+  <!-- Wordmark (kept simple + readable; uses system fonts) -->
+  <g transform="translate(118,0)" fill="#ffffff">
+    <text
+      x="0"
+      y="72"
+      font-family="Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+      font-size="40"
+      font-weight="700"
+      letter-spacing="-0.5"
+    >GeoData@Wisconsin</text>
+  </g>
+</svg>

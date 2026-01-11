@@ -94,6 +94,7 @@ services:
     command: sh -lc "npm run dev -- --host 0.0.0.0 --port 3000"
     volumes:
       # Mount source/config (but NOT node_modules) so we can hot-reload without rebuilds.
+      - ./frontend/theme.yaml:/app/theme.yaml
       - ./frontend/app:/app/app
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public

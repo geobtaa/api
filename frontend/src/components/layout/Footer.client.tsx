@@ -2,6 +2,7 @@ import React from "react";
 import { ExternalLink } from "lucide-react";
 import { useApi } from "../../context/ApiContext";
 import { useDebug } from "../../context/DebugContext";
+import { useTheme } from "../../hooks/useTheme";
 
 interface FooterProps {
   id?: string; // Make optional since not all pages will have an ID
@@ -10,6 +11,7 @@ interface FooterProps {
 export function Footer({ id }: FooterProps) {
   const { lastApiUrl } = useApi();
   const { showDetails, toggleDetails } = useDebug();
+  const { themeId, themes, setThemeId } = useTheme();
 
   return (
     <footer className="bg-white shadow-sm">
@@ -22,6 +24,29 @@ export function Footer({ id }: FooterProps) {
               reserved.
             </div>
             <div className="flex items-center space-x-4">
+              <div className="flex items-center gap-2">
+                <label className="text-sm text-gray-500" htmlFor="theme-select">
+                  Theme
+                </label>
+                <select
+                  id="theme-select"
+                  value={themeId}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    if (next === themeId) return;
+                    // Persist theme selection and hard-reload so SSR loaders pick up the cookie.
+                    setThemeId(next);
+                    window.location.reload();
+                  }}
+                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                >
+                  {themes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {id && (
                 <a
                   href={`https://geo.btaa.org/catalog/${id}`}

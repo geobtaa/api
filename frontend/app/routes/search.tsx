@@ -1,10 +1,11 @@
 import type { LoaderFunctionArgs } from "react-router";
 import { useLoaderData, useNavigation } from "react-router";
 import { SearchPage } from "../../src/pages/SearchPage";
-import { serverFetchJson } from "../lib/server-api";
+import { serverFetchJsonWithTheme } from "../lib/server-api";
 import type { JsonApiResponse } from "../../src/types/api";
 import { useEffect } from "react";
 import { useApi } from "../../src/context/ApiContext";
+import { getThemeConfigFromRequest } from "../lib/theme.server";
 
 /**
  * Loader function that runs server-side to fetch search results.
@@ -32,9 +33,24 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   if (!hasAnyCriteria) return { searchResults: null };
 
-  const searchResults = await serverFetchJson<JsonApiResponse>(`/search?${apiParams.toString()}`);
+  // For accurate "Last API Request" display, mirror theme default params in the URL we report.
+  const theme = getThemeConfigFromRequest(request);
+  (theme.api?.default_query_params || []).forEach((param) => {
+    const parsed = new URLSearchParams(param);
+    parsed.forEach((value, key) => {
+      const existing = apiParams.getAll(key);
+      if (existing.includes(value)) return;
+      apiParams.append(key, value);
+    });
+  });
+
+  const searchPath = `/search?${apiParams.toString()}`;
+  const searchResults = await serverFetchJsonWithTheme<JsonApiResponse>(
+    request,
+    searchPath
+  );
   // Provide a browser-usable URL for "Last API Request" (same-origin /api/v1).
-  const lastApiUrl = `/api/v1/search?${apiParams.toString()}`;
+  const lastApiUrl = `/api/v1${searchPath}`;
   return { searchResults, lastApiUrl };
 }
 

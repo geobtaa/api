@@ -34,6 +34,7 @@
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "isbot": "^5.1.11",
+    "js-yaml": "^4.1.0",
     "js-cookie": "^3.0.5",
     "leaflet": "^1.9.4",
     "leaflet-fullscreen": "^1.0.2",

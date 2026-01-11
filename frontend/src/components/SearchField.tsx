@@ -703,7 +703,7 @@ export function SearchField({
         )}
         <button
           type="submit"
-          className={`absolute inset-y-1 ${showAdvancedButton ? 'right-1' : 'right-1'} flex items-center px-4 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors`}
+          className={`absolute inset-y-1 ${showAdvancedButton ? 'right-1' : 'right-1'} flex items-center px-4 py-1.5 text-sm font-medium text-white bg-brand hover:bg-brand/90 rounded-md focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 transition-colors`}
           aria-label="Submit search"
         >
           Search

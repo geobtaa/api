@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useSearchParams } from 'react-router';
 import { SearchResults } from '../components/SearchResults';
 import { Pagination } from '../components/Pagination';
@@ -29,13 +29,6 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
   const [searchParams, setSearchParams] = useSearchParams();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
-  const [showAdvancedBuilder, setShowAdvancedBuilder] =
-    useState(showAdvancedParam);
-
-  // Update showAdvancedBuilder when URL param changes
-  useEffect(() => {
-    setShowAdvancedBuilder(showAdvancedParam);
-  }, [showAdvancedParam]);
 
   const {
     query,
@@ -197,8 +190,34 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   };
 
   const handleAdvancedApply = (clauses: typeof advancedQuery) => {
-    updateSearch({ advancedQuery: clauses });
-    setShowAdvancedBuilder(false);
+    // IMPORTANT: adv_q lives in the URL (source of truth for the loader).
+    // We must update adv_q and close the builder in a single URL update,
+    // otherwise we can accidentally clobber the just-written adv_q.
+    const next = new URLSearchParams(searchParams);
+
+    if (clauses.length > 0) {
+      const serialized = clauses.map(({ op, field, q }) => ({
+        op,
+        f: field,
+        q,
+      }));
+      next.set('adv_q', JSON.stringify(serialized));
+    } else {
+      next.delete('adv_q');
+    }
+
+    // Ensure a q param exists so searches run even with empty keyword queries.
+    if (!next.has('q')) {
+      next.set('q', query || '');
+    }
+
+    // Reset to page 1 when advanced clauses change
+    next.delete('page');
+
+    // Close the builder (gear icon / URL param is source of truth)
+    next.delete('showAdvanced');
+
+    setSearchParams(next);
   };
 
   const handleAdvancedReset = () => {
@@ -258,30 +277,16 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
             onClearAll={handleClearAll}
           />
 
-          <div className="mb-6">
-            <button
-              type="button"
-              onClick={(e) => {
-                setShowAdvancedBuilder((prev) => !prev);
-                // Blur the button so it doesn't interfere with autofocus
-                (e.currentTarget as HTMLButtonElement).blur();
-              }}
-              className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-                advancedQuery.length > 0
-                  ? 'bg-blue-600 text-white hover:bg-blue-700'
-                  : 'bg-white text-blue-700 border border-blue-300 hover:border-blue-400 hover:text-blue-900'
-              }`}
-            >
-              Advanced Search
-            </button>
-          </div>
-
-          {showAdvancedBuilder && (
+          {showAdvancedParam && (
             <div className="mb-8">
               <AdvancedSearchBuilder
                 clauses={advancedQuery}
                 onApply={handleAdvancedApply}
-                onCancel={() => setShowAdvancedBuilder(false)}
+                onCancel={() => {
+                  const next = new URLSearchParams(searchParams);
+                  next.delete('showAdvanced');
+                  setSearchParams(next);
+                }}
                 onReset={handleAdvancedReset}
               />
             </div>

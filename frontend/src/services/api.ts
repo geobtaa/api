@@ -7,6 +7,7 @@ import {
   GazetteerPlace,
 } from '../types/api';
 import { AdvancedClause, FacetFilter } from '../types/search';
+import { getActiveThemeConfig } from '../config/institution';
 
 export class ApiError extends Error {
   constructor(
@@ -50,6 +51,19 @@ function ensureHttps(url: string): string {
   return url;
 }
 
+function applyDefaultQueryParams(url: URL, defaults: string[] | undefined) {
+  if (!defaults || defaults.length === 0) return;
+  defaults.forEach((param) => {
+    if (!param) return;
+    const parsed = new URLSearchParams(param);
+    parsed.forEach((value, key) => {
+      const existing = url.searchParams.getAll(key);
+      if (existing.includes(value)) return;
+      url.searchParams.append(key, value);
+    });
+  });
+}
+
 /**
  * Gets the API base URL path for the NGINX BFF proxy.
  * The BFF proxy handles API key authentication server-side.
@@ -87,6 +101,11 @@ function createApiUrl(baseUrl: string): URL {
     ? new URL(baseUrl, window.location.origin)
     : new URL(ensureHttps(baseUrl));
   url.searchParams.set('format', 'json');
+
+  // Apply always-on query params from the active theme config (theme.yaml).
+  // This is how institution themes (e.g., NYU) scope search results.
+  const theme = getActiveThemeConfig();
+  applyDefaultQueryParams(url, theme?.api?.default_query_params);
   return url;
 }
 

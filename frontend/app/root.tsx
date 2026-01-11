@@ -1,17 +1,26 @@
 import {
   Links,
+  useLoaderData,
   Meta,
   Outlet,
   Scripts,
   ScrollRestoration,
 } from "react-router";
+import type { LoaderFunctionArgs } from "react-router";
 import { Providers } from "./providers";
+import { getThemeIdFromRequest } from "./lib/theme.server";
 import "../src/index.css";
 import "../src/styles/leaflet.css";
 
+export async function loader({ request }: LoaderFunctionArgs) {
+  const themeId = getThemeIdFromRequest(request);
+  return { themeId };
+}
+
 export default function Root() {
+  const { themeId } = useLoaderData<typeof loader>();
   return (
-    <html lang="en">
+    <html lang="en" data-theme={themeId}>
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -19,7 +28,7 @@ export default function Root() {
         <Links />
       </head>
       <body>
-        <Providers>
+        <Providers initialThemeId={themeId}>
           <Outlet />
         </Providers>
 

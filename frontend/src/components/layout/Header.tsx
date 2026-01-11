@@ -4,15 +4,17 @@ import {
   useNavigate,
   useSearchParams,
 } from 'react-router';
-import { Globe2 } from 'lucide-react';
 import { SearchField } from '../SearchField';
 import { ResourceClassFilterTabs } from '../search/ResourceClassFilterTabs';
+import { useTheme } from '../../hooks/useTheme';
 
 export function Header() {
   const location = useLocation();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { theme } = useTheme();
   const isHomePage = location.pathname === '/';
+  const headerCfg = theme.institution?.header;
 
   const handleSearch = (query: string) => {
     const newParams = new URLSearchParams();
@@ -95,21 +97,87 @@ export function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-white shadow">
+    <header className="sticky top-0 z-50 bg-brand text-white shadow-[0_2px_10px_rgba(0,0,0,0.15)]">
       <div className="w-full px-4 sm:px-6 lg:px-8">
-        <div className="min-h-16 py-2 grid grid-cols-12 items-center gap-8">
-          {/* Branding - matches facets column width */}
-          <div className="col-span-2 flex items-center gap-3">
-            <Globe2 className="h-8 w-8 text-blue-500" />
-            <Link to="/" className="text-xl font-bold text-gray-900">
-              BTAA Geoportal
+        {/* Two-row header grid: row 1 = search, row 2 = resource class tabs.
+            Logo spans both rows so it appears centered within the full header height. */}
+        <div className="pt-2 pb-0 grid grid-cols-12 grid-rows-2 gap-x-8 gap-y-4 items-center">
+          {/* Branding - matches facets column width (spans both rows) */}
+          <div className="col-span-3 row-span-2 flex items-center justify-start">
+            <Link
+              to="/"
+              className={`text-xl font-bold text-white flex items-center${
+                headerCfg?.lockup_gap_rem == null ? ' gap-2' : ''
+              }`}
+              style={
+                headerCfg?.lockup_gap_rem == null
+                  ? undefined
+                  : { gap: `${headerCfg.lockup_gap_rem}rem` }
+              }
+            >
+              <img
+                src={theme.institution.logo_url}
+                alt={`${theme.institution.name} Logo`}
+                className={
+                  headerCfg?.logo_height_rem == null
+                    ? 'h-12 sm:h-14 lg:h-16 w-auto object-contain'
+                    : 'w-auto object-contain'
+                }
+                style={
+                  headerCfg?.logo_height_rem == null
+                    ? undefined
+                    : { height: `${headerCfg.logo_height_rem}rem` }
+                }
+              />
+
+              {theme.institution.logo_lockup?.right_text && (
+                <>
+                  {theme.institution.logo_lockup.separator !== 'none' && (
+                    <span
+                      aria-hidden="true"
+                      className="inline-block w-px shrink-0 bg-white/70"
+                      style={{
+                        height: `${
+                          headerCfg?.lockup_separator_height_rem ?? 2
+                        }rem`,
+                      }}
+                    />
+                  )}
+                  <span
+                    className={`text-white font-semibold tracking-wide${
+                      headerCfg?.lockup_text_size_rem == null
+                        ? ' text-lg sm:text-xl'
+                        : ''
+                    }`}
+                    style={{
+                      fontFamily:
+                        theme.institution.logo_lockup.right_text_style
+                          ?.font_family,
+                      fontWeight:
+                        theme.institution.logo_lockup.right_text_style
+                          ?.font_weight,
+                      letterSpacing:
+                        theme.institution.logo_lockup.right_text_style
+                          ?.letter_spacing,
+                      fontSize:
+                        headerCfg?.lockup_text_size_rem == null
+                          ? undefined
+                          : `${headerCfg.lockup_text_size_rem}rem`,
+                    }}
+                  >
+                    {theme.institution.logo_lockup.right_text}
+                  </span>
+                </>
+              )}
+              {/* Keep name for accessibility, but hide it visually */}
+              <span className="sr-only">{theme.institution.name}</span>
             </Link>
           </div>
 
-          {/* Search Field - matches results column width */}
-          <div className="col-span-6 flex items-center">
+          {/* Search (center column) */}
+          <div className="col-span-6 flex items-center justify-center">
             {!isHomePage && (
-              <div className="w-full">
+              <div className="w-full relative top-4">
                 <SearchField
                   placeholder="Search for maps, data, imagery..."
                   onSearch={handleSearch}
@@ -120,38 +188,23 @@ export function Header() {
             )}
           </div>
 
-          {/* Navigation - matches map column width */}
-          <nav className="col-span-4 flex items-center justify-end space-x-4">
-            <Link
-              to="/map"
-              className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-            >
-              Map
-            </Link>
+          {/* Links (right column) */}
+          <nav className="col-span-3 flex items-center justify-end pt-2">
             <Link
               to="/bookmarks"
-              className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+              className="text-white/95 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
             >
               Bookmarks
             </Link>
-            <Link
-              to="/"
-              className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-            >
-              Search
-            </Link>
           </nav>
-        </div>
-        {/* Resource Class Filter Tabs - positioned below search input, aligned with col-span-6 */}
-        {!isHomePage && (
-          <div className="grid grid-cols-12 gap-8 pb-0">
-            <div className="col-span-2"></div>
-            <div className="col-span-6">
-              <ResourceClassFilterTabs />
+
+          {/* Resource Class Filter Tabs (row 2, centered column) */}
+          {!isHomePage && (
+            <div className="col-span-6 col-start-4 self-end">
+              <ResourceClassFilterTabs variant="header" />
             </div>
-            <div className="col-span-4"></div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </header>
   );

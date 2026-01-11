@@ -4,6 +4,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { SearchField } from '../components/SearchField';
 import { ResourceClassFilterTabs } from '../components/search/ResourceClassFilterTabs';
+import { useTheme } from '../hooks/useTheme';
 import {
   Database,
   Map,
@@ -19,6 +20,7 @@ import { fetchSearchResults } from '../services/api';
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { theme } = useTheme();
   const [resourceCounts, setResourceCounts] = useState<Record<string, number>>(
     {}
   );
@@ -203,13 +205,13 @@ export function HomePage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)]">
           <div className="col-span-1 lg:col-span-8 px-4 md:px-8 lg:px-12 py-4 lg:py-4 flex flex-col">
             <div className="space-y-6 lg:space-y-8 max-w-3xl">
-              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900">
-                BTAA Geoportal
+              <h1 className="sr-only">
+                {theme.institution.name}
               </h1>
 
               <p className="text-lg lg:text-xl text-gray-600">
-                Search geospatial resources from Big Ten Academic Alliance
-                institutions
+                {theme.institution.hero_text ||
+                  'Search geospatial resources from Big Ten Academic Alliance institutions'}
               </p>
 
               <div className="w-full">
@@ -221,14 +223,14 @@ export function HomePage() {
                   onAdvancedSearchClick={handleAdvancedSearchClick}
                 />
                 <div className="mt-1">
-                  <ResourceClassFilterTabs />
+                  <ResourceClassFilterTabs variant="content" />
                 </div>
               </div>
 
               <div className="text-sm text-gray-500">
                 <p>
-                  Browse and download GIS data, maps, and other geospatial
-                  resources.
+                  {theme.institution.hero_description ||
+                    'Browse and download GIS data, maps, and other geospatial resources.'}
                 </p>
               </div>
             </div>
@@ -242,10 +244,10 @@ export function HomePage() {
               <div className="space-y-3">
                 <button
                   onClick={handleBrowseAll}
-                  className="w-full flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-500 hover:shadow-sm transition-all group"
+                  className="w-full flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-brand-active hover:shadow-sm transition-all group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="text-gray-400 group-hover:text-blue-500">
+                    <div className="text-gray-400 group-hover:text-brand-active">
                       <Search className="w-6 h-6" />
                     </div>
                     <span className="text-gray-700 group-hover:text-gray-900">
@@ -258,10 +260,10 @@ export function HomePage() {
                   <button
                     key={resource.id}
                     onClick={() => handleResourceClassClick(resource.aggValue)}
-                    className="w-full flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-blue-500 hover:shadow-sm transition-all group"
+                    className="w-full flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200 hover:border-brand-active hover:shadow-sm transition-all group"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="text-gray-400 group-hover:text-blue-500">
+                      <div className="text-gray-400 group-hover:text-brand-active">
                         {resource.icon}
                       </div>
                       <span className="text-gray-700 group-hover:text-gray-900">

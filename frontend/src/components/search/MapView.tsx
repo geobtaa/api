@@ -243,27 +243,31 @@ export function MapView({ results }: MapViewProps) {
 
     // Add new highlight if there's a hovered geometry
     if (hoveredGeometry) {
-      try {
-        const parsedGeometry = JSON.parse(hoveredGeometry);
-        highlightLayerRef.current = L.geoJSON(parsedGeometry, {
-          style: {
-            color: '#2563eb',
-            weight: 3,
-            opacity: 1,
-            fillOpacity: 0.3,
-            fillColor: '#3b82f6',
-          },
-        }).addTo(mapRef.current);
+      void (async () => {
+        try {
+          const L = await loadLeaflet();
+          if (!mapRef.current) return;
+          const parsedGeometry = JSON.parse(hoveredGeometry);
+          highlightLayerRef.current = L.geoJSON(parsedGeometry, {
+            style: {
+              color: '#2563eb',
+              weight: 3,
+              opacity: 1,
+              fillOpacity: 0.3,
+              fillColor: '#3b82f6',
+            },
+          }).addTo(mapRef.current);
 
-        // Fit bounds to the highlighted feature
-        mapRef.current.fitBounds(highlightLayerRef.current.getBounds(), {
-          padding: [50, 50],
-        });
-      } catch (error) {
-        console.error('Error highlighting geometry:', error);
-      }
+          // Fit bounds to the highlighted feature
+          mapRef.current.fitBounds(highlightLayerRef.current.getBounds(), {
+            padding: [50, 50],
+          });
+        } catch (error) {
+          console.error('Error highlighting geometry:', error);
+        }
+      })();
     }
-  }, [hoveredGeometry]);
+  }, [hoveredGeometry, loadLeaflet]);
 
   return (
     <div className="sticky top-[88px]">
