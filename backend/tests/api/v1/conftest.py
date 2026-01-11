@@ -18,6 +18,7 @@ def client():
 async def async_client():
     """Return an async HTTP client for testing."""
     from httpx import ASGITransport
+
     from db.database import database
 
     # Always disconnect and reconnect to ensure we're using this event loop's connection pool

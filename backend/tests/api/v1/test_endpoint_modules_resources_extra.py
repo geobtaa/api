@@ -161,6 +161,7 @@ async def test_get_resource_ogm_not_found(monkeypatch):
 # Summaries endpoint tests removed - endpoint is commented out and not available
 # If the endpoint is re-enabled, these tests should be restored
 
+
 @pytest.mark.asyncio
 async def test_get_resource_viewer_found(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
