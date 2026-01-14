@@ -1,6 +1,6 @@
 # BTAA Geospatial API
 
-This project powers a Big Ten Academic Alliance geospatial catalog. If you’re a librarian or non-technical user, the goal here is simple:
+This project powers a Big Ten Academic Alliance geospatial catalog. If you're a librarian or non-technical user, the goal here is simple:
 
 - Start the project on your computer
 - Open the website in your browser
@@ -11,12 +11,16 @@ You do **not** need to know Python, databases, or Docker internals to use it.
 ## What you get
 
 - **The website (frontend)**: where you browse and search (runs at `http://localhost:3000`)
-- **The API (backend)**: the “data service” the website talks to (runs at `http://localhost:8000`)
+- **The API (backend)**: the "data service" the website talks to (runs at `http://localhost:8000`)
 
-## Before you start
+## Quick start (Docker - recommended)
 
-1) Install **Docker Desktop** for your operating system and make sure it’s running.
-2) Make a local settings file:
+This is the easiest way to run the project. All dependencies are handled automatically.
+
+### Prerequisites
+
+1. Install **Docker Desktop** for your operating system and make sure it's running.
+2. Make a local settings file:
 
 ```bash
 cp .env.example .env
@@ -24,7 +28,7 @@ cp .env.example .env
 
 If you already have a `.env`, you can keep using it.
 
-## Start the project (recommended)
+### Start the project
 
 This starts the full stack (API + website + database services):
 
@@ -43,7 +47,7 @@ To stop everything later:
 docker compose down
 ```
 
-## Frontend development mode (`frontend-dev`)
+### Frontend development mode (`frontend-dev`)
 
 If you are actively changing the website code, use `frontend-dev`. It updates instantly as files change.
 
@@ -60,9 +64,55 @@ docker compose stop frontend
 docker compose --profile dev up -d frontend-dev
 ```
 
+## Local development setup (for developers)
+
+If you're developing the code locally (not using Docker), you'll need to install prerequisites and set up dependencies manually.
+
+### Prerequisites
+
+- **Node.js 20** or later
+- **Python 3.11** or later
+- **UV** (Python package manager) - install from https://github.com/astral-sh/uv
+
+### Setup
+
+1. Make a local settings file:
+
+```bash
+cp .env.example .env
+```
+
+2. Install backend dependencies:
+
+```bash
+cd backend
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+uv pip install -e '.[dev]'
+```
+
+This installs the package in editable mode with development dependencies.
+
+3. Install frontend dependencies:
+
+```bash
+cd ../frontend
+npm install
+```
+
+4. Set up services:
+
+You'll need to set up the database, Elasticsearch, Redis, and other services. You can use Docker Compose for just the services:
+
+```bash
+docker compose up -d paradedb elasticsearch redis celery_worker flower
+```
+
+Or consult the documentation in `docs/` for manual setup details.
+
 ## Troubleshooting (quick)
 
-- **The website won’t load**: wait ~30–60 seconds after `docker compose up -d` (databases need time to start)
+- **The website won't load**: wait ~30–60 seconds after `docker compose up -d` (databases need time to start)
 - **Port 3000 is busy**: stop whichever frontend container is running: `docker compose stop frontend frontend-dev`
 - **Start fresh** (wipes local containers; keeps your project files):
 

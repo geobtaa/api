@@ -198,14 +198,14 @@ db-import:
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
 	@echo "Copying dump file to remote server..."
-	@scp tmp/btaa_geospatial_api_export.sql.gz $$KAMAL_SSH_USER@$$KAMAL_HOST:/tmp/
+	@scp tmp/btaa_geospatial_api_export.sql.gz $$KAMAL_SSH_USER@$$KAMAL_HOST:/var/tmp/
 	@echo "Importing database..."
 	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
-		gunzip -c /tmp/btaa_geospatial_api_export.sql.gz | \
+		gunzip -c /var/tmp/btaa_geospatial_api_export.sql.gz | \
 		docker exec -i btaa-geospatial-api-paradedb psql \
 			-U postgres \
 			-d btaa_geospatial_api && \
-		rm /tmp/btaa_geospatial_api_export.sql.gz'
+		rm /var/tmp/btaa_geospatial_api_export.sql.gz'
 	@echo "✓ Import complete!"
 
 # Export and import in one command
