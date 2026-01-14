@@ -416,6 +416,19 @@ export async function fetchSearchResults(
     console.log(`⏱️ Total fetchSearchResults time: ${totalTime.toFixed(2)}ms`);
     console.log(`📦 Response data: ${response?.data?.length || 0} items`);
 
+    // Debug: Check if thumbnail_url is present in the raw API response
+    if (response?.data?.[0]) {
+      const firstResult = response.data[0];
+      console.log('🔍 fetchSearchResults: First result meta structure:', {
+        hasMeta: !!firstResult.meta,
+        hasMetaUi: !!firstResult.meta?.ui,
+        thumbnailUrl: firstResult.meta?.ui?.thumbnail_url,
+        metaUiKeys: firstResult.meta?.ui ? Object.keys(firstResult.meta.ui) : [],
+        metaUiStringified: firstResult.meta?.ui ? JSON.stringify(firstResult.meta.ui) : 'no ui',
+        fullMetaStringified: firstResult.meta ? JSON.stringify(firstResult.meta) : 'no meta',
+      });
+    }
+
     return response; // Return the JSON:API response directly
   } catch (error) {
     const totalTime = performance.now() - startTime;

@@ -124,15 +124,28 @@ export function SearchResults({
         });
 
         // Deep inspection of meta structure
+        const metaUi = result.meta?.ui;
+        const allMetaUiProps = metaUi ? Object.getOwnPropertyNames(metaUi) : [];
+        const metaUiDescriptors = metaUi 
+          ? Object.getOwnPropertyDescriptors(metaUi)
+          : {};
+        
         console.log('Deep meta inspection:', {
           hasMeta: !!result.meta,
           metaKeys: result.meta ? Object.keys(result.meta) : [],
-          hasMetaUi: !!result.meta?.ui,
-          metaUiKeys: result.meta?.ui ? Object.keys(result.meta.ui) : [],
-          thumbnailUrlDirect: result.meta?.ui?.thumbnail_url,
-          thumbnailUrlBracket: result.meta?.ui?.['thumbnail_url'],
-          metaUiStringified: result.meta?.ui ? JSON.stringify(result.meta.ui) : 'no ui',
+          hasMetaUi: !!metaUi,
+          metaUiKeys: metaUi ? Object.keys(metaUi) : [],
+          allMetaUiProps: allMetaUiProps,
+          thumbnailUrlDirect: metaUi?.thumbnail_url,
+          thumbnailUrlBracket: metaUi?.['thumbnail_url'],
+          thumbnailUrlDescriptor: metaUiDescriptors['thumbnail_url'],
+          metaUiStringified: metaUi ? JSON.stringify(metaUi) : 'no ui',
           fullMetaStringified: result.meta ? JSON.stringify(result.meta) : 'no meta',
+          // Try to access via Object.getOwnPropertyDescriptor
+          hasThumbnailProperty: metaUi && 'thumbnail_url' in metaUi,
+          thumbnailUrlViaGetOwnProperty: metaUi 
+            ? Object.getOwnPropertyDescriptor(metaUi, 'thumbnail_url')?.value
+            : undefined,
         });
 
         // Add detailed debug logging for thumbnails
@@ -174,10 +187,33 @@ export function SearchResults({
                 {(() => {
                   // Try multiple ways to access thumbnail_url
                   const metaUi = result.meta?.ui;
-                  const thumbnailUrl = 
-                    metaUi?.thumbnail_url || 
-                    metaUi?.['thumbnail_url'] ||
-                    (metaUi && 'thumbnail_url' in metaUi ? (metaUi as any).thumbnail_url : undefined);
+                  
+                  // First try direct access
+                  let thumbnailUrl = metaUi?.thumbnail_url || metaUi?.['thumbnail_url'];
+                  
+                  // If not found, try to extract from stringified JSON (workaround for serialization issues)
+                  if (!thumbnailUrl && metaUi) {
+                    try {
+                      const metaUiString = JSON.stringify(metaUi);
+                      const parsed = JSON.parse(metaUiString);
+                      thumbnailUrl = parsed.thumbnail_url;
+                    } catch (e) {
+                      // Ignore parsing errors
+                    }
+                  }
+                  
+                  // If still not found, try Object.getOwnPropertyDescriptor (for non-enumerable properties)
+                  if (!thumbnailUrl && metaUi) {
+                    const descriptor = Object.getOwnPropertyDescriptor(metaUi, 'thumbnail_url');
+                    if (descriptor) {
+                      thumbnailUrl = descriptor.value;
+                    }
+                  }
+                  
+                  // Last resort: check if property exists via 'in' operator
+                  if (!thumbnailUrl && metaUi && 'thumbnail_url' in metaUi) {
+                    thumbnailUrl = (metaUi as any).thumbnail_url;
+                  }
 
                   const hasThumbnail = 
                     thumbnailUrl &&
