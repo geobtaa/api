@@ -30,17 +30,45 @@ export function SearchResults({
     // If backend gives us an API URL, route through SSR so requests use the server-held API key.
     // Example: https://host/api/v1/thumbnails/<hash>  ->  /thumbnails/<hash>
     //          /api/v1/thumbnails/placeholder        ->  /thumbnails/placeholder
-    try {
-      const u = new URL(
-        url,
-        typeof window !== 'undefined' ? window.location.origin : 'http://localhost'
-      );
-      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-        return u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
-      }
+    if (!url || typeof url !== 'string') {
+      console.warn('toSsrThumbnailUrl: Invalid URL', url);
       return url;
-    } catch {
+    }
+
+    try {
+      // Handle absolute URLs (with protocol)
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        const u = new URL(url);
+        if (u.pathname.startsWith('/api/v1/thumbnails/')) {
+          const transformed = u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+          console.log('toSsrThumbnailUrl: Transformed absolute URL', { original: url, transformed });
+          return transformed;
+        }
+        console.log('toSsrThumbnailUrl: Absolute URL but not a thumbnail path', url);
+        return url;
+      }
+
+      // Handle relative URLs
       if (url.startsWith('/api/v1/thumbnails/')) {
+        const transformed = url.replace('/api/v1/thumbnails/', '/thumbnails/');
+        console.log('toSsrThumbnailUrl: Transformed relative URL', { original: url, transformed });
+        return transformed;
+      }
+
+      // Try parsing as URL with base (for relative URLs that might need a base)
+      const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      const u = new URL(url, base);
+      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
+        const transformed = u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+        console.log('toSsrThumbnailUrl: Transformed URL with base', { original: url, transformed });
+        return transformed;
+      }
+
+      return url;
+    } catch (error) {
+      console.warn('toSsrThumbnailUrl: Error parsing URL', { url, error });
+      // Fallback: simple string replacement
+      if (url.includes('/api/v1/thumbnails/')) {
         return url.replace('/api/v1/thumbnails/', '/thumbnails/');
       }
       return url;
@@ -127,36 +155,62 @@ export function SearchResults({
             <div className="flex">
               {/* Thumbnail */}
               <div className="w-48 flex-shrink-0">
-                {result.meta?.ui?.thumbnail_url &&
-                typeof result.meta.ui.thumbnail_url === 'string' &&
-                result.meta.ui.thumbnail_url.trim() !== '' &&
-                !imageErrors.has(result.id) ? (
-                  <div className="h-48 w-48 rounded-l-lg">
-                    <img
-                      src={toSsrThumbnailUrl(result.meta.ui.thumbnail_url)}
-                      alt={`Thumbnail for ${title}`}
-                      className="h-48 w-48 object-cover rounded-l-lg"
-                      onError={(e) => {
-                        console.error(
-                          `Error loading thumbnail for ${result.id}:`,
-                          result.meta?.ui?.thumbnail_url,
-                          e
-                        );
-                        setImageErrors((prev) => new Set(prev).add(result.id));
-                      }}
-                      onLoad={() => {
-                        console.log(
-                          `Successfully loaded thumbnail for ${result.id}:`,
-                          result.meta?.ui?.thumbnail_url
-                        );
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="h-48 w-48 flex items-center justify-center bg-gray-50 rounded-l-lg">
-                    {getResourceIcon(resourceClass)}
-                  </div>
-                )}
+                {(() => {
+                  const thumbnailUrl = result.meta?.ui?.thumbnail_url;
+                  const hasThumbnail = 
+                    thumbnailUrl &&
+                    typeof thumbnailUrl === 'string' &&
+                    thumbnailUrl.trim() !== '' &&
+                    !imageErrors.has(result.id);
+
+                  // Debug logging for thumbnail rendering decision
+                  if (!hasThumbnail) {
+                    console.log(`Thumbnail check for ${result.id}:`, {
+                      hasMeta: !!result.meta,
+                      hasMetaUi: !!result.meta?.ui,
+                      thumbnailUrl: thumbnailUrl,
+                      thumbnailUrlType: typeof thumbnailUrl,
+                      thumbnailUrlTrimmed: typeof thumbnailUrl === 'string' ? thumbnailUrl.trim() : 'N/A',
+                      isInImageErrors: imageErrors.has(result.id),
+                      fullMeta: result.meta,
+                    });
+                  }
+
+                  return hasThumbnail ? (
+                    <div className="h-48 w-48 rounded-l-lg">
+                      <img
+                        src={toSsrThumbnailUrl(thumbnailUrl)}
+                        alt={`Thumbnail for ${title}`}
+                        className="h-48 w-48 object-cover rounded-l-lg"
+                        onError={(e) => {
+                          console.error(
+                            `Error loading thumbnail for ${result.id}:`,
+                            {
+                              originalUrl: thumbnailUrl,
+                              transformedUrl: toSsrThumbnailUrl(thumbnailUrl),
+                              error: e,
+                              target: (e.target as HTMLImageElement)?.src,
+                            }
+                          );
+                          setImageErrors((prev) => new Set(prev).add(result.id));
+                        }}
+                        onLoad={() => {
+                          console.log(
+                            `Successfully loaded thumbnail for ${result.id}:`,
+                            {
+                              originalUrl: thumbnailUrl,
+                              transformedUrl: toSsrThumbnailUrl(thumbnailUrl),
+                            }
+                          );
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="h-48 w-48 flex items-center justify-center bg-gray-50 rounded-l-lg">
+                      {getResourceIcon(resourceClass)}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Content */}
