@@ -270,7 +270,39 @@ async function unifiedFetch<T>(
         }
       }
 
-      return response.json();
+      const jsonData = await response.json();
+      
+      // Ensure thumbnail_url is preserved and enumerable in meta.ui objects
+      // React Router serialization might remove non-enumerable properties
+      if (jsonData && typeof jsonData === 'object' && 'data' in jsonData) {
+        const apiResponse = jsonData as any;
+        if (Array.isArray(apiResponse.data)) {
+          apiResponse.data = apiResponse.data.map((item: any) => {
+            if (item?.meta?.ui && typeof item.meta.ui === 'object') {
+              // Check if thumbnail_url exists but might be non-enumerable
+              const hasThumbnail = 'thumbnail_url' in item.meta.ui;
+              const thumbnailValue = item.meta.ui.thumbnail_url;
+              
+              // If thumbnail_url exists (even if undefined), ensure it's enumerable
+              if (hasThumbnail || thumbnailValue) {
+                // Re-set the property to ensure it's enumerable
+                const value = thumbnailValue || item.meta.ui.thumbnail_url;
+                if (value) {
+                  Object.defineProperty(item.meta.ui, 'thumbnail_url', {
+                    value: value,
+                    enumerable: true,
+                    writable: true,
+                    configurable: true,
+                  });
+                }
+              }
+            }
+            return item;
+          });
+        }
+      }
+      
+      return jsonData;
     })();
 
     inFlightFetches.set(fetchUrl, requestPromise);
