@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import type { GeoDocument } from '../types/api';
 import { BookOpen } from 'lucide-react';
@@ -113,7 +113,7 @@ export function SearchResults({
         const title = ogm?.dct_title_s ?? '(Untitled)';
         const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
 
-        // Add detailed debugging
+        // Add detailed debugging to inspect the actual structure
         console.log('Raw result object:', {
           id: result.id,
           type: result.type,
@@ -121,6 +121,18 @@ export function SearchResults({
           thumbnail: result.meta?.ui?.thumbnail_url,
           // Log the full object to see its structure
           fullResult: result,
+        });
+
+        // Deep inspection of meta structure
+        console.log('Deep meta inspection:', {
+          hasMeta: !!result.meta,
+          metaKeys: result.meta ? Object.keys(result.meta) : [],
+          hasMetaUi: !!result.meta?.ui,
+          metaUiKeys: result.meta?.ui ? Object.keys(result.meta.ui) : [],
+          thumbnailUrlDirect: result.meta?.ui?.thumbnail_url,
+          thumbnailUrlBracket: result.meta?.ui?.['thumbnail_url'],
+          metaUiStringified: result.meta?.ui ? JSON.stringify(result.meta.ui) : 'no ui',
+          fullMetaStringified: result.meta ? JSON.stringify(result.meta) : 'no meta',
         });
 
         // Add detailed debug logging for thumbnails
@@ -148,7 +160,11 @@ export function SearchResults({
                 : ''
             }
             onMouseEnter={() =>
-              setHoveredGeometry(result.meta?.ui?.viewer?.geometry || null)
+              setHoveredGeometry(
+                result.meta?.ui?.viewer?.geometry
+                  ? JSON.stringify(result.meta.ui.viewer.geometry)
+                  : null
+              )
             }
             onMouseLeave={() => setHoveredGeometry(null)}
           >
@@ -156,7 +172,13 @@ export function SearchResults({
               {/* Thumbnail */}
               <div className="w-48 flex-shrink-0">
                 {(() => {
-                  const thumbnailUrl = result.meta?.ui?.thumbnail_url;
+                  // Try multiple ways to access thumbnail_url
+                  const metaUi = result.meta?.ui;
+                  const thumbnailUrl = 
+                    metaUi?.thumbnail_url || 
+                    metaUi?.['thumbnail_url'] ||
+                    (metaUi && 'thumbnail_url' in metaUi ? (metaUi as any).thumbnail_url : undefined);
+
                   const hasThumbnail = 
                     thumbnailUrl &&
                     typeof thumbnailUrl === 'string' &&
@@ -172,7 +194,10 @@ export function SearchResults({
                       thumbnailUrlType: typeof thumbnailUrl,
                       thumbnailUrlTrimmed: typeof thumbnailUrl === 'string' ? thumbnailUrl.trim() : 'N/A',
                       isInImageErrors: imageErrors.has(result.id),
-                      fullMeta: result.meta,
+                      metaUiKeys: metaUi ? Object.keys(metaUi) : [],
+                      metaUiHasOwnProperty: metaUi ? metaUi.hasOwnProperty('thumbnail_url') : false,
+                      metaUiIn: metaUi ? 'thumbnail_url' in metaUi : false,
+                      metaUiStringified: metaUi ? JSON.stringify(metaUi) : 'no ui',
                     });
                   }
 

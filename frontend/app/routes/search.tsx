@@ -49,6 +49,20 @@ export async function loader({ request }: LoaderFunctionArgs) {
     request,
     searchPath
   );
+  
+  // Debug: Log the first result's meta structure to see if thumbnail_url is present
+  if (searchResults?.data?.[0]) {
+    const firstResult = searchResults.data[0];
+    console.log('🔍 Loader: First result meta structure:', {
+      hasMeta: !!firstResult.meta,
+      metaKeys: firstResult.meta ? Object.keys(firstResult.meta) : [],
+      hasMetaUi: !!firstResult.meta?.ui,
+      metaUiKeys: firstResult.meta?.ui ? Object.keys(firstResult.meta.ui) : [],
+      thumbnailUrl: firstResult.meta?.ui?.thumbnail_url,
+      metaUiStringified: firstResult.meta?.ui ? JSON.stringify(firstResult.meta.ui) : 'no ui',
+    });
+  }
+  
   // Provide a browser-usable URL for "Last API Request" (same-origin /api/v1).
   const lastApiUrl = `/api/v1${searchPath}`;
   return { searchResults, lastApiUrl };
@@ -63,6 +77,22 @@ export default function Search() {
   const navigation = useNavigation();
   const isLoading = navigation.state !== "idle";
   const { setLastApiUrl } = useApi();
+
+  // Debug: Log what useLoaderData returns
+  useEffect(() => {
+    if (searchResults?.data?.[0]) {
+      const firstResult = searchResults.data[0];
+      console.log('🔍 useLoaderData: First result meta structure:', {
+        hasMeta: !!firstResult.meta,
+        metaKeys: firstResult.meta ? Object.keys(firstResult.meta) : [],
+        hasMetaUi: !!firstResult.meta?.ui,
+        metaUiKeys: firstResult.meta?.ui ? Object.keys(firstResult.meta.ui) : [],
+        thumbnailUrl: firstResult.meta?.ui?.thumbnail_url,
+        metaUiStringified: firstResult.meta?.ui ? JSON.stringify(firstResult.meta.ui) : 'no ui',
+        fullMeta: firstResult.meta,
+      });
+    }
+  }, [searchResults]);
 
   // Keep footer's "Last API Request" in sync with SSR loader calls without re-fetching in the browser.
   useEffect(() => {
