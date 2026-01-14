@@ -61,7 +61,7 @@ env:
     ENDPOINT_CACHE:        "true"
     CACHE_DEBUG_HEADERS:   "true"
     CACHE_LOG_EVENTS:      "false"
-    CACHE_VERSION:         "2026-01-13-A"
+    CACHE_VERSION:         "2026-01-14-A"
     # Optional: bump this to force a new cache namespace without flushing Redis
     CACHE_APP_VERSION:     ""
     REDIS_TIMEOUT_SECONDS: "0.5"
