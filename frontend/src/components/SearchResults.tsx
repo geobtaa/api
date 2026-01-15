@@ -30,6 +30,7 @@ export function SearchResults({
     // If backend gives us an API URL, route through SSR so requests use the server-held API key.
     // Example: https://host/api/v1/thumbnails/<hash>  ->  /thumbnails/<hash>
     //          /api/v1/thumbnails/placeholder        ->  /thumbnails/placeholder
+    //          /api/v1/resources/{id}/thumbnail     ->  /resources/{id}/thumbnail
     if (!url || typeof url !== 'string') {
       console.warn('toSsrThumbnailUrl: Invalid URL', url);
       return url;
@@ -39,29 +40,39 @@ export function SearchResults({
       // Handle absolute URLs (with protocol)
       if (url.startsWith('http://') || url.startsWith('https://')) {
         const u = new URL(url);
+        // Handle /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
         if (u.pathname.startsWith('/api/v1/thumbnails/')) {
           const transformed = u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
-          console.log('toSsrThumbnailUrl: Transformed absolute URL', { original: url, transformed });
           return transformed;
         }
-        console.log('toSsrThumbnailUrl: Absolute URL but not a thumbnail path', url);
+        // Handle /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
+        if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
+          const transformed = u.pathname.replace('/api/v1', '') + u.search;
+          return transformed;
+        }
         return url;
       }
 
       // Handle relative URLs
+      // /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
       if (url.startsWith('/api/v1/thumbnails/')) {
-        const transformed = url.replace('/api/v1/thumbnails/', '/thumbnails/');
-        console.log('toSsrThumbnailUrl: Transformed relative URL', { original: url, transformed });
-        return transformed;
+        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+      }
+      
+      // /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
+      const resourceThumbnailMatch = url.match(/^\/api\/v1(\/resources\/[^\/]+\/thumbnail)/);
+      if (resourceThumbnailMatch) {
+        return resourceThumbnailMatch[1];
       }
 
       // Try parsing as URL with base (for relative URLs that might need a base)
       const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
       const u = new URL(url, base);
       if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-        const transformed = u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
-        console.log('toSsrThumbnailUrl: Transformed URL with base', { original: url, transformed });
-        return transformed;
+        return u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+      }
+      if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
+        return u.pathname.replace('/api/v1', '') + u.search;
       }
 
       return url;
@@ -70,6 +81,9 @@ export function SearchResults({
       // Fallback: simple string replacement
       if (url.includes('/api/v1/thumbnails/')) {
         return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+      }
+      if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail')) {
+        return url.replace('/api/v1', '');
       }
       return url;
     }

@@ -30,15 +30,25 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
 
   const toSsrThumbnailUrl = (url: string): string => {
     // Route API thumbnail URLs through SSR to avoid browser/IP rate limiting.
+    // Example: /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
+    //          /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
     try {
       const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      // Handle /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
       if (u.pathname.startsWith('/api/v1/thumbnails/')) {
         return u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+      }
+      // Handle /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
+      if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
+        return u.pathname.replace('/api/v1', '') + u.search;
       }
       return url;
     } catch {
       if (url.startsWith('/api/v1/thumbnails/')) {
         return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+      }
+      if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail')) {
+        return url.replace('/api/v1', '');
       }
       return url;
     }

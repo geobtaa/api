@@ -7,6 +7,7 @@ export default [
   route("resources/:id", "routes/resources.$id.tsx"),
   // Resource routes (return non-HTML responses via loaders)
   route("resources/:id/static-map", "routes/resources.$id.static-map.ts"),
+  route("resources/:id/thumbnail", "routes/resources.$id.thumbnail.ts"),
   route("thumbnails/placeholder", "routes/thumbnails.placeholder.ts"),
   route("thumbnails/:image_hash", "routes/thumbnails.$image_hash.ts"),
   route("iiif/manifest", "routes/iiif.manifest.ts"),
