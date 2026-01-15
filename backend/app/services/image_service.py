@@ -316,13 +316,12 @@ class ImageService:
 
     def get_thumbnail_url(self) -> Optional[str]:
         """
-        Get the thumbnail URL from document metadata with caching support.
-        This method is now truly async - it only checks cache and queues background jobs.
-        No external HTTP calls are made during this method execution.
+        Get the thumbnail URL for a resource.
+        ALWAYS returns /resources/{id}/thumbnail URL if a thumbnail source exists.
+        The actual image endpoint handles checking cache and returning placeholder/actual image.
 
         Returns:
-            Cached thumbnail URL if available, placeholder URL if queued,
-            None if no thumbnail source
+            /resources/{id}/thumbnail URL if thumbnail source exists, None otherwise
         """
         try:
             # Check for restricted access rights
@@ -338,80 +337,9 @@ class ImageService:
             thumbnail_url = self._get_thumbnail_source_url()
 
             if thumbnail_url:
-                # For manifest URLs, check if we have a cached resolution
-                # If manifest is cached, we can resolve it synchronously to check image cache
-                # Otherwise, queue it for background processing (no blocking HTTP calls)
-                if self._is_manifest_url(thumbnail_url):
-                    # Check if manifest is cached first (no HTTP request)
-                    manifest_cache_key = f"manifest:{thumbnail_url}"
-                    try:
-                        cached_manifest_data = self.cache.get(manifest_cache_key)
-                        if cached_manifest_data:
-                            # Manifest is cached, safe to resolve synchronously
-                            try:
-                                manifest_json = json.loads(cached_manifest_data)
-                                resolved_url = self._extract_thumbnail_from_manifest_json(
-                                    manifest_json, thumbnail_url
-                                )
-                                if resolved_url:
-                                    resolved_url = self._standardize_iiif_url(resolved_url)
-
-                                    # Check if the resolved image URL is already cached
-                                    image_hash = hashlib.sha256(resolved_url.encode()).hexdigest()
-                                    image_key = f"image:{image_hash}"
-
-                                    if self.image_cache.exists(image_key):
-                                        self.logger.info(
-                                            f"🚀 Cache HIT for resolved manifest image {doc_id}"
-                                        )
-                                        return (
-                                            f"{self.application_url}/api/v1/thumbnails/{image_hash}"
-                                        )
-                            except Exception as e:
-                                # If resolution fails, queue for background processing
-                                self.logger.debug(
-                                    f"Failed to resolve cached manifest for {doc_id}: {e}"
-                                )
-                    except Exception as e:
-                        # If Redis is unavailable, fall back to non-cached behavior
-                        self.logger.debug(
-                            f"Redis unavailable while checking manifest cache for {doc_id}: {e}"
-                        )
-
-                    # Manifest not cached or resolution failed - queue for background processing
-                    # DO NOT fetch manifest synchronously - this blocks the API response
-                    self.logger.info(
-                        f"🚀 Queueing manifest resolution for {doc_id}: {thumbnail_url}"
-                    )
-                    self._queue_thumbnail_processing(thumbnail_url, doc_id)
-
-                    # Return None - frontend will use resource class icon until ready
-                    return None
-                else:
-                    # Direct image URL - standardize and check cache
-                    thumbnail_url = self._standardize_iiif_url(thumbnail_url)
-
-                    # Check if we have the image cached
-                    image_hash = hashlib.sha256(thumbnail_url.encode()).hexdigest()
-                    image_key = f"image:{image_hash}"
-
-                    try:
-                        if self.image_cache.exists(image_key):
-                            self.logger.info(f"🚀 Cache HIT for image {doc_id}")
-                            return f"{self.application_url}/api/v1/thumbnails/{image_hash}"
-                    except Exception as e:
-                        # If Redis is unavailable, fall back to non-cached behavior
-                        self.logger.warning(
-                            f"Redis unavailable while checking cache for {doc_id}: {e}"
-                        )
-
-                    # Queue thumbnail for processing in the background
-                    # Return None so frontend can show resource class icon until thumbnail is ready
-                    self.logger.info(f"🚀 Queueing image fetch for {doc_id}: {thumbnail_url}")
-                    self._queue_thumbnail_processing(thumbnail_url, doc_id)
-
-                    # Return None instead of placeholder - frontend will use resource class icon
-                    return None
+                # Always return the resource-specific thumbnail endpoint
+                # This endpoint will handle checking cache and returning placeholder/actual image
+                return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
 
             return None
 
@@ -607,7 +535,7 @@ class ImageService:
             # The Celery worker will handle validation and caching
             from app.tasks.worker import fetch_and_cache_image
 
-            task = fetch_and_cache_image.delay(thumbnail_url)
+            task = fetch_and_cache_image.delay(thumbnail_url, doc_id)
             self.logger.info(f"Task queued for {doc_id}: {task.id}")
 
         except Exception as e:

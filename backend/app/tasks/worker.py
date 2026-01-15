@@ -96,10 +96,15 @@ redis_client = redis.Redis(
 
 
 @celery_app.task(bind=True, name="fetch_and_cache_image")
-def fetch_and_cache_image(self, url: str) -> bool:
+def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
     """
     Fetch image from URL and store in Redis.
+    Invalidates search cache when thumbnail is successfully cached.
     Returns True if successful, False otherwise.
+    
+    Args:
+        url: The image URL to fetch and cache
+        doc_id: Optional resource ID - used for cache invalidation
     """
     logger.info(f"Starting task to fetch image: {url}")
     try:
@@ -163,6 +168,8 @@ def fetch_and_cache_image(self, url: str) -> bool:
                     f"✅ Successfully cached valid image: {resolved_url} "
                     f"(type: {detected_type}, size: {len(response.content)} bytes)"
                 )
+                # Note: No need to invalidate search cache - search results always include
+                # /resources/{id}/thumbnail URL, and that endpoint handles checking if image is ready
                 return True
             except Exception as redis_err:
                 logger.warning(
