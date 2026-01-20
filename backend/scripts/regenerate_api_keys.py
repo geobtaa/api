@@ -156,7 +156,7 @@ async def regenerate_api_keys(
             new_key_id = result["key_id"]
 
             logger.info(f"  ✓ Created replacement key ID {new_key_id} for old key ID {key_id}")
-            logger.info(f"  New API key: {new_api_key}")
+            # Note: API key is not logged for security - see report output instead
 
             # Optionally deactivate old key
             if deactivate_old:
