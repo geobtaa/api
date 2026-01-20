@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,13 @@ from db.config import DATABASE_URL
 from db.models import api_keys, api_service_tiers
 
 logger = logging.getLogger(__name__)
+
+# Parameters for API key hashing. Using PBKDF2 makes brute-force attacks
+# against leaked API key hashes significantly more expensive.
+API_KEY_HASH_SALT = os.environ.get("API_KEY_HASH_SALT", "default_api_key_salt").encode(
+    "utf-8"
+)
+API_KEY_HASH_ITERATIONS = 100_000
 
 # Dedicated async engine/session for API key operations.
 # Use NullPool to avoid sharing connections across event loops
@@ -33,8 +41,14 @@ class APIKeyService:
 
     @staticmethod
     def hash_api_key(key: str) -> str:
-        """Hash an API key using SHA-256."""
-        return hashlib.sha256(key.encode()).hexdigest()
+        """Hash an API key using a computationally expensive function (PBKDF2)."""
+        derived_key = hashlib.pbkdf2_hmac(
+            "sha256",
+            key.encode("utf-8"),
+            API_KEY_HASH_SALT,
+            API_KEY_HASH_ITERATIONS,
+        )
+        return derived_key.hex()
 
     async def validate_api_key(
         self, key: str, request_ip: Optional[str] = None
