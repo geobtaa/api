@@ -169,14 +169,32 @@ async def test_init_elasticsearch_index_exists(es_client, monkeypatch):
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 @pytest.mark.asyncio
-async def test_close_elasticsearch(es_client, monkeypatch):
+async def test_close_elasticsearch(monkeypatch):
     """Test closing the Elasticsearch connection."""
-    # Monkeypatch the global ES client to use our test client
+    # Create a separate client just for this test to avoid closing the session-scoped fixture
     import app.elasticsearch.client
 
-    monkeypatch.setattr(app.elasticsearch.client, "es", es_client)
+    test_client = AsyncElasticsearch(
+        hosts=[ELASTICSEARCH_URL],
+        verify_certs=False,
+        ssl_show_warn=False,
+        request_timeout=60,
+        retry_on_timeout=True,
+        max_retries=3,
+    )
 
-    # Call the function
-    await close_elasticsearch()
+    try:
+        # Monkeypatch the global ES client to use our test client
+        monkeypatch.setattr(app.elasticsearch.client, "es", test_client)
 
-    # This test is successful if no exception is raised
+        # Call the function - it should handle event loop issues gracefully
+        await close_elasticsearch()
+
+        # This test is successful if no exception is raised
+    finally:
+        # Ensure the test client is closed even if close_elasticsearch had issues
+        try:
+            await test_client.close()
+        except Exception:
+            # Ignore errors when closing in test environment
+            pass

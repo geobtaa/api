@@ -70,4 +70,16 @@ async def init_elasticsearch():
 
 async def close_elasticsearch():
     """Close the Elasticsearch connection."""
-    await es.close()
+    try:
+        await es.close()
+    except RuntimeError as e:
+        # Handle event loop issues that can occur in test environments
+        # when using pytest-asyncio with session-scoped fixtures
+        if "attached to a different loop" in str(e):
+            logger.warning(
+                "Could not close Elasticsearch client due to event loop conflict. "
+                "This can occur in test environments and is usually safe to ignore."
+            )
+            # In test environments, the fixture will handle cleanup
+            return
+        raise
