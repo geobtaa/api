@@ -1,6 +1,5 @@
 import hashlib
 import json
-from typing import Optional
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse, Response
@@ -43,12 +42,12 @@ async def get_resource_thumbnail(
 ):
     """
     Get the thumbnail image for a resource.
-    
+
     Follows the same pattern as static-maps:
     - Checks if thumbnail is cached
     - If cached: redirects to /api/v1/thumbnails/{image_hash} (serving endpoint)
     - If not cached: queues background job and returns SVG placeholder
-    
+
     Returns:
         - Redirect to serving endpoint if thumbnail is ready
         - SVG placeholder if thumbnail is not ready yet (queues background job)
@@ -61,7 +60,9 @@ async def get_resource_thumbnail(
             row = result.fetchone()
 
             if not row:
-                return _svg_placeholder(title="Thumbnail unavailable", subtitle="Resource not found")
+                return _svg_placeholder(
+                    title="Thumbnail unavailable", subtitle="Resource not found"
+                )
 
             resource_dict = sanitize_for_json(dict(row._mapping))
 
@@ -72,17 +73,17 @@ async def get_resource_thumbnail(
         # Get distribution context and image service
         distribution_context = await fetch_distribution_context(id)
         image_service = ImageService(resource_dict, distribution_context=distribution_context)
-        
+
         # Determine the source thumbnail URL
         source_url = image_service._get_thumbnail_source_url()
-        
+
         if not source_url:
             # No thumbnail source available
             return _svg_placeholder(title="No thumbnail", subtitle="No thumbnail source available")
 
         # Check if we have a cached image
         image_hash = None
-        
+
         # For manifest URLs, try to resolve from cache
         if image_service._is_manifest_url(source_url):
             manifest_cache_key = f"manifest:{source_url}"

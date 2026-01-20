@@ -101,7 +101,7 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
     Fetch image from URL and store in Redis.
     Invalidates search cache when thumbnail is successfully cached.
     Returns True if successful, False otherwise.
-    
+
     Args:
         url: The image URL to fetch and cache
         doc_id: Optional resource ID - used for cache invalidation
@@ -169,7 +169,8 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
                     f"(type: {detected_type}, size: {len(response.content)} bytes)"
                 )
                 # Note: No need to invalidate search cache - search results always include
-                # /resources/{id}/thumbnail URL, and that endpoint handles checking if image is ready
+                # /resources/{id}/thumbnail URL, and that endpoint handles checking if
+                # image is ready
                 return True
             except Exception as redis_err:
                 logger.warning(
