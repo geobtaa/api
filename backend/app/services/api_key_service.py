@@ -17,9 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Parameters for API key hashing. Using PBKDF2 makes brute-force attacks
 # against leaked API key hashes significantly more expensive.
-API_KEY_HASH_SALT = os.environ.get("API_KEY_HASH_SALT", "default_api_key_salt").encode(
-    "utf-8"
-)
+API_KEY_HASH_SALT = os.environ.get("API_KEY_HASH_SALT", "default_api_key_salt").encode("utf-8")
 API_KEY_HASH_ITERATIONS = 100_000
 
 # Dedicated async engine/session for API key operations.

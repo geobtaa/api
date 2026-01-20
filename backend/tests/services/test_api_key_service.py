@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from app.services.api_key_service import APIKeyService
+from app.services.api_key_service import APIKeyService, API_KEY_HASH_ITERATIONS, API_KEY_HASH_SALT
 
 
 @pytest.mark.unit
@@ -28,13 +28,21 @@ class TestAPIKeyService:
         assert len(key) == 36  # UUID v4 format
 
     def test_hash_api_key(self, api_key_service):
-        """Test API key hashing."""
+        """Test API key hashing using PBKDF2."""
         key = "test-api-key-123"
         key_hash = api_key_service.hash_api_key(key)
 
-        # Should be SHA-256 hash (64 hex characters)
+        # Should be PBKDF2-HMAC-SHA256 hash (64 hex characters)
         assert len(key_hash) == 64
-        assert key_hash == hashlib.sha256(key.encode()).hexdigest()
+        
+        # Verify it's using PBKDF2 with the correct parameters
+        expected_hash = hashlib.pbkdf2_hmac(
+            "sha256",
+            key.encode("utf-8"),
+            API_KEY_HASH_SALT,
+            API_KEY_HASH_ITERATIONS,
+        ).hex()
+        assert key_hash == expected_hash
 
     def test_hash_api_key_consistency(self, api_key_service):
         """Test that hashing the same key produces the same hash."""
