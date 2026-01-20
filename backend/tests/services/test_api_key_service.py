@@ -7,7 +7,7 @@ import uuid
 
 import pytest
 
-from app.services.api_key_service import APIKeyService, API_KEY_HASH_ITERATIONS, API_KEY_HASH_SALT
+from app.services.api_key_service import API_KEY_HASH_ITERATIONS, API_KEY_HASH_SALT, APIKeyService
 
 
 @pytest.mark.unit
@@ -34,7 +34,7 @@ class TestAPIKeyService:
 
         # Should be PBKDF2-HMAC-SHA256 hash (64 hex characters)
         assert len(key_hash) == 64
-        
+
         # Verify it's using PBKDF2 with the correct parameters
         expected_hash = hashlib.pbkdf2_hmac(
             "sha256",

@@ -221,7 +221,39 @@ Each user or application should have their own API key.
 
 ### Q: Are API keys secure?
 
-**A**: Yes. API keys are stored using industry-standard hashing (SHA-256), similar to how passwords are stored. The actual key is only shown once when it's created—after that, only hashed versions are stored. Always treat your API key like a password and keep it secure.
+**A**: Yes. API keys are stored using industry-standard hashing (PBKDF2-HMAC-SHA256 with 100,000 iterations), similar to how passwords are stored. The actual key is only shown once when it's created—after that, only hashed versions are stored. Always treat your API key like a password and keep it secure.
+
+## API Key Hashing Migration (January 2026)
+
+### Breaking Change: SHA-256 to PBKDF2 Migration
+
+On January 20, 2026, the API key hashing algorithm was upgraded from SHA-256 to PBKDF2-HMAC-SHA256 for improved security. This change affects all API keys created before this date.
+
+**What This Means**:
+- API keys created **before January 20, 2026** are no longer valid
+- These keys used SHA-256 hashing, which is no longer supported
+- All API keys created **on or after January 20, 2026** use PBKDF2 hashing and continue to work
+
+**Why The Change?**
+PBKDF2 (Password-Based Key Derivation Function 2) provides significantly better security than plain SHA-256 by:
+- Using a salt to prevent rainbow table attacks
+- Requiring 100,000 iterations, making brute-force attacks much more expensive
+- Following industry best practices for hashing sensitive data
+
+**What You Need To Do**:
+If you have an API key created before January 20, 2026, you need to regenerate it:
+
+1. **Contact the BTAA Geoportal team** to request a new API key
+2. **Update your applications** to use the new API key
+3. **Test your integration** to ensure everything works with the new key
+
+**For Administrators**:
+A migration script is available to help regenerate API keys in bulk. See the [Scripts Documentation](scripts.md#regenerate-api-keys) for details on using `regenerate_api_keys.py`.
+
+**Important Notes**:
+- Old API keys will stop working immediately after the deployment
+- There is no backward compatibility - old keys cannot be validated
+- The new keys are more secure and follow current security best practices
 
 ## Summary
 

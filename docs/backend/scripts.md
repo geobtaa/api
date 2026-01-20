@@ -132,6 +132,59 @@ python scripts/clear_cache.py
 python scripts/test_gazetteer_api.py [--base-url URL]
 ```
 
+### 8. `regenerate_api_keys.py`
+
+**Purpose**: Regenerate API keys created before the PBKDF2 hashing change (January 20, 2026).
+
+**Key Features**:
+- Identifies API keys created before the PBKDF2 migration date
+- Creates replacement keys with identical tier and settings
+- Optionally deactivates old keys after creating replacements
+- Dry-run mode to preview changes without making them
+- Detailed migration report with old key ID to new API key mapping
+
+**Background**:
+On January 20, 2026, API key hashing was upgraded from SHA-256 to PBKDF2-HMAC-SHA256 for improved security. Keys created before this date are no longer valid and need to be regenerated.
+
+**Usage**:
+```bash
+# Dry run to see what would be regenerated (recommended first step)
+python scripts/regenerate_api_keys.py --dry-run
+
+# Actually regenerate keys (old keys remain active)
+python scripts/regenerate_api_keys.py
+
+# Regenerate and deactivate old keys
+python scripts/regenerate_api_keys.py --deactivate-old
+
+# Use a custom cutoff date
+python scripts/regenerate_api_keys.py --cutoff-date 2026-01-15
+```
+
+**Options**:
+- `--cutoff-date YYYY-MM-DD`: Keys created before this date will be regenerated (default: 2026-01-20)
+- `--dry-run`: Show what would be regenerated without making changes
+- `--deactivate-old`: Deactivate old keys after creating replacements
+
+**Output**:
+The script generates a detailed report showing:
+- Total keys found
+- Keys needing regeneration
+- Successfully regenerated keys
+- Failed regenerations (if any)
+- Mapping of old key IDs to new API keys
+
+**Important Notes**:
+- Always run with `--dry-run` first to preview changes
+- The script outputs new API keys in plaintext - secure them immediately
+- Old keys remain active unless `--deactivate-old` is used
+- Each regenerated key maintains the same tier, name, and IP restrictions as the original
+
+**Requirements**:
+- Database connection must be properly configured
+- Access to the `api_keys` and `api_service_tiers` tables
+- Sufficient permissions to create and update API keys
+
 ## Common Features
 
 All scripts share some common features:
