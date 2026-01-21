@@ -175,6 +175,25 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   const shouldShowSearchingPlaceholder =
     !error && hasAnySearchCriteria && !searchResults && !isLoading;
 
+  // Restore view preference from local storage on mount
+  useEffect(() => {
+    // Only restore if no view param is present in the URL
+    if (!searchParams.has('view')) {
+      const savedView = localStorage.getItem('b1g_view_preference') as ViewMode | null;
+      if (savedView && savedView !== 'list') {
+        // We need to apply the saved view.
+        // We can't use updateSearch easily here because of closure/deps, 
+        // but we can use setSearchParams directly.
+        const next = new URLSearchParams(searchParams);
+        next.set('view', savedView);
+        if (savedView === 'gallery') {
+          next.set('per_page', '20');
+        }
+        setSearchParams(next, { replace: true });
+      }
+    }
+  }, []); // Run once on mount
+
   const updateSearch = ({
     query,
     page,
@@ -213,6 +232,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     }
 
     if (view !== undefined) {
+      // Save preference
+      localStorage.setItem('b1g_view_preference', view);
+
       if (view !== 'list') {
         newParams.set('view', view);
         // Set per_page=20 for gallery view
@@ -528,9 +550,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                   )}
 
                   {currentView === 'map' && (
-                    <div className="flex gap-4 h-[calc(100vh-200px)]">
+                    <div className="flex gap-4 relative">
                       {/* Middle Column: Brief Results */}
-                      <div className="w-1/3 min-w-[300px] overflow-y-auto pr-2">
+                      <div className="w-1/3 min-w-[300px] pr-2">
                         <SearchResults
                           results={searchResults?.data || []}
                           isLoading={isLoading}
@@ -538,15 +560,20 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                           currentPage={page}
                           variant="compact"
                         />
-                        {/* Compact Pagination for brief results if needed, or rely on main pagination below? 
-                            Main pagination is below this container, so it will scroll with the page.
-                            For map view, we might want pagination inside the scrollable area or stick to bottom.
-                            Let's keep main pagination at bottom for now.
-                        */}
+                        {/* Pagination for map view (inside scrollable column) */}
+                        {!isLoading && totalPages > 1 && (
+                          <div className="mt-4">
+                            <Pagination
+                              currentPage={page}
+                              totalPages={totalPages}
+                              onPageChange={handlePageChange}
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Right Column: Map */}
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
                         <MapResultView
                           results={searchResults?.data || []}
                           highlightedResourceId={hoveredResourceId}
@@ -555,8 +582,8 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                     </div>
                   )}
 
-                  {/* Hide pagination for Gallery view (endless scroll) */}
-                  {!isLoading && totalPages > 1 && currentView !== 'gallery' && (
+                  {/* Pagination for List view (bottom of page) */}
+                  {!isLoading && totalPages > 1 && currentView === 'list' && (
                     <Pagination
                       currentPage={page}
                       totalPages={totalPages}
