@@ -17,7 +17,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Ensure required defaults for the API request.
   apiParams.set("format", "json");
-  apiParams.set("per_page", apiParams.get("per_page") || "10");
+  const defaultPerPage = apiParams.get("view") === "gallery" ? "20" : "10";
+  apiParams.set("per_page", apiParams.get("per_page") || defaultPerPage);
   apiParams.set("search_field", apiParams.get("search_field") || "all_fields");
 
   // Only fetch if we have any search criteria (q param, facets, excludes, adv_q, geo filters, etc.)
@@ -49,7 +50,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     request,
     searchPath
   );
-  
+
   // Debug: Log the first result's meta structure to see if thumbnail_url is present
   if (searchResults?.data?.[0]) {
     const firstResult = searchResults.data[0];
@@ -62,7 +63,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       metaUiStringified: firstResult.meta?.ui ? JSON.stringify(firstResult.meta.ui) : 'no ui',
     });
   }
-  
+
   // Provide a browser-usable URL for "Last API Request" (same-origin /api/v1).
   const lastApiUrl = `/api/v1${searchPath}`;
   return { searchResults, lastApiUrl };

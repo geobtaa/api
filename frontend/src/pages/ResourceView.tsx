@@ -35,6 +35,7 @@ interface SearchState {
   searchUrl: string;
   currentPage: number;
   absoluteIndex?: number;
+  perPage?: number;
 }
 
 interface FacetFilter {
@@ -143,6 +144,9 @@ export function ResourceView({
   const [error, setError] = useState<string | null>(null);
   const { setLastApiUrl } = useApi();
 
+  // Get configured perPage or default to 10
+  const perPage = searchState?.perPage || 10;
+
   // Calculate pagination state
   const isLastInCurrentSet =
     searchState?.currentIndex === searchState?.searchResults.length - 1;
@@ -153,7 +157,7 @@ export function ResourceView({
     searchState?.absoluteIndex !== undefined
       ? searchState.absoluteIndex
       : searchState
-        ? (searchState.currentPage - 1) * 10 + searchState.currentIndex
+        ? (searchState.currentPage - 1) * perPage + searchState.currentIndex
         : 0;
 
   // Fix the hasMoreResults and hasPreviousResults calculations
@@ -198,7 +202,7 @@ export function ResourceView({
       const results = await fetchSearchResults(
         query,
         nextPage,
-        10,
+        perPage,
         facets,
         setLastApiUrl,
         sort
@@ -238,7 +242,7 @@ export function ResourceView({
       const results = await fetchSearchResults(
         query,
         prevPage,
-        10,
+        perPage,
         facets,
         setLastApiUrl,
         sort
@@ -506,8 +510,8 @@ export function ResourceView({
                   {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
                   {(viewerProtocol === 'wms' ||
                     viewerProtocol === 'arcgis_feature_layer') && (
-                    <AttributeTable />
-                  )}
+                      <AttributeTable />
+                    )}
                   {viewerProtocol === 'open_index_map' && <IndexMap />}
 
                   {/* Add Full Details table */}
@@ -523,19 +527,19 @@ export function ResourceView({
                     {(data?.meta?.ui?.viewer?.geometry ||
                       data?.attributes?.ogm?.locn_geometry_original ||
                       data?.attributes?.ogm?.locn_geometry) && (
-                      <LocationMap
-                        geometry={
-                          (data?.meta?.ui?.viewer?.geometry ||
-                            data?.attributes?.ogm?.locn_geometry_original ||
-                            data?.attributes?.ogm?.locn_geometry) as
+                        <LocationMap
+                          geometry={
+                            (data?.meta?.ui?.viewer?.geometry ||
+                              data?.attributes?.ogm?.locn_geometry_original ||
+                              data?.attributes?.ogm?.locn_geometry) as
                             | string
                             | GeoJSON.Polygon
                             | GeoJSON.MultiPolygon
                             | { wkt: string }
                             | null
-                        }
-                      />
-                    )}
+                          }
+                        />
+                      )}
 
                     {/* Downloads section */}
                     {data?.meta?.ui?.downloads &&
