@@ -13,6 +13,7 @@ interface SearchResultsProps {
   isLoading: boolean;
   totalResults: number;
   currentPage: number;
+  variant?: 'default' | 'compact';
 }
 
 export function SearchResults({
@@ -20,11 +21,14 @@ export function SearchResults({
   isLoading,
   totalResults,
   currentPage,
+  variant = 'default',
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
-  const { setHoveredGeometry } = useMap();
+  const { setHoveredGeometry, setHoveredResourceId } = useMap();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+
+  const isCompact = variant === 'compact';
 
   const toSsrThumbnailUrl = (url: string): string => {
     // If backend gives us an API URL, route through SSR so requests use the server-held API key.
@@ -58,7 +62,7 @@ export function SearchResults({
       if (url.startsWith('/api/v1/thumbnails/')) {
         return url.replace('/api/v1/thumbnails/', '/thumbnails/');
       }
-      
+
       // /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
       const resourceThumbnailMatch = url.match(/^\/api\/v1(\/resources\/[^\/]+\/thumbnail)/);
       if (resourceThumbnailMatch) {
@@ -140,10 +144,10 @@ export function SearchResults({
         // Deep inspection of meta structure
         const metaUi = result.meta?.ui;
         const allMetaUiProps = metaUi ? Object.getOwnPropertyNames(metaUi) : [];
-        const metaUiDescriptors = metaUi 
+        const metaUiDescriptors = metaUi
           ? Object.getOwnPropertyDescriptors(metaUi)
           : {};
-        
+
         console.log('Deep meta inspection:', {
           hasMeta: !!result.meta,
           metaKeys: result.meta ? Object.keys(result.meta) : [],
@@ -157,7 +161,7 @@ export function SearchResults({
           fullMetaStringified: result.meta ? JSON.stringify(result.meta) : 'no meta',
           // Try to access via Object.getOwnPropertyDescriptor
           hasThumbnailProperty: metaUi && 'thumbnail_url' in metaUi,
-          thumbnailUrlViaGetOwnProperty: metaUi 
+          thumbnailUrlViaGetOwnProperty: metaUi
             ? Object.getOwnPropertyDescriptor(metaUi, 'thumbnail_url')?.value
             : undefined,
         });
@@ -186,25 +190,29 @@ export function SearchResults({
                 ? JSON.stringify(result.meta.ui.viewer.geometry)
                 : ''
             }
-            onMouseEnter={() =>
+            onMouseEnter={() => {
               setHoveredGeometry(
                 result.meta?.ui?.viewer?.geometry
                   ? JSON.stringify(result.meta.ui.viewer.geometry)
                   : null
-              )
-            }
-            onMouseLeave={() => setHoveredGeometry(null)}
+              );
+              if (setHoveredResourceId) setHoveredResourceId(result.id);
+            }}
+            onMouseLeave={() => {
+              setHoveredGeometry(null);
+              if (setHoveredResourceId) setHoveredResourceId(null);
+            }}
           >
             <div className="flex">
               {/* Thumbnail */}
-              <div className="w-48 flex-shrink-0">
+              <div className={`${isCompact ? 'w-24' : 'w-48'} flex-shrink-0`}>
                 {(() => {
                   // Try multiple ways to access thumbnail_url
                   const metaUi = result.meta?.ui;
-                  
+
                   // First try direct access
                   let thumbnailUrl = metaUi?.thumbnail_url || metaUi?.['thumbnail_url'];
-                  
+
                   // If not found, try to extract from stringified JSON (workaround for serialization issues)
                   if (!thumbnailUrl && metaUi) {
                     try {
@@ -215,7 +223,7 @@ export function SearchResults({
                       // Ignore parsing errors
                     }
                   }
-                  
+
                   // If still not found, try Object.getOwnPropertyDescriptor (for non-enumerable properties)
                   if (!thumbnailUrl && metaUi) {
                     const descriptor = Object.getOwnPropertyDescriptor(metaUi, 'thumbnail_url');
@@ -223,13 +231,13 @@ export function SearchResults({
                       thumbnailUrl = descriptor.value;
                     }
                   }
-                  
+
                   // Last resort: check if property exists via 'in' operator
                   if (!thumbnailUrl && metaUi && 'thumbnail_url' in metaUi) {
                     thumbnailUrl = (metaUi as any).thumbnail_url;
                   }
 
-                  const hasThumbnail = 
+                  const hasThumbnail =
                     thumbnailUrl &&
                     typeof thumbnailUrl === 'string' &&
                     thumbnailUrl.trim() !== '' &&
@@ -252,11 +260,11 @@ export function SearchResults({
                   }
 
                   return hasThumbnail ? (
-                    <div className="h-48 w-48 rounded-l-lg">
+                    <div className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} rounded-l-lg`}>
                       <img
                         src={toSsrThumbnailUrl(thumbnailUrl)}
                         alt={`Thumbnail for ${title}`}
-                        className="h-48 w-48 object-cover rounded-l-lg"
+                        className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
                           console.error(
                             `Error loading thumbnail for ${result.id}:`,
@@ -281,7 +289,7 @@ export function SearchResults({
                       />
                     </div>
                   ) : (
-                    <div className="h-48 w-48 flex items-center justify-center bg-gray-50 rounded-l-lg">
+                    <div className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} flex items-center justify-center bg-gray-50 rounded-l-lg`}>
                       {getResourceIcon(resourceClass)}
                     </div>
                   );
@@ -289,10 +297,12 @@ export function SearchResults({
               </div>
 
               {/* Content */}
-              <div className="flex-1 p-6">
-                <div className="absolute -left-4 top-6 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center text-sm text-gray-500 font-medium">
-                  {getAbsoluteIndex(index)}
-                </div>
+              <div className={`flex-1 ${isCompact ? 'p-3' : 'p-6'}`}>
+                {!isCompact && (
+                  <div className="absolute -left-4 top-6 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center text-sm text-gray-500 font-medium">
+                    {getAbsoluteIndex(index)}
+                  </div>
+                )}
 
                 {showDetails && (
                   <pre className="overflow-auto text-xs">
@@ -306,153 +316,170 @@ export function SearchResults({
                     to={`/resources/${result.id}`}
                     state={{
                       searchResults: results,
-                      currentIndex: getAbsoluteIndex(index) - 1,
+                      currentIndex: index, // Local index
+                      absoluteIndex: getAbsoluteIndex(index) - 1, // Absolute index (0-based)
                       totalResults: totalResults,
                       searchUrl: location.pathname + location.search,
                       currentPage: currentPage,
+                      perPage: 10 // Explicitly pass default page size
                     }}
                     className="flex-1"
                   >
-                    <h2 className="text-xl font-semibold text-blue-600 hover:text-blue-800">
+                    <h2 className={`${isCompact ? 'text-sm' : 'text-xl'} font-semibold text-blue-600 hover:text-blue-800`}>
                       {typeof title === 'string' ? title : String(title)}
                     </h2>
                   </Link>
                 </div>
 
-                {/* Temporal information and Description (inline) */}
-                {(ogm?.dct_temporal_sm &&
-                  Array.isArray(ogm.dct_temporal_sm) &&
-                  ogm.dct_temporal_sm.length > 0) ||
-                (ogm?.dct_description_sm &&
-                  Array.isArray(ogm.dct_description_sm) &&
-                  ogm.dct_description_sm.length > 0) ? (
-                  <p className="text-gray-600 mb-4 line-clamp-3">
-                    {ogm?.dct_temporal_sm &&
-                      Array.isArray(ogm.dct_temporal_sm) &&
-                      ogm.dct_temporal_sm.length > 0 && (
-                        <span className="text-gray-500 text-sm">
-                          {ogm.dct_temporal_sm
-                            .map((item) =>
-                              typeof item === 'string' ? item : String(item)
-                            )
-                            .join(', ')}{' '}
-                        </span>
-                      )}
-                    {ogm?.dct_description_sm &&
+                {/* Temporal information and Description (inline) - Hide in compact mode */}
+                {!isCompact && (
+                  ((ogm?.dct_temporal_sm &&
+                    Array.isArray(ogm.dct_temporal_sm) &&
+                    ogm.dct_temporal_sm.length > 0) ||
+                    (ogm?.dct_description_sm &&
                       Array.isArray(ogm.dct_description_sm) &&
-                      ogm.dct_description_sm.length > 0 &&
-                      (typeof ogm.dct_description_sm[0] === 'string'
-                        ? ogm.dct_description_sm[0]
-                        : String(ogm.dct_description_sm[0]))}
-                  </p>
-                ) : null}
+                      ogm.dct_description_sm.length > 0)) ? (
+                    <p className="text-gray-600 mb-4 line-clamp-3">
+                      {ogm?.dct_temporal_sm &&
+                        Array.isArray(ogm.dct_temporal_sm) &&
+                        ogm.dct_temporal_sm.length > 0 && (
+                          <span className="text-gray-500 text-sm">
+                            {ogm.dct_temporal_sm
+                              .map((item) =>
+                                typeof item === 'string' ? item : String(item)
+                              )
+                              .join(', ')}{' '}
+                          </span>
+                        )}
+                      {ogm?.dct_description_sm &&
+                        Array.isArray(ogm.dct_description_sm) &&
+                        ogm.dct_description_sm.length > 0 &&
+                        (typeof ogm.dct_description_sm[0] === 'string'
+                          ? ogm.dct_description_sm[0]
+                          : String(ogm.dct_description_sm[0]))}
+                    </p>
+                  ) : null
+                )}
 
-                {/* Subject and Theme tags */}
-                {(() => {
-                  // Get subjects from dct_subjects_sm or dct_subject_sm
-                  const subjects =
-                    (ogm?.dct_subjects_sm &&
-                    Array.isArray(ogm.dct_subjects_sm) &&
-                    ogm.dct_subjects_sm.length > 0
-                      ? ogm.dct_subjects_sm
-                      : null) ||
-                    (ogm?.dct_subject_sm &&
-                    Array.isArray(ogm.dct_subject_sm) &&
-                    ogm.dct_subject_sm.length > 0
-                      ? ogm.dct_subject_sm
-                      : null);
+                {/* Subject and Theme tags - Hide in compact mode or make smaller? Let's hide for simplicity/compactness, or just show year/class */}
+                {isCompact ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                    <span>{ogm?.gbl_indexYear_im?.[0] || "-"}</span>
+                    <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded">
+                      {resourceClass || "Item"}
+                    </span>
+                  </div>
+                ) : (
+                  (() => {
+                    // Get subjects from dct_subjects_sm or dct_subject_sm
+                    const subjects =
+                      (ogm?.dct_subjects_sm &&
+                        Array.isArray(ogm.dct_subjects_sm) &&
+                        ogm.dct_subjects_sm.length > 0
+                        ? ogm.dct_subjects_sm
+                        : null) ||
+                      (ogm?.dct_subject_sm &&
+                        Array.isArray(ogm.dct_subject_sm) &&
+                        ogm.dct_subject_sm.length > 0
+                        ? ogm.dct_subject_sm
+                        : null);
 
-                  // Get themes from dcat_theme_sm
-                  const themes =
-                    ogm?.dcat_theme_sm &&
-                    Array.isArray(ogm.dcat_theme_sm) &&
-                    ogm.dcat_theme_sm.length > 0
-                      ? ogm.dcat_theme_sm
-                      : null;
+                    // Get themes from dcat_theme_sm
+                    const themes =
+                      ogm?.dcat_theme_sm &&
+                        Array.isArray(ogm.dcat_theme_sm) &&
+                        ogm.dcat_theme_sm.length > 0
+                        ? ogm.dcat_theme_sm
+                        : null;
 
-                  // Helper to create search URL for a tag
-                  const createTagSearchUrl = (
-                    field: string,
-                    value: string | number
-                  ) => {
-                    const params = new URLSearchParams();
-                    params.append(
-                      `include_filters[${field}][]`,
-                      value.toString()
-                    );
-                    return `/search?${params.toString()}`;
-                  };
+                    // Helper to create search URL for a tag
+                    const createTagSearchUrl = (
+                      field: string,
+                      value: string | number
+                    ) => {
+                      const params = new URLSearchParams();
+                      params.append(
+                        `include_filters[${field}][]`,
+                        value.toString()
+                      );
+                      return `/search?${params.toString()}`;
+                    };
 
-                  // Determine which field name to use for subjects
-                  const subjectField = ogm?.dct_subjects_sm
-                    ? 'dct_subjects_sm'
-                    : 'dct_subject_sm';
+                    // Determine which field name to use for subjects
+                    const subjectField = ogm?.dct_subjects_sm
+                      ? 'dct_subjects_sm'
+                      : 'dct_subject_sm';
 
-                  return (subjects && subjects.length > 0) ||
-                    (themes && themes.length > 0) ? (
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {subjects?.map((subject, index) => {
-                        const subjectValue =
-                          typeof subject === 'string'
-                            ? subject
-                            : String(subject);
-                        return (
-                          <Link
-                            key={`subject-${index}`}
-                            to={createTagSearchUrl(subjectField, subjectValue)}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                            onClick={(e) => {
-                              // Prevent navigation if clicking on the result link
-                              e.stopPropagation();
-                            }}
-                          >
-                            {subjectValue}
-                          </Link>
-                        );
-                      })}
-                      {themes?.map((theme, index) => {
-                        const themeValue =
-                          typeof theme === 'string' ? theme : String(theme);
-                        return (
-                          <Link
-                            key={`theme-${index}`}
-                            to={createTagSearchUrl('dcat_theme_sm', themeValue)}
-                            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
-                            onClick={(e) => {
-                              // Prevent navigation if clicking on the result link
-                              e.stopPropagation();
-                            }}
-                          >
-                            {themeValue}
-                          </Link>
-                        );
-                      })}
-                    </div>
-                  ) : null;
-                })()}
-
-                <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                  {ogm?.dc_publisher_sm &&
-                    Array.isArray(ogm.dc_publisher_sm) &&
-                    ogm.dc_publisher_sm.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <BookOpen size={16} />
-                        <span>
-                          {ogm.dc_publisher_sm
-                            .map((item) =>
-                              typeof item === 'string' ? item : String(item)
-                            )
-                            .join(', ')}
-                        </span>
+                    return (subjects && subjects.length > 0) ||
+                      (themes && themes.length > 0) ? (
+                      <div className="flex flex-wrap gap-2 mb-4">
+                        {subjects?.map((subject, index) => {
+                          const subjectValue =
+                            typeof subject === 'string'
+                              ? subject
+                              : String(subject);
+                          return (
+                            <Link
+                              key={`subject-${index}`}
+                              to={createTagSearchUrl(subjectField, subjectValue)}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                              onClick={(e) => {
+                                // Prevent navigation if clicking on the result link
+                                e.stopPropagation();
+                              }}
+                            >
+                              {subjectValue}
+                            </Link>
+                          );
+                        })}
+                        {themes?.map((theme, index) => {
+                          const themeValue =
+                            typeof theme === 'string' ? theme : String(theme);
+                          return (
+                            <Link
+                              key={`theme-${index}`}
+                              to={createTagSearchUrl('dcat_theme_sm', themeValue)}
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
+                              onClick={(e) => {
+                                // Prevent navigation if clicking on the result link
+                                e.stopPropagation();
+                              }}
+                            >
+                              {themeValue}
+                            </Link>
+                          );
+                        })}
                       </div>
-                    )}
-                </div>
+                    ) : null;
+                  })()
+                )}
+
+                {!isCompact && (
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-500">
+                    {ogm?.dc_publisher_sm &&
+                      Array.isArray(ogm.dc_publisher_sm) &&
+                      ogm.dc_publisher_sm.length > 0 && (
+                        <div className="flex items-center gap-1">
+                          <BookOpen size={16} />
+                          <span>
+                            {ogm.dc_publisher_sm
+                              .map((item) =>
+                                typeof item === 'string' ? item : String(item)
+                              )
+                              .join(', ')}
+                          </span>
+                        </div>
+                      )}
+                  </div>
+                )}
               </div>
 
-              {/* Static Map */}
-              <div className="w-48 flex-shrink-0">
-                <StaticResultMap result={result} />
-              </div>
+              {/* Static Map - Hide in compact mode */}
+              {!isCompact && (
+                <div className="w-48 flex-shrink-0">
+                  <StaticResultMap result={result} />
+                </div>
+              )}
             </div>
           </article>
         );

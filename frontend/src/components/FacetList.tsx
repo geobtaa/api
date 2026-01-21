@@ -18,17 +18,17 @@ interface JsonApiFacet {
   attributes: {
     label: string;
     items:
-      | Array<{
-          attributes: {
-            label?: string;
-            value: string | number;
-            hits: number;
-          };
-          links?: {
-            self: string;
-          };
-        }>
-      | JsonApiFacetItemTuple[];
+    | Array<{
+      attributes: {
+        label?: string;
+        value: string | number;
+        hits: number;
+      };
+      links?: {
+        self: string;
+      };
+    }>
+    | JsonApiFacetItemTuple[];
   };
 }
 
@@ -130,12 +130,10 @@ export function FacetList({ facets }: FacetListProps) {
     setSearchParams(newParams);
   };
 
-  if (!facets || facets.length === 0) {
-    return <div className="text-gray-500">No facets available</div>;
-  }
+  const safeFacets = facets || [];
 
   // Filter facets to only show those with items and convert to the expected format
-  const availableFacets = facets
+  const availableFacets = safeFacets
     .filter(
       (facet) => facet.attributes.items && facet.attributes.items.length > 0
     )
@@ -145,17 +143,17 @@ export function FacetList({ facets }: FacetListProps) {
       label: facet.attributes.label,
       items: isCompactTupleItems(facet.attributes.items)
         ? facet.attributes.items.map(([value, hits]) => ({
-            label: String(value),
-            value,
-            hits,
-            url: undefined as string | undefined,
-          }))
+          label: String(value),
+          value,
+          hits,
+          url: undefined as string | undefined,
+        }))
         : facet.attributes.items.map((item) => ({
-            label: item.attributes.label ?? String(item.attributes.value),
-            value: item.attributes.value,
-            hits: item.attributes.hits,
-            url: item.links?.self,
-          })),
+          label: item.attributes.label ?? String(item.attributes.value),
+          value: item.attributes.value,
+          hits: item.attributes.hits,
+          url: item.links?.self,
+        })),
     }));
 
   // Order facets according to CONFIGURED_FACETS and filter to only show configured ones
@@ -163,12 +161,6 @@ export function FacetList({ facets }: FacetListProps) {
     const facet = availableFacets.find((f) => f.id === facetId);
     return facet;
   }).filter((facet): facet is NonNullable<typeof facet> => facet !== undefined);
-
-  if (orderedFacets.length === 0) {
-    return (
-      <div className="text-gray-500">No facets available for this search</div>
-    );
-  }
 
   // Derive "forced open" facet groups from the current URL params.
   // This is computed without effects to avoid render loops.
@@ -199,6 +191,16 @@ export function FacetList({ facets }: FacetListProps) {
     opened: Set<string>;
     closed: Set<string>;
   }>(() => ({ opened: new Set(), closed: new Set() }));
+
+  if (!safeFacets || safeFacets.length === 0) {
+    return <div className="text-gray-500">No facets available</div>;
+  }
+
+  if (orderedFacets.length === 0) {
+    return (
+      <div className="text-gray-500">No facets available for this search</div>
+    );
+  }
 
   return (
     <>
@@ -249,70 +251,67 @@ export function FacetList({ facets }: FacetListProps) {
               </summary>
 
               <div className="pt-1">
-              <ul className="space-y-1">
-                {displayItems.map((item) => {
-                  const isActive = isFacetActive(facet.rawId, item.value);
-                  const excluded = isFacetExcluded(facet.rawId, item.value);
+                <ul className="space-y-1">
+                  {displayItems.map((item) => {
+                    const isActive = isFacetActive(facet.rawId, item.value);
+                    const excluded = isFacetExcluded(facet.rawId, item.value);
 
-                  return (
-                    <li
-                      key={`${facet.id}-${item.value}`}
-                      className="group flex items-center gap-2"
-                    >
-                      <button
-                        onClick={() => handleFacetClick(facet.rawId, item.value)}
-                        className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
-                          isActive
-                            ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
-                            : 'text-gray-600 hover:text-gray-900'
-                        }`}
+                    return (
+                      <li
+                        key={`${facet.id}-${item.value}`}
+                        className="group flex items-center gap-2"
                       >
-                        <span>{item.label}</span>
-                        <span
-                          className={`${
-                            isActive ? 'text-blue-400' : 'text-gray-400'
-                          }`}
+                        <button
+                          onClick={() => handleFacetClick(facet.rawId, item.value)}
+                          className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${isActive
+                              ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
+                              : 'text-gray-600 hover:text-gray-900'
+                            }`}
                         >
-                          ({formatCount(item.hits)})
-                        </span>
-                        {isActive && (
-                          <span className="text-blue-400 ml-auto">×</span>
-                        )}
-                      </button>
-                      <button
-                        onClick={() => handleFacetExclude(facet.rawId, item.value)}
-                        className={`ml-1 p-1 rounded transition-colors ${
-                          excluded
-                            ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                            : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
-                        } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
-                        aria-label={
-                          excluded ? 'Remove exclusion' : 'Exclude this value'
-                        }
-                        title={
-                          excluded ? 'Remove exclusion' : 'Exclude this value'
-                        }
-                      >
-                        <MinusCircle className="w-4 h-4" />
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-              {hasMore && (
-                <button
-                  onClick={() =>
-                    setActiveFacetModal({
-                      id: facet.rawId,
-                      label: facetLabel,
-                    })
-                  }
-                  className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-                >
-                  More &raquo;
-                </button>
-              )}
-            </div>
+                          <span>{item.label}</span>
+                          <span
+                            className={`${isActive ? 'text-blue-400' : 'text-gray-400'
+                              }`}
+                          >
+                            ({formatCount(item.hits)})
+                          </span>
+                          {isActive && (
+                            <span className="text-blue-400 ml-auto">×</span>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => handleFacetExclude(facet.rawId, item.value)}
+                          className={`ml-1 p-1 rounded transition-colors ${excluded
+                              ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                              : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                            } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                          aria-label={
+                            excluded ? 'Remove exclusion' : 'Exclude this value'
+                          }
+                          title={
+                            excluded ? 'Remove exclusion' : 'Exclude this value'
+                          }
+                        >
+                          <MinusCircle className="w-4 h-4" />
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+                {hasMore && (
+                  <button
+                    onClick={() =>
+                      setActiveFacetModal({
+                        id: facet.rawId,
+                        label: facetLabel,
+                      })
+                    }
+                    className="mt-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                  >
+                    More &raquo;
+                  </button>
+                )}
+              </div>
             </details>
           );
         })}
