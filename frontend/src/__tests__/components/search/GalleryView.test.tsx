@@ -92,34 +92,5 @@ describe('GalleryView', () => {
         expect(onLoadMore).not.toHaveBeenCalled();
     });
 
-    it('calculates absolute index based on startPage', () => {
-        // This logic is internal to the component's `getAbsoluteIndex` function.
-        // We can verify it indirectly if we access the rendered debug overlay...
-        // BUT the debug overlay was removed or is hidden? 
-        // In the current code (I saw recently), the debug overlay IS present:
-        // <div className="absolute top-0 left-0 bg-red-600 text-white text-xs p-1 z-50 font-bold opacity-90">
-        //    #{absIndex} (P{dbgPage}/PP{dbgPP}/i{index})
-        // </div>
 
-        const results = mockResults.slice(0, 5);
-        // Simulate startPage=2 (items 21-25)
-        // Index 0 in this list should be absolute index 21. ( (2-1)*20 + 0 + 1 = 21 )
-        render(
-            <BrowserRouter>
-                <GalleryView
-                    results={results}
-                    isLoading={false}
-                    totalResults={100}
-                    currentPage={2}
-                    startPage={2}
-                    perPage={20}
-                />
-            </BrowserRouter>
-        );
-
-        // Look for "#21" text
-        expect(screen.getByText(/#21/)).toBeInTheDocument();
-        // Look for "#25"
-        expect(screen.getByText(/#25/)).toBeInTheDocument();
-    });
 });

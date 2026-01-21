@@ -167,7 +167,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
                     const thumbnailUrl = getThumbnailUrl(r);
                     const ssrThumbnailUrl = toSsrThumbnailUrl(thumbnailUrl);
-                    const { idx: absIndex, page: dbgPage, effectivePerPage: dbgPP } = getAbsoluteIndex(index);
+                    const { idx: absIndex } = getAbsoluteIndex(index);
 
                     return (
                         <div
@@ -188,10 +188,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                                 className="flex flex-col flex-1"
                             >
                                 <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden relative">
-                                    {/* DEBUG OVERLAY */}
-                                    <div className="absolute top-0 left-0 bg-red-600 text-white text-xs p-1 z-50 font-bold opacity-90">
-                                        #{absIndex} (P{dbgPage}/PP{dbgPP}/i{index})
-                                    </div>
 
                                     {ssrThumbnailUrl ? (
                                         <img
