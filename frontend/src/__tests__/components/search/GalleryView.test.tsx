@@ -8,6 +8,18 @@ import type { GeoDocument } from '../../../types/api';
 const observeMock = vi.fn();
 const unobserveMock = vi.fn();
 
+// Mock BookmarkButton to avoid context provider requirement
+vi.mock('../../../components/BookmarkButton', () => ({
+    BookmarkButton: () => <button data-testid="bookmark-btn">Bookmark</button>
+}));
+
+// Mock useBookmarks hook because it is now used directly in GalleryView
+vi.mock('../../../context/BookmarkContext', () => ({
+    useBookmarks: () => ({
+        isBookmarked: () => false // Default to false for tests
+    })
+}));
+
 beforeAll(() => {
     global.IntersectionObserver = vi.fn().mockImplementation(() => ({
         observe: observeMock,

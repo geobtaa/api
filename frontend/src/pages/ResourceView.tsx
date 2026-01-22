@@ -559,7 +559,7 @@ export function ResourceView({
                         <CitationTable
                           citation={data.meta.ui.citation}
                           permalink={
-                            typeof window !== "undefined" ? window.location.href : ""
+                            isMounted ? window.location.href : ""
                           }
                         />
                       </div>

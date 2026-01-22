@@ -362,10 +362,34 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     ) {
       try {
         // IMPORTANT: make this deterministic across SSR/client.
-        // `new Date("YYYY-MM-DD")` is treated as UTC midnight, but `toLocaleDateString`
-        // uses the *local* timezone by default, which can shift the day (hydration mismatch).
-        const date = new Date(value.toString());
+        // Manually parse YYYY-MM-DD to avoid `new Date(string)` ambiguity and timezone offsets.
+        // We strictly interpret the date string as UTC YYYY-MM-DD.
+        const valStr = value.toString();
+        // Match YYYY-MM-DD pattern (stripping time if present)
+        const match = valStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+        if (match) {
+          const [_, yearStr, monthStr, dayStr] = match;
+          const date = new Date(Date.UTC(
+            parseInt(yearStr, 10),
+            parseInt(monthStr, 10) - 1, // Month is 0-indexed
+            parseInt(dayStr, 10)
+          ));
+
+          if (!isNaN(date.getTime())) {
+            return date.toLocaleDateString('en-US', {
+              timeZone: 'UTC',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            });
+          }
+        }
+
+        // Fallback for non-matching strings (e.g. just Year "2024")
+        const date = new Date(valStr);
         if (!isNaN(date.getTime())) {
+          // For fallback, also force UTC to be safe, assuming input is UTC-ish
           return date.toLocaleDateString('en-US', {
             timeZone: 'UTC',
             year: 'numeric',
@@ -475,9 +499,9 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                   >
                     {relationshipLabels.browse_all
                       ? relationshipLabels.browse_all.replace(
-                          '%{count}',
-                          formatCount(totalCount)
-                        )
+                        '%{count}',
+                        formatCount(totalCount)
+                      )
                       : `Browse all ${formatCount(totalCount)} records...`}
                   </Link>
                 </li>
@@ -539,17 +563,17 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                 <ul className="list-none">
                   <li className="text-sm text-gray-900">
                     {key === 'dct_spatial_sm' &&
-                    Array.isArray(value) &&
-                    value.length > 15
+                      Array.isArray(value) &&
+                      value.length > 15
                       ? renderPlaceValues(
-                          value as string | string[] | null | undefined,
-                          true
-                        )
+                        value as string | string[] | null | undefined,
+                        true
+                      )
                       : renderValue(
-                          key,
-                          value as string | string[] | null | undefined,
-                          true
-                        )}
+                        key,
+                        value as string | string[] | null | undefined,
+                        true
+                      )}
                   </li>
                 </ul>
               </div>

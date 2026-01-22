@@ -75,7 +75,7 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
     facet_configs = {
         "dct_spatial_sm": {
             "field": "dct_spatial_sm.keyword",
-            "size": DEFAULT_FACET_SIZE,
+            "size": 6,
         },
         "gbl_resourceClass_sm": {
             "field": "gbl_resourceClass_sm.keyword",
@@ -638,6 +638,24 @@ async def search_resources(
                             }
                     else:
                         logger.warning(f"Failed to build geo filter from values: {values}")
+                # Handle year range queries
+                elif field == "year_range" and isinstance(values, dict):
+                    # Expecting start and end keys
+                    year_range_filter = {"range": {"gbl_indexYear_im": {}}}
+                    if "start" in values:
+                         try:
+                             year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
+                         except (ValueError, TypeError):
+                             pass
+                    if "end" in values:
+                         try:
+                             year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
+                         except (ValueError, TypeError):
+                             pass
+                    
+                    if year_range_filter["range"]["gbl_indexYear_im"]:
+                         filter_clauses.append(year_range_filter)
+
                 elif isinstance(values, list):
                     # Use terms to match if ANY of the specified values are present
                     # This matches the behavior of legacy fq filters (OR logic)
@@ -661,7 +679,7 @@ async def search_resources(
 
         full_aggs = {
             "dct_spatial_sm": {
-                "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
+                "terms": {"field": "dct_spatial_sm.keyword", "size": 6}
             },
             "gbl_resourceClass_sm": {
                 "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
@@ -671,6 +689,14 @@ async def search_resources(
             },
             "gbl_indexYear_im": {
                 "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
+            },
+            "year_histogram": {
+                "histogram": {
+                    "field": "gbl_indexYear_im",
+                    "interval": 1,
+                    "min_doc_count": 1,
+                    # Optional: bounds to force range? extended_bounds?
+                }
             },
             "time_period": {"terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}},
             "dct_language_sm": {
@@ -1480,12 +1506,20 @@ def process_aggregations(aggregations, search_context: dict):
             for period in time_period_order:
                 if period in bucket_dict:
                     ordered_buckets.append(bucket_dict[period])
+        # Special handling for histogram aggregation
+        elif agg_name == "year_histogram":
+            # Pass histogram buckets directly, but ensure they are sorted by key (year)
+            # Elastic histogram buckets are typically sorted by key ascending
+            ordered_buckets = buckets
         else:
             ordered_buckets = buckets
 
+        # Determine type based on aggregation name
+        facet_type = "timeline" if agg_name == "year_histogram" else "facet"
+
         processed_facets.append(
             {
-                "type": "facet",
+                "type": facet_type,
                 "id": agg_name,
                 "links": {"applyTemplate": generate_facet_apply_template(agg_name, search_context)},
                 "attributes": {

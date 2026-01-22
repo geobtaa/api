@@ -118,7 +118,20 @@ const mockFixtureData: GeoDocument[] = [
       },
     },
   },
-];
+]; // End of mockFixtureData
+
+// Mock BookmarkButton to avoid context provider requirement
+vi.mock('../../components/BookmarkButton', () => ({
+  BookmarkButton: () => <button>Bookmark</button>
+}));
+
+// Mock useBookmarks hook
+vi.mock('../../context/BookmarkContext', () => ({
+  useBookmarks: () => ({
+    isBookmarked: () => false // Default to false for tests
+  }),
+  BookmarkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+}));
 
 // Test wrapper component
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
@@ -227,10 +240,10 @@ describe('SearchResults Component', () => {
       );
 
       // First page should show results 1-4
-      expect(screen.getByText('1')).toBeInTheDocument();
-      expect(screen.getByText('2')).toBeInTheDocument();
-      expect(screen.getByText('3')).toBeInTheDocument();
-      expect(screen.getByText('4')).toBeInTheDocument();
+      expect(screen.getByText('Result 1')).toBeInTheDocument();
+      expect(screen.getByText('Result 2')).toBeInTheDocument();
+      expect(screen.getByText('Result 3')).toBeInTheDocument();
+      expect(screen.getByText('Result 4')).toBeInTheDocument();
     });
 
     it('displays result numbers correctly for page 2', () => {
@@ -246,10 +259,10 @@ describe('SearchResults Component', () => {
       );
 
       // Page 2 should show results 11-14 (assuming 10 per page)
-      expect(screen.getByText('11')).toBeInTheDocument();
-      expect(screen.getByText('12')).toBeInTheDocument();
-      expect(screen.getByText('13')).toBeInTheDocument();
-      expect(screen.getByText('14')).toBeInTheDocument();
+      expect(screen.getByText('Result 11')).toBeInTheDocument();
+      expect(screen.getByText('Result 12')).toBeInTheDocument();
+      expect(screen.getByText('Result 13')).toBeInTheDocument();
+      expect(screen.getByText('Result 14')).toBeInTheDocument();
     });
   });
 

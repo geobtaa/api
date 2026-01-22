@@ -55,11 +55,11 @@ export function GeospatialFilterMap() {
     if (!mapRef.current) {
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
-        attributionControl: true,
+        attributionControl: false,
       });
 
-      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-        attribution: "© OpenStreetMap contributors",
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
       }).addTo(mapRef.current);
 
       // Set initial view to world
@@ -364,8 +364,8 @@ export function GeospatialFilterMap() {
       <div className="relative">
         <div
           ref={mapContainerRef}
-          className="h-64 w-full rounded-lg border border-gray-200"
-          style={{ minHeight: "256px" }}
+          className="w-full rounded-lg border border-gray-200"
+          style={{ height: "200px", minHeight: "200px" }}
         />
         {showSearchButton && (
           <button

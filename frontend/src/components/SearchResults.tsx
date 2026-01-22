@@ -5,6 +5,7 @@ import { BookOpen } from 'lucide-react';
 import { useDebug } from '../context/DebugContext';
 import { useMap } from '../context/MapContext';
 import { BookmarkButton } from './BookmarkButton';
+import { useBookmarks } from '../context/BookmarkContext';
 import { getResourceIcon } from '../utils/resourceIcons';
 import { StaticResultMap } from './search/StaticResultMap';
 
@@ -26,9 +27,13 @@ export function SearchResults({
   const { showDetails } = useDebug();
   const location = useLocation();
   const { setHoveredGeometry, setHoveredResourceId } = useMap();
+  const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const isCompact = variant === 'compact';
+
+  // ... (keeping existing functions hidden for brevity in this replace call if possible, but replace_file_content needs contiguity. I'll target the top of component to add hook, and then separate calls for the loop content)
+
 
   const toSsrThumbnailUrl = (url: string): string => {
     // If backend gives us an API URL, route through SSR so requests use the server-held API key.
@@ -184,7 +189,7 @@ export function SearchResults({
         return (
           <article
             key={result.id}
-            className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative"
+            className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative group"
             data-geom={
               result.meta?.ui?.viewer?.geometry
                 ? JSON.stringify(result.meta.ui.viewer.geometry)
@@ -205,7 +210,7 @@ export function SearchResults({
           >
             <div className="flex">
               {/* Thumbnail */}
-              <div className={`${isCompact ? 'w-24' : 'w-48'} flex-shrink-0`}>
+              <div className={`${isCompact ? 'w-24' : 'w-48'} flex-shrink-0 relative group/thumb`}>
                 {(() => {
                   // Try multiple ways to access thumbnail_url
                   const metaUi = result.meta?.ui;
@@ -294,15 +299,27 @@ export function SearchResults({
                     </div>
                   );
                 })()}
+
+                {/* Bookmark Button - Absolute Top Left on Image */}
+                <div
+                  className={`absolute top-1 left-1 z-20 transition-opacity duration-200 ${isBookmarked(result.id) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
+                    }`}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="bg-white rounded-full shadow-sm hover:shadow-md">
+                    <BookmarkButton itemId={result.id} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Result Number (Index) - Screen Reader Only */}
+              <div className="sr-only">
+                Result {getAbsoluteIndex(index)}
               </div>
 
               {/* Content */}
-              <div className={`flex-1 ${isCompact ? 'p-3' : 'p-6'}`}>
-                {!isCompact && (
-                  <div className="absolute -left-4 top-6 bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center text-sm text-gray-500 font-medium">
-                    {getAbsoluteIndex(index)}
-                  </div>
-                )}
+              {/* Content */}
+              <div className={`flex-1 flex flex-col ${isCompact ? 'p-3' : 'p-6'}`}>
 
                 {showDetails && (
                   <pre className="overflow-auto text-xs">
@@ -310,8 +327,7 @@ export function SearchResults({
                   </pre>
                 )}
 
-                <div className="flex items-center gap-2 mb-2">
-                  <BookmarkButton itemId={result.id} />
+                <div className="flex items-center gap-2 mb-2 pr-8">
                   <Link
                     to={`/resources/${result.id}`}
                     state={{
@@ -325,7 +341,7 @@ export function SearchResults({
                     }}
                     className="flex-1"
                   >
-                    <h2 className={`${isCompact ? 'text-sm' : 'text-xl'} font-semibold text-blue-600 hover:text-blue-800`}>
+                    <h2 className={`${isCompact ? 'text-sm line-clamp-2' : 'text-xl line-clamp-2'} font-semibold text-blue-600 hover:text-blue-800`}>
                       {typeof title === 'string' ? title : String(title)}
                     </h2>
                   </Link>
@@ -333,27 +349,11 @@ export function SearchResults({
 
                 {/* Temporal information and Description (inline) - Hide in compact mode */}
                 {!isCompact && (
-                  ((ogm?.dct_temporal_sm &&
-                    Array.isArray(ogm.dct_temporal_sm) &&
-                    ogm.dct_temporal_sm.length > 0) ||
-                    (ogm?.dct_description_sm &&
-                      Array.isArray(ogm.dct_description_sm) &&
-                      ogm.dct_description_sm.length > 0)) ? (
-                    <p className="text-gray-600 mb-4 line-clamp-3">
-                      {ogm?.dct_temporal_sm &&
-                        Array.isArray(ogm.dct_temporal_sm) &&
-                        ogm.dct_temporal_sm.length > 0 && (
-                          <span className="text-gray-500 text-sm">
-                            {ogm.dct_temporal_sm
-                              .map((item) =>
-                                typeof item === 'string' ? item : String(item)
-                              )
-                              .join(', ')}{' '}
-                          </span>
-                        )}
-                      {ogm?.dct_description_sm &&
-                        Array.isArray(ogm.dct_description_sm) &&
-                        ogm.dct_description_sm.length > 0 &&
+                  (ogm?.dct_description_sm &&
+                    Array.isArray(ogm.dct_description_sm) &&
+                    ogm.dct_description_sm.length > 0) ? (
+                    <p className="text-gray-600 mb-4 line-clamp-2">
+                      {ogm.dct_description_sm[0] &&
                         (typeof ogm.dct_description_sm[0] === 'string'
                           ? ogm.dct_description_sm[0]
                           : String(ogm.dct_description_sm[0]))}
@@ -361,115 +361,127 @@ export function SearchResults({
                   ) : null
                 )}
 
-                {/* Subject and Theme tags - Hide in compact mode or make smaller? Let's hide for simplicity/compactness, or just show year/class */}
+                {/* Subject and Theme tags */}
                 {isCompact ? (
-                  <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                  <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
                     <span>{ogm?.gbl_indexYear_im?.[0] || "-"}</span>
-                    <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded">
+                    <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded ml-auto">
                       {resourceClass || "Item"}
                     </span>
                   </div>
                 ) : (
-                  (() => {
-                    // Get subjects from dct_subjects_sm or dct_subject_sm
-                    const subjects =
-                      (ogm?.dct_subjects_sm &&
-                        Array.isArray(ogm.dct_subjects_sm) &&
-                        ogm.dct_subjects_sm.length > 0
-                        ? ogm.dct_subjects_sm
-                        : null) ||
-                      (ogm?.dct_subject_sm &&
-                        Array.isArray(ogm.dct_subject_sm) &&
-                        ogm.dct_subject_sm.length > 0
-                        ? ogm.dct_subject_sm
-                        : null);
+                  <div className="flex flex-col gap-4 flex-1">
+                    {(() => {
+                      // Get subjects from dct_subjects_sm or dct_subject_sm
+                      const subjects =
+                        (ogm?.dct_subjects_sm &&
+                          Array.isArray(ogm.dct_subjects_sm) &&
+                          ogm.dct_subjects_sm.length > 0
+                          ? ogm.dct_subjects_sm
+                          : null) ||
+                        (ogm?.dct_subject_sm &&
+                          Array.isArray(ogm.dct_subject_sm) &&
+                          ogm.dct_subject_sm.length > 0
+                          ? ogm.dct_subject_sm
+                          : null);
 
-                    // Get themes from dcat_theme_sm
-                    const themes =
-                      ogm?.dcat_theme_sm &&
-                        Array.isArray(ogm.dcat_theme_sm) &&
-                        ogm.dcat_theme_sm.length > 0
-                        ? ogm.dcat_theme_sm
-                        : null;
+                      // Get themes from dcat_theme_sm
+                      const themes =
+                        ogm?.dcat_theme_sm &&
+                          Array.isArray(ogm.dcat_theme_sm) &&
+                          ogm.dcat_theme_sm.length > 0
+                          ? ogm.dcat_theme_sm
+                          : null;
 
-                    // Helper to create search URL for a tag
-                    const createTagSearchUrl = (
-                      field: string,
-                      value: string | number
-                    ) => {
-                      const params = new URLSearchParams();
-                      params.append(
-                        `include_filters[${field}][]`,
-                        value.toString()
-                      );
-                      return `/search?${params.toString()}`;
-                    };
+                      // Helper to create search URL for a tag
+                      const createTagSearchUrl = (
+                        field: string,
+                        value: string | number
+                      ) => {
+                        const params = new URLSearchParams();
+                        params.append(
+                          `include_filters[${field}][]`,
+                          value.toString()
+                        );
+                        return `/search?${params.toString()}`;
+                      };
 
-                    // Determine which field name to use for subjects
-                    const subjectField = ogm?.dct_subjects_sm
-                      ? 'dct_subjects_sm'
-                      : 'dct_subject_sm';
+                      // Determine which field name to use for subjects
+                      const subjectField = ogm?.dct_subjects_sm
+                        ? 'dct_subjects_sm'
+                        : 'dct_subject_sm';
 
-                    return (subjects && subjects.length > 0) ||
-                      (themes && themes.length > 0) ? (
-                      <div className="flex flex-wrap gap-2 mb-4">
-                        {subjects?.map((subject, index) => {
-                          const subjectValue =
-                            typeof subject === 'string'
-                              ? subject
-                              : String(subject);
-                          return (
-                            <Link
-                              key={`subject-${index}`}
-                              to={createTagSearchUrl(subjectField, subjectValue)}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
-                              onClick={(e) => {
-                                // Prevent navigation if clicking on the result link
-                                e.stopPropagation();
-                              }}
-                            >
-                              {subjectValue}
-                            </Link>
-                          );
-                        })}
-                        {themes?.map((theme, index) => {
-                          const themeValue =
-                            typeof theme === 'string' ? theme : String(theme);
-                          return (
-                            <Link
-                              key={`theme-${index}`}
-                              to={createTagSearchUrl('dcat_theme_sm', themeValue)}
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
-                              onClick={(e) => {
-                                // Prevent navigation if clicking on the result link
-                                e.stopPropagation();
-                              }}
-                            >
-                              {themeValue}
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    ) : null;
-                  })()
-                )}
-
-                {!isCompact && (
-                  <div className="flex flex-wrap gap-4 text-sm text-gray-500">
-                    {ogm?.dc_publisher_sm &&
-                      Array.isArray(ogm.dc_publisher_sm) &&
-                      ogm.dc_publisher_sm.length > 0 && (
-                        <div className="flex items-center gap-1">
-                          <BookOpen size={16} />
-                          <span>
-                            {ogm.dc_publisher_sm
-                              .map((item) =>
-                                typeof item === 'string' ? item : String(item)
-                              )
-                              .join(', ')}
-                          </span>
+                      return (subjects && subjects.length > 0) ||
+                        (themes && themes.length > 0) ? (
+                        <div className="flex flex-wrap gap-2">
+                          {subjects?.map((subject, index) => {
+                            const subjectValue =
+                              typeof subject === 'string'
+                                ? subject
+                                : String(subject);
+                            return (
+                              <Link
+                                key={`subject-${index}`}
+                                to={createTagSearchUrl(subjectField, subjectValue)}
+                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
+                                onClick={(e) => {
+                                  // Prevent navigation if clicking on the result link
+                                  e.stopPropagation();
+                                }}
+                              >
+                                {subjectValue}
+                              </Link>
+                            );
+                          })}
+                          {themes?.map((theme, index) => {
+                            const themeValue =
+                              typeof theme === 'string' ? theme : String(theme);
+                            return (
+                              <Link
+                                key={`theme-${index}`}
+                                to={createTagSearchUrl('dcat_theme_sm', themeValue)}
+                                className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 hover:bg-purple-200 transition-colors"
+                                onClick={(e) => {
+                                  // Prevent navigation if clicking on the result link
+                                  e.stopPropagation();
+                                }}
+                              >
+                                {themeValue}
+                              </Link>
+                            );
+                          })}
                         </div>
-                      )}
+                      ) : null;
+                    })()}
+
+                    {/* Metadata Row: Publisher, Year, Resource Class */}
+                    <div className="flex items-center justify-between text-sm text-gray-500 border-t border-gray-100 pt-3 mt-auto">
+                      <div className="flex items-center gap-4">
+                        {ogm?.dc_publisher_sm &&
+                          Array.isArray(ogm.dc_publisher_sm) &&
+                          ogm.dc_publisher_sm.length > 0 && (
+                            <div className="flex items-center gap-1">
+                              <BookOpen size={16} />
+                              <span>
+                                {ogm.dc_publisher_sm
+                                  .map((item) =>
+                                    typeof item === 'string' ? item : String(item)
+                                  )
+                                  .join(', ')}
+                              </span>
+                            </div>
+                          )}
+                        {/* Year */}
+                        {ogm?.gbl_indexYear_im?.[0] && (
+                          <span>{ogm.gbl_indexYear_im[0]}</span>
+                        )}
+                      </div>
+
+                      {/* Resource Class Badge (List View) */}
+                      <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded">
+                        {resourceClass || "Item"}
+                      </span>
+                    </div>
                   </div>
                 )}
               </div>
