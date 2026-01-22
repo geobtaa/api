@@ -1,4 +1,5 @@
 import React from 'react';
+import { Seo } from '../components/Seo';
 import { useSearchParams } from 'react-router';
 import { SearchResults } from '../components/SearchResults';
 import { Pagination } from '../components/Pagination';
@@ -412,6 +413,10 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Seo
+        title={query ? `Search: ${query}` : "Search Results"}
+        description="Search existing resources in the Big Ten Academic Alliance Geoportal."
+      />
       <Header />
       <main className="flex-1 bg-gray-50 pb-8">
         <div className="w-full px-4 sm:px-6 lg:px-8 pt-6">

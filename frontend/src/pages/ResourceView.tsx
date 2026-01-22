@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { Seo } from '../components/Seo';
 import { useParams, Link, useLocation, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowRight, ArrowLeftCircle, XCircle } from 'lucide-react';
 import {
@@ -425,6 +426,18 @@ export function ResourceView({
 
   return (
     <div className="min-h-screen flex flex-col">
+      {data?.attributes && (
+        <Seo
+          title={data.attributes.ogm.dct_title_s}
+          description={
+            Array.isArray(data.attributes.ogm.dct_description_sm)
+              ? data.attributes.ogm.dct_description_sm[0]
+              : (data.attributes.ogm.dct_description_sm as string || "")
+          }
+          image={data?.meta?.ui?.thumbnail_url}
+          type="article"
+        />
+      )}
       <Header />
 
       <main className="flex-1 bg-gray-50 pt-4 pb-8">

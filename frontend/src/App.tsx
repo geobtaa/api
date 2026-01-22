@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router';
+import { HelmetProvider } from 'react-helmet-async';
 import { Application } from '@hotwired/stimulus';
 import { SearchPage } from './pages/SearchPage';
 import { ResourceView } from './pages/ResourceView';
@@ -32,30 +33,31 @@ function App() {
   const searchString = hasSearchParams ? `?${searchParams.toString()}` : '';
 
   return (
-    <BookmarkProvider>
-      <DebugProvider>
-        <Routes>
-          <Route
-            path="/"
-            element={
-              hasSearchParams ? (
-                <Navigate to={`/search${searchString}`} replace />
-              ) : (
-                <HomePage />
-              )
-            }
-          />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/bookmarks" element={<BookmarksPage />} />
-          <Route path="/resources/:id" element={<ResourceView />} />
-          <Route path="/test/fixtures" element={<FixturesTestPage />} />
-          <Route path="/test" element={<TestPage />} />
-          <Route path="/map" element={<MapPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </DebugProvider>
-    </BookmarkProvider>
-  );
+    <HelmetProvider>
+      <BookmarkProvider>
+        <DebugProvider>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                hasSearchParams ? (
+                  <Navigate to={`/search${searchString}`} replace />
+                ) : (
+                  <HomePage />
+                )
+              }
+            />
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
+            <Route path="/resources/:id" element={<ResourceView />} />
+            <Route path="/test/fixtures" element={<FixturesTestPage />} />
+            <Route path="/test" element={<TestPage />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="*" element={<NotFoundPage />} />
+          </Routes>
+        </DebugProvider>
+      </BookmarkProvider>
+      );
 }
 
-export default App;
+      export default App;
