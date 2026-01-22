@@ -1,4 +1,5 @@
 export const CONFIGURED_FACETS = [
+  'year_histogram',
   'dct_spatial_sm',
   'time_period',
   'gbl_resourceClass_sm',

@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import path from "node:path";
 
 // https://vitejs.dev/config/
+// Force restart: 1
 export default defineConfig({
   plugins: [
     reactRouter({
@@ -24,6 +25,8 @@ export default defineConfig({
       // Some dependencies (e.g. html-parse-stringify) expect `void-elements` to have a default export.
       // The upstream package is CommonJS; this shim provides a stable ESM default export for Vite.
       "void-elements": path.resolve(__dirname, "src/shims/void-elements.ts"),
+      // Force resolution to the ESM entry point to prevent dual-package hazards (CJS vs ESM)
+      "react-helmet-async": path.resolve(__dirname, "node_modules/react-helmet-async/lib/index.esm.js"),
     },
     // Ensure a single React instance (prevents "Invalid hook call").
     dedupe: [
@@ -48,5 +51,9 @@ export default defineConfig({
       "geoblacklight/controllers/downloads_controller",
       "geoblacklight/controllers/clipboard_controller",
     ],
+    include: ["react-helmet-async"],
+  },
+  ssr: {
+    noExternal: ["react-helmet-async"],
   },
 });

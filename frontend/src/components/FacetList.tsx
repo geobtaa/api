@@ -5,12 +5,14 @@ import { FACET_LABELS, normalizeFacetId } from '../utils/facetLabels';
 import { CONFIGURED_FACETS } from '../constants/facets';
 import { FacetMoreModal } from './search/FacetMoreModal';
 import { formatCount } from '../utils/formatNumber';
+import { getFacetValueDisplayLabel } from '../utils/facetDisplay';
+import { TimelineFacet } from './search/TimelineFacet';
 
 // New JSON:API facet structure
 type JsonApiFacetItemTuple = [value: string | number, hits: number];
 
-interface JsonApiFacet {
-  type: 'facet';
+export interface JsonApiFacet {
+  type: 'facet' | 'timeline';
   id: string;
   links?: {
     applyTemplate?: string;
@@ -40,6 +42,7 @@ const DEFAULT_OPEN_FACET_IDS = new Set<string>([
   'dct_spatial_sm', // Place
   'gbl_resourceClass_sm', // Resource Class
   'gbl_resourceType_sm', // Resource Type
+  'year_histogram', // Timeline likely always open
 ]);
 
 function isCompactTupleItems(
@@ -58,6 +61,29 @@ export function FacetList({ facets }: FacetListProps) {
     id: string;
     label: string;
   } | null>(null);
+
+  // Helper for timeline change
+  const handleTimelineChange = (range: [number, number] | null) => {
+    const newParams = new URLSearchParams(searchParams);
+
+    // Remove existing range params
+    newParams.delete('include_filters[year_range][start]');
+    newParams.delete('include_filters[year_range][end]');
+
+    if (range) {
+      const [min, max] = range;
+      newParams.set('include_filters[year_range][start]', min.toString());
+      newParams.set('include_filters[year_range][end]', max.toString());
+    }
+
+    newParams.delete('page');
+    setSearchParams(newParams);
+  };
+
+  // Get current range selection
+  const yearRangeStart = searchParams.get('include_filters[year_range][start]');
+  const yearRangeEnd = searchParams.get('include_filters[year_range][end]');
+
 
   // Helper function to check if a facet is active
   const isFacetActive = (field: string, value: string | number) => {
@@ -103,6 +129,7 @@ export function FacetList({ facets }: FacetListProps) {
       newParams.append(facetKey, value.toString());
     }
 
+    newParams.delete('page');
     setSearchParams(newParams);
   };
 
@@ -127,6 +154,7 @@ export function FacetList({ facets }: FacetListProps) {
     } else {
       newParams.append(excludeKey, value.toString());
     }
+    newParams.delete('page');
     setSearchParams(newParams);
   };
 
@@ -137,24 +165,33 @@ export function FacetList({ facets }: FacetListProps) {
     .filter(
       (facet) => facet.attributes.items && facet.attributes.items.length > 0
     )
-    .map((facet) => ({
-      id: normalizeFacetId(facet.id),
-      rawId: facet.id,
-      label: facet.attributes.label,
-      items: isCompactTupleItems(facet.attributes.items)
-        ? facet.attributes.items.map(([value, hits]) => ({
-          label: String(value),
+    .map((facet) => {
+      // Logic to normalize item structure
+      let items: any[] = [];
+      if (isCompactTupleItems(facet.attributes.items)) {
+        items = facet.attributes.items.map(([value, hits]) => ({
+          label: getFacetValueDisplayLabel({ attributes: { value, hits } } as any, facet.id),
           value,
           hits,
           url: undefined as string | undefined,
-        }))
-        : facet.attributes.items.map((item) => ({
-          label: item.attributes.label ?? String(item.attributes.value),
+        }));
+      } else {
+        items = facet.attributes.items.map((item) => ({
+          label: getFacetValueDisplayLabel(item, facet.id),
           value: item.attributes.value,
           hits: item.attributes.hits,
           url: item.links?.self,
-        })),
-    }));
+        }));
+      }
+
+      return {
+        type: facet.type,
+        id: normalizeFacetId(facet.id),
+        rawId: facet.id,
+        label: facet.attributes.label,
+        items,
+      };
+    });
 
   // Order facets according to CONFIGURED_FACETS and filter to only show configured ones
   const orderedFacets = CONFIGURED_FACETS.map((facetId) => {
@@ -179,6 +216,11 @@ export function FacetList({ facets }: FacetListProps) {
       else if (hasAny(`exclude_filters[${norm}][]`)) forced.add(facet.id);
       else if (hasAny(`fq[${norm}][]`)) forced.add(facet.id);
       else if (raw !== norm && hasAny(`fq[${raw}][]`)) forced.add(facet.id);
+
+      // Also force open if year range is active and it's timeline
+      if (facet.type === 'timeline' && (hasAny('include_filters[year_range][start]') || hasAny('include_filters[year_range][end]'))) {
+        forced.add(facet.id);
+      }
     }
     return forced;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -206,9 +248,69 @@ export function FacetList({ facets }: FacetListProps) {
     <>
       <div className="space-y-6">
         {orderedFacets.map((facet) => {
+          // Special rendering for timeline facet
+          if (facet.type === 'timeline') {
+            console.log('Rendering TimelineFacet:', facet);
+            const isOpen = forcedOpenFacetIds.has(facet.id)
+              || accordion.opened.has(facet.id)
+              || (DEFAULT_OPEN_FACET_IDS.has(facet.id) && !accordion.closed.has(facet.id));
+
+            return (
+              <details
+                key={facet.id}
+                open={isOpen}
+                onToggle={(e) => {
+                  const nextOpen = (e.currentTarget as HTMLDetailsElement).open;
+                  setAccordion((prev) => {
+                    const opened = new Set(prev.opened);
+                    const closed = new Set(prev.closed);
+                    if (nextOpen) {
+                      opened.add(facet.id);
+                      closed.delete(facet.id);
+                    } else {
+                      opened.delete(facet.id);
+                      closed.add(facet.id);
+                    }
+                    return { opened, closed };
+                  });
+                }}
+                className="group border-b"
+              >
+                <summary className="flex items-center justify-between cursor-pointer select-none py-2">
+                  <h3 className="font-semibold text-gray-900">Year Distribution</h3>
+                  <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
+                </summary>
+                <div className="pt-2">
+                  <TimelineFacet
+                    facet={{
+                      type: 'timeline',
+                      id: facet.id,
+                      attributes: {
+                        label: facet.label,
+                        items: facet.items.map(i => ({
+                          attributes: {
+                            value: i.value,
+                            hits: i.hits
+                          }
+                        })) as any
+                      }
+                    }}
+                    onChange={handleTimelineChange}
+                    selectedRange={
+                      yearRangeStart && yearRangeEnd
+                        ? [parseInt(yearRangeStart), parseInt(yearRangeEnd)]
+                        : null
+                    }
+                  />
+                </div>
+              </details>
+            );
+          }
+
           const facetLabel = FACET_LABELS[facet.id] || facet.label;
-          const displayItems = facet.items.slice(0, 10);
-          const hasMore = facet.items.length > 10;
+          const limit = facet.id === 'dct_spatial_sm' ? 5 : 10;
+          const displayItems = facet.items.slice(0, limit);
+          const hasMore = facet.items.length > limit;
           const isForcedOpen = forcedOpenFacetIds.has(facet.id);
           const isOpen = isForcedOpen
             ? true
@@ -264,8 +366,8 @@ export function FacetList({ facets }: FacetListProps) {
                         <button
                           onClick={() => handleFacetClick(facet.rawId, item.value)}
                           className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${isActive
-                              ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
-                              : 'text-gray-600 hover:text-gray-900'
+                            ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
+                            : 'text-gray-600 hover:text-gray-900'
                             }`}
                         >
                           <span>{item.label}</span>
@@ -282,8 +384,8 @@ export function FacetList({ facets }: FacetListProps) {
                         <button
                           onClick={() => handleFacetExclude(facet.rawId, item.value)}
                           className={`ml-1 p-1 rounded transition-colors ${excluded
-                              ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                              : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                            ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                            : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
                             } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
                           aria-label={
                             excluded ? 'Remove exclusion' : 'Exclude this value'

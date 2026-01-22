@@ -13,14 +13,22 @@ const BookmarkContext = createContext<BookmarkContextType | undefined>(
 );
 
 export function BookmarkProvider({ children }: { children: React.ReactNode }) {
-  const [bookmarks, setBookmarks] = useState<string[]>(() => {
-    const saved = Cookies.get('bookmarks');
-    return saved ? JSON.parse(saved) : [];
-  });
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    Cookies.set('bookmarks', JSON.stringify(bookmarks));
-  }, [bookmarks]);
+    const saved = Cookies.get('bookmarks');
+    if (saved) {
+      setBookmarks(JSON.parse(saved));
+    }
+    setIsInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (isInitialized) {
+      Cookies.set('bookmarks', JSON.stringify(bookmarks));
+    }
+  }, [bookmarks, isInitialized]);
 
   const addBookmark = (id: string) => {
     setBookmarks((prev) => [...new Set([...prev, id])]);

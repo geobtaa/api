@@ -551,6 +551,16 @@ class SearchService:
                 f"No geo_filters found! Processed {len(raw_params)} params, geo_keys: {geo_keys}"
             )
 
+        # Handle year_range filters
+        year_range_filters = {}
+        for key, values in raw_params.items():
+            if key.startswith("include_filters[year_range][") and key.endswith("]"):
+                sub_key = key[len("include_filters[year_range][") : -1]  # start or end
+                year_range_filters[sub_key] = values[0] if values else None
+        
+        if year_range_filters:
+             include_filters["year_range"] = year_range_filters
+
         # Handle regular field filters
         for key, values in raw_params.items():
             if (

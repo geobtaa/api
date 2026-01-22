@@ -3,6 +3,8 @@ import React, { useEffect, useRef } from 'react';
 import type { GeoDocument } from '../../types/api';
 import { Link, useLocation } from 'react-router';
 import { getResourceIcon } from '../../utils/resourceIcons';
+import { BookmarkButton } from '../BookmarkButton';
+import { useBookmarks } from '../../context/BookmarkContext';
 
 interface GalleryViewProps {
     results: GeoDocument[];
@@ -25,6 +27,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
     onLoadMore,
     hasMore
 }) => {
+    const { isBookmarked } = useBookmarks();
     const observerTarget = useRef<HTMLDivElement>(null);
     const location = useLocation();
 
@@ -168,6 +171,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     const thumbnailUrl = getThumbnailUrl(r);
                     const ssrThumbnailUrl = toSsrThumbnailUrl(thumbnailUrl);
                     const { idx: absIndex } = getAbsoluteIndex(index);
+                    const bookmarked = isBookmarked(r.id);
 
                     return (
                         <div
@@ -211,11 +215,28 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                                         {getResourceIcon(resourceClass)}
                                     </div>
 
+                                    {/* Result Number Overlay - Screen Reader Only */}
+                                    <div className="sr-only">
+                                        Result {absIndex}
+                                    </div>
+
                                     <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+
+                                    {/* Bookmark Button */}
+                                    {/* Visible if bookmarked, otherwise only on hover */}
+                                    <div
+                                        className={`absolute top-2 right-2 z-10 transition-opacity ${bookmarked ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+                                            }`}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="bg-white rounded-full shadow-sm hover:shadow-md">
+                                            <BookmarkButton itemId={r.id} />
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="p-3 flex flex-col flex-1">
-                                    <h3 className="text-sm font-semibold text-gray-900 line-clamp-2 mb-2 leading-snug" title={typeof title === 'string' ? title : String(title)}>
+                                    <h3 className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 mb-2 leading-snug" title={typeof title === 'string' ? title : String(title)}>
                                         {title}
                                     </h3>
                                     <div className="mt-auto flex items-center justify-between text-xs text-gray-500">

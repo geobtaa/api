@@ -34,6 +34,7 @@ vi.mock('../../constants/facets', () => ({
     'dc_publisher_sm',
     'dct_temporal_sm',
     'dct_spatial_sm',
+    'georeferenced_agg',
   ],
 }));
 
@@ -570,6 +571,46 @@ describe('FacetList Component', () => {
       expect(screen.queryByText('Unconfigured Facet')).not.toBeInTheDocument();
     });
 
+    it('renders and renames georeferenced facet', () => {
+      const georeferencedFacet = [
+        {
+          type: 'facet' as const,
+          id: 'georeferenced_agg', // simulate legacy ID from API
+          attributes: {
+            label: 'Georeferenced',
+            items: [
+              {
+                attributes: {
+                  value: 'true',
+                  hits: 10
+                },
+                links: { self: '...' }
+              },
+              {
+                attributes: {
+                  value: 'false',
+                  hits: 5
+                },
+                links: { self: '...' }
+              }
+            ]
+          }
+        }
+      ];
+
+      render(
+        <TestWrapper>
+          <FacetList facets={georeferencedFacet} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByRole('heading', { level: 3, name: 'Georeferenced' })).toBeInTheDocument(); // Facet Title
+      expect(screen.getByRole('button', { name: /Georeferenced/ })).toBeInTheDocument(); // Value "true" renamed
+      // Note: The button text content might include the hit count like "Georeferenced (10)"
+      // so finding by role/name with regex is safer.
+      expect(screen.getByRole('button', { name: /Not georeferenced/ })).toBeInTheDocument(); // Value "false" renamed
+    });
+
     it('handles facets with missing items attribute', () => {
       const facetsWithMissingItems = [
         {
@@ -677,6 +718,32 @@ describe('FacetList Component', () => {
 
       const yearButton = screen.getByRole('button', { name: /2023/ });
       expect(yearButton).toHaveClass('text-blue-600');
+    });
+
+    it('removes page parameter when a facet is toggled', async () => {
+      // Set up mock search params with a page number
+      mockSearchParams.set('page', '2');
+      mockSearchParams.set('q', 'maps');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockFacetData} />
+        </TestWrapper>
+      );
+
+      const paperMapsButton = screen.getByRole('button', {
+        name: /Paper Maps/,
+      });
+
+      const user = userEvent.setup();
+      await user.click(paperMapsButton);
+
+      expect(mockSetSearchParams).toHaveBeenCalled();
+      const lastCallArgs = mockSetSearchParams.mock.lastCall?.[0];
+      expect(lastCallArgs.get('page')).toBeNull();
+      expect(lastCallArgs.get('q')).toBe('maps');
+      // Should have added the facet
+      expect(lastCallArgs.getAll('include_filters[resource_class_agg][]')).toContain('Paper Maps');
     });
   });
 

@@ -71,7 +71,7 @@ function applyDefaultQueryParams(url: URL, defaults: string[] | undefined) {
  */
 export function getApiBasePath(): string {
   const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-  
+
   // If not set, provide a default (should be set via environment variable)
   if (!apiBaseUrl) {
     // Default fallback:
@@ -88,7 +88,7 @@ export function getApiBasePath(): string {
     // at the frontend container). Same-origin /api/v1 is the safest default.
     return "/api/v1";
   }
-  
+
   // Return the API base URL as-is (absolute URL to BFF proxy)
   return apiBaseUrl;
 }
@@ -97,7 +97,7 @@ export function getApiBasePath(): string {
 // Helper function to create a URL with common parameters
 function createApiUrl(baseUrl: string): URL {
   // If baseUrl is a relative path, use current origin; otherwise use as-is
-  const url = baseUrl.startsWith('/') 
+  const url = baseUrl.startsWith('/')
     ? new URL(baseUrl, window.location.origin)
     : new URL(ensureHttps(baseUrl));
   url.searchParams.set('format', 'json');
@@ -271,7 +271,7 @@ async function unifiedFetch<T>(
       }
 
       const jsonData = await response.json();
-      
+
       // Ensure thumbnail_url is preserved and enumerable in meta.ui objects
       // React Router serialization might remove non-enumerable properties
       if (jsonData && typeof jsonData === 'object' && 'data' in jsonData) {
@@ -282,7 +282,7 @@ async function unifiedFetch<T>(
               // Check if thumbnail_url exists but might be non-enumerable
               const hasThumbnail = 'thumbnail_url' in item.meta.ui;
               const thumbnailValue = item.meta.ui.thumbnail_url;
-              
+
               // If thumbnail_url exists (even if undefined), ensure it's enumerable
               if (hasThumbnail || thumbnailValue) {
                 // Re-set the property to ensure it's enumerable
@@ -301,7 +301,7 @@ async function unifiedFetch<T>(
           });
         }
       }
-      
+
       return jsonData;
     })();
 
@@ -646,7 +646,7 @@ export async function fetchBookmarkedResources(
   url.searchParams.set('q', '');
 
   ids.forEach((id) => {
-    url.searchParams.append('fq[id][]', id);
+    url.searchParams.append('include_filters[id][]', id);
   });
 
   const finalUrl = url.toString();

@@ -101,7 +101,7 @@ interface FacetItem {
 }
 
 interface Facet {
-  type: 'facet';
+  type: 'facet' | 'timeline';
   id: string;
   links?: {
     applyTemplate?: string;

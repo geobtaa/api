@@ -1,4 +1,5 @@
 import React from 'react';
+import { Seo } from '../components/Seo';
 import { useSearchParams } from 'react-router';
 import { SearchResults } from '../components/SearchResults';
 import { Pagination } from '../components/Pagination';
@@ -34,6 +35,13 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   const { hoveredResourceId } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
+
+  // Ensure ?q= is present if no params are set to trigger default search
+  useEffect(() => {
+    if (Array.from(searchParams.keys()).length === 0) {
+      setSearchParams({ q: '' }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const {
     query,
@@ -405,6 +413,10 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Seo
+        title={query ? `Search: ${query}` : "Search Results"}
+        description="Search existing resources in the Big Ten Academic Alliance Geoportal."
+      />
       <Header />
       <main className="flex-1 bg-gray-50 pb-8">
         <div className="w-full px-4 sm:px-6 lg:px-8 pt-6">
@@ -462,16 +474,23 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
           )}
 
           {/* Responsive grid layout */}
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
             {/* Facets - Collapsible on mobile */}
             <div className="lg:col-span-3">
               <div className="space-y-4">
+                {/* Filter Heading - Aligned with Results Header (mb-6) */}
+                <div className="hidden lg:block mb-6">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Filter Results
+                  </h2>
+                </div>
+
                 <GeospatialFilterMap />
 
                 {searchResults?.included ? (
                   <FacetList
                     facets={searchResults.included.filter(
-                      (item) => item.type === 'facet'
+                      (item) => item.type === 'facet' || item.type === 'timeline'
                     )}
                   />
                 ) : (
@@ -550,9 +569,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                   )}
 
                   {currentView === 'map' && (
-                    <div className="flex gap-4 relative">
+                    <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative">
                       {/* Middle Column: Brief Results */}
-                      <div className="w-1/3 min-w-[300px] pr-2">
+                      <div className="md:col-span-4 pr-2">
                         <SearchResults
                           results={searchResults?.data || []}
                           isLoading={isLoading}
@@ -573,7 +592,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       </div>
 
                       {/* Right Column: Map */}
-                      <div className="flex-1 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
+                      <div className="md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
                         <MapResultView
                           results={searchResults?.data || []}
                           highlightedResourceId={hoveredResourceId}

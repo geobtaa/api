@@ -118,7 +118,7 @@ export function SearchConstraints({
           </button>
         )}
         {facets
-          .filter((facet) => !facet.field.startsWith('geo')) // Filter out geo-related facets
+          .filter((facet) => !facet.field.startsWith('geo') && facet.field !== 'year_range') // Filter out geo and year_range
           .map((facet, index) => (
             <button
               key={`${facet.field}-${index}`}
@@ -131,6 +131,51 @@ export function SearchConstraints({
               <X size={14} className="text-blue-500" />
             </button>
           ))}
+        {/* Helper to display merged Year Range */}
+        {(() => {
+          // We look for year_range filters in the facets list to know values, 
+          // OR we parse from URL params directly? 
+          // Facets prop comes from SearchPage parsing. Let's look at `facets` prop.
+          // It likely contains { field: 'year_range', value: '...' }? 
+          // Actually, the search service/page might be passing it weirdly if it's nested structure.
+          // Let's rely on URL params to be safe, or check how `facets` are populated.
+          // The facets list in props is likely flat value lists.
+          // Given the user request "year_range: 1910 | year_range: 1932", it suggests they come as separate items.
+
+          const rangeFacets = facets.filter(f => f.field === 'year_range');
+          if (rangeFacets.length === 0) return null;
+
+          // We expect potentially two items, one for start and one for end, 
+          // BUT the value might be just the number. 
+          // We need to know which is which? 
+          // Actually, looking at the URL: ?include_filters[year_range][start]=1910...
+          // The "facets" prop passed here probably comes from `SearchPage` parsing params.
+          // If `SearchPage` blindly pushes keys/values, we might not know which is start/end just from value.
+          // BEST APPROACH: Read from URL params directly for this specific compound filter.
+
+          const start = searchParams.get('include_filters[year_range][start]');
+          const end = searchParams.get('include_filters[year_range][end]');
+
+          if (!start && !end) return null;
+
+          const label = `Year Range: ${start || '?'} - ${end || '?'}`;
+
+          return (
+            <button
+              onClick={() => {
+                const newParams = new URLSearchParams(searchParams);
+                newParams.delete('include_filters[year_range][start]');
+                newParams.delete('include_filters[year_range][end]');
+                // Also maintain others? setParams triggers navigation
+                setSearchParams(newParams);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+            >
+              <span className="text-sm">{label}</span>
+              <X size={14} className="text-blue-500" />
+            </button>
+          );
+        })()}
         {excludeFacets.map((facet, index) => (
           <button
             key={`exclude-${facet.field}-${index}`}
@@ -163,11 +208,10 @@ export function SearchConstraints({
           <button
             key={`advanced-${index}-${clause.field}-${clause.q}`}
             onClick={() => onRemoveAdvancedClause?.(clause, index)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full transition-colors ${
-              clause.op === 'NOT'
+            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full transition-colors ${clause.op === 'NOT'
                 ? 'bg-red-50 text-red-700 hover:bg-red-100'
                 : 'bg-purple-50 text-purple-700 hover:bg-purple-100'
-            }`}
+              }`}
             title={`${clause.op} ${clause.field}`}
           >
             <span className="text-sm">

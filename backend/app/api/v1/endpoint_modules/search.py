@@ -283,6 +283,12 @@ async def search(
             f"query_string length={len(query_string)}, "
             f"sample={query_string[:300]}"
         )
+
+        # Extract filters manually to ensure they are passed correctly
+        from app.services.search_service import SearchService
+        search_service = SearchService()
+        include_filters, exclude_filters = search_service.extract_new_style_filters(query_string)
+
         return await _handle_search(
             request,
             {
@@ -297,6 +303,8 @@ async def search(
                 "callback": callback,
                 "request_query_params": query_string,
                 "adv_q": parsed_adv_q,
+                "include_filters": include_filters,
+                "exclude_filters": exclude_filters,
             },
         )
     except Exception as e:

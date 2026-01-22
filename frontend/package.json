@@ -42,8 +42,10 @@
     "lucide-react": "^0.544.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-helmet-async": "^2.0.5",
     "react-leaflet": "^4.2.1",
     "react-router": "^7.11.0",
+    "recharts": "^3.6.0",
     "terraformer-wkt-parser": "^1.2.1",
     "wkt": "^0.1.1"
   },
@@ -66,6 +68,7 @@
     "@types/leaflet.fullscreen": "^3.0.2",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "@types/react-helmet-async": "^1.0.1",
     "@typescript-eslint/eslint-plugin": "^8.24.1",
     "@typescript-eslint/parser": "^8.24.1",
     "@vitejs/plugin-react": "^5.0.0",
