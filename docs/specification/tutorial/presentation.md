@@ -245,7 +245,7 @@ html:fullscreen body.tutorial-fullscreen .controls {
 
     <div class="slide">
         <h2>5. Practical Application</h2>
-        <p>We have prepared 10 practical "recipes" or examples to demonstrate common tasks, from basic searching
+        <p>We have prepared 11 practical "recipes" or examples to demonstrate common tasks, from basic searching
             to
             extracting IIIF manifests for map viewers.</p>
         <a href="../examples" class="md-button">View Code Examples</a>
