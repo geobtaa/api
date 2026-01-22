@@ -1,0 +1,90 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix schema: <https://schema.org/> .
+@prefix geo: <http://www.opengis.net/ont/geosparql#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix geobtaa: <https://geobtaa.org/ontology#> .
+
+# Ontology declaration
+geobtaa: a owl:Ontology ;
+    rdfs:label "BTAA Geospatial Core Ontology"@en ;
+    rdfs:comment "Core ontology for GeoBTAA linked data assets"@en ;
+    owl:versionInfo "1.0.0" ;
+    owl:imports <http://www.opengis.net/ont/geosparql> ;
+    owl:imports <https://schema.org/> .
+
+# Classes
+geobtaa:Dataset a owl:Class ;
+    rdfs:subClassOf schema:Dataset ;
+    rdfs:label "Geospatial Dataset"@en ;
+    rdfs:comment "A dataset containing geospatial data"@en .
+
+geobtaa:Collection a owl:Class ;
+    rdfs:subClassOf schema:Collection ;
+    rdfs:label "Dataset Collection"@en ;
+    rdfs:comment "A collection of related datasets"@en .
+
+geobtaa:Service a owl:Class ;
+    rdfs:subClassOf schema:Service ;
+    rdfs:label "Geospatial Service"@en ;
+    rdfs:comment "A service for accessing or processing geospatial data"@en .
+
+geobtaa:Feature a owl:Class ;
+    rdfs:subClassOf geo:Feature ;
+    rdfs:label "Geospatial Feature"@en ;
+    rdfs:comment "A geospatial feature with geometry and attributes"@en .
+
+# Object Properties
+geobtaa:spatialCoverage a owl:ObjectProperty ;
+    rdfs:domain geobtaa:Dataset ;
+    rdfs:range geo:Feature ;
+    rdfs:label "Spatial Coverage"@en ;
+    rdfs:comment "The geographic extent of a dataset"@en .
+
+geobtaa:temporalCoverage a owl:DatatypeProperty ;
+    rdfs:domain geobtaa:Dataset ;
+    rdfs:range xsd:date ;
+    rdfs:label "Temporal Coverage"@en ;
+    rdfs:comment "The time period covered by a dataset"@en .
+
+geobtaa:coordinateSystem a owl:ObjectProperty ;
+    rdfs:domain geobtaa:Dataset ;
+    rdfs:range geobtaa:CoordinateSystem ;
+    rdfs:label "Coordinate System"@en ;
+    rdfs:comment "The coordinate system used by a dataset"@en .
+
+geobtaa:projection a owl:ObjectProperty ;
+    rdfs:domain geobtaa:Dataset ;
+    rdfs:range geobtaa:Projection ;
+    rdfs:label "Projection"@en ;
+    rdfs:comment "The map projection used by a dataset"@en .
+
+geobtaa:hasMember a owl:ObjectProperty ;
+    rdfs:domain geobtaa:Collection ;
+    rdfs:range geobtaa:Dataset ;
+    rdfs:label "Has Member"@en ;
+    rdfs:comment "A dataset that is a member of a collection"@en .
+
+# Data Properties
+geobtaa:resolution a owl:DatatypeProperty ;
+    rdfs:domain geobtaa:Dataset ;
+    rdfs:range xsd:decimal ;
+    rdfs:label "Resolution"@en ;
+    rdfs:comment "The spatial resolution of a dataset"@en .
+
+geobtaa:scale a owl:DatatypeProperty ;
+    rdfs:domain geobtaa:Dataset ;
+    rdfs:range xsd:integer ;
+    rdfs:label "Scale"@en ;
+    rdfs:comment "The map scale of a dataset"@en .
+
+# Additional Classes
+geobtaa:CoordinateSystem a owl:Class ;
+    rdfs:label "Coordinate System"@en ;
+    rdfs:comment "A coordinate system for geospatial data"@en .
+
+geobtaa:Projection a owl:Class ;
+    rdfs:label "Map Projection"@en ;
+    rdfs:comment "A map projection for geospatial data"@en . 

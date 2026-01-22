@@ -1,0 +1,229 @@
+<div class="example-block">
+                    <div class="example-header">
+        <h3>Obtain a Resource</h3>
+                        <span class="badge">Resource</span>
+                    </div>
+                    <p><strong>Goal:</strong> Fetch metadata for a specific resource ID.</p>
+                    <p><strong>Request:</strong> <code>GET /api/v1/resources/ark28722-s7vs38</code></p>
+
+                    <div class="tabs">
+                        <button id="btn-tab-python-2" class="tab-btn active"
+                            onclick="openTab(event, 'tab-python-2')">Python</button>
+                        <button id="btn-tab-response-2" class="tab-btn" onclick="openTab(event, 'tab-response-2')">API
+                            Response</button>
+                        <button id="btn-tab-output-2" class="tab-btn"
+                            onclick="openTab(event, 'tab-output-2')">Output</button>
+                    </div>
+
+                    <div id="tab-python-2" class="tab-content active" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('code-2')">📋 Copy</button>
+                        <pre><code id="code-2" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 2: Fetch a specific resource
+resource_id = "ark28722-s7vs38"
+response = requests.get(f"{BASE_URL}/resources/{resource_id}")
+data = response.json()
+
+attrs = data['data']['attributes']
+print(f"Title: {attrs.get('dct_title_s', 'N/A')}")
+print(f"Description: {attrs.get('dct_description_sm', ['N/A'])[0]}")
+
+# Show references
+if 'dct_references_s' in attrs:
+    refs = json.loads(attrs['dct_references_s'])
+    for key, value in refs.items():
+        print(f"{key}: {value}")</code></pre>
+                    </div>
+
+                    <div id="tab-response-2" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('json-2')">📋 Copy</button>
+                        <pre><code id="json-2" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+                    </div>
+
+                    <div id="tab-output-2" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('output-2')">📋 Copy</button>
+                        <div class="output-area" id="output-2">Click "Run" to see the output...</div>
+                    </div>
+
+    <button class="run-btn" id="run-btn-2">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_2(event):
+    """Example: Obtain a Resource"""
+    output_id = "output-2"
+    btn_id = "run-btn-2"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+    
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(2)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+        
+        clear_output(output_id)
+        show_output(output_id)
+        resource_id = "ark28722-s7vs38"
+        print_to_output(output_id, f"🔄 Running Example: Fetching resource {resource_id}...")
+        
+        response = requests.get(f"{BASE_URL}/resources/{resource_id}")
+        
+        if response.status_code == 200:
+            data = response.json()
+            set_json_content("json-2", data)
+            mark_tab_complete("btn-tab-response-2")
+            attrs = data['data']['attributes']['ogm']
+            
+            print_to_output(output_id, f"✅ Status: {response.status_code}")
+            print_to_output(output_id, f"Title: {attrs.get('dct_title_s', 'N/A')}")
+            print_to_output(output_id, f"Description: {attrs.get('dct_description_sm', ['N/A'])[0]}")
+            
+            # Show references table
+            if 'dct_references_s' in attrs:
+                refs = json.loads(attrs['dct_references_s'])
+                html_table = "<table style='border-collapse: collapse; width: 100%; margin-top: 10px; border: 1px solid #4a5568;'>"
+                html_table += "<tr style='background: #2d3748;'><th style='text-align: left; padding: 8px; border: 1px solid #4a5568; color: #ffffff; font-weight: bold;'>Service</th><th style='text-align: left; padding: 8px; border: 1px solid #4a5568; color: #ffffff; font-weight: bold;'>URL</th></tr>"
+                row_num = 0
+                for key, value in refs.items():
+                    service_name = key.split('#')[-1] if '#' in key else key.split('/')[-1]
+                    url_display = value
+                    if isinstance(value, dict):
+                        url_display = value.get('url', str(value))
+                    # Alternate row colors for better readability
+                    row_bg = "#3a4558" if row_num % 2 == 0 else "#2d3748"
+                    html_table += f"<tr style='background: {row_bg};'><td style='padding: 8px; border: 1px solid #4a5568; color: #e2e8f0;'>{service_name}</td><td style='padding: 8px; border: 1px solid #4a5568; color: #e2e8f0;'><a href='{url_display}' target='_blank' style='color: #63b3ed; text-decoration: underline;'>{str(url_display)[:40]}...</a></td></tr>"
+                    row_num += 1
+                html_table += "</table>"
+                print_to_output(output_id, html_table, is_html=True)
+            mark_tab_complete("btn-tab-output-2")
+            
+            btn.innerText = "✅ Complete!"
+        else:
+            print_to_output(output_id, f"❌ Error: {response.status_code}")
+            print_to_output(output_id, response.text)
+            btn.innerText = "❌ Error"
+            
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-2").onclick = example_2
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>

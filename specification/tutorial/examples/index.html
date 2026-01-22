@@ -1,0 +1,4334 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="BTAA Geospatial API and linked data assets: contexts, profiles, schemas, etc.">
+      
+      
+      
+      
+        <link rel="prev" href="../presentation/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.1">
+    
+    
+      
+        <title>Code Examples - BTAA Geospatial API &amp; Linked Data</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../../assets/stylesheets/main.484c7ddc.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=helvetica+neue:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"helvetica neue";--md-code-font:"Roboto Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../../..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    <body dir="ltr">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../../.." title="BTAA Geospatial API &amp;amp; Linked Data" class="md-header__button md-logo" aria-label="BTAA Geospatial API &amp; Linked Data" data-md-component="logo">
+      
+  <img src="../../../images/btaa-logo-white.png" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            BTAA Geospatial API &amp; Linked Data
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Code Examples
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" tabindex="0" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+      
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/geobtaa/api" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../.." class="md-tabs__link">
+          
+  
+  
+  Home
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../" class="md-tabs__link">
+          
+  
+  
+  API
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../../linked-data/" class="md-tabs__link">
+          
+  
+  
+  Linked Data
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  
+  Tutorial
+
+        </a>
+      </li>
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../../.." title="BTAA Geospatial API &amp;amp; Linked Data" class="md-nav__button md-logo" aria-label="BTAA Geospatial API &amp; Linked Data" data-md-component="logo">
+      
+  <img src="../../../images/btaa-logo-white.png" alt="logo">
+
+    </a>
+    BTAA Geospatial API &amp; Linked Data
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/geobtaa/api" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_1" id="__nav_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Home
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Home
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BTAA Geospatial API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../linked-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linked Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    API
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    API
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    BTAA Geospatial API
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Endpoints
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../standards/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Standards
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../metadata/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Metadata
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../authentication/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Authentication
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../rate_limiting/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Rate Limiting
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../response_objects/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Response Objects
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../parameters/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Parameters
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../model_context_protocol/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Model Context Protocol
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../error_handling/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Error Handling
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../security/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Security
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linked Data
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Linked Data
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../linked-data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Linked Data
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../linked-data/contexts/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Contexts
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../linked-data/profiles/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Profiles
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../linked-data/schemas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Schemas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+        
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Tutorial
+  
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+    Tutorial
+  
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Overview
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../presentation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Presentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Code Examples
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+
+  
+  
+
+
+  <h1>Code Examples</h1>
+
+<p><meta charset="UTF-8">
+<link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css"></p>
+<script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
+<p><link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" /></p>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+
+<p><py-config>
+packages = ["requests", "pyodide-http"]
+</py-config></p>
+<style>
+
+        .run-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-top: 10px;
+            transition: transform 0.2s;
+        }
+
+        .run-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .run-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .output-area {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            display: none;
+        }
+
+        .output-area.visible {
+            display: block;
+        }
+
+        .loading {
+            color: #667eea;
+            font-style: italic;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #2d3748;
+            color: white;
+            border: 1px solid #4a5568;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+            z-index: 10;
+        }
+
+        .copy-btn:hover {
+            background: #4a5568;
+        }
+
+        .copy-btn:active {
+            transform: scale(0.95);
+        }
+
+        pre {
+            position: relative;
+        }
+
+        /* Tutorial slide wrapper - keeps content within site layout */
+        .tutorial-slide-wrapper {
+            margin: 2rem 0;
+            padding: 2rem;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Slide styles */
+        #slide-container {
+            position: relative;
+            min-height: 600px;
+            padding: 2rem 0;
+        }
+
+        .slide {
+            display: none;
+        }
+
+        .slide.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 30px 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+
+        .controls button {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .controls button:hover:not(:disabled) {
+            background: #f7fafc;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .controls button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #fullscreenBtn {
+            font-size: 20px;
+            padding: 8px 16px;
+        }
+
+        #slide-indicator {
+            color: white;
+            font-weight: 600;
+            min-width: 120px;
+            text-align: center;
+        }
+
+        /* Fullscreen styles - hide site header/footer only in fullscreen */
+        html:fullscreen body.tutorial-fullscreen {
+            background: #1a202c;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .md-header,
+        html:fullscreen body.tutorial-fullscreen .md-tabs,
+        html:fullscreen body.tutorial-fullscreen .md-footer {
+            display: none !important;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .md-main {
+            margin-top: 0 !important;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .md-main__inner {
+            max-width: 100%;
+            padding: 40px;
+            margin-top: 0;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .tutorial-slide-wrapper {
+            margin: 0;
+            padding: 40px;
+            box-shadow: none;
+            border-radius: 0;
+            background: #1a202c;
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .slide {
+            font-size: 1.1em;
+            color: #fff;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .slide h2,
+        html:fullscreen body.tutorial-fullscreen .slide h3 {
+            color: #fff;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .controls {
+            margin-top: auto;
+        }
+
+        /* Slide heading styles to match presentation */
+        .slide h2 {
+            color: #005E8E;
+            border-bottom: 2px solid #005E8E;
+            padding-bottom: 0.5rem;
+            margin-top: 0;
+        }
+
+        .slide h3 {
+            color: #772424;
+            margin-top: 1.5rem;
+        }
+
+        html:fullscreen body.tutorial-fullscreen .example-block {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+
+
+        /* Tab Styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 0;
+            background: #2d3748;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: #a0aec0;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn:hover {
+            color: white;
+            background: #4a5568;
+        }
+
+        .tab-btn.active {
+            color: white;
+            background: #4a5568;
+            border-bottom: 2px solid #667eea;
+        }
+
+        .tab-content {
+            display: none;
+            background: #2d2d2d;
+            border-bottom-left-radius: 8px;
+            border-bottom-right-radius: 8px;
+            min-height: 200px;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Adjust pre styling for tabs */
+        .tab-content pre {
+            margin: 0;
+            border-radius: 0 0 8px 8px;
+            border: none;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .json-area {
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            white-space: pre !important;
+            overflow-x: auto;
+        }
+
+        /* Update output area for tab context */
+        .output-area {
+            margin-top: 0;
+            /* Remove margin as it's inside tab now */
+            background: #1e1e1e;
+            color: #d4d4d4;
+            /* Light text for dark background */
+            /* Match tab background */
+            min-height: 200px;
+            /* Ensure some height even if empty */
+            padding: 15px;
+        }
+
+</style>
+
+<div class="tutorial-slide-wrapper">
+    <div id="slide-container">
+        <div class="slide active">
+                                <div class="example-header">
+                        <h3>Introduction</h3>
+                        <span class="badge">Search</span>
+                    </div>
+            <p>11 Recipes for Success with the BTAA Geoportal API</p>
+            <p>Download the full runnable Python script containing all these examples, or run them directly in your browser below!</p>
+            <p><a href="../btaa_api_examples.py" class="btn" download>Download Python Script</a></p>
+            <p style="margin-top: 30px; color: #718096;">Use the navigation buttons below or arrow keys to move between examples.</p>
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+
+                    <div class="example-header">
+                        <h3>Simple Search</h3>
+                        <span class="badge">Search</span>
+                    </div>
+                    <p><strong>Goal:</strong> Find all resources related to "water".</p>
+                    <p><strong>Request:</strong> <code>GET /api/v1/search?q=water</code></p>
+
+                    <div class="tabs">
+                        <button id="btn-tab-python-1" class="tab-btn active"
+                            onclick="openTab(event, 'tab-python-1')">Python</button>
+                        <button id="btn-tab-response-1" class="tab-btn" onclick="openTab(event, 'tab-response-1')">API
+                            Response</button>
+                        <button id="btn-tab-output-1" class="tab-btn"
+                            onclick="openTab(event, 'tab-output-1')">Output</button>
+                    </div>
+
+                    <div id="tab-python-1" class="tab-content active" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('code-1')">📋 Copy</button>
+                        <pre><code id="code-1" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 1: Text search for 'water'
+params = {
+    'q': 'water',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total number of resources found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+                    </div>
+
+                    <div id="tab-response-1" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('json-1')">📋 Copy</button>
+                        <pre><code id="json-1" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+                    </div>
+
+                    <div id="tab-output-1" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('output-1')">📋 Copy</button>
+                        <div class="output-area" id="output-1">Click "Run" to see the output...</div>
+                    </div>
+
+                    <button class="run-btn" id="run-btn-1">▶ Run Example</button>
+
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_1(event):
+    """Example: Simple Search"""
+    output_id = "output-1"
+    btn_id = "run-btn-1"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(1)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Text search for 'water'...")
+
+        params = {
+            'q': 'water',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-1", data)
+        mark_tab_complete("btn-tab-response-1")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total number of resources found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-1")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+# Bind click event
+document.getElementById("run-btn-1").onclick = example_1
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+                    <div class="example-header">
+        <h3>Obtain a Resource</h3>
+                        <span class="badge">Resource</span>
+                    </div>
+                    <p><strong>Goal:</strong> Fetch metadata for a specific resource ID.</p>
+                    <p><strong>Request:</strong> <code>GET /api/v1/resources/ark28722-s7vs38</code></p>
+
+                    <div class="tabs">
+                        <button id="btn-tab-python-2" class="tab-btn active"
+                            onclick="openTab(event, 'tab-python-2')">Python</button>
+                        <button id="btn-tab-response-2" class="tab-btn" onclick="openTab(event, 'tab-response-2')">API
+                            Response</button>
+                        <button id="btn-tab-output-2" class="tab-btn"
+                            onclick="openTab(event, 'tab-output-2')">Output</button>
+                    </div>
+
+                    <div id="tab-python-2" class="tab-content active" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('code-2')">📋 Copy</button>
+                        <pre><code id="code-2" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 2: Fetch a specific resource
+resource_id = "ark28722-s7vs38"
+response = requests.get(f"{BASE_URL}/resources/{resource_id}")
+data = response.json()
+
+attrs = data['data']['attributes']
+print(f"Title: {attrs.get('dct_title_s', 'N/A')}")
+print(f"Description: {attrs.get('dct_description_sm', ['N/A'])[0]}")
+
+# Show references
+if 'dct_references_s' in attrs:
+    refs = json.loads(attrs['dct_references_s'])
+    for key, value in refs.items():
+        print(f"{key}: {value}")</code></pre>
+                    </div>
+
+                    <div id="tab-response-2" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('json-2')">📋 Copy</button>
+                        <pre><code id="json-2" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+                    </div>
+
+                    <div id="tab-output-2" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('output-2')">📋 Copy</button>
+                        <div class="output-area" id="output-2">Click "Run" to see the output...</div>
+                    </div>
+
+    <button class="run-btn" id="run-btn-2">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_2(event):
+    """Example: Obtain a Resource"""
+    output_id = "output-2"
+    btn_id = "run-btn-2"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(2)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        resource_id = "ark28722-s7vs38"
+        print_to_output(output_id, f"🔄 Running Example: Fetching resource {resource_id}...")
+
+        response = requests.get(f"{BASE_URL}/resources/{resource_id}")
+
+        if response.status_code == 200:
+            data = response.json()
+            set_json_content("json-2", data)
+            mark_tab_complete("btn-tab-response-2")
+            attrs = data['data']['attributes']['ogm']
+
+            print_to_output(output_id, f"✅ Status: {response.status_code}")
+            print_to_output(output_id, f"Title: {attrs.get('dct_title_s', 'N/A')}")
+            print_to_output(output_id, f"Description: {attrs.get('dct_description_sm', ['N/A'])[0]}")
+
+            # Show references table
+            if 'dct_references_s' in attrs:
+                refs = json.loads(attrs['dct_references_s'])
+                html_table = "<table style='border-collapse: collapse; width: 100%; margin-top: 10px; border: 1px solid #4a5568;'>"
+                html_table += "<tr style='background: #2d3748;'><th style='text-align: left; padding: 8px; border: 1px solid #4a5568; color: #ffffff; font-weight: bold;'>Service</th><th style='text-align: left; padding: 8px; border: 1px solid #4a5568; color: #ffffff; font-weight: bold;'>URL</th></tr>"
+                row_num = 0
+                for key, value in refs.items():
+                    service_name = key.split('#')[-1] if '#' in key else key.split('/')[-1]
+                    url_display = value
+                    if isinstance(value, dict):
+                        url_display = value.get('url', str(value))
+                    # Alternate row colors for better readability
+                    row_bg = "#3a4558" if row_num % 2 == 0 else "#2d3748"
+                    html_table += f"<tr style='background: {row_bg};'><td style='padding: 8px; border: 1px solid #4a5568; color: #e2e8f0;'>{service_name}</td><td style='padding: 8px; border: 1px solid #4a5568; color: #e2e8f0;'><a href='{url_display}' target='_blank' style='color: #63b3ed; text-decoration: underline;'>{str(url_display)[:40]}...</a></td></tr>"
+                    row_num += 1
+                html_table += "</table>"
+                print_to_output(output_id, html_table, is_html=True)
+            mark_tab_complete("btn-tab-output-2")
+
+            btn.innerText = "✅ Complete!"
+        else:
+            print_to_output(output_id, f"❌ Error: {response.status_code}")
+            print_to_output(output_id, response.text)
+            btn.innerText = "❌ Error"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-2").onclick = example_2
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Boolean Search</h3>
+        <span class="badge">Advanced Search</span>
+    </div>
+    <p><strong>Goal:</strong> Search for "(water AND ice) NOT Forest".</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/search?q=(water AND ice) NOT Forest</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-3" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-3')">Python</button>
+        <button id="btn-tab-response-3" class="tab-btn" onclick="openTab(event, 'tab-response-3')">API
+            Response</button>
+        <button id="btn-tab-output-3" class="tab-btn"
+            onclick="openTab(event, 'tab-output-3')">Output</button>
+    </div>
+
+    <div id="tab-python-3" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-3')">📋 Copy</button>
+        <pre><code id="code-3" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 3: Boolean search
+params = {
+    'q': '(water AND ice) NOT Forest',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total number of resources found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-3" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-3')">📋 Copy</button>
+        <pre><code id="json-3" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-3" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-3')">📋 Copy</button>
+        <div class="output-area" id="output-3">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-3">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_3(event):
+    """Example: Boolean Search"""
+    output_id = "output-3"
+    btn_id = "run-btn-3"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(3)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Boolean search for '(water AND ice) NOT Forest'...")
+
+        params = {
+            'q': '(water AND ice) NOT Forest',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-3", data)
+        mark_tab_complete("btn-tab-response-3")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total number of resources found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-3")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-3").onclick = example_3
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Field-Directed Search</h3>
+        <span class="badge">Advanced Search</span>
+    </div>
+    <p><strong>Goal:</strong> Search for "Transportation" specifically in the Subject field.</p>
+    <p><strong>Request:</strong>
+        <code>GET /api/v1/search?q=Transportation&search_field=dct_subject_sm</code>
+    </p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-4" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-4')">Python</button>
+        <button id="btn-tab-response-4" class="tab-btn" onclick="openTab(event, 'tab-response-4')">API
+            Response</button>
+        <button id="btn-tab-output-4" class="tab-btn"
+            onclick="openTab(event, 'tab-output-4')">Output</button>
+    </div>
+
+    <div id="tab-python-4" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-4')">📋 Copy</button>
+        <pre><code id="code-4" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 4: Field-directed search
+params = {
+    'q': 'Transportation',
+    'search_field': 'dct_subject_sm',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total number of resources found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-4" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-4')">📋 Copy</button>
+        <pre><code id="json-4" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-4" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-4')">📋 Copy</button>
+        <div class="output-area" id="output-4">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-4">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_4(event):
+    """Example: Field-Directed Search"""
+    output_id = "output-4"
+    btn_id = "run-btn-4"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(4)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Field-directed search for 'Transportation' in Subject field...")
+
+        params = {
+            'q': 'Transportation',
+            'search_field': 'dct_subject_sm',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-4", data)
+        mark_tab_complete("btn-tab-response-4")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total number of resources found: {data.get('meta', {}).get('totalCount')}")
+
+        html_list = "<ol>"
+        for item in data.get('data', []):
+            attrs = item['attributes'].get('ogm', {})
+            title = attrs.get('dct_title_s', 'N/A')
+            subjects = attrs.get('dct_subject_sm', [])
+            subject_str = ", ".join(subjects) if isinstance(subjects, list) else str(subjects)
+            html_list += f"<li><strong>{title}</strong><br><small>Subjects: {subject_str}</small></li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles and subjects:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-4")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-4").onclick = example_4
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Faceted Search</h3>
+        <span class="badge">Facets</span>
+    </div>
+    <p><strong>Goal:</strong> Search for "seattle" and filter for "Maps".</p>
+    <p><strong>Request:</strong>
+        <code>GET /api/v1/search?q=seattle&include_filters[gbl_resourceClass_sm][]=Maps</code>
+    </p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-5" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-5')">Python</button>
+        <button id="btn-tab-response-5" class="tab-btn" onclick="openTab(event, 'tab-response-5')">API
+            Response</button>
+        <button id="btn-tab-output-5" class="tab-btn"
+            onclick="openTab(event, 'tab-output-5')">Output</button>
+    </div>
+
+    <div id="tab-python-5" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-5')">📋 Copy</button>
+        <pre><code id="code-5" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 5: Faceted search (Maps only)
+params = {
+    'q': 'seattle',
+    'include_filters[gbl_resourceClass_sm][]': 'Maps',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Maps Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-5" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-5')">📋 Copy</button>
+        <pre><code id="json-5" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-5" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-5')">📋 Copy</button>
+        <div class="output-area" id="output-5">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-5">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_5(event):
+    """Example: Faceted Search"""
+    output_id = "output-5"
+    btn_id = "run-btn-5"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(5)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Faceted search for 'seattle' filtered by 'Maps'...")
+
+        params = {
+            'q': 'seattle',
+            'include_filters[gbl_resourceClass_sm][]': 'Maps',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-5", data)
+        mark_tab_complete("btn-tab-response-5")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Maps Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-5")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-5").onclick = example_5
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Faceted Search (Includes)</h3>
+        <span class="badge">Facets</span>
+    </div>
+    <p><strong>Goal:</strong> Search for "seattle", filter for "Maps" AND "Washington".</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/search?q=seattle&include_filters...</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-6" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-6')">Python</button>
+        <button id="btn-tab-response-6" class="tab-btn" onclick="openTab(event, 'tab-response-6')">API
+            Response</button>
+        <button id="btn-tab-output-6" class="tab-btn"
+            onclick="openTab(event, 'tab-output-6')">Output</button>
+    </div>
+
+    <div id="tab-python-6" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-6')">📋 Copy</button>
+        <pre><code id="code-6" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 6: Faceted search (Maps + Washington)
+params = {
+    'q': 'seattle',
+    'include_filters[gbl_resourceClass_sm][]': 'Maps',
+    'include_filters[dct_spatial_sm][]': 'Washington',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-6" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-6')">📋 Copy</button>
+        <pre><code id="json-6" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-6" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-6')">📋 Copy</button>
+        <div class="output-area" id="output-6">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-6">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_6(event):
+    """Example: Faceted Search - With includes"""
+    output_id = "output-6"
+    btn_id = "run-btn-6"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(6)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Faceted search (Maps + Washington)...")
+
+        params = {
+            'q': 'seattle',
+            'include_filters[gbl_resourceClass_sm][]': 'Maps',
+            'include_filters[dct_spatial_sm][]': 'Washington',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-6", data)
+        mark_tab_complete("btn-tab-response-6")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-6")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-6").onclick = example_6
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Faceted Search (Excludes)</h3>
+        <span class="badge">Facets</span>
+    </div>
+    <p><strong>Goal:</strong> Search for "seattle", filter for "Maps", "Washington", but EXCLUDE
+        "Pennsylvania State University".</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/search?q=seattle&exclude_filters...</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-7" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-7')">Python</button>
+        <button id="btn-tab-response-7" class="tab-btn" onclick="openTab(event, 'tab-response-7')">API
+            Response</button>
+        <button id="btn-tab-output-7" class="tab-btn"
+            onclick="openTab(event, 'tab-output-7')">Output</button>
+    </div>
+
+    <div id="tab-python-7" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-7')">📋 Copy</button>
+        <pre><code id="code-7" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 7: Faceted search (Maps + Washington - PSU)
+params = {
+    'q': 'seattle',
+    'include_filters[gbl_resourceClass_sm][]': 'Maps',
+    'include_filters[dct_spatial_sm][]': 'Washington',
+    'exclude_filters[schema_provider_s][]': 'Pennsylvania State University',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-7" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-7')">📋 Copy</button>
+        <pre><code id="json-7" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-7" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-7')">📋 Copy</button>
+        <div class="output-area" id="output-7">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-7">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_7(event):
+    """Example: Faceted Search - With excludes"""
+    output_id = "output-7"
+    btn_id = "run-btn-7"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(7)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Faceted search (Maps + Washington - PSU)...")
+
+        params = {
+            'q': 'seattle',
+            'include_filters[gbl_resourceClass_sm][]': 'Maps',
+            'include_filters[dct_spatial_sm][]': 'Washington',
+            'exclude_filters[schema_provider_s][]': 'Pennsylvania State University',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-7", data)
+        mark_tab_complete("btn-tab-response-7")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-7")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-7").onclick = example_7
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Spatial Search (BBox)</h3>
+        <span class="badge">Spatial</span>
+    </div>
+    <p><strong>Goal:</strong> Find maps within the Minnesota bounding box.</p>
+    <p><strong>Request:</strong>
+        <code>GET /api/v1/search?q=maps&include_filters[geo][type]=bbox...</code>
+    </p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-8" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-8')">Python</button>
+        <button id="btn-tab-response-8" class="tab-btn" onclick="openTab(event, 'tab-response-8')">API
+            Response</button>
+        <button id="btn-tab-output-8" class="tab-btn"
+            onclick="openTab(event, 'tab-output-8')">Output</button>
+    </div>
+
+    <div id="tab-python-8" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-8')">📋 Copy</button>
+        <pre><code id="code-8" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 8: Bounding Box Search (Minnesota)
+params = {
+    'q': 'maps',
+    'include_filters[geo][type]': 'bbox',
+    'include_filters[geo][field]': 'dcat_bbox',
+    'include_filters[geo][top_left][lat]': '49.0',
+    'include_filters[geo][top_left][lon]': '-97.2',
+    'include_filters[geo][bottom_right][lat]': '43.5',
+    'include_filters[geo][bottom_right][lon]': '-89.5',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-8" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-8')">📋 Copy</button>
+        <pre><code id="json-8" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-8" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-8')">📋 Copy</button>
+        <div class="output-area" id="output-8">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-8">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_8(event):
+    """Example: Spatial Search - Bounding Box"""
+    output_id = "output-8"
+    btn_id = "run-btn-8"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(8)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Bounding Box Search (Minnesota)...")
+
+        params = {
+            'q': 'maps',
+            'include_filters[geo][type]': 'bbox',
+            'include_filters[geo][field]': 'dcat_bbox',
+            'include_filters[geo][top_left][lat]': '49.0',
+            'include_filters[geo][top_left][lon]': '-97.2',
+            'include_filters[geo][bottom_right][lat]': '43.5',
+            'include_filters[geo][bottom_right][lon]': '-89.5',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-8", data)
+        mark_tab_complete("btn-tab-response-8")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-8")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-8").onclick = example_8
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+                    <div class="example-header">
+        <h3>Spatial Search (Distance)</h3>
+                        <span class="badge">Spatial</span>
+                    </div>
+                    <p><strong>Goal:</strong> Find "parks" resources within 50km of Minneapolis.</p>
+                    <p><strong>Request:</strong>
+                        <code>GET /api/v1/search?q=parks&include_filters[geo][type]=distance...</code>
+                    </p>
+
+                    <div class="tabs">
+                        <button id="btn-tab-python-9" class="tab-btn active"
+                            onclick="openTab(event, 'tab-python-9')">Python</button>
+                        <button id="btn-tab-response-9" class="tab-btn" onclick="openTab(event, 'tab-response-9')">API
+                            Response</button>
+                        <button id="btn-tab-output-9" class="tab-btn"
+                            onclick="openTab(event, 'tab-output-9')">Output</button>
+                    </div>
+
+                    <div id="tab-python-9" class="tab-content active" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('code-9')">📋 Copy</button>
+                        <pre><code id="code-9" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 9: Distance Search (50km from Minneapolis)
+params = {
+    'q': 'parks',
+    'include_filters[geo][type]': 'distance',
+    'include_filters[geo][field]': 'dcat_centroid',
+    'include_filters[geo][center][lat]': '44.9778',
+    'include_filters[geo][center][lon]': '-93.2650',
+    'include_filters[geo][distance]': '50km',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+                    </div>
+
+                    <div id="tab-response-9" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('json-9')">📋 Copy</button>
+                        <pre><code id="json-9" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+                    </div>
+
+                    <div id="tab-output-9" class="tab-content" style="position: relative;">
+                        <button class="copy-btn" onclick="copyCode('output-9')">📋 Copy</button>
+                        <div class="output-area" id="output-9">Click "Run" to see the output...</div>
+                    </div>
+
+    <button class="run-btn" id="run-btn-9">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_9(event):
+    """Example: Spatial Search - Distance"""
+    output_id = "output-9"
+    btn_id = "run-btn-9"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(9)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Distance Search (50km from Minneapolis)...")
+
+        params = {
+            'q': 'parks',
+            'include_filters[geo][type]': 'distance',
+            'include_filters[geo][field]': 'dcat_centroid',
+            'include_filters[geo][center][lat]': '44.9778',
+            'include_filters[geo][center][lon]': '-93.2650',
+            'include_filters[geo][distance]': '50km',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-9", data)
+        mark_tab_complete("btn-tab-response-9")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-9")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-9").onclick = example_9
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Spatial Search (Polygon)</h3>
+        <span class="badge">Spatial</span>
+    </div>
+    <p><strong>Goal:</strong> Find "water" resources intersecting with Colorado state boundaries.</p>
+    <p><strong>Request:</strong>
+        <code>GET /api/v1/search?q=water&include_filters[geo][type]=polygon...</code>
+    </p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-10" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-10')">Python</button>
+        <button id="btn-tab-response-10" class="tab-btn" onclick="openTab(event, 'tab-response-10')">API
+            Response</button>
+        <button id="btn-tab-output-10" class="tab-btn"
+            onclick="openTab(event, 'tab-output-10')">Output</button>
+    </div>
+
+    <div id="tab-python-10" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-10')">📋 Copy</button>
+        <pre><code id="code-10" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 10: Polygon Search (Colorado)
+params = {
+    'q': 'water',
+    'include_filters[geo][type]': 'polygon',
+    'include_filters[geo][field]': 'locn_geometry',
+    'include_filters[geo][relation]': 'intersects',
+    'include_filters[geo][points][0][lat]': '41.0',
+    'include_filters[geo][points][0][lon]': '-109.0',
+    'include_filters[geo][points][1][lat]': '41.0',
+    'include_filters[geo][points][1][lon]': '-102.0',
+    'include_filters[geo][points][2][lat]': '37.0',
+    'include_filters[geo][points][2][lon]': '-102.0',
+    'include_filters[geo][points][3][lat]': '37.0',
+    'include_filters[geo][points][3][lon]': '-109.0',
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-10" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-10')">📋 Copy</button>
+        <pre><code id="json-10" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-10" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-10')">📋 Copy</button>
+        <div class="output-area" id="output-10">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-10">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_10(event):
+    """Example: Spatial Search - Polygon"""
+    output_id = "output-10"
+    btn_id = "run-btn-10"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(10)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Polygon Search (Colorado)...")
+
+        params = {
+            'q': 'water',
+            'include_filters[geo][type]': 'polygon',
+            'include_filters[geo][field]': 'locn_geometry',
+            'include_filters[geo][relation]': 'intersects',
+            'include_filters[geo][points][0][lat]': '41.0',
+            'include_filters[geo][points][0][lon]': '-109.0',
+            'include_filters[geo][points][1][lat]': '41.0',
+            'include_filters[geo][points][1][lon]': '-102.0',
+            'include_filters[geo][points][2][lat]': '37.0',
+            'include_filters[geo][points][2][lon]': '-102.0',
+            'include_filters[geo][points][3][lat]': '37.0',
+            'include_filters[geo][points][3][lon]': '-109.0',
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-10", data)
+        mark_tab_complete("btn-tab-response-10")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-10")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-10").onclick = example_10
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+
+        <div class="slide">
+<div class="example-block">
+    <div class="example-header">
+        <h3>Advanced Search (adv_q)</h3>
+        <span class="badge">Advanced</span>
+    </div>
+    <p><strong>Goal:</strong> Find "Maps" having "Island" in title but NOT "Antarctica".</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/search?q=&adv_q=...</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-11" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-11')">Python</button>
+        <button id="btn-tab-response-11" class="tab-btn" onclick="openTab(event, 'tab-response-11')">API
+            Response</button>
+        <button id="btn-tab-output-11" class="tab-btn"
+            onclick="openTab(event, 'tab-output-11')">Output</button>
+    </div>
+
+    <div id="tab-python-11" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-11')">📋 Copy</button>
+        <pre><code id="code-11" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Step 11: Advanced Search with adv_q
+# Logic: (ResourceClass=Maps AND Title=Island) NOT Title=Antarctica
+adv_query = [
+    {"op": "AND", "f": "gbl_resourceClass_sm", "q": "Maps"},
+    {"op": "AND", "f": "dct_title_s", "q": "Island"},
+    {"op": "NOT", "f": "dct_title_s", "q": "antarctica"}
+]
+
+params = {
+    'q': '',
+    'adv_q': json.dumps(adv_query),
+    'page': 1,
+    'per_page': 10
+}
+
+response = requests.get(f"{BASE_URL}/search", params=params)
+data = response.json()
+
+print(f"Total Found: {data.get('meta', {}).get('totalCount')}")
+
+print("\nList of titles:")
+for item in data.get('data', []):
+    print(f"  - {item['attributes'].get('dct_title_s', 'N/A')}")</code></pre>
+    </div>
+
+    <div id="tab-response-11" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-11')">📋 Copy</button>
+        <pre><code id="json-11" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-11" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-11')">📋 Copy</button>
+        <div class="output-area" id="output-11">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-11">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    """Helper to append text or HTML to output area"""
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    """Helper to set JSON content and highlight it"""
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    """Add checkmark to tab button if not already present"""
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    """Reset tab marks for an example"""
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    """Reset button text after delay"""
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    """Clear output area"""
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    """Show output area"""
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    """Disable a button"""
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    """Enable a button"""
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_11(event):
+    """Example: Advanced Search (adv_q)"""
+    output_id = "output-11"
+    btn_id = "run-btn-11"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(11)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "🔄 Running Example: Advanced Search (Maps + 'Island' - 'antarctica')...")
+
+        # Logic: (ResourceClass=Maps AND Title=Island) NOT Title=Antarctica
+        adv_query = [
+            {"op": "AND", "f": "gbl_resourceClass_sm", "q": "Maps"},
+            {"op": "AND", "f": "dct_title_s", "q": "Island"},
+            {"op": "NOT", "f": "dct_title_s", "q": "antarctica"}
+        ]
+
+        params = {
+            'q': '',
+            'adv_q': json.dumps(adv_query),
+            'page': 1,
+            'per_page': 10
+        }
+
+        response = requests.get(f"{BASE_URL}/search", params=params)
+        data = response.json()
+        set_json_content("json-11", data)
+        mark_tab_complete("btn-tab-response-11")
+
+        print_to_output(output_id, f"✅ Status: {response.status_code}")
+        print_to_output(output_id, f"📊 Total Found: {data.get('meta', {}).get('totalCount')}")
+
+        titles = [item['attributes'].get('ogm', {}).get('dct_title_s', 'N/A') for item in data.get('data', [])]
+
+        html_list = "<ol>"
+        for title in titles:
+            html_list += f"<li>{title}</li>"
+        html_list += "</ol>"
+
+        print_to_output(output_id, "List of titles:")
+        print_to_output(output_id, html_list, is_html=True)
+        mark_tab_complete("btn-tab-output-11")
+
+        btn.innerText = "✅ Complete!"
+
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+# Bind click event
+document.getElementById("run-btn-11").onclick = example_11
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+// Tab switching
+function openTab(evt, tabId) {
+    // Get the button that was clicked
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+
+    // Hide all tab content in this container
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    // Remove active class from all buttons in this container
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    // Show the current tab, and add an "active" class to the button that opened the tab
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="prevBtn" onclick="changeSlide(-1)">&larr; Previous</button>
+        <select id="slideSelect" onchange="jumpToSlide(this.value)"
+            style="padding: 10px; border-radius: 5px; border: none; background: rgba(255,255,255,0.95); color: #4a5568; font-weight: 600; font-size: 14px; cursor: pointer; max-width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <!-- Populated by JS -->
+        </select>
+        <span id="slide-indicator" style="display: none;">Slide 1 of 3</span>
+        <button id="nextBtn" onclick="changeSlide(1)">Next &rarr;</button>
+        <button id="fullscreenBtn" onclick="toggleFullscreen()" title="Toggle Fullscreen">&#99798;</button>
+    </div>
+</div>
+
+<script>
+        function copyCode(codeId) {
+            const codeElement = document.getElementById(codeId);
+            const text = codeElement.textContent;
+
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '\u2713 Copied!';
+                btn.style.background = '#48bb78';
+
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '#2d3748';
+                }, 2000);
+            });
+        }
+
+        // Slide navigation - initialize when DOM is ready
+        let currentSlide = 0;
+        let slides, prevBtn, nextBtn, slideSelect;
+
+        function initSlides() {
+            slides = document.querySelectorAll('.slide');
+            prevBtn = document.getElementById('prevBtn');
+            nextBtn = document.getElementById('nextBtn');
+            slideSelect = document.getElementById('slideSelect');
+
+            if (!slides.length || !prevBtn || !nextBtn || !slideSelect) {
+                console.error('Slide elements not found');
+                return;
+            }
+
+            // Populate Dropdown
+            slides.forEach((slide, index) => {
+                let title = `Slide ${index + 1}`;
+                const h2 = slide.querySelector('h2');
+                const h3 = slide.querySelector('h3');
+
+                if (h3) title = h3.textContent;
+                else if (h2) title = h2.textContent;
+
+                // Clean up title
+                title = title.replace(/^\d+\.\s*/, ''); // Remove numbering if present to be cleaner
+                if (index > 0) title = `${index}. ${title}`; // Add our own numbering for examples
+
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = title;
+                slideSelect.appendChild(option);
+            });
+
+            // Initialize state from URL hash
+            const hash = window.location.hash;
+            if (hash && hash.startsWith('#slide-')) {
+                const index = parseInt(hash.replace('#slide-', '')) - 1;
+                if (index >= 0 && index < slides.length) {
+                    showSlide(index);
+                } else {
+                    showSlide(0);
+                }
+            } else {
+                showSlide(0);
+            }
+        }
+
+        function showSlide(n) {
+            if (!slides || slides.length === 0) return;
+
+            slides[currentSlide].classList.remove('active');
+            currentSlide = (n + slides.length) % slides.length;
+            slides[currentSlide].classList.add('active');
+
+            // Update controls
+            if (prevBtn) prevBtn.disabled = currentSlide === 0;
+            if (nextBtn) nextBtn.disabled = currentSlide === slides.length - 1;
+            if (slideSelect) slideSelect.value = currentSlide;
+
+            // Update URL hash
+            window.location.hash = 'slide-' + (currentSlide + 1);
+        }
+
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initSlides);
+        } else {
+            // DOM is already ready
+            initSlides();
+        }
+
+        function changeSlide(n) {
+            const newIndex = currentSlide + n;
+            if (newIndex >= 0 && newIndex < slides.length) {
+                showSlide(newIndex);
+            }
+        }
+
+        function jumpToSlide(index) {
+            showSlide(parseInt(index));
+        }
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') changeSlide(-1);
+            if (e.key === 'ArrowRight') changeSlide(1);
+            if (e.key === 'Escape' && document.fullscreenElement) {
+                document.exitFullscreen();
+            }
+        });
+
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                // Add class to body to indicate tutorial fullscreen mode
+                document.body.classList.add('tutorial-fullscreen');
+                document.documentElement.requestFullscreen().catch(err => {
+                    document.body.classList.remove('tutorial-fullscreen');
+                    console.log(`Error attempting to enable fullscreen: ${err.message}`);
+                });
+            } else {
+                document.body.classList.remove('tutorial-fullscreen');
+                document.exitFullscreen();
+            }
+        }
+
+        // Remove class when exiting fullscreen via ESC key
+        document.addEventListener('fullscreenchange', () => {
+            if (!document.fullscreenElement) {
+                document.body.classList.remove('tutorial-fullscreen');
+            }
+        });
+        // Tab switching
+        function openTab(evt, tabId) {
+            // Find the parent example-block to scope the tab switching (optional, but good for safety)
+            // But simply: hide all tab-content in the immediate container, remove active from buttons
+
+            // Get the button that was clicked
+            var btn = evt.currentTarget;
+            var container = btn.closest('.example-block');
+
+            // Hide all tab content in this container
+            var tabContents = container.getElementsByClassName("tab-content");
+            for (var i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove("active");
+            }
+
+            // Remove active class from all buttons in this container
+            var tabBtns = container.getElementsByClassName("tab-btn");
+            for (var i = 0; i < tabBtns.length; i++) {
+                tabBtns[i].classList.remove("active");
+            }
+
+            // Show the current tab, and add an "active" class to the button that opened the tab
+            document.getElementById(tabId).classList.add("active");
+            btn.classList.add("active");
+        }
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8z"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+    <div class="md-copyright__highlight">
+      &copy; 2025 BTAA GIN
+    </div>
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+        
+<div class="md-social">
+  
+    
+    
+    
+    
+      
+      
+    
+    <a href="https://github.com/geobtaa/ld" target="_blank" rel="noopener" title="github.com" class="md-social__link">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M173.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6m-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3m44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9M252.8 8C114.1 8 8 113.3 8 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C436.2 457.8 504 362.9 504 252 504 113.3 391.5 8 252.8 8M105.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1m-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7m32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1m-11.4-14.7c-1.6 1-1.6 3.6 0 5.9s4.3 3.3 5.6 2.3c1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2"/></svg>
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate": null, "base": "../../..", "features": ["navigation.sections", "content.tooltips", "navigation.tabs", "navigation.tabs.sticky", "navigation.top", "content.code.copy"], "search": "../../../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
+    
+    
+      <script src="../../../assets/javascripts/bundle.79ae519e.min.js"></script>
+      
+    
+  </body>
+</html>

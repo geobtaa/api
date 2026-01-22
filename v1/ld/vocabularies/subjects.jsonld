@@ -1,0 +1,42 @@
+{
+  "@context": "https://schema.org/",
+  "@type": "DefinedTermSet",
+  "@id": "https://geobtaa.org/vocabularies/subjects",
+  "name": "BTAA Geospatial Subject Classification",
+  "description": "Controlled vocabulary for geospatial data subjects",
+  "url": "https://geobtaa.org/vocabularies/subjects",
+  "hasDefinedTerm": [
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://geobtaa.org/vocabularies/subjects/GEOGRAPHY",
+      "termCode": "GEOGRAPHY",
+      "name": "Geography",
+      "description": "Study of places and relationships between people and environments",
+      "inDefinedTermSet": "https://geobtaa.org/vocabularies/subjects"
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://geobtaa.org/vocabularies/subjects/GEOLOGY",
+      "termCode": "GEOLOGY", 
+      "name": "Geology",
+      "description": "Study of Earth's physical structure and substance",
+      "inDefinedTermSet": "https://geobtaa.org/vocabularies/subjects"
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://geobtaa.org/vocabularies/subjects/ENVIRONMENTAL_SCIENCE",
+      "termCode": "ENVIRONMENTAL_SCIENCE",
+      "name": "Environmental Science",
+      "description": "Study of the environment and environmental problems",
+      "inDefinedTermSet": "https://geobtaa.org/vocabularies/subjects"
+    },
+    {
+      "@type": "DefinedTerm",
+      "@id": "https://geobtaa.org/vocabularies/subjects/URBAN_PLANNING",
+      "termCode": "URBAN_PLANNING",
+      "name": "Urban Planning",
+      "description": "Planning and development of urban areas",
+      "inDefinedTermSet": "https://geobtaa.org/vocabularies/subjects"
+    }
+  ]
+} 
