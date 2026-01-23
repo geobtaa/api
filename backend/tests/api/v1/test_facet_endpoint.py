@@ -18,7 +18,15 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from httpx import AsyncClient
 
-pytestmark = pytest.mark.asyncio
+import pytest
+from httpx import AsyncClient
+from unittest.mock import AsyncMock, MagicMock, patch
+
+# Disable caching for all tests in this file
+@pytest.fixture(autouse=True)
+def disable_caching():
+    with patch("app.services.cache_service.ENDPOINT_CACHE", False):
+        yield
 
 
 class TestFacetEndpointValidation:

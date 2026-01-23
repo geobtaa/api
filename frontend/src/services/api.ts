@@ -491,6 +491,69 @@ export async function fetchFacetValues({
   qFacet,
   options = defaultFetchOptions,
 }: FetchFacetValuesParams): Promise<FacetValuesResponse> {
+  // Check if we are in the browser
+  const isBrowser = typeof window !== 'undefined';
+
+  if (isBrowser) {
+    // Client-side: Proxy request through React Router resource route to avoid rate limits
+    // The SSR server has the privileged API key
+    const proxyUrl = new URL('/api/search/facets', window.location.origin);
+
+    proxyUrl.searchParams.set('facetName', facetName);
+    proxyUrl.searchParams.set('page', Math.max(1, page).toString());
+    proxyUrl.searchParams.set('per_page', Math.max(1, Math.min(100, perPage)).toString());
+    if (sort) proxyUrl.searchParams.set('sort', sort);
+    if (qFacet) proxyUrl.searchParams.set('q', qFacet);
+
+    // Forward relevant global search params
+    // We only forward what's necessary to filter the facets correctly
+    const copyParamKeys = ['q', 'adv_q'] as const;
+    copyParamKeys.forEach((key) => {
+      const value = searchParams.get(key);
+      if (value !== null && value !== '') {
+        proxyUrl.searchParams.set(key, value);
+      }
+    });
+
+    Array.from(searchParams.keys())
+      .filter(
+        (key) =>
+          key.startsWith('include_filters[') ||
+          key.startsWith('exclude_filters[') ||
+          key.startsWith('fq[')
+      )
+      .forEach((key) => {
+        searchParams.getAll(key).forEach((value) => {
+          proxyUrl.searchParams.append(key, value);
+        });
+      });
+
+    console.log('🔗 fetchFacetValues Proxy URL:', proxyUrl.toString());
+
+    const response = await fetch(proxyUrl.toString(), {
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+
+    if (!response.ok) {
+      // If the proxy fails, we can try to parse the error or just throw
+      const errorText = await response.text();
+      console.error('Facet proxy error:', errorText);
+      throw new Error(`Failed to fetch facet values: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    console.log('📦 fetchFacetValues response from proxy:', {
+      hasData: !!data.data,
+      dataLength: data.data?.length || 0,
+    });
+
+    return data;
+  }
+
+  // Server-side (SSR): Call API directly using the server-only key (implied by server environment)
   const apiBasePath = getApiBasePath();
   const baseUrl = `${apiBasePath}/search/facets/${facetName}`;
 
@@ -531,12 +594,12 @@ export async function fetchFacetValues({
     url.searchParams.set('q_facet', qFacet);
   }
 
-  console.log('🔗 fetchFacetValues URL:', url.toString());
+  console.log('🔗 fetchFacetValues URL (SSR):', url.toString());
   const response = await unifiedFetch<FacetValuesResponse>(
     url.toString(),
     options
   );
-  console.log('📦 fetchFacetValues response:', {
+  console.log('📦 fetchFacetValues response (SSR):', {
     hasData: !!response.data,
     dataLength: response.data?.length || 0,
     hasMeta: !!response.meta,

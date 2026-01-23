@@ -1,4 +1,5 @@
 from unittest.mock import AsyncMock, patch
+import pytest
 
 from fastapi.testclient import TestClient
 
@@ -161,6 +162,12 @@ def test_search_specific_gazetteer():
 
 class TestGazetteerEndpointsEnhanced:
     """Enhanced test cases for gazetteer endpoints with better coverage."""
+
+    @pytest.fixture(autouse=True)
+    def disable_caching(self):
+        """Disable caching for all tests in this class."""
+        with patch("app.services.cache_service.ENDPOINT_CACHE", False):
+            yield
 
     def test_gazetteer_endpoints_structure(self):
         """Test that gazetteer endpoints are properly configured."""

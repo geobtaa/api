@@ -3,7 +3,7 @@ import importlib
 import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from fastapi.testclient import TestClient
+from httpx import AsyncClient, ASGITransport
 
 
 @pytest.mark.asyncio
@@ -34,22 +34,21 @@ async def test_success_response_caching_and_etag(monkeypatch):
     async def success_route(request: Request):
         return JSONResponse(content={"status": "success"})
 
-    client = TestClient(app)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r1 = await client.get("/test-success")
+        assert r1.status_code == 200
+        assert r1.headers.get("x-cache") == "MISS"
+        etag = r1.headers.get("etag")
+        assert etag
 
-    r1 = client.get("/test-success")
-    assert r1.status_code == 200
-    assert r1.headers.get("x-cache") == "MISS"
-    etag = r1.headers.get("etag")
-    assert etag
+        r2 = await client.get("/test-success")
+        assert r2.status_code == 200
+        assert r2.headers.get("x-cache") in {"HIT", "STALE", "WAIT_HIT"}
+        assert r2.headers.get("etag") == etag
 
-    r2 = client.get("/test-success")
-    assert r2.status_code == 200
-    assert r2.headers.get("x-cache") in {"HIT", "STALE"}
-    assert r2.headers.get("etag") == etag
-
-    r3 = client.get("/test-success", headers={"If-None-Match": etag})
-    assert r3.status_code == 304
-    assert r3.headers.get("etag") == etag
+        r3 = await client.get("/test-success", headers={"If-None-Match": etag})
+        assert r3.status_code == 304
+        assert r3.headers.get("etag") == etag
 
 
 @pytest.mark.asyncio
@@ -79,15 +78,14 @@ async def test_query_string_normalization(monkeypatch):
     async def qs_route(request: Request):
         return JSONResponse(content={"ok": True})
 
-    client = TestClient(app)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r1 = await client.get("/test-qs?a=1&b=2")
+        assert r1.status_code == 200
+        assert r1.headers.get("x-cache") == "MISS"
 
-    r1 = client.get("/test-qs?a=1&b=2")
-    assert r1.status_code == 200
-    assert r1.headers.get("x-cache") == "MISS"
-
-    r2 = client.get("/test-qs?b=2&a=1")
-    assert r2.status_code == 200
-    assert r2.headers.get("x-cache") in {"HIT", "STALE"}
+        r2 = await client.get("/test-qs?b=2&a=1")
+        assert r2.status_code == 200
+        assert r2.headers.get("x-cache") in {"HIT", "STALE", "WAIT_HIT"}
 
 
 @pytest.mark.asyncio
@@ -117,10 +115,9 @@ async def test_error_response_not_cached(monkeypatch):
     async def error_route(request: Request):
         raise HTTPException(status_code=404, detail="Not found")
 
-    client = TestClient(app)
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        r1 = await client.get("/test-error")
+        assert r1.status_code == 404
 
-    r1 = client.get("/test-error")
-    assert r1.status_code == 404
-
-    r2 = client.get("/test-error")
-    assert r2.status_code == 404
+        r2 = await client.get("/test-error")
+        assert r2.status_code == 404

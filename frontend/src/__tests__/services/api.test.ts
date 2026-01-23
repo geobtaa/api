@@ -4,6 +4,9 @@ import { fetchBookmarkedResources } from '../../services/api';
 // Mock fetch
 global.fetch = vi.fn();
 
+// Unmock the API service to test the real implementation
+vi.unmock('../../services/api');
+
 describe('fetchBookmarkedResources', () => {
   it('constructs correct URL for bookmarked resources', async () => {
     const ids = ['123', '456'];

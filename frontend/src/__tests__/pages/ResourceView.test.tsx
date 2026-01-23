@@ -13,16 +13,20 @@ vi.mock('react-router', async (importOriginal) => {
   };
 });
 
+import { HelmetProvider } from 'react-helmet-async';
+
 describe('Resource View Page', () => {
   const renderResourceView = () => {
     render(
-      <BrowserRouter>
-        <ApiProvider>
-          <DebugProvider>
-            <ResourceView />
-          </DebugProvider>
-        </ApiProvider>
-      </BrowserRouter>
+      <HelmetProvider>
+        <BrowserRouter>
+          <ApiProvider>
+            <DebugProvider>
+              <ResourceView />
+            </DebugProvider>
+          </ApiProvider>
+        </BrowserRouter>
+      </HelmetProvider>
     );
   };
 

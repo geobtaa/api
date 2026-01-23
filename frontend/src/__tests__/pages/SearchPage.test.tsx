@@ -1,5 +1,6 @@
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
+import { HelmetProvider } from 'react-helmet-async';
 import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
@@ -87,12 +88,14 @@ describe('SearchPage Logic', () => {
       {
         path: '/search',
         element: (
-          <ApiProvider>
-            <DebugProvider>
-              {/* MapProvider is guarded inside SearchPage, but we can wrap here too just in case context is needed outside */}
-              <SearchPage searchResults={searchResults} isLoading={false} />
-            </DebugProvider>
-          </ApiProvider>
+          <HelmetProvider>
+            <ApiProvider>
+              <DebugProvider>
+                {/* MapProvider is guarded inside SearchPage, but we can wrap here too just in case context is needed outside */}
+                <SearchPage searchResults={searchResults} isLoading={false} />
+              </DebugProvider>
+            </ApiProvider>
+          </HelmetProvider>
         ),
       },
     ];
@@ -236,11 +239,13 @@ describe('SearchPage Integration', () => {
       {
         path: '/search',
         element: (
-          <ApiProvider>
-            <DebugProvider>
-              <SearchPage searchResults={searchResults} isLoading={false} />
-            </DebugProvider>
-          </ApiProvider>
+          <HelmetProvider>
+            <ApiProvider>
+              <DebugProvider>
+                <SearchPage searchResults={searchResults} isLoading={false} />
+              </DebugProvider>
+            </ApiProvider>
+          </HelmetProvider>
         ),
       },
     ];

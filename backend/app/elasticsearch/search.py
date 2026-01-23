@@ -643,18 +643,22 @@ async def search_resources(
                     # Expecting start and end keys
                     year_range_filter = {"range": {"gbl_indexYear_im": {}}}
                     if "start" in values:
-                         try:
-                             year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
-                         except (ValueError, TypeError):
-                             pass
+                        try:
+                            year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(
+                                values["start"]
+                            )
+                        except (ValueError, TypeError):
+                            pass
                     if "end" in values:
-                         try:
-                             year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
-                         except (ValueError, TypeError):
-                             pass
-                    
+                        try:
+                            year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(
+                                values["end"]
+                            )
+                        except (ValueError, TypeError):
+                            pass
+
                     if year_range_filter["range"]["gbl_indexYear_im"]:
-                         filter_clauses.append(year_range_filter)
+                        filter_clauses.append(year_range_filter)
 
                 elif isinstance(values, list):
                     # Use terms to match if ANY of the specified values are present
@@ -678,9 +682,7 @@ async def search_resources(
             allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
 
         full_aggs = {
-            "dct_spatial_sm": {
-                "terms": {"field": "dct_spatial_sm.keyword", "size": 6}
-            },
+            "dct_spatial_sm": {"terms": {"field": "dct_spatial_sm.keyword", "size": 6}},
             "gbl_resourceClass_sm": {
                 "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
             },

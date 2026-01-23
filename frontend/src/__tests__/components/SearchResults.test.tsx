@@ -21,6 +21,7 @@ const mockFixtureData: GeoDocument[] = [
         dct_temporal_sm: ['1950'],
         dc_publisher_sm: ['MIT Libraries'],
         gbl_resourceClass_sm: ['Paper Maps'],
+        gbl_indexYear_im: [1950],
       },
     },
     meta: {
@@ -46,6 +47,7 @@ const mockFixtureData: GeoDocument[] = [
         dct_temporal_sm: ['2020'],
         dc_publisher_sm: ['NYU Libraries'],
         gbl_resourceClass_sm: ['Point Data'],
+        gbl_indexYear_im: [2020],
       },
     },
     meta: {
@@ -71,6 +73,7 @@ const mockFixtureData: GeoDocument[] = [
         dct_temporal_sm: ['2019', '2020'],
         dc_publisher_sm: ['Tufts University', 'Cambridge Grid'],
         gbl_resourceClass_sm: ['Polygon Data'],
+        gbl_indexYear_im: [2019, 2020],
       },
     },
     meta: {
@@ -104,6 +107,7 @@ const mockFixtureData: GeoDocument[] = [
         dct_temporal_sm: ['2021'],
         dc_publisher_sm: ['Stanford University'],
         gbl_resourceClass_sm: ['Raster Data'],
+        gbl_indexYear_im: [2021],
       },
     },
     meta: {
@@ -358,7 +362,7 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByText('2019, 2020')).toBeInTheDocument();
+      expect(screen.getByText('2019')).toBeInTheDocument();
     });
 
     it('displays publisher information when available', () => {

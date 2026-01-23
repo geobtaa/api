@@ -265,6 +265,8 @@ const mockSearchState = {
   absoluteIndex: 0,
 };
 
+import { HelmetProvider } from 'react-helmet-async';
+
 // Test wrapper component
 const TestWrapper = ({
   children,
@@ -273,11 +275,13 @@ const TestWrapper = ({
   children: React.ReactNode;
   initialEntries?: string[];
 }) => (
-  <MemoryRouter initialEntries={initialEntries}>
-    <ApiProvider>
-      <DebugProvider>{children}</DebugProvider>
-    </ApiProvider>
-  </MemoryRouter>
+  <HelmetProvider>
+    <MemoryRouter initialEntries={initialEntries}>
+      <ApiProvider>
+        <DebugProvider>{children}</DebugProvider>
+      </ApiProvider>
+    </MemoryRouter>
+  </HelmetProvider>
 );
 
 describe('ResourceView Component', () => {
@@ -317,7 +321,7 @@ describe('ResourceView Component', () => {
     it('displays loading spinner when data is being fetched', async () => {
       // Make the API call hang
       fetchResourceDetails.mockImplementation(
-        () => new Promise(() => {}) // Never resolves
+        () => new Promise(() => { }) // Never resolves
       );
 
       render(

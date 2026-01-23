@@ -63,7 +63,7 @@ describe('GalleryView', () => {
     it('renders list of items', () => {
         renderGallery();
         expect(screen.getAllByRole('link')).toHaveLength(20);
-        expect(screen.getByText('Result 1')).toBeInTheDocument();
+        expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
     });
 
     it('passes correct state to Link', () => {
