@@ -1,0 +1,51 @@
+[
+  {
+    "id": "CityOfWaukesha-3eea70a5e4af40a1a558a43705ff8596",
+    "dct_identifier_sm": [
+      "CityOfWaukesha-3eea70a5e4af40a1a558a43705ff8596"
+    ],
+    "dct_title_s": "2024 Aerial, City of Waukesha",
+    "dct_description_sm": [
+      "No description provided."
+    ],
+    "dct_language_sm": [
+      "English"
+    ],
+    "dct_creator_sm": [
+      "City of Waukesha"
+    ],
+    "gbl_resourceClass_sm": [
+      "Datasets"
+    ],
+    "gbl_resourceType_sm": [
+      "Aerial photographs"
+    ],
+    "dct_temporal_sm": [
+      "2025"
+    ],
+    "gbl_indexYear_im": [
+      2025
+    ],
+    "dct_spatial_sm": [
+      ""
+    ],
+    "locn_geometry": "ENVELOPE(-88.3142881,-88.1709791,43.0649399,42.9370664)",
+    "dcat_bbox": "ENVELOPE(-88.3142881,-88.1709791,43.0649399,42.9370664)",
+    "dct_accessRights_s": "Public",
+    "dct_format_s": "File",
+    "dct_references_s": "{\"http://schema.org/url\":\"https://opendata.waukesha-wi.gov/datasets/waukesha::ortho2024\",\"urn:x-esri:serviceType:ArcGIS#ImageMapLayer\":\"https://is.waukesha-wi.gov/server/rest/services/aerial/2024/ImageServer\",\"http://schema.org/downloadUrl\":[]}",
+    "schema_provider_s": "City of Waukesha",
+    "gbl_mdModified_dt": "2026-01-27T18:05:13Z",
+    "gbl_mdVersion_s": "Aardvark",
+    "dct_isPartOf_sm": [
+      "Wisconsin Open Data Sites"
+    ],
+    "uw_notice_s": "This dataset was automatically cataloged from the author's Open Data Portal. In some cases, publication year and bounding coordinates shown here may be incorrect. Please check the 'More details at' link for additional information including download options.",
+    "_version_": 1855456133066522600,
+    "timestamp": "2026-01-27T08:00:52.589Z",
+    "solr_bboxtype__minX": -88.3142881,
+    "solr_bboxtype__minY": 42.9370664,
+    "solr_bboxtype__maxX": -88.1709791,
+    "solr_bboxtype__maxY": 43.0649399
+  }
+]
