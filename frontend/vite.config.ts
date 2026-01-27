@@ -25,8 +25,8 @@ export default defineConfig({
       // Some dependencies (e.g. html-parse-stringify) expect `void-elements` to have a default export.
       // The upstream package is CommonJS; this shim provides a stable ESM default export for Vite.
       "void-elements": path.resolve(__dirname, "src/shims/void-elements.ts"),
-      // Force resolution to the ESM entry point to prevent dual-package hazards (CJS vs ESM)
-      "react-helmet-async": path.resolve(__dirname, "node_modules/react-helmet-async/lib/index.esm.js"),
+      // Note: react-helmet-async is handled via optimizeDeps.include and ssr.noExternal
+      // No need for a hardcoded alias - let Vite resolve it naturally
     },
     // Ensure a single React instance (prevents "Invalid hook call").
     dedupe: [

@@ -121,8 +121,10 @@ function AttributeTable() {
 
 export function ResourceView({
   prefetchedResource,
+  currentUrl,
 }: {
   prefetchedResource?: GeoDocumentDetails | null;
+  currentUrl?: string;
 } = {}) {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
@@ -435,6 +437,7 @@ export function ResourceView({
               : (data.attributes.ogm.dct_description_sm as string || "")
           }
           image={data?.meta?.ui?.thumbnail_url}
+          url={currentUrl}
           type="article"
         />
       )}

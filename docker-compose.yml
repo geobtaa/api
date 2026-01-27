@@ -49,31 +49,8 @@ services:
     networks: [elastic]
     command: ["bash", "-lc", "cd /app/backend && uvicorn app.main:app --host 0.0.0.0 --port 8000 --log-level debug"]
 
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-      args:
-        # Client-side (Vite) API base URL: browser should hit the local API
-        # (SSR uses API_BASE_URL below).
-        VITE_API_BASE_URL: "http://localhost:8000/api/v1"
-        VITE_USE_JSONP: "false"
-        VITE_ENFORCE_HTTPS: "false"
-    container_name: btaa-geospatial-api-frontend
-    environment:
-      - API_BASE_URL=http://api:8000/api/v1
-      - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
-      - NODE_ENV=production
-    ports:
-      - "127.0.0.1:3000:3000"
-    depends_on:
-      api:
-        condition: service_started
-    networks: [elastic]
-    restart: unless-stopped
-
   # Fast dev loop: no image rebuilds for code changes.
-  # Use with: `docker compose --profile dev up -d frontend-dev`
+  # Use with: `docker compose up -d frontend-dev`
   frontend-dev:
     build:
       context: ./frontend
@@ -118,7 +95,6 @@ services:
         condition: service_started
     networks: [elastic]
     restart: unless-stopped
-    profiles: ["dev"]
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0

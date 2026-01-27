@@ -1,5 +1,6 @@
 import React from 'react';
 import { Helmet } from 'react-helmet-async';
+import { useLocation } from 'react-router';
 
 interface SeoProps {
     title: string;
@@ -16,10 +17,15 @@ export function Seo({
     url,
     type = 'website'
 }: SeoProps) {
+    const location = useLocation();
     const isClient = typeof window !== 'undefined';
     const siteTitle = "Big Ten Academic Alliance Geoportal";
     const fullTitle = title === siteTitle ? siteTitle : `${title} - ${siteTitle}`;
-    const currentUrl = url || (isClient ? window.location.href : '');
+    
+    // Get URL: use provided url (from loader), or fall back to constructing from location
+    const currentUrl = url || (isClient 
+        ? window.location.href 
+        : `${location.pathname}${location.search}`);
 
     // Ensure image is absolute URL
     // If server-side and no origin, we might want a base URL env var, but for now empty string or guarded usage

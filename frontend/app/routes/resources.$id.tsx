@@ -11,12 +11,15 @@ import { useApi } from "../../src/context/ApiContext";
  * For now, ResourceView fetches its own data, but we can pre-fetch here
  * and pass it as props in the future.
  */
-export async function loader({ params }: LoaderFunctionArgs) {
+export async function loader({ params, request }: LoaderFunctionArgs) {
   const { id } = params;
 
   if (!id) {
     throw new Response("Resource ID is required", { status: 400 });
   }
+
+  // Get the full URL for Open Graph tags
+  const currentUrl = new URL(request.url).href;
 
   try {
     const resource = await serverFetchJson<{ data: GeoDocumentDetails }>(
@@ -24,7 +27,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     );
 
     const lastApiUrl = `/api/v1/resources/${id}?format=json`;
-    return { resource: resource.data, lastApiUrl };
+    return { resource: resource.data, lastApiUrl, currentUrl };
   } catch (error) {
     console.error("Resource loader error:", error);
     if (error instanceof Response && error.status === 404) {
@@ -32,7 +35,7 @@ export async function loader({ params }: LoaderFunctionArgs) {
     }
     // Allow ResourceView to handle its own errors for now
     const lastApiUrl = `/api/v1/resources/${id}?format=json`;
-    return { resource: null, lastApiUrl };
+    return { resource: null, lastApiUrl, currentUrl };
   }
 }
 
@@ -42,9 +45,10 @@ export async function loader({ params }: LoaderFunctionArgs) {
  * via useLoaderData() if we want to pre-populate in the future.
  */
 export default function Resource() {
-  const { resource, lastApiUrl } = useLoaderData() as {
+  const { resource, lastApiUrl, currentUrl } = useLoaderData() as {
     resource: GeoDocumentDetails | null;
     lastApiUrl?: string;
+    currentUrl?: string;
   };
   const { setLastApiUrl } = useApi();
 
@@ -54,5 +58,5 @@ export default function Resource() {
   }, [lastApiUrl, setLastApiUrl]);
 
   // Prefer loader data (server-side) to avoid duplicate client fetches.
-  return <ResourceView prefetchedResource={resource ?? undefined} />;
+  return <ResourceView prefetchedResource={resource ?? undefined} currentUrl={currentUrl} />;
 }

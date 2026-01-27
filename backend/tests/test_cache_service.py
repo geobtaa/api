@@ -3,7 +3,7 @@ import importlib
 import pytest
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 
 @pytest.mark.asyncio
