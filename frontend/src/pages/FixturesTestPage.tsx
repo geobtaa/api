@@ -29,8 +29,10 @@ interface Fixture {
 }
 
 type FixtureStatus = 'loading' | 'available' | 'unavailable' | 'error';
+type FixtureSet = 'geoblacklight' | 'btaa-gin';
 
-const allFixtures: Fixture[] = [
+// GeoBlacklight fixtures (original)
+const geoblacklightFixtures: Fixture[] = [
   {
     id: 'mit-001145244',
     name: 'actual-papermap1',
@@ -318,7 +320,7 @@ const allFixtures: Fixture[] = [
     category: 'Web Services',
   },
   {
-    id: 'princeton-cog-example',
+    id: 'princeton-dc7h14b252v',
     name: 'public-cog-princeton',
     description:
       'Cloud Optimized GeoTIFF (COG) raster dataset with modern web-optimized format',
@@ -330,6 +332,277 @@ const allFixtures: Fixture[] = [
     description:
       'PMTiles vector tile dataset - Louisiana voting districts from 2010 Census',
     category: 'Modern Formats',
+  },
+];
+
+// BTAA GIN fixtures - All fixtures from btaa_fixtures_list.csv
+// Helper function to extract ID from URL
+const extractIdFromUrl = (url: string): string => {
+  if (!url || !url.trim()) return '';
+  const match = url.match(/\/catalog\/([^\/]+)/);
+  if (match) return match[1];
+  // Handle non-standard URLs like geodata.wisc.edu
+  const match2 = url.match(/\/catalog\/([^\/\?]+)/);
+  if (match2) return match2[1];
+  // Handle resources URLs
+  const match3 = url.match(/\/resources\/([^\/\?]+)/);
+  if (match3) return match3[1];
+  return url;
+};
+
+const btaaGinFixtures: Fixture[] = [
+  {
+    id: '219ffed3-3e58-4fb7-ad82-4c264aae1b17',
+    name: 'Multiple data downloads',
+    description: 'V11 Parcels Brown County, WI 2025 - Download function/button with multiple file formats',
+    category: 'Downloads',
+  },
+  {
+    id: 'b1g_BtbnzIbFhMiC',
+    name: 'Polygon geometry (not rectangular)',
+    description: 'Zoning Base Districts [Philadelphia--Pennsylvania] {2025} - Geometry value is generalized outline instead of box',
+    category: 'Geometry/Spatial Search',
+  },
+  {
+    id: 'b1g_PJxxfKgpqpUT',
+    name: 'Geonames',
+    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Includes value for city GeoName URI',
+    category: 'Geometry/Spatial Search',
+  },
+  {
+    id: 'p16022coll230:2937',
+    name: 'Multiple bounding boxes',
+    description: 'The smaller islands in the British Ocean - Map has multiple insets / panels',
+    category: 'Geometry/Spatial Search',
+  },
+  {
+    id: 'p16022coll230:3666',
+    name: 'BBox crossing date line',
+    description: 'Eastern Siberia - Currently does not display correctly - the bbox polygon is backwards',
+    category: 'Geometry/Spatial Search',
+  },
+  {
+    id: '502D1D34-FDB0-456E-BD4A-73299B9C2E5F',
+    name: 'Point for BBox',
+    description: 'Bike Elevator City of Madison, WI 2018 - We should be able to handle points in the bbox field',
+    category: 'Geometry/Spatial Search',
+  },
+  {
+    id: '999-0011-california',
+    name: 'With dozens/scores of place names in Spatial Coverage',
+    description: 'Digital Sanborn Maps (Black & White) [California] {1867-1970} - hundreds of place names',
+    category: 'Metadata Block',
+  },
+  {
+    id: '0b75937e-2f44-4e49-bd1e-3e3adbed6f84',
+    name: 'Arabic script',
+    description: 'Damage assessment in Jandairis, Afrin district, Aleppo governorate on February 11 - Non-Latin script in Description',
+    category: 'Metadata Block',
+  },
+  {
+    id: 'b1g_PJxxfKgpqpUT',
+    name: 'Display Note field',
+    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Highlighted display box',
+    category: 'Metadata Block',
+  },
+  {
+    id: 'pstems_0052767067_brownsville_08_pitt',
+    name: 'Very long description fields',
+    description: 'Brownsville-08-Pitt; Brownsville- 8; Pittsburgh - Need to hide some of field under expand more feature',
+    category: 'Metadata Block',
+  },
+  {
+    id: 'rutgers-lib:35507',
+    name: 'Chinese/Han script',
+    description: 'Map showing paths for mails and telegrams to and from Puchi (Puqi) Hsien (Xian) [China] - Non-Latin script in Title',
+    category: 'Metadata Block',
+  },
+  {
+    id: 'VAC9619-000022',
+    name: 'Cyrillic script',
+    description: 'О-35-33-Г Савиновщина (Savinovshchina, Russia) - Non-Latin script in Title',
+    category: 'Metadata Block',
+  },
+  {
+    id: '14E37141-2059-462E-ABCA-9628E3BFB636',
+    name: 'external link in Description field',
+    description: 'Aging and Disability Resource Center Regions, Wisconsin 2020',
+    category: 'Metadata Block',
+  },
+  {
+    id: '88be737b-4fea-4f23-9433-a008ed6b18b5',
+    name: 'HTML metadata',
+    description: '10-year Stand Exam List MNDNR [Minnesota] - Render as is',
+    category: 'Modal Window',
+  },
+  {
+    id: '219ffed3-3e58-4fb7-ad82-4c264aae1b17',
+    name: 'ISO metadata',
+    description: 'V11 Parcels Brown County, WI 2025 - Render as HTML',
+    category: 'Modal Window',
+  },
+  {
+    id: 'cugir-007739',
+    name: 'FGDC metadata',
+    description: 'Adirondack Park Boundary, 1993 - Render as HTML',
+    category: 'Modal Window',
+  },
+  {
+    id: 'b1g_Jeks5eSaDHp5',
+    name: 'Data Dictionary',
+    description: 'Street Centerlines [Philadelphia--Pennsylvania] {2025} - Could have nested values',
+    category: 'Modal Window',
+  },
+  {
+    id: '09a-04',
+    name: 'Website record with children',
+    description: 'IndianaMap - Uses Is Part Of field',
+    category: 'Relationships',
+  },
+  {
+    id: '16465B6B-742A-4335-BBF5-C4F7EC1BA9D4',
+    name: 'Part of multiple local collections',
+    description: 'High Quality Streams, Wisconsin 2023 - Item belongs to more than one locally described collection',
+    category: 'Relationships',
+  },
+  {
+    id: '4979dd07507f4155bb92689860dd5089',
+    name: 'Standalone website record (no children)',
+    description: 'Morrill Reckoning',
+    category: 'Resource Class',
+  },
+  {
+    id: '2787a9e8-0bef-452e-9e5f-e83042c193b4',
+    name: 'Collection record',
+    description: 'Important Farmlands - Uses Member Of field',
+    category: 'Resource Class',
+  },
+  {
+    id: '8888-002',
+    name: '"Other"',
+    description: 'Research Guide to Fire Insurance Maps - Used for tabular data and some text documents; no bbox or geometry',
+    category: 'Resource Class',
+  },
+  {
+    id: '999-0003-007',
+    name: 'Licensed data',
+    description: 'Education (PolicyMap) - Shows as restricted with multiple access links',
+    category: 'Restricted/Public',
+  },
+  {
+    id: '4B758FE6-D2B5-463D-8E25-502CB4D90376',
+    name: 'Esri FeatureServer',
+    description: 'Parcels Wisconsin (Statewide), 2024 - Very large feature layer - 3.5m polygons',
+    category: 'Viewer',
+  },
+  {
+    id: 'b1e04fea-8a02-426d-94c1-0897707fa563',
+    name: 'Geojson index map',
+    description: 'LiDAR-Derived Classified LAS for Door County, WI 2018 - Geojson index map that renders tiles for downloading',
+    category: 'Viewer',
+  },
+  {
+    id: '4cd9f01beba64dce9e8502a7924d0deb_0',
+    name: 'Esri MapServer service',
+    description: 'Tax Parcels [Wisconsin--Sauk County]',
+    category: 'Viewer',
+  },
+  {
+    id: 'd128aa1618744699be00be0e494d01de_0',
+    name: 'Esri service with lots of points',
+    description: 'Address Points [Ohio--Columbus] - would need clustering',
+    category: 'Viewer',
+  },
+  {
+    id: 'CityOfWaukesha-3eea70a5e4af40a1a558a43705ff8596',
+    name: 'Esri ImageServer',
+    description: '2024 Aerial, City of Waukesha - To preview imageserver service in viewer',
+    category: 'Viewer',
+  },
+  {
+    id: 'b1g_PJxxfKgpqpUT',
+    name: 'PM Tile',
+    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Part of new Geodata Collection',
+    category: 'Viewer',
+  },
+  {
+    id: 'cugir-007739',
+    name: 'OGC web service',
+    description: 'Adirondack Park Boundary, 1993',
+    category: 'Viewer',
+  },
+  {
+    id: 'utaustin_121171',
+    name: 'COG',
+    description: 'Sanborn Fire Insurance Maps [Austin, Texas, 1921; Sheet 69] - from UT Austin',
+    category: 'Viewer',
+  },
+  {
+    id: '9eccb622-8fe3-4f94-9a5c-e166585eb597',
+    name: 'AllMaps',
+    description: 'A correct map of the Pacific Northwest showing rail & steamer lines of the O. R. & N. Co.',
+    category: 'Viewer',
+  },
+  {
+    id: '018b1db0-726a-4727-af0a-5c7e18783ace',
+    name: 'Map no IIIF but with static image',
+    description: 'The Gulf of Nicoya - Luna viewer, not embeddable',
+    category: 'Viewer',
+  },
+  {
+    id: 'p16022coll230:3666',
+    name: 'map with IIIF Manifest single page',
+    description: 'Eastern Siberia',
+    category: 'Viewer',
+  },
+  {
+    id: 'p16022coll231:2412',
+    name: 'map with IIIF Manifest multiple pages',
+    description: 'Atlas and Farm Directory with Complete Survey in Township Plats, Lincoln County, Minnesota',
+    category: 'Viewer',
+  },
+  {
+    id: 'stanford-bs024ty5255',
+    name: 'oemBed',
+    description: 'Bahamas National Hazard Analysis, 2019: InVEST Coastal Vulnerability Model Outputs - These are only from Stanford and generate a different kind of viewer',
+    category: 'Viewer',
+  },
+  // Additional entries with same IDs but different features
+  {
+    id: 'b1g_PJxxfKgpqpUT',
+    name: 'Display Note field',
+    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Highlighted display box',
+    category: 'Metadata Block',
+  },
+  {
+    id: '219ffed3-3e58-4fb7-ad82-4c264aae1b17',
+    name: 'ISO metadata',
+    description: 'V11 Parcels Brown County, WI 2025 - Render as HTML',
+    category: 'Modal Window',
+  },
+  {
+    id: 'b1g_PJxxfKgpqpUT',
+    name: 'PM Tile',
+    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Part of new Geodata Collection',
+    category: 'Viewer',
+  },
+  {
+    id: 'cugir-007739',
+    name: 'OGC web service',
+    description: 'Adirondack Park Boundary, 1993',
+    category: 'Viewer',
+  },
+  {
+    id: 'utaustin_121171',
+    name: 'COG',
+    description: 'Sanborn Fire Insurance Maps [Austin, Texas, 1921; Sheet 69] - from UT Austin - could replace with local one eventually',
+    category: 'Viewer',
+  },
+  {
+    id: 'p16022coll230:3666',
+    name: 'map with IIIF Manifest single page',
+    description: 'Eastern Siberia',
+    category: 'Viewer',
   },
 ];
 
@@ -366,6 +639,21 @@ const getCategoryIcon = (category: string) => {
       return <Cpu className="w-4 h-4 text-gray-500" />;
     case 'Modern Formats':
       return <Layers className="w-4 h-4 text-violet-500" />;
+    // BTAA GIN categories
+    case 'Geometry/Spatial Search':
+      return <MapPin className="w-4 h-4 text-blue-500" />;
+    case 'Metadata Block':
+      return <FileText className="w-4 h-4 text-green-500" />;
+    case 'Modal Window':
+      return <Database className="w-4 h-4 text-purple-500" />;
+    case 'Relationships':
+      return <BookOpen className="w-4 h-4 text-slate-500" />;
+    case 'Resource Class':
+      return <Package className="w-4 h-4 text-amber-500" />;
+    case 'Restricted/Public':
+      return <Shield className="w-4 h-4 text-red-500" />;
+    case 'Viewer':
+      return <Globe className="w-4 h-4 text-cyan-500" />;
     default:
       return <FlaskConical className="w-4 h-4 text-gray-500" />;
   }
@@ -404,12 +692,30 @@ const getCategoryColor = (category: string) => {
       return 'bg-gray-50 text-gray-700 border-gray-200';
     case 'Modern Formats':
       return 'bg-violet-50 text-violet-700 border-violet-200';
+    // BTAA GIN categories
+    case 'Geometry/Spatial Search':
+      return 'bg-blue-50 text-blue-700 border-blue-200';
+    case 'Metadata Block':
+      return 'bg-green-50 text-green-700 border-green-200';
+    case 'Modal Window':
+      return 'bg-purple-50 text-purple-700 border-purple-200';
+    case 'Relationships':
+      return 'bg-slate-50 text-slate-700 border-slate-200';
+    case 'Resource Class':
+      return 'bg-amber-50 text-amber-700 border-amber-200';
+    case 'Restricted/Public':
+      return 'bg-red-50 text-red-700 border-red-200';
+    case 'Viewer':
+      return 'bg-cyan-50 text-cyan-700 border-cyan-200';
     default:
       return 'bg-gray-50 text-gray-700 border-gray-200';
   }
 };
 
 export function FixturesTestPage() {
+  const [fixtureSet, setFixtureSet] = useState<FixtureSet>('geoblacklight');
+  const allFixtures = fixtureSet === 'geoblacklight' ? geoblacklightFixtures : btaaGinFixtures;
+  
   const categories = [...new Set(allFixtures.map((f) => f.category))].sort();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [fixtureStatuses, setFixtureStatuses] = useState<
@@ -426,30 +732,17 @@ export function FixturesTestPage() {
     fixtureId: string
   ): Promise<FixtureStatus> => {
     try {
-      // Check the actual resource page endpoint, not the API endpoint
+      // Check the API endpoint directly for more reliable detection
+      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || '/api/v1';
       const response = await fetch(
-        `${window.location.origin}/resources/${fixtureId}`
+        `${apiBaseUrl}/resources/${fixtureId}?format=json`
       );
       console.log(
         `Checking ${fixtureId}: ${response.status} ${response.statusText}`
       );
 
-      // Get the response text to check for error content
-      const responseText = await response.text();
-      console.log(
-        `Response content for ${fixtureId}: ${responseText.substring(0, 100)}...`
-      );
-
-      // Check if the response contains error content regardless of status code
-      if (
-        responseText.includes('"error":"Resource not found"') ||
-        responseText.includes('Resource not found') ||
-        responseText.includes('404') ||
-        responseText.includes('Not Found')
-      ) {
-        console.log(
-          `❌ ${fixtureId} contains error content (status: ${response.status})`
-        );
+      if (response.status === 404) {
+        console.log(`❌ ${fixtureId} not found (404)`);
         return 'unavailable';
       }
 
@@ -457,11 +750,23 @@ export function FixturesTestPage() {
         const contentType = response.headers.get('content-type');
         console.log(`Content-Type for ${fixtureId}: ${contentType}`);
 
-        // If it's HTML and returns 200/304, the page renders successfully
-        if (contentType && contentType.includes('text/html')) {
-          console.log(`✅ ${fixtureId} is available (page renders)`);
-          return 'available';
-        } else if (contentType && contentType.includes('application/json')) {
+        // Parse JSON response to check for errors
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json();
+          
+          // Check if the response contains an error
+          if (data.error) {
+            console.log(`❌ ${fixtureId} has error: ${data.error}`);
+            return 'unavailable';
+          }
+          
+          // Check if it's a valid JSON:API response with data
+          if (data.data && data.data.id) {
+            console.log(`✅ ${fixtureId} is available (JSON:API)`);
+            return 'available';
+          }
+          
+          // Fallback: if we got JSON without error, consider it available
           console.log(`✅ ${fixtureId} is available (JSON)`);
           return 'available';
         } else {
@@ -470,9 +775,6 @@ export function FixturesTestPage() {
           );
           return 'unavailable';
         }
-      } else if (response.status === 404) {
-        console.log(`❌ ${fixtureId} not found (404)`);
-        return 'unavailable';
       } else {
         console.log(
           `❌ ${fixtureId} returned ${response.status}: ${response.statusText}`
@@ -485,7 +787,7 @@ export function FixturesTestPage() {
     }
   };
 
-  // Check all fixtures on component mount
+  // Check all fixtures on component mount or when fixture set changes
   useEffect(() => {
     const checkAllFixtures = async () => {
       // Initialize all as loading
@@ -508,7 +810,7 @@ export function FixturesTestPage() {
     };
 
     checkAllFixtures();
-  }, []);
+  }, [fixtureSet]);
 
   // Calculate status counts
   const statusCounts = {
@@ -543,6 +845,32 @@ export function FixturesTestPage() {
               Geoportal Test Fixtures
             </h1>
           </div>
+          
+          {/* Fixture Set Toggle */}
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <span className={`text-sm font-medium ${fixtureSet === 'geoblacklight' ? 'text-gray-900' : 'text-gray-500'}`}>
+              GeoBlacklight
+            </span>
+            <button
+              onClick={() => {
+                setFixtureSet(fixtureSet === 'geoblacklight' ? 'btaa-gin' : 'geoblacklight');
+                setSelectedCategory(null); // Reset category filter when switching sets
+              }}
+              className="relative inline-flex h-6 w-11 items-center rounded-full bg-gray-200 transition-colors focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-offset-2"
+              role="switch"
+              aria-checked={fixtureSet === 'btaa-gin'}
+            >
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  fixtureSet === 'btaa-gin' ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
+            </button>
+            <span className={`text-sm font-medium ${fixtureSet === 'btaa-gin' ? 'text-gray-900' : 'text-gray-500'}`}>
+              BTAA GIN
+            </span>
+          </div>
+          
           <p className="text-base text-gray-600 max-w-2xl mx-auto">
             Easter egg page of test fixtures. Click any link to test if that
             resource page renders properly.

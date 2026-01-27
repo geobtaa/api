@@ -123,7 +123,7 @@ class ItemViewer:
             self._envelope_pattern = re.compile(
                 r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)"
             )
-            self._polygon_pattern = re.compile(r"POLYGON\(\(\s*([-\d.\s,]+)\s*\)\)")
+            self._polygon_pattern = re.compile(r"POLYGON\s*\(\s*\(\s*([-\d.\s,]+)\s*\)\s*\)")
 
         # Check if it's an ENVELOPE format using pre-compiled pattern
         envelope_match = self._envelope_pattern.match(geometry)

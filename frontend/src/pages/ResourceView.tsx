@@ -21,6 +21,7 @@ import { LocationMap } from '../components/resource/LocationMap';
 import { DownloadsTable } from '../components/resource/DownloadsTable';
 import { LinksTable } from '../components/resource/LinksTable';
 import { SimilarItemsCarousel } from '../components/resource/SimilarItemsCarousel';
+import { EnvironmentNavButtons } from '../components/resource/EnvironmentNavButtons';
 import { formatCount } from '../utils/formatNumber';
 
 // Define types for search results
@@ -600,6 +601,9 @@ export function ResourceView({
       </main>
 
       <Footer />
+      
+      {/* Environment navigation buttons - fixed position */}
+      {id && <EnvironmentNavButtons resourceId={id} />}
     </div>
   );
 }
