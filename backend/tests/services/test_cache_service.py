@@ -485,7 +485,8 @@ class TestCachedEndpointDecorator:
 
         try:
             result = await test_json_function("test")
-            # The decorator might return a standard Response (reconstructed) but with correct content type
+            # The decorator might return a standard Response (reconstructed)
+            # but with correct content type
             assert result.status_code == 200
 
             # Check body content
