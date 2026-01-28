@@ -497,13 +497,13 @@ export async function fetchFacetValues({
   if (isBrowser) {
     // Client-side: Proxy request through React Router resource route to avoid rate limits
     // The SSR server has the privileged API key
-    const proxyUrl = new URL('/api/search/facets', window.location.origin);
+    // Note: Route is /search/facets/:facetName (not /api/v1/...) to go through SSR, not nginx proxy
+    const proxyUrl = new URL(`/search/facets/${facetName}`, window.location.origin);
 
-    proxyUrl.searchParams.set('facetName', facetName);
     proxyUrl.searchParams.set('page', Math.max(1, page).toString());
     proxyUrl.searchParams.set('per_page', Math.max(1, Math.min(100, perPage)).toString());
     if (sort) proxyUrl.searchParams.set('sort', sort);
-    if (qFacet) proxyUrl.searchParams.set('q', qFacet);
+    if (qFacet) proxyUrl.searchParams.set('q_facet', qFacet);
 
     // Forward relevant global search params
     // We only forward what's necessary to filter the facets correctly

@@ -487,6 +487,57 @@ class TestFacetEndpointSuccess:
         call_args = mock_get_facet.call_args
         assert call_args.kwargs["facet_name"] == facet_name
 
+    @patch("app.api.v1.endpoint_modules.search.get_facet_values")
+    @patch("app.api.v1.endpoint_modules.search.process_facet_response")
+    @patch("app.api.v1.endpoint_modules.search.get_search_criteria")
+    @patch("app.api.v1.endpoint_modules.search.create_pagination_links")
+    @patch("app.api.v1.endpoint_modules.search.create_jsonapi_response")
+    @patch("app.api.v1.endpoint_modules.search.sanitize_for_json")
+    async def test_facet_name_extracted_from_path_parameter(
+        self,
+        mock_sanitize,
+        mock_jsonapi,
+        mock_pagination,
+        mock_search_criteria,
+        mock_process,
+        mock_get_facet,
+        async_client: AsyncClient,
+    ):
+        """Test that facet_name is correctly extracted from URL path parameter.
+
+        This ensures the route correctly uses path-based routing
+        (/api/v1/search/facets/{facet_name}) rather than query parameter routing.
+        """
+        mock_buckets = [{"key": "Minnesota", "doc_count": 100}]
+        mock_get_facet.return_value = mock_buckets
+        mock_search_criteria.return_value = {"query": None, "filters": {}}
+        mock_process.return_value = {
+            "data": [],
+            "meta": {
+                "totalCount": 1,
+                "totalPages": 1,
+                "currentPage": 1,
+                "perPage": 10,
+                "facetName": "dct_spatial_sm",
+                "sort": "count_desc",
+            },
+        }
+        mock_pagination.return_value = {"self": "/test"}
+        mock_jsonapi.return_value = {"jsonapi": {"version": "1.1"}}
+        mock_sanitize.side_effect = lambda x: x
+
+        # Test with facet name in path (not query parameter)
+        response = await async_client.get("/api/v1/search/facets/dct_spatial_sm?page=1&per_page=10")
+
+        assert response.status_code == 200
+        # Verify the facet_name was extracted from the path, not query params
+        call_args = mock_get_facet.call_args
+        assert call_args.kwargs["facet_name"] == "dct_spatial_sm"
+
+        # Verify response includes correct facet name in meta
+        data = response.json()
+        assert data["meta"]["facetName"] == "dct_spatial_sm"
+
 
 class TestFacetEndpointErrorHandling:
     """Test error handling in facet endpoint."""

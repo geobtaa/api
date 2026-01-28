@@ -5,17 +5,21 @@ import type { FacetValuesResponse } from "../../src/types/api";
 /**
  * SSR-served facet values (resource route).
  *
- * The browser requests: /api/search/facets?facetName=...&...
+ * The browser requests: /search/facets/{facetName}?...
  * The SSR server fetches from the upstream API using the server-only API key and returns JSON.
  * This ensures the client does not hit rate limits for facet interactions.
+ * 
+ * Note: Route is /search/facets/:facetName (not /api/v1/...) to ensure it goes through SSR
+ * and uses the API key, rather than being proxied directly to FastAPI by nginx.
  */
-export async function loader({ request }: LoaderFunctionArgs) {
-    const url = new URL(request.url);
-    const facetName = url.searchParams.get("facetName");
+export async function loader({ params, request }: LoaderFunctionArgs) {
+    const facetName = params.facetName;
 
     if (!facetName) {
         throw new Response("facetName is required", { status: 400 });
     }
+
+    const url = new URL(request.url);
 
     // Construct the upstream URL path
     // The upstream API expects: /search/facets/{facetName}?PARAMS
@@ -23,11 +27,9 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const upstreamPath = `/search/facets/${facetName}`;
     const upstreamUrl = new URL(upstreamPath, "http://placeholder"); // Base irrelevant for constructing search params
 
-    // Forward all search parameters except 'facetName' (which is part of the path)
+    // Forward all search parameters from the client request
     url.searchParams.forEach((value, key) => {
-        if (key !== "facetName") {
-            upstreamUrl.searchParams.append(key, value);
-        }
+        upstreamUrl.searchParams.append(key, value);
     });
 
     try {

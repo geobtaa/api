@@ -45,6 +45,10 @@ export function useFacetModal({
       // Reset when modal closes
       if (!isOpen) {
         lastParamsRef.current = '';
+        setItems([]);
+        setMeta(null);
+        setHasLoaded(false);
+        setPageState(1);
       }
       return;
     }

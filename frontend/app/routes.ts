@@ -12,6 +12,7 @@ export default [
   route("thumbnails/:image_hash", "routes/thumbnails.$image_hash.ts"),
   route("iiif/manifest", "routes/iiif.manifest.ts"),
   route("suggest", "routes/suggest.ts"),
+  route("search/facets/:facetName", "routes/api.search.facets.ts"),
   route("bookmarks", "routes/bookmarks.tsx"),
   route("map", "routes/map.tsx"),
   route("test", "routes/test.tsx"),
