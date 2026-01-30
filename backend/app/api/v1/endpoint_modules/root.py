@@ -47,6 +47,7 @@ async def api_root(request: Request = None):
                 "/resources/{id}/viewer",
                 "/thumbnails/placeholder",
                 "/thumbnails/{image_hash}",
+                "/map/h3",
                 "/mcp",
             ],
         },

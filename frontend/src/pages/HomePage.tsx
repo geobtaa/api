@@ -1,9 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense, lazy } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { SearchField } from '../components/SearchField';
-import { ResourceClassFilterTabs } from '../components/search/ResourceClassFilterTabs';
+
+const HomePageHexMapBackground = lazy(() =>
+  import('../components/home/HomePageHexMapBackground.client').then((m) => ({
+    default: m.HomePageHexMapBackground,
+  }))
+);
 import { useTheme } from '../hooks/useTheme';
 import {
   Database,
@@ -26,6 +31,8 @@ export function HomePage() {
     {}
   );
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     const fetchCounts = async () => {
@@ -202,10 +209,16 @@ export function HomePage() {
     <div className="min-h-screen flex flex-col">
       <Header />
 
-      <main className="flex-1 bg-gray-50">
-        <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)]">
-          <div className="col-span-1 lg:col-span-8 px-4 md:px-8 lg:px-12 py-4 lg:py-4 flex flex-col">
-            <div className="space-y-6 lg:space-y-8 max-w-3xl">
+      <main className="flex-1 bg-gray-50 relative min-h-[calc(100vh-4rem)] overflow-hidden">
+        {mounted && (
+          <Suspense fallback={null}>
+            <HomePageHexMapBackground />
+          </Suspense>
+        )}
+        <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[calc(100vh-4rem)] relative z-10">
+          <div className="col-span-1 lg:col-span-8 flex flex-col">
+            <div className="flex flex-col flex-1 px-4 md:px-8 lg:px-12 py-4 lg:py-4">
+              <div className="space-y-6 lg:space-y-2 max-w-3xl bg-white/60 backdrop-blur-sm rounded-lg p-6 lg:p-8 shadow-sm">
               <h1 className="sr-only">
                 {theme.institution.name}
               </h1>
@@ -223,9 +236,6 @@ export function HomePage() {
                   showAdvancedButton={true}
                   onAdvancedSearchClick={handleAdvancedSearchClick}
                 />
-                <div className="mt-1">
-                  <ResourceClassFilterTabs variant="content" />
-                </div>
               </div>
 
               <div className="text-sm text-gray-500">
@@ -234,10 +244,11 @@ export function HomePage() {
                     'Browse and download GIS data, maps, and other geospatial resources.'}
                 </p>
               </div>
+              </div>
             </div>
           </div>
 
-          <div className="col-span-1 lg:col-span-4 bg-gray-100 px-4 md:px-8 lg:px-12 py-8 lg:py-12 border-t lg:border-l lg:border-t-0 border-gray-200">
+          <div className="col-span-1 lg:col-span-4 bg-white/60 backdrop-blur-sm px-4 md:px-8 lg:px-12 py-8 lg:py-12 border-t lg:border-l lg:border-t-0 border-gray-200/50">
             <div className="space-y-4">
               <h2 className="text-lg font-semibold text-gray-900">
                 Browse by Resource Class

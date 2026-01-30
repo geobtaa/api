@@ -51,7 +51,7 @@ export default defineConfig({
       "geoblacklight/controllers/downloads_controller",
       "geoblacklight/controllers/clipboard_controller",
     ],
-    include: ["react-helmet-async"],
+    include: ["react-helmet-async", "h3-js"],
   },
   ssr: {
     noExternal: ["react-helmet-async"],

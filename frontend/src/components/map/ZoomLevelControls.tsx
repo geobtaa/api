@@ -15,7 +15,7 @@ export function ZoomLevelControls({ zoomLevel, onChange }: Props) {
             Geographic Level
           </h3>
           <div className="flex space-x-2">
-            {(['country', 'region', 'county'] as ZoomLevel[]).map((level) => (
+            {(['country', 'region', 'county', 'hex'] as ZoomLevel[]).map((level) => (
               <button
                 key={level}
                 onClick={() => onChange(level)}
@@ -28,6 +28,7 @@ export function ZoomLevelControls({ zoomLevel, onChange }: Props) {
                 {level === 'country' && 'Country'}
                 {level === 'region' && 'Region (State)'}
                 {level === 'county' && 'County'}
+                {level === 'hex' && 'Hex'}
               </button>
             ))}
           </div>

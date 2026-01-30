@@ -773,7 +773,46 @@ export async function fetchGazetteerSearch(
   }
 }
 
-// Rate limiting for Nominatim (1 request per second as per usage policy)
+export interface MapH3Response {
+  resolution: number;
+  hexes: Array<{ h3: string; count: number }>;
+  globalCount: number;
+}
+
+export async function fetchMapH3(
+  query: string,
+  bbox: string | undefined,
+  resolution: number,
+  queryString?: string
+): Promise<MapH3Response> {
+  const base = getApiBasePath().replace(/\/$/, '');
+  const href = base.startsWith('http')
+    ? `${base}/map/h3`
+    : `${window.location.origin}${base}/map/h3`;
+  const url = new URL(href);
+  url.searchParams.set('q', query);
+  if (bbox != null && bbox !== '') {
+    url.searchParams.set('bbox', bbox);
+  }
+  url.searchParams.set('resolution', String(resolution));
+  if (queryString) {
+    const params = new URLSearchParams(queryString);
+    for (const [k, v] of params) {
+      if (k !== 'q' && k !== 'bbox' && k !== 'resolution')
+        url.searchParams.append(k, v);
+    }
+  }
+  const res = await fetch(url.toString(), {
+    headers: { Accept: 'application/json' },
+    mode: 'cors',
+    credentials: 'omit',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(`Map H3 request failed: ${text}`, res.status);
+  }
+  return res.json();
+}
 let lastNominatimRequest = 0;
 const NOMINATIM_RATE_LIMIT_MS = 1000;
 

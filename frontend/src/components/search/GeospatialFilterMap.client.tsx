@@ -3,6 +3,72 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useSearchParams } from "react-router";
 import { Search } from "lucide-react";
+import { cellToBoundary } from "h3-js";
+import { fetchMapH3 } from "../../services/api";
+import { formatCount } from "../../utils/formatNumber";
+
+function zoomToResolution(zoom: number): number {
+  if (zoom <= 3) return 2;
+  if (zoom <= 4) return 3;
+  if (zoom <= 6) return 4;
+  if (zoom <= 8) return 5;
+  if (zoom <= 10) return 6;
+  if (zoom <= 12) return 7;
+  return 8;
+}
+
+function clampBbox(
+  west: number,
+  south: number,
+  east: number,
+  north: number
+): string {
+  const clampLon = (x: number) => Math.max(-180, Math.min(180, x));
+  const clampLat = (x: number) => Math.max(-90, Math.min(90, x));
+  return `${clampLon(west)},${clampLat(south)},${clampLon(east)},${clampLat(north)}`;
+}
+
+/** BTAA dark blue (highest density); blue ramp from light to dark. */
+const HEX_COLOR_HIGH = "#003C5B";
+
+function getHexColor(intensity: number): string {
+  return intensity > 0.8
+    ? HEX_COLOR_HIGH
+    : intensity > 0.6
+      ? "#1E40AF"
+      : intensity > 0.4
+        ? "#2563EB"
+        : intensity > 0.2
+          ? "#3B82F6"
+          : intensity > 0.1
+            ? "#60A5FA"
+            : intensity > 0
+              ? "#93C5FD"
+              : "#DBEAFE";
+}
+
+/** Return Leaflet LatLngBounds that encompass all given H3 cells, or null if empty. */
+function boundsOfHexes(hexIndexes: string[]): L.LatLngBounds | null {
+  if (hexIndexes.length === 0) return null;
+  let minLat = 90;
+  let maxLat = -90;
+  let minLng = 180;
+  let maxLng = -180;
+  for (const h3 of hexIndexes) {
+    const vs = cellToBoundary(h3);
+    for (const [lat, lng] of vs) {
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+    }
+  }
+  if (minLat > maxLat || minLng > maxLng) return null;
+  return L.latLngBounds(
+    [minLat, minLng],
+    [maxLat, maxLng],
+  );
+}
 
 interface BBox {
   topLeft: { lat: number; lon: number };
@@ -18,6 +84,7 @@ export function GeospatialFilterMap() {
   const bboxRectangleRef = useRef<L.Rectangle | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
+  const hexLayerRef = useRef<L.GeoJSON | null>(null);
 
   // Parse bbox from URL params
   const getBBoxFromParams = useCallback((): BBox | null => {
@@ -260,6 +327,121 @@ export function GeospatialFilterMap() {
       observer.disconnect();
     };
   }, []);
+
+  // H3 hex layer: fetch hexes for current view and add GeoJSON layer; fit to hex cluster when search changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    let cancelled = false;
+    const query = searchParams.get("q") ?? "";
+
+    const updateHexLayer = async (shouldFitToHexes: boolean) => {
+      const bounds = map.getBounds();
+      const zoom = map.getZoom();
+      const bbox = clampBbox(
+        bounds.getWest(),
+        bounds.getSouth(),
+        bounds.getEast(),
+        bounds.getNorth(),
+      );
+      const resolution = zoomToResolution(zoom);
+      const queryString =
+        typeof window !== "undefined" ? window.location.search.slice(1) : "";
+
+      try {
+        const res = await fetchMapH3(
+          query,
+          bbox,
+          resolution,
+          queryString ? `?${queryString}` : undefined,
+        );
+        if (cancelled) return;
+
+        if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
+          map.removeLayer(hexLayerRef.current);
+          hexLayerRef.current = null;
+        }
+        if (!res.hexes.length) return;
+
+        const maxCount = Math.max(...res.hexes.map((h) => h.count), 1);
+        const features = res.hexes.map((h) => {
+          const vs = cellToBoundary(h.h3);
+          const ring = vs.map(
+            ([lat, lng]: [number, number]) => [lng, lat] as [number, number],
+          );
+          ring.push(ring[0]);
+          return {
+            type: "Feature" as const,
+            properties: { h3: h.h3, count: h.count },
+            geometry: {
+              type: "Polygon" as const,
+              coordinates: [ring],
+            },
+          };
+        });
+        const fc = { type: "FeatureCollection" as const, features };
+
+        const layer = L.geoJSON(fc, {
+          style: (feature) => {
+            const c =
+              (feature?.properties as { count?: number })?.count ?? 0;
+            const intensity = c / maxCount;
+            return {
+              fillColor: getHexColor(intensity),
+              weight: 1,
+              opacity: 1,
+              color: "white",
+              fillOpacity: 0.7,
+            };
+          },
+          onEachFeature: (feature, layer) => {
+            const count =
+              (feature?.properties as { count?: number })?.count ?? 0;
+            const h3 = (feature?.properties as { h3?: string })?.h3 ?? "";
+            const res = zoomToResolution(map.getZoom());
+            const params = new URLSearchParams();
+            if (query) params.set("q", query);
+            params.set(`include_filters[h3_res${res}][]`, h3);
+            const searchUrl = `/search?${params.toString()}`;
+            layer.bindPopup(
+              `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`,
+            );
+          },
+        });
+        layer.addTo(map);
+        hexLayerRef.current = layer;
+
+        if (shouldFitToHexes && res.hexes.length > 0) {
+          const hexBounds = boundsOfHexes(res.hexes.map((h) => h.h3));
+          if (hexBounds && hexBounds.isValid()) {
+            isUpdatingFromParamsRef.current = true;
+            map.fitBounds(hexBounds, { padding: [24, 24], maxZoom: 14 });
+            setTimeout(() => {
+              isUpdatingFromParamsRef.current = false;
+            }, 600);
+          }
+        }
+      } catch {
+        // ignore fetch errors
+      }
+    };
+
+    updateHexLayer(true);
+    const onMoveOrZoom = () => updateHexLayer(false);
+    map.on("moveend", onMoveOrZoom);
+    map.on("zoomend", onMoveOrZoom);
+
+    return () => {
+      cancelled = true;
+      map.off("moveend", onMoveOrZoom);
+      map.off("zoomend", onMoveOrZoom);
+      if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
+        map.removeLayer(hexLayerRef.current);
+        hexLayerRef.current = null;
+      }
+    };
+  }, [searchParams]);
 
   const handleSearchHere = () => {
     if (!mapRef.current) return;

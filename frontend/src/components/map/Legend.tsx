@@ -1,18 +1,20 @@
-// Legend component visualizes the color scale used for resource density
+// Legend component visualizes the color scale used for resource density (blue ramp, BTAA dark blue = high)
+const HEX_COLOR_HIGH = '#003C5B';
+
 function getColor(intensity: number): string {
   return intensity > 0.8
-    ? '#800026'
+    ? HEX_COLOR_HIGH
     : intensity > 0.6
-      ? '#BD0026'
+      ? '#1E40AF'
       : intensity > 0.4
-        ? '#E31A1C'
+        ? '#2563EB'
         : intensity > 0.2
-          ? '#FC4E2A'
+          ? '#3B82F6'
           : intensity > 0.1
-            ? '#FD8D3C'
+            ? '#60A5FA'
             : intensity > 0
-              ? '#FEB24C'
-              : '#FED976';
+              ? '#93C5FD'
+              : '#DBEAFE';
 }
 
 export function Legend() {

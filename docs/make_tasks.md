@@ -26,7 +26,12 @@ Overrides:
 ## Data + ops
 
 - `make reindex`: reindex resources into Elasticsearch (same logic as hitting `/api/v1/admin/reindex`)
+- `make verify-h3-index`: query Elasticsearch to verify H3 pyramid fields (`h3_res2`–`h3_res8`, `geo_or_near_global`) are present (run after reindex)
 - `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
+
+## Frontend (Docker)
+
+- `make frontend-reset`: clear Vite cache in `frontend-dev` and restart the dev server. Use after changing `optimizeDeps` or when seeing "Failed to fetch dynamically imported module" or 504 "Outdated Optimize Dep". **After running it, do a hard refresh** (Ctrl+Shift+R or Cmd+Shift+R) or open the app in an incognito window—otherwise the browser may keep requesting old chunk URLs and still get 504s.
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`
 - `make db-import`: import dump to remote via Kamal (destructive)
 - `make db-sync`: `db-export` + `db-import`

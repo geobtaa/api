@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex clear_cache
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex verify-h3-index clear_cache frontend-reset
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -224,7 +224,20 @@ reindex:
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
 		cd /app/backend && python scripts/reindex_admin.py'
 
+# Verify H3 pyramid fields (h3_res2..h3_res8, geo_or_near_global) in Elasticsearch
+verify-h3-index:
+	@echo "Verifying H3 pyramid fields in Elasticsearch..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/verify_h3_index.py'
+
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
+
+# Frontend (Docker dev): clear Vite cache and restart dev server.
+# Use after changing optimizeDeps or when seeing "Failed to fetch dynamically imported module".
+frontend-reset:
+	@echo "Clearing Vite cache in frontend-dev and restarting..."
+	@docker compose exec -T frontend-dev rm -rf /app/node_modules/.vite 2>/dev/null || true
+	@docker compose restart frontend-dev
+	@echo "Frontend dev server restarted."
 
 # Cache management
 clear_cache:

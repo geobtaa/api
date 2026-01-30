@@ -178,6 +178,15 @@ INDEX_MAPPING = {
             "geo_country": {"type": "keyword"},
             "geo_region": {"type": "keyword"},
             "geo_county": {"type": "keyword"},
+            # H3 pyramid for hex map (res 2–8)
+            "h3_res2": {"type": "keyword"},
+            "h3_res3": {"type": "keyword"},
+            "h3_res4": {"type": "keyword"},
+            "h3_res5": {"type": "keyword"},
+            "h3_res6": {"type": "keyword"},
+            "h3_res7": {"type": "keyword"},
+            "h3_res8": {"type": "keyword"},
+            "geo_or_near_global": {"type": "boolean"},
             "suggest": {
                 "type": "completion",
                 "analyzer": "simple",
