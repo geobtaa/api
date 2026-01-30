@@ -1081,8 +1081,10 @@ CENTROID_MAX_DIAGONAL_KM = 500
 def _compute_h3_cells(processed_dict):
     """Compute H3 cell indexes at resolutions 2–8 for hex map aggregation.
 
-    Skip H3 if: h3 not installed; geo_global; bbox_diagonal_km missing or > NEAR_GLOBAL_DIAGONAL_KM;
-    bbox_diagonal_km > CENTROID_MAX_DIAGONAL_KM; or dcat_centroid missing.
+    Assign H3 from centroid for all non-global, non–near-global resources.
+    Skip H3 if: h3 not installed; geo_global; bbox_diagonal_km > NEAR_GLOBAL_DIAGONAL_KM;
+    or dcat_centroid missing/invalid. When bbox_diagonal_km is missing (no dcat_bbox),
+    still assign H3 from centroid if not geo_global.
     Sets geo_or_near_global for Global bucket filtering.
     """
     if h3 is None:
@@ -1102,7 +1104,7 @@ def _compute_h3_cells(processed_dict):
 
     if geo_global:
         return
-    if diag is None or diag > NEAR_GLOBAL_DIAGONAL_KM or diag > CENTROID_MAX_DIAGONAL_KM:
+    if diag is not None and diag > NEAR_GLOBAL_DIAGONAL_KM:
         return
     if not centroid or not isinstance(centroid, (list, tuple)) or len(centroid) < 2:
         return

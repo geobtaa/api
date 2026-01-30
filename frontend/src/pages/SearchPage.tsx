@@ -479,7 +479,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
             <div className="lg:col-span-3">
               <div className="space-y-4">
                 {/* Filter Heading - Aligned with Results Header (mb-6) */}
-                <div className="hidden lg:block mb-6">
+                <div className="hidden lg:block">
                   <h2 className="text-lg font-semibold text-gray-900">
                     Filter Results
                   </h2>

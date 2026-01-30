@@ -35,7 +35,8 @@ class TestComputeH3Cells:
         for r in H3_PYRAMID_RESOLUTIONS:
             assert f"h3_res{r}" not in d
 
-    def test_large_diagonal_over_500_skips_h3(self):
+    def test_large_diagonal_over_500_sets_h3_when_under_near_global(self):
+        """Diagonal > 500 km but < 15_000 km gets H3 from centroid (no 500 km cap)."""
         d = {
             "geo_global": False,
             "bbox_diagonal_km": CENTROID_MAX_DIAGONAL_KM + 100,
@@ -44,7 +45,8 @@ class TestComputeH3Cells:
         _compute_h3_cells(d)
         assert d["geo_or_near_global"] is False
         for r in H3_PYRAMID_RESOLUTIONS:
-            assert f"h3_res{r}" not in d
+            assert f"h3_res{r}" in d
+            assert isinstance(d[f"h3_res{r}"], str)
 
     def test_no_centroid_skips_h3(self):
         d = {
@@ -56,7 +58,8 @@ class TestComputeH3Cells:
         for r in H3_PYRAMID_RESOLUTIONS:
             assert f"h3_res{r}" not in d
 
-    def test_no_diagonal_skips_h3(self):
+    def test_no_diagonal_centroid_only_sets_h3(self):
+        """Centroid-only (no bbox) gets H3 when not geo_global."""
         d = {
             "geo_global": False,
             "dcat_centroid": [-93.2, 44.9],
@@ -64,7 +67,8 @@ class TestComputeH3Cells:
         _compute_h3_cells(d)
         assert d["geo_or_near_global"] is False
         for r in H3_PYRAMID_RESOLUTIONS:
-            assert f"h3_res{r}" not in d
+            assert f"h3_res{r}" in d
+            assert isinstance(d[f"h3_res{r}"], str)
 
     def test_valid_centroid_small_diagonal_sets_h3_and_geo_or_near_global_false(self):
         d = {

@@ -28,23 +28,18 @@ function clampBbox(
   return `${clampLon(west)},${clampLat(south)},${clampLon(east)},${clampLat(north)}`;
 }
 
-/** BTAA dark blue (highest density); blue ramp from light to dark. */
-const HEX_COLOR_HIGH = "#003C5B";
+/** 10-step blue ramp (light to dark) for resource density. */
+const HEX_RAMP_COLORS = [
+  "#DBEAFE", "#BFDBFE", "#93C5FD", "#7AB3FD", "#60A5FA",
+  "#3B82F6", "#2563EB", "#1D4ED8", "#1E40AF", "#003C5B",
+];
+const HEX_RAMP_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 
 function getHexColor(intensity: number): string {
-  return intensity > 0.8
-    ? HEX_COLOR_HIGH
-    : intensity > 0.6
-      ? "#1E40AF"
-      : intensity > 0.4
-        ? "#2563EB"
-        : intensity > 0.2
-          ? "#3B82F6"
-          : intensity > 0.1
-            ? "#60A5FA"
-            : intensity > 0
-              ? "#93C5FD"
-              : "#DBEAFE";
+  for (let i = 0; i < HEX_RAMP_THRESHOLDS.length; i++) {
+    if (intensity <= HEX_RAMP_THRESHOLDS[i]) return HEX_RAMP_COLORS[i];
+  }
+  return HEX_RAMP_COLORS[HEX_RAMP_COLORS.length - 1];
 }
 
 /** Return Leaflet LatLngBounds that encompass all given H3 cells, or null if empty. */
@@ -400,9 +395,13 @@ export function GeospatialFilterMap() {
               (feature?.properties as { count?: number })?.count ?? 0;
             const h3 = (feature?.properties as { h3?: string })?.h3 ?? "";
             const res = zoomToResolution(map.getZoom());
-            const params = new URLSearchParams();
-            if (query) params.set("q", query);
+            // Preserve current search params and add/update only the H3 filter
+            const params = new URLSearchParams(searchParams.toString());
+            Array.from(params.keys())
+              .filter((key) => key.startsWith("include_filters[h3_res"))
+              .forEach((key) => params.delete(key));
             params.set(`include_filters[h3_res${res}][]`, h3);
+            params.delete("page");
             const searchUrl = `/search?${params.toString()}`;
             layer.bindPopup(
               `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`,

@@ -72,26 +72,24 @@ Use **7 zoom levels** corresponding to H3 resolutions **2–8**:
 
 ### 3. Resources without usable geometry
 
-- **Rule:** If there is no **`dcat_bbox`** (and thus no `bbox_diagonal_km`) **and** no **`dcat_centroid`**, skip H3.
-- If there is **`dcat_centroid`** but no bbox, we can still use centroid for H3 **only if** we do **not** treat the resource as global (e.g. no `geo_global`). Otherwise skip.
+- **Rule:** If there is no **`dcat_centroid`** (or it is invalid), skip H3.
+- If there is **`dcat_centroid`** but no **`dcat_bbox`** (and thus no `bbox_diagonal_km`), we **do** assign H3 from centroid when **not** global (`geo_global === false`). Centroid-only resources get one hex per resolution at the centroid.
 
 ---
 
 ## Scale-Aware Indexing Strategy
 
-### Option A: Centroid-only (simplest)
+### Option A: Centroid for all non-global, non–near-global (current)
 
-- **Use:** `dcat_centroid` → `h3.latlng_to_cell(lat, lng, res)` for each pyramid level.
-- **Exclude:** `geo_global === true` (and optionally `bbox_diagonal_km > 15_000`).
-- **Pros:** Simple, one cell per resource per resolution, easy to aggregate.
-- **Cons:** Large areas (state, country) collapse to one hex; centroid for “large” resources can still be odd (e.g. continent-scale).
+- **Use:** `dcat_centroid` → `h3.latlng_to_cell(lat, lng, res)` for each pyramid level for every resource that is not global and not near-global.
+- **Exclude:** `geo_global === true`; or `bbox_diagonal_km > 15_000` when bbox is present.
+- **Centroid-only:** When `bbox_diagonal_km` is missing (no `dcat_bbox`), still assign H3 from centroid if `geo_global === false`.
+- **Pros:** Maximum hex coverage; country- and region-sized resources (e.g. Norway) appear on the hex map at their centroid. One cell per resource per resolution.
+- **Cons:** Large areas (country, multi-country) collapse to one hex; centroid for very large resources can be coarse but interpretable.
 
-### Option B: Centroid for “small”, skip “large” (locked)
+### Option B: Centroid for "small" only (no longer in effect)
 
-- **Small:** `bbox_diagonal_km <= 500` km (e.g. state-sized and smaller). Use **centroid** → H3 at each level. Constant: `CENTROID_MAX_DIAGONAL_KM = 500`.
-- **Large:** `bbox_diagonal_km > 500` km **and** not global. **Do not** add to H3 pyramid (or put in a separate “large-area” bucket for non-hex UI).
-- **Global / near-global:** Excluded per above.
-- **Rationale:** Centroid is meaningful for state/county/city/town. For “large” non-global resources (e.g. big country, multi-country), a single centroid-based hex is still misleading, so we avoid it.
+- Previously we used a 500 km diagonal cap (`CENTROID_MAX_DIAGONAL_KM`): only resources with `bbox_diagonal_km <= 500` km got H3. That reduced coverage (e.g. missing Norway, most countries). **We no longer apply this cap;** Option A is in effect.
 
 ### Option C: Geometry-aware (deferred; use `locn_geometry`)
 
@@ -100,7 +98,7 @@ Use **7 zoom levels** corresponding to H3 resolutions **2–8**:
 - **Exclude:** Still exclude global and near-global from H3.
 - **Pros:** Large areas spread across many hexes; no single ocean hex. **Cons:** More complex aggregation and potentially inflated counts unless weighted.
 
-**Status:** Deferred. Current implementation uses **Option B** (centroid for small, skip large). When we add Option C, we will use `locn_geometry`.
+**Status:** Deferred. Current implementation uses **Option A** (centroid for all non-global, non–near-global, including centroid-only). When we add Option C, we will use `locn_geometry`.
 
 ---
 
@@ -137,8 +135,8 @@ Use **7 zoom levels** corresponding to H3 resolutions **2–8**:
 |----------|----------------|
 | **Zoom levels** | **7 levels** (H3 res 2–8). |
 | **Exclude global** | **Yes.** `geo_global === true` → no H3 assignment. |
-| **Exclude near-global** | **Yes.** `bbox_diagonal_km > 15_000` → exclude. |
-| **Indexing strategy** | **Option B:** centroid for `bbox_diagonal_km <= 500` km; skip H3 for larger non-global (or treat separately). |
+| **Exclude near-global** | **Yes.** `bbox_diagonal_km > 15_000` → exclude (when bbox present). |
+| **Indexing strategy** | **Option A:** centroid for all non-global, non–near-global; centroid-only (no bbox) also gets H3 when not global. |
 | **Geometry-based (Option C)** | Deferred; will use **`locn_geometry`** when implemented. |
 
 ---
@@ -156,12 +154,10 @@ Use **7 zoom levels** corresponding to H3 resolutions **2–8**:
 # H3 pyramid resolutions for map zoom levels (7 levels)
 H3_PYRAMID_RESOLUTIONS = (2, 3, 4, 5, 6, 7, 8)
 
-# Exclusions
-EXCLUDE_GLOBAL_FROM_H3 = True   # geo_global === true → no H3
-NEAR_GLOBAL_DIAGONAL_KM = 15_000  # also exclude if bbox_diagonal_km > this
-
-# Scale-aware centroid use (Option B)
-CENTROID_MAX_DIAGONAL_KM = 500   # use centroid only when bbox_diagonal_km <= this
+# Exclusions: only global and near-global are excluded from H3
+NEAR_GLOBAL_DIAGONAL_KM = 15_000  # exclude if bbox_diagonal_km > this (when bbox present)
+# geo_global === true → no H3
+# When bbox_diagonal_km is missing, centroid-only resources still get H3 if not geo_global.
 ```
 
 
