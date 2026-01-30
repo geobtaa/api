@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import { cellToBoundary } from 'h3-js';
 import type { MapFeatureClickPayload } from '../../types/map';
@@ -68,10 +69,14 @@ function getColor(intensity: number): string {
   return HEX_RAMP_COLORS[HEX_RAMP_COLORS.length - 1];
 }
 
+export type HexHoverData = { h3: string; count: number; resolution: number };
+
 export function MapUpdaterHex({
   searchQuery,
   onFeatureClick,
   onHexData,
+  onHexHover,
+  hoveredHex,
   queryString,
 }: {
   searchQuery: string;
@@ -82,10 +87,14 @@ export function MapUpdaterHex({
     loading: boolean;
     error: string | null;
   }) => void;
+  onHexHover?: (data: HexHoverData | null) => void;
+  hoveredHex?: HexHoverData | null;
   queryString?: string;
 }) {
   const map = useMap();
   const [bbox, setBbox] = useState<string | null>(null);
+  const hoveredRef = useRef<{ layer: L.Path; defaultStyle: L.PathOptions } | null>(null);
+  const prevHoveredHexRef = useRef<HexHoverData | null | undefined>(undefined);
 
   const updateBbox = useCallback(() => {
     const b = map.getBounds();
@@ -125,6 +134,35 @@ export function MapUpdaterHex({
     if (onHexData)
       onHexData({ hexCount, totalInView, loading, error });
   }, [onHexData, hexCount, totalInView, loading, error]);
+
+  useEffect(() => {
+    if (!onHexHover) return;
+    const container = map.getContainer();
+    const onLeave = (e: MouseEvent) => {
+      const related = e.relatedTarget as Node | null;
+      if (related && typeof (related as Element).closest === 'function' && (related as Element).closest('[data-hex-popover]'))
+        return;
+      const current = hoveredRef.current;
+      if (current) {
+        current.layer.setStyle(current.defaultStyle);
+        onHexHover(null);
+        hoveredRef.current = null;
+      }
+    };
+    container.addEventListener('mouseleave', onLeave as EventListener);
+    return () => container.removeEventListener('mouseleave', onLeave as EventListener);
+  }, [map, onHexHover]);
+
+  useEffect(() => {
+    if (onHexHover && hoveredHex === null && prevHoveredHexRef.current != null) {
+      const current = hoveredRef.current;
+      if (current) {
+        current.layer.setStyle(current.defaultStyle);
+        hoveredRef.current = null;
+      }
+    }
+    prevHoveredHexRef.current = hoveredHex;
+  }, [onHexHover, hoveredHex]);
 
   if (error) return null;
   // Show empty layer while loading instead of hiding (so hexes appear as soon as data arrives)
@@ -168,25 +206,64 @@ export function MapUpdaterHex({
       data={fc}
       style={(feature) => {
         const c = feature?.properties?.count ?? 0;
+        const h3 = feature?.properties?.h3 ?? '';
         const intensity = c / maxCount;
-        return {
+        const base = {
           fillColor: getColor(intensity),
           weight: 1,
           opacity: 1,
           color: 'white',
           fillOpacity: 0.7,
+          className: '' as string,
         };
+        if (hoveredHex && h3 === hoveredHex.h3) {
+          return { ...base, color: '#3B82F6', weight: 3, className: 'hex-hover-glow' };
+        }
+        return base;
       }}
       onEachFeature={(feature, layer) => {
         const count = feature?.properties?.count ?? 0;
         const h3 = feature?.properties?.h3 ?? '';
-        const params = new URLSearchParams();
-        if (searchQuery) params.set('q', searchQuery);
-        params.set(`include_filters[h3_res${resolution}][]`, h3);
-        const searchUrl = `/search?${params.toString()}`;
-        layer.bindPopup(
-          `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
-        );
+        const c = feature?.properties?.count ?? 0;
+        const intensity = maxCount > 0 ? c / maxCount : 0;
+        const defaultStyle = {
+          fillColor: getColor(intensity),
+          weight: 1,
+          opacity: 1,
+          color: 'white',
+          fillOpacity: 0.7,
+          className: '',
+        };
+        const hoverStyle = {
+          ...defaultStyle,
+          color: '#3B82F6',
+          weight: 3,
+          className: 'hex-hover-glow',
+        };
+
+        if (!onHexHover) {
+          const params = new URLSearchParams();
+          if (searchQuery) params.set('q', searchQuery);
+          params.set(`include_filters[h3_res${resolution}][]`, h3);
+          const searchUrl = `/search?${params.toString()}`;
+          layer.bindPopup(
+            `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
+          );
+        }
+
+        layer.on('mouseover', () => {
+          const prev = hoveredRef.current;
+          if (prev && prev.layer !== layer) {
+            prev.layer.setStyle(prev.defaultStyle);
+          }
+          (layer as L.Path).setStyle(hoverStyle);
+          layer.bringToFront();
+          hoveredRef.current = { layer: layer as L.Path, defaultStyle };
+          onHexHover?.({ h3, count, resolution });
+        });
+        layer.on('mouseout', () => {
+          // Do not clear here; glow and popover stay until mouse leaves map or hovers another hex
+        });
         layer.on('click', () =>
           onFeatureClick({ properties: { name: `Hex ${h3.slice(-6)}`, hits: count } })
         );

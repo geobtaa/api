@@ -530,8 +530,10 @@ export function GeospatialFilterMap() {
 
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-gray-900">Location</h3>
+      <div className="flex items-center justify-between mb-1">
+        <h3 id="filter-location-heading" className="font-semibold text-gray-900">
+          Location
+        </h3>
         {hasBBox && (
           <button
             onClick={handleClearBBox}
@@ -542,7 +544,7 @@ export function GeospatialFilterMap() {
           </button>
         )}
       </div>
-      <div className="relative">
+      <div className="relative" aria-labelledby="filter-location-heading">
         <div
           ref={mapContainerRef}
           className="w-full rounded-lg border border-gray-200"

@@ -473,79 +473,81 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
             </div>
           )}
 
-          {/* Responsive grid layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            {/* Facets - Collapsible on mobile */}
-            <div className="lg:col-span-3">
-              <div className="space-y-4">
-                {/* Filter Heading - Aligned with Results Header (mb-6) */}
-                <div className="hidden lg:block">
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Filter Results
-                  </h2>
-                </div>
-
-                <GeospatialFilterMap />
-
-                {searchResults?.included ? (
-                  <FacetList
-                    facets={searchResults.included.filter(
-                      (item) => item.type === 'facet' || item.type === 'timeline'
-                    )}
-                  />
-                ) : (
-                  <div className="text-gray-500">Loading facets...</div>
-                )}
-              </div>
+          {/* Responsive grid layout: row 1 = headers, row 2 = Location map + facets | results (map and first thumbnail aligned via spacer) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-2">
+            {/* Row 1 left: Filter Results heading */}
+            <div className="hidden lg:block lg:col-span-3">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Filter Results
+              </h2>
             </div>
 
-            {/* Results - Full width on mobile */}
+            {/* Row 1 right: Showing results + view/sort */}
+            <div className="lg:col-span-9 mb-2 flex justify-between items-center">
+              {error ? (
+                <h2 className="text-lg text-gray-600">Results</h2>
+              ) : isLoading || shouldShowSearchingPlaceholder ? (
+                <h2 className="text-lg text-gray-600">Searching…</h2>
+              ) : (
+                <h2 className="text-lg text-gray-600">
+                  Showing results{' '}
+                  {(() => {
+                    let start, end;
+                    if (currentView === 'gallery' && accumulatedResults.length > 0) {
+                      start = (accumulatedStartPage - 1) * perPage + 1;
+                      end = start + accumulatedResults.length - 1;
+                    } else {
+                      start = Math.min((page - 1) * perPage + 1, searchTotalResults);
+                      end = Math.min(page * perPage, searchTotalResults);
+                    }
+                    return `${formatCount(start)}-${formatCount(end)}`;
+                  })()} of{' '}
+                  {formatCount(searchTotalResults)}
+                </h2>
+              )}
+              {!error && (
+                <div className="flex items-center gap-4">
+                  <ViewToggle
+                    currentView={currentView}
+                    onViewChange={handleViewChange}
+                  />
+                  <SortControl
+                    options={
+                      searchResults?.included
+                        ?.filter((item) => item.type === 'sort')
+                        .map((sortOption) => ({
+                          id: sortOption.id,
+                          label: sortOption.attributes.label,
+                          url: sortOption.links?.self || '',
+                        })) || []
+                    }
+                    currentSort={sort || 'relevance'}
+                    onSortChange={handleSortChange}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Row 2 left: Location map + facets (top aligns with first result thumbnail) */}
+            <div className="lg:col-span-3 space-y-4">
+              <GeospatialFilterMap />
+              {searchResults?.included ? (
+                <FacetList
+                  facets={searchResults.included.filter(
+                    (item) => item.type === 'facet' || item.type === 'timeline'
+                  )}
+                />
+              ) : (
+                <div className="text-gray-500">Loading facets...</div>
+              )}
+            </div>
+
+            {/* Row 2 right: spacer (matches Location heading height) then results — keeps map and first thumbnail aligned */}
             <div className="lg:col-span-9">
               {error ? (
                 <ErrorMessage message={error} />
               ) : (
                 <>
-                  <div className="mb-6 flex justify-between items-center">
-                    {isLoading || shouldShowSearchingPlaceholder ? (
-                      <h2 className="text-lg text-gray-600">Searching…</h2>
-                    ) : (
-                      <h2 className="text-lg text-gray-600">
-                        Showing results{' '}
-                        {(() => {
-                          let start, end;
-                          if (currentView === 'gallery' && accumulatedResults.length > 0) {
-                            start = (accumulatedStartPage - 1) * perPage + 1;
-                            end = start + accumulatedResults.length - 1;
-                          } else {
-                            start = Math.min((page - 1) * perPage + 1, searchTotalResults);
-                            end = Math.min(page * perPage, searchTotalResults);
-                          }
-                          return `${formatCount(start)}-${formatCount(end)}`;
-                        })()} of{' '}
-                        {formatCount(searchTotalResults)}
-                      </h2>
-                    )}
-                    <div className="flex items-center gap-4">
-                      <ViewToggle
-                        currentView={currentView}
-                        onViewChange={handleViewChange}
-                      />
-                      <SortControl
-                        options={
-                          searchResults?.included
-                            ?.filter((item) => item.type === 'sort')
-                            .map((sortOption) => ({
-                              id: sortOption.id,
-                              label: sortOption.attributes.label,
-                              url: sortOption.links?.self || '',
-                            })) || []
-                        }
-                        currentSort={sort || 'relevance'}
-                        onSortChange={handleSortChange}
-                      />
-                    </div>
-                  </div>
-
                   {currentView === 'list' && (
                     <SearchResults
                       results={searchResults?.data || []}

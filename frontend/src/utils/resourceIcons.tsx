@@ -9,23 +9,29 @@ import {
   Globe2,
 } from 'lucide-react';
 
+const DEFAULT_ICON_CLASS = 'w-24 h-24 text-gray-400';
+
 export function getResourceIcon(
-  resourceClass: string | undefined
+  resourceClass: string | undefined,
+  options?: { className?: string }
 ): React.ReactNode {
+  const cn = options?.className ?? DEFAULT_ICON_CLASS;
   switch (resourceClass?.toLowerCase()) {
     case 'datasets':
-      return <Database className="w-24 h-24 text-gray-400" />;
+      return <Database className={cn} />;
     case 'maps':
-      return <Map className="w-24 h-24 text-gray-400" />;
+      return <Map className={cn} />;
     case 'web services':
-      return <Globe className="w-24 h-24 text-gray-400" />;
+      return <Globe className={cn} />;
     case 'collections':
-      return <Library className="w-24 h-24 text-gray-400" />;
+      return <Library className={cn} />;
     case 'imagery':
-      return <Image className="w-24 h-24 text-gray-400" />;
+      return <Image className={cn} />;
     case 'websites':
-      return <Globe2 className="w-24 h-24 text-gray-400" />;
+      return <Globe2 className={cn} />;
+    case 'other':
+      return <Folder className={cn} />;
     default:
-      return <Folder className="w-24 h-24 text-gray-400" />;
+      return <Folder className={cn} />;
   }
 }
