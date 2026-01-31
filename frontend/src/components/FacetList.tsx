@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronDown, MinusCircle } from 'lucide-react';
 import { FACET_LABELS, normalizeFacetId } from '../utils/facetLabels';
+import { normalizeFacetValueForUrl } from '../utils/searchParams';
 import { CONFIGURED_FACETS } from '../constants/facets';
 import { FacetMoreModal } from './search/FacetMoreModal';
 import { formatCount } from '../utils/formatNumber';
@@ -88,15 +89,17 @@ export function FacetList({ facets }: FacetListProps) {
   // Helper function to check if a facet is active
   const isFacetActive = (field: string, value: string | number) => {
     const normalized = normalizeFacetId(field);
+    const valueStr = value.toString();
     const primary = searchParams.getAll(`include_filters[${normalized}][]`);
-    if (primary.includes(value.toString())) return true;
+    if (primary.includes(valueStr)) return true;
+    // Boolean facets: URL may store "true"/"false" while API uses "1"/"0"
+    if (primary.includes(normalizeFacetValueForUrl(normalized, valueStr))) return true;
     // Also check legacy param key(s) for backward compatibility.
-    // We check both the raw field and the normalized field because either may appear in URLs.
     const legacyRaw = searchParams.getAll(`fq[${field}][]`);
-    if (legacyRaw.includes(value.toString())) return true;
+    if (legacyRaw.includes(valueStr)) return true;
     if (normalized !== field) {
       const legacyNorm = searchParams.getAll(`fq[${normalized}][]`);
-      if (legacyNorm.includes(value.toString())) return true;
+      if (legacyNorm.includes(valueStr)) return true;
     }
     return false;
   };
@@ -123,10 +126,10 @@ export function FacetList({ facets }: FacetListProps) {
       // Merge remaining values under normalized key
       [...currentValuesNew, ...currentValuesOldRaw, ...currentValuesOldNorm]
         .filter((v) => v !== value.toString())
-        .forEach((v) => newParams.append(facetKey, v));
+        .forEach((v) => newParams.append(facetKey, normalizeFacetValueForUrl(normalized, v)));
     } else {
       // Add the facet if it's not active
-      newParams.append(facetKey, value.toString());
+      newParams.append(facetKey, normalizeFacetValueForUrl(normalized, value.toString()));
     }
 
     newParams.delete('page');
@@ -150,9 +153,9 @@ export function FacetList({ facets }: FacetListProps) {
       newParams.delete(excludeKey);
       existing
         .filter((v) => v !== value.toString())
-        .forEach((v) => newParams.append(excludeKey, v));
+        .forEach((v) => newParams.append(excludeKey, normalizeFacetValueForUrl(normalized, v)));
     } else {
-      newParams.append(excludeKey, value.toString());
+      newParams.append(excludeKey, normalizeFacetValueForUrl(normalized, value.toString()));
     }
     newParams.delete('page');
     setSearchParams(newParams);

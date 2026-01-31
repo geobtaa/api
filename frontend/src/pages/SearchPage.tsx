@@ -17,7 +17,7 @@ import { GalleryView } from '../components/search/GalleryView';
 import { MapResultView } from '../components/search/MapResultView';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
 import { GeospatialFilterMap } from '../components/search/GeospatialFilterMap';
-import { parseSearchParams } from '../utils/searchParams';
+import { parseSearchParams, normalizeFacetValueForUrl } from '../utils/searchParams';
 import { formatCount } from '../utils/formatNumber';
 import type { JsonApiResponse, GeoDocument } from '../types/api';
 import { useState, useEffect, useRef } from 'react';
@@ -273,7 +273,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       Array.from(newParams.keys())
         .filter((key) => key.startsWith('include_filters[') || key.startsWith('fq['))
         .forEach((key) => newParams.delete(key));
-      facets.forEach(({ field, value }) => newParams.append(`include_filters[${field}][]`, value));
+      facets.forEach(({ field, value }) =>
+        newParams.append(`include_filters[${field}][]`, normalizeFacetValueForUrl(field, value)),
+      );
     }
 
     if (nextExcludeFacets !== undefined) {

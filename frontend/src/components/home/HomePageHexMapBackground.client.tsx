@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Search } from "lucide-react";
+import { ChevronLeft, ChevronRight, Home, Pause, Play, Search } from "lucide-react";
 import { MapContainer, Rectangle, TileLayer, useMap, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { MapUpdaterHex, type HexHoverData } from "../map/MapUpdaterHex";
-import { formatCount } from "../../utils/formatNumber";
+import { MapUpdaterHex } from "../map/MapUpdaterHex";
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from "../../config/mapView";
 import { FEATURED_RESOURCE_IDS } from "../../config/featured";
 import { fetchResourceDetails } from "../../services/api";
@@ -66,6 +65,7 @@ function MapUserEngagementTracker({
 
 const FEATURED_BOUNDS_PANE = "featuredBoundsPane";
 const FEATURED_ITEM_DURATION_MS = 10_000;
+const FEATURED_PRECAROUSEL_MS = 10_000;
 const FEATURED_PROGRESS_TICK_MS = 100;
 /** Dark Big Ten blue for progress bar (BTAA primary) */
 const DARK_BIG_TEN_BLUE = "#003C5B";
@@ -198,7 +198,7 @@ function SearchHereControl() {
  * Featured resources carousel at bottom; when an item is active, map flies to its bbox and a popup shows thumbnail and link.
  */
 export function HomePageHexMapBackground() {
-  const [hoveredHex, setHoveredHex] = useState<HexHoverData | null>(null);
+  const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
   const [featuredDetails, setFeaturedDetails] = useState<(GeoDocumentDetails | null)[]>(() =>
     FEATURED_RESOURCE_IDS.map(() => null)
@@ -214,17 +214,75 @@ export function HomePageHexMapBackground() {
   const featuredCardHoverRef = useRef(false);
   const featuredPauseStartRef = useRef(0);
   const featuredTotalPausedRef = useRef(0);
+  const [carouselPaused, setCarouselPaused] = useState(false);
+  const carouselPausedRef = useRef(false);
+  const [preCarouselProgress, setPreCarouselProgress] = useState(1);
+  const preCarouselStartRef = useRef<number | null>(null);
+  const preCarouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const hadCarouselStartedRef = useRef(false);
+
+  useEffect(() => {
+    carouselPausedRef.current = carouselPaused;
+  }, [carouselPaused]);
 
   useEffect(() => {
     if (userEngagedMap) userEngagedMapRef.current = true;
   }, [userEngagedMap]);
 
   useEffect(() => {
-    const t = setTimeout(() => {
-      if (!userEngagedMapRef.current) setFeaturedInitiated(true);
-    }, 10000);
-    return () => clearTimeout(t);
+    if (featuredInitiated) hadCarouselStartedRef.current = true;
+  }, [featuredInitiated]);
+
+  const runPreCarouselCountdown = () => {
+    preCarouselStartRef.current = Date.now();
+    preCarouselIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - (preCarouselStartRef.current ?? 0);
+      // Ignore user engagement for first 1.5s so initial map pan doesn't kill the ring
+      if (elapsed > 1500 && userEngagedMapRef.current) {
+        setPreCarouselProgress(0);
+        if (preCarouselIntervalRef.current) {
+          clearInterval(preCarouselIntervalRef.current);
+          preCarouselIntervalRef.current = null;
+        }
+        return;
+      }
+      const progress = Math.max(0, 1 - elapsed / FEATURED_PRECAROUSEL_MS);
+      setPreCarouselProgress(progress);
+      if (progress <= 0) {
+        setFeaturedInitiated(true);
+        if (preCarouselIntervalRef.current) {
+          clearInterval(preCarouselIntervalRef.current);
+          preCarouselIntervalRef.current = null;
+        }
+      }
+    }, FEATURED_PROGRESS_TICK_MS);
+  };
+
+  // Initial countdown on mount
+  useEffect(() => {
+    runPreCarouselCountdown();
+    return () => {
+      if (preCarouselIntervalRef.current) {
+        clearInterval(preCarouselIntervalRef.current);
+        preCarouselIntervalRef.current = null;
+      }
+      preCarouselStartRef.current = null;
+    };
   }, []);
+
+  // Restart countdown ring when user clicks Home (return to home state)
+  useEffect(() => {
+    if (featuredInitiated || !hadCarouselStartedRef.current) return;
+    setPreCarouselProgress(1);
+    runPreCarouselCountdown();
+    return () => {
+      if (preCarouselIntervalRef.current) {
+        clearInterval(preCarouselIntervalRef.current);
+        preCarouselIntervalRef.current = null;
+      }
+      preCarouselStartRef.current = null;
+    };
+  }, [featuredInitiated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -252,6 +310,7 @@ export function HomePageHexMapBackground() {
     setFeaturedProgress(1);
 
     const tick = () => {
+      if (carouselPausedRef.current) return;
       const now = Date.now();
       let pausedMs = featuredTotalPausedRef.current;
       if (featuredCardHoverRef.current) {
@@ -306,8 +365,12 @@ export function HomePageHexMapBackground() {
           <MapUpdaterHex
             searchQuery=""
             onFeatureClick={() => {}}
-            onHexHover={setHoveredHex}
-            hoveredHex={hoveredHex}
+            onHexHover={() => {}}
+            onFeatureDoubleClick={({ h3, resolution }) => {
+              navigate(
+                `/search?include_filters[h3_res${resolution}][]=${encodeURIComponent(h3)}`
+              );
+            }}
             queryString={typeof window !== "undefined" ? window.location.search : undefined}
           />
           <MapUserEngagementTracker
@@ -335,7 +398,7 @@ export function HomePageHexMapBackground() {
         {/* Featured resource popup overlay — bottom-right, list-view fields */}
         {featuredInitiated && activeDetail && (
           <div
-            className="absolute bottom-24 right-4 z-20 w-full max-w-xl rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute bottom-44 right-4 z-20 w-full max-w-xl rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
             data-featured-popup
             onMouseEnter={() => {
               featuredCardHoverRef.current = true;
@@ -413,7 +476,7 @@ export function HomePageHexMapBackground() {
 
         {/* Featured resources carousel at bottom of map — always visible so users can click before the 10s timer */}
         <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
+          className="absolute bottom-14 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
           data-featured-carousel
           onMouseEnter={() => {
             featuredCardHoverRef.current = true;
@@ -425,6 +488,84 @@ export function HomePageHexMapBackground() {
               Date.now() - featuredPauseStartRef.current;
           }}
         >
+          <button
+            type="button"
+            onClick={() => setFeaturedInitiated(false)}
+            className={`flex-shrink-0 w-16 h-16 rounded-lg flex items-center justify-center border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+              !featuredInitiated
+                ? "border-blue-600 ring-2 ring-blue-600/30 bg-blue-50"
+                : "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100"
+            }`}
+            aria-label="Return to home map view"
+            title="Home"
+          >
+            <Home className="w-8 h-8 text-gray-600" />
+          </button>
+          <div className="relative flex-shrink-0 w-16 h-16 flex items-center justify-center">
+            {/* Circular countdown ring behind Play; button is transparent during countdown so ring shows through */}
+            {!featuredInitiated && preCarouselProgress > 0 && (
+              <svg
+                className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none"
+                viewBox="0 0 64 64"
+                aria-hidden
+              >
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  className="text-gray-200"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke={DARK_BIG_TEN_BLUE}
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeDasharray={`${2 * Math.PI * 28 * preCarouselProgress} ${2 * Math.PI * 28}`}
+                  className="transition-[stroke-dasharray] duration-100 ease-linear"
+                />
+              </svg>
+            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (!featuredInitiated) {
+                  setFeaturedInitiated(true);
+                  setCarouselPaused(false);
+                  return;
+                }
+                setCarouselPaused((p) => !p);
+              }}
+              className={`relative z-10 w-16 h-16 rounded-lg flex items-center justify-center border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                !featuredInitiated
+                  ? preCarouselProgress > 0
+                    ? "border-transparent bg-transparent text-gray-500 hover:text-gray-600"
+                    : "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600"
+                  : carouselPaused
+                    ? "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600"
+                    : "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600"
+              }`}
+              aria-label={
+                !featuredInitiated
+                  ? "Start featured carousel"
+                  : carouselPaused
+                    ? "Play featured carousel"
+                    : "Pause featured carousel"
+              }
+              title={!featuredInitiated ? "Start" : carouselPaused ? "Play" : "Pause"}
+            >
+              {carouselPaused || !featuredInitiated ? (
+                <Play className="w-8 h-8" />
+              ) : (
+                <Pause className="w-8 h-8" />
+              )}
+            </button>
+          </div>
           {FEATURED_RESOURCE_IDS.map((id, index) => {
             const detail = featuredDetails[index];
             const isActive = index === activeIndex;
@@ -464,28 +605,43 @@ export function HomePageHexMapBackground() {
               </button>
             );
           })}
-        </div>
-
-        {hoveredHex && (
-          <div
-            data-hex-popover
-            className="fixed bottom-4 left-4 z-10 max-w-xs rounded-lg bg-white/95 backdrop-blur-sm p-4 shadow-lg border border-gray-200"
-            onMouseLeave={() => setHoveredHex(null)}
-          >
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">
-              H3 {hoveredHex.h3}
-            </h3>
-            <p className="text-sm text-gray-600 mb-3">
-              <strong>Resources:</strong> {formatCount(hoveredHex.count)}
-            </p>
-            <Link
-              to={`/search?include_filters[h3_res${hoveredHex.resolution}][]=${encodeURIComponent(hoveredHex.h3)}`}
-              className="text-sm text-blue-600 hover:underline"
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveIndex(
+                  (prev) =>
+                    (prev - 1 + FEATURED_RESOURCE_IDS.length) %
+                    FEATURED_RESOURCE_IDS.length
+                );
+                featuredStartTimeRef.current = Date.now();
+                featuredTotalPausedRef.current = 0;
+                setFeaturedProgress(1);
+                setFeaturedInitiated(true);
+              }}
+              className="flex-shrink-0 w-16 h-16 rounded-lg flex items-center justify-center border-2 border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              aria-label="Previous featured item"
             >
-              Search this hex
-            </Link>
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveIndex(
+                  (prev) => (prev + 1) % FEATURED_RESOURCE_IDS.length
+                );
+                featuredStartTimeRef.current = Date.now();
+                featuredTotalPausedRef.current = 0;
+                setFeaturedProgress(1);
+                setFeaturedInitiated(true);
+              }}
+              className="flex-shrink-0 w-16 h-16 rounded-lg flex items-center justify-center border-2 border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1"
+              aria-label="Next featured item"
+            >
+              <ChevronRight className="w-8 h-8" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

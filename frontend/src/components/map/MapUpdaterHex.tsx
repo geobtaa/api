@@ -76,6 +76,7 @@ export function MapUpdaterHex({
   onFeatureClick,
   onHexData,
   onHexHover,
+  onFeatureDoubleClick,
   hoveredHex,
   queryString,
 }: {
@@ -88,6 +89,7 @@ export function MapUpdaterHex({
     error: string | null;
   }) => void;
   onHexHover?: (data: HexHoverData | null) => void;
+  onFeatureDoubleClick?: (data: HexHoverData) => void;
   hoveredHex?: HexHoverData | null;
   queryString?: string;
 }) {
@@ -267,6 +269,9 @@ export function MapUpdaterHex({
         layer.on('click', () =>
           onFeatureClick({ properties: { name: `Hex ${h3.slice(-6)}`, hits: count } })
         );
+        layer.on('dblclick', () => {
+          onFeatureDoubleClick?.({ h3, count, resolution });
+        });
       }}
     />
   );

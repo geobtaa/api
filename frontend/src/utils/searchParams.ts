@@ -1,5 +1,16 @@
 import { AdvancedClause, SearchParams } from '../types/search';
 
+/** Boolean facet fields must send "true"/"false" to the API, not "1"/"0". */
+const BOOLEAN_FACET_FIELDS = ['gbl_georeferenced_b'];
+
+/** Normalize facet value for URL/API (e.g. gbl_georeferenced_b: "1" -> "true", "0" -> "false"). */
+export function normalizeFacetValueForUrl(field: string, value: string): string {
+  if (!BOOLEAN_FACET_FIELDS.includes(field)) return value;
+  if (value === '1' || value === 'true') return 'true';
+  if (value === '0' || value === 'false') return 'false';
+  return value;
+}
+
 function parseAdvancedClauses(rawValue: string | null): AdvancedClause[] {
   if (!rawValue) return [];
 
@@ -92,13 +103,13 @@ export function buildSearchParams(params: SearchParams): URLSearchParams {
 
   // Add facet parameters using include_filters[] format for new API while keeping fq for backward links
   params.facets.forEach(({ field, value }) => {
-    searchParams.append(`include_filters[${field}][]`, value);
+    searchParams.append(`include_filters[${field}][]`, normalizeFacetValueForUrl(field, value));
   });
 
   // Add exclude filters if provided
   if (params.excludeFacets) {
     params.excludeFacets.forEach(({ field, value }) => {
-      searchParams.append(`exclude_filters[${field}][]`, value);
+      searchParams.append(`exclude_filters[${field}][]`, normalizeFacetValueForUrl(field, value));
     });
   }
 

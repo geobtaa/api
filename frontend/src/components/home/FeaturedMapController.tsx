@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import type { GeoDocumentDetails } from "../../types/api";
 import { parseBboxToLeafletBounds } from "../../utils/bbox";
+import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from "../../config/mapView";
 import { hasAllmapsViewer } from "./FeaturedItemPreviewLayer";
 
 interface FeaturedMapControllerProps {
@@ -24,6 +25,26 @@ export function FeaturedMapController({
   programmaticFlyRef,
 }: FeaturedMapControllerProps) {
   const map = useMap();
+  const wasInitiatedRef = useRef(false);
+
+  // When user clicks HOME (featuredInitiated becomes false), fly back to default map view
+  useEffect(() => {
+    if (featuredInitiated) {
+      wasInitiatedRef.current = true;
+      return;
+    }
+    if (!wasInitiatedRef.current) return;
+    programmaticFlyRef.current = true;
+    map.flyTo(L.latLng(HOME_PAGE_MAP_CENTER[0], HOME_PAGE_MAP_CENTER[1]), DEFAULT_US_ZOOM, {
+      duration: 0.6,
+    });
+    const onMoveEnd = () => {
+      programmaticFlyRef.current = false;
+      map.off("moveend", onMoveEnd);
+    };
+    map.on("moveend", onMoveEnd);
+    return () => map.off("moveend", onMoveEnd);
+  }, [map, featuredInitiated, programmaticFlyRef]);
 
   useEffect(() => {
     if (!featuredInitiated) return;
@@ -40,8 +61,8 @@ export function FeaturedMapController({
     // Allmaps georeferenced maps: zoom tighter so georeferencing work is visible
     const isAllmaps = hasAllmapsViewer(detail);
     const flyOptions = isAllmaps
-      ? { padding: [20, 20], maxZoom: 12, duration: 0.6 }
-      : { padding: [60, 60], maxZoom: 10, duration: 0.6 };
+      ? { padding: [20, 20], maxZoom: 12, duration: 1.5 }
+      : { padding: [60, 60], maxZoom: 10, duration: 1.5 };
 
     programmaticFlyRef.current = true;
     map.flyToBounds(leafletBounds, flyOptions);

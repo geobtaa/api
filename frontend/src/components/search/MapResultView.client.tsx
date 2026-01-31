@@ -82,6 +82,8 @@ export const MapResultView: React.FC<MapResultViewProps> = ({ results, highlight
         return { resource: r, bounds };
     }).filter(f => f !== null) as { resource: GeoDocument; bounds: LatLngBoundsExpression }[], [results]);
 
+    const allBounds = useMemo(() => features.map(f => f.bounds), [features]);
+
     if (features.length === 0) {
         return (
             <div className="flex h-64 items-center justify-center text-slate-500 bg-gray-50 dark:bg-slate-900">
@@ -89,8 +91,6 @@ export const MapResultView: React.FC<MapResultViewProps> = ({ results, highlight
             </div>
         );
     }
-
-    const allBounds = useMemo(() => features.map(f => f.bounds), [features]);
 
     return (
         <div className="h-full w-full bg-slate-100 rounded-lg overflow-hidden relative z-0">
