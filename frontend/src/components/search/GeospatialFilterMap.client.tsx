@@ -381,7 +381,7 @@ export function GeospatialFilterMap() {
           style: (feature) => {
             const c =
               (feature?.properties as { count?: number })?.count ?? 0;
-            const intensity = c / maxCount;
+            const intensity = maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
             return {
               fillColor: getHexColor(intensity),
               weight: 1,

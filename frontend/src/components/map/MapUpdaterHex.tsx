@@ -207,7 +207,7 @@ export function MapUpdaterHex({
       style={(feature) => {
         const c = feature?.properties?.count ?? 0;
         const h3 = feature?.properties?.h3 ?? '';
-        const intensity = c / maxCount;
+        const intensity = maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
         const base = {
           fillColor: getColor(intensity),
           weight: 1,
@@ -225,7 +225,7 @@ export function MapUpdaterHex({
         const count = feature?.properties?.count ?? 0;
         const h3 = feature?.properties?.h3 ?? '';
         const c = feature?.properties?.count ?? 0;
-        const intensity = maxCount > 0 ? c / maxCount : 0;
+        const intensity = maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
         const defaultStyle = {
           fillColor: getColor(intensity),
           weight: 1,
