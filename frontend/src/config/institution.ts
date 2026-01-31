@@ -52,6 +52,8 @@ export interface ThemeConfig {
     };
   };
   homepage?: {
+    /** Optional resource IDs to show first in the featured carousel (e.g. ["uuid-1", "uuid-2"]). */
+    featured_resource_ids?: string[];
     featured?: Array<{
       title: string;
       field: string;

@@ -30,6 +30,9 @@ themes:
       search_path: "/search"
       default_query_params: []
     homepage:
+      # First item(s) in the featured carousel (fetched by ID); remaining slots filled from featured search.
+      featured_resource_ids:
+        - "a10a0f50-994e-0134-2096-0050569601ca-c"
       featured:
         - title: "Featured Collections"
           field: "gbl_resourceClass_sm"
