@@ -64,7 +64,7 @@ function MapUserEngagementTracker({
 }
 
 const FEATURED_BOUNDS_PANE = "featuredBoundsPane";
-const FEATURED_ITEM_DURATION_MS = 17_000;
+const FEATURED_ITEM_DURATION_MS = 10_000;
 const FEATURED_PROGRESS_TICK_MS = 100;
 /** Dark Big Ten blue for progress bar (BTAA primary) */
 const DARK_BIG_TEN_BLUE = "#003C5B";
@@ -220,7 +220,7 @@ export function HomePageHexMapBackground() {
   useEffect(() => {
     const t = setTimeout(() => {
       if (!userEngagedMapRef.current) setFeaturedInitiated(true);
-    }, 17000);
+    }, 10000);
     return () => clearTimeout(t);
   }, []);
 
@@ -327,7 +327,7 @@ export function HomePageHexMapBackground() {
         {/* Featured resource popup overlay — bottom-right, list-view fields */}
         {featuredInitiated && activeDetail && (
           <div
-            className="absolute bottom-24 right-4 z-20 w-full max-w-md rounded-lg bg-white/95 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute bottom-24 right-4 z-20 w-full max-w-xl rounded-lg bg-white/95 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
             data-featured-popup
             onMouseEnter={() => {
               featuredCardHoverRef.current = true;
