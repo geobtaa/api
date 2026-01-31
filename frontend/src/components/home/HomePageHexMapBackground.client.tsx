@@ -12,6 +12,7 @@ import type { GeoDocumentDetails } from "../../types/api";
 import { getResourceIcon } from "../../utils/resourceIcons";
 import { parseBboxToLeafletBounds } from "../../utils/bbox";
 import { FeaturedMapController } from "./FeaturedMapController";
+import { FeaturedItemPreviewLayer } from "./FeaturedItemPreviewLayer";
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 function toSsrThumbnailUrl(url: string | undefined): string {
@@ -69,14 +70,14 @@ const FEATURED_PROGRESS_TICK_MS = 100;
 /** Dark Big Ten blue for progress bar (BTAA primary) */
 const DARK_BIG_TEN_BLUE = "#003C5B";
 
-/** Ensures a high-z-index pane exists for the featured bounds rectangle so it draws above hexagons. */
+/** Ensures a pane exists for the featured bounds rectangle. Layer order: hexes (back) -> bounds -> preview (front). */
 function useFeaturedBoundsPane() {
   const map = useMap();
   useEffect(() => {
     let pane = map.getPane(FEATURED_BOUNDS_PANE);
     if (!pane) {
       pane = map.createPane(FEATURED_BOUNDS_PANE);
-      pane.style.setProperty("z-index", "4", "important"); // above overlay-pane (2) so bounds appear on top of hexes
+      pane.style.setProperty("z-index", "410", "important"); // above hexes, below featuredPreviewPane (420)
     }
   }, [map]);
 }
@@ -317,6 +318,11 @@ export function HomePageHexMapBackground() {
             featuredInitiated={featuredInitiated}
             programmaticFlyRef={programmaticFlyRef}
           />
+          <FeaturedItemPreviewLayer
+            activeIndex={activeIndex}
+            featuredDetails={featuredDetails}
+            featuredInitiated={featuredInitiated}
+          />
           <FeaturedItemBoundsLayer
             activeIndex={activeIndex}
             featuredDetails={featuredDetails}
@@ -327,7 +333,7 @@ export function HomePageHexMapBackground() {
         {/* Featured resource popup overlay — bottom-right, list-view fields */}
         {featuredInitiated && activeDetail && (
           <div
-            className="absolute bottom-24 right-4 z-20 w-full max-w-xl rounded-lg bg-white/95 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute bottom-24 right-4 z-20 w-full max-w-xl rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
             data-featured-popup
             onMouseEnter={() => {
               featuredCardHoverRef.current = true;
@@ -406,7 +412,7 @@ export function HomePageHexMapBackground() {
         {/* Featured resources carousel at bottom of map — only after 5s and no map engagement */}
         {featuredInitiated && (
         <div
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/90 backdrop-blur-sm shadow-lg border border-gray-200"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
           data-featured-carousel
         >
           {FEATURED_RESOURCE_IDS.map((id, index) => {
