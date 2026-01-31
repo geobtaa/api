@@ -180,7 +180,7 @@ export function HomePage() {
           )}
           {/* Search form overlay - pointer-events-none so map receives hover; card has pointer-events-auto. Padding matches Header/Footer grid. */}
           <div className="absolute inset-0 z-10 pointer-events-none px-4 sm:px-6 lg:px-8 py-4 lg:py-4">
-            <div className="max-w-3xl space-y-6 lg:space-y-2 bg-white/60 backdrop-blur-sm rounded-lg p-6 lg:p-4 shadow-sm pointer-events-auto">
+            <div className="max-w-3xl space-y-6 lg:space-y-2 bg-white/70 backdrop-blur-sm rounded-lg p-6 lg:p-4 shadow-sm pointer-events-auto">
               <h1 className="sr-only">
                 {theme.institution.name}
               </h1>

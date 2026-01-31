@@ -398,7 +398,7 @@ export function HomePageHexMapBackground() {
         {/* Featured resource popup overlay — bottom-right, list-view fields */}
         {featuredInitiated && activeDetail && (
           <div
-            className="absolute bottom-44 right-4 z-20 w-full max-w-xl rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
+            className="absolute bottom-44 right-4 z-20 w-full max-w-xl rounded-lg bg-white/70 backdrop-blur-sm shadow-lg border border-gray-200 overflow-hidden"
             data-featured-popup
             onMouseEnter={() => {
               featuredCardHoverRef.current = true;
@@ -410,16 +410,6 @@ export function HomePageHexMapBackground() {
                 Date.now() - featuredPauseStartRef.current;
             }}
           >
-            {/* Progress bar: time left for current item (dark Big Ten blue) */}
-            <div className="h-1 w-full bg-gray-200 rounded-t-lg overflow-hidden">
-              <div
-                className="h-full rounded-t-lg transition-[width] duration-100 ease-linear"
-                style={{
-                  width: `${featuredProgress * 100}%`,
-                  backgroundColor: DARK_BIG_TEN_BLUE,
-                }}
-              />
-            </div>
             <div className="flex">
               <div className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 rounded-l-lg overflow-hidden bg-gray-100">
                 {activeDetail.meta?.ui?.thumbnail_url ? (
@@ -470,6 +460,16 @@ export function HomePageHexMapBackground() {
                   View resource
                 </Link>
               </div>
+            </div>
+            {/* Progress bar at bottom: time left for current item, drains towards the right */}
+            <div className="h-1 w-full bg-gray-200 rounded-b-lg overflow-hidden flex justify-end">
+              <div
+                className="h-full rounded-b-lg transition-[width] duration-100 ease-linear"
+                style={{
+                  width: `${featuredProgress * 100}%`,
+                  backgroundColor: DARK_BIG_TEN_BLUE,
+                }}
+              />
             </div>
           </div>
         )}
