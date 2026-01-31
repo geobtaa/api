@@ -56,6 +56,31 @@ export function hasLeafletViewer(
   );
 }
 
+/** Resources with Allmaps georeferenced maps (IIIF with annotation in resource_allmaps). */
+export function hasAllmapsViewer(
+  detail: GeoDocumentDetails | null
+): detail is GeoDocumentDetails & {
+  meta: { ui: { allmaps: { allmaps_annotated: true; allmaps_annotation_url?: string; allmaps_manifest_uri?: string } } };
+} {
+  const allmaps = detail?.meta?.ui?.allmaps;
+  if (!detail || !allmaps || !allmaps.allmaps_annotated) return false;
+  const hasUrl =
+    !!allmaps.allmaps_annotation_url ||
+    (!!allmaps.allmaps_manifest_uri &&
+      typeof allmaps.allmaps_manifest_uri === "string");
+  return hasUrl;
+}
+
+function getAllmapsAnnotationUrl(detail: GeoDocumentDetails): string {
+  const url = detail.meta?.ui?.allmaps?.allmaps_annotation_url;
+  if (url) return url;
+  const manifestUri = detail.meta?.ui?.allmaps?.allmaps_manifest_uri;
+  if (manifestUri) {
+    return `https://annotations.allmaps.org/?url=${encodeURIComponent(manifestUri)}`;
+  }
+  return "";
+}
+
 /** Ensures a pane exists for the featured preview layer. Layer order: hexes (back) -> bounds -> preview (front). */
 function useFeaturedPreviewPane() {
   const map = useMap();
@@ -85,7 +110,10 @@ export function FeaturedItemPreviewLayer({
     if (!featuredInitiated) return;
 
     const detail = featuredDetails[activeIndex];
-    if (!hasLeafletViewer(detail)) {
+    const isAllmaps = hasAllmapsViewer(detail);
+    const isLeaflet = hasLeafletViewer(detail);
+
+    if (!isAllmaps && !isLeaflet) {
       if (layerGroupRef.current) {
         map.removeLayer(layerGroupRef.current);
         layerGroupRef.current = null;
@@ -93,6 +121,61 @@ export function FeaturedItemPreviewLayer({
       return;
     }
 
+    // Allmaps georeferenced map path
+    if (isAllmaps) {
+      const annotationUrl = getAllmapsAnnotationUrl(detail);
+      if (!annotationUrl) {
+        if (layerGroupRef.current) {
+          map.removeLayer(layerGroupRef.current);
+          layerGroupRef.current = null;
+        }
+        return;
+      }
+
+      let cancelled = false;
+      const group = layerGroup();
+      layerGroupRef.current = group;
+
+      async function addAllmapsLayer() {
+        try {
+          const { WarpedMapLayer } = await import("@allmaps/leaflet");
+          const layer = new WarpedMapLayer(annotationUrl, {
+            opacity: DEFAULT_OPACITY,
+            pane: FEATURED_PREVIEW_PANE,
+          });
+          if (cancelled) return;
+          try {
+            group.addLayer(layer);
+          } catch (addErr) {
+            if (!cancelled) console.warn("FeaturedItemPreviewLayer: failed to add Allmaps layer:", addErr);
+            return;
+          }
+          if (cancelled) return;
+          if (!map.hasLayer(group)) {
+            map.addLayer(group);
+          }
+        } catch (err) {
+          if (!cancelled) {
+            console.warn(
+              "FeaturedItemPreviewLayer: failed to add Allmaps preview layer:",
+              err
+            );
+          }
+        }
+      }
+
+      addAllmapsLayer();
+
+      return () => {
+        cancelled = true;
+        if (layerGroupRef.current) {
+          map.removeLayer(layerGroupRef.current);
+          layerGroupRef.current = null;
+        }
+      };
+    }
+
+    // GeoBlacklight / Leaflet viewer path
     const protocol = detail.meta.ui.viewer.protocol;
     const endpoint = detail.meta.ui.viewer.endpoint;
     const gblProtocol = formatProtocol(protocol);

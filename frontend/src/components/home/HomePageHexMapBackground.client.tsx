@@ -207,7 +207,8 @@ export function HomePageHexMapBackground() {
   const [userEngagedMap, setUserEngagedMap] = useState(false);
   const [featuredProgress, setFeaturedProgress] = useState(1); // 1 = full (10s left), 0 = empty (advancing)
   const userEngagedMapRef = useRef(false);
-  const programmaticFlyRef = useRef(false);
+  // Start true so initial map load/tile moveend events don't count as user engagement
+  const programmaticFlyRef = useRef(true);
   const featuredStartTimeRef = useRef(Date.now());
   const featuredIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const featuredCardHoverRef = useRef(false);
@@ -293,6 +294,7 @@ export function HomePageHexMapBackground() {
           touchZoom={true}
           keyboard={true}
           attributionControl={false}
+          zoomAnimationThreshold={1}
         >
           <ZoomControl position="topright" />
           <TileLayer
@@ -409,11 +411,19 @@ export function HomePageHexMapBackground() {
           </div>
         )}
 
-        {/* Featured resources carousel at bottom of map — only after 5s and no map engagement */}
-        {featuredInitiated && (
+        {/* Featured resources carousel at bottom of map — always visible so users can click before the 10s timer */}
         <div
           className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
           data-featured-carousel
+          onMouseEnter={() => {
+            featuredCardHoverRef.current = true;
+            featuredPauseStartRef.current = Date.now();
+          }}
+          onMouseLeave={() => {
+            featuredCardHoverRef.current = false;
+            featuredTotalPausedRef.current +=
+              Date.now() - featuredPauseStartRef.current;
+          }}
         >
           {FEATURED_RESOURCE_IDS.map((id, index) => {
             const detail = featuredDetails[index];
@@ -428,7 +438,10 @@ export function HomePageHexMapBackground() {
               <button
                 key={id}
                 type="button"
-                onClick={() => setActiveIndex(index)}
+                onClick={() => {
+                  setActiveIndex(index);
+                  setFeaturedInitiated(true);
+                }}
                 className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                   isActive
                     ? "border-blue-600 ring-2 ring-blue-600/30"
@@ -452,7 +465,6 @@ export function HomePageHexMapBackground() {
             );
           })}
         </div>
-        )}
 
         {hoveredHex && (
           <div

@@ -73,6 +73,12 @@ export interface GeoDocument {
         endpoint?: string;
         geometry?: string | GeoJSON.Polygon | GeoJSON.MultiPolygon;
       };
+      allmaps?: {
+        allmaps_id?: string | null;
+        allmaps_annotated?: boolean;
+        allmaps_manifest_uri?: string | null;
+        allmaps_annotation_url?: string;
+      };
     };
   };
 }

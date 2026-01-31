@@ -3,6 +3,7 @@ import { useMap } from "react-leaflet";
 import L from "leaflet";
 import type { GeoDocumentDetails } from "../../types/api";
 import { parseBboxToLeafletBounds } from "../../utils/bbox";
+import { hasAllmapsViewer } from "./FeaturedItemPreviewLayer";
 
 interface FeaturedMapControllerProps {
   activeIndex: number;
@@ -36,12 +37,14 @@ export function FeaturedMapController({
     const leafletBounds = L.latLngBounds(bounds[0], bounds[1]);
     if (!leafletBounds.isValid()) return;
 
+    // Allmaps georeferenced maps: zoom tighter so georeferencing work is visible
+    const isAllmaps = hasAllmapsViewer(detail);
+    const flyOptions = isAllmaps
+      ? { padding: [20, 20], maxZoom: 12, duration: 0.6 }
+      : { padding: [60, 60], maxZoom: 10, duration: 0.6 };
+
     programmaticFlyRef.current = true;
-    map.flyToBounds(leafletBounds, {
-      padding: [60, 60],
-      maxZoom: 10,
-      duration: 0.6,
-    });
+    map.flyToBounds(leafletBounds, flyOptions);
 
     const onMoveEnd = () => {
       programmaticFlyRef.current = false;
