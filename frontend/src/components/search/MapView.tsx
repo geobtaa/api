@@ -93,7 +93,7 @@ export function MapView({ results }: MapViewProps) {
     }
 
     // Clear existing result layer (but preserve filter rectangle)
-    if (resultLayerRef.current) {
+    if (resultLayerRef.current && mapRef.current) {
       mapRef.current.removeLayer(resultLayerRef.current);
       resultLayerRef.current = null;
     }
@@ -164,11 +164,14 @@ export function MapView({ results }: MapViewProps) {
     }
 
     return () => {
-      // Cleanup on unmount
+      // Cleanup on unmount: remove map and clear layer refs so next run doesn't call removeLayer on null
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      resultLayerRef.current = null;
+      filterRectRef.current = null;
+      highlightLayerRef.current = null;
     };
   }, [results, getBBoxFromParams, loadLeaflet]);
 
@@ -180,7 +183,7 @@ export function MapView({ results }: MapViewProps) {
     const bbox = getBBoxFromParams();
 
     // Clear existing filter rectangle
-    if (filterRectRef.current) {
+    if (filterRectRef.current && mapRef.current) {
       mapRef.current.removeLayer(filterRectRef.current);
       filterRectRef.current = null;
     }
@@ -236,7 +239,7 @@ export function MapView({ results }: MapViewProps) {
     if (!mapRef.current) return;
 
     // Clear existing highlight
-    if (highlightLayerRef.current) {
+    if (highlightLayerRef.current && mapRef.current) {
       mapRef.current.removeLayer(highlightLayerRef.current);
       highlightLayerRef.current = null;
     }

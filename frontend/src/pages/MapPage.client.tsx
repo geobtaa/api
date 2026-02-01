@@ -12,6 +12,7 @@ import { useApi } from "../context/ApiContext";
 import { useGeoFacets } from "../hooks/useGeoFacets";
 import { MapUpdater } from "../components/map/MapUpdater";
 import { MapUpdaterHex } from "../components/map/MapUpdaterHex";
+import { H3HexDataTable } from "../components/map/H3HexDataTable";
 import { MapCard } from "../components/map/MapCard";
 import { Legend } from "../components/map/Legend";
 import { ZoomLevelControls } from "../components/map/ZoomLevelControls";
@@ -46,7 +47,16 @@ export function MapPage() {
     totalInView: number;
     loading: boolean;
     error: string | null;
-  }>({ hexCount: 0, totalInView: 0, loading: false, error: null });
+    hexes: Array<{ h3: string; count: number }>;
+    resolution: number;
+  }>({
+    hexCount: 0,
+    totalInView: 0,
+    loading: false,
+    error: null,
+    hexes: [],
+    resolution: 6,
+  });
 
   const { setLastApiUrl } = useApi();
   const { data, loading, error, globalCount } = useGeoFacets(
@@ -69,7 +79,14 @@ export function MapPage() {
   };
 
   const handleHexData = useCallback(
-    (stats: { hexCount: number; totalInView: number; loading: boolean; error: string | null }) => {
+    (stats: {
+      hexCount: number;
+      totalInView: number;
+      loading: boolean;
+      error: string | null;
+      hexes: Array<{ h3: string; count: number }>;
+      resolution: number;
+    }) => {
       setHexStats(stats);
     },
     []
@@ -204,6 +221,20 @@ export function MapPage() {
                 )}
                 </div>
               </div>
+              <details className="absolute bottom-0 left-0 right-0 z-[900] mx-4 mb-4 max-h-[35vh] flex flex-col rounded-t-lg border border-gray-200 border-b-0 bg-white/95 shadow-sm backdrop-blur-sm">
+                <summary className="cursor-pointer list-none py-2 px-3 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset rounded-t-lg">
+                  View hex data as table
+                </summary>
+                <div className="max-h-64 overflow-auto border-t border-gray-200 p-2">
+                  <H3HexDataTable
+                    hexes={hexStats.hexes}
+                    resolution={hexStats.resolution}
+                    searchQuery={searchQuery}
+                    queryString={typeof window !== "undefined" ? window.location.search.slice(1) : undefined}
+                    loading={hexStats.loading}
+                  />
+                </div>
+              </details>
             </div>
           </>
         ) : (

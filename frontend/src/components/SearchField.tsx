@@ -414,9 +414,13 @@ export function SearchField({
       setTimeout(() => {
         placeInputRef.current?.focus();
       }, 0);
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
-      e.preventDefault();
-      const suggestion = suggestions[selectedIndex];
+    } else if (e.key === 'Enter') {
+      // Always handle Enter in keyword input: prevent native form submit (which can cause
+      // full-page navigation to current URL and leave user on homepage). Either run
+      // suggestion navigation or trigger our submit handler via requestSubmit().
+      if (selectedIndex >= 0) {
+        e.preventDefault();
+        const suggestion = suggestions[selectedIndex];
       const newParams = new URLSearchParams();
       newParams.set('q', suggestion.text);
 
@@ -495,6 +499,10 @@ export function SearchField({
 
       navigate(`/search?${newParams.toString()}`);
       setShowSuggestions(false);
+      } else {
+        e.preventDefault();
+        inputRef.current?.form?.requestSubmit();
+      }
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }

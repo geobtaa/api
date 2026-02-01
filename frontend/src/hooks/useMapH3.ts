@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { fetchMapH3, type MapH3Response } from '../services/api';
 
+/** Stable empty array so useMapH3 doesn't return a new [] reference every render when data is null. */
+const EMPTY_HEXES: MapH3Response['hexes'] = [];
+
 export function useMapH3(
   query: string,
   bbox: string | null,
@@ -40,7 +43,7 @@ export function useMapH3(
   const hexCount = data?.hexes.length ?? 0;
   const totalInView = data?.hexes.reduce((s, h) => s + h.count, 0) ?? 0;
   return {
-    hexes: data?.hexes ?? [],
+    hexes: data?.hexes ?? EMPTY_HEXES,
     globalCount: data?.globalCount ?? 0,
     hexCount,
     totalInView,

@@ -1,0 +1,92 @@
+{
+  "id": "ee251fd05e504374831ab4ddf5e589f2_2",
+  "model_name_ssi": "Document",
+  "model_pk_ssi": "e6b3e5bd-96d6-4e8f-a1f7-dca55f2507cb",
+  "gbl_mdVersion_s": "Aardvark",
+  "dct_references_s": "{\"urn:x-esri:serviceType:ArcGIS#FeatureLayer\":\"https://services.arcgis.com/QVENGdaPbd4LUkLV/arcgis/rest/services/BeachCOMBERS_survey_locations/FeatureServer/2\",\"http://schema.org/url\":\"https://gis-fws.opendata.arcgis.com/datasets/fws::beach-segment-up-and-down-coast-points\"}",
+  "dct_title_s": "beach segment up and down coast points [United States]",
+  "dct_alternative_sm": [
+    "beach segment up and down coast points"
+  ],
+  "dct_description_sm": [
+    "Coastal Ocean Mammal and Bird Education and Research Surveys - BeachCOMBERS The Coastal Ocean Mammal and Bird Education and Research Surveys (BeachCOMBERS) program was created in 1997 with the objective to train citizen scientists to collect standardized scientific data within Monterey Bay National Marine Sanctuary (MBNMS). Since then, this citizen science program has greatly expanded: we have trained and coordinated more than 150 volunteers to monitor human and natural impacts to coastal wildlife by documenting the deposition of marine birds, mammals, and sea turtles from as far north as Santa Cruz County to as far south as Los Angeles County. Program objectives are as follows: 1) obtain baseline information on rates of beach deposition of marine birds and mammals; 2) assess causes of seabird and marine mammal mortality; 3) assist resource management agencies in early detection of unusual rates of natural and anthropogenic mortality; 4) assess abundance of tar balls (oil patches) on beaches; 5) build a network of interacting citizens, scientists, and resource managers; and 6) disseminate related information to resources agencies, the public, and educational institutions. BeachCOMBERS is a collaborative program that has successfully informed resource managers about wildlife impacts from anthropogenic and natural sources such as oil spills, starvation, fishery interactions, harmful algal blooms, plastic ingestion, and entanglements (e.g., Nevins and Harvey 2004, Jessup et al. 2009, Nevins et al. 2011, Donnelly-Greenan et al. 2014, Henkel et al. 2014, Donnelly et al. in prep). The program is a collaboration between Moss Landing Marine Laboratories (MLML), MBNMS, and other state and research institutions including the California Department of Fish and Wildlife (CDFW), US Geological Survey (USGS), and US Fish and Wildlife Service (USFWS) with the specific goal of using deposition of beach-cast carcasses as an index of sanctuary health (see Nevins et al. 2011). https://www.mlml.calstate.edu/beachcombers/wp-content/uploads/sites/35/2019/07/BC-20-yr-report-summary-1.pdf"
+  ],
+  "b1g_dct_provenance_sm": [
+    "The metadata for this resource was last retrieved from U.S. Fish and Wildlife Service Open Data on 2026-01-08."
+  ],
+  "b1g_websitePlatform_s": "ArcGIS Hub",
+  "b1g_dateAccessioned_dt": "2026-01-08T00:00:00Z",
+  "dct_format_s": "ArcGIS FeatureLayer",
+  "geomg_id_s": "ee251fd05e504374831ab4ddf5e589f2_2",
+  "b1g_publication_state_s": "published",
+  "b1g_dct_accrualMethod_s": "Automated retrieval",
+  "pcdm_memberOf_sm": [
+    "ba5cc745-21c5-4ae9-954b-72dd8db6815a"
+  ],
+  "dct_isPartOf_sm": [
+    "1000-0003"
+  ],
+  "b1g_access_s": "{}",
+  "b1g_language_sm": [
+    "English"
+  ],
+  "dct_temporal_sm": [
+    "Last Modified: 2025-12-11"
+  ],
+  "dct_issued_s": "2023-04-05",
+  "gbl_indexYear_im": [2025],
+  "gbl_dateRange_drsim": [
+    "[2025 TO 2025]"
+  ],
+  "dct_spatial_sm": [
+    "United States"
+  ],
+  "dcat_bbox": "ENVELOPE(-122.282,-117.124,37.098,32.535)",
+  "locn_geometry": "POLYGON((-122.282 37.098, -117.124 37.098, -117.124 32.535, -122.282 32.535, -122.282 37.098))",
+  "b1g_dcat_endpointURL_s": "https://gis-fws.opendata.arcgis.com/api/feed/dcat-us/1.1.json",
+  "dcat_centroid": "34.8165,-119.703",
+  "b1g_dcat_endpointDescription_s": "DCAT API",
+  "dct_publisher_sm": [
+    "U.S. Fish and Wildlife Service Open Data"
+  ],
+  "gbl_resourceClass_sm": [
+    "Web services"
+  ],
+  "gbl_displayNote_sm": [
+    "Tip: Check “Visit Source” link for download options."
+  ],
+  "dct_creator_sm": [
+    "U.S. Fish & Wildlife Service"
+  ],
+  "dcat_keyword_sm": [
+    "beachcombers",
+    "survey",
+    "marine",
+    "seabird",
+    "mammals",
+    "bird",
+    "monitor"
+  ],
+  "dct_language_sm": [
+    "eng"
+  ],
+  "date_created_dtsi": "2025-08-10T00:00:00Z",
+  "date_modified_dtsi": "2026-01-14T00:00:00Z",
+  "dct_rights_sm": [
+    "The United States Fish and Wildlife Service (Service) shall not be held liable for improper or incorrect use of the data described and/or contained herein. While the Service makes every reasonable effort to ensure the accuracy and completeness of data provided for distribution, it may not have the necessary accuracy or completeness required for every possible intended use. The Service recommends that data users consult the associated metadata record to understand the quality and possible limitations of the data. The Service creates metadata records in accordance with the standards endorsed by the Federal Geographic Data Committee. As a result of the above considerations, the Service gives no warranty, expressed or implied, as to the accuracy, reliability, or completeness of the data. It is the responsibility of the data user to use the data in a manner consistent with the limitations of geospatial data in general and these data in particular. Although these data have been processed successfully on a computer system at the Service, no warranty, expressed or implied, is made regarding the utility of the data on another system or for general or scientific purposes, nor shall the act of distribution constitute any such warranty. This applies to the use of the data both along and in aggregate with other data and information."
+  ],
+  "dct_accessRights_s": "Public",
+  "dct_identifier_sm": [
+    "https://hub.arcgis.com/datasets/ee251fd05e504374831ab4ddf5e589f2_2"
+  ],
+  "b1g_code_s": "1000-0003",
+  "b1g_harvestWorkflow_s": "py_arcgis_hub",
+  "gbl_mdModified_dt": "2026-01-14T00:00:00Z",
+  "b1g_geom_import_id_ssi": "581",
+  "_version_": 1.8543138613577646e+18,
+  "timestamp": "2026-01-14T17:25:04.133Z",
+  "solr_bboxtype__minX": -122.282,
+  "solr_bboxtype__minY": 32.535,
+  "solr_bboxtype__maxX": -117.124,
+  "solr_bboxtype__maxY": 37.098
+}

@@ -11,7 +11,6 @@ Uses ELASTICSEARCH_URL and ELASTICSEARCH_INDEX from env.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 import sys
 from pathlib import Path
@@ -22,7 +21,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.elasticsearch.client import es
+from app.elasticsearch.client import es  # noqa: E402 (load_dotenv must run first)
 
 
 async def main() -> None:
@@ -32,8 +31,20 @@ async def main() -> None:
     sample = await es.search(
         index=index,
         size=5,
-        _source=["id", "h3_res2", "h3_res3", "h3_res4", "h3_res5", "h3_res6", "h3_res7", "h3_res8",
-                 "geo_or_near_global", "bbox_diagonal_km", "geo_global", "dcat_centroid"],
+        _source=[
+            "id",
+            "h3_res2",
+            "h3_res3",
+            "h3_res4",
+            "h3_res5",
+            "h3_res6",
+            "h3_res7",
+            "h3_res8",
+            "geo_or_near_global",
+            "bbox_diagonal_km",
+            "geo_global",
+            "dcat_centroid",
+        ],
         query={"match_all": {}},
     )
     hits = (sample.get("hits") or {}).get("hits") or []
@@ -49,7 +60,7 @@ async def main() -> None:
         index=index,
         query={"exists": {"field": "h3_res5"}},
     )
-    n_with_h3 = (with_h3.get("count") or 0)
+    n_with_h3 = with_h3.get("count") or 0
     print(f"Documents with h3_res5: {n_with_h3}")
 
     # 3. Global bucket count (geo_or_near_global)
@@ -79,11 +90,7 @@ async def main() -> None:
         index=index,
         size=0,
         query={"exists": {"field": "h3_res5"}},
-        aggs={
-            "by_h3": {
-                "terms": {"field": "h3_res5", "size": 10, "min_doc_count": 1}
-            }
-        },
+        aggs={"by_h3": {"terms": {"field": "h3_res5", "size": 10, "min_doc_count": 1}}},
     )
     by_h3 = (terms_agg.get("aggregations") or {}).get("by_h3") or {}
     buckets = by_h3.get("buckets") or []
@@ -99,8 +106,10 @@ async def main() -> None:
         has_h3 = "h3_res5" in src
         geo = src.get("geo_or_near_global")
         diag = src.get("bbox_diagonal_km")
-        print(f"  [{i+1}] id={pid} h3_res5={'yes' if has_h3 else 'no'} "
-              f"geo_or_near_global={geo} bbox_diagonal_km={diag}")
+        print(
+            f"  [{i + 1}] id={pid} h3_res5={'yes' if has_h3 else 'no'} "
+            f"geo_or_near_global={geo} bbox_diagonal_km={diag}"
+        )
         if has_h3:
             print(f"       h3_res5={src.get('h3_res5')}")
 

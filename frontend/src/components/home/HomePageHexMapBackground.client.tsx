@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { ChevronLeft, ChevronRight, Home, Pause, Play, Search } from "lucide-react";
 import { MapContainer, Rectangle, TileLayer, useMap, ZoomControl } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { MapUpdaterHex } from "../map/MapUpdaterHex";
+import { H3HexDataTable } from "../map/H3HexDataTable";
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from "../../config/mapView";
 import { FEATURED_RESOURCE_IDS } from "../../config/featured";
 import { fetchResourceDetails } from "../../services/api";
@@ -216,6 +217,19 @@ export function HomePageHexMapBackground() {
   const featuredTotalPausedRef = useRef(0);
   const [carouselPaused, setCarouselPaused] = useState(false);
   const carouselPausedRef = useRef(false);
+  const [hexDataForTable, setHexDataForTable] = useState<{
+    hexes: Array<{ h3: string; count: number }>;
+    resolution: number;
+    loading: boolean;
+  }>({ hexes: [], resolution: 6, loading: false });
+
+  const handleHexData = useCallback(
+    (data: { hexes: Array<{ h3: string; count: number }>; resolution: number; loading: boolean }) => {
+      setHexDataForTable({ hexes: data.hexes, resolution: data.resolution, loading: data.loading });
+    },
+    []
+  );
+
   const [preCarouselProgress, setPreCarouselProgress] = useState(1);
   const preCarouselStartRef = useRef<number | null>(null);
   const preCarouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -341,7 +355,10 @@ export function HomePageHexMapBackground() {
   return (
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }`}</style>
-      <div className="relative h-full w-full">
+      <p className="sr-only">
+        For a list of hex data, use the section below: View hex data as table.
+      </p>
+      <div className="relative h-full w-full" role="img" aria-label="Resource density hex map">
         <MapContainer
           center={HOME_PAGE_MAP_CENTER}
           zoom={DEFAULT_US_ZOOM}
@@ -366,6 +383,7 @@ export function HomePageHexMapBackground() {
             searchQuery=""
             onFeatureClick={() => {}}
             onHexHover={() => {}}
+            onHexData={handleHexData}
             onFeatureDoubleClick={({ h3, resolution }) => {
               navigate(
                 `/search?include_filters[h3_res${resolution}][]=${encodeURIComponent(h3)}`
@@ -394,6 +412,18 @@ export function HomePageHexMapBackground() {
             featuredInitiated={featuredInitiated}
           />
         </MapContainer>
+
+        {/* Live region: announce active slide change for screen readers */}
+        <div
+          aria-live="polite"
+          aria-atomic
+          className="sr-only"
+          role="status"
+        >
+          {featuredInitiated && activeDetail
+            ? `Current featured item: ${activeDetail.attributes?.ogm?.dct_title_s || "Untitled"}`
+            : ""}
+        </div>
 
         {/* Featured resource popup overlay — bottom-right, list-view fields */}
         {featuredInitiated && activeDetail && (
@@ -462,7 +492,14 @@ export function HomePageHexMapBackground() {
               </div>
             </div>
             {/* Progress bar at bottom: time left for current item, drains towards the right */}
-            <div className="h-1 w-full bg-gray-200 rounded-b-lg overflow-hidden flex justify-end">
+            <div
+              role="progressbar"
+              aria-valuenow={Math.round(featuredProgress * 100)}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Time remaining in current featured item"
+              className="h-1 w-full bg-gray-200 rounded-b-lg overflow-hidden flex justify-end"
+            >
               <div
                 className="h-full rounded-b-lg transition-[width] duration-100 ease-linear"
                 style={{
@@ -476,6 +513,10 @@ export function HomePageHexMapBackground() {
 
         {/* Featured resources carousel at bottom of map — always visible so users can click before the 10s timer */}
         <div
+          role="region"
+          aria-roledescription="carousel"
+          aria-label="Featured resources"
+          aria-describedby="featured-carousel-desc"
           className="absolute bottom-14 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
           data-featured-carousel
           onMouseEnter={() => {
@@ -487,7 +528,59 @@ export function HomePageHexMapBackground() {
             featuredTotalPausedRef.current +=
               Date.now() - featuredPauseStartRef.current;
           }}
+          onFocus={() => {
+            setCarouselPaused(true);
+          }}
+          onKeyDown={(e) => {
+            const carouselEl = e.currentTarget;
+            if (!carouselEl.contains(document.activeElement)) return;
+            const len = FEATURED_RESOURCE_IDS.length;
+            let newIndex: number | null = null;
+            if (e.key === "ArrowLeft") {
+              e.preventDefault();
+              newIndex = (activeIndex - 1 + len) % len;
+              setActiveIndex(newIndex);
+              featuredStartTimeRef.current = Date.now();
+              featuredTotalPausedRef.current = 0;
+              setFeaturedProgress(1);
+              setFeaturedInitiated(true);
+            } else if (e.key === "ArrowRight") {
+              e.preventDefault();
+              newIndex = (activeIndex + 1) % len;
+              setActiveIndex(newIndex);
+              featuredStartTimeRef.current = Date.now();
+              featuredTotalPausedRef.current = 0;
+              setFeaturedProgress(1);
+              setFeaturedInitiated(true);
+            } else if (e.key === "Home") {
+              e.preventDefault();
+              newIndex = 0;
+              setActiveIndex(0);
+              featuredStartTimeRef.current = Date.now();
+              featuredTotalPausedRef.current = 0;
+              setFeaturedProgress(1);
+              setFeaturedInitiated(true);
+            } else if (e.key === "End") {
+              e.preventDefault();
+              newIndex = len - 1;
+              setActiveIndex(len - 1);
+              featuredStartTimeRef.current = Date.now();
+              featuredTotalPausedRef.current = 0;
+              setFeaturedProgress(1);
+              setFeaturedInitiated(true);
+            }
+            if (newIndex !== null) {
+              setTimeout(() => {
+                carouselEl.querySelector<HTMLButtonElement>(
+                  `[data-carousel-thumb][data-index="${newIndex}"]`
+                )?.focus();
+              }, 0);
+            }
+          }}
         >
+          <p id="featured-carousel-desc" className="sr-only">
+            Use previous and next buttons to change the featured item, or select a thumbnail to jump to an item.
+          </p>
           <button
             type="button"
             onClick={() => setFeaturedInitiated(false)}
@@ -579,6 +672,8 @@ export function HomePageHexMapBackground() {
               <button
                 key={id}
                 type="button"
+                data-carousel-thumb
+                data-index={index}
                 onClick={() => {
                   setActiveIndex(index);
                   setFeaturedInitiated(true);
@@ -641,6 +736,24 @@ export function HomePageHexMapBackground() {
               <ChevronRight className="w-8 h-8" />
             </button>
           </div>
+        </div>
+
+        {/* Accessible alternative: hex data as table (WCAG 1.1.1, 2.1.1) */}
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-3 pb-2 max-h-[40vh] flex flex-col">
+          <details className="bg-white/90 backdrop-blur-sm rounded-t-lg border border-gray-200 border-b-0 shadow-sm">
+            <summary className="cursor-pointer list-none py-2 px-3 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset rounded-t-lg">
+              View hex data as table
+            </summary>
+            <div className="max-h-[30vh] overflow-auto border-t border-gray-200 p-2">
+              <H3HexDataTable
+                hexes={hexDataForTable.hexes}
+                resolution={hexDataForTable.resolution}
+                searchQuery=""
+                queryString={typeof window !== "undefined" ? window.location.search : undefined}
+                loading={hexDataForTable.loading}
+              />
+            </div>
+          </details>
         </div>
       </div>
     </div>

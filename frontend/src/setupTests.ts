@@ -1,5 +1,9 @@
 import '@testing-library/jest-dom';
 import { vi } from 'vitest';
+import * as matchers from 'vitest-axe/matchers';
+import { expect } from 'vitest';
+
+expect.extend(matchers);
 
 // Mock API functions
 vi.mock('./services/api', () => ({

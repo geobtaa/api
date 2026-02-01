@@ -201,6 +201,82 @@ it('shows loading state', () => {
 });
 ```
 
+## Accessibility Testing
+
+The project uses **axe-core** and **vitest-axe** to run automated accessibility checks in unit tests. The goal is to maintain **WCAG 2.2 AA** compliance for key features (H3 hex grid, Featured carousel).
+
+### Running accessibility tests
+
+Accessibility tests run as part of the normal Vitest suite:
+
+```bash
+npm test
+```
+
+Tests that use axe are in:
+
+- `src/__tests__/components/map/H3HexDataTable.test.tsx` — H3 hex data table (region, caption, headers, links)
+- `src/__tests__/components/home/HomePageHexMapBackground.carousel-a11y.test.tsx` — Featured carousel (region, roledescription, controls)
+
+### Using vitest-axe in a test
+
+1. Extend Vitest matchers in `src/setupTests.ts` (already done):
+
+   ```typescript
+   import * as matchers from 'vitest-axe/matchers';
+   import { expect } from 'vitest';
+   expect.extend(matchers);
+   ```
+
+2. In a test, render the component, then run axe on the container or a specific region:
+
+   ```typescript
+   import { axe } from 'vitest-axe';
+
+   it('has no accessibility violations', async () => {
+     const { container } = render(<MyComponent />);
+     const results = await axe(container);
+     expect(results).toHaveNoViolations();
+   });
+   ```
+
+3. To restrict checks to a region (e.g. carousel only), pass that element:
+
+   ```typescript
+   const carousel = screen.getByRole('region', { name: /Featured resources/i });
+   const results = await axe(carousel);
+   expect(results).toHaveNoViolations();
+   ```
+
+### Common axe violations and fixes
+
+| Violation | Typical fix |
+|-----------|-------------|
+| Missing form label | Add `aria-label` or associate a `<label>` with the control (or `aria-labelledby`). |
+| Image missing alt | Use `alt="..."` for meaningful images; use `alt=""` for decorative images. |
+| Color contrast | Increase contrast ratio (e.g. text/background) to meet WCAG AA (4.5:1 for normal text). |
+| Missing button/link name | Add `aria-label` or visible text so the control has an accessible name. |
+| Region/landmark without name | Add `aria-label` or `aria-labelledby` to regions (e.g. carousel, table wrapper). |
+| Progress bar not exposed | Use `role="progressbar"` with `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, and `aria-label`. |
+
+### Manual accessibility checklist
+
+Use this checklist for manual verification (keyboard, screen reader, zoom). Reference: [WCAG 2.2 AA](https://www.w3.org/WAI/WCAG22/quickref/?levels=aaa&currentsidebar=%23col_customize).
+
+**Keyboard (WCAG 2.1.1 Keyboard, 2.1.2 No Keyboard Trap)**
+
+- Tab through the homepage: search, map area, “View hex data as table” details, carousel (Home, Play/Pause, thumbnails, Previous, Next). Confirm all controls are reachable and focus order is logical.
+- With focus in the carousel: Arrow Left / Arrow Right move to previous/next item; Home / End jump to first/last. Confirm no keyboard trap (Tab and Shift+Tab leave the carousel).
+
+**Screen reader**
+
+- Navigate the Featured carousel with NVDA (Windows) or VoiceOver (macOS). Confirm the region is announced (“Featured resources”), the description is available, and the active slide change is announced (live region).
+- Open “View hex data as table” on the homepage and search page. Confirm the table is announced (caption, column headers, “Search this hex” links).
+
+**Zoom (WCAG 1.4.4 Resize Text)**
+
+- Set browser zoom to 200%. Confirm layout and controls (search, carousel, hex table) remain usable and no content is clipped or overlapping in a way that blocks use.
+
 ## Coverage Reports
 
 ### Understanding Coverage Metrics

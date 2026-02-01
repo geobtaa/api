@@ -6,6 +6,7 @@ import { Search } from "lucide-react";
 import { cellToBoundary } from "h3-js";
 import { fetchMapH3 } from "../../services/api";
 import { formatCount } from "../../utils/formatNumber";
+import { H3HexDataTable } from "../map/H3HexDataTable";
 
 function zoomToResolution(zoom: number): number {
   if (zoom <= 3) return 2;
@@ -80,6 +81,9 @@ export function GeospatialFilterMap() {
   const [showSearchButton, setShowSearchButton] = useState(false);
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
   const hexLayerRef = useRef<L.GeoJSON | null>(null);
+  const [hexesInView, setHexesInView] = useState<Array<{ h3: string; count: number }>>([]);
+  const [hexResolution, setHexResolution] = useState(6);
+  const [hexLoading, setHexLoading] = useState(false);
 
   // Parse bbox from URL params
   const getBBoxFromParams = useCallback((): BBox | null => {
@@ -344,6 +348,7 @@ export function GeospatialFilterMap() {
       const queryString =
         typeof window !== "undefined" ? window.location.search.slice(1) : "";
 
+      setHexLoading(true);
       try {
         const res = await fetchMapH3(
           query,
@@ -353,11 +358,17 @@ export function GeospatialFilterMap() {
         );
         if (cancelled) return;
 
+        setHexesInView(res.hexes);
+        setHexResolution(resolution);
+
         if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
           map.removeLayer(hexLayerRef.current);
           hexLayerRef.current = null;
         }
-        if (!res.hexes.length) return;
+        if (!res.hexes.length) {
+          setHexLoading(false);
+          return;
+        }
 
         const maxCount = Math.max(...res.hexes.map((h) => h.count), 1);
         const features = res.hexes.map((h) => {
@@ -423,6 +434,8 @@ export function GeospatialFilterMap() {
         }
       } catch {
         // ignore fetch errors
+      } finally {
+        if (!cancelled) setHexLoading(false);
       }
     };
 
@@ -561,6 +574,20 @@ export function GeospatialFilterMap() {
           </button>
         )}
       </div>
+      <details className="mt-2 rounded-lg border border-gray-200 bg-white">
+        <summary className="cursor-pointer list-none py-2 px-3 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset rounded-lg">
+          View hex data as table
+        </summary>
+        <div className="max-h-64 overflow-auto border-t border-gray-200 p-2">
+          <H3HexDataTable
+            hexes={hexesInView}
+            resolution={hexResolution}
+            searchQuery={searchParams.get("q") ?? ""}
+            queryString={searchParams.toString()}
+            loading={hexLoading}
+          />
+        </div>
+      </details>
     </div>
   );
 }

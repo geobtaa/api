@@ -1073,6 +1073,7 @@ def _update_bbox_metrics(processed_dict, geometry):
     lon_km = dx * 111.0 * abs(math.cos(math.radians(avg_lat)))
     processed_dict["bbox_diagonal_km"] = math.sqrt(lat_km**2 + lon_km**2)
 
+
 H3_PYRAMID_RESOLUTIONS = (2, 3, 4, 5, 6, 7, 8)
 NEAR_GLOBAL_DIAGONAL_KM = 15_000
 CENTROID_MAX_DIAGONAL_KM = 500

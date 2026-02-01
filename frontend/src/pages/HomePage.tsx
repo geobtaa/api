@@ -158,7 +158,7 @@ export function HomePage() {
 
   const handleResourceClassClick = (aggValue: string) => {
     navigate(
-      `/search?fq[gbl_resourceClass_sm][]=${encodeURIComponent(aggValue)}`
+      `/search?include_filters[gbl_resourceClass_sm][]=${encodeURIComponent(aggValue)}`
     );
   };
 

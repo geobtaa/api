@@ -5,10 +5,10 @@ import pytest
 pytest.importorskip("h3")
 
 from app.elasticsearch.index import (
-    _compute_h3_cells,
     CENTROID_MAX_DIAGONAL_KM,
     H3_PYRAMID_RESOLUTIONS,
     NEAR_GLOBAL_DIAGONAL_KM,
+    _compute_h3_cells,
 )
 
 

@@ -87,6 +87,8 @@ export function MapUpdaterHex({
     totalInView: number;
     loading: boolean;
     error: string | null;
+    hexes: Array<{ h3: string; count: number }>;
+    resolution: number;
   }) => void;
   onHexHover?: (data: HexHoverData | null) => void;
   onFeatureDoubleClick?: (data: HexHoverData) => void;
@@ -134,8 +136,8 @@ export function MapUpdaterHex({
 
   useEffect(() => {
     if (onHexData)
-      onHexData({ hexCount, totalInView, loading, error });
-  }, [onHexData, hexCount, totalInView, loading, error]);
+      onHexData({ hexCount, totalInView, loading, error, hexes, resolution });
+  }, [onHexData, hexCount, totalInView, loading, error, hexes, resolution]);
 
   useEffect(() => {
     if (!onHexHover) return;

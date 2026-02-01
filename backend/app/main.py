@@ -59,7 +59,7 @@ if cors_origins != ["*"] and os.getenv("APP_ENV") != "production":
         if origin not in cors_origins:
             cors_origins.append(origin)
 
-# In development, allow all origins so CORS never blocks local frontend (set APP_ENV=production to restrict)
+# In dev, allow all origins so CORS never blocks local frontend. Set APP_ENV=production to restrict.
 if os.getenv("APP_ENV") not in ("production", "test"):
     cors_origins = ["*"]
 
@@ -145,7 +145,7 @@ if os.getenv("APP_ENV") != "test" and _env_flag("ENABLE_RESPONSE_COMPRESSION", "
 class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
-        # Ensure CORS header is present on every response (error responses may bypass CORSMiddleware)
+        # Ensure CORS header on every response (errors may bypass CORSMiddleware).
         origin = request.headers.get("origin")
         if origin and "Access-Control-Allow-Origin" not in response.headers:
             if cors_origins == ["*"]:

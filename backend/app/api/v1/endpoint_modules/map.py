@@ -35,9 +35,7 @@ async def map_h3(
         )
         query_string = raw or (request.url.query or "")
         search_service = SearchService()
-        include_filters, exclude_filters = search_service.extract_new_style_filters(
-            query_string
-        )
+        include_filters, exclude_filters = search_service.extract_new_style_filters(query_string)
         fq = search_service.extract_filter_queries(query_string) or {}
 
         result = await map_h3_aggregation(

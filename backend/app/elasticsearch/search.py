@@ -661,13 +661,9 @@ async def search_resources(
                     if year_range_filter["range"]["gbl_indexYear_im"]:
                         filter_clauses.append(year_range_filter)
 
-                elif field in ("geo_global", "geo_or_near_global") and isinstance(
-                    values, list
-                ):
+                elif field in ("geo_global", "geo_or_near_global") and isinstance(values, list):
                     if values and str(values[0]).lower() == "true":
-                        filter_clauses.append(
-                            {"term": {resolved_field: True}}
-                        )
+                        filter_clauses.append({"term": {resolved_field: True}})
                 elif isinstance(values, list):
                     # Use terms to match if ANY of the specified values are present
                     # This matches the behavior of legacy fq filters (OR logic)
@@ -1448,8 +1444,13 @@ async def map_h3_aggregation(
         parts = [p.strip() for p in bbox.split(",")]
         if len(parts) == 4:
             try:
-                west, south, east, north = float(parts[0]), float(parts[1]), float(parts[2]), float(parts[3])
-                # Elasticsearch requires lon in [-180, 180] and lat in [-90, 90]; invalid values cause 400
+                west, south, east, north = (
+                    float(parts[0]),
+                    float(parts[1]),
+                    float(parts[2]),
+                    float(parts[3]),
+                )
+                # ES: lon in [-180,180], lat in [-90,90]; invalid values cause 400
                 west = max(-180.0, min(180.0, west))
                 east = max(-180.0, min(180.0, east))
                 south = max(-90.0, min(90.0, south))
@@ -1459,30 +1460,42 @@ async def map_h3_aggregation(
             except (ValueError, TypeError):
                 west, south, east, north = None, None, None, None
     if west is not None and south is not None and east is not None and north is not None:
-        filter_clauses.append({
-            "geo_bounding_box": {
-                "dcat_centroid": {
-                    "top_left": {"lat": north, "lon": west},
-                    "bottom_right": {"lat": south, "lon": east},
+        filter_clauses.append(
+            {
+                "geo_bounding_box": {
+                    "dcat_centroid": {
+                        "top_left": {"lat": north, "lon": west},
+                        "bottom_right": {"lat": south, "lon": east},
+                    }
                 }
             }
-        })
+        )
 
     must = [{"match_all": {}}]
     if q and str(q).strip():
-        must = [{
-            "query_string": {
-                "query": str(q).strip(),
-                "fields": [
-                    "id^5", "dct_title_s^3", "dct_description_sm^2", "summary^2",
-                    "dct_creator_sm^2", "dct_subject_sm^1.5", "dcat_keyword_sm^1.5",
-                    "dct_publisher_sm", "schema_provider_s", "dct_spatial_sm", "gbl_displaynote_sm",
-                ],
-                "default_operator": "AND",
-                "analyze_wildcard": True,
-                "allow_leading_wildcard": True,
+        must = [
+            {
+                "query_string": {
+                    "query": str(q).strip(),
+                    "fields": [
+                        "id^5",
+                        "dct_title_s^3",
+                        "dct_description_sm^2",
+                        "summary^2",
+                        "dct_creator_sm^2",
+                        "dct_subject_sm^1.5",
+                        "dcat_keyword_sm^1.5",
+                        "dct_publisher_sm",
+                        "schema_provider_s",
+                        "dct_spatial_sm",
+                        "gbl_displaynote_sm",
+                    ],
+                    "default_operator": "AND",
+                    "analyze_wildcard": True,
+                    "allow_leading_wildcard": True,
+                }
             }
-        }]
+        ]
 
     bool_query = {"must": must}
     if filter_clauses:
@@ -1493,7 +1506,9 @@ async def map_h3_aggregation(
     # Larger bucket size for global requests (no bbox) so more hexes are returned.
     h3_terms_size = 10000 if bbox is None else 5000
     aggs = {
-        "h3_terms": {"terms": {"field": f"h3_res{resolution}", "size": h3_terms_size, "min_doc_count": 1}},
+        "h3_terms": {
+            "terms": {"field": f"h3_res{resolution}", "size": h3_terms_size, "min_doc_count": 1}
+        },
         "global_bucket_agg": {
             "filter": {
                 "bool": {
@@ -1558,9 +1573,7 @@ async def map_h3_aggregation(
             except (NotFoundError, Exception):
                 global_count = 0
         else:
-            global_count = int(
-                (agg_data.get("global_bucket_agg") or {}).get("doc_count", 0)
-            )
+            global_count = int((agg_data.get("global_bucket_agg") or {}).get("doc_count", 0))
 
         return {"resolution": resolution, "hexes": hexes, "globalCount": global_count}
     except Exception as e:

@@ -6,7 +6,6 @@ minimal-app unit tests that mock map_h3_aggregation.
 
 from unittest.mock import AsyncMock, patch
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app

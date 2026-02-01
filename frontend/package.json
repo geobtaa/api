@@ -21,7 +21,8 @@
     "test:ui": "vitest --ui",
     "coverage": "vitest --coverage",
     "test:coverage": "vitest --coverage",
-    "test:coverage:ui": "vitest --coverage --ui"
+    "test:coverage:ui": "vitest --coverage --ui",
+    "test:a11y": "vitest --run src/__tests__/components/map/H3HexDataTable.test.tsx src/__tests__/components/home/HomePageHexMapBackground.carousel-a11y.test.tsx"
   },
   "dependencies": {
     "@allmaps/leaflet": "^1.0.0-beta.52",
@@ -77,6 +78,7 @@
     "@vitest/coverage-v8": "^3.2.4",
     "@vitest/ui": "^3.2.4",
     "autoprefixer": "^10.4.18",
+    "axe-core": "^4.11.1",
     "concurrently": "^8.0.1",
     "eslint": "^9.20.1",
     "eslint-config-prettier": "^10.0.1",
@@ -99,6 +101,7 @@
     "typescript": "^5.5.3",
     "typescript-eslint": "^8.3.0",
     "vite": "^7.3.1",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "vitest-axe": "^0.1.0"
   }
 }
