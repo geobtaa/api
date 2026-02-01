@@ -50,9 +50,22 @@ export function StatsBar({
               : zoomLevel === 'hex'
                 ? 'Hexes'
                 : 'Counties'}
-          :<span className="font-semibold"> {zoomLevel === 'hex' ? formatCount(hexCount) : formatCount(dataForLevel.length)}</span>
+          :
+          <span className="font-semibold">
+            {' '}
+            {zoomLevel === 'hex'
+              ? formatCount(hexCount)
+              : formatCount(dataForLevel.length)}
+          </span>
           {zoomLevel === 'hex' && hexTotalInView > 0 && (
-            <> · <span className="font-semibold">{formatCount(hexTotalInView)}</span> in view</>
+            <>
+              {' '}
+              ·{' '}
+              <span className="font-semibold">
+                {formatCount(hexTotalInView)}
+              </span>{' '}
+              in view
+            </>
           )}
         </div>
         {zoomLevel === 'hex' && hexLoading && (

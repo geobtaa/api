@@ -1,42 +1,59 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { ChevronLeft, ChevronRight, Home, Pause, Play, Search } from "lucide-react";
-import { MapContainer, Rectangle, TileLayer, useMap, ZoomControl } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import { MapUpdaterHex } from "../map/MapUpdaterHex";
-import { H3HexDataTable } from "../map/H3HexDataTable";
-import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from "../../config/mapView";
-import { FEATURED_RESOURCE_IDS } from "../../config/featured";
-import { fetchResourceDetails } from "../../services/api";
-import type { GeoDocumentDetails } from "../../types/api";
-import { getResourceIcon } from "../../utils/resourceIcons";
-import { parseBboxToLeafletBounds } from "../../utils/bbox";
-import { FeaturedMapController } from "./FeaturedMapController";
-import { FeaturedItemPreviewLayer } from "./FeaturedItemPreviewLayer";
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Home,
+  Pause,
+  Play,
+  Search,
+} from 'lucide-react';
+import {
+  MapContainer,
+  Rectangle,
+  TileLayer,
+  useMap,
+  ZoomControl,
+} from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+import { MapUpdaterHex } from '../map/MapUpdaterHex';
+import { H3HexDataTable } from '../map/H3HexDataTable';
+import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
+import { FEATURED_RESOURCE_IDS } from '../../config/featured';
+import { fetchResourceDetails } from '../../services/api';
+import type { GeoDocumentDetails } from '../../types/api';
+import { getResourceIcon } from '../../utils/resourceIcons';
+import { parseBboxToLeafletBounds } from '../../utils/bbox';
+import { FeaturedMapController } from './FeaturedMapController';
+import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 function toSsrThumbnailUrl(url: string | undefined): string {
-  if (!url || typeof url !== "string") return "";
+  if (!url || typeof url !== 'string') return '';
   try {
-    if (url.startsWith("http://") || url.startsWith("https://")) {
+    if (url.startsWith('http://') || url.startsWith('https://')) {
       const u = new URL(url);
-      if (u.pathname.startsWith("/api/v1/thumbnails/")) {
-        return u.pathname.replace("/api/v1/thumbnails/", "/thumbnails/") + u.search;
+      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
+        return (
+          u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search
+        );
       }
       if (u.pathname.match(/^\/api\/v1\/resources\/[^/]+\/thumbnail$/)) {
-        return u.pathname.replace("/api/v1", "") + u.search;
+        return u.pathname.replace('/api/v1', '') + u.search;
       }
       return url;
     }
-    if (url.startsWith("/api/v1/thumbnails/")) {
-      return url.replace("/api/v1/thumbnails/", "/thumbnails/");
+    if (url.startsWith('/api/v1/thumbnails/')) {
+      return url.replace('/api/v1/thumbnails/', '/thumbnails/');
     }
     const m = url.match(/^\/api\/v1(\/resources\/[^/]+\/thumbnail)/);
     if (m) return m[1];
     return url;
   } catch {
-    if (url.includes("/api/v1/thumbnails/")) return url.replace("/api/v1/thumbnails/", "/thumbnails/");
-    if (url.includes("/api/v1/resources/") && url.endsWith("/thumbnail")) return url.replace("/api/v1", "");
+    if (url.includes('/api/v1/thumbnails/'))
+      return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+    if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail'))
+      return url.replace('/api/v1', '');
     return url;
   }
 }
@@ -54,22 +71,22 @@ function MapUserEngagementTracker({
     const handler = () => {
       if (!programmaticFlyRef.current) onUserEngaged();
     };
-    map.on("moveend", handler);
-    map.on("zoomend", handler);
+    map.on('moveend', handler);
+    map.on('zoomend', handler);
     return () => {
-      map.off("moveend", handler);
-      map.off("zoomend", handler);
+      map.off('moveend', handler);
+      map.off('zoomend', handler);
     };
   }, [map, programmaticFlyRef, onUserEngaged]);
   return null;
 }
 
-const FEATURED_BOUNDS_PANE = "featuredBoundsPane";
+const FEATURED_BOUNDS_PANE = 'featuredBoundsPane';
 const FEATURED_ITEM_DURATION_MS = 10_000;
 const FEATURED_PRECAROUSEL_MS = 10_000;
 const FEATURED_PROGRESS_TICK_MS = 100;
 /** Dark Big Ten blue for progress bar (BTAA primary) */
-const DARK_BIG_TEN_BLUE = "#003C5B";
+const DARK_BIG_TEN_BLUE = '#003C5B';
 
 /** Ensures a pane exists for the featured bounds rectangle. Layer order: hexes (back) -> bounds -> preview (front). */
 function useFeaturedBoundsPane() {
@@ -78,7 +95,7 @@ function useFeaturedBoundsPane() {
     let pane = map.getPane(FEATURED_BOUNDS_PANE);
     if (!pane) {
       pane = map.createPane(FEATURED_BOUNDS_PANE);
-      pane.style.setProperty("z-index", "410", "important"); // above hexes, below featuredPreviewPane (420)
+      pane.style.setProperty('z-index', '410', 'important'); // above hexes, below featuredPreviewPane (420)
     }
   }, [map]);
 }
@@ -105,9 +122,9 @@ function FeaturedItemBoundsLayer({
       bounds={bounds}
       pathOptions={{
         pane: FEATURED_BOUNDS_PANE,
-        color: "#2563eb",
+        color: '#2563eb',
         weight: 2,
-        fillColor: "#3b82f6",
+        fillColor: '#3b82f6',
         fillOpacity: 0.15,
       }}
     />
@@ -130,9 +147,9 @@ function MapPanner({
       panned.current = true;
       const onMoveEnd = () => {
         programmaticFlyRef.current = false;
-        map.off("moveend", onMoveEnd);
+        map.off('moveend', onMoveEnd);
       };
-      map.on("moveend", onMoveEnd);
+      map.on('moveend', onMoveEnd);
     });
   }, [map, programmaticFlyRef]);
   return null;
@@ -153,11 +170,11 @@ function SearchHereControl() {
       }
       setShowSearchButton(true);
     };
-    map.on("moveend", handleMoveEnd);
-    map.on("zoomend", handleMoveEnd);
+    map.on('moveend', handleMoveEnd);
+    map.on('zoomend', handleMoveEnd);
     return () => {
-      map.off("moveend", handleMoveEnd);
-      map.off("zoomend", handleMoveEnd);
+      map.off('moveend', handleMoveEnd);
+      map.off('zoomend', handleMoveEnd);
     };
   }, [map]);
 
@@ -167,12 +184,12 @@ function SearchHereControl() {
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
     const params = new URLSearchParams();
-    params.set("include_filters[geo][type]", "bbox");
-    params.set("include_filters[geo][field]", "dcat_bbox");
-    params.set("include_filters[geo][top_left][lat]", ne.lat.toString());
-    params.set("include_filters[geo][top_left][lon]", sw.lng.toString());
-    params.set("include_filters[geo][bottom_right][lat]", sw.lat.toString());
-    params.set("include_filters[geo][bottom_right][lon]", ne.lng.toString());
+    params.set('include_filters[geo][type]', 'bbox');
+    params.set('include_filters[geo][field]', 'dcat_bbox');
+    params.set('include_filters[geo][top_left][lat]', ne.lat.toString());
+    params.set('include_filters[geo][top_left][lon]', sw.lng.toString());
+    params.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
+    params.set('include_filters[geo][bottom_right][lon]', ne.lng.toString());
     navigate(`/search?${params.toString()}`);
   };
 
@@ -201,9 +218,9 @@ function SearchHereControl() {
 export function HomePageHexMapBackground() {
   const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [featuredDetails, setFeaturedDetails] = useState<(GeoDocumentDetails | null)[]>(() =>
-    FEATURED_RESOURCE_IDS.map(() => null)
-  );
+  const [featuredDetails, setFeaturedDetails] = useState<
+    (GeoDocumentDetails | null)[]
+  >(() => FEATURED_RESOURCE_IDS.map(() => null));
   const [featuredInitiated, setFeaturedInitiated] = useState(false);
   const [userEngagedMap, setUserEngagedMap] = useState(false);
   const [featuredProgress, setFeaturedProgress] = useState(1); // 1 = full (10s left), 0 = empty (advancing)
@@ -211,7 +228,9 @@ export function HomePageHexMapBackground() {
   // Start true so initial map load/tile moveend events don't count as user engagement
   const programmaticFlyRef = useRef(true);
   const featuredStartTimeRef = useRef(Date.now());
-  const featuredIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const featuredIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
   const featuredCardHoverRef = useRef(false);
   const featuredPauseStartRef = useRef(0);
   const featuredTotalPausedRef = useRef(0);
@@ -224,15 +243,25 @@ export function HomePageHexMapBackground() {
   }>({ hexes: [], resolution: 6, loading: false });
 
   const handleHexData = useCallback(
-    (data: { hexes: Array<{ h3: string; count: number }>; resolution: number; loading: boolean }) => {
-      setHexDataForTable({ hexes: data.hexes, resolution: data.resolution, loading: data.loading });
+    (data: {
+      hexes: Array<{ h3: string; count: number }>;
+      resolution: number;
+      loading: boolean;
+    }) => {
+      setHexDataForTable({
+        hexes: data.hexes,
+        resolution: data.resolution,
+        loading: data.loading,
+      });
     },
     []
   );
 
   const [preCarouselProgress, setPreCarouselProgress] = useState(1);
   const preCarouselStartRef = useRef<number | null>(null);
-  const preCarouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const preCarouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null
+  );
   const hadCarouselStartedRef = useRef(false);
 
   useEffect(() => {
@@ -305,9 +334,7 @@ export function HomePageHexMapBackground() {
     ).then((results) => {
       if (cancelled) return;
       setFeaturedDetails(
-        results.map((r) =>
-          r.status === "fulfilled" ? r.value : null
-        )
+        results.map((r) => (r.status === 'fulfilled' ? r.value : null))
       );
     });
     return () => {
@@ -358,7 +385,11 @@ export function HomePageHexMapBackground() {
       <p className="sr-only">
         For a list of hex data, use the section below: View hex data as table.
       </p>
-      <div className="relative h-full w-full" role="img" aria-label="Resource density hex map">
+      <div
+        className="relative h-full w-full"
+        role="img"
+        aria-label="Resource density hex map"
+      >
         <MapContainer
           center={HOME_PAGE_MAP_CENTER}
           zoom={DEFAULT_US_ZOOM}
@@ -389,7 +420,9 @@ export function HomePageHexMapBackground() {
                 `/search?include_filters[h3_res${resolution}][]=${encodeURIComponent(h3)}`
               );
             }}
-            queryString={typeof window !== "undefined" ? window.location.search : undefined}
+            queryString={
+              typeof window !== 'undefined' ? window.location.search : undefined
+            }
           />
           <MapUserEngagementTracker
             programmaticFlyRef={programmaticFlyRef}
@@ -414,15 +447,10 @@ export function HomePageHexMapBackground() {
         </MapContainer>
 
         {/* Live region: announce active slide change for screen readers */}
-        <div
-          aria-live="polite"
-          aria-atomic
-          className="sr-only"
-          role="status"
-        >
+        <div aria-live="polite" aria-atomic className="sr-only" role="status">
           {featuredInitiated && activeDetail
-            ? `Current featured item: ${activeDetail.attributes?.ogm?.dct_title_s || "Untitled"}`
-            : ""}
+            ? `Current featured item: ${activeDetail.attributes?.ogm?.dct_title_s || 'Untitled'}`
+            : ''}
         </div>
 
         {/* Featured resource popup overlay — bottom-right, list-view fields */}
@@ -452,35 +480,36 @@ export function HomePageHexMapBackground() {
                   <div className="w-full h-full flex items-center justify-center text-gray-400">
                     {getResourceIcon(
                       activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0],
-                      { className: "w-12 h-12" }
+                      { className: 'w-12 h-12' }
                     )}
                   </div>
                 )}
               </div>
               <div className="flex-1 flex flex-col min-w-0 p-4">
-                <Link
-                  to={`/resources/${activeDetail.id}`}
-                  className="flex-1"
-                >
+                <Link to={`/resources/${activeDetail.id}`} className="flex-1">
                   <h3 className="text-base font-semibold text-blue-600 hover:text-blue-800 line-clamp-2">
-                    {activeDetail.attributes?.ogm?.dct_title_s || "Untitled"}
+                    {activeDetail.attributes?.ogm?.dct_title_s || 'Untitled'}
                   </h3>
                 </Link>
                 {activeDetail.attributes?.ogm?.dct_description_sm?.[0] && (
                   <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                    {typeof activeDetail.attributes.ogm.dct_description_sm[0] === "string"
+                    {typeof activeDetail.attributes.ogm
+                      .dct_description_sm[0] === 'string'
                       ? activeDetail.attributes.ogm.dct_description_sm[0]
-                      : String(activeDetail.attributes.ogm.dct_description_sm[0])}
+                      : String(
+                          activeDetail.attributes.ogm.dct_description_sm[0]
+                        )}
                   </p>
                 )}
                 <div className="flex items-center justify-between gap-2 mt-2 text-xs text-gray-500">
                   <span>
                     {activeDetail.attributes?.ogm?.gbl_indexYear_im?.[0] ??
                       activeDetail.attributes?.ogm?.gbl_indexyear_im?.[0] ??
-                      "—"}
+                      '—'}
                   </span>
                   <span className="uppercase tracking-tighter opacity-80 border border-gray-200 px-1.5 py-0.5 rounded">
-                    {activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0] ?? "Item"}
+                    {activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0] ??
+                      'Item'}
                   </span>
                 </div>
                 <Link
@@ -536,7 +565,7 @@ export function HomePageHexMapBackground() {
             if (!carouselEl.contains(document.activeElement)) return;
             const len = FEATURED_RESOURCE_IDS.length;
             let newIndex: number | null = null;
-            if (e.key === "ArrowLeft") {
+            if (e.key === 'ArrowLeft') {
               e.preventDefault();
               newIndex = (activeIndex - 1 + len) % len;
               setActiveIndex(newIndex);
@@ -544,7 +573,7 @@ export function HomePageHexMapBackground() {
               featuredTotalPausedRef.current = 0;
               setFeaturedProgress(1);
               setFeaturedInitiated(true);
-            } else if (e.key === "ArrowRight") {
+            } else if (e.key === 'ArrowRight') {
               e.preventDefault();
               newIndex = (activeIndex + 1) % len;
               setActiveIndex(newIndex);
@@ -552,7 +581,7 @@ export function HomePageHexMapBackground() {
               featuredTotalPausedRef.current = 0;
               setFeaturedProgress(1);
               setFeaturedInitiated(true);
-            } else if (e.key === "Home") {
+            } else if (e.key === 'Home') {
               e.preventDefault();
               newIndex = 0;
               setActiveIndex(0);
@@ -560,7 +589,7 @@ export function HomePageHexMapBackground() {
               featuredTotalPausedRef.current = 0;
               setFeaturedProgress(1);
               setFeaturedInitiated(true);
-            } else if (e.key === "End") {
+            } else if (e.key === 'End') {
               e.preventDefault();
               newIndex = len - 1;
               setActiveIndex(len - 1);
@@ -571,23 +600,26 @@ export function HomePageHexMapBackground() {
             }
             if (newIndex !== null) {
               setTimeout(() => {
-                carouselEl.querySelector<HTMLButtonElement>(
-                  `[data-carousel-thumb][data-index="${newIndex}"]`
-                )?.focus();
+                carouselEl
+                  .querySelector<HTMLButtonElement>(
+                    `[data-carousel-thumb][data-index="${newIndex}"]`
+                  )
+                  ?.focus();
               }, 0);
             }
           }}
         >
           <p id="featured-carousel-desc" className="sr-only">
-            Use previous and next buttons to change the featured item, or select a thumbnail to jump to an item.
+            Use previous and next buttons to change the featured item, or select
+            a thumbnail to jump to an item.
           </p>
           <button
             type="button"
             onClick={() => setFeaturedInitiated(false)}
             className={`flex-shrink-0 w-16 h-16 rounded-lg flex items-center justify-center border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
               !featuredInitiated
-                ? "border-blue-600 ring-2 ring-blue-600/30 bg-blue-50"
-                : "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100"
+                ? 'border-blue-600 ring-2 ring-blue-600/30 bg-blue-50'
+                : 'border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100'
             }`}
             aria-label="Return to home map view"
             title="Home"
@@ -637,20 +669,22 @@ export function HomePageHexMapBackground() {
               className={`relative z-10 w-16 h-16 rounded-lg flex items-center justify-center border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                 !featuredInitiated
                   ? preCarouselProgress > 0
-                    ? "border-transparent bg-transparent text-gray-500 hover:text-gray-600"
-                    : "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600"
+                    ? 'border-transparent bg-transparent text-gray-500 hover:text-gray-600'
+                    : 'border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600'
                   : carouselPaused
-                    ? "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600"
-                    : "border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600"
+                    ? 'border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600'
+                    : 'border-transparent hover:border-gray-300 bg-gray-50 hover:bg-gray-100 text-gray-600'
               }`}
               aria-label={
                 !featuredInitiated
-                  ? "Start featured carousel"
+                  ? 'Start featured carousel'
                   : carouselPaused
-                    ? "Play featured carousel"
-                    : "Pause featured carousel"
+                    ? 'Play featured carousel'
+                    : 'Pause featured carousel'
               }
-              title={!featuredInitiated ? "Start" : carouselPaused ? "Play" : "Pause"}
+              title={
+                !featuredInitiated ? 'Start' : carouselPaused ? 'Play' : 'Pause'
+              }
             >
               {carouselPaused || !featuredInitiated ? (
                 <Play className="w-8 h-8" />
@@ -664,9 +698,10 @@ export function HomePageHexMapBackground() {
             const isActive = index === activeIndex;
             const title =
               detail?.attributes?.ogm?.dct_title_s ||
-              (detail ? "Untitled" : "Loading…");
+              (detail ? 'Untitled' : 'Loading…');
             const thumbUrl = detail?.meta?.ui?.thumbnail_url;
-            const resourceClass = detail?.attributes?.ogm?.gbl_resourceClass_sm?.[0];
+            const resourceClass =
+              detail?.attributes?.ogm?.gbl_resourceClass_sm?.[0];
 
             return (
               <button
@@ -680,11 +715,11 @@ export function HomePageHexMapBackground() {
                 }}
                 className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                   isActive
-                    ? "border-blue-600 ring-2 ring-blue-600/30"
-                    : "border-transparent hover:border-gray-300"
+                    ? 'border-blue-600 ring-2 ring-blue-600/30'
+                    : 'border-transparent hover:border-gray-300'
                 }`}
                 aria-label={title}
-                aria-current={isActive ? "true" : undefined}
+                aria-current={isActive ? 'true' : undefined}
               >
                 {thumbUrl ? (
                   <img
@@ -694,7 +729,7 @@ export function HomePageHexMapBackground() {
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-gray-100 text-gray-400">
-                    {getResourceIcon(resourceClass, { className: "w-8 h-8" })}
+                    {getResourceIcon(resourceClass, { className: 'w-8 h-8' })}
                   </div>
                 )}
               </button>
@@ -749,7 +784,11 @@ export function HomePageHexMapBackground() {
                 hexes={hexDataForTable.hexes}
                 resolution={hexDataForTable.resolution}
                 searchQuery=""
-                queryString={typeof window !== "undefined" ? window.location.search : undefined}
+                queryString={
+                  typeof window !== 'undefined'
+                    ? window.location.search
+                    : undefined
+                }
                 loading={hexDataForTable.loading}
               />
             </div>

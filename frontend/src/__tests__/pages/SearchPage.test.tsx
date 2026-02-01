@@ -5,7 +5,15 @@ import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { MapProvider } from '../../context/MapContext';
-import { vi, describe, it, expect, beforeEach, afterEach, MockInstance } from 'vitest';
+import {
+  vi,
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  MockInstance,
+} from 'vitest';
 import type { GeoDocument, JsonApiResponse } from '../../types/api';
 
 // Mock child components to isolate SearchPage logic
@@ -23,18 +31,26 @@ vi.mock('../../components/SearchResults', () => ({
   ),
 }));
 
-// Mock GalleryView specifically to test interaction or simply use real one? 
+// Mock GalleryView specifically to test interaction or simply use real one?
 // Using real one allows us to test the composition, but mocking it makes testing SearchPage's state passing easier.
 // Let's use REAL GalleryView if possible, or a mock that exposes props.
 // Actually, for deep logic testing (infinite scroll callback), mocking is often cleaner.
 // But we want to test that SearchPage *passes* the right props.
 vi.mock('../../components/search/GalleryView', () => ({
-  GalleryView: ({ results, onLoadMore }: { results: GeoDocument[], onLoadMore: () => void }) => (
+  GalleryView: ({
+    results,
+    onLoadMore,
+  }: {
+    results: GeoDocument[];
+    onLoadMore: () => void;
+  }) => (
     <div data-testid="gallery-view">
       {results.map((r) => (
         <div key={r.id}>Gallery Result {r.attributes.ogm.dct_title_s}</div>
       ))}
-      <button onClick={onLoadMore} data-testid="load-more-btn">Load More</button>
+      <button onClick={onLoadMore} data-testid="load-more-btn">
+        Load More
+      </button>
     </div>
   ),
 }));
@@ -49,10 +65,14 @@ const mockResults: GeoDocument[] = Array.from({ length: 40 }, (_, i) => ({
     },
     // Add other required fields if necessary
   },
-  links: { self: '#' }
+  links: { self: '#' },
 }));
 
-const createMockApiResponse = (data: GeoDocument[], total = 100, page = 1): JsonApiResponse => ({
+const createMockApiResponse = (
+  data: GeoDocument[],
+  total = 100,
+  page = 1
+): JsonApiResponse => ({
   data,
   meta: {
     pages: {
@@ -66,7 +86,7 @@ const createMockApiResponse = (data: GeoDocument[], total = 100, page = 1): Json
     perPage: 20,
   },
   links: { self: '', next: '', prev: '', first: '', last: '' },
-  included: []
+  included: [],
 });
 
 describe('SearchPage Logic', () => {
@@ -83,7 +103,10 @@ describe('SearchPage Logic', () => {
     vi.restoreAllMocks();
   });
 
-  const renderWithRouter = (initialUrl = '/search', searchResults: JsonApiResponse | null = null) => {
+  const renderWithRouter = (
+    initialUrl = '/search',
+    searchResults: JsonApiResponse | null = null
+  ) => {
     const routes = [
       {
         path: '/search',
@@ -128,7 +151,9 @@ describe('SearchPage Logic', () => {
     renderWithRouter('/search?view=gallery', results);
 
     // Should show 1-20
-    expect(screen.getByText(/Showing results 1-20 of 100/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Showing results 1-20 of 100/i)
+    ).toBeInTheDocument();
   });
 
   it('appends results when Load More is clicked (simulating infinite scroll)', async () => {
@@ -142,12 +167,15 @@ describe('SearchPage Logic', () => {
     // To test this with `render`, we need to simulate the component re-rendering with new props (Page 2 data)
     // while maintaining component state (accumulatedResults).
 
-    const { rerender } = renderWithRouter('/search?view=gallery', createMockApiResponse(mockResults.slice(0, 20), 100, 1));
+    const { rerender } = renderWithRouter(
+      '/search?view=gallery',
+      createMockApiResponse(mockResults.slice(0, 20), 100, 1)
+    );
 
     // Check initial state
     expect(screen.getAllByText(/Gallery Result/)).toHaveLength(20);
 
-    // Click load more -> updates URL to page=2. 
+    // Click load more -> updates URL to page=2.
     // In our test, we manually trigger the prop update that the loader would produce.
     // The component *must* detect that page changed (via props/URL) and context is same, and append.
 
@@ -177,11 +205,11 @@ describe('SearchPage Logic', () => {
     // Manually force a re-render sequence:
     // 1. Render P1.
     // 2. Rerender with P2 props. (We invoke rerender with the SAME component structure but new props).
-    // Note: To change the Page param in `useSearchParams`, we might need to rely on the button click logic OR just force it via initialEntries? 
+    // Note: To change the Page param in `useSearchParams`, we might need to rely on the button click logic OR just force it via initialEntries?
     // No, we want to test the TRANSITION.
 
     // Limitation: We can't easily sync the internal Router state change with our external `searchResults` prop update in one go.
-    // However, the `useEffect` listens to `page` from URL. 
+    // However, the `useEffect` listens to `page` from URL.
     // Valid Test Strategy:
     // 1. Render.
     // 2. Click Load More. (Updates URL param to page=2).
@@ -195,9 +223,13 @@ describe('SearchPage Logic', () => {
 
     // At this point URL is page=2 (due to click). Props are old.
     // Now we supply new data.
-    const page2Results = createMockApiResponse(mockResults.slice(20, 40), 100, 2);
+    const page2Results = createMockApiResponse(
+      mockResults.slice(20, 40),
+      100,
+      2
+    );
 
-    // We need to pass the updated router context? 
+    // We need to pass the updated router context?
     // Actually `renderWithRouter` creates a new router each time. We can't use it for rerender.
     // We need to construct the setup manually to support rerender.
 
@@ -211,12 +243,16 @@ describe('SearchPage Integration', () => {
     const storedState = {
       context: 'view=gallery',
       results: mockResults.slice(0, 40), // 40 items
-      startPage: 1
+      startPage: 1,
     };
     sessionStorage.setItem('b1g_gallery_state', JSON.stringify(storedState));
 
     // Initial render with SERVER data (Page 1 only - 20 items)
-    const serverResults = createMockApiResponse(mockResults.slice(0, 20), 100, 1);
+    const serverResults = createMockApiResponse(
+      mockResults.slice(0, 20),
+      100,
+      1
+    );
 
     // We use view=gallery
     const { unmount } = renderWithRouter('/search?view=gallery', serverResults);
@@ -228,13 +264,18 @@ describe('SearchPage Integration', () => {
       expect(screen.getAllByText(/Gallery Result/)).toHaveLength(40);
     });
 
-    expect(screen.getByText(/Showing results 1-40 of 100/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Showing results 1-40 of 100/i)
+    ).toBeInTheDocument();
 
     unmount();
   });
 
   // Helper must be defined in scope or imported
-  const renderWithRouter = (initialUrl = '/search', searchResults: JsonApiResponse | null = null) => {
+  const renderWithRouter = (
+    initialUrl = '/search',
+    searchResults: JsonApiResponse | null = null
+  ) => {
     const routes = [
       {
         path: '/search',

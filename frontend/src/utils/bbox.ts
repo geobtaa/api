@@ -5,7 +5,7 @@
 export function parseBboxToLeafletBounds(
   bboxStr: string | undefined
 ): [[number, number], [number, number]] | null {
-  if (!bboxStr || typeof bboxStr !== "string") return null;
+  if (!bboxStr || typeof bboxStr !== 'string') return null;
 
   let coords: [number, number, number, number] | null = null; // [minX, minY, maxX, maxY] (lon, lat)
 
@@ -19,7 +19,7 @@ export function parseBboxToLeafletBounds(
     const minY = parseFloat(envelopeMatch[4]);
     coords = [minX, minY, maxX, maxY];
   } else {
-    const parts = bboxStr.split(",").map((s) => parseFloat(s.trim()));
+    const parts = bboxStr.split(',').map((s) => parseFloat(s.trim()));
     if (parts.length === 4 && parts.every((n) => !isNaN(n))) {
       coords = [parts[0], parts[1], parts[2], parts[3]];
     }

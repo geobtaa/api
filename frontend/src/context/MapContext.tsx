@@ -11,15 +11,19 @@ const MapContext = createContext<MapContextType | undefined>(undefined);
 
 export function MapProvider({ children }: { children: React.ReactNode }) {
   const [hoveredGeometry, setHoveredGeometry] = useState<string | null>(null);
-  const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(null);
+  const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(
+    null
+  );
 
   return (
-    <MapContext.Provider value={{
-      hoveredGeometry,
-      setHoveredGeometry,
-      hoveredResourceId,
-      setHoveredResourceId
-    }}>
+    <MapContext.Provider
+      value={{
+        hoveredGeometry,
+        setHoveredGeometry,
+        hoveredResourceId,
+        setHoveredResourceId,
+      }}
+    >
       {children}
     </MapContext.Provider>
   );

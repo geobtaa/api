@@ -9,7 +9,11 @@ expect.extend(matchers);
 vi.mock('./services/api', () => ({
   fetchSearchResults: vi.fn().mockResolvedValue({
     jsonapi: { version: '1.1', profile: [] },
-    links: { self: '/api/v1/search', first: '/api/v1/search', last: '/api/v1/search' },
+    links: {
+      self: '/api/v1/search',
+      first: '/api/v1/search',
+      last: '/api/v1/search',
+    },
     meta: {
       totalCount: 0,
       totalPages: 0,
@@ -57,7 +61,11 @@ vi.mock('./services/api', () => ({
   ]),
   fetchBookmarkedResources: vi.fn().mockResolvedValue({
     jsonapi: { version: '1.1', profile: [] },
-    links: { self: '/api/v1/bookmarks', first: '/api/v1/bookmarks', last: '/api/v1/bookmarks' },
+    links: {
+      self: '/api/v1/bookmarks',
+      first: '/api/v1/bookmarks',
+      last: '/api/v1/bookmarks',
+    },
     meta: {
       totalCount: 0,
       totalPages: 0,

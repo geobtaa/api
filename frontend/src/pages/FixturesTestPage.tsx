@@ -402,84 +402,96 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: '219ffed3-3e58-4fb7-ad82-4c264aae1b17',
     name: 'Multiple data downloads',
-    description: 'V11 Parcels Brown County, WI 2025 - Download function/button with multiple file formats',
+    description:
+      'V11 Parcels Brown County, WI 2025 - Download function/button with multiple file formats',
     category: 'Downloads',
     source: 'btaa',
   },
   {
     id: 'b1g_BtbnzIbFhMiC',
     name: 'Polygon geometry (not rectangular)',
-    description: 'Zoning Base Districts [Philadelphia--Pennsylvania] {2025} - Geometry value is generalized outline instead of box',
+    description:
+      'Zoning Base Districts [Philadelphia--Pennsylvania] {2025} - Geometry value is generalized outline instead of box',
     category: 'Geometry/Spatial Search',
     source: 'btaa',
   },
   {
     id: 'b1g_PJxxfKgpqpUT',
     name: 'Geonames',
-    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Includes value for city GeoName URI',
+    description:
+      'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Includes value for city GeoName URI',
     category: 'Geometry/Spatial Search',
     source: 'btaa',
   },
   {
     id: 'p16022coll230:2937',
     name: 'Multiple bounding boxes',
-    description: 'The smaller islands in the British Ocean - Map has multiple insets / panels',
+    description:
+      'The smaller islands in the British Ocean - Map has multiple insets / panels',
     category: 'Geometry/Spatial Search',
     source: 'btaa',
   },
   {
     id: 'p16022coll230:3666',
     name: 'BBox crossing date line',
-    description: 'Eastern Siberia - Currently does not display correctly - the bbox polygon is backwards',
+    description:
+      'Eastern Siberia - Currently does not display correctly - the bbox polygon is backwards',
     category: 'Geometry/Spatial Search',
     source: 'btaa',
   },
   {
     id: '502D1D34-FDB0-456E-BD4A-73299B9C2E5F',
     name: 'Point for BBox',
-    description: 'Bike Elevator City of Madison, WI 2018 - We should be able to handle points in the bbox field',
+    description:
+      'Bike Elevator City of Madison, WI 2018 - We should be able to handle points in the bbox field',
     category: 'Geometry/Spatial Search',
     source: 'btaa',
   },
   {
     id: '999-0011-california',
     name: 'With dozens/scores of place names in Spatial Coverage',
-    description: 'Digital Sanborn Maps (Black & White) [California] {1867-1970} - hundreds of place names',
+    description:
+      'Digital Sanborn Maps (Black & White) [California] {1867-1970} - hundreds of place names',
     category: 'Metadata Block',
     source: 'btaa',
   },
   {
     id: '0b75937e-2f44-4e49-bd1e-3e3adbed6f84',
     name: 'Arabic script',
-    description: 'Damage assessment in Jandairis, Afrin district, Aleppo governorate on February 11 - Non-Latin script in Description',
+    description:
+      'Damage assessment in Jandairis, Afrin district, Aleppo governorate on February 11 - Non-Latin script in Description',
     category: 'Metadata Block',
     source: 'btaa',
   },
   {
     id: 'b1g_PJxxfKgpqpUT',
     name: 'Display Note field',
-    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Highlighted display box',
+    description:
+      'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Highlighted display box',
     category: 'Metadata Block',
     source: 'btaa',
   },
   {
     id: 'pstems_0052767067_brownsville_08_pitt',
     name: 'Very long description fields',
-    description: 'Brownsville-08-Pitt; Brownsville- 8; Pittsburgh - Need to hide some of field under expand more feature',
+    description:
+      'Brownsville-08-Pitt; Brownsville- 8; Pittsburgh - Need to hide some of field under expand more feature',
     category: 'Metadata Block',
     source: 'btaa',
   },
   {
     id: 'rutgers-lib:35507',
     name: 'Chinese/Han script',
-    description: 'Map showing paths for mails and telegrams to and from Puchi (Puqi) Hsien (Xian) [China] - Non-Latin script in Title',
+    description:
+      'Map showing paths for mails and telegrams to and from Puchi (Puqi) Hsien (Xian) [China] - Non-Latin script in Title',
     category: 'Metadata Block',
     source: 'btaa',
   },
   {
     id: 'VAC9619-000022',
     name: 'Cyrillic script',
-    description: 'О-35-33-Г Савиновщина (Savinovshchina, Russia) - Non-Latin script in Title',
+    description:
+      'О-35-33-Г Савиновщина (Savinovshchina, Russia) - Non-Latin script in Title',
     category: 'Metadata Block',
     source: 'btaa',
   },
@@ -513,7 +525,8 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'b1g_Jeks5eSaDHp5',
     name: 'Data Dictionary',
-    description: 'Street Centerlines [Philadelphia--Pennsylvania] {2025} - Could have nested values',
+    description:
+      'Street Centerlines [Philadelphia--Pennsylvania] {2025} - Could have nested values',
     category: 'Modal Window',
   },
   {
@@ -526,7 +539,8 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: '16465B6B-742A-4335-BBF5-C4F7EC1BA9D4',
     name: 'Part of multiple local collections',
-    description: 'High Quality Streams, Wisconsin 2023 - Item belongs to more than one locally described collection',
+    description:
+      'High Quality Streams, Wisconsin 2023 - Item belongs to more than one locally described collection',
     category: 'Relationships',
     source: 'btaa',
   },
@@ -547,28 +561,32 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: '8888-002',
     name: '"Other"',
-    description: 'Research Guide to Fire Insurance Maps - Used for tabular data and some text documents; no bbox or geometry',
+    description:
+      'Research Guide to Fire Insurance Maps - Used for tabular data and some text documents; no bbox or geometry',
     category: 'Resource Class',
     source: 'btaa',
   },
   {
     id: '999-0003-007',
     name: 'Licensed data',
-    description: 'Education (PolicyMap) - Shows as restricted with multiple access links',
+    description:
+      'Education (PolicyMap) - Shows as restricted with multiple access links',
     category: 'Restricted/Public',
     source: 'btaa',
   },
   {
     id: '4B758FE6-D2B5-463D-8E25-502CB4D90376',
     name: 'Esri FeatureServer',
-    description: 'Parcels Wisconsin (Statewide), 2024 - Very large feature layer - 3.5m polygons',
+    description:
+      'Parcels Wisconsin (Statewide), 2024 - Very large feature layer - 3.5m polygons',
     category: 'Viewer',
     source: 'btaa',
   },
   {
     id: 'b1e04fea-8a02-426d-94c1-0897707fa563',
     name: 'Geojson index map',
-    description: 'LiDAR-Derived Classified LAS for Door County, WI 2018 - Geojson index map that renders tiles for downloading',
+    description:
+      'LiDAR-Derived Classified LAS for Door County, WI 2018 - Geojson index map that renders tiles for downloading',
     category: 'Viewer',
     source: 'btaa',
   },
@@ -589,14 +607,16 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'CityOfWaukesha-3eea70a5e4af40a1a558a43705ff8596',
     name: 'Esri ImageServer',
-    description: '2024 Aerial, City of Waukesha - To preview imageserver service in viewer',
+    description:
+      '2024 Aerial, City of Waukesha - To preview imageserver service in viewer',
     category: 'Viewer',
     source: 'btaa',
   },
   {
     id: 'b1g_PJxxfKgpqpUT',
     name: 'PM Tile',
-    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Part of new Geodata Collection',
+    description:
+      'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Part of new Geodata Collection',
     category: 'Viewer',
     source: 'btaa',
   },
@@ -610,14 +630,16 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'utaustin_121171',
     name: 'COG',
-    description: 'Sanborn Fire Insurance Maps [Austin, Texas, 1921; Sheet 69] - from UT Austin',
+    description:
+      'Sanborn Fire Insurance Maps [Austin, Texas, 1921; Sheet 69] - from UT Austin',
     category: 'Viewer',
     source: 'btaa',
   },
   {
     id: '9eccb622-8fe3-4f94-9a5c-e166585eb597',
     name: 'AllMaps',
-    description: 'A correct map of the Pacific Northwest showing rail & steamer lines of the O. R. & N. Co.',
+    description:
+      'A correct map of the Pacific Northwest showing rail & steamer lines of the O. R. & N. Co.',
     category: 'Viewer',
     source: 'btaa',
   },
@@ -638,14 +660,16 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'p16022coll231:2412',
     name: 'map with IIIF Manifest multiple pages',
-    description: 'Atlas and Farm Directory with Complete Survey in Township Plats, Lincoln County, Minnesota',
+    description:
+      'Atlas and Farm Directory with Complete Survey in Township Plats, Lincoln County, Minnesota',
     category: 'Viewer',
     source: 'btaa',
   },
   {
     id: 'stanford-bs024ty5255',
     name: 'oemBed',
-    description: 'Bahamas National Hazard Analysis, 2019: InVEST Coastal Vulnerability Model Outputs - These are only from Stanford and generate a different kind of viewer',
+    description:
+      'Bahamas National Hazard Analysis, 2019: InVEST Coastal Vulnerability Model Outputs - These are only from Stanford and generate a different kind of viewer',
     category: 'Viewer',
     source: 'btaa',
   },
@@ -653,7 +677,8 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'b1g_PJxxfKgpqpUT',
     name: 'Display Note field',
-    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Highlighted display box',
+    description:
+      'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Highlighted display box',
     category: 'Metadata Block',
     source: 'btaa',
   },
@@ -667,7 +692,8 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'b1g_PJxxfKgpqpUT',
     name: 'PM Tile',
-    description: 'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Part of new Geodata Collection',
+    description:
+      'Municipal boundary [Pennsylvania--Philadelphia] {2016} - Part of new Geodata Collection',
     category: 'Viewer',
     source: 'btaa',
   },
@@ -680,7 +706,8 @@ const btaaGinFixtures: Fixture[] = [
   {
     id: 'utaustin_121171',
     name: 'COG',
-    description: 'Sanborn Fire Insurance Maps [Austin, Texas, 1921; Sheet 69] - from UT Austin - could replace with local one eventually',
+    description:
+      'Sanborn Fire Insurance Maps [Austin, Texas, 1921; Sheet 69] - from UT Austin - could replace with local one eventually',
     category: 'Viewer',
     source: 'btaa',
   },
@@ -804,17 +831,25 @@ const getCategoryColor = (category: string) => {
 
 export function FixturesTestPage() {
   // Get categories for each source separately
-  const gblCategories = [...new Set(geoblacklightFixtures.map((f) => f.category))].sort();
-  const btaaCategories = [...new Set(btaaGinFixtures.map((f) => f.category))].sort();
-  
+  const gblCategories = [
+    ...new Set(geoblacklightFixtures.map((f) => f.category)),
+  ].sort();
+  const btaaCategories = [
+    ...new Set(btaaGinFixtures.map((f) => f.category)),
+  ].sort();
+
   // Show/hide toggles for each source
   const [showGbl, setShowGbl] = useState<boolean>(true);
   const [showBtaa, setShowBtaa] = useState<boolean>(true);
-  
+
   // Category filters for each source
-  const [selectedGblCategory, setSelectedGblCategory] = useState<string | null>(null);
-  const [selectedBtaaCategory, setSelectedBtaaCategory] = useState<string | null>(null);
-  
+  const [selectedGblCategory, setSelectedGblCategory] = useState<string | null>(
+    null
+  );
+  const [selectedBtaaCategory, setSelectedBtaaCategory] = useState<
+    string | null
+  >(null);
+
   const [fixtureStatuses, setFixtureStatuses] = useState<
     Record<string, FixtureStatus>
   >({});
@@ -846,7 +881,10 @@ export function FixturesTestPage() {
 
   // Calculate category counts - this simulates what would be shown when that category is selected
   // This ensures the count exactly matches what appears in the filtered results
-  const getCategoryCount = (source: 'gbl' | 'btaa', category: string): number => {
+  const getCategoryCount = (
+    source: 'gbl' | 'btaa',
+    category: string
+  ): number => {
     // Simulate filtering with this specific category selected
     // This gives us the exact count that will appear when the user clicks that category button
     return allFixtures.filter((fixture) => {
@@ -891,19 +929,19 @@ export function FixturesTestPage() {
         // Parse JSON response to check for errors
         if (contentType && contentType.includes('application/json')) {
           const data = await response.json();
-          
+
           // Check if the response contains an error
           if (data.error) {
             console.log(`❌ ${fixtureId} has error: ${data.error}`);
             return 'unavailable';
           }
-          
+
           // Check if it's a valid JSON:API response with data
           if (data.data && data.data.id) {
             console.log(`✅ ${fixtureId} is available (JSON:API)`);
             return 'available';
           }
-          
+
           // Fallback: if we got JSON without error, consider it available
           console.log(`✅ ${fixtureId} is available (JSON)`);
           return 'available';
@@ -966,7 +1004,6 @@ export function FixturesTestPage() {
     ).length,
   };
 
-
   return (
     <div className="min-h-screen bg-gray-50 py-4">
       <div className="w-full px-2 sm:px-4 lg:px-6">
@@ -978,7 +1015,7 @@ export function FixturesTestPage() {
               Geoportal Test Fixtures
             </h1>
           </div>
-          
+
           {/* Show/Hide Toggles */}
           <div className="flex items-center justify-center gap-6 mb-4">
             <label className="flex items-center gap-2 cursor-pointer">
@@ -1004,30 +1041,49 @@ export function FixturesTestPage() {
               </span>
             </label>
           </div>
-          
+
           <p className="text-base text-gray-600 max-w-2xl mx-auto">
             Easter egg page of test fixtures. Click any link to test if that
             resource page renders properly.
           </p>
           <div className="mt-2 text-sm text-gray-500">
-            {selectedGblCategory || selectedBtaaCategory || !showGbl || !showBtaa ? (
+            {selectedGblCategory ||
+            selectedBtaaCategory ||
+            !showGbl ||
+            !showBtaa ? (
               <>
                 Showing:{' '}
                 <span className="font-semibold">{filteredFixtures.length}</span>{' '}
                 of {allFixtures.length} fixtures
                 {selectedGblCategory && (
-                  <> | GBL Category: <span className="font-semibold text-violet-600">{selectedGblCategory}</span></>
+                  <>
+                    {' '}
+                    | GBL Category:{' '}
+                    <span className="font-semibold text-violet-600">
+                      {selectedGblCategory}
+                    </span>
+                  </>
                 )}
                 {selectedBtaaCategory && (
-                  <> | BTAA Category: <span className="font-semibold text-violet-600">{selectedBtaaCategory}</span></>
+                  <>
+                    {' '}
+                    | BTAA Category:{' '}
+                    <span className="font-semibold text-violet-600">
+                      {selectedBtaaCategory}
+                    </span>
+                  </>
                 )}
               </>
             ) : (
               <>
                 Total fixtures:{' '}
                 <span className="font-semibold">{allFixtures.length}</span> (
-                <span className="font-semibold">{geoblacklightFixtures.length}</span> GBL,{' '}
-                <span className="font-semibold">{btaaGinFixtures.length}</span> BTAA)
+                <span className="font-semibold">
+                  {geoblacklightFixtures.length}
+                </span>{' '}
+                GBL,{' '}
+                <span className="font-semibold">{btaaGinFixtures.length}</span>{' '}
+                BTAA)
               </>
             )}
           </div>
@@ -1158,12 +1214,18 @@ export function FixturesTestPage() {
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedGblCategory || selectedBtaaCategory || !showGbl || !showBtaa
+                  {selectedGblCategory ||
+                  selectedBtaaCategory ||
+                  !showGbl ||
+                  !showBtaa
                     ? `Filtered Fixtures (${filteredFixtures.length})`
                     : `All Test Fixtures (${filteredFixtures.length})`}
                 </h2>
                 <p className="text-base text-gray-600 mt-1">
-                  {selectedGblCategory || selectedBtaaCategory || !showGbl || !showBtaa
+                  {selectedGblCategory ||
+                  selectedBtaaCategory ||
+                  !showGbl ||
+                  !showBtaa
                     ? `Showing ${filteredFixtures.length} fixture${filteredFixtures.length !== 1 ? 's' : ''} matching selected filters. Click any resource link to test page rendering in a new tab.`
                     : 'Click any resource link to test page rendering in a new tab'}
                 </p>
@@ -1247,11 +1309,13 @@ export function FixturesTestPage() {
                     className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}
                   >
                     <td className="px-3 py-3 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                        fixture.source === 'gbl' 
-                          ? 'bg-blue-100 text-blue-800' 
-                          : 'bg-green-100 text-green-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                          fixture.source === 'gbl'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-green-100 text-green-800'
+                        }`}
+                      >
                         {fixture.source === 'gbl' ? 'GBL' : 'BTAA'}
                       </span>
                     </td>
@@ -1325,12 +1389,16 @@ export function FixturesTestPage() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={`inline-flex items-center gap-1 px-3 py-2 border border-transparent text-sm font-medium rounded transition-colors ${
-                          fixtureStatuses[fixture.id] === 'unavailable' || fixtureStatuses[fixture.id] === 'error'
+                          fixtureStatuses[fixture.id] === 'unavailable' ||
+                          fixtureStatuses[fixture.id] === 'error'
                             ? 'text-gray-400 bg-gray-200 cursor-not-allowed'
                             : 'text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500'
                         }`}
                         onClick={(e) => {
-                          if (fixtureStatuses[fixture.id] === 'unavailable' || fixtureStatuses[fixture.id] === 'error') {
+                          if (
+                            fixtureStatuses[fixture.id] === 'unavailable' ||
+                            fixtureStatuses[fixture.id] === 'error'
+                          ) {
                             e.preventDefault();
                           } else {
                             console.log(

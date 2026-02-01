@@ -33,10 +33,17 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
     // Example: /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
     //          /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
     try {
-      const u = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+      const u = new URL(
+        url,
+        typeof window !== 'undefined'
+          ? window.location.origin
+          : 'http://localhost'
+      );
       // Handle /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
       if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-        return u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search;
+        return (
+          u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search
+        );
       }
       // Handle /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
       if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {

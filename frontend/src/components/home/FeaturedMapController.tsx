@@ -1,10 +1,10 @@
-import { useEffect, useRef } from "react";
-import { useMap } from "react-leaflet";
-import L from "leaflet";
-import type { GeoDocumentDetails } from "../../types/api";
-import { parseBboxToLeafletBounds } from "../../utils/bbox";
-import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from "../../config/mapView";
-import { hasAllmapsViewer } from "./FeaturedItemPreviewLayer";
+import { useEffect, useRef } from 'react';
+import { useMap } from 'react-leaflet';
+import L from 'leaflet';
+import type { GeoDocumentDetails } from '../../types/api';
+import { parseBboxToLeafletBounds } from '../../utils/bbox';
+import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
+import { hasAllmapsViewer } from './FeaturedItemPreviewLayer';
 
 interface FeaturedMapControllerProps {
   activeIndex: number;
@@ -35,15 +35,19 @@ export function FeaturedMapController({
     }
     if (!wasInitiatedRef.current) return;
     programmaticFlyRef.current = true;
-    map.flyTo(L.latLng(HOME_PAGE_MAP_CENTER[0], HOME_PAGE_MAP_CENTER[1]), DEFAULT_US_ZOOM, {
-      duration: 0.6,
-    });
+    map.flyTo(
+      L.latLng(HOME_PAGE_MAP_CENTER[0], HOME_PAGE_MAP_CENTER[1]),
+      DEFAULT_US_ZOOM,
+      {
+        duration: 0.6,
+      }
+    );
     const onMoveEnd = () => {
       programmaticFlyRef.current = false;
-      map.off("moveend", onMoveEnd);
+      map.off('moveend', onMoveEnd);
     };
-    map.on("moveend", onMoveEnd);
-    return () => map.off("moveend", onMoveEnd);
+    map.on('moveend', onMoveEnd);
+    return () => map.off('moveend', onMoveEnd);
   }, [map, featuredInitiated, programmaticFlyRef]);
 
   useEffect(() => {
@@ -69,13 +73,19 @@ export function FeaturedMapController({
 
     const onMoveEnd = () => {
       programmaticFlyRef.current = false;
-      map.off("moveend", onMoveEnd);
+      map.off('moveend', onMoveEnd);
     };
-    map.on("moveend", onMoveEnd);
+    map.on('moveend', onMoveEnd);
     return () => {
-      map.off("moveend", onMoveEnd);
+      map.off('moveend', onMoveEnd);
     };
-  }, [map, activeIndex, featuredDetails, featuredInitiated, programmaticFlyRef]);
+  }, [
+    map,
+    activeIndex,
+    featuredDetails,
+    featuredInitiated,
+    programmaticFlyRef,
+  ]);
 
   return null;
 }

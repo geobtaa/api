@@ -1,36 +1,36 @@
-import { useEffect, useRef } from "react";
-import { useMap } from "react-leaflet";
-import { layerGroup } from "leaflet";
-import type { GeoDocumentDetails } from "../../types/api";
-import { leafletViewerOptions } from "../../config/leafletConfig";
+import { useEffect, useRef } from 'react';
+import { useMap } from 'react-leaflet';
+import { layerGroup } from 'leaflet';
+import type { GeoDocumentDetails } from '../../types/api';
+import { leafletViewerOptions } from '../../config/leafletConfig';
 
-const FEATURED_PREVIEW_PANE = "featuredPreviewPane";
+const FEATURED_PREVIEW_PANE = 'featuredPreviewPane';
 const DEFAULT_OPACITY = 0.75;
 
 /** Backend protocol names that use Leaflet (GeoBlacklight). Excludes OpenLayers-only: cog, pmtiles, iiif_*, oembed, geo_json. */
 const LEAFLET_PROTOCOLS = new Set([
-  "wms",
-  "wmts",
-  "arcgis_dynamic_map_layer",
-  "arcgis_feature_layer",
-  "arcgis_tiled_map_layer",
-  "arcgis_image_map_layer",
-  "tile_json",
-  "open_index_map",
-  "tile_map_service",
-  "xyz_tiles",
+  'wms',
+  'wmts',
+  'arcgis_dynamic_map_layer',
+  'arcgis_feature_layer',
+  'arcgis_tiled_map_layer',
+  'arcgis_image_map_layer',
+  'tile_json',
+  'open_index_map',
+  'tile_map_service',
+  'xyz_tiles',
 ]);
 
 function formatProtocol(protocol: string): string | null {
   const map: Record<string, string> = {
-    arcgis_dynamic_map_layer: "DynamicMapLayer",
-    arcgis_feature_layer: "FeatureLayer",
-    arcgis_tiled_map_layer: "TiledMapLayer",
-    arcgis_image_map_layer: "ImageMapLayer",
-    open_index_map: "IndexMap",
-    tile_map_service: "Tms",
-    xyz_tiles: "Xyz",
-    tile_json: "Tilejson",
+    arcgis_dynamic_map_layer: 'DynamicMapLayer',
+    arcgis_feature_layer: 'FeatureLayer',
+    arcgis_tiled_map_layer: 'TiledMapLayer',
+    arcgis_image_map_layer: 'ImageMapLayer',
+    open_index_map: 'IndexMap',
+    tile_map_service: 'Tms',
+    xyz_tiles: 'Xyz',
+    tile_json: 'Tilejson',
   };
   return (
     map[protocol] ??
@@ -42,7 +42,9 @@ function formatProtocol(protocol: string): string | null {
 export function hasLeafletViewer(
   detail: GeoDocumentDetails | null
 ): detail is GeoDocumentDetails & {
-  meta: { ui: { viewer: { protocol: string; endpoint: string; geometry: unknown } } };
+  meta: {
+    ui: { viewer: { protocol: string; endpoint: string; geometry: unknown } };
+  };
 } {
   const protocol = detail?.meta?.ui?.viewer?.protocol;
   const endpoint = detail?.meta?.ui?.viewer?.endpoint;
@@ -60,14 +62,22 @@ export function hasLeafletViewer(
 export function hasAllmapsViewer(
   detail: GeoDocumentDetails | null
 ): detail is GeoDocumentDetails & {
-  meta: { ui: { allmaps: { allmaps_annotated: true; allmaps_annotation_url?: string; allmaps_manifest_uri?: string } } };
+  meta: {
+    ui: {
+      allmaps: {
+        allmaps_annotated: true;
+        allmaps_annotation_url?: string;
+        allmaps_manifest_uri?: string;
+      };
+    };
+  };
 } {
   const allmaps = detail?.meta?.ui?.allmaps;
   if (!detail || !allmaps || !allmaps.allmaps_annotated) return false;
   const hasUrl =
     !!allmaps.allmaps_annotation_url ||
     (!!allmaps.allmaps_manifest_uri &&
-      typeof allmaps.allmaps_manifest_uri === "string");
+      typeof allmaps.allmaps_manifest_uri === 'string');
   return hasUrl;
 }
 
@@ -78,7 +88,7 @@ function getAllmapsAnnotationUrl(detail: GeoDocumentDetails): string {
   if (manifestUri) {
     return `https://annotations.allmaps.org/?url=${encodeURIComponent(manifestUri)}`;
   }
-  return "";
+  return '';
 }
 
 /** Ensures a pane exists for the featured preview layer. Layer order: hexes (back) -> bounds -> preview (front). */
@@ -88,7 +98,7 @@ function useFeaturedPreviewPane() {
     let pane = map.getPane(FEATURED_PREVIEW_PANE);
     if (!pane) {
       pane = map.createPane(FEATURED_PREVIEW_PANE);
-      pane.style.setProperty("z-index", "420", "important"); // above bounds (410), front-most for imagery
+      pane.style.setProperty('z-index', '420', 'important'); // above bounds (410), front-most for imagery
     }
   }, [map]);
 }
@@ -138,7 +148,7 @@ export function FeaturedItemPreviewLayer({
 
       async function addAllmapsLayer() {
         try {
-          const { WarpedMapLayer } = await import("@allmaps/leaflet");
+          const { WarpedMapLayer } = await import('@allmaps/leaflet');
           const layer = new WarpedMapLayer(annotationUrl, {
             opacity: DEFAULT_OPACITY,
             pane: FEATURED_PREVIEW_PANE,
@@ -147,7 +157,11 @@ export function FeaturedItemPreviewLayer({
           try {
             group.addLayer(layer);
           } catch (addErr) {
-            if (!cancelled) console.warn("FeaturedItemPreviewLayer: failed to add Allmaps layer:", addErr);
+            if (!cancelled)
+              console.warn(
+                'FeaturedItemPreviewLayer: failed to add Allmaps layer:',
+                addErr
+              );
             return;
           }
           if (cancelled) return;
@@ -157,7 +171,7 @@ export function FeaturedItemPreviewLayer({
         } catch (err) {
           if (!cancelled) {
             console.warn(
-              "FeaturedItemPreviewLayer: failed to add Allmaps preview layer:",
+              'FeaturedItemPreviewLayer: failed to add Allmaps preview layer:',
               err
             );
           }
@@ -187,7 +201,7 @@ export function FeaturedItemPreviewLayer({
       return;
     }
 
-    const layerId = detail.attributes?.ogm?.gbl_wxsIdentifier_s ?? "";
+    const layerId = detail.attributes?.ogm?.gbl_wxsIdentifier_s ?? '';
     const detectRetina = leafletViewerOptions.LAYERS?.DETECT_RETINA ?? false;
     const options = {
       layerId,
@@ -203,44 +217,44 @@ export function FeaturedItemPreviewLayer({
       try {
         const layersModule = await import(
           /* @vite-ignore */
-          "geoblacklight/leaflet/layers"
+          'geoblacklight/leaflet/layers'
         );
-        const L = await import("leaflet");
+        const L = await import('leaflet');
         const tileLayer = L.tileLayer;
 
         let layer: L.Layer | null = null;
 
         switch (gblProtocol) {
-          case "FeatureLayer":
+          case 'FeatureLayer':
             layer = layersModule.esriFeatureLayer(endpoint, options);
             break;
-          case "DynamicMapLayer":
+          case 'DynamicMapLayer':
             layer = layersModule.esriDynamicMapLayer(endpoint, options);
             break;
-          case "ImageMapLayer": {
-            const esriLeaflet = await import("esri-leaflet");
+          case 'ImageMapLayer': {
+            const esriLeaflet = await import('esri-leaflet');
             layer = esriLeaflet.imageMapLayer({ url: endpoint, ...options });
             break;
           }
-          case "Wms":
+          case 'Wms':
             layer = layersModule.wmsLayer(endpoint, options);
             break;
-          case "Tms":
+          case 'Tms':
             layer = tileLayer(endpoint, { tms: true, ...options });
             break;
-          case "Xyz":
+          case 'Xyz':
             layer = tileLayer(endpoint, options);
             break;
-          case "Wmts":
+          case 'Wmts':
             layer = await layersModule.wmtsLayer(endpoint, options);
             break;
-          case "TiledMapLayer":
+          case 'TiledMapLayer':
             layer = await layersModule.esriTiledMapLayer(endpoint, options);
             break;
-          case "Tilejson":
+          case 'Tilejson':
             layer = await layersModule.tileJsonLayer(endpoint, options);
             break;
-          case "IndexMap": {
+          case 'IndexMap': {
             const indexOptions = {
               ...leafletViewerOptions,
               opacity: DEFAULT_OPACITY,
@@ -258,7 +272,9 @@ export function FeaturedItemPreviewLayer({
         if (cancelled || !layer) return;
 
         // Ensure preview renders in our pane (z-index 420) for layer order: hexes -> bounds -> preview
-        const layerWithOpts = layer as L.Layer & { options?: { pane?: string } };
+        const layerWithOpts = layer as L.Layer & {
+          options?: { pane?: string };
+        };
         if (layerWithOpts.options) {
           layerWithOpts.options.pane = FEATURED_PREVIEW_PANE;
         }
@@ -266,7 +282,11 @@ export function FeaturedItemPreviewLayer({
         try {
           group.addLayer(layer);
         } catch (addErr) {
-          if (!cancelled) console.warn("FeaturedItemPreviewLayer: failed to add layer:", addErr);
+          if (!cancelled)
+            console.warn(
+              'FeaturedItemPreviewLayer: failed to add layer:',
+              addErr
+            );
           return;
         }
         if (cancelled) return;
@@ -276,7 +296,7 @@ export function FeaturedItemPreviewLayer({
       } catch (err) {
         if (!cancelled) {
           console.warn(
-            "FeaturedItemPreviewLayer: failed to add preview layer:",
+            'FeaturedItemPreviewLayer: failed to add preview layer:',
             err
           );
         }

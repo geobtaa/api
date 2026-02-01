@@ -10,7 +10,10 @@ vi.mock('../../components/resource/LocationMap.client', () => ({
       <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
         <h2 className="text-lg font-semibold text-gray-900">Location</h2>
       </div>
-      <div className="h-[300px] w-full" data-geometry={JSON.stringify(geometry)} />
+      <div
+        className="h-[300px] w-full"
+        data-geometry={JSON.stringify(geometry)}
+      />
     </div>
   ),
 }));

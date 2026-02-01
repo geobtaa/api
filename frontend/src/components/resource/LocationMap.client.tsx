@@ -1,7 +1,7 @@
-import React, { useEffect, useRef } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { normalizeGeometry } from "../../utils/geometryUtils";
+import React, { useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { normalizeGeometry } from '../../utils/geometryUtils';
 
 interface LocationMapProps {
   geometry:
@@ -22,7 +22,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
     // Normalize the geometry to GeoJSON format
     const normalizedGeometry = normalizeGeometry(geometry);
     if (!normalizedGeometry) {
-      console.warn("Could not normalize geometry:", geometry);
+      console.warn('Could not normalize geometry:', geometry);
       return;
     }
 
@@ -31,12 +31,12 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       mapRef.current = L.map(mapContainer.current).setView([0, 0], 2);
 
       L.tileLayer(
-        "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
         {
-          attribution: "© OpenStreetMap contributors, © CARTO",
-          subdomains: "abcd",
+          attribution: '© OpenStreetMap contributors, © CARTO',
+          subdomains: 'abcd',
           maxZoom: 20,
-        },
+        }
       ).addTo(mapRef.current);
     }
 
@@ -50,12 +50,12 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
     try {
       // Handle MultiPolygon by converting to individual Polygon features
       let features;
-      if (normalizedGeometry.type === "MultiPolygon") {
+      if (normalizedGeometry.type === 'MultiPolygon') {
         features = normalizedGeometry.coordinates.map((polygonCoords) => {
           return {
-            type: "Feature" as const,
+            type: 'Feature' as const,
             geometry: {
-              type: "Polygon" as const,
+              type: 'Polygon' as const,
               coordinates: [polygonCoords], // Wrap in array for proper Polygon structure
             },
             properties: {},
@@ -64,7 +64,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       } else {
         features = [
           {
-            type: "Feature" as const,
+            type: 'Feature' as const,
             geometry: normalizedGeometry,
             properties: {},
           },
@@ -74,7 +74,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       // Add the GeoJSON layer
       const geoJsonLayer = L.geoJSON(features, {
         style: {
-          color: "#2563eb",
+          color: '#2563eb',
           weight: 2,
           opacity: 0.6,
           fillOpacity: 0.1,
@@ -82,7 +82,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
       }).addTo(mapRef.current);
 
       // Add a dashed bounding box for MultiPolygon to show full extent
-      if (normalizedGeometry.type === "MultiPolygon") {
+      if (normalizedGeometry.type === 'MultiPolygon') {
         // Calculate the bounding box of all polygons
         let minLat = Infinity,
           maxLat = -Infinity,
@@ -102,17 +102,17 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
         // Create a bounding box rectangle
         const bounds = L.latLngBounds(
           L.latLng(minLat, minLon),
-          L.latLng(maxLat, maxLon),
+          L.latLng(maxLat, maxLon)
         );
 
         // Add dashed rectangle to show full extent
         L.rectangle(bounds, {
-          color: "#2563eb",
+          color: '#2563eb',
           weight: 2,
           opacity: 0.8,
           fillOpacity: 0,
-          dashArray: "10, 5",
-          className: "multipolygon-extent",
+          dashArray: '10, 5',
+          className: 'multipolygon-extent',
         }).addTo(mapRef.current);
       }
 
@@ -121,7 +121,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
         padding: [20, 20],
       });
     } catch (error) {
-      console.error("Error rendering geometry:", error);
+      console.error('Error rendering geometry:', error);
     }
 
     return () => {
@@ -143,4 +143,3 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
 };
 
 export default LocationMap;
-

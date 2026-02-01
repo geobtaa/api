@@ -1,7 +1,7 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from 'react';
 
 const GeospatialFilterMapClient = React.lazy(
-  () => import("./GeospatialFilterMap.client"),
+  () => import('./GeospatialFilterMap.client')
 );
 
 export function GeospatialFilterMap() {

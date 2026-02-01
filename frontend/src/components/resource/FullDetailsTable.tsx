@@ -370,11 +370,13 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
         if (match) {
           const [_, yearStr, monthStr, dayStr] = match;
-          const date = new Date(Date.UTC(
-            parseInt(yearStr, 10),
-            parseInt(monthStr, 10) - 1, // Month is 0-indexed
-            parseInt(dayStr, 10)
-          ));
+          const date = new Date(
+            Date.UTC(
+              parseInt(yearStr, 10),
+              parseInt(monthStr, 10) - 1, // Month is 0-indexed
+              parseInt(dayStr, 10)
+            )
+          );
 
           if (!isNaN(date.getTime())) {
             return date.toLocaleDateString('en-US', {
@@ -499,9 +501,9 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                   >
                     {relationshipLabels.browse_all
                       ? relationshipLabels.browse_all.replace(
-                        '%{count}',
-                        formatCount(totalCount)
-                      )
+                          '%{count}',
+                          formatCount(totalCount)
+                        )
                       : `Browse all ${formatCount(totalCount)} records...`}
                   </Link>
                 </li>
@@ -563,17 +565,17 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                 <ul className="list-none">
                   <li className="text-sm text-gray-900">
                     {key === 'dct_spatial_sm' &&
-                      Array.isArray(value) &&
-                      value.length > 15
+                    Array.isArray(value) &&
+                    value.length > 15
                       ? renderPlaceValues(
-                        value as string | string[] | null | undefined,
-                        true
-                      )
+                          value as string | string[] | null | undefined,
+                          true
+                        )
                       : renderValue(
-                        key,
-                        value as string | string[] | null | undefined,
-                        true
-                      )}
+                          key,
+                          value as string | string[] | null | undefined,
+                          true
+                        )}
                   </li>
                 </ul>
               </div>

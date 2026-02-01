@@ -17,8 +17,10 @@ export function getFacetValueDisplayLabel(
 
   // Special handling for boolean facets or specific IDs
   if (facetId === 'gbl_georeferenced_b' || facetId === 'georeferenced_agg') {
-    if (String(value) === 'true' || String(value) === '1') return 'Georeferenced';
-    if (String(value) === 'false' || String(value) === '0') return 'Not georeferenced';
+    if (String(value) === 'true' || String(value) === '1')
+      return 'Georeferenced';
+    if (String(value) === 'false' || String(value) === '0')
+      return 'Not georeferenced';
   }
 
   if (typeof label === 'string') {
@@ -31,4 +33,3 @@ export function getFacetValueDisplayLabel(
 
   return String(value ?? '');
 }
-

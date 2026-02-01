@@ -1,7 +1,7 @@
-import React, { Suspense, useState, useEffect } from "react";
+import React, { Suspense, useState, useEffect } from 'react';
 
 // Leaflet/react-leaflet require `window`, so we lazy-load the real implementation.
-const MapPageClient = React.lazy(() => import("./MapPage.client"));
+const MapPageClient = React.lazy(() => import('./MapPage.client'));
 
 const LoadingFallback = () => (
   <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -32,4 +32,3 @@ export function MapPage() {
 }
 
 export default MapPage;
-

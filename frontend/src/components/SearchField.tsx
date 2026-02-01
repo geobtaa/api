@@ -74,9 +74,12 @@ export function SearchField({
         try {
           // IMPORTANT: Do not call the API directly from the browser when rate limiting is enabled.
           // `/suggest` is served by the SSR server, which injects the API key server-side.
-          const res = await fetch(`/suggest?q=${encodeURIComponent(query.trim())}`, {
-            headers: { Accept: 'application/json' },
-          });
+          const res = await fetch(
+            `/suggest?q=${encodeURIComponent(query.trim())}`,
+            {
+              headers: { Accept: 'application/json' },
+            }
+          );
           const json = await res.json();
           const data = Array.isArray(json?.data) ? json.data : [];
           setSuggestions(
@@ -421,84 +424,84 @@ export function SearchField({
       if (selectedIndex >= 0) {
         e.preventDefault();
         const suggestion = suggestions[selectedIndex];
-      const newParams = new URLSearchParams();
-      newParams.set('q', suggestion.text);
+        const newParams = new URLSearchParams();
+        newParams.set('q', suggestion.text);
 
-      // Preserve geo filters if place is selected
-      if (selectedPlace) {
-        const attrs = selectedPlace.attributes;
-        newParams.set('include_filters[geo][type]', 'bbox');
-        newParams.set('include_filters[geo][field]', 'dcat_bbox');
-        newParams.set(
-          'include_filters[geo][top_left][lat]',
-          attrs.max_latitude.toString()
-        );
-        newParams.set(
-          'include_filters[geo][top_left][lon]',
-          attrs.min_longitude.toString()
-        );
-        newParams.set(
-          'include_filters[geo][bottom_right][lat]',
-          attrs.min_latitude.toString()
-        );
-        newParams.set(
-          'include_filters[geo][bottom_right][lon]',
-          attrs.max_longitude.toString()
-        );
-      } else {
-        // Also check URL params for geo filters (in case place was set but component state wasn't updated)
-        const geoType = searchParams.get('include_filters[geo][type]');
-        if (geoType === 'bbox') {
-          const topLeftLat = searchParams.get(
-            'include_filters[geo][top_left][lat]'
+        // Preserve geo filters if place is selected
+        if (selectedPlace) {
+          const attrs = selectedPlace.attributes;
+          newParams.set('include_filters[geo][type]', 'bbox');
+          newParams.set('include_filters[geo][field]', 'dcat_bbox');
+          newParams.set(
+            'include_filters[geo][top_left][lat]',
+            attrs.max_latitude.toString()
           );
-          const topLeftLon = searchParams.get(
-            'include_filters[geo][top_left][lon]'
+          newParams.set(
+            'include_filters[geo][top_left][lon]',
+            attrs.min_longitude.toString()
           );
-          const bottomRightLat = searchParams.get(
-            'include_filters[geo][bottom_right][lat]'
+          newParams.set(
+            'include_filters[geo][bottom_right][lat]',
+            attrs.min_latitude.toString()
           );
-          const bottomRightLon = searchParams.get(
-            'include_filters[geo][bottom_right][lon]'
+          newParams.set(
+            'include_filters[geo][bottom_right][lon]',
+            attrs.max_longitude.toString()
           );
+        } else {
+          // Also check URL params for geo filters (in case place was set but component state wasn't updated)
+          const geoType = searchParams.get('include_filters[geo][type]');
+          if (geoType === 'bbox') {
+            const topLeftLat = searchParams.get(
+              'include_filters[geo][top_left][lat]'
+            );
+            const topLeftLon = searchParams.get(
+              'include_filters[geo][top_left][lon]'
+            );
+            const bottomRightLat = searchParams.get(
+              'include_filters[geo][bottom_right][lat]'
+            );
+            const bottomRightLon = searchParams.get(
+              'include_filters[geo][bottom_right][lon]'
+            );
 
-          if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
-            newParams.set('include_filters[geo][type]', 'bbox');
-            newParams.set('include_filters[geo][field]', 'dcat_bbox');
-            newParams.set('include_filters[geo][top_left][lat]', topLeftLat);
-            newParams.set('include_filters[geo][top_left][lon]', topLeftLon);
-            newParams.set(
-              'include_filters[geo][bottom_right][lat]',
-              bottomRightLat
-            );
-            newParams.set(
-              'include_filters[geo][bottom_right][lon]',
-              bottomRightLon
-            );
+            if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
+              newParams.set('include_filters[geo][type]', 'bbox');
+              newParams.set('include_filters[geo][field]', 'dcat_bbox');
+              newParams.set('include_filters[geo][top_left][lat]', topLeftLat);
+              newParams.set('include_filters[geo][top_left][lon]', topLeftLon);
+              newParams.set(
+                'include_filters[geo][bottom_right][lat]',
+                bottomRightLat
+              );
+              newParams.set(
+                'include_filters[geo][bottom_right][lon]',
+                bottomRightLon
+              );
+            }
           }
         }
-      }
 
-      // Preserve category filters from current URL
-      const categoryFilters = searchParams.getAll(
-        'include_filters[gbl_resourceClass_sm][]'
-      );
-      const legacyCategoryFilters = searchParams.getAll(
-        'fq[gbl_resourceClass_sm][]'
-      );
+        // Preserve category filters from current URL
+        const categoryFilters = searchParams.getAll(
+          'include_filters[gbl_resourceClass_sm][]'
+        );
+        const legacyCategoryFilters = searchParams.getAll(
+          'fq[gbl_resourceClass_sm][]'
+        );
 
-      if (categoryFilters.length > 0) {
-        categoryFilters.forEach((value) => {
-          newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-        });
-      } else if (legacyCategoryFilters.length > 0) {
-        legacyCategoryFilters.forEach((value) => {
-          newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-        });
-      }
+        if (categoryFilters.length > 0) {
+          categoryFilters.forEach((value) => {
+            newParams.append('include_filters[gbl_resourceClass_sm][]', value);
+          });
+        } else if (legacyCategoryFilters.length > 0) {
+          legacyCategoryFilters.forEach((value) => {
+            newParams.append('include_filters[gbl_resourceClass_sm][]', value);
+          });
+        }
 
-      navigate(`/search?${newParams.toString()}`);
-      setShowSuggestions(false);
+        navigate(`/search?${newParams.toString()}`);
+        setShowSuggestions(false);
       } else {
         e.preventDefault();
         inputRef.current?.form?.requestSubmit();

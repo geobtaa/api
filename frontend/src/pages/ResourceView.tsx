@@ -435,7 +435,7 @@ export function ResourceView({
           description={
             Array.isArray(data.attributes.ogm.dct_description_sm)
               ? data.attributes.ogm.dct_description_sm[0]
-              : (data.attributes.ogm.dct_description_sm as string || "")
+              : (data.attributes.ogm.dct_description_sm as string) || ''
           }
           image={data?.meta?.ui?.thumbnail_url}
           url={currentUrl}
@@ -478,7 +478,8 @@ export function ResourceView({
 
                   {isMounted && searchState && (
                     <span className="text-gray-500 px-2">
-                      {formatCount(displayIndex)} of {formatCount(searchState.totalResults)}
+                      {formatCount(displayIndex)} of{' '}
+                      {formatCount(searchState.totalResults)}
                     </span>
                   )}
 
@@ -527,8 +528,8 @@ export function ResourceView({
                   {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
                   {(viewerProtocol === 'wms' ||
                     viewerProtocol === 'arcgis_feature_layer') && (
-                      <AttributeTable />
-                    )}
+                    <AttributeTable />
+                  )}
                   {viewerProtocol === 'open_index_map' && <IndexMap />}
 
                   {/* Add Full Details table */}
@@ -544,19 +545,19 @@ export function ResourceView({
                     {(data?.meta?.ui?.viewer?.geometry ||
                       data?.attributes?.ogm?.locn_geometry_original ||
                       data?.attributes?.ogm?.locn_geometry) && (
-                        <LocationMap
-                          geometry={
-                            (data?.meta?.ui?.viewer?.geometry ||
-                              data?.attributes?.ogm?.locn_geometry_original ||
-                              data?.attributes?.ogm?.locn_geometry) as
+                      <LocationMap
+                        geometry={
+                          (data?.meta?.ui?.viewer?.geometry ||
+                            data?.attributes?.ogm?.locn_geometry_original ||
+                            data?.attributes?.ogm?.locn_geometry) as
                             | string
                             | GeoJSON.Polygon
                             | GeoJSON.MultiPolygon
                             | { wkt: string }
                             | null
-                          }
-                        />
-                      )}
+                        }
+                      />
+                    )}
 
                     {/* Downloads section */}
                     {data?.meta?.ui?.downloads &&
@@ -575,9 +576,7 @@ export function ResourceView({
                       <div className="mt-6">
                         <CitationTable
                           citation={data.meta.ui.citation}
-                          permalink={
-                            isMounted ? window.location.href : ""
-                          }
+                          permalink={isMounted ? window.location.href : ''}
                         />
                       </div>
                     )}
@@ -601,7 +600,7 @@ export function ResourceView({
       </main>
 
       <Footer />
-      
+
       {/* Environment navigation buttons - fixed position */}
       {id && <EnvironmentNavButtons resourceId={id} />}
     </div>

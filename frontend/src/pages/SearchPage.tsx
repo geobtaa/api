@@ -17,7 +17,10 @@ import { GalleryView } from '../components/search/GalleryView';
 import { MapResultView } from '../components/search/MapResultView';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
 import { GeospatialFilterMap } from '../components/search/GeospatialFilterMap';
-import { parseSearchParams, normalizeFacetValueForUrl } from '../utils/searchParams';
+import {
+  parseSearchParams,
+  normalizeFacetValueForUrl,
+} from '../utils/searchParams';
 import { formatCount } from '../utils/formatNumber';
 import type { JsonApiResponse, GeoDocument } from '../types/api';
 import { useState, useEffect, useRef } from 'react';
@@ -31,7 +34,6 @@ type SearchPageProps = {
 
 // Create a separate component for the search content
 function SearchContent({ searchResults, isLoading }: SearchPageProps) {
-
   const { hoveredResourceId } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
@@ -54,27 +56,39 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   const currentView = (searchParams.get('view') as ViewMode) || 'list';
 
   const perPageParam = searchParams.get('per_page');
-  const perPage = currentView === 'gallery' ? 20 : (perPageParam ? parseInt(perPageParam) : (searchResults?.meta?.perPage || 10));
+  const perPage =
+    currentView === 'gallery'
+      ? 20
+      : perPageParam
+        ? parseInt(perPageParam)
+        : searchResults?.meta?.perPage || 10;
   const searchTotalResults = searchResults?.meta?.totalCount || 0;
   const totalPages = Math.ceil(searchTotalResults / perPage);
 
   // For now, treat API errors as “no results” and let ErrorMessage show when needed.
-  const error = (searchResults as any)?.error ? String((searchResults as any).error) : null;
-
-
+  const error = (searchResults as any)?.error
+    ? String((searchResults as any).error)
+    : null;
 
   // Infinite Scroll State for Gallery View
   // Initialize with server data to prevent hydration mismatch
-  const [accumulatedResults, setAccumulatedResults] = useState<GeoDocument[]>(searchResults?.data || []);
+  const [accumulatedResults, setAccumulatedResults] = useState<GeoDocument[]>(
+    searchResults?.data || []
+  );
 
   // Track the starting page of the accumulated results (for deep links)
   // Track the starting page of the accumulated results (for deep links)
-  const [accumulatedStartPage, setAccumulatedStartPage] = useState<number>(page);
+  const [accumulatedStartPage, setAccumulatedStartPage] =
+    useState<number>(page);
 
   // Helper to get stable context string (excluding page and per_page for gallery consistency)
   const getSearchContext = (params: URLSearchParams) => {
-    const keys = Array.from(params.keys()).filter(k => k !== 'page' && k !== 'per_page').sort();
-    return keys.map(k => `${k}=${params.getAll(k).sort().join(',')}`).join('&');
+    const keys = Array.from(params.keys())
+      .filter((k) => k !== 'page' && k !== 'per_page')
+      .sort();
+    return keys
+      .map((k) => `${k}=${params.getAll(k).sort().join(',')}`)
+      .join('&');
   };
 
   const currentContext = getSearchContext(searchParams);
@@ -108,15 +122,25 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   // Persist state to session storage
   useEffect(() => {
     // Only persist if we have finished checking for a restore (hasRestored is true)
-    if (hasRestored && currentView === 'gallery' && accumulatedResults.length > 0) {
+    if (
+      hasRestored &&
+      currentView === 'gallery' &&
+      accumulatedResults.length > 0
+    ) {
       const state = {
         context: currentContext,
         results: accumulatedResults,
-        startPage: accumulatedStartPage
+        startPage: accumulatedStartPage,
       };
       sessionStorage.setItem('b1g_gallery_state', JSON.stringify(state));
     }
-  }, [accumulatedResults, accumulatedStartPage, currentContext, currentView, hasRestored]);
+  }, [
+    accumulatedResults,
+    accumulatedStartPage,
+    currentContext,
+    currentView,
+    hasRestored,
+  ]);
 
   // Effect to manage accumulated results
   useEffect(() => {
@@ -147,7 +171,10 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
         // So: If Context is SAME, and Page is 1.
         // If we already have results starting at 1, and length > 20, keep them?
-        if (accumulatedResults.length > (searchResults?.data?.length || 0) && accumulatedStartPage === 1) {
+        if (
+          accumulatedResults.length > (searchResults?.data?.length || 0) &&
+          accumulatedStartPage === 1
+        ) {
           // Do nothing, keep accumulated results
         } else {
           setAccumulatedResults(searchResults?.data || []);
@@ -156,9 +183,11 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       } else {
         // Page > 1 and Same Context -> Append
         if (searchResults?.data && searchResults.data.length > 0) {
-          setAccumulatedResults(prev => {
-            const existingIds = new Set(prev.map(r => r.id));
-            const newItems = (searchResults?.data || []).filter(r => !existingIds.has(r.id));
+          setAccumulatedResults((prev) => {
+            const existingIds = new Set(prev.map((r) => r.id));
+            const newItems = (searchResults?.data || []).filter(
+              (r) => !existingIds.has(r.id)
+            );
             if (newItems.length === 0) return prev;
             return [...prev, ...newItems];
           });
@@ -168,7 +197,15 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     }
 
     prevContextRef.current = currentContext;
-  }, [searchResults, currentContext, page, currentView, accumulatedResults.length, accumulatedStartPage, hasRestored]);
+  }, [
+    searchResults,
+    currentContext,
+    page,
+    currentView,
+    accumulatedResults.length,
+    accumulatedStartPage,
+    hasRestored,
+  ]);
 
   const hasAnySearchCriteria =
     searchParams.has('q') ||
@@ -187,10 +224,12 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   useEffect(() => {
     // Only restore if no view param is present in the URL
     if (!searchParams.has('view')) {
-      const savedView = localStorage.getItem('b1g_view_preference') as ViewMode | null;
+      const savedView = localStorage.getItem(
+        'b1g_view_preference'
+      ) as ViewMode | null;
       if (savedView && savedView !== 'list') {
         // We need to apply the saved view.
-        // We can't use updateSearch easily here because of closure/deps, 
+        // We can't use updateSearch easily here because of closure/deps,
         // but we can use setSearchParams directly.
         const next = new URLSearchParams(searchParams);
         next.set('view', savedView);
@@ -261,7 +300,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       // If updating other params but staying on gallery, ensure per_page=20 is preserved?
       // Actually URL params persist, so we don't need to re-set it unless we are blindly recreating/clearing params.
       // But updateSearch generally modifies existing searchParams (init'd from hook).
-      // However, if we enter gallery via view change, we set it. 
+      // However, if we enter gallery via view change, we set it.
     }
 
     if (perPage !== undefined) {
@@ -271,10 +310,15 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
     if (facets !== undefined) {
       Array.from(newParams.keys())
-        .filter((key) => key.startsWith('include_filters[') || key.startsWith('fq['))
+        .filter(
+          (key) => key.startsWith('include_filters[') || key.startsWith('fq[')
+        )
         .forEach((key) => newParams.delete(key));
       facets.forEach(({ field, value }) =>
-        newParams.append(`include_filters[${field}][]`, normalizeFacetValueForUrl(field, value)),
+        newParams.append(
+          `include_filters[${field}][]`,
+          normalizeFacetValueForUrl(field, value)
+        )
       );
     }
 
@@ -283,7 +327,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
         .filter((key) => key.startsWith('exclude_filters['))
         .forEach((key) => newParams.delete(key));
       nextExcludeFacets.forEach(({ field, value }) =>
-        newParams.append(`exclude_filters[${field}][]`, value),
+        newParams.append(`exclude_filters[${field}][]`, value)
       );
     }
 
@@ -301,13 +345,12 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       newParams.delete('page');
     }
 
-
-
     // Prevent scroll reset for infinite scroll in Gallery view
-    const isGallery = (view === 'gallery') || (!view && searchParams.get('view') === 'gallery');
+    const isGallery =
+      view === 'gallery' || (!view && searchParams.get('view') === 'gallery');
 
     setSearchParams(newParams, {
-      preventScrollReset: isGallery
+      preventScrollReset: isGallery,
     });
   };
 
@@ -416,7 +459,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   return (
     <div className="min-h-screen flex flex-col">
       <Seo
-        title={query ? `Search: ${query}` : "Search Results"}
+        title={query ? `Search: ${query}` : 'Search Results'}
         description="Search existing resources in the Big Ten Academic Alliance Geoportal."
       />
       <Header />
@@ -495,16 +538,22 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                   Showing results{' '}
                   {(() => {
                     let start, end;
-                    if (currentView === 'gallery' && accumulatedResults.length > 0) {
+                    if (
+                      currentView === 'gallery' &&
+                      accumulatedResults.length > 0
+                    ) {
                       start = (accumulatedStartPage - 1) * perPage + 1;
                       end = start + accumulatedResults.length - 1;
                     } else {
-                      start = Math.min((page - 1) * perPage + 1, searchTotalResults);
+                      start = Math.min(
+                        (page - 1) * perPage + 1,
+                        searchTotalResults
+                      );
                       end = Math.min(page * perPage, searchTotalResults);
                     }
                     return `${formatCount(start)}-${formatCount(end)}`;
-                  })()} of{' '}
-                  {formatCount(searchTotalResults)}
+                  })()}{' '}
+                  of {formatCount(searchTotalResults)}
                 </h2>
               )}
               {!error && (
@@ -561,11 +610,19 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
                   {currentView === 'gallery' && (
                     <GalleryView
-                      results={accumulatedResults.length > 0 ? accumulatedResults : (searchResults?.data || [])}
+                      results={
+                        accumulatedResults.length > 0
+                          ? accumulatedResults
+                          : searchResults?.data || []
+                      }
                       isLoading={isLoading}
                       totalResults={searchTotalResults}
                       currentPage={page}
-                      startPage={accumulatedResults.length > 0 ? accumulatedStartPage : page}
+                      startPage={
+                        accumulatedResults.length > 0
+                          ? accumulatedStartPage
+                          : page
+                      }
                       perPage={perPage}
                       hasMore={page < totalPages}
                       onLoadMore={() => handlePageChange(page + 1)}
@@ -627,7 +684,10 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 export function SearchPage({ searchResults, isLoading }: SearchPageProps) {
   return (
     <MapProvider>
-      <SearchContent searchResults={searchResults ?? null} isLoading={isLoading ?? false} />
+      <SearchContent
+        searchResults={searchResults ?? null}
+        isLoading={isLoading ?? false}
+      />
     </MapProvider>
   );
 }

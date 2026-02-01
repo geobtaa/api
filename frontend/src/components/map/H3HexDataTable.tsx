@@ -22,7 +22,7 @@ function buildSearchUrl(
   const params = new URLSearchParams(
     typeof queryString === 'string' && queryString.startsWith('?')
       ? queryString.slice(1)
-      : queryString ?? ''
+      : (queryString ?? '')
   );
   if (searchQuery) params.set('q', searchQuery);
   // Remove any existing H3 filters and set this hex
@@ -90,7 +90,12 @@ export function H3HexDataTable({
                 </td>
                 <td className="px-4 py-2">
                   <Link
-                    to={buildSearchUrl(h3, resolution, searchQuery, queryString)}
+                    to={buildSearchUrl(
+                      h3,
+                      resolution,
+                      searchQuery,
+                      queryString
+                    )}
                     className="text-blue-600 hover:underline"
                   >
                     Search this hex

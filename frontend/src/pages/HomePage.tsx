@@ -181,9 +181,7 @@ export function HomePage() {
           {/* Search form overlay - pointer-events-none so map receives hover; card has pointer-events-auto. Padding matches Header/Footer grid. */}
           <div className="absolute inset-0 z-10 pointer-events-none px-4 sm:px-6 lg:px-8 py-4 lg:py-4">
             <div className="max-w-3xl space-y-6 lg:space-y-2 bg-white/70 backdrop-blur-sm rounded-lg p-6 lg:p-4 shadow-sm pointer-events-auto">
-              <h1 className="sr-only">
-                {theme.institution.name}
-              </h1>
+              <h1 className="sr-only">{theme.institution.name}</h1>
               <p className="text-lg lg:text-xl text-gray-600">
                 {theme.institution.hero_text ||
                   'Search geospatial resources from Big Ten Academic Alliance institutions'}
@@ -224,25 +222,25 @@ export function HomePage() {
             </button>
           </div>
           <div className="grid grid-cols-2 gap-3">
-              {resourceClassList.map((resource) => (
-                <button
-                  key={resource.value}
-                  onClick={() => handleResourceClassClick(resource.value)}
-                  className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-gray-200 hover:border-brand-active hover:shadow-sm transition-all group"
-                >
-                  <div className="text-gray-400 group-hover:text-brand-active">
-                    {getResourceIcon(resource.value, {
-                      className: 'w-6 h-6 text-gray-400',
-                    })}
-                  </div>
-                  <span className="text-gray-700 group-hover:text-gray-900">
-                    {resource.label}
-                  </span>
-                  <span className="text-sm text-gray-500 group-hover:text-gray-700 ml-auto">
-                    {!isLoading ? formatCount(resource.count) : ''}
-                  </span>
-                </button>
-              ))}
+            {resourceClassList.map((resource) => (
+              <button
+                key={resource.value}
+                onClick={() => handleResourceClassClick(resource.value)}
+                className="flex items-center gap-3 px-4 py-3 bg-white rounded-lg border border-gray-200 hover:border-brand-active hover:shadow-sm transition-all group"
+              >
+                <div className="text-gray-400 group-hover:text-brand-active">
+                  {getResourceIcon(resource.value, {
+                    className: 'w-6 h-6 text-gray-400',
+                  })}
+                </div>
+                <span className="text-gray-700 group-hover:text-gray-900">
+                  {resource.label}
+                </span>
+                <span className="text-sm text-gray-500 group-hover:text-gray-700 ml-auto">
+                  {!isLoading ? formatCount(resource.count) : ''}
+                </span>
+              </button>
+            ))}
           </div>
         </div>
       </main>

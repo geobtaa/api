@@ -3,18 +3,17 @@
   --color-active: 37 99 235;
 }
 
-:root[data-theme="btaa"] {
+:root[data-theme='btaa'] {
   --color-primary: 0 60 91;
   --color-active: 37 99 235;
 }
 
-:root[data-theme="uwmadison"] {
+:root[data-theme='uwmadison'] {
   --color-primary: 197 5 12;
   --color-active: 155 0 0;
 }
 
-:root[data-theme="nyu"] {
+:root[data-theme='nyu'] {
   --color-primary: 87 6 140;
   --color-active: 137 0 225;
 }
-

@@ -21,14 +21,19 @@ describe('H3HexDataTable', () => {
       resolution: 6,
     });
 
-    expect(screen.getByRole('region', { name: /H3 hex grid data/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: /H3 hex grid data/i })
+    ).toBeInTheDocument();
     expect(screen.getByText('861f1ee47ffffff')).toBeInTheDocument();
     expect(screen.getByText('861f1ee4fffffff')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('100')).toBeInTheDocument();
     const links = screen.getAllByRole('link', { name: /Search this hex/i });
     expect(links).toHaveLength(2);
-    expect(links[0]).toHaveAttribute('href', expect.stringContaining('861f1ee47ffffff'));
+    expect(links[0]).toHaveAttribute(
+      'href',
+      expect.stringContaining('861f1ee47ffffff')
+    );
   });
 
   it('shows empty state when no hexes', () => {

@@ -1,4 +1,4 @@
-import { Controller } from "@hotwired/stimulus";
+import { Controller } from '@hotwired/stimulus';
 
 /**
  * Minimal Stimulus controller to mount Mirador for a IIIF Presentation manifest.
@@ -22,16 +22,16 @@ export default class MiradorViewerController extends Controller {
 
     // Ensure the element has an id (Mirador wants an element id).
     if (!this.element.id) {
-      this.element.id = "mirador-viewer";
+      this.element.id = 'mirador-viewer';
     }
 
     // GeoBlacklight-style: Mirador is loaded as a prebuilt UMD script (CDN) and exposed on window.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const Mirador = (globalThis as any).Mirador;
-    if (!Mirador || typeof Mirador.viewer !== "function") {
+    if (!Mirador || typeof Mirador.viewer !== 'function') {
       // eslint-disable-next-line no-console
       console.error(
-        "Mirador is not available on window. Ensure the Mirador CDN script loaded.",
+        'Mirador is not available on window. Ensure the Mirador CDN script loaded.'
       );
       return;
     }
@@ -60,10 +60,9 @@ export default class MiradorViewerController extends Controller {
 
   disconnect() {
     // Best-effort cleanup; Mirador doesn't guarantee a stable destroy API across versions.
-    if (this.instance && typeof this.instance.unmount === "function") {
+    if (this.instance && typeof this.instance.unmount === 'function') {
       this.instance.unmount();
     }
     this.instance = null;
   }
 }
-

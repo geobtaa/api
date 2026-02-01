@@ -2,16 +2,16 @@
  * Accessibility tests for the Featured resources carousel on the homepage.
  * Mocks map/Leaflet so the carousel UI renders and can be tested with axe.
  */
-import { render, screen } from "@testing-library/react";
-import { axe } from "vitest-axe";
-import { BrowserRouter } from "react-router";
-import { vi } from "vitest";
-import { HomePageHexMapBackground } from "../../../components/home/HomePageHexMapBackground.client";
+import { render, screen } from '@testing-library/react';
+import { axe } from 'vitest-axe';
+import { BrowserRouter } from 'react-router';
+import { vi } from 'vitest';
+import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
 
-vi.mock("leaflet/dist/leaflet.css", () => ({}));
+vi.mock('leaflet/dist/leaflet.css', () => ({}));
 
-const mockPane = document.createElement("div");
-vi.mock("react-leaflet", () => ({
+const mockPane = document.createElement('div');
+vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="map-container">{children}</div>
   ),
@@ -19,7 +19,7 @@ vi.mock("react-leaflet", () => ({
   ZoomControl: () => null,
   Rectangle: () => null,
   useMap: () => ({
-    getContainer: () => document.createElement("div"),
+    getContainer: () => document.createElement('div'),
     getBounds: () => ({
       getWest: () => -100,
       getSouth: () => 30,
@@ -42,61 +42,68 @@ vi.mock("react-leaflet", () => ({
   useMapEvents: () => null,
 }));
 
-vi.mock("../../../components/map/MapUpdaterHex", () => ({
+vi.mock('../../../components/map/MapUpdaterHex', () => ({
   MapUpdaterHex: () => null,
 }));
 
-vi.mock("../../../components/home/FeaturedMapController", () => ({
+vi.mock('../../../components/home/FeaturedMapController', () => ({
   FeaturedMapController: () => null,
 }));
 
-vi.mock("../../../components/home/FeaturedItemPreviewLayer", () => ({
+vi.mock('../../../components/home/FeaturedItemPreviewLayer', () => ({
   FeaturedItemPreviewLayer: () => null,
 }));
 
-vi.mock("../../../components/home/FeaturedItemBoundsLayer", () => ({
+vi.mock('../../../components/home/FeaturedItemBoundsLayer', () => ({
   FeaturedItemBoundsLayer: () => null,
 }));
 
-vi.mock("../../../components/map/H3HexDataTable", () => ({
+vi.mock('../../../components/map/H3HexDataTable', () => ({
   H3HexDataTable: () => <div data-testid="h3-hex-table">Hex table</div>,
 }));
 
 const mockNavigate = vi.fn();
-vi.mock("react-router", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("react-router")>();
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>();
   return {
     ...actual,
     useNavigate: () => mockNavigate,
   };
 });
 
-describe("HomePageHexMapBackground – Featured carousel accessibility", () => {
-  it("has no accessibility violations in carousel region", async () => {
+describe('HomePageHexMapBackground – Featured carousel accessibility', () => {
+  it('has no accessibility violations in carousel region', async () => {
     render(
       <BrowserRouter>
         <HomePageHexMapBackground />
       </BrowserRouter>
     );
 
-    const carousel = screen.getByRole("region", { name: /Featured resources/i });
+    const carousel = screen.getByRole('region', {
+      name: /Featured resources/i,
+    });
     expect(carousel).toBeInTheDocument();
 
     const results = await axe(carousel);
     expect(results).toHaveNoViolations();
   });
 
-  it("carousel has roledescription and description", () => {
+  it('carousel has roledescription and description', () => {
     render(
       <BrowserRouter>
         <HomePageHexMapBackground />
       </BrowserRouter>
     );
 
-    const carousel = screen.getByRole("region", { name: /Featured resources/i });
-    expect(carousel).toHaveAttribute("aria-roledescription", "carousel");
-    expect(carousel).toHaveAttribute("aria-describedby", "featured-carousel-desc");
-    expect(document.getElementById("featured-carousel-desc")).toHaveTextContent(
+    const carousel = screen.getByRole('region', {
+      name: /Featured resources/i,
+    });
+    expect(carousel).toHaveAttribute('aria-roledescription', 'carousel');
+    expect(carousel).toHaveAttribute(
+      'aria-describedby',
+      'featured-carousel-desc'
+    );
+    expect(document.getElementById('featured-carousel-desc')).toHaveTextContent(
       /Use previous and next buttons/i
     );
   });

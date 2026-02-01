@@ -1,6 +1,6 @@
 // IMPORTANT: keep Leaflet mocks at module top-level so Vitest can hoist them before any imports.
-vi.mock("leaflet/dist/leaflet.css", () => ({}));
-vi.mock("leaflet", () => ({
+vi.mock('leaflet/dist/leaflet.css', () => ({}));
+vi.mock('leaflet', () => ({
   default: {
     map: vi.fn(() => ({
       setView: vi.fn().mockReturnThis(),
@@ -33,11 +33,11 @@ vi.mock("leaflet", () => ({
   },
 }));
 
-import { render } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
-import { MapView } from "../../components/search/MapView";
-import { MapProvider } from "../../context/MapContext";
-import type { GeoDocument } from "../../types/api";
+import { render } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { MapView } from '../../components/search/MapView';
+import { MapProvider } from '../../context/MapContext';
+import type { GeoDocument } from '../../types/api';
 
 // Real fixture data from the fixtures page
 const mockFixtureData: GeoDocument[] = [

@@ -1,12 +1,12 @@
-import { useEffect, useRef, useCallback, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { useSearchParams } from "react-router";
-import { Search } from "lucide-react";
-import { cellToBoundary } from "h3-js";
-import { fetchMapH3 } from "../../services/api";
-import { formatCount } from "../../utils/formatNumber";
-import { H3HexDataTable } from "../map/H3HexDataTable";
+import { useEffect, useRef, useCallback, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useSearchParams } from 'react-router';
+import { Search } from 'lucide-react';
+import { cellToBoundary } from 'h3-js';
+import { fetchMapH3 } from '../../services/api';
+import { formatCount } from '../../utils/formatNumber';
+import { H3HexDataTable } from '../map/H3HexDataTable';
 
 function zoomToResolution(zoom: number): number {
   if (zoom <= 3) return 2;
@@ -31,8 +31,16 @@ function clampBbox(
 
 /** 10-step blue ramp (light to dark) for resource density. */
 const HEX_RAMP_COLORS = [
-  "#DBEAFE", "#BFDBFE", "#93C5FD", "#7AB3FD", "#60A5FA",
-  "#3B82F6", "#2563EB", "#1D4ED8", "#1E40AF", "#003C5B",
+  '#DBEAFE',
+  '#BFDBFE',
+  '#93C5FD',
+  '#7AB3FD',
+  '#60A5FA',
+  '#3B82F6',
+  '#2563EB',
+  '#1D4ED8',
+  '#1E40AF',
+  '#003C5B',
 ];
 const HEX_RAMP_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 
@@ -60,10 +68,7 @@ function boundsOfHexes(hexIndexes: string[]): L.LatLngBounds | null {
     }
   }
   if (minLat > maxLat || minLng > maxLng) return null;
-  return L.latLngBounds(
-    [minLat, minLng],
-    [maxLat, maxLng],
-  );
+  return L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
 }
 
 interface BBox {
@@ -81,22 +86,24 @@ export function GeospatialFilterMap() {
   const [showSearchButton, setShowSearchButton] = useState(false);
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
   const hexLayerRef = useRef<L.GeoJSON | null>(null);
-  const [hexesInView, setHexesInView] = useState<Array<{ h3: string; count: number }>>([]);
+  const [hexesInView, setHexesInView] = useState<
+    Array<{ h3: string; count: number }>
+  >([]);
   const [hexResolution, setHexResolution] = useState(6);
   const [hexLoading, setHexLoading] = useState(false);
 
   // Parse bbox from URL params
   const getBBoxFromParams = useCallback((): BBox | null => {
-    const type = searchParams.get("include_filters[geo][type]");
-    if (type !== "bbox") return null;
+    const type = searchParams.get('include_filters[geo][type]');
+    if (type !== 'bbox') return null;
 
-    const topLeftLat = searchParams.get("include_filters[geo][top_left][lat]");
-    const topLeftLon = searchParams.get("include_filters[geo][top_left][lon]");
+    const topLeftLat = searchParams.get('include_filters[geo][top_left][lat]');
+    const topLeftLon = searchParams.get('include_filters[geo][top_left][lon]');
     const bottomRightLat = searchParams.get(
-      "include_filters[geo][bottom_right][lat]",
+      'include_filters[geo][bottom_right][lat]'
     );
     const bottomRightLon = searchParams.get(
-      "include_filters[geo][bottom_right][lon]",
+      'include_filters[geo][bottom_right][lon]'
     );
 
     if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
@@ -124,9 +131,13 @@ export function GeospatialFilterMap() {
         attributionControl: false,
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-      }).addTo(mapRef.current);
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        {
+          attribution:
+            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+        }
+      ).addTo(mapRef.current);
 
       // Set initial view to world
       mapRef.current.setView([20, 0], 1);
@@ -174,12 +185,12 @@ export function GeospatialFilterMap() {
         // Add preview rectangle to show what area would be searched
         // Use a different style to indicate it's a preview (not yet applied)
         const previewRectangle = L.rectangle(bounds, {
-          color: "#3b82f6",
+          color: '#3b82f6',
           weight: 2,
           opacity: 0.6,
-          fillColor: "#3b82f6",
+          fillColor: '#3b82f6',
           fillOpacity: 0.15,
-          dashArray: "5, 5", // Dashed line to indicate preview
+          dashArray: '5, 5', // Dashed line to indicate preview
         }).addTo(mapRef.current);
 
         previewRectangleRef.current = previewRectangle;
@@ -188,8 +199,8 @@ export function GeospatialFilterMap() {
         setShowSearchButton(true);
       };
 
-      mapRef.current.on("moveend", handleMapMoveEnd);
-      mapRef.current.on("zoomend", handleMapMoveEnd);
+      mapRef.current.on('moveend', handleMapMoveEnd);
+      mapRef.current.on('zoomend', handleMapMoveEnd);
     }
 
     return () => {
@@ -223,7 +234,7 @@ export function GeospatialFilterMap() {
           // bottom_right is southeast (lower lat, higher lon)
           const bounds = L.latLngBounds(
             [bbox.bottomRight.lat, bbox.topLeft.lon], // Southwest (south lat, west lon)
-            [bbox.topLeft.lat, bbox.bottomRight.lon], // Northeast (north lat, east lon)
+            [bbox.topLeft.lat, bbox.bottomRight.lon] // Northeast (north lat, east lon)
           );
 
           if (bounds && bounds.isValid()) {
@@ -239,10 +250,10 @@ export function GeospatialFilterMap() {
 
             // Add rectangle overlay to visualize the active bbox filter
             const rectangle = L.rectangle(bounds, {
-              color: "#2563eb",
+              color: '#2563eb',
               weight: 2,
               opacity: 0.8,
-              fillColor: "#2563eb",
+              fillColor: '#2563eb',
               fillOpacity: 0.2,
             }).addTo(mapRef.current);
 
@@ -262,7 +273,7 @@ export function GeospatialFilterMap() {
             return; // Early return to skip the setTimeout below
           }
         } catch (error) {
-          console.error("Error setting map bounds from params:", error);
+          console.error('Error setting map bounds from params:', error);
           isUpdatingFromParamsRef.current = false;
         }
         // Only reset flag if we didn't already set it above
@@ -317,7 +328,7 @@ export function GeospatialFilterMap() {
           }
         });
       },
-      { threshold: 0.1 },
+      { threshold: 0.1 }
     );
 
     observer.observe(mapContainerRef.current);
@@ -333,7 +344,7 @@ export function GeospatialFilterMap() {
     if (!map) return;
 
     let cancelled = false;
-    const query = searchParams.get("q") ?? "";
+    const query = searchParams.get('q') ?? '';
 
     const updateHexLayer = async (shouldFitToHexes: boolean) => {
       const bounds = map.getBounds();
@@ -342,11 +353,11 @@ export function GeospatialFilterMap() {
         bounds.getWest(),
         bounds.getSouth(),
         bounds.getEast(),
-        bounds.getNorth(),
+        bounds.getNorth()
       );
       const resolution = zoomToResolution(zoom);
       const queryString =
-        typeof window !== "undefined" ? window.location.search.slice(1) : "";
+        typeof window !== 'undefined' ? window.location.search.slice(1) : '';
 
       setHexLoading(true);
       try {
@@ -354,7 +365,7 @@ export function GeospatialFilterMap() {
           query,
           bbox,
           resolution,
-          queryString ? `?${queryString}` : undefined,
+          queryString ? `?${queryString}` : undefined
         );
         if (cancelled) return;
 
@@ -374,48 +385,48 @@ export function GeospatialFilterMap() {
         const features = res.hexes.map((h) => {
           const vs = cellToBoundary(h.h3);
           const ring = vs.map(
-            ([lat, lng]: [number, number]) => [lng, lat] as [number, number],
+            ([lat, lng]: [number, number]) => [lng, lat] as [number, number]
           );
           ring.push(ring[0]);
           return {
-            type: "Feature" as const,
+            type: 'Feature' as const,
             properties: { h3: h.h3, count: h.count },
             geometry: {
-              type: "Polygon" as const,
+              type: 'Polygon' as const,
               coordinates: [ring],
             },
           };
         });
-        const fc = { type: "FeatureCollection" as const, features };
+        const fc = { type: 'FeatureCollection' as const, features };
 
         const layer = L.geoJSON(fc, {
           style: (feature) => {
-            const c =
-              (feature?.properties as { count?: number })?.count ?? 0;
-            const intensity = maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
+            const c = (feature?.properties as { count?: number })?.count ?? 0;
+            const intensity =
+              maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
             return {
               fillColor: getHexColor(intensity),
               weight: 1,
               opacity: 1,
-              color: "white",
+              color: 'white',
               fillOpacity: 0.7,
             };
           },
           onEachFeature: (feature, layer) => {
             const count =
               (feature?.properties as { count?: number })?.count ?? 0;
-            const h3 = (feature?.properties as { h3?: string })?.h3 ?? "";
+            const h3 = (feature?.properties as { h3?: string })?.h3 ?? '';
             const res = zoomToResolution(map.getZoom());
             // Preserve current search params and add/update only the H3 filter
             const params = new URLSearchParams(searchParams.toString());
             Array.from(params.keys())
-              .filter((key) => key.startsWith("include_filters[h3_res"))
+              .filter((key) => key.startsWith('include_filters[h3_res'))
               .forEach((key) => params.delete(key));
             params.set(`include_filters[h3_res${res}][]`, h3);
-            params.delete("page");
+            params.delete('page');
             const searchUrl = `/search?${params.toString()}`;
             layer.bindPopup(
-              `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`,
+              `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
             );
           },
         });
@@ -441,13 +452,13 @@ export function GeospatialFilterMap() {
 
     updateHexLayer(true);
     const onMoveOrZoom = () => updateHexLayer(false);
-    map.on("moveend", onMoveOrZoom);
-    map.on("zoomend", onMoveOrZoom);
+    map.on('moveend', onMoveOrZoom);
+    map.on('zoomend', onMoveOrZoom);
 
     return () => {
       cancelled = true;
-      map.off("moveend", onMoveOrZoom);
-      map.off("zoomend", onMoveOrZoom);
+      map.off('moveend', onMoveOrZoom);
+      map.off('zoomend', onMoveOrZoom);
       if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
         map.removeLayer(hexLayerRef.current);
         hexLayerRef.current = null;
@@ -463,7 +474,7 @@ export function GeospatialFilterMap() {
 
     // Remove existing geo filters
     Array.from(newParams.keys())
-      .filter((key) => key.startsWith("include_filters[geo]"))
+      .filter((key) => key.startsWith('include_filters[geo]'))
       .forEach((key) => newParams.delete(key));
 
     // Add new bbox filter from current map bounds
@@ -472,15 +483,15 @@ export function GeospatialFilterMap() {
 
     // Top-left is northwest corner (north = higher lat, west = lower lon)
     // Bottom-right is southeast corner (south = lower lat, east = higher lon)
-    newParams.set("include_filters[geo][type]", "bbox");
-    newParams.set("include_filters[geo][field]", "dcat_bbox");
-    newParams.set("include_filters[geo][top_left][lat]", ne.lat.toString());
-    newParams.set("include_filters[geo][top_left][lon]", sw.lng.toString());
-    newParams.set("include_filters[geo][bottom_right][lat]", sw.lat.toString());
-    newParams.set("include_filters[geo][bottom_right][lon]", ne.lng.toString());
+    newParams.set('include_filters[geo][type]', 'bbox');
+    newParams.set('include_filters[geo][field]', 'dcat_bbox');
+    newParams.set('include_filters[geo][top_left][lat]', ne.lat.toString());
+    newParams.set('include_filters[geo][top_left][lon]', sw.lng.toString());
+    newParams.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
+    newParams.set('include_filters[geo][bottom_right][lon]', ne.lng.toString());
 
     // Reset to page 1 when bbox changes
-    newParams.delete("page");
+    newParams.delete('page');
 
     setSearchParams(newParams);
 
@@ -518,9 +529,9 @@ export function GeospatialFilterMap() {
 
     const newParams = new URLSearchParams(searchParams);
     Array.from(newParams.keys())
-      .filter((key) => key.startsWith("include_filters[geo]"))
+      .filter((key) => key.startsWith('include_filters[geo]'))
       .forEach((key) => newParams.delete(key));
-    newParams.delete("page");
+    newParams.delete('page');
     setSearchParams(newParams);
   };
 
@@ -544,7 +555,10 @@ export function GeospatialFilterMap() {
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-1">
-        <h3 id="filter-location-heading" className="font-semibold text-gray-900">
+        <h3
+          id="filter-location-heading"
+          className="font-semibold text-gray-900"
+        >
           Location
         </h3>
         {hasBBox && (
@@ -561,7 +575,7 @@ export function GeospatialFilterMap() {
         <div
           ref={mapContainerRef}
           className="w-full rounded-lg border border-gray-200"
-          style={{ height: "200px", minHeight: "200px" }}
+          style={{ height: '200px', minHeight: '200px' }}
         />
         {showSearchButton && (
           <button
@@ -582,7 +596,7 @@ export function GeospatialFilterMap() {
           <H3HexDataTable
             hexes={hexesInView}
             resolution={hexResolution}
-            searchQuery={searchParams.get("q") ?? ""}
+            searchQuery={searchParams.get('q') ?? ''}
             queryString={searchParams.toString()}
             loading={hexLoading}
           />
@@ -593,4 +607,3 @@ export function GeospatialFilterMap() {
 }
 
 export default GeospatialFilterMap;
-

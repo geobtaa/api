@@ -21,17 +21,17 @@ export interface JsonApiFacet {
   attributes: {
     label: string;
     items:
-    | Array<{
-      attributes: {
-        label?: string;
-        value: string | number;
-        hits: number;
-      };
-      links?: {
-        self: string;
-      };
-    }>
-    | JsonApiFacetItemTuple[];
+      | Array<{
+          attributes: {
+            label?: string;
+            value: string | number;
+            hits: number;
+          };
+          links?: {
+            self: string;
+          };
+        }>
+      | JsonApiFacetItemTuple[];
   };
 }
 
@@ -85,7 +85,6 @@ export function FacetList({ facets }: FacetListProps) {
   const yearRangeStart = searchParams.get('include_filters[year_range][start]');
   const yearRangeEnd = searchParams.get('include_filters[year_range][end]');
 
-
   // Helper function to check if a facet is active
   const isFacetActive = (field: string, value: string | number) => {
     const normalized = normalizeFacetId(field);
@@ -93,7 +92,8 @@ export function FacetList({ facets }: FacetListProps) {
     const primary = searchParams.getAll(`include_filters[${normalized}][]`);
     if (primary.includes(valueStr)) return true;
     // Boolean facets: URL may store "true"/"false" while API uses "1"/"0"
-    if (primary.includes(normalizeFacetValueForUrl(normalized, valueStr))) return true;
+    if (primary.includes(normalizeFacetValueForUrl(normalized, valueStr)))
+      return true;
     // Also check legacy param key(s) for backward compatibility.
     const legacyRaw = searchParams.getAll(`fq[${field}][]`);
     if (legacyRaw.includes(valueStr)) return true;
@@ -116,7 +116,9 @@ export function FacetList({ facets }: FacetListProps) {
       // Remove the facet if it's active (clean both legacy and new keys)
       const currentValuesNew = newParams.getAll(facetKey);
       const currentValuesOldRaw = newParams.getAll(legacyKeyRaw);
-      const currentValuesOldNorm = legacyKeyNorm ? newParams.getAll(legacyKeyNorm) : [];
+      const currentValuesOldNorm = legacyKeyNorm
+        ? newParams.getAll(legacyKeyNorm)
+        : [];
 
       // Delete both keys
       newParams.delete(facetKey);
@@ -126,10 +128,15 @@ export function FacetList({ facets }: FacetListProps) {
       // Merge remaining values under normalized key
       [...currentValuesNew, ...currentValuesOldRaw, ...currentValuesOldNorm]
         .filter((v) => v !== value.toString())
-        .forEach((v) => newParams.append(facetKey, normalizeFacetValueForUrl(normalized, v)));
+        .forEach((v) =>
+          newParams.append(facetKey, normalizeFacetValueForUrl(normalized, v))
+        );
     } else {
       // Add the facet if it's not active
-      newParams.append(facetKey, normalizeFacetValueForUrl(normalized, value.toString()));
+      newParams.append(
+        facetKey,
+        normalizeFacetValueForUrl(normalized, value.toString())
+      );
     }
 
     newParams.delete('page');
@@ -153,9 +160,14 @@ export function FacetList({ facets }: FacetListProps) {
       newParams.delete(excludeKey);
       existing
         .filter((v) => v !== value.toString())
-        .forEach((v) => newParams.append(excludeKey, normalizeFacetValueForUrl(normalized, v)));
+        .forEach((v) =>
+          newParams.append(excludeKey, normalizeFacetValueForUrl(normalized, v))
+        );
     } else {
-      newParams.append(excludeKey, normalizeFacetValueForUrl(normalized, value.toString()));
+      newParams.append(
+        excludeKey,
+        normalizeFacetValueForUrl(normalized, value.toString())
+      );
     }
     newParams.delete('page');
     setSearchParams(newParams);
@@ -173,7 +185,10 @@ export function FacetList({ facets }: FacetListProps) {
       let items: any[] = [];
       if (isCompactTupleItems(facet.attributes.items)) {
         items = facet.attributes.items.map(([value, hits]) => ({
-          label: getFacetValueDisplayLabel({ attributes: { value, hits } } as any, facet.id),
+          label: getFacetValueDisplayLabel(
+            { attributes: { value, hits } } as any,
+            facet.id
+          ),
           value,
           hits,
           url: undefined as string | undefined,
@@ -221,7 +236,11 @@ export function FacetList({ facets }: FacetListProps) {
       else if (raw !== norm && hasAny(`fq[${raw}][]`)) forced.add(facet.id);
 
       // Also force open if year range is active and it's timeline
-      if (facet.type === 'timeline' && (hasAny('include_filters[year_range][start]') || hasAny('include_filters[year_range][end]'))) {
+      if (
+        facet.type === 'timeline' &&
+        (hasAny('include_filters[year_range][start]') ||
+          hasAny('include_filters[year_range][end]'))
+      ) {
         forced.add(facet.id);
       }
     }
@@ -254,9 +273,11 @@ export function FacetList({ facets }: FacetListProps) {
           // Special rendering for timeline facet
           if (facet.type === 'timeline') {
             console.log('Rendering TimelineFacet:', facet);
-            const isOpen = forcedOpenFacetIds.has(facet.id)
-              || accordion.opened.has(facet.id)
-              || (DEFAULT_OPEN_FACET_IDS.has(facet.id) && !accordion.closed.has(facet.id));
+            const isOpen =
+              forcedOpenFacetIds.has(facet.id) ||
+              accordion.opened.has(facet.id) ||
+              (DEFAULT_OPEN_FACET_IDS.has(facet.id) &&
+                !accordion.closed.has(facet.id));
 
             return (
               <details
@@ -280,7 +301,9 @@ export function FacetList({ facets }: FacetListProps) {
                 className="group border-b"
               >
                 <summary className="flex items-center justify-between cursor-pointer select-none py-2">
-                  <h3 className="font-semibold text-gray-900">Year Distribution</h3>
+                  <h3 className="font-semibold text-gray-900">
+                    Year Distribution
+                  </h3>
                   <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
                 </summary>
                 <div className="pt-2">
@@ -290,13 +313,13 @@ export function FacetList({ facets }: FacetListProps) {
                       id: facet.id,
                       attributes: {
                         label: facet.label,
-                        items: facet.items.map(i => ({
+                        items: facet.items.map((i) => ({
                           attributes: {
                             value: i.value,
-                            hits: i.hits
-                          }
-                        })) as any
-                      }
+                            hits: i.hits,
+                          },
+                        })) as any,
+                      },
                     }}
                     onChange={handleTimelineChange}
                     selectedRange={
@@ -341,7 +364,8 @@ export function FacetList({ facets }: FacetListProps) {
                   } else {
                     opened.delete(facet.id);
                     // Only track "closed" overrides for default-open facets.
-                    if (DEFAULT_OPEN_FACET_IDS.has(facet.id)) closed.add(facet.id);
+                    if (DEFAULT_OPEN_FACET_IDS.has(facet.id))
+                      closed.add(facet.id);
                     else closed.delete(facet.id);
                   }
 
@@ -367,16 +391,20 @@ export function FacetList({ facets }: FacetListProps) {
                         className="group flex items-center gap-2"
                       >
                         <button
-                          onClick={() => handleFacetClick(facet.rawId, item.value)}
-                          className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${isActive
-                            ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
-                            : 'text-gray-600 hover:text-gray-900'
-                            }`}
+                          onClick={() =>
+                            handleFacetClick(facet.rawId, item.value)
+                          }
+                          className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
+                            isActive
+                              ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
+                              : 'text-gray-600 hover:text-gray-900'
+                          }`}
                         >
                           <span>{item.label}</span>
                           <span
-                            className={`${isActive ? 'text-blue-400' : 'text-gray-400'
-                              }`}
+                            className={`${
+                              isActive ? 'text-blue-400' : 'text-gray-400'
+                            }`}
                           >
                             ({formatCount(item.hits)})
                           </span>
@@ -385,11 +413,14 @@ export function FacetList({ facets }: FacetListProps) {
                           )}
                         </button>
                         <button
-                          onClick={() => handleFacetExclude(facet.rawId, item.value)}
-                          className={`ml-1 p-1 rounded transition-colors ${excluded
-                            ? 'text-red-600 bg-red-50 hover:bg-red-100'
-                            : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
-                            } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
+                          onClick={() =>
+                            handleFacetExclude(facet.rawId, item.value)
+                          }
+                          className={`ml-1 p-1 rounded transition-colors ${
+                            excluded
+                              ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                              : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
+                          } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
                           aria-label={
                             excluded ? 'Remove exclusion' : 'Exclude this value'
                           }

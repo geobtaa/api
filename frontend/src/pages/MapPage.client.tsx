@@ -1,47 +1,47 @@
 // MapPage renders three synchronized maps (country, region, county) and supporting UI.
 // Data is fetched via useGeoFacets; county auto-fit/logic handled in specialized components/hooks.
-import { useState, useCallback } from "react";
-import { Link } from "react-router";
-import { MapContainer, TileLayer } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { Header } from "../components/layout/Header";
-import { Footer } from "../components/layout/Footer";
-import { SearchField } from "../components/SearchField";
-import { useApi } from "../context/ApiContext";
-import { useGeoFacets } from "../hooks/useGeoFacets";
-import { MapUpdater } from "../components/map/MapUpdater";
-import { MapUpdaterHex } from "../components/map/MapUpdaterHex";
-import { H3HexDataTable } from "../components/map/H3HexDataTable";
-import { MapCard } from "../components/map/MapCard";
-import { Legend } from "../components/map/Legend";
-import { ZoomLevelControls } from "../components/map/ZoomLevelControls";
-import { SelectedFeaturePanel } from "../components/map/SelectedFeaturePanel";
-import { StatsBar } from "../components/map/StatsBar";
-import { formatCount } from "../utils/formatNumber";
-import { DEFAULT_US_CENTER, DEFAULT_US_ZOOM } from "../config/mapView";
-import type { ZoomLevel } from "../types/map";
+import { useState, useCallback } from 'react';
+import { Link } from 'react-router';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { Header } from '../components/layout/Header';
+import { Footer } from '../components/layout/Footer';
+import { SearchField } from '../components/SearchField';
+import { useApi } from '../context/ApiContext';
+import { useGeoFacets } from '../hooks/useGeoFacets';
+import { MapUpdater } from '../components/map/MapUpdater';
+import { MapUpdaterHex } from '../components/map/MapUpdaterHex';
+import { H3HexDataTable } from '../components/map/H3HexDataTable';
+import { MapCard } from '../components/map/MapCard';
+import { Legend } from '../components/map/Legend';
+import { ZoomLevelControls } from '../components/map/ZoomLevelControls';
+import { SelectedFeaturePanel } from '../components/map/SelectedFeaturePanel';
+import { StatsBar } from '../components/map/StatsBar';
+import { formatCount } from '../utils/formatNumber';
+import { DEFAULT_US_CENTER, DEFAULT_US_ZOOM } from '../config/mapView';
+import type { ZoomLevel } from '../types/map';
 
 // Fix for default markers in Leaflet with Vite
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png",
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
   iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png",
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
   shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
 });
 
-import type { MapFeatureClickPayload } from "../types/map";
+import type { MapFeatureClickPayload } from '../types/map';
 
 export function MapPage() {
   // Local UI state: selected feature popup, current search query, and zoom level tab
   const [selectedFeature, setSelectedFeature] =
     useState<MapFeatureClickPayload | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>("hex");
+  const [searchQuery, setSearchQuery] = useState('');
+  const [zoomLevel, setZoomLevel] = useState<ZoomLevel>('hex');
   const [hexStats, setHexStats] = useState<{
     hexCount: number;
     totalInView: number;
@@ -93,13 +93,16 @@ export function MapPage() {
   );
 
   const getCurrentData = () => {
-    if (zoomLevel === "hex") return [];
+    if (zoomLevel === 'hex') return [];
     return data[zoomLevel] || [];
   };
 
   const getTotalResources = () => {
-    if (zoomLevel === "hex") return hexStats.totalInView;
-    return (data[zoomLevel] || []).reduce((sum, item) => sum + item.attributes.hits, 0);
+    if (zoomLevel === 'hex') return hexStats.totalInView;
+    return (data[zoomLevel] || []).reduce(
+      (sum, item) => sum + item.attributes.hits,
+      0
+    );
   };
 
   // Loading and error states for the whole page (maps require facet data)
@@ -150,11 +153,15 @@ export function MapPage() {
   }
 
   return (
-    <div className={`bg-gray-50 flex flex-col ${zoomLevel === "hex" ? "h-screen overflow-hidden" : "min-h-screen"}`}>
+    <div
+      className={`bg-gray-50 flex flex-col ${zoomLevel === 'hex' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
+    >
       <Header />
 
-      <main className={`flex-1 flex flex-col min-h-0 ${zoomLevel === "hex" ? "relative overflow-hidden" : ""}`}>
-        {zoomLevel === "hex" ? (
+      <main
+        className={`flex-1 flex flex-col min-h-0 ${zoomLevel === 'hex' ? 'relative overflow-hidden' : ''}`}
+      >
+        {zoomLevel === 'hex' ? (
           /* Hex view: map fills viewport, compact controls overlay */
           <>
             <div className="relative flex-1 min-h-0">
@@ -173,7 +180,11 @@ export function MapPage() {
                     searchQuery={searchQuery}
                     onFeatureClick={handleFeatureClick}
                     onHexData={handleHexData}
-                    queryString={typeof window !== "undefined" ? window.location.search : undefined}
+                    queryString={
+                      typeof window !== 'undefined'
+                        ? window.location.search
+                        : undefined
+                    }
                   />
                 </MapContainer>
                 <div className="absolute bottom-4 left-4 z-[1000] bg-white/95 rounded-lg shadow-sm border border-gray-200 p-3">
@@ -182,43 +193,52 @@ export function MapPage() {
                 {selectedFeature && (
                   <div className="absolute top-14 right-4 z-[1000] bg-white rounded-lg shadow-md border border-gray-200 p-4 max-w-xs">
                     <h3 className="font-semibold text-gray-900 mb-2">
-                      {selectedFeature.properties?.name ?? "Selected"}
+                      {selectedFeature.properties?.name ?? 'Selected'}
                     </h3>
                     <p className="text-sm text-gray-600">
-                      <span className="font-medium">{formatCount(selectedFeature.properties?.hits ?? 0)}</span> resources
+                      <span className="font-medium">
+                        {formatCount(selectedFeature.properties?.hits ?? 0)}
+                      </span>{' '}
+                      resources
                     </p>
                   </div>
                 )}
               </div>
               <div className="absolute top-0 left-0 right-0 z-[1000] flex flex-wrap items-center gap-3 px-4 py-2 bg-white/95 backdrop-blur-sm border-b border-gray-200 shadow-sm">
                 <div className="min-w-0 flex-1 max-w-sm">
-                  <SearchField onSearch={handleSearch} initialQuery={searchQuery} />
+                  <SearchField
+                    onSearch={handleSearch}
+                    initialQuery={searchQuery}
+                  />
                 </div>
                 <ZoomLevelControls
                   zoomLevel={zoomLevel}
                   onChange={handleZoomLevelChange}
                 />
                 <div className="flex items-center gap-3 text-sm text-gray-600 shrink-0">
-                <span>
-                  <span className="font-semibold">{formatCount(getTotalResources())}</span> in view
-                </span>
-                {hexStats.hexCount > 0 && (
-                  <span>{formatCount(hexStats.hexCount)} hexes</span>
-                )}
-                {globalCount > 0 && (
-                  <Link
-                    to={`/search?q=${encodeURIComponent(searchQuery)}&include_filters[geo_global][]=true`}
-                    className="text-blue-600 hover:underline"
-                  >
-                    {formatCount(globalCount)} global
-                  </Link>
-                )}
-                {hexStats.loading && (
-                  <span className="text-amber-600">Loading…</span>
-                )}
-                {hexStats.error && (
-                  <span className="text-red-600">{hexStats.error}</span>
-                )}
+                  <span>
+                    <span className="font-semibold">
+                      {formatCount(getTotalResources())}
+                    </span>{' '}
+                    in view
+                  </span>
+                  {hexStats.hexCount > 0 && (
+                    <span>{formatCount(hexStats.hexCount)} hexes</span>
+                  )}
+                  {globalCount > 0 && (
+                    <Link
+                      to={`/search?q=${encodeURIComponent(searchQuery)}&include_filters[geo_global][]=true`}
+                      className="text-blue-600 hover:underline"
+                    >
+                      {formatCount(globalCount)} global
+                    </Link>
+                  )}
+                  {hexStats.loading && (
+                    <span className="text-amber-600">Loading…</span>
+                  )}
+                  {hexStats.error && (
+                    <span className="text-red-600">{hexStats.error}</span>
+                  )}
                 </div>
               </div>
               <details className="absolute bottom-0 left-0 right-0 z-[900] mx-4 mb-4 max-h-[35vh] flex flex-col rounded-t-lg border border-gray-200 border-b-0 bg-white/95 shadow-sm backdrop-blur-sm">
@@ -230,7 +250,11 @@ export function MapPage() {
                     hexes={hexStats.hexes}
                     resolution={hexStats.resolution}
                     searchQuery={searchQuery}
-                    queryString={typeof window !== "undefined" ? window.location.search.slice(1) : undefined}
+                    queryString={
+                      typeof window !== 'undefined'
+                        ? window.location.search.slice(1)
+                        : undefined
+                    }
                     loading={hexStats.loading}
                   />
                 </div>
@@ -238,99 +262,104 @@ export function MapPage() {
             </div>
           </>
         ) : (
-        <div className="container mx-auto px-4 py-8">
-          <div className="mb-8">
-            <SearchField onSearch={handleSearch} initialQuery={searchQuery} />
-            <ZoomLevelControls
+          <div className="container mx-auto px-4 py-8">
+            <div className="mb-8">
+              <SearchField onSearch={handleSearch} initialQuery={searchQuery} />
+              <ZoomLevelControls
+                zoomLevel={zoomLevel}
+                onChange={handleZoomLevelChange}
+              />
+            </div>
+            <StatsBar
               zoomLevel={zoomLevel}
-              onChange={handleZoomLevelChange}
+              dataForLevel={getCurrentData()}
+              totalResources={getTotalResources()}
+              query={searchQuery}
+              globalCount={globalCount}
+              hexCount={hexStats.hexCount}
+              hexTotalInView={hexStats.totalInView}
+              hexLoading={hexStats.loading}
+              hexError={hexStats.error}
             />
-          </div>
-          <StatsBar
-            zoomLevel={zoomLevel}
-            dataForLevel={getCurrentData()}
-            totalResources={getTotalResources()}
-            query={searchQuery}
-            globalCount={globalCount}
-            hexCount={hexStats.hexCount}
-            hexTotalInView={hexStats.totalInView}
-            hexLoading={hexStats.loading}
-            hexError={hexStats.error}
-          />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 mt-6">
-          <MapCard title="Country View" isActive={zoomLevel === "country"}>
-            <MapContainer
-              center={DEFAULT_US_CENTER}
-              zoom={DEFAULT_US_ZOOM}
-              className="h-80 w-full rounded-lg"
-            >
-              <TileLayer
-                attribution="&copy; OpenStreetMap contributors"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapUpdater
-                level="country"
-                data={data}
-                onFeatureClick={handleFeatureClick}
-                searchQuery={searchQuery}
-              />
-            </MapContainer>
-          </MapCard>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 mt-6">
+              <MapCard title="Country View" isActive={zoomLevel === 'country'}>
+                <MapContainer
+                  center={DEFAULT_US_CENTER}
+                  zoom={DEFAULT_US_ZOOM}
+                  className="h-80 w-full rounded-lg"
+                >
+                  <TileLayer
+                    attribution="&copy; OpenStreetMap contributors"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapUpdater
+                    level="country"
+                    data={data}
+                    onFeatureClick={handleFeatureClick}
+                    searchQuery={searchQuery}
+                  />
+                </MapContainer>
+              </MapCard>
 
-          <MapCard title="Region View" isActive={zoomLevel === "region"}>
-            <MapContainer
-              center={DEFAULT_US_CENTER}
-              zoom={DEFAULT_US_ZOOM}
-              className="h-80 w-full rounded-lg"
-            >
-              <TileLayer
-                attribution="&copy; OpenStreetMap contributors"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapUpdater
-                level="region"
-                data={data}
-                onFeatureClick={handleFeatureClick}
-                searchQuery={searchQuery}
-              />
-            </MapContainer>
-          </MapCard>
+              <MapCard title="Region View" isActive={zoomLevel === 'region'}>
+                <MapContainer
+                  center={DEFAULT_US_CENTER}
+                  zoom={DEFAULT_US_ZOOM}
+                  className="h-80 w-full rounded-lg"
+                >
+                  <TileLayer
+                    attribution="&copy; OpenStreetMap contributors"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapUpdater
+                    level="region"
+                    data={data}
+                    onFeatureClick={handleFeatureClick}
+                    searchQuery={searchQuery}
+                  />
+                </MapContainer>
+              </MapCard>
 
-          <MapCard title="County View" isActive={zoomLevel === "county"}>
-            <MapContainer
-              center={DEFAULT_US_CENTER}
-              zoom={DEFAULT_US_ZOOM}
-              className="h-80 w-full rounded-lg"
-            >
-              <TileLayer
-                attribution="&copy; OpenStreetMap contributors"
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              <MapCard title="County View" isActive={zoomLevel === 'county'}>
+                <MapContainer
+                  center={DEFAULT_US_CENTER}
+                  zoom={DEFAULT_US_ZOOM}
+                  className="h-80 w-full rounded-lg"
+                >
+                  <TileLayer
+                    attribution="&copy; OpenStreetMap contributors"
+                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  />
+                  <MapUpdater
+                    level="county"
+                    data={data}
+                    onFeatureClick={handleFeatureClick}
+                    searchQuery={searchQuery}
+                  />
+                </MapContainer>
+              </MapCard>
+            </div>
+            {selectedFeature && (
+              <SelectedFeaturePanel
+                name={selectedFeature.properties?.name ?? ''}
+                hits={selectedFeature.properties?.hits ?? 0}
+                level={
+                  zoomLevel === 'county'
+                    ? 'county'
+                    : zoomLevel === 'region'
+                      ? 'region'
+                      : 'country'
+                }
               />
-              <MapUpdater
-                level="county"
-                data={data}
-                onFeatureClick={handleFeatureClick}
-                searchQuery={searchQuery}
-              />
-            </MapContainer>
-          </MapCard>
+            )}
+            <Legend />
           </div>
-          {selectedFeature && (
-            <SelectedFeaturePanel
-              name={selectedFeature.properties?.name ?? ""}
-              hits={selectedFeature.properties?.hits ?? 0}
-              level={zoomLevel === "county" ? "county" : zoomLevel === "region" ? "region" : "country"}
-            />
-          )}
-          <Legend />
-        </div>
         )}
       </main>
 
-      {zoomLevel !== "hex" && <Footer />}
+      {zoomLevel !== 'hex' && <Footer />}
     </div>
   );
 }
 
 export default MapPage;
-

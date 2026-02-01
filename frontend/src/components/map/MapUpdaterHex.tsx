@@ -39,7 +39,12 @@ function clampBbox(
 /** True if the H3 cell's boundary intersects the given Leaflet bounds. */
 function hexIntersectsBounds(
   h3Index: string,
-  bounds: { getWest: () => number; getSouth: () => number; getEast: () => number; getNorth: () => number }
+  bounds: {
+    getWest: () => number;
+    getSouth: () => number;
+    getEast: () => number;
+    getNorth: () => number;
+  }
 ): boolean {
   const vs = cellToBoundary(h3Index);
   const lats = vs.map(([lat]) => lat);
@@ -57,8 +62,16 @@ function hexIntersectsBounds(
 
 /** 10-step blue ramp (light to dark) for resource density. */
 const HEX_RAMP_COLORS = [
-  '#DBEAFE', '#BFDBFE', '#93C5FD', '#7AB3FD', '#60A5FA',
-  '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF', '#003C5B',
+  '#DBEAFE',
+  '#BFDBFE',
+  '#93C5FD',
+  '#7AB3FD',
+  '#60A5FA',
+  '#3B82F6',
+  '#2563EB',
+  '#1D4ED8',
+  '#1E40AF',
+  '#003C5B',
 ];
 const HEX_RAMP_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 
@@ -97,14 +110,15 @@ export function MapUpdaterHex({
 }) {
   const map = useMap();
   const [bbox, setBbox] = useState<string | null>(null);
-  const hoveredRef = useRef<{ layer: L.Path; defaultStyle: L.PathOptions } | null>(null);
+  const hoveredRef = useRef<{
+    layer: L.Path;
+    defaultStyle: L.PathOptions;
+  } | null>(null);
   const prevHoveredHexRef = useRef<HexHoverData | null | undefined>(undefined);
 
   const updateBbox = useCallback(() => {
     const b = map.getBounds();
-    setBbox(
-      clampBbox(b.getWest(), b.getSouth(), b.getEast(), b.getNorth())
-    );
+    setBbox(clampBbox(b.getWest(), b.getSouth(), b.getEast(), b.getNorth()));
   }, [map]);
 
   useMapEvents({
@@ -123,16 +137,14 @@ export function MapUpdaterHex({
   const resolution = zoomToResolution(zoom);
   // Prefer viewport bbox when available so we get hexes for the visible area and they always render.
   // Only use global (null bbox) when zoomed out and bbox not yet set (e.g. before whenReady).
-  const useGlobalRequest =
-    zoom <= ZOOM_GLOBAL_THRESHOLD && bbox === null;
+  const useGlobalRequest = zoom <= ZOOM_GLOBAL_THRESHOLD && bbox === null;
   const bboxForApi = useGlobalRequest ? null : bbox;
-  const {
-    hexes,
-    hexCount,
-    totalInView,
-    loading,
-    error,
-  } = useMapH3(searchQuery, bboxForApi, resolution, queryString);
+  const { hexes, hexCount, totalInView, loading, error } = useMapH3(
+    searchQuery,
+    bboxForApi,
+    resolution,
+    queryString
+  );
 
   useEffect(() => {
     if (onHexData)
@@ -144,7 +156,11 @@ export function MapUpdaterHex({
     const container = map.getContainer();
     const onLeave = (e: MouseEvent) => {
       const related = e.relatedTarget as Node | null;
-      if (related && typeof (related as Element).closest === 'function' && (related as Element).closest('[data-hex-popover]'))
+      if (
+        related &&
+        typeof (related as Element).closest === 'function' &&
+        (related as Element).closest('[data-hex-popover]')
+      )
         return;
       const current = hoveredRef.current;
       if (current) {
@@ -154,11 +170,16 @@ export function MapUpdaterHex({
       }
     };
     container.addEventListener('mouseleave', onLeave as EventListener);
-    return () => container.removeEventListener('mouseleave', onLeave as EventListener);
+    return () =>
+      container.removeEventListener('mouseleave', onLeave as EventListener);
   }, [map, onHexHover]);
 
   useEffect(() => {
-    if (onHexHover && hoveredHex === null && prevHoveredHexRef.current != null) {
+    if (
+      onHexHover &&
+      hoveredHex === null &&
+      prevHoveredHexRef.current != null
+    ) {
       const current = hoveredRef.current;
       if (current) {
         current.layer.setStyle(current.defaultStyle);
@@ -174,13 +195,14 @@ export function MapUpdaterHex({
   // When we requested global (no bbox), filter to current viewport so we only draw visible hexes.
   if (useGlobalRequest && hexesToRender.length > 0) {
     const bounds = map.getBounds();
-    const isValid =
-      typeof bounds.isValid === 'function' && bounds.isValid();
+    const isValid = typeof bounds.isValid === 'function' && bounds.isValid();
     const hasExtent =
       bounds.getNorth() - bounds.getSouth() > 0.1 &&
       bounds.getEast() - bounds.getWest() > 0.1;
     if (isValid && hasExtent) {
-      hexesToRender = hexesToRender.filter((h) => hexIntersectsBounds(h.h3, bounds));
+      hexesToRender = hexesToRender.filter((h) =>
+        hexIntersectsBounds(h.h3, bounds)
+      );
     }
   }
 
@@ -211,7 +233,8 @@ export function MapUpdaterHex({
       style={(feature) => {
         const c = feature?.properties?.count ?? 0;
         const h3 = feature?.properties?.h3 ?? '';
-        const intensity = maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
+        const intensity =
+          maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
         const base = {
           fillColor: getColor(intensity),
           weight: 1,
@@ -221,7 +244,12 @@ export function MapUpdaterHex({
           className: '' as string,
         };
         if (hoveredHex && h3 === hoveredHex.h3) {
-          return { ...base, color: '#3B82F6', weight: 3, className: 'hex-hover-glow' };
+          return {
+            ...base,
+            color: '#3B82F6',
+            weight: 3,
+            className: 'hex-hover-glow',
+          };
         }
         return base;
       }}
@@ -229,7 +257,8 @@ export function MapUpdaterHex({
         const count = feature?.properties?.count ?? 0;
         const h3 = feature?.properties?.h3 ?? '';
         const c = feature?.properties?.count ?? 0;
-        const intensity = maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
+        const intensity =
+          maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
         const defaultStyle = {
           fillColor: getColor(intensity),
           weight: 1,
@@ -269,7 +298,9 @@ export function MapUpdaterHex({
           // Do not clear here; glow and popover stay until mouse leaves map or hovers another hex
         });
         layer.on('click', () =>
-          onFeatureClick({ properties: { name: `Hex ${h3.slice(-6)}`, hits: count } })
+          onFeatureClick({
+            properties: { name: `Hex ${h3.slice(-6)}`, hits: count },
+          })
         );
         layer.on('dblclick', () => {
           onFeatureDoubleClick?.({ h3, count, resolution });

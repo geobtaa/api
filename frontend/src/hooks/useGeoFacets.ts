@@ -29,9 +29,12 @@ export function useGeoFacets(query: string, onApiCall?: (url: string) => void) {
           onApiCall
         );
         if (!isMounted) return;
-        const mapStats = (response.meta as { mapStats?: { globalCount?: number } } | undefined)
-          ?.mapStats;
-        setGlobalCount(typeof mapStats?.globalCount === 'number' ? mapStats.globalCount : 0);
+        const mapStats = (
+          response.meta as { mapStats?: { globalCount?: number } } | undefined
+        )?.mapStats;
+        setGlobalCount(
+          typeof mapStats?.globalCount === 'number' ? mapStats.globalCount : 0
+        );
         if (response.included) {
           const geoFacets = response.included.filter(
             (item): item is GeoFacet =>

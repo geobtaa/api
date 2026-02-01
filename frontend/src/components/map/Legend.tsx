@@ -1,7 +1,15 @@
 // Legend component visualizes the color scale used for resource density (blue ramp, BTAA dark blue = high)
 const HEX_RAMP_COLORS = [
-  '#DBEAFE', '#BFDBFE', '#93C5FD', '#7AB3FD', '#60A5FA',
-  '#3B82F6', '#2563EB', '#1D4ED8', '#1E40AF', '#003C5B',
+  '#DBEAFE',
+  '#BFDBFE',
+  '#93C5FD',
+  '#7AB3FD',
+  '#60A5FA',
+  '#3B82F6',
+  '#2563EB',
+  '#1D4ED8',
+  '#1E40AF',
+  '#003C5B',
 ];
 const HEX_RAMP_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
 
@@ -21,14 +29,16 @@ export function Legend() {
       <div className="flex items-center space-x-2">
         <span className="text-xs text-gray-600">Low</span>
         <div className="flex space-x-1">
-          {[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map((intensity) => (
-            <div
-              key={intensity}
-              className="w-4 h-4"
-              style={{ backgroundColor: getColor(intensity) }}
-              title={`${Math.round(intensity * 100)}%`}
-            />
-          ))}
+          {[0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1].map(
+            (intensity) => (
+              <div
+                key={intensity}
+                className="w-4 h-4"
+                style={{ backgroundColor: getColor(intensity) }}
+                title={`${Math.round(intensity * 100)}%`}
+              />
+            )
+          )}
         </div>
         <span className="text-xs text-gray-600">High</span>
       </div>

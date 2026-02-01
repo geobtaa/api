@@ -80,7 +80,9 @@ export function ThemeProvider({
     [themeId, theme]
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }
 
 export function useThemeContext(): ThemeContextValue {
@@ -96,4 +98,3 @@ export function useThemeContext(): ThemeContextValue {
     setThemeId: () => {},
   };
 }
-

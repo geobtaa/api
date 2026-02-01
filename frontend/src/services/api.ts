@@ -77,22 +77,21 @@ export function getApiBasePath(): string {
     // Default fallback:
     // - Local dev: React app runs on :3000, API on :8000.
     // - Deployed: prefer same-origin /api/v1 (e.g., behind a reverse proxy).
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       const host = window.location.hostname;
-      if (host === "localhost" || host === "127.0.0.1") {
-        return "http://localhost:8000/api/v1";
+      if (host === 'localhost' || host === '127.0.0.1') {
+        return 'http://localhost:8000/api/v1';
       }
     }
 
     // If this ever gets called during SSR, avoid using localhost (it would point
     // at the frontend container). Same-origin /api/v1 is the safest default.
-    return "/api/v1";
+    return '/api/v1';
   }
 
   // Return the API base URL as-is (absolute URL to BFF proxy)
   return apiBaseUrl;
 }
-
 
 // Helper function to create a URL with common parameters
 function createApiUrl(baseUrl: string): URL {
@@ -455,9 +454,15 @@ export async function fetchSearchResults(
         hasMeta: !!firstResult.meta,
         hasMetaUi: !!firstResult.meta?.ui,
         thumbnailUrl: firstResult.meta?.ui?.thumbnail_url,
-        metaUiKeys: firstResult.meta?.ui ? Object.keys(firstResult.meta.ui) : [],
-        metaUiStringified: firstResult.meta?.ui ? JSON.stringify(firstResult.meta.ui) : 'no ui',
-        fullMetaStringified: firstResult.meta ? JSON.stringify(firstResult.meta) : 'no meta',
+        metaUiKeys: firstResult.meta?.ui
+          ? Object.keys(firstResult.meta.ui)
+          : [],
+        metaUiStringified: firstResult.meta?.ui
+          ? JSON.stringify(firstResult.meta.ui)
+          : 'no ui',
+        fullMetaStringified: firstResult.meta
+          ? JSON.stringify(firstResult.meta)
+          : 'no meta',
       });
     }
 
@@ -498,10 +503,16 @@ export async function fetchFacetValues({
     // Client-side: Proxy request through React Router resource route to avoid rate limits
     // The SSR server has the privileged API key
     // Note: Route is /search/facets/:facetName (not /api/v1/...) to go through SSR, not nginx proxy
-    const proxyUrl = new URL(`/search/facets/${facetName}`, window.location.origin);
+    const proxyUrl = new URL(
+      `/search/facets/${facetName}`,
+      window.location.origin
+    );
 
     proxyUrl.searchParams.set('page', Math.max(1, page).toString());
-    proxyUrl.searchParams.set('per_page', Math.max(1, Math.min(100, perPage)).toString());
+    proxyUrl.searchParams.set(
+      'per_page',
+      Math.max(1, Math.min(100, perPage)).toString()
+    );
     if (sort) proxyUrl.searchParams.set('sort', sort);
     if (qFacet) proxyUrl.searchParams.set('q_facet', qFacet);
 
@@ -532,8 +543,8 @@ export async function fetchFacetValues({
 
     const response = await fetch(proxyUrl.toString(), {
       headers: {
-        'Accept': 'application/json',
-      }
+        Accept: 'application/json',
+      },
     });
 
     if (!response.ok) {

@@ -344,10 +344,11 @@ export function FacetMoreModal({
                       key={key}
                       type="button"
                       onClick={handleClick}
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${badgeStyles[entry.type]} ${entry.type === 'include'
-                        ? 'hover:bg-emerald-100 focus-visible:ring-emerald-500'
-                        : 'hover:bg-rose-100 focus-visible:ring-rose-500'
-                        }`}
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${badgeStyles[entry.type]} ${
+                        entry.type === 'include'
+                          ? 'hover:bg-emerald-100 focus-visible:ring-emerald-500'
+                          : 'hover:bg-rose-100 focus-visible:ring-rose-500'
+                      }`}
                       aria-label={ariaLabel}
                     >
                       <span>{entry.label}:</span>
@@ -451,10 +452,11 @@ export function FacetMoreModal({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => onToggleInclude(rawValue)}
-                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${included
-                          ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                          : 'text-gray-600 border-gray-200 hover:bg-gray-50'
-                          }`}
+                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
+                          included
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                            : 'text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
                         aria-label={
                           included
                             ? `Remove ${displayLabel} from included filters`
@@ -468,10 +470,11 @@ export function FacetMoreModal({
                       </button>
                       <button
                         onClick={() => onToggleExclude(rawValue)}
-                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${excluded
-                          ? 'border-rose-400 text-rose-600 bg-rose-50 hover:bg-rose-100'
-                          : 'text-gray-600 border-gray-200 hover:bg-gray-50'
-                          }`}
+                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
+                          excluded
+                            ? 'border-rose-400 text-rose-600 bg-rose-50 hover:bg-rose-100'
+                            : 'text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
                         aria-label={
                           excluded
                             ? `Remove ${displayLabel} from excluded filters`
@@ -501,7 +504,8 @@ export function FacetMoreModal({
 
         <footer className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-gray-600">
-            Showing page {page} of {totalPages} • {formatCount(totalCount)} total values
+            Showing page {page} of {totalPages} • {formatCount(totalCount)}{' '}
+            total values
           </div>
           <div className="flex items-center gap-2">
             <button
