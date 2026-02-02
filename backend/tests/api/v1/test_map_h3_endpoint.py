@@ -15,9 +15,10 @@ client = TestClient(app)
 
 @patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)
 def test_map_h3_returns_resolution_hexes_global_count(mock_agg):
+    # Compact facet-style [h3, count] tuples
     mock_agg.return_value = {
         "resolution": 5,
-        "hexes": [{"h3": "85083e1bfffffff", "count": 12}, {"h3": "85083e0ffffffff", "count": 3}],
+        "hexes": [["85083e1bfffffff", 12], ["85083e0ffffffff", 3]],
         "globalCount": 7,
     }
     resp = client.get(
@@ -29,8 +30,8 @@ def test_map_h3_returns_resolution_hexes_global_count(mock_agg):
     assert data["resolution"] == 5
     assert isinstance(data["hexes"], list)
     assert len(data["hexes"]) == 2
-    assert data["hexes"][0]["h3"] == "85083e1bfffffff"
-    assert data["hexes"][0]["count"] == 12
+    assert data["hexes"][0][0] == "85083e1bfffffff"
+    assert data["hexes"][0][1] == 12
     assert data["globalCount"] == 7
     mock_agg.assert_called_once()
     call_kw = mock_agg.call_args[1]

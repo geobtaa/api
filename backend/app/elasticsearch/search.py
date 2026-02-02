@@ -1391,7 +1391,7 @@ async def map_h3_aggregation(
     """Run H3 terms agg + global count for map hex layer.
 
     bbox: 'west,south,east,north'. resolution: 2–8.
-    Returns {"resolution": int, "hexes": [{"h3": str, "count": int}, ...], "globalCount": int}.
+    Returns {"resolution": int, "hexes": [[h3_str, count], ...], "globalCount": int}.
     """
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
     if resolution < 2 or resolution > 8:
@@ -1544,7 +1544,8 @@ async def map_h3_aggregation(
         body = resp.body if hasattr(resp, "body") else resp
         agg_data = body.get("aggregations", {})
         buckets = (agg_data.get("h3_terms") or {}).get("buckets", [])
-        hexes = [{"h3": b["key"], "count": b["doc_count"]} for b in buckets]
+        # Compact facet-style [h3, count] tuples (smaller payload than {"h3","count"} per item)
+        hexes = [[b["key"], b["doc_count"]] for b in buckets]
 
         # Global count: when viewport bbox is applied, run a second query without bbox
         # so global count is search-scoped, not map-scoped.

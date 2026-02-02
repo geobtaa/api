@@ -13,6 +13,7 @@ export default [
   route("iiif/manifest", "routes/iiif.manifest.ts"),
   route("suggest", "routes/suggest.ts"),
   route("search/facets/:facetName", "routes/api.search.facets.ts"),
+  route("map/h3", "routes/api.map.h3.ts"),
   route("bookmarks", "routes/bookmarks.tsx"),
   route("map", "routes/map.tsx"),
   route("test", "routes/test.tsx"),

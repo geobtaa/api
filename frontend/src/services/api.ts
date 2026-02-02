@@ -784,23 +784,43 @@ export async function fetchGazetteerSearch(
   }
 }
 
+/** API returns hexes as compact [h3, count] tuples (facet-style). We normalize to objects. */
+export interface MapH3ResponseRaw {
+  resolution: number;
+  hexes: Array<[string, number]>;
+  globalCount: number;
+}
+
 export interface MapH3Response {
   resolution: number;
   hexes: Array<{ h3: string; count: number }>;
   globalCount: number;
 }
 
+function normalizeMapH3Response(raw: MapH3ResponseRaw): MapH3Response {
+  return {
+    resolution: raw.resolution,
+    globalCount: raw.globalCount,
+    hexes: raw.hexes.map(([h3, count]) => ({ h3, count })),
+  };
+}
+
+/**
+ * Fetch H3 hex aggregation for map visualization.
+ * Uses the SSR proxy (/map/h3) so requests go through our server with the API key,
+ * avoiding rate limits. The proxy and backend both cache aggressively.
+ */
 export async function fetchMapH3(
   query: string,
   bbox: string | undefined,
   resolution: number,
   queryString?: string
 ): Promise<MapH3Response> {
-  const base = getApiBasePath().replace(/\/$/, '');
-  const href = base.startsWith('http')
-    ? `${base}/map/h3`
-    : `${window.location.origin}${base}/map/h3`;
-  const url = new URL(href);
+  const base =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/map/h3`
+      : `${getApiBasePath().replace(/\/$/, '')}/map/h3`;
+  const url = new URL(base);
   url.searchParams.set('q', query);
   if (bbox != null && bbox !== '') {
     url.searchParams.set('bbox', bbox);
@@ -822,7 +842,8 @@ export async function fetchMapH3(
     const text = await res.text();
     throw new ApiError(`Map H3 request failed: ${text}`, res.status);
   }
-  return res.json();
+  const raw = (await res.json()) as MapH3ResponseRaw;
+  return normalizeMapH3Response(raw);
 }
 let lastNominatimRequest = 0;
 const NOMINATIM_RATE_LIMIT_MS = 1000;

@@ -5,14 +5,19 @@ from fastapi import APIRouter, Query, Request
 from fastapi.responses import JSONResponse
 
 from app.elasticsearch.search import map_h3_aggregation
+from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Aggressive caching: hex aggregation is expensive and data changes only on reindex
+MAP_H3_CACHE_TTL = 7200  # 2 hours
+
 
 @router.get("/map/h3")
+@cached_endpoint(ttl=MAP_H3_CACHE_TTL, tags=["map"])
 async def map_h3(
     request: Request,
     q: Optional[str] = Query(None, description="Search query"),
