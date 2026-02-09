@@ -5,8 +5,7 @@ import { useSearchParams } from 'react-router';
 import { Search } from 'lucide-react';
 import { cellToBoundary } from 'h3-js';
 import { fetchMapH3 } from '../../services/api';
-import { formatCount } from '../../utils/formatNumber';
-import { H3HexDataTable } from '../map/H3HexDataTable';
+import { HexTableControl } from '../map/HexTableControl';
 
 function zoomToResolution(zoom: number): number {
   if (zoom <= 3) return 2;
@@ -139,8 +138,28 @@ export function GeospatialFilterMap() {
         }
       ).addTo(mapRef.current);
 
-      // Set initial view to world
-      mapRef.current.setView([20, 0], 1);
+      // Set initial view: if URL has a location bbox, fit to it; otherwise world
+      const initialBbox = getBBoxFromParams();
+      if (initialBbox) {
+        const bounds = L.latLngBounds(
+          [initialBbox.bottomRight.lat, initialBbox.topLeft.lon],
+          [initialBbox.topLeft.lat, initialBbox.bottomRight.lon]
+        );
+        if (bounds.isValid()) {
+          mapRef.current.fitBounds(bounds, { padding: [20, 20] });
+          bboxRectangleRef.current = L.rectangle(bounds, {
+            color: '#2563eb',
+            weight: 2,
+            opacity: 0.8,
+            fillColor: '#2563eb',
+            fillOpacity: 0.2,
+          }).addTo(mapRef.current);
+        } else {
+          mapRef.current.setView([20, 0], 1);
+        }
+      } else {
+        mapRef.current.setView([20, 0], 1);
+      }
 
       // Invalidate size to ensure tiles render properly after container is ready
       // Use requestAnimationFrame to ensure DOM is fully rendered
@@ -151,6 +170,21 @@ export function GeospatialFilterMap() {
             const rect = mapContainerRef.current.getBoundingClientRect();
             if (rect.width > 0 && rect.height > 0) {
               mapRef.current.invalidateSize();
+              // If we have a bbox in URL, re-fit so bounds are correct after layout
+              const bbox = getBBoxFromParams();
+              if (bbox) {
+                const bounds = L.latLngBounds(
+                  [bbox.bottomRight.lat, bbox.topLeft.lon],
+                  [bbox.topLeft.lat, bbox.bottomRight.lon]
+                );
+                if (bounds.isValid()) {
+                  isUpdatingFromParamsRef.current = true;
+                  mapRef.current.fitBounds(bounds, { padding: [20, 20] });
+                  setTimeout(() => {
+                    isUpdatingFromParamsRef.current = false;
+                  }, 500);
+                }
+              }
             } else {
               // If not visible yet, try again after a delay
               setTimeout(() => {
@@ -310,19 +344,45 @@ export function GeospatialFilterMap() {
     }
   }, [getBBoxFromParams]);
 
-  // Handle visibility changes (e.g., when details element opens)
+  // Handle visibility changes (e.g., when details element opens); also fit to bbox if map was created with zero size
   useEffect(() => {
     if (!mapRef.current || !mapContainerRef.current) return;
 
-    // Use IntersectionObserver to detect when container becomes visible
+    const fitToBboxIfNeeded = () => {
+      const bbox = getBBoxFromParams();
+      if (!bbox || !mapRef.current) return;
+      const bounds = L.latLngBounds(
+        [bbox.bottomRight.lat, bbox.topLeft.lon],
+        [bbox.topLeft.lat, bbox.bottomRight.lon]
+      );
+      if (!bounds.isValid()) return;
+      const zoom = mapRef.current.getZoom();
+      if (zoom <= 2) {
+        isUpdatingFromParamsRef.current = true;
+        mapRef.current.fitBounds(bounds, { padding: [20, 20] });
+        if (!bboxRectangleRef.current) {
+          bboxRectangleRef.current = L.rectangle(bounds, {
+            color: '#2563eb',
+            weight: 2,
+            opacity: 0.8,
+            fillColor: '#2563eb',
+            fillOpacity: 0.2,
+          }).addTo(mapRef.current);
+        }
+        setTimeout(() => {
+          isUpdatingFromParamsRef.current = false;
+        }, 500);
+      }
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && mapRef.current) {
-            // Container is visible, invalidate size to ensure tiles load
             setTimeout(() => {
               if (mapRef.current) {
                 mapRef.current.invalidateSize();
+                fitToBboxIfNeeded();
               }
             }, 100);
           }
@@ -336,7 +396,7 @@ export function GeospatialFilterMap() {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [getBBoxFromParams]);
 
   // H3 hex layer: fetch hexes for current view and add GeoJSON layer; fit to hex cluster when search changes
   useEffect(() => {
@@ -412,22 +472,8 @@ export function GeospatialFilterMap() {
               fillOpacity: 0.7,
             };
           },
-          onEachFeature: (feature, layer) => {
-            const count =
-              (feature?.properties as { count?: number })?.count ?? 0;
-            const h3 = (feature?.properties as { h3?: string })?.h3 ?? '';
-            const res = zoomToResolution(map.getZoom());
-            // Preserve current search params and add/update only the H3 filter
-            const params = new URLSearchParams(searchParams.toString());
-            Array.from(params.keys())
-              .filter((key) => key.startsWith('include_filters[h3_res'))
-              .forEach((key) => params.delete(key));
-            params.set(`include_filters[h3_res${res}][]`, h3);
-            params.delete('page');
-            const searchUrl = `/search?${params.toString()}`;
-            layer.bindPopup(
-              `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
-            );
+          onEachFeature: () => {
+            // No popup on search map hexes
           },
         });
         layer.addTo(map);
@@ -587,21 +633,14 @@ export function GeospatialFilterMap() {
             <span>Search here</span>
           </button>
         )}
+        <HexTableControl
+          hexes={hexesInView}
+          resolution={hexResolution}
+          searchQuery={searchParams.get('q') ?? ''}
+          queryString={searchParams.toString()}
+          loading={hexLoading}
+        />
       </div>
-      <details className="mt-2 rounded-lg border border-gray-200 bg-white">
-        <summary className="cursor-pointer list-none py-2 px-3 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset rounded-lg">
-          View hex data as table
-        </summary>
-        <div className="max-h-64 overflow-auto border-t border-gray-200 p-2">
-          <H3HexDataTable
-            hexes={hexesInView}
-            resolution={hexResolution}
-            searchQuery={searchParams.get('q') ?? ''}
-            queryString={searchParams.toString()}
-            loading={hexLoading}
-          />
-        </div>
-      </details>
     </div>
   );
 }

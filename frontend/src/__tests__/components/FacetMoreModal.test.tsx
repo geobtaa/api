@@ -238,7 +238,7 @@ describe('FacetMoreModal', () => {
   it('closes when Escape key is pressed', () => {
     renderWithRouter(<FacetMoreModal {...defaultProps} />);
 
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 

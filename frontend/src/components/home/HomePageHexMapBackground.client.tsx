@@ -17,7 +17,7 @@ import {
 } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapUpdaterHex } from '../map/MapUpdaterHex';
-import { H3HexDataTable } from '../map/H3HexDataTable';
+import { HexTableControl } from '../map/HexTableControl';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_RESOURCE_IDS } from '../../config/featured';
 import { fetchResourceDetails } from '../../services/api';
@@ -83,7 +83,6 @@ function MapUserEngagementTracker({
 
 const FEATURED_BOUNDS_PANE = 'featuredBoundsPane';
 const FEATURED_ITEM_DURATION_MS = 10_000;
-const FEATURED_PRECAROUSEL_MS = 10_000;
 const FEATURED_PROGRESS_TICK_MS = 100;
 /** Dark Big Ten blue for progress bar (BTAA primary) */
 const DARK_BIG_TEN_BLUE = '#003C5B';
@@ -257,12 +256,7 @@ export function HomePageHexMapBackground() {
     []
   );
 
-  const [preCarouselProgress, setPreCarouselProgress] = useState(1);
-  const preCarouselStartRef = useRef<number | null>(null);
-  const preCarouselIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null
-  );
-  const hadCarouselStartedRef = useRef(false);
+  const [preCarouselProgress] = useState(1);
 
   useEffect(() => {
     carouselPausedRef.current = carouselPaused;
@@ -271,61 +265,6 @@ export function HomePageHexMapBackground() {
   useEffect(() => {
     if (userEngagedMap) userEngagedMapRef.current = true;
   }, [userEngagedMap]);
-
-  useEffect(() => {
-    if (featuredInitiated) hadCarouselStartedRef.current = true;
-  }, [featuredInitiated]);
-
-  const runPreCarouselCountdown = () => {
-    preCarouselStartRef.current = Date.now();
-    preCarouselIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - (preCarouselStartRef.current ?? 0);
-      // Ignore user engagement for first 1.5s so initial map pan doesn't kill the ring
-      if (elapsed > 1500 && userEngagedMapRef.current) {
-        setPreCarouselProgress(0);
-        if (preCarouselIntervalRef.current) {
-          clearInterval(preCarouselIntervalRef.current);
-          preCarouselIntervalRef.current = null;
-        }
-        return;
-      }
-      const progress = Math.max(0, 1 - elapsed / FEATURED_PRECAROUSEL_MS);
-      setPreCarouselProgress(progress);
-      if (progress <= 0) {
-        setFeaturedInitiated(true);
-        if (preCarouselIntervalRef.current) {
-          clearInterval(preCarouselIntervalRef.current);
-          preCarouselIntervalRef.current = null;
-        }
-      }
-    }, FEATURED_PROGRESS_TICK_MS);
-  };
-
-  // Initial countdown on mount
-  useEffect(() => {
-    runPreCarouselCountdown();
-    return () => {
-      if (preCarouselIntervalRef.current) {
-        clearInterval(preCarouselIntervalRef.current);
-        preCarouselIntervalRef.current = null;
-      }
-      preCarouselStartRef.current = null;
-    };
-  }, []);
-
-  // Restart countdown ring when user clicks Home (return to home state)
-  useEffect(() => {
-    if (featuredInitiated || !hadCarouselStartedRef.current) return;
-    setPreCarouselProgress(1);
-    runPreCarouselCountdown();
-    return () => {
-      if (preCarouselIntervalRef.current) {
-        clearInterval(preCarouselIntervalRef.current);
-        preCarouselIntervalRef.current = null;
-      }
-      preCarouselStartRef.current = null;
-    };
-  }, [featuredInitiated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -383,7 +322,8 @@ export function HomePageHexMapBackground() {
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }`}</style>
       <p className="sr-only">
-        For a list of hex data, use the section below: View hex data as table.
+        For a list of hex data, use the hex table button in the bottom-left
+        corner of the map.
       </p>
       <div
         className="relative h-full w-full"
@@ -410,16 +350,20 @@ export function HomePageHexMapBackground() {
           />
           <MapPanner programmaticFlyRef={programmaticFlyRef} />
           <SearchHereControl />
+          <HexTableControl
+            hexes={hexDataForTable.hexes}
+            resolution={hexDataForTable.resolution}
+            searchQuery=""
+            queryString={
+              typeof window !== 'undefined' ? window.location.search : undefined
+            }
+            loading={hexDataForTable.loading}
+          />
           <MapUpdaterHex
             searchQuery=""
             onFeatureClick={() => {}}
             onHexHover={() => {}}
             onHexData={handleHexData}
-            onFeatureDoubleClick={({ h3, resolution }) => {
-              navigate(
-                `/search?include_filters[h3_res${resolution}][]=${encodeURIComponent(h3)}`
-              );
-            }}
             queryString={
               typeof window !== 'undefined' ? window.location.search : undefined
             }
@@ -773,27 +717,6 @@ export function HomePageHexMapBackground() {
           </div>
         </div>
 
-        {/* Accessible alternative: hex data as table (WCAG 1.1.1, 2.1.1) */}
-        <div className="absolute bottom-0 left-0 right-0 z-20 px-3 pb-2 max-h-[40vh] flex flex-col">
-          <details className="bg-white/90 backdrop-blur-sm rounded-t-lg border border-gray-200 border-b-0 shadow-sm">
-            <summary className="cursor-pointer list-none py-2 px-3 text-sm font-medium text-gray-700 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset rounded-t-lg">
-              View hex data as table
-            </summary>
-            <div className="max-h-[30vh] overflow-auto border-t border-gray-200 p-2">
-              <H3HexDataTable
-                hexes={hexDataForTable.hexes}
-                resolution={hexDataForTable.resolution}
-                searchQuery=""
-                queryString={
-                  typeof window !== 'undefined'
-                    ? window.location.search
-                    : undefined
-                }
-                loading={hexDataForTable.loading}
-              />
-            </div>
-          </details>
-        </div>
       </div>
     </div>
   );
