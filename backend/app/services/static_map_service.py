@@ -395,9 +395,7 @@ class StaticMapService:
         from PIL import Image
 
         try:
-            logger.debug(
-                f"Rendering map for resource {resource_id} (this requires tile downloads)"
-            )
+            logger.debug(f"Rendering map for resource {resource_id} (this requires tile downloads)")
             cairo_surface = context.render_cairo(self.map_width, self.map_height)
             buf = io.BytesIO()
             cairo_surface.write_to_png(buf)

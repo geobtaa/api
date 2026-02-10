@@ -289,7 +289,13 @@ class TestImageServiceThumbnailSourceURL:
             assert "REQUEST=GetMap" in result
             assert "FORMAT=image/png" in result
             assert "LAYERS=test_layer" in result
-            assert "BBOX=" in result and "-100" in result and "40" in result and "-90" in result and "45" in result
+            assert (
+                "BBOX=" in result
+                and "-100" in result
+                and "40" in result
+                and "-90" in result
+                and "45" in result
+            )
 
         except Exception as e:
             # Handle Redis connection errors gracefully

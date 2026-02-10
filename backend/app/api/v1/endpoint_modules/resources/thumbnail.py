@@ -145,7 +145,11 @@ async def get_resource_thumbnail(
                     headers={"Cache-Control": "no-store"},
                 )
             # Collection with no thumbnail and no geometry: show collection icon
-            resource_classes = resource_dict.get("gbl_resourceClass_sm") or resource_dict.get("gbl_resourceclass_sm") or []
+            resource_classes = (
+                resource_dict.get("gbl_resourceClass_sm")
+                or resource_dict.get("gbl_resourceclass_sm")
+                or []
+            )
             if isinstance(resource_classes, str):
                 resource_classes = [resource_classes]
             if "Collections" in resource_classes:
@@ -266,7 +270,11 @@ async def get_resource_thumbnail_no_cache(
                     headers={"Cache-Control": "no-store"},
                 )
             # Collection with no thumbnail and no geometry: show collection icon instead of text
-            resource_classes = resource_dict.get("gbl_resourceClass_sm") or resource_dict.get("gbl_resourceclass_sm") or []
+            resource_classes = (
+                resource_dict.get("gbl_resourceClass_sm")
+                or resource_dict.get("gbl_resourceclass_sm")
+                or []
+            )
             if isinstance(resource_classes, str):
                 resource_classes = [resource_classes]
             if "Collections" in resource_classes:
@@ -278,7 +286,9 @@ async def get_resource_thumbnail_no_cache(
             # This may fetch the manifest once to resolve thumbnail URL
             resolved = image_service.get_iiif_manifest_thumbnail(source_url)
             if not resolved:
-                return _svg_placeholder(title="Thumbnail unavailable", subtitle="Error resolving IIIF")
+                return _svg_placeholder(
+                    title="Thumbnail unavailable", subtitle="Error resolving IIIF"
+                )
             fetch_url = image_service._standardize_iiif_url(resolved)
         else:
             fetch_url = image_service._standardize_iiif_url(source_url)
@@ -286,7 +296,9 @@ async def get_resource_thumbnail_no_cache(
         # Download image directly (bypass Redis cache)
         image_bytes = await image_service.download_image(fetch_url)
         if not image_bytes:
-            return _svg_placeholder(title="Thumbnail unavailable", subtitle="Error downloading image")
+            return _svg_placeholder(
+                title="Thumbnail unavailable", subtitle="Error downloading image"
+            )
 
         # Detect content type similarly to the cached thumbnail endpoint
         from app.api.v1.endpoint_modules.thumbnails import _detect_image_type
@@ -300,4 +312,6 @@ async def get_resource_thumbnail_no_cache(
         )
     except Exception as e:
         logger.error(f"Error regenerating thumbnail for resource {id}: {str(e)}", exc_info=True)
-        return _svg_placeholder(title="Thumbnail unavailable", subtitle="Error regenerating thumbnail")
+        return _svg_placeholder(
+            title="Thumbnail unavailable", subtitle="Error regenerating thumbnail"
+        )
