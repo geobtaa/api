@@ -1408,7 +1408,8 @@ async def map_h3_aggregation(
                 filter_clauses.append({"term": {resolved: values}})
 
     if include_filters:
-        # Apply location (bbox) filter so hex counts match the search results (e.g. "Winnipeg" area).
+        # Apply location (bbox) filter so hex counts match the search results
+        # (e.g. "Winnipeg" area).
         geo_filter = _build_geospatial_filter(include_filters.get("geo") or {})
         if geo_filter is not None:
             filter_clauses.append(geo_filter)

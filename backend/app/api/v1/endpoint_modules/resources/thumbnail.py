@@ -76,7 +76,8 @@ def _svg_collection_icon() -> Response:
     <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="200" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="2"/>
       <g transform="translate(60,50)">
-        <path d="M0 20 L0 80 L80 80 L80 20 L40 0 Z" fill="#94a3b8" stroke="#64748b" stroke-width="2"/>
+        <path d="M0 20 L0 80 L80 80 L80 20 L40 0 Z"
+          fill="#94a3b8" stroke="#64748b" stroke-width="2"/>
         <path d="M10 30 L70 30 L70 75 L10 75 Z" fill="#cbd5e1" stroke="#64748b" stroke-width="1"/>
         <rect x="25" y="40" width="20" height="12" fill="#94a3b8" rx="1"/>
         <rect x="25" y="56" width="30" height="12" fill="#94a3b8" rx="1"/>
