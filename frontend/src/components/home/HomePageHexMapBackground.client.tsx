@@ -413,22 +413,6 @@ export function HomePageHexMapBackground() {
             }}
           >
             <div className="flex">
-              <div className="flex-shrink-0 w-32 h-32 sm:w-40 sm:h-40 rounded-l-lg overflow-hidden bg-gray-100">
-                {activeDetail.meta?.ui?.thumbnail_url ? (
-                  <img
-                    src={toSsrThumbnailUrl(activeDetail.meta.ui.thumbnail_url)}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-gray-400">
-                    {getResourceIcon(
-                      activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0],
-                      { className: 'w-12 h-12' }
-                    )}
-                  </div>
-                )}
-              </div>
               <div className="flex-1 flex flex-col min-w-0 p-4">
                 <Link to={`/resources/${activeDetail.id}`} className="flex-1">
                   <h3 className="text-base font-semibold text-blue-600 hover:text-blue-800 line-clamp-2">
