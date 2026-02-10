@@ -12,6 +12,9 @@ This directory contains documentation for the Research University Interface (RUI
 - **[Linting and Formatting](linting-and-formatting.md)** - Guide to ESLint, Prettier, and code quality tools
 - **[Linting Quick Reference](linting-quick-reference.md)** - Quick reference for linting commands and common issues
 
+### Features
+- **[Homepage Map Visualization](homepage-map.md)** - H3 hex map, featured carousel, Allmaps georeferenced maps
+
 ### Images
 - **rui.png** - Project logo/icon
 

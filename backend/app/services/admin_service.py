@@ -44,6 +44,9 @@ class CacheManagementService:
             if cache_type == "suggest" or cache_type is None or cache_type == "all":
                 await self.cache_service.invalidate_tags(["suggest"])
 
+            if cache_type == "map" or cache_type is None or cache_type == "all":
+                await self.cache_service.invalidate_tags(["map"])
+
             if cache_type == "all" or cache_type is None:
                 await self.cache_service.flush_all()
 
@@ -90,11 +93,11 @@ class ReindexingService:
             # Check spatial facet readiness
             spatial_readiness = await self.check_spatial_facet_readiness()
 
-            # When reindexing, invalidate all search and suggest caches
+            # When reindexing, invalidate search, suggest, and map (hex) caches
             if ENDPOINT_CACHE:
-                logger.info("Invalidating search and suggest caches")
+                logger.info("Invalidating search, suggest, and map caches")
                 cache = CacheService()
-                await cache.invalidate_tags(["search", "suggest"])
+                await cache.invalidate_tags(["search", "suggest", "map"])
 
             result = await reindex_resources()
 

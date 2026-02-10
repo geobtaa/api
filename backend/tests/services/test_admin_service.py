@@ -76,11 +76,12 @@ class TestCacheManagementService:
 
         assert result["message"] == "Cache cleared successfully: all"
         # When cache_type is "all", it should invalidate all types AND flush all.
-        # invalidate_tags is called once per tag group.
-        assert mock_cache_service.invalidate_tags.await_count == 3
+        # invalidate_tags is called once per tag group (search, resource, suggest, map).
+        assert mock_cache_service.invalidate_tags.await_count == 4
         mock_cache_service.invalidate_tags.assert_any_await(["search"])
         mock_cache_service.invalidate_tags.assert_any_await(["resource"])
         mock_cache_service.invalidate_tags.assert_any_await(["suggest"])
+        mock_cache_service.invalidate_tags.assert_any_await(["map"])
         mock_cache_service.flush_all.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -94,10 +95,11 @@ class TestCacheManagementService:
         result = await service.clear_cache_by_type(None)
 
         assert result["message"] == "Cache cleared successfully: all"
-        assert mock_cache_service.invalidate_tags.await_count == 3
+        assert mock_cache_service.invalidate_tags.await_count == 4
         mock_cache_service.invalidate_tags.assert_any_await(["search"])
         mock_cache_service.invalidate_tags.assert_any_await(["resource"])
         mock_cache_service.invalidate_tags.assert_any_await(["suggest"])
+        mock_cache_service.invalidate_tags.assert_any_await(["map"])
         mock_cache_service.flush_all.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -147,7 +149,7 @@ class TestReindexingService:
             assert result["status"] == "success"
             assert result["message"] == "Reindexing completed"
             assert result["details"] == {"indexed": 100}
-            mock_cache.invalidate_tags.assert_awaited_once_with(["search", "suggest"])
+            mock_cache.invalidate_tags.assert_awaited_once_with(["search", "suggest", "map"])
             mock_reindex.assert_called_once()
 
     @pytest.mark.asyncio

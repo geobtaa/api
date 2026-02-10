@@ -582,20 +582,20 @@ describe('FacetList Component', () => {
               {
                 attributes: {
                   value: 'true',
-                  hits: 10
+                  hits: 10,
                 },
-                links: { self: '...' }
+                links: { self: '...' },
               },
               {
                 attributes: {
                   value: 'false',
-                  hits: 5
+                  hits: 5,
                 },
-                links: { self: '...' }
-              }
-            ]
-          }
-        }
+                links: { self: '...' },
+              },
+            ],
+          },
+        },
       ];
 
       render(
@@ -604,11 +604,17 @@ describe('FacetList Component', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByRole('heading', { level: 3, name: 'Georeferenced' })).toBeInTheDocument(); // Facet Title
-      expect(screen.getByRole('button', { name: /Georeferenced/ })).toBeInTheDocument(); // Value "true" renamed
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'Georeferenced' })
+      ).toBeInTheDocument(); // Facet Title
+      expect(
+        screen.getByRole('button', { name: /Georeferenced/ })
+      ).toBeInTheDocument(); // Value "true" renamed
       // Note: The button text content might include the hit count like "Georeferenced (10)"
       // so finding by role/name with regex is safer.
-      expect(screen.getByRole('button', { name: /Not georeferenced/ })).toBeInTheDocument(); // Value "false" renamed
+      expect(
+        screen.getByRole('button', { name: /Not georeferenced/ })
+      ).toBeInTheDocument(); // Value "false" renamed
     });
 
     it('handles facets with missing items attribute', () => {
@@ -743,7 +749,9 @@ describe('FacetList Component', () => {
       expect(lastCallArgs.get('page')).toBeNull();
       expect(lastCallArgs.get('q')).toBe('maps');
       // Should have added the facet
-      expect(lastCallArgs.getAll('include_filters[resource_class_agg][]')).toContain('Paper Maps');
+      expect(
+        lastCallArgs.getAll('include_filters[resource_class_agg][]')
+      ).toContain('Paper Maps');
     });
   });
 
@@ -773,7 +781,8 @@ describe('FacetList Component', () => {
       // Each button should have accessible text OR an aria-label (icon buttons).
       buttons.forEach((button) => {
         const hasText = (button.textContent || '').trim().length > 0;
-        const hasAriaLabel = (button.getAttribute('aria-label') || '').trim().length > 0;
+        const hasAriaLabel =
+          (button.getAttribute('aria-label') || '').trim().length > 0;
         expect(hasText || hasAriaLabel).toBe(true);
       });
     });

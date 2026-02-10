@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useParams, Link, useLocation, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowRight, ArrowLeftCircle, XCircle } from 'lucide-react';
@@ -23,6 +23,7 @@ import { LinksTable } from '../components/resource/LinksTable';
 import { SimilarItemsCarousel } from '../components/resource/SimilarItemsCarousel';
 import { EnvironmentNavButtons } from '../components/resource/EnvironmentNavButtons';
 import { formatCount } from '../utils/formatNumber';
+import { DisplayNotes } from '../components/resource/DisplayNotes';
 
 // Define types for search results
 interface SearchResult {
@@ -61,6 +62,7 @@ interface ResourceData extends GeoDocument {
       }>;
       citation?: string;
       thumbnail_url?: string;
+      static_map?: string;
       links?: Record<string, Array<{ label: string; url: string }>>;
       relationships?: Record<string, unknown>;
       similar_items?: Array<{
@@ -153,7 +155,8 @@ export function ResourceView({
 
   // Calculate pagination state
   const isLastInCurrentSet =
-    searchState?.currentIndex === searchState?.searchResults.length - 1;
+    !!searchState &&
+    searchState.currentIndex === searchState.searchResults.length - 1;
   const isFirstInCurrentSet = searchState?.currentIndex === 0;
 
   // Update these calculations to use absoluteIndex when available
@@ -427,17 +430,31 @@ export function ResourceView({
   // Extract data from the new structure
   const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
 
+  // Open Graph / Twitter card image: prefer thumbnail; when none or placeholder, use static map when available
+  const thumbnailUrl = data?.meta?.ui?.thumbnail_url;
+  const isPlaceholderThumbnail =
+    !thumbnailUrl ||
+    (typeof thumbnailUrl === 'string' && thumbnailUrl.includes('placeholder'));
+  const hasStaticMap = Boolean(data?.meta?.ui?.static_map && data?.id);
+  const ogImage = !isPlaceholderThumbnail
+    ? thumbnailUrl
+    : hasStaticMap
+      ? `/resources/${data.id}/static-map`
+      : undefined;
+
   return (
     <div className="min-h-screen flex flex-col">
       {data?.attributes && (
         <Seo
           title={data.attributes.ogm.dct_title_s}
-          description={
-            Array.isArray(data.attributes.ogm.dct_description_sm)
-              ? data.attributes.ogm.dct_description_sm[0]
-              : (data.attributes.ogm.dct_description_sm as string || "")
-          }
-          image={data?.meta?.ui?.thumbnail_url}
+          description={(() => {
+            const desc = data.attributes.ogm.dct_description_sm;
+            if (Array.isArray(desc)) {
+              return desc[0] ?? '';
+            }
+            return typeof desc === 'string' ? desc : '';
+          })()}
+          image={ogImage}
           url={currentUrl}
           type="article"
         />
@@ -478,7 +495,8 @@ export function ResourceView({
 
                   {isMounted && searchState && (
                     <span className="text-gray-500 px-2">
-                      {formatCount(displayIndex)} of {formatCount(searchState.totalResults)}
+                      {formatCount(displayIndex)} of{' '}
+                      {formatCount(searchState.totalResults)}
                     </span>
                   )}
 
@@ -508,6 +526,13 @@ export function ResourceView({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Title section */}
                 <div className="lg:col-span-8">
+                  {/* Display notes from OGM Aardvark (gbl_displayNote_sm) */}
+                  {Array.isArray(data.attributes.ogm.gbl_displayNote_sm) &&
+                    data.attributes.ogm.gbl_displayNote_sm.length > 0 && (
+                      <DisplayNotes
+                        notes={data.attributes.ogm.gbl_displayNote_sm}
+                      />
+                    )}
                   <h1 className="text-3xl font-bold text-gray-900">
                     {data.attributes.ogm.dct_title_s}
                   </h1>
@@ -527,8 +552,8 @@ export function ResourceView({
                   {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
                   {(viewerProtocol === 'wms' ||
                     viewerProtocol === 'arcgis_feature_layer') && (
-                      <AttributeTable />
-                    )}
+                    <AttributeTable />
+                  )}
                   {viewerProtocol === 'open_index_map' && <IndexMap />}
 
                   {/* Add Full Details table */}
@@ -544,19 +569,19 @@ export function ResourceView({
                     {(data?.meta?.ui?.viewer?.geometry ||
                       data?.attributes?.ogm?.locn_geometry_original ||
                       data?.attributes?.ogm?.locn_geometry) && (
-                        <LocationMap
-                          geometry={
-                            (data?.meta?.ui?.viewer?.geometry ||
-                              data?.attributes?.ogm?.locn_geometry_original ||
-                              data?.attributes?.ogm?.locn_geometry) as
+                      <LocationMap
+                        geometry={
+                          (data?.meta?.ui?.viewer?.geometry ||
+                            data?.attributes?.ogm?.locn_geometry_original ||
+                            data?.attributes?.ogm?.locn_geometry) as
                             | string
                             | GeoJSON.Polygon
                             | GeoJSON.MultiPolygon
                             | { wkt: string }
                             | null
-                          }
-                        />
-                      )}
+                        }
+                      />
+                    )}
 
                     {/* Downloads section */}
                     {data?.meta?.ui?.downloads &&
@@ -575,9 +600,7 @@ export function ResourceView({
                       <div className="mt-6">
                         <CitationTable
                           citation={data.meta.ui.citation}
-                          permalink={
-                            isMounted ? window.location.href : ""
-                          }
+                          permalink={isMounted ? window.location.href : ''}
                         />
                       </div>
                     )}
@@ -601,7 +624,7 @@ export function ResourceView({
       </main>
 
       <Footer />
-      
+
       {/* Environment navigation buttons - fixed position */}
       {id && <EnvironmentNavButtons resourceId={id} />}
     </div>

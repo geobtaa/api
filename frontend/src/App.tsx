@@ -37,6 +37,13 @@ function App() {
       <BookmarkProvider>
         <DebugProvider>
           <Routes>
+            {/* More specific paths first so /search matches before / */}
+            <Route path="/search" element={<SearchPage />} />
+            <Route path="/bookmarks" element={<BookmarksPage />} />
+            <Route path="/resources/:id" element={<ResourceView />} />
+            <Route path="/test/fixtures" element={<FixturesTestPage />} />
+            <Route path="/test" element={<TestPage />} />
+            <Route path="/map" element={<MapPage />} />
             <Route
               path="/"
               element={
@@ -47,17 +54,12 @@ function App() {
                 )
               }
             />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/bookmarks" element={<BookmarksPage />} />
-            <Route path="/resources/:id" element={<ResourceView />} />
-            <Route path="/test/fixtures" element={<FixturesTestPage />} />
-            <Route path="/test" element={<TestPage />} />
-            <Route path="/map" element={<MapPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </DebugProvider>
       </BookmarkProvider>
-      );
+    </HelmetProvider>
+  );
 }
 
-      export default App;
+export default App;

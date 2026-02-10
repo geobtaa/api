@@ -15,21 +15,24 @@ export function ZoomLevelControls({ zoomLevel, onChange }: Props) {
             Geographic Level
           </h3>
           <div className="flex space-x-2">
-            {(['country', 'region', 'county'] as ZoomLevel[]).map((level) => (
-              <button
-                key={level}
-                onClick={() => onChange(level)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  zoomLevel === level
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                {level === 'country' && 'Country'}
-                {level === 'region' && 'Region (State)'}
-                {level === 'county' && 'County'}
-              </button>
-            ))}
+            {(['country', 'region', 'county', 'hex'] as ZoomLevel[]).map(
+              (level) => (
+                <button
+                  key={level}
+                  onClick={() => onChange(level)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                    zoomLevel === level
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {level === 'country' && 'Country'}
+                  {level === 'region' && 'Region (State)'}
+                  {level === 'county' && 'County'}
+                  {level === 'hex' && 'Hex'}
+                </button>
+              )
+            )}
           </div>
         </div>
         <div className="text-sm text-gray-600">

@@ -1,9 +1,9 @@
-import { useEffect, useRef, useCallback } from "react";
-import type * as Leaflet from "leaflet";
-import "leaflet/dist/leaflet.css";
-import type { GeoDocument } from "../../types/api";
-import { useMap } from "../../context/MapContext";
-import { useSearchParams } from "react-router";
+import { useEffect, useRef, useCallback } from 'react';
+import type * as Leaflet from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import type { GeoDocument } from '../../types/api';
+import { useMap } from '../../context/MapContext';
+import { useSearchParams } from 'react-router';
 
 interface MapViewProps {
   results: GeoDocument[];
@@ -26,7 +26,7 @@ export function MapView({ results }: MapViewProps) {
 
   // Leaflet requires `window`, so only load it in the browser.
   const loadLeaflet = useCallback(async () => {
-    const mod = await import("leaflet");
+    const mod = await import('leaflet');
     return mod.default;
   }, []);
 
@@ -60,7 +60,7 @@ export function MapView({ results }: MapViewProps) {
   }, [searchParams]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     const startTime = performance.now();
     console.log(
       '🗺️ MapView useEffect triggered with',
@@ -81,19 +81,19 @@ export function MapView({ results }: MapViewProps) {
         if (!mapContainer.current) return;
         if (mapRef.current) return;
         mapRef.current = L.map(mapContainer.current).setView(
-        [39.8283, -98.5795],
-        3
+          [39.8283, -98.5795],
+          3
         );
 
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: "© OpenStreetMap contributors",
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
         }).addTo(mapRef.current);
-        console.log("✅ Map initialized");
+        console.log('✅ Map initialized');
       })();
     }
 
     // Clear existing result layer (but preserve filter rectangle)
-    if (resultLayerRef.current) {
+    if (resultLayerRef.current && mapRef.current) {
       mapRef.current.removeLayer(resultLayerRef.current);
       resultLayerRef.current = null;
     }
@@ -120,21 +120,21 @@ export function MapView({ results }: MapViewProps) {
           const L = await loadLeaflet();
           if (!mapRef.current) return;
           const geoJsonLayer = L.geoJSON(
-          {
-            type: 'FeatureCollection' as const,
-            features: features,
-          } as unknown as GeoJSON.GeoJsonObject,
-          {
-            style: {
-              color: '#2563eb',
-              weight: 2,
-              opacity: 0.6,
-              fillOpacity: 0.1,
-            },
-            onEachFeature: (feature, layer) => {
-              layer.bindPopup(feature.properties.title);
-            },
-          }
+            {
+              type: 'FeatureCollection' as const,
+              features: features,
+            } as unknown as GeoJSON.GeoJsonObject,
+            {
+              style: {
+                color: '#2563eb',
+                weight: 2,
+                opacity: 0.6,
+                fillOpacity: 0.1,
+              },
+              onEachFeature: (feature, layer) => {
+                layer.bindPopup(feature.properties.title);
+              },
+            }
           ).addTo(mapRef.current);
 
           resultLayerRef.current = geoJsonLayer;
@@ -164,23 +164,26 @@ export function MapView({ results }: MapViewProps) {
     }
 
     return () => {
-      // Cleanup on unmount
+      // Cleanup on unmount: remove map and clear layer refs so next run doesn't call removeLayer on null
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
       }
+      resultLayerRef.current = null;
+      filterRectRef.current = null;
+      highlightLayerRef.current = null;
     };
   }, [results, getBBoxFromParams, loadLeaflet]);
 
   // Display geo filter bbox on map and pan/zoom to it
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     if (!mapRef.current) return;
 
     const bbox = getBBoxFromParams();
 
     // Clear existing filter rectangle
-    if (filterRectRef.current) {
+    if (filterRectRef.current && mapRef.current) {
       mapRef.current.removeLayer(filterRectRef.current);
       filterRectRef.current = null;
     }
@@ -193,32 +196,32 @@ export function MapView({ results }: MapViewProps) {
           const L = await loadLeaflet();
           if (!mapRef.current) return;
           const filterBounds = L.latLngBounds(
-          [bbox.bottomRight.lat, bbox.topLeft.lon], // Southwest
-          [bbox.topLeft.lat, bbox.bottomRight.lon] // Northeast
+            [bbox.bottomRight.lat, bbox.topLeft.lon], // Southwest
+            [bbox.topLeft.lat, bbox.bottomRight.lon] // Northeast
           );
 
-        // Create a rectangle for the filter area
+          // Create a rectangle for the filter area
           const filterRect = L.rectangle(filterBounds, {
-          color: '#ef4444',
-          weight: 2,
-          opacity: 0.8,
-          fillColor: '#ef4444',
-          fillOpacity: 0.1,
-          dashArray: '10, 5',
+            color: '#ef4444',
+            weight: 2,
+            opacity: 0.8,
+            fillColor: '#ef4444',
+            fillOpacity: 0.1,
+            dashArray: '10, 5',
           }).addTo(mapRef.current);
 
           filterRectRef.current = filterRect;
 
-        // Pan and zoom to show the filter area
-        // If we have results, show both; otherwise just show the filter
+          // Pan and zoom to show the filter area
+          // If we have results, show both; otherwise just show the filter
           if (resultLayerRef.current) {
-          // Combine filter bounds with result bounds
-          const resultBounds = resultLayerRef.current.getBounds();
-          const combinedBounds = filterBounds.extend(resultBounds);
-          mapRef.current.fitBounds(combinedBounds, { padding: [20, 20] });
+            // Combine filter bounds with result bounds
+            const resultBounds = resultLayerRef.current.getBounds();
+            const combinedBounds = filterBounds.extend(resultBounds);
+            mapRef.current.fitBounds(combinedBounds, { padding: [20, 20] });
           } else {
-          // No results, just show the filter area
-          mapRef.current.fitBounds(filterBounds, { padding: [20, 20] });
+            // No results, just show the filter area
+            mapRef.current.fitBounds(filterBounds, { padding: [20, 20] });
           }
 
           setTimeout(() => {
@@ -236,7 +239,7 @@ export function MapView({ results }: MapViewProps) {
     if (!mapRef.current) return;
 
     // Clear existing highlight
-    if (highlightLayerRef.current) {
+    if (highlightLayerRef.current && mapRef.current) {
       mapRef.current.removeLayer(highlightLayerRef.current);
       highlightLayerRef.current = null;
     }

@@ -4,13 +4,14 @@ import type { JsonApiResponse } from '../types/api';
 import type { ChoroplethData, GeoFacet } from '../types/map';
 
 // Fetches search facet aggregations (country/region/county) for a given query.
-// Returns normalized choropleth data structure + loading/error states.
+// Returns normalized choropleth data structure + loading/error states + globalCount.
 export function useGeoFacets(query: string, onApiCall?: (url: string) => void) {
   const [data, setData] = useState<ChoroplethData>({
     country: [],
     region: [],
     county: [],
   });
+  const [globalCount, setGlobalCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -20,7 +21,6 @@ export function useGeoFacets(query: string, onApiCall?: (url: string) => void) {
       try {
         setLoading(true);
         setError(null);
-        // Delegate to unified API service; record URL via onApiCall (Footer shows last request)
         const response: JsonApiResponse = await fetchSearchResults(
           query || '',
           1,
@@ -29,14 +29,18 @@ export function useGeoFacets(query: string, onApiCall?: (url: string) => void) {
           onApiCall
         );
         if (!isMounted) return;
+        const mapStats = (
+          response.meta as { mapStats?: { globalCount?: number } } | undefined
+        )?.mapStats;
+        setGlobalCount(
+          typeof mapStats?.globalCount === 'number' ? mapStats.globalCount : 0
+        );
         if (response.included) {
-          // Extract only the three geo facets we're interested in (field-named IDs)
           const geoFacets = response.included.filter(
             (item): item is GeoFacet =>
               item.type === 'facet' &&
               ['geo_country', 'geo_region', 'geo_county'].includes(item.id)
           );
-          // Normalize into ChoroplethData shape used by map updaters
           const newData: ChoroplethData = {
             country: [],
             region: [],
@@ -66,5 +70,5 @@ export function useGeoFacets(query: string, onApiCall?: (url: string) => void) {
     };
   }, [query, onApiCall]);
 
-  return { data, loading, error };
+  return { data, loading, error, globalCount };
 }

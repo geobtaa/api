@@ -32,6 +32,7 @@ GEO_REGION_FACET_SIZE = int(os.getenv("GEO_REGION_FACET_SIZE", "50"))
 GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
 OGM_REPO_FACET_SIZE = int(os.getenv("OGM_REPO_FACET_SIZE", "200"))
 DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
+NEAR_GLOBAL_DIAGONAL_KM = 15_000
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
 # Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
@@ -660,6 +661,9 @@ async def search_resources(
                     if year_range_filter["range"]["gbl_indexYear_im"]:
                         filter_clauses.append(year_range_filter)
 
+                elif field in ("geo_global", "geo_or_near_global") and isinstance(values, list):
+                    if values and str(values[0]).lower() == "true":
+                        filter_clauses.append({"term": {resolved_field: True}})
                 elif isinstance(values, list):
                     # Use terms to match if ANY of the specified values are present
                     # This matches the behavior of legacy fq filters (OR logic)
@@ -724,6 +728,16 @@ async def search_resources(
             },
             "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
             "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
+            "global_bucket_agg": {
+                "filter": {
+                    "bool": {
+                        "should": [
+                            {"term": {"geo_global": True}},
+                            {"range": {"bbox_diagonal_km": {"gt": NEAR_GLOBAL_DIAGONAL_KM}}},
+                        ]
+                    }
+                }
+            },
         }
 
         selected_aggs = (
@@ -1144,6 +1158,12 @@ def get_sort_options(search_criteria):
     return sort_options
 
 
+def _global_count_from_aggs(aggs: dict) -> int:
+    """Extract global-bucket doc_count for meta.mapStats.globalCount."""
+    g = aggs.get("global_bucket_agg") or {}
+    return int(g.get("doc_count", 0))
+
+
 async def process_search_response(
     response,
     limit,
@@ -1180,6 +1200,7 @@ async def process_search_response(
 
         if not document_ids:
             logger.debug("No documents found")
+            aggs = response.get("aggregations", {})
             return {
                 "status": "success",
                 "queryTime": {
@@ -1198,7 +1219,8 @@ async def process_search_response(
                         "first_page?": True,
                         "last_page?": True,
                     },
-                    "suggestions": suggestions,  # Add suggestions to meta
+                    "suggestions": suggestions,
+                    "mapStats": {"globalCount": _global_count_from_aggs(aggs)},
                 },
                 "data": [],
                 "included": [],
@@ -1301,9 +1323,10 @@ async def process_search_response(
 
         pg_query_time = (time.time() - start_time) * 1000
 
+        aggs = response.get("aggregations", {})
         included = [
             *process_aggregations(
-                response.get("aggregations", {}),
+                aggs,
                 {
                     "q": search_criteria.get("query"),
                     "include_filters": include_filters,
@@ -1337,7 +1360,8 @@ async def process_search_response(
                     "first_page?": (skip == 0),
                     "last_page?": (skip + limit) >= total_hits,
                 },
-                "suggestions": suggestions,  # Add suggestions to meta
+                "suggestions": suggestions,
+                "mapStats": {"globalCount": _global_count_from_aggs(aggs)},
             },
             "data": processed_resources,
             "included": included,
@@ -1354,6 +1378,217 @@ async def process_search_response(
             status_code=500,
             detail={"error": str(e), "traceback": error_trace, "response": response},
         ) from e
+
+
+async def map_h3_aggregation(
+    q: Optional[str] = None,
+    fq: Optional[dict] = None,
+    include_filters: Optional[dict] = None,
+    exclude_filters: Optional[dict] = None,
+    bbox: Optional[str] = None,
+    resolution: int = 5,
+) -> dict:
+    """Run H3 terms agg + global count for map hex layer.
+
+    bbox: 'west,south,east,north'. resolution: 2–8.
+    Returns {"resolution": int, "hexes": [[h3_str, count], ...], "globalCount": int}.
+    """
+    index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+    if resolution < 2 or resolution > 8:
+        resolution = 5
+    filter_clauses = []
+    must_not_clauses = []
+
+    if fq:
+        for field, values in fq.items():
+            resolved = _resolve_filter_field(field)
+            if isinstance(values, list):
+                filter_clauses.append({"terms": {resolved: values}})
+            else:
+                filter_clauses.append({"term": {resolved: values}})
+
+    if include_filters:
+        # Apply location (bbox) filter so hex counts match the search results
+        # (e.g. "Winnipeg" area).
+        geo_filter = _build_geospatial_filter(include_filters.get("geo") or {})
+        if geo_filter is not None:
+            filter_clauses.append(geo_filter)
+        for field, values in include_filters.items():
+            if field == "geo":
+                continue
+            resolved = _resolve_filter_field(field)
+            if field == "year_range" and isinstance(values, dict):
+                yr = {"range": {"gbl_indexYear_im": {}}}
+                if "start" in values:
+                    try:
+                        yr["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
+                    except (ValueError, TypeError):
+                        pass
+                if "end" in values:
+                    try:
+                        yr["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
+                    except (ValueError, TypeError):
+                        pass
+                if yr["range"]["gbl_indexYear_im"]:
+                    filter_clauses.append(yr)
+            elif isinstance(values, list):
+                filter_clauses.append({"terms": {resolved: values}})
+            else:
+                filter_clauses.append({"term": {resolved: values}})
+
+    if exclude_filters:
+        for field, values in exclude_filters.items():
+            resolved = _resolve_filter_field(field)
+            if isinstance(values, list):
+                must_not_clauses.append({"terms": {resolved: values}})
+            else:
+                must_not_clauses.append({"term": {resolved: values}})
+
+    west, south, east, north = None, None, None, None
+    if bbox:
+        parts = [p.strip() for p in bbox.split(",")]
+        if len(parts) == 4:
+            try:
+                west, south, east, north = (
+                    float(parts[0]),
+                    float(parts[1]),
+                    float(parts[2]),
+                    float(parts[3]),
+                )
+                # ES: lon in [-180,180], lat in [-90,90]; invalid values cause 400
+                west = max(-180.0, min(180.0, west))
+                east = max(-180.0, min(180.0, east))
+                south = max(-90.0, min(90.0, south))
+                north = max(-90.0, min(90.0, north))
+                if west > east or south > north:
+                    west, south, east, north = None, None, None, None
+            except (ValueError, TypeError):
+                west, south, east, north = None, None, None, None
+    if west is not None and south is not None and east is not None and north is not None:
+        filter_clauses.append(
+            {
+                "geo_bounding_box": {
+                    "dcat_centroid": {
+                        "top_left": {"lat": north, "lon": west},
+                        "bottom_right": {"lat": south, "lon": east},
+                    }
+                }
+            }
+        )
+
+    must = [{"match_all": {}}]
+    if q and str(q).strip():
+        must = [
+            {
+                "query_string": {
+                    "query": str(q).strip(),
+                    "fields": [
+                        "id^5",
+                        "dct_title_s^3",
+                        "dct_description_sm^2",
+                        "summary^2",
+                        "dct_creator_sm^2",
+                        "dct_subject_sm^1.5",
+                        "dcat_keyword_sm^1.5",
+                        "dct_publisher_sm",
+                        "schema_provider_s",
+                        "dct_spatial_sm",
+                        "gbl_displaynote_sm",
+                    ],
+                    "default_operator": "AND",
+                    "analyze_wildcard": True,
+                    "allow_leading_wildcard": True,
+                }
+            }
+        ]
+
+    bool_query = {"must": must}
+    if filter_clauses:
+        bool_query["filter"] = filter_clauses
+    if must_not_clauses:
+        bool_query["must_not"] = must_not_clauses
+
+    # Larger bucket size for global requests (no bbox) so more hexes are returned.
+    h3_terms_size = 10000 if bbox is None else 5000
+    aggs = {
+        "h3_terms": {
+            "terms": {"field": f"h3_res{resolution}", "size": h3_terms_size, "min_doc_count": 1}
+        },
+        "global_bucket_agg": {
+            "filter": {
+                "bool": {
+                    "should": [
+                        {"term": {"geo_global": True}},
+                        {"range": {"bbox_diagonal_km": {"gt": NEAR_GLOBAL_DIAGONAL_KM}}},
+                    ]
+                }
+            }
+        },
+    }
+
+    try:
+        resp = await es.search(
+            index=index_name,
+            query={"bool": bool_query},
+            size=0,
+            track_total_hits=False,
+            aggs=aggs,
+        )
+    except NotFoundError:
+        return {"resolution": resolution, "hexes": [], "globalCount": 0}
+    except Exception as e:
+        logger.exception(
+            "map_h3_aggregation failed (index=%s, resolution=%s): %s",
+            index_name,
+            resolution,
+            e,
+        )
+        return {"resolution": resolution, "hexes": [], "globalCount": 0}
+
+    try:
+        body = resp.body if hasattr(resp, "body") else resp
+        agg_data = body.get("aggregations", {})
+        buckets = (agg_data.get("h3_terms") or {}).get("buckets", [])
+        # Compact facet-style [h3, count] tuples (smaller payload than {"h3","count"} per item)
+        hexes = [[b["key"], b["doc_count"]] for b in buckets]
+
+        # Global count: when viewport bbox is applied, run a second query without bbox
+        # so global count is search-scoped, not map-scoped.
+        has_bbox = any("geo_bounding_box" in c for c in filter_clauses)
+        if has_bbox:
+            rest = [c for c in filter_clauses if "geo_bounding_box" not in c]
+            bool_no_bbox = {"must": must}
+            if rest:
+                bool_no_bbox["filter"] = rest
+            if must_not_clauses:
+                bool_no_bbox["must_not"] = must_not_clauses
+            try:
+                g_resp = await es.search(
+                    index=index_name,
+                    query={"bool": bool_no_bbox},
+                    size=0,
+                    track_total_hits=False,
+                    aggs={"global_bucket_agg": aggs["global_bucket_agg"]},
+                )
+                g_body = g_resp.body if hasattr(g_resp, "body") else g_resp
+                global_count = int(
+                    (g_body.get("aggregations", {}).get("global_bucket_agg") or {}).get(
+                        "doc_count", 0
+                    )
+                )
+            except (NotFoundError, Exception):
+                global_count = 0
+        else:
+            global_count = int((agg_data.get("global_bucket_agg") or {}).get("doc_count", 0))
+
+        return {"resolution": resolution, "hexes": hexes, "globalCount": global_count}
+    except Exception as e:
+        logger.exception(
+            "map_h3_aggregation response handling failed (resolution=%s): %s",
+            resolution,
+            e,
+        )
+        return {"resolution": resolution, "hexes": [], "globalCount": 0}
 
 
 def _flatten_bracket_params(prefix: str, value) -> list[tuple[str, str]]:
@@ -1497,6 +1732,8 @@ def process_aggregations(aggregations, search_context: dict):
 
     # Process regular aggregations
     for agg_name, agg_data in aggregations.items():
+        if agg_name == "global_bucket_agg":
+            continue
         buckets = agg_data.get("buckets", [])
 
         # Special handling for time_period to enforce chronological order

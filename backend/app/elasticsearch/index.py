@@ -7,6 +7,12 @@ from datetime import datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
+
+try:
+    import h3
+except ImportError:
+    h3 = None  # optional; H3 indexing skipped when missing
+
 from shapely import wkt as shapely_wkt
 from shapely.geometry import mapping as shapely_mapping
 
@@ -327,6 +333,8 @@ async def process_resource(resource_dict):
         processed_dict["geo_country"] = spatial_facets.get("geo_country")
         processed_dict["geo_region"] = spatial_facets.get("geo_region")
         processed_dict["geo_county"] = spatial_facets.get("geo_county")
+
+    _compute_h3_cells(processed_dict)
 
     # Clean and prepare suggestion inputs
     suggestion_inputs = []
@@ -1064,3 +1072,52 @@ def _update_bbox_metrics(processed_dict, geometry):
     lat_km = dy * 111.0
     lon_km = dx * 111.0 * abs(math.cos(math.radians(avg_lat)))
     processed_dict["bbox_diagonal_km"] = math.sqrt(lat_km**2 + lon_km**2)
+
+
+H3_PYRAMID_RESOLUTIONS = (2, 3, 4, 5, 6, 7, 8)
+NEAR_GLOBAL_DIAGONAL_KM = 15_000
+CENTROID_MAX_DIAGONAL_KM = 500
+
+
+def _compute_h3_cells(processed_dict):
+    """Compute H3 cell indexes at resolutions 2–8 for hex map aggregation.
+
+    Assign H3 from centroid for all non-global, non–near-global resources.
+    Skip H3 if: h3 not installed; geo_global; bbox_diagonal_km > NEAR_GLOBAL_DIAGONAL_KM;
+    or dcat_centroid missing/invalid. When bbox_diagonal_km is missing (no dcat_bbox),
+    still assign H3 from centroid if not geo_global.
+    Sets geo_or_near_global for Global bucket filtering.
+    """
+    if h3 is None:
+        diag = processed_dict.get("bbox_diagonal_km")
+        processed_dict["geo_or_near_global"] = bool(
+            processed_dict.get("geo_global") is True
+            or (diag is not None and diag > NEAR_GLOBAL_DIAGONAL_KM)
+        )
+        return
+    geo_global = processed_dict.get("geo_global") is True
+    diag = processed_dict.get("bbox_diagonal_km")
+    centroid = processed_dict.get("dcat_centroid")
+
+    processed_dict["geo_or_near_global"] = bool(
+        geo_global or (diag is not None and diag > NEAR_GLOBAL_DIAGONAL_KM)
+    )
+
+    if geo_global:
+        return
+    if diag is not None and diag > NEAR_GLOBAL_DIAGONAL_KM:
+        return
+    if not centroid or not isinstance(centroid, (list, tuple)) or len(centroid) < 2:
+        return
+
+    try:
+        lon, lat = float(centroid[0]), float(centroid[1])
+    except (TypeError, ValueError):
+        return
+
+    for res in H3_PYRAMID_RESOLUTIONS:
+        try:
+            cell = h3.latlng_to_cell(lat, lon, res)
+            processed_dict[f"h3_res{res}"] = cell
+        except Exception as e:
+            logger.warning("H3 latlng_to_cell failed for res %s: %s", res, e)

@@ -1,10 +1,10 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from 'react';
 
 interface FooterProps {
   id?: string;
 }
 
-const FooterClient = React.lazy(() => import("./Footer.client"));
+const FooterClient = React.lazy(() => import('./Footer.client'));
 
 export function Footer(props: FooterProps) {
   // Prevent hydration mismatches: render deterministic placeholder on the server

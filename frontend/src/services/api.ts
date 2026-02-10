@@ -77,22 +77,21 @@ export function getApiBasePath(): string {
     // Default fallback:
     // - Local dev: React app runs on :3000, API on :8000.
     // - Deployed: prefer same-origin /api/v1 (e.g., behind a reverse proxy).
-    if (typeof window !== "undefined") {
+    if (typeof window !== 'undefined') {
       const host = window.location.hostname;
-      if (host === "localhost" || host === "127.0.0.1") {
-        return "http://localhost:8000/api/v1";
+      if (host === 'localhost' || host === '127.0.0.1') {
+        return 'http://localhost:8000/api/v1';
       }
     }
 
     // If this ever gets called during SSR, avoid using localhost (it would point
     // at the frontend container). Same-origin /api/v1 is the safest default.
-    return "/api/v1";
+    return '/api/v1';
   }
 
   // Return the API base URL as-is (absolute URL to BFF proxy)
   return apiBaseUrl;
 }
-
 
 // Helper function to create a URL with common parameters
 function createApiUrl(baseUrl: string): URL {
@@ -455,9 +454,15 @@ export async function fetchSearchResults(
         hasMeta: !!firstResult.meta,
         hasMetaUi: !!firstResult.meta?.ui,
         thumbnailUrl: firstResult.meta?.ui?.thumbnail_url,
-        metaUiKeys: firstResult.meta?.ui ? Object.keys(firstResult.meta.ui) : [],
-        metaUiStringified: firstResult.meta?.ui ? JSON.stringify(firstResult.meta.ui) : 'no ui',
-        fullMetaStringified: firstResult.meta ? JSON.stringify(firstResult.meta) : 'no meta',
+        metaUiKeys: firstResult.meta?.ui
+          ? Object.keys(firstResult.meta.ui)
+          : [],
+        metaUiStringified: firstResult.meta?.ui
+          ? JSON.stringify(firstResult.meta.ui)
+          : 'no ui',
+        fullMetaStringified: firstResult.meta
+          ? JSON.stringify(firstResult.meta)
+          : 'no meta',
       });
     }
 
@@ -498,10 +503,16 @@ export async function fetchFacetValues({
     // Client-side: Proxy request through React Router resource route to avoid rate limits
     // The SSR server has the privileged API key
     // Note: Route is /search/facets/:facetName (not /api/v1/...) to go through SSR, not nginx proxy
-    const proxyUrl = new URL(`/search/facets/${facetName}`, window.location.origin);
+    const proxyUrl = new URL(
+      `/search/facets/${facetName}`,
+      window.location.origin
+    );
 
     proxyUrl.searchParams.set('page', Math.max(1, page).toString());
-    proxyUrl.searchParams.set('per_page', Math.max(1, Math.min(100, perPage)).toString());
+    proxyUrl.searchParams.set(
+      'per_page',
+      Math.max(1, Math.min(100, perPage)).toString()
+    );
     if (sort) proxyUrl.searchParams.set('sort', sort);
     if (qFacet) proxyUrl.searchParams.set('q_facet', qFacet);
 
@@ -532,8 +543,8 @@ export async function fetchFacetValues({
 
     const response = await fetch(proxyUrl.toString(), {
       headers: {
-        'Accept': 'application/json',
-      }
+        Accept: 'application/json',
+      },
     });
 
     if (!response.ok) {
@@ -773,7 +784,67 @@ export async function fetchGazetteerSearch(
   }
 }
 
-// Rate limiting for Nominatim (1 request per second as per usage policy)
+/** API returns hexes as compact [h3, count] tuples (facet-style). We normalize to objects. */
+export interface MapH3ResponseRaw {
+  resolution: number;
+  hexes: Array<[string, number]>;
+  globalCount: number;
+}
+
+export interface MapH3Response {
+  resolution: number;
+  hexes: Array<{ h3: string; count: number }>;
+  globalCount: number;
+}
+
+function normalizeMapH3Response(raw: MapH3ResponseRaw): MapH3Response {
+  return {
+    resolution: raw.resolution,
+    globalCount: raw.globalCount,
+    hexes: raw.hexes.map(([h3, count]) => ({ h3, count })),
+  };
+}
+
+/**
+ * Fetch H3 hex aggregation for map visualization.
+ * Uses the SSR proxy (/map/h3) so requests go through our server with the API key,
+ * avoiding rate limits. The proxy and backend both cache aggressively.
+ */
+export async function fetchMapH3(
+  query: string,
+  bbox: string | undefined,
+  resolution: number,
+  queryString?: string
+): Promise<MapH3Response> {
+  const base =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/map/h3`
+      : `${getApiBasePath().replace(/\/$/, '')}/map/h3`;
+  const url = new URL(base);
+  url.searchParams.set('q', query);
+  if (bbox != null && bbox !== '') {
+    url.searchParams.set('bbox', bbox);
+  }
+  url.searchParams.set('resolution', String(resolution));
+  if (queryString) {
+    const params = new URLSearchParams(queryString);
+    for (const [k, v] of params) {
+      if (k !== 'q' && k !== 'bbox' && k !== 'resolution')
+        url.searchParams.append(k, v);
+    }
+  }
+  const res = await fetch(url.toString(), {
+    headers: { Accept: 'application/json' },
+    mode: 'cors',
+    credentials: 'omit',
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new ApiError(`Map H3 request failed: ${text}`, res.status);
+  }
+  const raw = (await res.json()) as MapH3ResponseRaw;
+  return normalizeMapH3Response(raw);
+}
 let lastNominatimRequest = 0;
 const NOMINATIM_RATE_LIMIT_MS = 1000;
 

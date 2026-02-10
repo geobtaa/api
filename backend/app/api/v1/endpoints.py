@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .endpoint_modules.admin import router as admin_router
 from .endpoint_modules.gazetteer import router as gazetteer_router
+from .endpoint_modules.map import router as map_router
 from .endpoint_modules.mcp import router as mcp_router
 from .endpoint_modules.ogm_webhook import router as ogm_webhook_router
 from .endpoint_modules.resources import router as resources_router
@@ -25,6 +26,7 @@ router.include_router(search_router, tags=["search"])
 router.include_router(resources_router, tags=["resources"])
 router.include_router(thumbnails_router, tags=["thumbnails"])
 router.include_router(static_maps_router, tags=["static-maps"])
+router.include_router(map_router, tags=["map"])
 router.include_router(mcp_router, tags=["mcp"])
 # Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation
 router.include_router(admin_router, prefix="/admin", tags=["admin"], include_in_schema=False)

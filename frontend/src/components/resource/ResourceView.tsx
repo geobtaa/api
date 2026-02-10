@@ -102,7 +102,9 @@ export function ResourceView() {
   const fetchNextPage = async () => {
     if (!searchState) return null;
     const nextPage = searchState.currentPage + 1;
-    const urlParams = new URLSearchParams(searchState.searchUrl.split('?')[1] || '');
+    const urlParams = new URLSearchParams(
+      searchState.searchUrl.split('?')[1] || ''
+    );
     const q = urlParams.get('q') || '';
     const results = await fetchSearchResults(
       q,
@@ -118,7 +120,9 @@ export function ResourceView() {
   const fetchPrevPage = async () => {
     if (!searchState) return null;
     const prevPage = searchState.currentPage - 1;
-    const urlParams = new URLSearchParams(searchState.searchUrl.split('?')[1] || '');
+    const urlParams = new URLSearchParams(
+      searchState.searchUrl.split('?')[1] || ''
+    );
     const q = urlParams.get('q') || '';
     const results = await fetchSearchResults(
       q,

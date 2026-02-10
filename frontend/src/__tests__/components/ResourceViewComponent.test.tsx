@@ -270,8 +270,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
 
@@ -589,8 +590,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
 
@@ -629,8 +631,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Polygon dataset with WFS, WMS, and FGDC metadata')
-            .length
+          screen.getAllByText(
+            'Polygon dataset with WFS, WMS, and FGDC metadata'
+          ).length
         ).toBeGreaterThan(0);
       });
 
@@ -650,8 +653,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
 
@@ -683,8 +687,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
 
@@ -708,8 +713,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
 
@@ -728,7 +734,9 @@ describe('ResourceView Component', () => {
       );
 
       await waitFor(() => {
-        expect(screen.getAllByText('Point dataset with WMS and WFS').length).toBeGreaterThan(0);
+        expect(
+          screen.getAllByText('Point dataset with WMS and WFS').length
+        ).toBeGreaterThan(0);
       });
     });
 
@@ -744,8 +752,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Polygon dataset with WFS, WMS, and FGDC metadata')
-            .length
+          screen.getAllByText(
+            'Polygon dataset with WFS, WMS, and FGDC metadata'
+          ).length
         ).toBeGreaterThan(0);
       });
     });
@@ -773,8 +782,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
     });
@@ -800,8 +810,9 @@ describe('ResourceView Component', () => {
 
       await waitFor(() => {
         expect(
-          screen.getAllByText('Nondigitized paper map with library catalog link')
-            .length
+          screen.getAllByText(
+            'Nondigitized paper map with library catalog link'
+          ).length
         ).toBeGreaterThan(0);
       });
 

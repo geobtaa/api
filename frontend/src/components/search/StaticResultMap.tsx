@@ -10,7 +10,16 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
   const [isLoading, setIsLoading] = useState(true);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
+  // Backend static-map endpoint uses locn_geometry or dcat_bbox. List-view payload
+  // often has only dcat_bbox (meta.ui.viewer.geometry is set only when ViewerService
+  // has locn_geometry). Map view already uses dcat_bbox for bounds — so treat either
+  // as "has map data" so we request the static map for bbox-only resources.
   const geometry = result.meta?.ui?.viewer?.geometry;
+  const hasBbox = Boolean(
+    result.attributes?.ogm?.dcat_bbox &&
+      String(result.attributes.ogm.dcat_bbox).trim().length > 0
+  );
+  const hasMapData = geometry || hasBbox;
 
   // If we navigate between result sets, reset loading/error state.
   useEffect(() => {
@@ -35,8 +44,8 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
     return `/resources/${result.id}/static-map`;
   };
 
-  // If no geometry, show placeholder
-  if (!geometry) {
+  // If no geometry and no bbox, show placeholder
+  if (!hasMapData) {
     return (
       <div className="h-48 w-48 flex items-center justify-center bg-gray-50 rounded-r-lg">
         <span className="text-xs text-gray-400">No map data</span>

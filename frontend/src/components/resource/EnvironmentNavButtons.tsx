@@ -5,9 +5,11 @@ interface EnvironmentNavButtonsProps {
   resourceId: string;
 }
 
-export function EnvironmentNavButtons({ resourceId }: EnvironmentNavButtonsProps) {
+export function EnvironmentNavButtons({
+  resourceId,
+}: EnvironmentNavButtonsProps) {
   const [isMounted, setIsMounted] = useState(false);
-  
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -19,9 +21,12 @@ export function EnvironmentNavButtons({ resourceId }: EnvironmentNavButtonsProps
 
   // Detect current environment
   const currentHost = window.location.hostname;
-  const isLocalhost = currentHost === 'localhost' || currentHost === '127.0.0.1';
-  const isDevServer = currentHost.includes('lib-btaageoapi-dev-app-01.oit.umn.edu');
-  
+  const isLocalhost =
+    currentHost === 'localhost' || currentHost === '127.0.0.1';
+  const isDevServer = currentHost.includes(
+    'lib-btaageoapi-dev-app-01.oit.umn.edu'
+  );
+
   // Don't show buttons on production
   if (!isLocalhost && !isDevServer) {
     return null;

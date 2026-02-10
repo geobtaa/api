@@ -42,8 +42,26 @@ logger = logging.getLogger(__name__)
 
 # Get CORS configuration from environment variable
 # For production public APIs, we allow all origins
-cors_origins_env = os.getenv("CORS_ORIGINS", "*")
-cors_origins = cors_origins_env.split(",") if cors_origins_env != "*" else ["*"]
+cors_origins_env = os.getenv("CORS_ORIGINS", "*").strip()
+if cors_origins_env == "*":
+    cors_origins = ["*"]
+else:
+    cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()]
+# In non-production, always allow common local dev origins so frontend on 3000/5173 works
+_dev_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+if cors_origins != ["*"] and os.getenv("APP_ENV") != "production":
+    for origin in _dev_origins:
+        if origin not in cors_origins:
+            cors_origins.append(origin)
+
+# In dev, allow all origins so CORS never blocks local frontend. Set APP_ENV=production to restrict.
+if os.getenv("APP_ENV") not in ("production", "test"):
+    cors_origins = ["*"]
 
 
 @asynccontextmanager
@@ -127,6 +145,13 @@ if os.getenv("APP_ENV") != "test" and _env_flag("ENABLE_RESPONSE_COMPRESSION", "
 class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
+        # Ensure CORS header on every response (errors may bypass CORSMiddleware).
+        origin = request.headers.get("origin")
+        if origin and "Access-Control-Allow-Origin" not in response.headers:
+            if cors_origins == ["*"]:
+                response.headers["Access-Control-Allow-Origin"] = "*"
+            elif origin in cors_origins:
+                response.headers["Access-Control-Allow-Origin"] = origin
         # Allow cross-origin resource loading
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
 

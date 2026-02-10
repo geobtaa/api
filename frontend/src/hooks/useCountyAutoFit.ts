@@ -1,11 +1,11 @@
-import { useEffect } from "react";
-import type * as Leaflet from "leaflet";
+import { useEffect } from 'react';
+import type * as Leaflet from 'leaflet';
 import {
   stateAbbrToFips,
   parseCountyFacetValue,
   normalizeName,
-} from "../utils/geoCounty";
-import type { GeoJsonData, GeoJsonFeature } from "../types/map";
+} from '../utils/geoCounty';
+import type { GeoJsonData, GeoJsonFeature } from '../types/map';
 
 interface Params {
   map: Leaflet.Map;
@@ -24,11 +24,11 @@ export function useCountyAutoFit({
   searchQuery,
 }: Params) {
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === 'undefined') return;
     if (!geoJson || !geoJson.features || !Array.isArray(countyItems)) return;
 
     // If no search query, keep default US-focused view
-    if (!searchQuery || searchQuery.trim() === "") {
+    if (!searchQuery || searchQuery.trim() === '') {
       map.setView([39.8283, -98.5795], 3);
       return;
     }
@@ -52,28 +52,28 @@ export function useCountyAutoFit({
     try {
       // Filter GeoJSON to the specific county feature
       void (async () => {
-        const mod = await import("leaflet");
+        const mod = await import('leaflet');
         const L = mod.default;
 
         const layer = L.geoJSON(geoJson as GeoJsonData, {
           filter: (feature: GeoJsonFeature) => {
-          const featureStateFips = (
-            feature?.properties?.STATE ||
-            feature?.properties?.STATEFP ||
-            ""
-          )
-            .toString()
-            .padStart(2, '0');
-          const featureCountyNameRaw =
-            feature?.properties?.NAME ||
-            feature?.properties?.name ||
-            feature?.properties?.county ||
-            "";
-          const featureCountyNorm = normalizeName(featureCountyNameRaw);
-          return (
-            featureStateFips === targetStateFips &&
-            featureCountyNorm === targetCountyNorm
-          );
+            const featureStateFips = (
+              feature?.properties?.STATE ||
+              feature?.properties?.STATEFP ||
+              ''
+            )
+              .toString()
+              .padStart(2, '0');
+            const featureCountyNameRaw =
+              feature?.properties?.NAME ||
+              feature?.properties?.name ||
+              feature?.properties?.county ||
+              '';
+            const featureCountyNorm = normalizeName(featureCountyNameRaw);
+            return (
+              featureStateFips === targetStateFips &&
+              featureCountyNorm === targetCountyNorm
+            );
           },
         });
 

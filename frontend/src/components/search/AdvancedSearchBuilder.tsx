@@ -667,7 +667,8 @@ export function AdvancedSearchBuilder({
                               </div>
                               {hits !== undefined && (
                                 <div className="text-xs text-gray-500">
-                                  {formatCount(hits)} {hits === 1 ? 'result' : 'results'}
+                                  {formatCount(hits)}{' '}
+                                  {hits === 1 ? 'result' : 'results'}
                                 </div>
                               )}
                             </button>

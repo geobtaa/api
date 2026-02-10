@@ -241,7 +241,7 @@ class TestImageServiceThumbnailSourceURL:
         try:
             service = ImageService(metadata)
 
-            # Test ESRI service types
+            # Test ESRI service types (including FeatureLayer for map/layer thumbnails)
             test_cases = [
                 (
                     "urn:x-esri:serviceType:ArcGIS#ImageMapLayer",
@@ -255,20 +255,28 @@ class TestImageServiceThumbnailSourceURL:
                     "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer",
                     "http://example.com/arcgis/rest/services/test3",
                 ),
+                (
+                    "urn:x-esri:serviceType:ArcGIS#FeatureLayer",
+                    "http://example.com/arcgis/rest/services/migration/FeatureServer/0",
+                ),
             ]
 
             for service_type, endpoint in test_cases:
                 references = {service_type: endpoint}
                 result = service._get_thumbnail_source_url(references)
-                assert f"{endpoint}/info/thumbnail/thumbnail.png" == result
+                assert result == f"{endpoint.rstrip('/')}/info/thumbnail/thumbnail.png"
 
         except Exception as e:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_get_thumbnail_source_url_wms(self):
-        """Test WMS thumbnail URL generation."""
-        metadata = {"id": "test-doc", "gbl_wxsidentifier_s": "test_layer"}
+        """Test WMS thumbnail URL generation (standard GetMap with BBOX)."""
+        metadata = {
+            "id": "test-doc",
+            "gbl_wxsidentifier_s": "test_layer",
+            "dcat_bbox": "ENVELOPE(-100, -90, 45, 40)",
+        }
 
         try:
             service = ImageService(metadata)
@@ -277,9 +285,17 @@ class TestImageServiceThumbnailSourceURL:
                 "http://www.opengis.net/def/serviceType/ogc/wms": "http://example.com/wms"
             }
             result = service._get_thumbnail_source_url(references)
-            assert "http://example.com/wms/reflect?" in result
+            assert "SERVICE=WMS" in result
+            assert "REQUEST=GetMap" in result
             assert "FORMAT=image/png" in result
             assert "LAYERS=test_layer" in result
+            assert (
+                "BBOX=" in result
+                and "-100" in result
+                and "40" in result
+                and "-90" in result
+                and "45" in result
+            )
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -1092,7 +1108,7 @@ class TestImageServiceEdgeCases:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_wms_thumbnail_generation(self):
-        """Test WMS thumbnail URL generation with various metadata."""
+        """Test WMS thumbnail URL generation with various metadata (GetMap + BBOX)."""
         test_cases = [
             {"gbl_wxsidentifier_s": "test_layer", "expected_layers": "test_layer"},
             {"gbl_wxsidentifier_s": "", "expected_layers": ""},
@@ -1101,7 +1117,11 @@ class TestImageServiceEdgeCases:
         ]
 
         for metadata_case in test_cases:
-            metadata = {"id": "test-doc", **metadata_case}
+            metadata = {
+                "id": "test-doc",
+                "dcat_bbox": "ENVELOPE(-10, 10, 20, 15)",
+                **metadata_case,
+            }
 
             try:
                 service = ImageService(metadata)
@@ -1111,9 +1131,10 @@ class TestImageServiceEdgeCases:
                 }
                 result = service._get_thumbnail_source_url(references)
 
-                assert "http://example.com/wms/reflect?" in result
+                assert "SERVICE=WMS" in result and "REQUEST=GetMap" in result
                 assert "FORMAT=image/png" in result
                 assert f"LAYERS={metadata_case.get('expected_layers', '')}" in result
+                assert "BBOX=" in result
 
             except Exception as e:
                 # Handle Redis connection errors gracefully

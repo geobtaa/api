@@ -14,7 +14,9 @@ export function SelectedFeaturePanel({ name, hits, level }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div>
           <dt className="text-sm font-medium text-gray-500">Resources</dt>
-          <dd className="text-lg font-semibold text-gray-900">{formatCount(hits)}</dd>
+          <dd className="text-lg font-semibold text-gray-900">
+            {formatCount(hits)}
+          </dd>
         </div>
         <div>
           <dt className="text-sm font-medium text-gray-500">

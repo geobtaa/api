@@ -144,8 +144,9 @@ export function ResourceClassFilterTabs({
           resourceClassFacet?.attributes &&
           'items' in resourceClassFacet.attributes
         ) {
-          const rawItems = (resourceClassFacet.attributes as { items?: unknown })
-            .items;
+          const rawItems = (
+            resourceClassFacet.attributes as { items?: unknown }
+          ).items;
 
           const items: ResourceClassItem[] = Array.isArray(rawItems)
             ? rawItems
@@ -160,14 +161,17 @@ export function ResourceClassFilterTabs({
                   // Or verbose objects: { attributes: { value, hits, label? } }
                   if (isFacetItemObject(item)) {
                     const v = String(item.attributes.value);
-                    const label = String(item.attributes.label ?? item.attributes.value);
+                    const label = String(
+                      item.attributes.label ?? item.attributes.value
+                    );
                     return { value: v, label, hits: item.attributes.hits };
                   }
 
                   return null;
                 })
                 .filter(
-                  (x): x is ResourceClassItem => x !== null && x.value.length > 0
+                  (x): x is ResourceClassItem =>
+                    x !== null && x.value.length > 0
                 )
             : [];
 
@@ -237,9 +241,7 @@ export function ResourceClassFilterTabs({
       <button
         onClick={() => handleTabClick(null)}
         className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-          !currentResourceClass
-            ? styles.active
-            : styles.inactive
+          !currentResourceClass ? styles.active : styles.inactive
         }`}
         aria-label="Show all resources"
         aria-current={!currentResourceClass ? 'page' : undefined}

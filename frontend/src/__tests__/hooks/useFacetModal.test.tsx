@@ -290,7 +290,9 @@ describe('useFacetModal', () => {
   it('forwards search params to API', async () => {
     vi.mocked(fetchFacetValues).mockResolvedValue(mockFacetResponse);
 
-    const searchParams = new URLSearchParams('q=lakes&include_filters[dct_spatial_sm][]=Minnesota');
+    const searchParams = new URLSearchParams(
+      'q=lakes&include_filters[dct_spatial_sm][]=Minnesota'
+    );
 
     renderHook(() =>
       useFacetModal({

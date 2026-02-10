@@ -321,7 +321,7 @@ describe('ResourceView Component', () => {
     it('displays loading spinner when data is being fetched', async () => {
       // Make the API call hang
       fetchResourceDetails.mockImplementation(
-        () => new Promise(() => { }) // Never resolves
+        () => new Promise(() => {}) // Never resolves
       );
 
       render(
@@ -615,7 +615,6 @@ describe('ResourceView Component', () => {
     });
 
     it('handles next navigation to new page', async () => {
-
       // Test basic navigation functionality
       render(
         <TestWrapper>
@@ -1038,7 +1037,6 @@ describe('ResourceView Component', () => {
     });
 
     it('handles navigation errors gracefully', async () => {
-
       // Test with a simple error scenario
       fetchResourceDetails.mockRejectedValue(new Error('Network error'));
 
@@ -1067,7 +1065,6 @@ describe('ResourceView Component', () => {
 
   describe('URL Parameter Handling', () => {
     it('extracts search parameters correctly for pagination', async () => {
-
       // Test basic navigation functionality
       render(
         <TestWrapper>

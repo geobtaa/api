@@ -74,9 +74,12 @@ export function SearchField({
         try {
           // IMPORTANT: Do not call the API directly from the browser when rate limiting is enabled.
           // `/suggest` is served by the SSR server, which injects the API key server-side.
-          const res = await fetch(`/suggest?q=${encodeURIComponent(query.trim())}`, {
-            headers: { Accept: 'application/json' },
-          });
+          const res = await fetch(
+            `/suggest?q=${encodeURIComponent(query.trim())}`,
+            {
+              headers: { Accept: 'application/json' },
+            }
+          );
           const json = await res.json();
           const data = Array.isArray(json?.data) ? json.data : [];
           setSuggestions(
@@ -197,23 +200,7 @@ export function SearchField({
       bottomRightLon.toString()
     );
 
-    // Preserve category filters
-    const categoryFilters = searchParams.getAll(
-      'include_filters[gbl_resourceClass_sm][]'
-    );
-    const legacyCategoryFilters = searchParams.getAll(
-      'fq[gbl_resourceClass_sm][]'
-    );
-
-    if (categoryFilters.length > 0) {
-      categoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    } else if (legacyCategoryFilters.length > 0) {
-      legacyCategoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    }
+    // Other filters (e.g. category) are already in newParams from the copy above; do not re-append or we duplicate.
 
     // Reset to page 1 when bbox changes
     newParams.delete('page');
@@ -277,10 +264,8 @@ export function SearchField({
     e.preventDefault();
     const newParams = new URLSearchParams();
 
-    // Always add keyword query if present (from input state)
-    if (query.trim()) {
-      newParams.set('q', query.trim());
-    }
+    // Always set q so the search page runs (useSearch requires hasQueryParam = searchParams.has('q'))
+    newParams.set('q', query.trim());
 
     // ALWAYS check URL params first for geo filters (source of truth)
     // This ensures geo filters are preserved even if component state is out of sync
@@ -354,14 +339,10 @@ export function SearchField({
       });
     }
 
-    // Only navigate if we have at least a query or geo filters
-    if (query.trim() || geoType === 'bbox' || selectedPlace) {
-      navigate(`/search?${newParams.toString()}`);
-      setShowSuggestions(false);
-      setShowPlaceSuggestions(false);
-      // Don't call onSearch callback here - we're handling navigation ourselves
-      // The callback would cause a second navigation that could override our params
-    }
+    // Always navigate to search results when user submits (even with no query)
+    navigate(`/search?${newParams.toString()}`);
+    setShowSuggestions(false);
+    setShowPlaceSuggestions(false);
   };
 
   const handlePlaceKeyDown = (e: React.KeyboardEvent) => {
@@ -414,87 +395,95 @@ export function SearchField({
       setTimeout(() => {
         placeInputRef.current?.focus();
       }, 0);
-    } else if (e.key === 'Enter' && selectedIndex >= 0) {
-      e.preventDefault();
-      const suggestion = suggestions[selectedIndex];
-      const newParams = new URLSearchParams();
-      newParams.set('q', suggestion.text);
+    } else if (e.key === 'Enter') {
+      // Always handle Enter in keyword input: prevent native form submit (which can cause
+      // full-page navigation to current URL and leave user on homepage). Either run
+      // suggestion navigation or trigger our submit handler via requestSubmit().
+      if (selectedIndex >= 0) {
+        e.preventDefault();
+        const suggestion = suggestions[selectedIndex];
+        const newParams = new URLSearchParams();
+        newParams.set('q', suggestion.text);
 
-      // Preserve geo filters if place is selected
-      if (selectedPlace) {
-        const attrs = selectedPlace.attributes;
-        newParams.set('include_filters[geo][type]', 'bbox');
-        newParams.set('include_filters[geo][field]', 'dcat_bbox');
-        newParams.set(
-          'include_filters[geo][top_left][lat]',
-          attrs.max_latitude.toString()
-        );
-        newParams.set(
-          'include_filters[geo][top_left][lon]',
-          attrs.min_longitude.toString()
-        );
-        newParams.set(
-          'include_filters[geo][bottom_right][lat]',
-          attrs.min_latitude.toString()
-        );
-        newParams.set(
-          'include_filters[geo][bottom_right][lon]',
-          attrs.max_longitude.toString()
-        );
-      } else {
-        // Also check URL params for geo filters (in case place was set but component state wasn't updated)
-        const geoType = searchParams.get('include_filters[geo][type]');
-        if (geoType === 'bbox') {
-          const topLeftLat = searchParams.get(
-            'include_filters[geo][top_left][lat]'
+        // Preserve geo filters if place is selected
+        if (selectedPlace) {
+          const attrs = selectedPlace.attributes;
+          newParams.set('include_filters[geo][type]', 'bbox');
+          newParams.set('include_filters[geo][field]', 'dcat_bbox');
+          newParams.set(
+            'include_filters[geo][top_left][lat]',
+            attrs.max_latitude.toString()
           );
-          const topLeftLon = searchParams.get(
-            'include_filters[geo][top_left][lon]'
+          newParams.set(
+            'include_filters[geo][top_left][lon]',
+            attrs.min_longitude.toString()
           );
-          const bottomRightLat = searchParams.get(
-            'include_filters[geo][bottom_right][lat]'
+          newParams.set(
+            'include_filters[geo][bottom_right][lat]',
+            attrs.min_latitude.toString()
           );
-          const bottomRightLon = searchParams.get(
-            'include_filters[geo][bottom_right][lon]'
+          newParams.set(
+            'include_filters[geo][bottom_right][lon]',
+            attrs.max_longitude.toString()
           );
+        } else {
+          // Also check URL params for geo filters (in case place was set but component state wasn't updated)
+          const geoType = searchParams.get('include_filters[geo][type]');
+          if (geoType === 'bbox') {
+            const topLeftLat = searchParams.get(
+              'include_filters[geo][top_left][lat]'
+            );
+            const topLeftLon = searchParams.get(
+              'include_filters[geo][top_left][lon]'
+            );
+            const bottomRightLat = searchParams.get(
+              'include_filters[geo][bottom_right][lat]'
+            );
+            const bottomRightLon = searchParams.get(
+              'include_filters[geo][bottom_right][lon]'
+            );
 
-          if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
-            newParams.set('include_filters[geo][type]', 'bbox');
-            newParams.set('include_filters[geo][field]', 'dcat_bbox');
-            newParams.set('include_filters[geo][top_left][lat]', topLeftLat);
-            newParams.set('include_filters[geo][top_left][lon]', topLeftLon);
-            newParams.set(
-              'include_filters[geo][bottom_right][lat]',
-              bottomRightLat
-            );
-            newParams.set(
-              'include_filters[geo][bottom_right][lon]',
-              bottomRightLon
-            );
+            if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
+              newParams.set('include_filters[geo][type]', 'bbox');
+              newParams.set('include_filters[geo][field]', 'dcat_bbox');
+              newParams.set('include_filters[geo][top_left][lat]', topLeftLat);
+              newParams.set('include_filters[geo][top_left][lon]', topLeftLon);
+              newParams.set(
+                'include_filters[geo][bottom_right][lat]',
+                bottomRightLat
+              );
+              newParams.set(
+                'include_filters[geo][bottom_right][lon]',
+                bottomRightLon
+              );
+            }
           }
         }
+
+        // Preserve category filters from current URL
+        const categoryFilters = searchParams.getAll(
+          'include_filters[gbl_resourceClass_sm][]'
+        );
+        const legacyCategoryFilters = searchParams.getAll(
+          'fq[gbl_resourceClass_sm][]'
+        );
+
+        if (categoryFilters.length > 0) {
+          categoryFilters.forEach((value) => {
+            newParams.append('include_filters[gbl_resourceClass_sm][]', value);
+          });
+        } else if (legacyCategoryFilters.length > 0) {
+          legacyCategoryFilters.forEach((value) => {
+            newParams.append('include_filters[gbl_resourceClass_sm][]', value);
+          });
+        }
+
+        navigate(`/search?${newParams.toString()}`);
+        setShowSuggestions(false);
+      } else {
+        e.preventDefault();
+        inputRef.current?.form?.requestSubmit();
       }
-
-      // Preserve category filters from current URL
-      const categoryFilters = searchParams.getAll(
-        'include_filters[gbl_resourceClass_sm][]'
-      );
-      const legacyCategoryFilters = searchParams.getAll(
-        'fq[gbl_resourceClass_sm][]'
-      );
-
-      if (categoryFilters.length > 0) {
-        categoryFilters.forEach((value) => {
-          newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-        });
-      } else if (legacyCategoryFilters.length > 0) {
-        legacyCategoryFilters.forEach((value) => {
-          newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-        });
-      }
-
-      navigate(`/search?${newParams.toString()}`);
-      setShowSuggestions(false);
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }

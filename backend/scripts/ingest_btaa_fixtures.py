@@ -70,8 +70,8 @@ async def ingest_btaa_fixtures(fixtures_dir: Path, repo_name: str = "btaa_fixtur
         logger.info(f"Loading {json_file.name}...")
         record = await load_json_file(json_file)
         if record:
-            # Use the filename as the source path for tracking
-            source_path = f"btaa_fixtures_data/{json_file.name}"
+            # Use the directory name + filename as the source path for tracking
+            source_path = f"{fixtures_dir.name}/{json_file.name}"
             records.append((record, source_path))
         else:
             logger.warning(f"Skipping {json_file.name} due to load error")
@@ -104,13 +104,21 @@ async def main():
             await database.connect()
             logger.info("Database connection established")
 
-        # Get fixtures directory
+        # Fixtures dir: default btaa_fixtures_data, or first CLI arg (e.g. btaa_featured_resources).
         script_dir = Path(__file__).parent
         project_root = script_dir.parent
-        fixtures_dir = project_root / "data" / "fixtures" / "btaa_fixtures_data"
+        fixtures_subdir = sys.argv[1] if len(sys.argv) > 1 else "btaa_fixtures_data"
+        repo_name = (
+            sys.argv[2]
+            if len(sys.argv) > 2
+            else fixtures_subdir.replace("_data", "").replace("-", "_")
+        )
+        fixtures_dir = project_root / "data" / "fixtures" / fixtures_subdir
+
+        logger.info(f"Fixtures directory: {fixtures_dir} (repo_name={repo_name})")
 
         # Ingest fixtures
-        await ingest_btaa_fixtures(fixtures_dir, repo_name="btaa_fixtures")
+        await ingest_btaa_fixtures(fixtures_dir, repo_name=repo_name)
 
     except Exception as e:
         logger.error(f"Error in main: {e}", exc_info=True)

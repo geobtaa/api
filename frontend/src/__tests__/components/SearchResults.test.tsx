@@ -126,15 +126,17 @@ const mockFixtureData: GeoDocument[] = [
 
 // Mock BookmarkButton to avoid context provider requirement
 vi.mock('../../components/BookmarkButton', () => ({
-  BookmarkButton: () => <button>Bookmark</button>
+  BookmarkButton: () => <button>Bookmark</button>,
 }));
 
 // Mock useBookmarks hook
 vi.mock('../../context/BookmarkContext', () => ({
   useBookmarks: () => ({
-    isBookmarked: () => false // Default to false for tests
+    isBookmarked: () => false, // Default to false for tests
   }),
-  BookmarkProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>
+  BookmarkProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
 }));
 
 // Test wrapper component

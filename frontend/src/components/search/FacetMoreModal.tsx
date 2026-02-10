@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState, MouseEvent } from 'react';
+import { FormEvent, useEffect, useMemo, useState } from 'react';
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,6 +8,7 @@ import {
   Search,
   X,
 } from 'lucide-react';
+import { LightboxModal } from '../ui/LightboxModal';
 import { useSearchParams } from 'react-router';
 import { useFacetModal } from '../../hooks/useFacetModal';
 import type { FacetValuesSort } from '../../types/api';
@@ -103,19 +104,6 @@ export function FacetMoreModal({
     setSearchInput(qFacet);
   }, [qFacet]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
   const totalPages = meta?.totalPages ?? 1;
   const totalCount = meta?.totalCount ?? items.length;
   const isInitialLoading = isLoading && !hasLoaded;
@@ -129,12 +117,6 @@ export function FacetMoreModal({
   const handleClearSearch = () => {
     setSearchInput('');
     resetFacetQuery();
-  };
-
-  const handleOverlayMouseDown = (event: MouseEvent<HTMLDivElement>) => {
-    if (event.target === event.currentTarget) {
-      onClose();
-    }
   };
 
   const emptyStateMessage = useMemo(() => {
@@ -241,31 +223,16 @@ export function FacetMoreModal({
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
-      onMouseDown={handleOverlayMouseDown}
+    <LightboxModal
+      isOpen={isOpen}
+      onClose={onClose}
+      id="facet-more-modal"
+      labelledBy="facet-more-modal-title"
+      title={`More options for ${facetLabel}`}
+      subtitle="Explore additional facet values to refine your search."
       data-testid="facet-modal-overlay"
     >
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-        <header className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">
-              More options for {facetLabel}
-            </h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Explore additional facet values to refine your search.
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
-            aria-label="Close facet modal"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </header>
-
-        <div className="px-6 py-4 border-b border-gray-100 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="px-6 py-4 border-b border-gray-100 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <form
             onSubmit={handleSubmit}
             className="flex items-center gap-2 w-full md:max-w-sm"
@@ -344,10 +311,11 @@ export function FacetMoreModal({
                       key={key}
                       type="button"
                       onClick={handleClick}
-                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${badgeStyles[entry.type]} ${entry.type === 'include'
-                        ? 'hover:bg-emerald-100 focus-visible:ring-emerald-500'
-                        : 'hover:bg-rose-100 focus-visible:ring-rose-500'
-                        }`}
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${badgeStyles[entry.type]} ${
+                        entry.type === 'include'
+                          ? 'hover:bg-emerald-100 focus-visible:ring-emerald-500'
+                          : 'hover:bg-rose-100 focus-visible:ring-rose-500'
+                      }`}
                       aria-label={ariaLabel}
                     >
                       <span>{entry.label}:</span>
@@ -451,10 +419,11 @@ export function FacetMoreModal({
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => onToggleInclude(rawValue)}
-                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${included
-                          ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                          : 'text-gray-600 border-gray-200 hover:bg-gray-50'
-                          }`}
+                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
+                          included
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                            : 'text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
                         aria-label={
                           included
                             ? `Remove ${displayLabel} from included filters`
@@ -468,10 +437,11 @@ export function FacetMoreModal({
                       </button>
                       <button
                         onClick={() => onToggleExclude(rawValue)}
-                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${excluded
-                          ? 'border-rose-400 text-rose-600 bg-rose-50 hover:bg-rose-100'
-                          : 'text-gray-600 border-gray-200 hover:bg-gray-50'
-                          }`}
+                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
+                          excluded
+                            ? 'border-rose-400 text-rose-600 bg-rose-50 hover:bg-rose-100'
+                            : 'text-gray-600 border-gray-200 hover:bg-gray-50'
+                        }`}
                         aria-label={
                           excluded
                             ? `Remove ${displayLabel} from excluded filters`
@@ -501,7 +471,8 @@ export function FacetMoreModal({
 
         <footer className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div className="text-sm text-gray-600">
-            Showing page {page} of {totalPages} • {formatCount(totalCount)} total values
+            Showing page {page} of {totalPages} • {formatCount(totalCount)}{' '}
+            total values
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -522,7 +493,6 @@ export function FacetMoreModal({
             </button>
           </div>
         </footer>
-      </div>
-    </div>
+    </LightboxModal>
   );
 }

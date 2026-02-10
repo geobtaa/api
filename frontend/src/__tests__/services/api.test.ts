@@ -16,7 +16,7 @@ describe('fetchBookmarkedResources', () => {
     // Mock success response
     (global.fetch as any).mockResolvedValue({
       ok: true,
-      json: async () => ({ data: [] })
+      json: async () => ({ data: [] }),
     });
 
     await fetchBookmarkedResources(ids, onApiCall);
@@ -134,7 +134,9 @@ describe('fetchFacetValues', () => {
   });
 
   it('forwards advanced query parameter (adv_q)', async () => {
-    const advQuery = JSON.stringify([{ op: 'AND', f: 'dct_title_s', q: 'Iowa' }]);
+    const advQuery = JSON.stringify([
+      { op: 'AND', f: 'dct_title_s', q: 'Iowa' },
+    ]);
     const searchParams = new URLSearchParams(`adv_q=${advQuery}`);
     const mockFetch = vi.fn().mockResolvedValue({
       ok: true,
@@ -192,7 +194,9 @@ describe('fetchFacetValues', () => {
 
     const callUrl = mockFetch.mock.calls[0][0];
     const url = new URL(callUrl);
-    expect(url.searchParams.get('exclude_filters[dct_spatial_sm][]')).toBe('Illinois');
+    expect(url.searchParams.get('exclude_filters[dct_spatial_sm][]')).toBe(
+      'Illinois'
+    );
   });
 
   it('forwards fq (legacy filter) parameters', async () => {
@@ -302,12 +306,9 @@ describe('fetchFacetValues', () => {
 
   it('handles all sort options', async () => {
     const searchParams = new URLSearchParams();
-    const sortOptions: Array<'count_desc' | 'count_asc' | 'alpha_asc' | 'alpha_desc'> = [
-      'count_desc',
-      'count_asc',
-      'alpha_asc',
-      'alpha_desc',
-    ];
+    const sortOptions: Array<
+      'count_desc' | 'count_asc' | 'alpha_asc' | 'alpha_desc'
+    > = ['count_desc', 'count_asc', 'alpha_asc', 'alpha_desc'];
 
     for (const sort of sortOptions) {
       const mockFetch = vi.fn().mockResolvedValue({

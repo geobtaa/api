@@ -1,8 +1,74 @@
-import { useEffect, useRef, useCallback, useState } from "react";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import { useSearchParams } from "react-router";
-import { Search } from "lucide-react";
+import { useEffect, useRef, useCallback, useState } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+import { useSearchParams } from 'react-router';
+import { Search } from 'lucide-react';
+import { cellToBoundary } from 'h3-js';
+import { fetchMapH3 } from '../../services/api';
+import { HexTableControl } from '../map/HexTableControl';
+
+function zoomToResolution(zoom: number): number {
+  if (zoom <= 3) return 2;
+  if (zoom <= 4) return 3;
+  if (zoom <= 6) return 4;
+  if (zoom <= 8) return 5;
+  if (zoom <= 10) return 6;
+  if (zoom <= 12) return 7;
+  return 8;
+}
+
+function clampBbox(
+  west: number,
+  south: number,
+  east: number,
+  north: number
+): string {
+  const clampLon = (x: number) => Math.max(-180, Math.min(180, x));
+  const clampLat = (x: number) => Math.max(-90, Math.min(90, x));
+  return `${clampLon(west)},${clampLat(south)},${clampLon(east)},${clampLat(north)}`;
+}
+
+/** 10-step blue ramp (light to dark) for resource density. */
+const HEX_RAMP_COLORS = [
+  '#DBEAFE',
+  '#BFDBFE',
+  '#93C5FD',
+  '#7AB3FD',
+  '#60A5FA',
+  '#3B82F6',
+  '#2563EB',
+  '#1D4ED8',
+  '#1E40AF',
+  '#003C5B',
+];
+const HEX_RAMP_THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9];
+
+function getHexColor(intensity: number): string {
+  for (let i = 0; i < HEX_RAMP_THRESHOLDS.length; i++) {
+    if (intensity <= HEX_RAMP_THRESHOLDS[i]) return HEX_RAMP_COLORS[i];
+  }
+  return HEX_RAMP_COLORS[HEX_RAMP_COLORS.length - 1];
+}
+
+/** Return Leaflet LatLngBounds that encompass all given H3 cells, or null if empty. */
+function boundsOfHexes(hexIndexes: string[]): L.LatLngBounds | null {
+  if (hexIndexes.length === 0) return null;
+  let minLat = 90;
+  let maxLat = -90;
+  let minLng = 180;
+  let maxLng = -180;
+  for (const h3 of hexIndexes) {
+    const vs = cellToBoundary(h3);
+    for (const [lat, lng] of vs) {
+      minLat = Math.min(minLat, lat);
+      maxLat = Math.max(maxLat, lat);
+      minLng = Math.min(minLng, lng);
+      maxLng = Math.max(maxLng, lng);
+    }
+  }
+  if (minLat > maxLat || minLng > maxLng) return null;
+  return L.latLngBounds([minLat, minLng], [maxLat, maxLng]);
+}
 
 interface BBox {
   topLeft: { lat: number; lon: number };
@@ -18,19 +84,25 @@ export function GeospatialFilterMap() {
   const bboxRectangleRef = useRef<L.Rectangle | null>(null);
   const [showSearchButton, setShowSearchButton] = useState(false);
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
+  const hexLayerRef = useRef<L.GeoJSON | null>(null);
+  const [hexesInView, setHexesInView] = useState<
+    Array<{ h3: string; count: number }>
+  >([]);
+  const [hexResolution, setHexResolution] = useState(6);
+  const [hexLoading, setHexLoading] = useState(false);
 
   // Parse bbox from URL params
   const getBBoxFromParams = useCallback((): BBox | null => {
-    const type = searchParams.get("include_filters[geo][type]");
-    if (type !== "bbox") return null;
+    const type = searchParams.get('include_filters[geo][type]');
+    if (type !== 'bbox') return null;
 
-    const topLeftLat = searchParams.get("include_filters[geo][top_left][lat]");
-    const topLeftLon = searchParams.get("include_filters[geo][top_left][lon]");
+    const topLeftLat = searchParams.get('include_filters[geo][top_left][lat]');
+    const topLeftLon = searchParams.get('include_filters[geo][top_left][lon]');
     const bottomRightLat = searchParams.get(
-      "include_filters[geo][bottom_right][lat]",
+      'include_filters[geo][bottom_right][lat]'
     );
     const bottomRightLon = searchParams.get(
-      "include_filters[geo][bottom_right][lon]",
+      'include_filters[geo][bottom_right][lon]'
     );
 
     if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
@@ -58,12 +130,36 @@ export function GeospatialFilterMap() {
         attributionControl: false,
       });
 
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-        attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-      }).addTo(mapRef.current);
+      L.tileLayer(
+        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+        {
+          attribution:
+            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
+        }
+      ).addTo(mapRef.current);
 
-      // Set initial view to world
-      mapRef.current.setView([20, 0], 1);
+      // Set initial view: if URL has a location bbox, fit to it; otherwise world
+      const initialBbox = getBBoxFromParams();
+      if (initialBbox) {
+        const bounds = L.latLngBounds(
+          [initialBbox.bottomRight.lat, initialBbox.topLeft.lon],
+          [initialBbox.topLeft.lat, initialBbox.bottomRight.lon]
+        );
+        if (bounds.isValid()) {
+          mapRef.current.fitBounds(bounds, { padding: [20, 20] });
+          bboxRectangleRef.current = L.rectangle(bounds, {
+            color: '#2563eb',
+            weight: 2,
+            opacity: 0.8,
+            fillColor: '#2563eb',
+            fillOpacity: 0.2,
+          }).addTo(mapRef.current);
+        } else {
+          mapRef.current.setView([20, 0], 1);
+        }
+      } else {
+        mapRef.current.setView([20, 0], 1);
+      }
 
       // Invalidate size to ensure tiles render properly after container is ready
       // Use requestAnimationFrame to ensure DOM is fully rendered
@@ -74,6 +170,21 @@ export function GeospatialFilterMap() {
             const rect = mapContainerRef.current.getBoundingClientRect();
             if (rect.width > 0 && rect.height > 0) {
               mapRef.current.invalidateSize();
+              // If we have a bbox in URL, re-fit so bounds are correct after layout
+              const bbox = getBBoxFromParams();
+              if (bbox) {
+                const bounds = L.latLngBounds(
+                  [bbox.bottomRight.lat, bbox.topLeft.lon],
+                  [bbox.topLeft.lat, bbox.bottomRight.lon]
+                );
+                if (bounds.isValid()) {
+                  isUpdatingFromParamsRef.current = true;
+                  mapRef.current.fitBounds(bounds, { padding: [20, 20] });
+                  setTimeout(() => {
+                    isUpdatingFromParamsRef.current = false;
+                  }, 500);
+                }
+              }
             } else {
               // If not visible yet, try again after a delay
               setTimeout(() => {
@@ -108,12 +219,12 @@ export function GeospatialFilterMap() {
         // Add preview rectangle to show what area would be searched
         // Use a different style to indicate it's a preview (not yet applied)
         const previewRectangle = L.rectangle(bounds, {
-          color: "#3b82f6",
+          color: '#3b82f6',
           weight: 2,
           opacity: 0.6,
-          fillColor: "#3b82f6",
+          fillColor: '#3b82f6',
           fillOpacity: 0.15,
-          dashArray: "5, 5", // Dashed line to indicate preview
+          dashArray: '5, 5', // Dashed line to indicate preview
         }).addTo(mapRef.current);
 
         previewRectangleRef.current = previewRectangle;
@@ -122,8 +233,8 @@ export function GeospatialFilterMap() {
         setShowSearchButton(true);
       };
 
-      mapRef.current.on("moveend", handleMapMoveEnd);
-      mapRef.current.on("zoomend", handleMapMoveEnd);
+      mapRef.current.on('moveend', handleMapMoveEnd);
+      mapRef.current.on('zoomend', handleMapMoveEnd);
     }
 
     return () => {
@@ -157,7 +268,7 @@ export function GeospatialFilterMap() {
           // bottom_right is southeast (lower lat, higher lon)
           const bounds = L.latLngBounds(
             [bbox.bottomRight.lat, bbox.topLeft.lon], // Southwest (south lat, west lon)
-            [bbox.topLeft.lat, bbox.bottomRight.lon], // Northeast (north lat, east lon)
+            [bbox.topLeft.lat, bbox.bottomRight.lon] // Northeast (north lat, east lon)
           );
 
           if (bounds && bounds.isValid()) {
@@ -173,10 +284,10 @@ export function GeospatialFilterMap() {
 
             // Add rectangle overlay to visualize the active bbox filter
             const rectangle = L.rectangle(bounds, {
-              color: "#2563eb",
+              color: '#2563eb',
               weight: 2,
               opacity: 0.8,
-              fillColor: "#2563eb",
+              fillColor: '#2563eb',
               fillOpacity: 0.2,
             }).addTo(mapRef.current);
 
@@ -196,7 +307,7 @@ export function GeospatialFilterMap() {
             return; // Early return to skip the setTimeout below
           }
         } catch (error) {
-          console.error("Error setting map bounds from params:", error);
+          console.error('Error setting map bounds from params:', error);
           isUpdatingFromParamsRef.current = false;
         }
         // Only reset flag if we didn't already set it above
@@ -233,25 +344,51 @@ export function GeospatialFilterMap() {
     }
   }, [getBBoxFromParams]);
 
-  // Handle visibility changes (e.g., when details element opens)
+  // Handle visibility changes (e.g., when details element opens); also fit to bbox if map was created with zero size
   useEffect(() => {
     if (!mapRef.current || !mapContainerRef.current) return;
 
-    // Use IntersectionObserver to detect when container becomes visible
+    const fitToBboxIfNeeded = () => {
+      const bbox = getBBoxFromParams();
+      if (!bbox || !mapRef.current) return;
+      const bounds = L.latLngBounds(
+        [bbox.bottomRight.lat, bbox.topLeft.lon],
+        [bbox.topLeft.lat, bbox.bottomRight.lon]
+      );
+      if (!bounds.isValid()) return;
+      const zoom = mapRef.current.getZoom();
+      if (zoom <= 2) {
+        isUpdatingFromParamsRef.current = true;
+        mapRef.current.fitBounds(bounds, { padding: [20, 20] });
+        if (!bboxRectangleRef.current) {
+          bboxRectangleRef.current = L.rectangle(bounds, {
+            color: '#2563eb',
+            weight: 2,
+            opacity: 0.8,
+            fillColor: '#2563eb',
+            fillOpacity: 0.2,
+          }).addTo(mapRef.current);
+        }
+        setTimeout(() => {
+          isUpdatingFromParamsRef.current = false;
+        }, 500);
+      }
+    };
+
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting && mapRef.current) {
-            // Container is visible, invalidate size to ensure tiles load
             setTimeout(() => {
               if (mapRef.current) {
                 mapRef.current.invalidateSize();
+                fitToBboxIfNeeded();
               }
             }, 100);
           }
         });
       },
-      { threshold: 0.1 },
+      { threshold: 0.1 }
     );
 
     observer.observe(mapContainerRef.current);
@@ -259,7 +396,121 @@ export function GeospatialFilterMap() {
     return () => {
       observer.disconnect();
     };
-  }, []);
+  }, [getBBoxFromParams]);
+
+  // H3 hex layer: fetch hexes for current view and add GeoJSON layer; fit to hex cluster when search changes
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    let cancelled = false;
+    const query = searchParams.get('q') ?? '';
+
+    const updateHexLayer = async (shouldFitToHexes: boolean) => {
+      const bounds = map.getBounds();
+      const zoom = map.getZoom();
+      const bbox = clampBbox(
+        bounds.getWest(),
+        bounds.getSouth(),
+        bounds.getEast(),
+        bounds.getNorth()
+      );
+      const resolution = zoomToResolution(zoom);
+      const queryString =
+        typeof window !== 'undefined' ? window.location.search.slice(1) : '';
+
+      setHexLoading(true);
+      try {
+        const res = await fetchMapH3(
+          query,
+          bbox,
+          resolution,
+          queryString ? `?${queryString}` : undefined
+        );
+        if (cancelled) return;
+
+        setHexesInView(res.hexes);
+        setHexResolution(resolution);
+
+        if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
+          map.removeLayer(hexLayerRef.current);
+          hexLayerRef.current = null;
+        }
+        if (!res.hexes.length) {
+          setHexLoading(false);
+          return;
+        }
+
+        const maxCount = Math.max(...res.hexes.map((h) => h.count), 1);
+        const features = res.hexes.map((h) => {
+          const vs = cellToBoundary(h.h3);
+          const ring = vs.map(
+            ([lat, lng]: [number, number]) => [lng, lat] as [number, number]
+          );
+          ring.push(ring[0]);
+          return {
+            type: 'Feature' as const,
+            properties: { h3: h.h3, count: h.count },
+            geometry: {
+              type: 'Polygon' as const,
+              coordinates: [ring],
+            },
+          };
+        });
+        const fc = { type: 'FeatureCollection' as const, features };
+
+        const layer = L.geoJSON(fc, {
+          style: (feature) => {
+            const c = (feature?.properties as { count?: number })?.count ?? 0;
+            const intensity =
+              maxCount > 0 ? Math.log(c + 1) / Math.log(maxCount + 1) : 0;
+            return {
+              fillColor: getHexColor(intensity),
+              weight: 1,
+              opacity: 1,
+              color: 'white',
+              fillOpacity: 0.7,
+            };
+          },
+          onEachFeature: () => {
+            // No popup on search map hexes
+          },
+        });
+        layer.addTo(map);
+        hexLayerRef.current = layer;
+
+        if (shouldFitToHexes && res.hexes.length > 0) {
+          const hexBounds = boundsOfHexes(res.hexes.map((h) => h.h3));
+          if (hexBounds && hexBounds.isValid()) {
+            isUpdatingFromParamsRef.current = true;
+            map.fitBounds(hexBounds, { padding: [24, 24], maxZoom: 14 });
+            setTimeout(() => {
+              isUpdatingFromParamsRef.current = false;
+            }, 600);
+          }
+        }
+      } catch {
+        // ignore fetch errors
+      } finally {
+        if (!cancelled) setHexLoading(false);
+      }
+    };
+
+    updateHexLayer(true);
+    const onMoveOrZoom = () => updateHexLayer(false);
+    map.on('moveend', onMoveOrZoom);
+    map.on('zoomend', onMoveOrZoom);
+
+    return () => {
+      cancelled = true;
+      map.off('moveend', onMoveOrZoom);
+      map.off('zoomend', onMoveOrZoom);
+      if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
+        map.removeLayer(hexLayerRef.current);
+        hexLayerRef.current = null;
+      }
+    };
+  }, [searchParams]);
 
   const handleSearchHere = () => {
     if (!mapRef.current) return;
@@ -269,7 +520,7 @@ export function GeospatialFilterMap() {
 
     // Remove existing geo filters
     Array.from(newParams.keys())
-      .filter((key) => key.startsWith("include_filters[geo]"))
+      .filter((key) => key.startsWith('include_filters[geo]'))
       .forEach((key) => newParams.delete(key));
 
     // Add new bbox filter from current map bounds
@@ -278,15 +529,15 @@ export function GeospatialFilterMap() {
 
     // Top-left is northwest corner (north = higher lat, west = lower lon)
     // Bottom-right is southeast corner (south = lower lat, east = higher lon)
-    newParams.set("include_filters[geo][type]", "bbox");
-    newParams.set("include_filters[geo][field]", "dcat_bbox");
-    newParams.set("include_filters[geo][top_left][lat]", ne.lat.toString());
-    newParams.set("include_filters[geo][top_left][lon]", sw.lng.toString());
-    newParams.set("include_filters[geo][bottom_right][lat]", sw.lat.toString());
-    newParams.set("include_filters[geo][bottom_right][lon]", ne.lng.toString());
+    newParams.set('include_filters[geo][type]', 'bbox');
+    newParams.set('include_filters[geo][field]', 'dcat_bbox');
+    newParams.set('include_filters[geo][top_left][lat]', ne.lat.toString());
+    newParams.set('include_filters[geo][top_left][lon]', sw.lng.toString());
+    newParams.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
+    newParams.set('include_filters[geo][bottom_right][lon]', ne.lng.toString());
 
     // Reset to page 1 when bbox changes
-    newParams.delete("page");
+    newParams.delete('page');
 
     setSearchParams(newParams);
 
@@ -324,9 +575,9 @@ export function GeospatialFilterMap() {
 
     const newParams = new URLSearchParams(searchParams);
     Array.from(newParams.keys())
-      .filter((key) => key.startsWith("include_filters[geo]"))
+      .filter((key) => key.startsWith('include_filters[geo]'))
       .forEach((key) => newParams.delete(key));
-    newParams.delete("page");
+    newParams.delete('page');
     setSearchParams(newParams);
   };
 
@@ -349,8 +600,13 @@ export function GeospatialFilterMap() {
 
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="font-semibold text-gray-900">Location</h3>
+      <div className="flex items-center justify-between mb-1">
+        <h3
+          id="filter-location-heading"
+          className="font-semibold text-gray-900"
+        >
+          Location
+        </h3>
         {hasBBox && (
           <button
             onClick={handleClearBBox}
@@ -361,11 +617,11 @@ export function GeospatialFilterMap() {
           </button>
         )}
       </div>
-      <div className="relative">
+      <div className="relative" aria-labelledby="filter-location-heading">
         <div
           ref={mapContainerRef}
           className="w-full rounded-lg border border-gray-200"
-          style={{ height: "200px", minHeight: "200px" }}
+          style={{ height: '200px', minHeight: '200px' }}
         />
         {showSearchButton && (
           <button
@@ -377,10 +633,16 @@ export function GeospatialFilterMap() {
             <span>Search here</span>
           </button>
         )}
+        <HexTableControl
+          hexes={hexesInView}
+          resolution={hexResolution}
+          searchQuery={searchParams.get('q') ?? ''}
+          queryString={searchParams.toString()}
+          loading={hexLoading}
+        />
       </div>
     </div>
   );
 }
 
 export default GeospatialFilterMap;
-

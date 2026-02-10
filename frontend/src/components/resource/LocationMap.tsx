@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from 'react';
 
 interface LocationMapProps {
   geometry:
@@ -9,7 +9,7 @@ interface LocationMapProps {
     | null;
 }
 
-const LocationMapClient = React.lazy(() => import("./LocationMap.client"));
+const LocationMapClient = React.lazy(() => import('./LocationMap.client'));
 
 export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
   // Prevent hydration mismatches: render deterministic placeholder on the server

@@ -1,4 +1,4 @@
-export type ZoomLevel = 'country' | 'region' | 'county';
+export type ZoomLevel = 'country' | 'region' | 'county' | 'hex';
 
 export interface GeoFacetItem {
   attributes: {

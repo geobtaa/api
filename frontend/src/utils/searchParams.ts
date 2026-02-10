@@ -1,5 +1,19 @@
 import { AdvancedClause, SearchParams } from '../types/search';
 
+/** Boolean facet fields must send "true"/"false" to the API, not "1"/"0". */
+const BOOLEAN_FACET_FIELDS = ['gbl_georeferenced_b'];
+
+/** Normalize facet value for URL/API (e.g. gbl_georeferenced_b: "1" -> "true", "0" -> "false"). */
+export function normalizeFacetValueForUrl(
+  field: string,
+  value: string
+): string {
+  if (!BOOLEAN_FACET_FIELDS.includes(field)) return value;
+  if (value === '1' || value === 'true') return 'true';
+  if (value === '0' || value === 'false') return 'false';
+  return value;
+}
+
 function parseAdvancedClauses(rawValue: string | null): AdvancedClause[] {
   if (!rawValue) return [];
 
@@ -41,23 +55,39 @@ export function parseSearchParams(searchParams: URLSearchParams) {
   const query = queryParam || '';
   const page = parseInt(searchParams.get('page') || '1', 10);
 
-  // Get all facet parameters (now using fq instead of f)
-  const facets = Array.from(searchParams.entries())
+  // Get all facet parameters (now using fq instead of f); dedupe by (field, value) so duplicate URL params don't show as repeated constraints
+  const rawFacets = Array.from(searchParams.entries())
     .filter(
-      ([key]) => key.startsWith('fq[') || key.startsWith('include_filters[')
+      ([key]) =>
+        (key.startsWith('fq[') || key.startsWith('include_filters[')) &&
+        !key.startsWith('include_filters[geo]')
     )
     .map(([key, value]) => {
       const field = key.match(/(?:fq|include_filters)\[(.*?)\]/)?.[1] || '';
       return { field, value };
     });
+  const seenFacets = new Set<string>();
+  const facets = rawFacets.filter(({ field, value }) => {
+    const key = `${field}\0${value}`;
+    if (seenFacets.has(key)) return false;
+    seenFacets.add(key);
+    return true;
+  });
 
-  // Get excluded facet parameters
-  const excludeFacets = Array.from(searchParams.entries())
+  // Get excluded facet parameters; dedupe by (field, value)
+  const rawExcludeFacets = Array.from(searchParams.entries())
     .filter(([key]) => key.startsWith('exclude_filters['))
     .map(([key, value]) => {
       const field = key.match(/exclude_filters\[(.*?)\]/)?.[1] || '';
       return { field, value };
     });
+  const seenExclude = new Set<string>();
+  const excludeFacets = rawExcludeFacets.filter(({ field, value }) => {
+    const key = `${field}\0${value}`;
+    if (seenExclude.has(key)) return false;
+    seenExclude.add(key);
+    return true;
+  });
 
   const advancedQuery = parseAdvancedClauses(searchParams.get('adv_q'));
 
@@ -92,13 +122,19 @@ export function buildSearchParams(params: SearchParams): URLSearchParams {
 
   // Add facet parameters using include_filters[] format for new API while keeping fq for backward links
   params.facets.forEach(({ field, value }) => {
-    searchParams.append(`include_filters[${field}][]`, value);
+    searchParams.append(
+      `include_filters[${field}][]`,
+      normalizeFacetValueForUrl(field, value)
+    );
   });
 
   // Add exclude filters if provided
   if (params.excludeFacets) {
     params.excludeFacets.forEach(({ field, value }) => {
-      searchParams.append(`exclude_filters[${field}][]`, value);
+      searchParams.append(
+        `exclude_filters[${field}][]`,
+        normalizeFacetValueForUrl(field, value)
+      );
     });
   }
 

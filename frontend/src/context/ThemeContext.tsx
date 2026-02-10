@@ -2,7 +2,6 @@ import React, {
   createContext,
   useContext,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
 } from 'react';
@@ -63,7 +62,9 @@ export function ThemeProvider({
   }, [hydrated]);
 
   // Ensure the DOM reflects the current theme even on first load.
-  useLayoutEffect(() => {
+  // Use useEffect (not useLayoutEffect) so SSR doesn't warn; theme is already set
+  // on <html data-theme> from the server, so this just syncs client state.
+  useEffect(() => {
     applyThemeToDom(themeId);
   }, [themeId]);
 
@@ -79,7 +80,9 @@ export function ThemeProvider({
     [themeId, theme]
   );
 
-  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
+  return (
+    <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
+  );
 }
 
 export function useThemeContext(): ThemeContextValue {
@@ -95,4 +98,3 @@ export function useThemeContext(): ThemeContextValue {
     setThemeId: () => {},
   };
 }
-

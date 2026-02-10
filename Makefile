@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex clear_cache
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex verify-h3-index clear_cache frontend-reset
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -224,7 +224,40 @@ reindex:
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
 		cd /app/backend && python scripts/reindex_admin.py'
 
+# Ingest BTAA fixture JSON files into the DB (run inside api container).
+# Usage: make ingest [FIXTURES_DIR=btaa_fixtures_data] [REPO_NAME=btaa_fixtures]
+#   e.g. make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources
+# After ingest, run: make reindex
+FIXTURES_DIR ?= btaa_fixtures_data
+REPO_NAME ?= btaa_fixtures
+ingest:
+	@echo "Ingesting fixtures from data/fixtures/$(FIXTURES_DIR) into database..."
+	@docker compose exec -T api bash -lc '\
+		cd /app/backend && python scripts/ingest_btaa_fixtures.py "$(FIXTURES_DIR)" "$(REPO_NAME)"'
+
+# Ingest featured resources (btaa_featured_resources) then reindex into Elasticsearch
+ingest-featured: FIXTURES_DIR := btaa_featured_resources
+ingest-featured: REPO_NAME := btaa_featured_resources
+ingest-featured:
+	@echo "Ingesting btaa_featured_resources into database..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/ingest_btaa_fixtures.py btaa_featured_resources btaa_featured_resources'
+	@echo "Reindexing into Elasticsearch..."
+	@$(MAKE) reindex
+
+# Verify H3 pyramid fields (h3_res2..h3_res8, geo_or_near_global) in Elasticsearch
+verify-h3-index:
+	@echo "Verifying H3 pyramid fields in Elasticsearch..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/verify_h3_index.py'
+
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
+
+# Frontend (Docker dev): clear Vite cache and restart dev server.
+# Use after changing optimizeDeps or when seeing "Failed to fetch dynamically imported module".
+frontend-reset:
+	@echo "Clearing Vite cache in frontend-dev and restarting..."
+	@docker compose exec -T frontend-dev rm -rf /app/node_modules/.vite 2>/dev/null || true
+	@docker compose restart frontend-dev
+	@echo "Frontend dev server restarted."
 
 # Cache management
 clear_cache:

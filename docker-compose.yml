@@ -68,7 +68,7 @@ services:
       - API_BASE_URL=http://api:8000/api/v1
       - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
       - NODE_ENV=development
-    command: sh -lc "npm run dev -- --host 0.0.0.0 --port 3000"
+    command: sh -lc "rm -rf node_modules/.vite 2>/dev/null; npm run dev -- --host 0.0.0.0 --port 3000"
     volumes:
       # Mount source/config (but NOT node_modules) so we can hot-reload without rebuilds.
       - ./frontend/theme.yaml:/app/theme.yaml

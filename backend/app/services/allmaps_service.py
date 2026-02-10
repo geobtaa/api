@@ -1,5 +1,6 @@
 import logging
 from typing import Dict
+from urllib.parse import quote
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -53,11 +54,21 @@ class AllmapsService:
             allmaps_dict = dict(row._mapping)
             logger.info(f"Found Allmaps data for resource {self.resource_id}: {allmaps_dict}")
 
+            manifest_uri = allmaps_dict.get("iiif_manifest_uri")
+            annotated = allmaps_dict.get("annotated")
+
             attributes = {
                 "allmaps_id": allmaps_dict.get("allmaps_id"),
-                "allmaps_annotated": allmaps_dict.get("annotated"),
-                "allmaps_manifest_uri": allmaps_dict.get("iiif_manifest_uri"),
+                "allmaps_annotated": annotated,
+                "allmaps_manifest_uri": manifest_uri,
             }
+
+            # Annotation URL for @allmaps/leaflet WarpedMapLayer when georeferenced
+            if manifest_uri and annotated:
+                attributes["allmaps_annotation_url"] = (
+                    f"https://annotations.allmaps.org/?url={quote(manifest_uri, safe='')}"
+                )
+
             logger.info(f"Returning Allmaps attributes: {attributes}")
             return attributes
 

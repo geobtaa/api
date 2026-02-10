@@ -333,11 +333,14 @@ class ImageService:
                 return None
 
             # Determine the source thumbnail URL without making external calls
-            thumbnail_url = self._get_thumbnail_source_url()
+            source_url = self._get_thumbnail_source_url()
 
-            if thumbnail_url:
+            if source_url:
                 # Always return the resource-specific thumbnail endpoint
-                # This endpoint will handle checking cache and returning placeholder/actual image
+                return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
+
+            # No thumbnail source: use static map as fallback when resource has geometry
+            if self.metadata.get("locn_geometry") or self.metadata.get("dcat_bbox"):
                 return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
 
             return None
@@ -345,6 +348,35 @@ class ImageService:
         except Exception as e:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
             return None
+
+    def _get_bbox_for_wms(self) -> Optional[str]:
+        """Parse dcat_bbox to WMS 1.3.0 BBOX string (minx,miny,maxx,maxy) for EPSG:4326."""
+        bbox_raw = self.metadata.get("dcat_bbox")
+        if not bbox_raw or not isinstance(bbox_raw, str):
+            return None
+        bbox_raw = bbox_raw.strip()
+        # ENVELOPE(xmin, xmax, ymax, ymin)
+        env_match = re.match(
+            r"ENVELOPE\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)",
+            bbox_raw,
+            re.IGNORECASE,
+        )
+        if env_match:
+            xmin, xmax, ymax, ymin = (float(x.strip()) for x in env_match.groups())
+            return f"{xmin},{ymin},{xmax},{ymax}"
+        # Comma-separated: assume minx,miny,maxx,maxy or minx,maxx,maxy,miny
+        parts = [p.strip() for p in bbox_raw.split(",")]
+        if len(parts) == 4:
+            try:
+                a, b, c, d = (float(x) for x in parts)
+                # If a < c and b < d then likely minx,miny,maxx,maxy
+                if a <= c and b <= d:
+                    return f"{a},{b},{c},{d}"
+                # Else assume minx,maxx,maxy,miny (ENVELOPE order)
+                return f"{a},{d},{b},{c}"
+            except (ValueError, TypeError):
+                pass
+        return None
 
     def _get_thumbnail_source_url(
         self, references: Optional[Dict[str, Any]] = None
@@ -422,29 +454,36 @@ class ImageService:
             self._queue_manifest_processing(manifest_url)
             return manifest_url
 
-        # Check for ESRI services
+        # Check for ESRI services (including FeatureLayer for migration routes, etc.)
         for esri_uri in (
             "urn:x-esri:serviceType:ArcGIS#ImageMapLayer",
             "urn:x-esri:serviceType:ArcGIS#TiledMapLayer",
             "urn:x-esri:serviceType:ArcGIS#DynamicMapLayer",
+            "urn:x-esri:serviceType:ArcGIS#FeatureLayer",
         ):
             if viewer_endpoint := self._first_url(esri_uri, references=references):
-                return f"{viewer_endpoint}/info/thumbnail/thumbnail.png"
+                return f"{viewer_endpoint.rstrip('/')}/info/thumbnail/thumbnail.png"
 
-        # Check for WMS
+        # Check for WMS (standard GetMap with BBOX so the layer content is visible)
         if wms_endpoint := self._first_url(
             "http://www.opengis.net/def/serviceType/ogc/wms", references=references
         ):
-            width = 200
-            height = 200
-            layers = self.metadata.get("gbl_wxsidentifier_s", "")
+            layers = self.metadata.get("gbl_wxsidentifier_s") or self.metadata.get(
+                "gbl_wxsIdentifier_s", ""
+            )
+            if not layers:
+                layers = ""  # some WMS use single default layer
+            bbox_param = self._get_bbox_for_wms()
+            if not bbox_param:
+                # Fallback without BBOX (server may use full extent)
+                bbox_param = "-180,-90,180,90"
+            width, height = 400, 300
+            base = wms_endpoint.rstrip("/")
+            sep = "&" if "?" in base else "?"
             return (
-                f"{wms_endpoint}/reflect?"
-                f"FORMAT=image/png&"
-                f"TRANSPARENT=TRUE&"
-                f"WIDTH={width}&"
-                f"HEIGHT={height}&"
-                f"LAYERS={layers}"
+                f"{base}{sep}SERVICE=WMS&VERSION=1.3.0&REQUEST=GetMap"
+                f"&LAYERS={layers}&CRS=EPSG:4326&BBOX={bbox_param}"
+                f"&WIDTH={width}&HEIGHT={height}&FORMAT=image/png&TRANSPARENT=TRUE"
             )
 
         # Check for TMS

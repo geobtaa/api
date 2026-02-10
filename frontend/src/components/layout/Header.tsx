@@ -1,9 +1,4 @@
-import {
-  Link,
-  useLocation,
-  useNavigate,
-  useSearchParams,
-} from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { SearchField } from '../SearchField';
 import { ResourceClassFilterTabs } from '../search/ResourceClassFilterTabs';
 import { useTheme } from '../../hooks/useTheme';
@@ -115,7 +110,7 @@ export function Header() {
                   : { gap: `${headerCfg.lockup_gap_rem}rem` }
               }
             >
-                <img
+              <img
                 src={theme.institution.logo_url}
                 alt={`${theme.institution.name} Logo`}
                 className={
@@ -199,12 +194,12 @@ export function Header() {
           </nav>
 
           {/* Resource Class Filter Tabs (row 2, centered column) */}
-        {!isHomePage && (
+          {!isHomePage && (
             <div className="col-span-6 col-start-4 self-end">
               <ResourceClassFilterTabs variant="header" />
             </div>
           )}
-          </div>
+        </div>
       </div>
     </header>
   );

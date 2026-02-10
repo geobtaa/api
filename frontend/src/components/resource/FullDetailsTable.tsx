@@ -7,6 +7,7 @@ import {
   getFacetField,
 } from '../../constants/fieldLabels';
 import { formatCount } from '../../utils/formatNumber';
+import { linkifyText } from '../../utils/linkifyText';
 
 // Define a type for the attributes
 interface Attributes {
@@ -370,11 +371,13 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
         if (match) {
           const [_, yearStr, monthStr, dayStr] = match;
-          const date = new Date(Date.UTC(
-            parseInt(yearStr, 10),
-            parseInt(monthStr, 10) - 1, // Month is 0-indexed
-            parseInt(dayStr, 10)
-          ));
+          const date = new Date(
+            Date.UTC(
+              parseInt(yearStr, 10),
+              parseInt(monthStr, 10) - 1, // Month is 0-indexed
+              parseInt(dayStr, 10)
+            )
+          );
 
           if (!isNaN(date.getTime())) {
             return date.toLocaleDateString('en-US', {
@@ -428,7 +431,16 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       );
     }
 
-    return Array.isArray(value) ? value.join(', ') : value.toString();
+    if (Array.isArray(value)) {
+      return value.map((v, i) => (
+        <React.Fragment key={v.toString()}>
+          {i > 0 && ', '}
+          {linkifyText(v.toString())}
+        </React.Fragment>
+      ));
+    }
+
+    return linkifyText(value.toString());
   };
 
   const renderRelationships = (relationships: Record<string, unknown>) => {
@@ -499,9 +511,9 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                   >
                     {relationshipLabels.browse_all
                       ? relationshipLabels.browse_all.replace(
-                        '%{count}',
-                        formatCount(totalCount)
-                      )
+                          '%{count}',
+                          formatCount(totalCount)
+                        )
                       : `Browse all ${formatCount(totalCount)} records...`}
                   </Link>
                 </li>
@@ -563,17 +575,17 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                 <ul className="list-none">
                   <li className="text-sm text-gray-900">
                     {key === 'dct_spatial_sm' &&
-                      Array.isArray(value) &&
-                      value.length > 15
+                    Array.isArray(value) &&
+                    value.length > 15
                       ? renderPlaceValues(
-                        value as string | string[] | null | undefined,
-                        true
-                      )
+                          value as string | string[] | null | undefined,
+                          true
+                        )
                       : renderValue(
-                        key,
-                        value as string | string[] | null | undefined,
-                        true
-                      )}
+                          key,
+                          value as string | string[] | null | undefined,
+                          true
+                        )}
                   </li>
                 </ul>
               </div>

@@ -52,6 +52,8 @@ export interface ThemeConfig {
     };
   };
   homepage?: {
+    /** Optional resource IDs to show first in the featured carousel (e.g. ["uuid-1", "uuid-2"]). */
+    featured_resource_ids?: string[];
     featured?: Array<{
       title: string;
       field: string;
@@ -115,7 +117,9 @@ export function getAvailableThemes(): Array<{ id: ThemeId; label: string }> {
 
 function safeReadLocalStorage(key: string): string | null {
   try {
-    return typeof window !== 'undefined' ? window.localStorage.getItem(key) : null;
+    return typeof window !== 'undefined'
+      ? window.localStorage.getItem(key)
+      : null;
   } catch {
     return null;
   }
@@ -143,7 +147,9 @@ function safeWriteCookie(key: string, value: string): void {
   }
 }
 
-export function getThemeIdFromCookieHeader(cookieHeader: string | null): ThemeId | null {
+export function getThemeIdFromCookieHeader(
+  cookieHeader: string | null
+): ThemeId | null {
   if (!cookieHeader) return null;
   const parts = cookieHeader.split(';').map((p) => p.trim());
   for (const part of parts) {
@@ -176,7 +182,9 @@ export function setActiveThemeId(themeId: ThemeId): void {
   safeWriteCookie(THEME_COOKIE_KEY, next);
   applyThemeToDom(next);
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(THEME_CHANGED_EVENT, { detail: next }));
+    window.dispatchEvent(
+      new CustomEvent(THEME_CHANGED_EVENT, { detail: next })
+    );
   }
 }
 
@@ -191,4 +199,3 @@ export function subscribeToThemeChanges(callback: () => void): () => void {
 export function getActiveThemeConfig(): ThemeConfig {
   return getThemeConfig(getActiveThemeId());
 }
-
