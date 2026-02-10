@@ -149,9 +149,7 @@ class TestReindexingService:
             assert result["status"] == "success"
             assert result["message"] == "Reindexing completed"
             assert result["details"] == {"indexed": 100}
-            mock_cache.invalidate_tags.assert_awaited_once_with(
-                ["search", "suggest", "map"]
-            )
+            mock_cache.invalidate_tags.assert_awaited_once_with(["search", "suggest", "map"])
             mock_reindex.assert_called_once()
 
     @pytest.mark.asyncio

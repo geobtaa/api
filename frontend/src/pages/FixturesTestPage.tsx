@@ -1291,6 +1291,12 @@ export function FixturesTestPage() {
                   <th className="px-3 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-64">
                     Resource ID
                   </th>
+                  <th className="px-3 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-28">
+                    Thumbnail
+                  </th>
+                  <th className="px-3 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider w-28">
+                    Static Map
+                  </th>
                   <th className="px-3 py-3 text-left text-sm font-medium text-gray-500 uppercase tracking-wider">
                     Description
                   </th>
@@ -1341,6 +1347,35 @@ export function FixturesTestPage() {
                         title={fixture.id}
                       >
                         {fixture.id}
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="w-20 h-16 border border-gray-200 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={`/resources/${fixture.id}/thumbnail`}
+                          alt={`Thumbnail for ${fixture.id}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            // If thumbnail fails, keep the cell but avoid broken image icon
+                            (e.currentTarget as HTMLImageElement).style.display =
+                              'none';
+                          }}
+                        />
+                      </div>
+                    </td>
+                    <td className="px-3 py-3 whitespace-nowrap">
+                      <div className="w-20 h-16 border border-gray-200 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
+                        <img
+                          src={`/resources/${fixture.id}/static-map`}
+                          alt={`Static map for ${fixture.id}`}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display =
+                              'none';
+                          }}
+                        />
                       </div>
                     </td>
                     <td className="px-3 py-3">

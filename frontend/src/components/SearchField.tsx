@@ -264,10 +264,8 @@ export function SearchField({
     e.preventDefault();
     const newParams = new URLSearchParams();
 
-    // Always add keyword query if present (from input state)
-    if (query.trim()) {
-      newParams.set('q', query.trim());
-    }
+    // Always set q so the search page runs (useSearch requires hasQueryParam = searchParams.has('q'))
+    newParams.set('q', query.trim());
 
     // ALWAYS check URL params first for geo filters (source of truth)
     // This ensures geo filters are preserved even if component state is out of sync
@@ -341,14 +339,10 @@ export function SearchField({
       });
     }
 
-    // Only navigate if we have at least a query or geo filters
-    if (query.trim() || geoType === 'bbox' || selectedPlace) {
-      navigate(`/search?${newParams.toString()}`);
-      setShowSuggestions(false);
-      setShowPlaceSuggestions(false);
-      // Don't call onSearch callback here - we're handling navigation ourselves
-      // The callback would cause a second navigation that could override our params
-    }
+    // Always navigate to search results when user submits (even with no query)
+    navigate(`/search?${newParams.toString()}`);
+    setShowSuggestions(false);
+    setShowPlaceSuggestions(false);
   };
 
   const handlePlaceKeyDown = (e: React.KeyboardEvent) => {

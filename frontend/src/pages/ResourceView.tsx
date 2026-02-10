@@ -427,6 +427,18 @@ export function ResourceView({
   // Extract data from the new structure
   const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
 
+  // Open Graph / Twitter card image: prefer thumbnail; when none or placeholder, use static map when available
+  const thumbnailUrl = data?.meta?.ui?.thumbnail_url;
+  const isPlaceholderThumbnail =
+    !thumbnailUrl ||
+    (typeof thumbnailUrl === 'string' && thumbnailUrl.includes('placeholder'));
+  const hasStaticMap = Boolean(data?.meta?.ui?.static_map && data?.id);
+  const ogImage = !isPlaceholderThumbnail
+    ? thumbnailUrl
+    : hasStaticMap
+      ? `/resources/${data.id}/static-map`
+      : undefined;
+
   return (
     <div className="min-h-screen flex flex-col">
       {data?.attributes && (
@@ -437,7 +449,7 @@ export function ResourceView({
               ? data.attributes.ogm.dct_description_sm[0]
               : (data.attributes.ogm.dct_description_sm as string) || ''
           }
-          image={data?.meta?.ui?.thumbnail_url}
+          image={ogImage}
           url={currentUrl}
           type="article"
         />

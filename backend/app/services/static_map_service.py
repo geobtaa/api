@@ -5,12 +5,12 @@ This service uses py-staticmaps to generate static map images from locn_geometry
 Maps are stored in Redis (like thumbnails) for sharing between containers.
 """
 
+import io
 import json
 import logging
 import os
 import re
-from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import redis
 import staticmaps
@@ -25,11 +25,12 @@ logger = logging.getLogger(__name__)
 
 # Custom Carto tile provider (not available in py-staticmaps v0.4.0)
 # Based on: https://github.com/flopp/py-staticmaps/blob/e0266dc40163e87ce42a0ea5d8836a9a4bd92208/staticmaps/tile_provider.py#L132
+# Empty attribution: py-staticmaps skips rendering when attribution is "" (cairo_renderer line 145).
 tile_provider_Carto = staticmaps.TileProvider(
     "carto",
     url_pattern="http://$s.basemaps.cartocdn.com/rastertiles/light_all/$z/$x/$y.png",
     shards=["a", "b", "c", "d"],
-    attribution="Maps (C) CARTO (C) OpenStreetMap.org contributors",
+    attribution="",
     max_zoom=20,
 )
 
@@ -247,9 +248,225 @@ class StaticMapService:
             logger.error(f"Error extracting bbox from GeoJSON: {e}")
             return None
 
-    def generate_map(self, resource_id: str, geometry: Any) -> Optional[Path]:
+    # Match show page (LocationMap) styling: #2563eb, fill 0.1, stroke 0.6, weight 2
+    _FILL_COLOR = staticmaps.Color(37, 99, 235, 26)  # 10% opacity
+    _STROKE_COLOR = staticmaps.Color(37, 99, 235, 153)  # 60% opacity
+    _LINE_WIDTH = 2
+
+    def _geojson_to_staticmaps_objects(self, geojson: Dict[str, Any]) -> Optional[List[Any]]:
+        """
+        Convert GeoJSON geometry to py-staticmaps Area/Line objects (best geometry).
+        Matches show page style: polygon fill + stroke, line stroke.
+        Returns None if geometry is not a supported GeoJSON type or parsing fails.
+        """
+        if not isinstance(geojson, dict):
+            return None
+        geom_type = geojson.get("type")
+        coordinates = geojson.get("coordinates")
+        if not coordinates:
+            return None
+
+        objects: List[Any] = []
+
+        def coord_to_latlngs(coord_list: list) -> list:
+            """GeoJSON coords are [lon, lat]; create_latlng(lat, lon)."""
+            return [staticmaps.create_latlng(float(lat), float(lon)) for lon, lat in coord_list]
+
+        try:
+            if geom_type == "Polygon":
+                # coordinates: [ exterior_ring, hole1, ... ]; ring is [ [lon,lat], ... ]
+                for ring in coordinates:
+                    if len(ring) < 3:
+                        continue
+                    points = coord_to_latlngs(ring)
+                    # Close ring (GeoJSON may list first point once at end; ensure closed)
+                    if len(points) > 1:
+                        points.append(points[0])
+                    area = staticmaps.Area(
+                        points,
+                        fill_color=self._FILL_COLOR,
+                        color=self._STROKE_COLOR,
+                        width=self._LINE_WIDTH,
+                    )
+                    objects.append(area)
+
+            elif geom_type == "MultiPolygon":
+                # coordinates: [ polygon1, ... ]; each polygon is [ ring1, ring2, ... ]
+                for polygon_rings in coordinates:
+                    for ring in polygon_rings:
+                        if len(ring) < 3:
+                            continue
+                        points = coord_to_latlngs(ring)
+                        if len(points) > 1:
+                            points.append(points[0])
+                        area = staticmaps.Area(
+                            points,
+                            fill_color=self._FILL_COLOR,
+                            color=self._STROKE_COLOR,
+                            width=self._LINE_WIDTH,
+                        )
+                        objects.append(area)
+                # Show full extent with a bbox rectangle (show page uses dashed; py-staticmaps
+                # has no dashed stroke, so we draw it solid)
+                bbox = self._extract_bbox_from_geojson(geojson)
+                if bbox:
+                    xmin, ymin, xmax, ymax = bbox
+                    extent_points = [
+                        staticmaps.create_latlng(ymin, xmin),
+                        staticmaps.create_latlng(ymax, xmin),
+                        staticmaps.create_latlng(ymax, xmax),
+                        staticmaps.create_latlng(ymin, xmax),
+                        staticmaps.create_latlng(ymin, xmin),
+                    ]
+                    extent_line = staticmaps.Line(
+                        extent_points,
+                        color=self._STROKE_COLOR,
+                        width=self._LINE_WIDTH,
+                    )
+                    objects.append(extent_line)
+
+            elif geom_type == "LineString":
+                if len(coordinates) < 2:
+                    return None
+                points = coord_to_latlngs(coordinates)
+                line = staticmaps.Line(
+                    points,
+                    color=self._STROKE_COLOR,
+                    width=self._LINE_WIDTH,
+                )
+                objects.append(line)
+
+            elif geom_type == "MultiLineString":
+                for line_coords in coordinates:
+                    if len(line_coords) < 2:
+                        continue
+                    points = coord_to_latlngs(line_coords)
+                    line = staticmaps.Line(
+                        points,
+                        color=self._STROKE_COLOR,
+                        width=self._LINE_WIDTH,
+                    )
+                    objects.append(line)
+
+            else:
+                return None
+
+            return objects if objects else None
+        except (IndexError, TypeError, ValueError) as e:
+            logger.debug(f"Could not convert GeoJSON to staticmaps objects: {e}")
+            return None
+
+    def _geometry_to_geojson_dict(self, geometry: Any) -> Optional[Dict[str, Any]]:
+        """If geometry is or parses to a GeoJSON geometry dict, return it; else None."""
+        if (
+            isinstance(geometry, dict)
+            and geometry.get("type")
+            and geometry.get("coordinates") is not None
+        ):
+            return geometry
+        if isinstance(geometry, str):
+            geometry = geometry.strip()
+            try:
+                parsed = json.loads(geometry)
+                if (
+                    isinstance(parsed, dict)
+                    and parsed.get("type")
+                    and parsed.get("coordinates") is not None
+                ):
+                    return parsed
+            except (json.JSONDecodeError, ValueError):
+                pass
+            # Try WKT (e.g. POLYGON, MULTIPOLYGON, LINESTRING) for locn_geometry
+            try:
+                geom = shapely_wkt.loads(geometry)
+                geojson = geom.__geo_interface__
+                if (
+                    isinstance(geojson, dict)
+                    and geojson.get("type")
+                    and geojson.get("coordinates") is not None
+                ):
+                    return geojson
+            except Exception:
+                pass
+        return None
+
+    def _render_and_cache(self, context: Any, resource_id: str) -> Optional[bytes]:
+        """Render context to PNG bytes and store in Redis. Returns bytes or None."""
+        from PIL import Image
+
+        try:
+            logger.debug(
+                f"Rendering map for resource {resource_id} (this requires tile downloads)"
+            )
+            cairo_surface = context.render_cairo(self.map_width, self.map_height)
+            buf = io.BytesIO()
+            cairo_surface.write_to_png(buf)
+            buf.seek(0)
+            image = Image.open(buf)
+        except Exception as e:
+            error_msg = str(e).lower()
+            if any(
+                keyword in error_msg
+                for keyword in ["connection", "timeout", "network", "unreachable", "refused"]
+            ):
+                logger.error(
+                    f"Network error rendering map for resource {resource_id}: {e}\n"
+                    "This may indicate that outbound HTTP traffic is blocked by a firewall.\n"
+                    "The static map service requires outbound access to tile servers.\n"
+                    "Run scripts/debug_static_map.py on the server to diagnose network issues."
+                )
+            else:
+                logger.warning(f"Failed to render with cairo, trying pillow: {e}")
+            try:
+                image = context.render_pillow(self.map_width, self.map_height)
+            except Exception as pillow_error:
+                error_msg = str(pillow_error).lower()
+                if any(
+                    keyword in error_msg
+                    for keyword in [
+                        "connection",
+                        "timeout",
+                        "network",
+                        "unreachable",
+                        "refused",
+                    ]
+                ):
+                    logger.error(
+                        f"Network error rendering map with pillow for resource "
+                        f"{resource_id}: {pillow_error}\n"
+                        "This may indicate that outbound HTTP traffic is blocked "
+                        "by a firewall.\n"
+                        "The static map service requires outbound access to "
+                        "tile servers.\n"
+                        "Run scripts/debug_static_map.py on the server to "
+                        "diagnose network issues."
+                    )
+                else:
+                    logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
+                raise
+        buf = io.BytesIO()
+        image.save(buf, "PNG")
+        map_bytes = buf.getvalue()
+        if self.map_cache:
+            try:
+                map_key = f"static_map:{resource_id}"
+                self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
+                logger.info(
+                    f"Generated and cached static map for resource {resource_id} "
+                    f"(size: {len(map_bytes)} bytes)"
+                )
+                return map_bytes
+            except Exception as e:
+                logger.error(f"Failed to cache static map for {resource_id}: {e}")
+                return None
+        logger.warning("Redis not available, cannot cache static map")
+        return None
+
+    def generate_map(self, resource_id: str, geometry: Any) -> Optional[bytes]:
         """
         Generate a static map image from a geometry and store it in Redis.
+        Uses full GeoJSON (polygons, lines) when available to match the show page;
+        otherwise falls back to a bbox rectangle.
 
         Args:
             resource_id: The resource ID
@@ -259,7 +476,13 @@ class StaticMapService:
             PNG image bytes if successful, None if generation failed
         """
         try:
-            # Parse the geometry to get bounding box coordinates
+            # Prefer best geometry: full GeoJSON (polygon/line) like the show page
+            geojson_dict = self._geometry_to_geojson_dict(geometry)
+            map_objects = (
+                self._geojson_to_staticmaps_objects(geojson_dict) if geojson_dict else None
+            )
+
+            # Parse bbox for skip-global check and for fallback rectangle
             bbox_coords = self._parse_geometry_to_bbox(geometry)
             if not bbox_coords:
                 logger.warning(f"Could not parse geometry for resource {resource_id}")
@@ -274,141 +497,60 @@ class StaticMapService:
 
             # Create a context for the map
             context = staticmaps.Context()
-            # Carto Light tiles (standard provider with labels)
             context.set_tile_provider(tile_provider_Carto)
 
-            # Create a rectangle from the bounding box
-            # py-staticmaps uses (lat, lon) order for coordinates
-            # To make straight edges in Web Mercator projection, we need many intermediate points
-            # along the top and bottom edges (lines of latitude) to approximate straight lines
-            # Calculate number of segments based on bbox width - more segments for wider boxes
-            bbox_width_degrees = xmax - xmin
-            # Use more segments: approximately one per degree of longitude, minimum 50
-            num_segments = max(50, int(bbox_width_degrees * 2))
-
-            points = []
-
-            # West edge: from south to north (straight line, no intermediate points needed)
-            points.append(staticmaps.create_latlng(ymin, xmin))  # Southwest
-            points.append(staticmaps.create_latlng(ymax, xmin))  # Northwest
-
-            # North edge: from west to east (needs many points to appear straight in projection)
-            for i in range(1, num_segments):
-                lon = xmin + (xmax - xmin) * (i / num_segments)
-                points.append(staticmaps.create_latlng(ymax, lon))
-
-            # East edge: from north to south (straight line)
-            points.append(staticmaps.create_latlng(ymax, xmax))  # Northeast
-            points.append(staticmaps.create_latlng(ymin, xmax))  # Southeast
-
-            # South edge: from east to west (needs many points to appear straight in projection)
-            for i in range(num_segments - 1, 0, -1):
-                lon = xmin + (xmax - xmin) * (i / num_segments)
-                points.append(staticmaps.create_latlng(ymin, lon))
-
-            # Close the polygon
-            points.append(points[0])
-
-            rectangle = staticmaps.Area(
-                points,
-                fill_color=staticmaps.Color(
-                    37, 99, 235, 26
-                ),  # #2563eb with 10% opacity (fill-opacity="0.1")
-                color=staticmaps.Color(
-                    37, 99, 235, 153
-                ),  # #2563eb with 60% opacity (stroke-opacity="0.6")
-                width=2,
-            )
-
-            # Add the rectangle to the context
-            context.add_object(rectangle)
-
-            # Render the map (this will auto-center and zoom to fit the objects)
-            # This step requires outbound HTTP requests to fetch map tiles
-            # Use render_cairo instead of render_pillow to avoid Pillow 10+ compatibility issues
-            try:
-                logger.debug(
-                    f"Rendering map for resource {resource_id} (this requires tile downloads)"
-                )
-                cairo_surface = context.render_cairo(self.map_width, self.map_height)
-                # Convert cairo ImageSurface to Pillow Image
-                import io
-
-                from PIL import Image
-
-                buf = io.BytesIO()
-                cairo_surface.write_to_png(buf)
-                buf.seek(0)
-                image = Image.open(buf)
-            except Exception as e:
-                error_msg = str(e).lower()
-                # Check for network-related errors
-                if any(
-                    keyword in error_msg
-                    for keyword in ["connection", "timeout", "network", "unreachable", "refused"]
-                ):
-                    logger.error(
-                        f"Network error rendering map for resource {resource_id}: {e}\n"
-                        "This may indicate that outbound HTTP traffic is blocked by a firewall.\n"
-                        "The static map service requires outbound access to tile servers.\n"
-                        "Run scripts/debug_static_map.py on the server to diagnose network issues."
-                    )
-                else:
-                    logger.warning(f"Failed to render with cairo, trying pillow: {e}")
-                # Fallback to pillow if cairo fails (may fail with Pillow 10+)
-                try:
-                    image = context.render_pillow(self.map_width, self.map_height)
-                except Exception as pillow_error:
-                    error_msg = str(pillow_error).lower()
-                    if any(
-                        keyword in error_msg
-                        for keyword in [
-                            "connection",
-                            "timeout",
-                            "network",
-                            "unreachable",
-                            "refused",
-                        ]
-                    ):
-                        logger.error(
-                            f"Network error rendering map with pillow for resource "
-                            f"{resource_id}: {pillow_error}\n"
-                            "This may indicate that outbound HTTP traffic is blocked "
-                            "by a firewall.\n"
-                            "The static map service requires outbound access to "
-                            "tile servers.\n"
-                            "Run scripts/debug_static_map.py on the server to "
-                            "diagnose network issues."
-                        )
-                    else:
-                        logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
-                    raise
-
-            # Save the map to PNG bytes instead of file
-            buf = io.BytesIO()
-            image.save(buf, "PNG")
-            map_bytes = buf.getvalue()
-
-            # Store in Redis
-            if self.map_cache:
-                try:
-                    map_key = f"static_map:{resource_id}"
-                    self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
-                    logger.info(
-                        f"Generated and cached static map for resource {resource_id} "
-                        f"(size: {len(map_bytes)} bytes)"
-                    )
-                    return map_bytes
-                except Exception as e:
-                    logger.error(f"Failed to cache static map for {resource_id}: {e}")
-                    return None
+            if map_objects:
+                # Use best geometry: actual polygons/lines (same style as show page)
+                for obj in map_objects:
+                    context.add_object(obj)
             else:
-                logger.warning("Redis not available, cannot cache static map")
-                return None
+                # Fallback: bbox rectangle only (e.g. ENVELOPE or dcat_bbox string)
+                bbox_width_degrees = xmax - xmin
+                num_segments = max(50, int(bbox_width_degrees * 2))
+                points = []
+                points.append(staticmaps.create_latlng(ymin, xmin))
+                points.append(staticmaps.create_latlng(ymax, xmin))
+                for i in range(1, num_segments):
+                    lon = xmin + (xmax - xmin) * (i / num_segments)
+                    points.append(staticmaps.create_latlng(ymax, lon))
+                points.append(staticmaps.create_latlng(ymax, xmax))
+                points.append(staticmaps.create_latlng(ymin, xmax))
+                for i in range(num_segments - 1, 0, -1):
+                    lon = xmin + (xmax - xmin) * (i / num_segments)
+                    points.append(staticmaps.create_latlng(ymin, lon))
+                points.append(points[0])
+                rectangle = staticmaps.Area(
+                    points,
+                    fill_color=self._FILL_COLOR,
+                    color=self._STROKE_COLOR,
+                    width=self._LINE_WIDTH,
+                )
+                context.add_object(rectangle)
+
+            # Render and cache (requires outbound HTTP for tiles)
+            return self._render_and_cache(context, resource_id)
 
         except Exception as e:
             logger.error(
                 f"Error generating static map for resource {resource_id}: {e}", exc_info=True
+            )
+            return None
+
+    def generate_global_map(self, resource_id: str) -> Optional[bytes]:
+        """
+        Generate a world-view static map (no bbox) for resources with no geometry.
+        Uses the same tile layer and cache key as generate_map.
+        """
+        try:
+            context = staticmaps.Context()
+            context.set_tile_provider(tile_provider_Carto)
+            context.set_center(staticmaps.create_latlng(0, 0))
+            context.set_zoom(1)  # whole world in web mercator
+            return self._render_and_cache(context, resource_id)
+        except Exception as e:
+            logger.error(
+                f"Error generating global static map for resource {resource_id}: {e}",
+                exc_info=True,
             )
             return None
 
