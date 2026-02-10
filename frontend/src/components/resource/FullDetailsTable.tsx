@@ -7,6 +7,7 @@ import {
   getFacetField,
 } from '../../constants/fieldLabels';
 import { formatCount } from '../../utils/formatNumber';
+import { linkifyText } from '../../utils/linkifyText';
 
 // Define a type for the attributes
 interface Attributes {
@@ -430,7 +431,16 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       );
     }
 
-    return Array.isArray(value) ? value.join(', ') : value.toString();
+    if (Array.isArray(value)) {
+      return value.map((v, i) => (
+        <React.Fragment key={v.toString()}>
+          {i > 0 && ', '}
+          {linkifyText(v.toString())}
+        </React.Fragment>
+      ));
+    }
+
+    return linkifyText(value.toString());
   };
 
   const renderRelationships = (relationships: Record<string, unknown>) => {

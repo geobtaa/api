@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useParams, Link, useLocation, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowRight, ArrowLeftCircle, XCircle } from 'lucide-react';
@@ -23,6 +23,7 @@ import { LinksTable } from '../components/resource/LinksTable';
 import { SimilarItemsCarousel } from '../components/resource/SimilarItemsCarousel';
 import { EnvironmentNavButtons } from '../components/resource/EnvironmentNavButtons';
 import { formatCount } from '../utils/formatNumber';
+import { DisplayNotes } from '../components/resource/DisplayNotes';
 
 // Define types for search results
 interface SearchResult {
@@ -61,6 +62,7 @@ interface ResourceData extends GeoDocument {
       }>;
       citation?: string;
       thumbnail_url?: string;
+      static_map?: string;
       links?: Record<string, Array<{ label: string; url: string }>>;
       relationships?: Record<string, unknown>;
       similar_items?: Array<{
@@ -153,7 +155,8 @@ export function ResourceView({
 
   // Calculate pagination state
   const isLastInCurrentSet =
-    searchState?.currentIndex === searchState?.searchResults.length - 1;
+    !!searchState &&
+    searchState.currentIndex === searchState.searchResults.length - 1;
   const isFirstInCurrentSet = searchState?.currentIndex === 0;
 
   // Update these calculations to use absoluteIndex when available
@@ -444,11 +447,13 @@ export function ResourceView({
       {data?.attributes && (
         <Seo
           title={data.attributes.ogm.dct_title_s}
-          description={
-            Array.isArray(data.attributes.ogm.dct_description_sm)
-              ? data.attributes.ogm.dct_description_sm[0]
-              : (data.attributes.ogm.dct_description_sm as string) || ''
-          }
+          description={(() => {
+            const desc = data.attributes.ogm.dct_description_sm;
+            if (Array.isArray(desc)) {
+              return desc[0] ?? '';
+            }
+            return typeof desc === 'string' ? desc : '';
+          })()}
           image={ogImage}
           url={currentUrl}
           type="article"
@@ -521,6 +526,13 @@ export function ResourceView({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Title section */}
                 <div className="lg:col-span-8">
+                  {/* Display notes from OGM Aardvark (gbl_displayNote_sm) */}
+                  {Array.isArray(data.attributes.ogm.gbl_displayNote_sm) &&
+                    data.attributes.ogm.gbl_displayNote_sm.length > 0 && (
+                      <DisplayNotes
+                        notes={data.attributes.ogm.gbl_displayNote_sm}
+                      />
+                    )}
                   <h1 className="text-3xl font-bold text-gray-900">
                     {data.attributes.ogm.dct_title_s}
                   </h1>
