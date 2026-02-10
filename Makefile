@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex verify-h3-index clear_cache frontend-reset
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex es-unblock populate-relationships verify-h3-index clear_cache frontend-reset
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -215,6 +215,15 @@ db-sync: db-export db-import
 # Search indexing tasks
 # ─────────────────────────────────────────────────────────────────────────
 
+# Clear Elasticsearch read-only block (after freeing disk space post flood-stage).
+# Run this when reindex fails with "flood stage disk watermark exceeded"; then run make reindex.
+es-unblock:
+	@echo "Clearing read-only block on all Elasticsearch indices..."
+	@docker compose exec -T elasticsearch curl -s -X PUT "http://localhost:9200/_all/_settings" \
+		-H "Content-Type: application/json" \
+		-d '{"index.blocks.read_only_allow_delete": null}' || true
+	@echo "Done. Run 'make reindex' if you need to reindex."
+
 # Reindex all resources into Elasticsearch
 reindex:
 	@echo "Reindexing all resources into Elasticsearch (same logic as /admin/reindex)..."
@@ -223,6 +232,13 @@ reindex:
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
 		cd /app/backend && python scripts/reindex_admin.py'
+
+# Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
+# Run after ingest or when relationship columns change. Search "Has part" filter uses DB + ES;
+# reindex copies resources.dct_isPartOf_sm into Elasticsearch for filtering.
+populate-relationships:
+	@echo "Populating resource_relationships from resources table..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/populate_relationships.py'
 
 # Ingest BTAA fixture JSON files into the DB (run inside api container).
 # Usage: make ingest [FIXTURES_DIR=btaa_fixtures_data] [REPO_NAME=btaa_fixtures]

@@ -387,12 +387,12 @@ describe('FacetList Component', () => {
       const facetButtons = screen.getAllByRole('button');
       expect(facetButtons.length).toBeGreaterThan(0);
 
-      // Check that buttons contain facet labels
+      // Main facet value buttons include count e.g. "Paper Maps (45)"; exclude button has "Exclude ..."
       expect(
-        screen.getByRole('button', { name: /Paper Maps/ })
+        screen.getByRole('button', { name: /Paper Maps\s*\(\d+\)/ })
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: /MIT Libraries/ })
+        screen.getByRole('button', { name: /MIT Libraries\s*\(\d+\)/ })
       ).toBeInTheDocument();
     });
 
@@ -404,7 +404,7 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       expect(paperMapsButton).toHaveClass('text-gray-600');
       expect(paperMapsButton).not.toHaveClass('text-blue-600');
@@ -421,7 +421,7 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       expect(paperMapsButton).toHaveClass(
         'text-blue-600',
@@ -441,7 +441,7 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       expect(paperMapsButton).toHaveTextContent('×');
     });
@@ -454,7 +454,7 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       expect(paperMapsButton).not.toHaveTextContent('×');
     });
@@ -607,13 +607,12 @@ describe('FacetList Component', () => {
       expect(
         screen.getByRole('heading', { level: 3, name: 'Georeferenced' })
       ).toBeInTheDocument(); // Facet Title
+      // Main value buttons include count e.g. "Georeferenced (10)"; exclude buttons have "Exclude ..."
       expect(
-        screen.getByRole('button', { name: /Georeferenced/ })
+        screen.getByRole('button', { name: /Georeferenced\s*\(\d+\)/ })
       ).toBeInTheDocument(); // Value "true" renamed
-      // Note: The button text content might include the hit count like "Georeferenced (10)"
-      // so finding by role/name with regex is safer.
       expect(
-        screen.getByRole('button', { name: /Not georeferenced/ })
+        screen.getByRole('button', { name: /Not georeferenced\s*\(\d+\)/ })
       ).toBeInTheDocument(); // Value "false" renamed
     });
 
@@ -654,13 +653,13 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       const mitLibrariesButton = screen.getByRole('button', {
-        name: /MIT Libraries/,
+        name: /MIT Libraries\s*\(\d+\)/,
       });
       const pointDataButton = screen.getByRole('button', {
-        name: /Point Data/,
+        name: /Point Data\s*\(\d+\)/,
       });
 
       expect(paperMapsButton).toHaveClass('text-blue-600');
@@ -680,10 +679,10 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       const pointDataButton = screen.getByRole('button', {
-        name: /Point Data/,
+        name: /Point Data\s*\(\d+\)/,
       });
 
       expect(paperMapsButton).toHaveClass('text-blue-600');
@@ -722,7 +721,9 @@ describe('FacetList Component', () => {
         </TestWrapper>
       );
 
-      const yearButton = screen.getByRole('button', { name: /2023/ });
+      const yearButton = screen.getByRole('button', {
+        name: /2023\s*\(\d+\)/,
+      });
       expect(yearButton).toHaveClass('text-blue-600');
     });
 
@@ -738,7 +739,7 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
 
       const user = userEvent.setup();
@@ -795,7 +796,7 @@ describe('FacetList Component', () => {
       );
 
       const paperMapsButton = screen.getByRole('button', {
-        name: /Paper Maps/,
+        name: /Paper Maps\s*\(\d+\)/,
       });
       expect(paperMapsButton).toHaveClass('hover:bg-gray-100');
     });
@@ -981,7 +982,9 @@ describe('FacetList Component', () => {
         </TestWrapper>
       );
 
-      const activeButton = screen.getByRole('button', { name: /Paper Maps/ });
+      const activeButton = screen.getByRole('button', {
+        name: /Paper Maps\s*\(\d+\)/,
+      });
       expect(activeButton).toHaveClass(
         'text-blue-600',
         'font-medium',
@@ -997,7 +1000,9 @@ describe('FacetList Component', () => {
         </TestWrapper>
       );
 
-      const inactiveButton = screen.getByRole('button', { name: /Paper Maps/ });
+      const inactiveButton = screen.getByRole('button', {
+        name: /Paper Maps\s*\(\d+\)/,
+      });
       expect(inactiveButton).toHaveClass(
         'text-gray-600',
         'hover:text-gray-900'

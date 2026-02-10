@@ -13,6 +13,10 @@ export const FACET_LABELS: Record<string, string> = {
   dct_subjects_sm: 'Subject',
   dcat_theme_sm: 'Theme',
   gbl_georeferenced_b: 'Georeferenced',
+  // Relationship / collection filters (Active Filters display)
+  dct_isPartOf_sm: 'Is part of',
+  pcdm_memberOf_sm: 'Collection records',
+  b1g_localCollectionLabel_sm: 'Local collection',
 };
 
 // Backward-compat mapping for legacy *_agg IDs to new field IDs

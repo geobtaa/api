@@ -52,6 +52,12 @@ python process_allmaps.py --all
 python scripts/populate_relationships.py
 ```
 
+From the project root you can run:
+```bash
+make populate-relationships
+```
+(See [relationships.md](relationships.md) for how relationships interact with search and how to query the DB.)
+
 ### 3. `generate_fast_embeddings.py`
 
 **Purpose**: Generates and stores embeddings for FAST gazetteer data using OpenAI's API.

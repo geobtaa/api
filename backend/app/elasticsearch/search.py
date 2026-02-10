@@ -50,6 +50,9 @@ KEYWORD_FILTER_FIELDS = {
     "dcat_keyword_sm",
     "time_period",  # Auto-mapped as text with keyword subfield
     "ogm_repo",
+    "dct_isPartOf_sm",  # Relationship filter (has part / is part of)
+    "pcdm_memberOf_sm",  # Relationship filter (collection records / member of)
+    "b1g_localCollectionLabel_sm",  # Local collection facet
 }
 
 

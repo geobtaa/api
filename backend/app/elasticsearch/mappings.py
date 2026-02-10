@@ -104,6 +104,21 @@ INDEX_MAPPING = {
                 "type": "text",
                 "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
+            # Relationship filter: children list parent ID(s) here; used for "Has part" search.
+            "dct_isPartOf_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
+            },
+            # Members list collection ID(s) here; used for "Collection records" search filter.
+            "pcdm_memberOf_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
+            },
+            # Local collection label (facet in Full Details, filterable).
+            "b1g_localCollectionLabel_sm": {
+                "type": "text",
+                "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
+            },
             # Date-ish fields that often contain free-form or fuzzy text (e.g. "1656-1677?" or
             # "2021-08-31 to *"). We index them as keywords so Elasticsearch never tries to parse
             # them as strict dates.

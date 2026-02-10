@@ -360,6 +360,11 @@ class SearchService:
             "geo_country_agg": "geo_country",
             "geo_region_agg": "geo_region",
             "geo_county_agg": "geo_county",
+            # Relationship filters (has part / is part of; collection records / member of)
+            "dct_isPartOf_sm": "dct_isPartOf_sm",
+            "pcdm_memberOf_sm": "pcdm_memberOf_sm",
+            # Local collection label (facets in Full Details)
+            "b1g_localCollectionLabel_sm": "b1g_localCollectionLabel_sm",
         }
 
         # Define allowed direct fields (the mapping values)

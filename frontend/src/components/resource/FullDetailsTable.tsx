@@ -28,21 +28,32 @@ interface FullDetailsTableProps {
   };
 }
 
+// Labels for relationship sections. Backend returns predicates with prefix (dct:, pcdm:);
+// include both prefixed and unprefixed so either form displays a friendly label.
 const relationshipLabels: { [key: string]: string } = {
   memberOf: 'Belongs to collection...',
   'pcdm:memberOf': 'Belongs to collection...',
   hasMember: 'Collection records...',
+  'pcdm:hasMember': 'Collection records...',
   isPartOf: 'Is part of...',
   'dct:isPartOf': 'Is part of...',
   hasPart: 'Has part...',
+  'dct:hasPart': 'Has part...',
   relation: 'Related records...',
   'dct:relation': 'Related records...',
   replaces: 'Replaces...',
+  'dct:replaces': 'Replaces...',
   isReplacedBy: 'Is replaced by...',
+  'dct:isReplacedBy': 'Is replaced by...',
   isSourceOf: 'Source records...',
+  'dct:isSourceOf': 'Source records...',
   source: 'Derived records...',
+  'dct:source': 'Derived records...',
   isVersionOf: 'Is version of...',
+  'dct:isVersionOf': 'Is version of...',
   hasVersion: 'Has version...',
+  'dct:hasVersion': 'Has version...',
+  b1g_localCollectionLabel_sm: 'Local collection...',
   browse_all_no_count: 'Browse all records...',
   browse_all: 'Browse all %{count} records...',
 };
@@ -199,6 +210,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     b1g_geodcat_spatialResolutionAsText_sm: 'Spatial Resolution (Text)',
     b1g_dct_provenanceStatement_sm: 'Provenance Statement',
     b1g_adminTags_sm: 'Admin Tags',
+    b1g_localCollectionLabel_sm: 'Local collection',
   };
 
   // Group fields by their prefix/category
@@ -255,7 +267,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {i > 0 && ', '}
             {facetField && shouldLink ? (
               <Link
-                to={`/search?fq[${facetField}][]=${encodeURIComponent(place)}`}
+                to={`/search?include_filters[${facetField}][]=${encodeURIComponent(place)}`}
                 className="text-blue-600 hover:text-blue-800"
               >
                 {place}
@@ -408,12 +420,14 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     const facetField = getFacetField(key);
 
     if (facetField && shouldLink) {
+      const searchUrl = (val: string) =>
+        `/search?include_filters[${facetField}][]=${encodeURIComponent(val)}`;
       if (Array.isArray(value)) {
         return value.map((v, i) => (
           <React.Fragment key={v}>
             {i > 0 && ', '}
             <Link
-              to={`/search?fq[${facetField}][]=${encodeURIComponent(v)}`}
+              to={searchUrl(String(v))}
               className="text-blue-600 hover:text-blue-800"
             >
               {v}
@@ -423,7 +437,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       }
       return (
         <Link
-          to={`/search?fq[${facetField}][]=${encodeURIComponent(value)}`}
+          to={searchUrl(value.toString())}
           className="text-blue-600 hover:text-blue-800"
         >
           {value.toString()}
@@ -462,10 +476,18 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         // Determine if we need to show the "Browse all" link
         const showBrowseAll = totalCount > 5;
 
-        // Map relationship type to its corresponding facet field if it exists
-        // This would depend on how your search system handles relationship facets
-        // For example: memberOf -> member_of_agg, source -> source_agg, etc.
-        const relationshipFacetField = `${relationshipType}_agg`;
+        // Map relationship type to the search filter field for "Browse all" link.
+        // Has part: show resources that are part of this one (dct_isPartOf_sm = this ID).
+        // Collection records (hasMember): show resources that are members of this collection (pcdm_memberOf_sm = this ID).
+        const relationshipToFacetField: Record<string, string> = {
+          'dct:hasPart': 'dct_isPartOf_sm',
+          hasPart: 'dct_isPartOf_sm',
+          'pcdm:hasMember': 'pcdm_memberOf_sm',
+          hasMember: 'pcdm_memberOf_sm',
+        };
+        const relationshipFacetField =
+          relationshipToFacetField[relationshipType] ??
+          `${relationshipType}_agg`;
 
         // Get the ID of the current item to use as a filter
         // Ensure it's a string value for encodeURIComponent
@@ -506,7 +528,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
               {showBrowseAll && (
                 <li className="text-sm text-gray-900 mt-2 pt-2 border-t border-gray-200">
                   <Link
-                    to={`/search?fq[${relationshipFacetField}][]=${encodeURIComponent(currentItemId)}`}
+                    to={`/search?include_filters[${relationshipFacetField}][]=${encodeURIComponent(currentItemId)}`}
                     className="text-blue-600 hover:text-blue-800 flex items-center"
                   >
                     {relationshipLabels.browse_all
@@ -570,7 +592,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {metadataFacets.map(([key, value]) => (
               <div key={key} className="mb-4">
                 <h5 className="text-sm font-medium text-gray-500">
-                  {humanizeFieldName(key)}
+                  {customFieldLabels[key] || humanizeFieldName(key)}
                 </h5>
                 <ul className="list-none">
                   <li className="text-sm text-gray-900">

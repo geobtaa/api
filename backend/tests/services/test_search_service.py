@@ -571,6 +571,17 @@ class TestSearchService:
         assert result["geo_region"] == ["Midwest"]
         assert result["geo_county"] == ["Hennepin"]
 
+    def test_extract_filter_queries_relationship_fields(self):
+        """extract_filter_queries accepts relationship fields (Has part / Collection records)."""
+        service = SearchService()
+
+        # Direct field names used by frontend include_filters for "Browse all" links
+        params = "fq[dct_isPartOf_sm][]=parent-uuid-123&fq[pcdm_memberOf_sm][]=collection-uuid-456"
+        result = service.extract_filter_queries(params)
+
+        assert result["dct_isPartOf_sm"] == ["parent-uuid-123"]
+        assert result["pcdm_memberOf_sm"] == ["collection-uuid-456"]
+
     @pytest.mark.asyncio
     async def test_get_resource_not_found(self):
         """Test get_resource with NotFoundError."""

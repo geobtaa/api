@@ -172,6 +172,48 @@ class TestElasticsearchSearch:
                 ]
 
     @pytest.mark.asyncio
+    async def test_search_resources_relationship_filters_use_keyword_subfield(self):
+        """Relationship filters (dct_isPartOf_sm, pcdm_memberOf_sm) use .keyword for exact match."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                    include_filters={
+                        "dct_isPartOf_sm": ["parent-id-123"],
+                        "pcdm_memberOf_sm": ["collection-id-456"],
+                    },
+                )
+
+                mock_es.search.assert_called_once()
+                search_query = mock_es.search.call_args.kwargs["query"]
+                filter_clauses = search_query["bool"]["filter"]
+
+                terms_filters = [c for c in filter_clauses if "terms" in c]
+                assert len(terms_filters) == 2
+                by_field = {
+                    list(f["terms"].keys())[0]: list(f["terms"].values())[0] for f in terms_filters
+                }
+                assert "dct_isPartOf_sm.keyword" in by_field
+                assert "pcdm_memberOf_sm.keyword" in by_field
+                assert by_field["dct_isPartOf_sm.keyword"] == ["parent-id-123"]
+                assert by_field["pcdm_memberOf_sm.keyword"] == ["collection-id-456"]
+
+    @pytest.mark.asyncio
     async def test_search_resources_with_geospatial_polygon_filter(self):
         """Ensure include_filters.geo polygon creates a geo_shape filter."""
 
