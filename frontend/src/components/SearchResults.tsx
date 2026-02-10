@@ -380,18 +380,30 @@ export function SearchResults({
                   </Link>
                 </div>
 
-                {/* Temporal information and Description (inline) - Hide in compact mode */}
-                {!isCompact &&
-                  (ogm?.dct_description_sm &&
-                  Array.isArray(ogm.dct_description_sm) &&
-                  ogm.dct_description_sm.length > 0 ? (
-                    <p className="text-gray-600 mb-4 line-clamp-2">
-                      {ogm.dct_description_sm[0] &&
-                        (typeof ogm.dct_description_sm[0] === 'string'
-                          ? ogm.dct_description_sm[0]
-                          : String(ogm.dct_description_sm[0]))}
-                    </p>
-                  ) : null)}
+                {/* Year and resource type inline before description - Hide in compact mode */}
+                {!isCompact && (
+                  <p className="text-gray-600 mb-4 line-clamp-2">
+                    <span className="text-gray-500 text-sm font-medium flex-shrink-0">
+                      {ogm?.gbl_indexYear_im?.[0] ?? '—'}
+                      <span className="mx-1.5" aria-hidden>
+                        ·
+                      </span>
+                      <span className="uppercase tracking-tighter opacity-90">
+                        {resourceClass || 'Item'}
+                      </span>
+                    </span>
+                    {ogm?.dct_description_sm &&
+                    Array.isArray(ogm.dct_description_sm) &&
+                    ogm.dct_description_sm.length > 0 ? (
+                      <span className="ml-1">
+                        {ogm.dct_description_sm[0] &&
+                          (typeof ogm.dct_description_sm[0] === 'string'
+                            ? ogm.dct_description_sm[0]
+                            : String(ogm.dct_description_sm[0]))}
+                      </span>
+                    ) : null}
+                  </p>
+                )}
 
                 {/* Subject and Theme tags */}
                 {isCompact ? (
@@ -492,36 +504,25 @@ export function SearchResults({
                       ) : null;
                     })()}
 
-                    {/* Metadata Row: Publisher, Year, Resource Class */}
-                    <div className="flex items-center justify-between text-sm text-gray-500 border-t border-gray-100 pt-3 mt-auto">
-                      <div className="flex items-center gap-4">
-                        {ogm?.dc_publisher_sm &&
-                          Array.isArray(ogm.dc_publisher_sm) &&
-                          ogm.dc_publisher_sm.length > 0 && (
-                            <div className="flex items-center gap-1">
-                              <BookOpen size={16} />
-                              <span>
-                                {ogm.dc_publisher_sm
-                                  .map((item) =>
-                                    typeof item === 'string'
-                                      ? item
-                                      : String(item)
-                                  )
-                                  .join(', ')}
-                              </span>
-                            </div>
-                          )}
-                        {/* Year */}
-                        {ogm?.gbl_indexYear_im?.[0] && (
-                          <span>{ogm.gbl_indexYear_im[0]}</span>
-                        )}
-                      </div>
-
-                      {/* Resource Class Badge (List View) */}
-                      <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded">
-                        {resourceClass || 'Item'}
-                      </span>
-                    </div>
+                    {/* Metadata Row: Publisher only (year and resource class are inline with description) */}
+                    {ogm?.dc_publisher_sm &&
+                      Array.isArray(ogm.dc_publisher_sm) &&
+                      ogm.dc_publisher_sm.length > 0 && (
+                        <div className="flex items-center text-sm text-gray-500 border-t border-gray-100 pt-3 mt-auto">
+                          <div className="flex items-center gap-1">
+                            <BookOpen size={16} />
+                            <span>
+                              {ogm.dc_publisher_sm
+                                .map((item) =>
+                                  typeof item === 'string'
+                                    ? item
+                                    : String(item)
+                                )
+                                .join(', ')}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                   </div>
                 )}
               </div>

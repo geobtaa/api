@@ -55,23 +55,39 @@ export function parseSearchParams(searchParams: URLSearchParams) {
   const query = queryParam || '';
   const page = parseInt(searchParams.get('page') || '1', 10);
 
-  // Get all facet parameters (now using fq instead of f)
-  const facets = Array.from(searchParams.entries())
+  // Get all facet parameters (now using fq instead of f); dedupe by (field, value) so duplicate URL params don't show as repeated constraints
+  const rawFacets = Array.from(searchParams.entries())
     .filter(
-      ([key]) => key.startsWith('fq[') || key.startsWith('include_filters[')
+      ([key]) =>
+        (key.startsWith('fq[') || key.startsWith('include_filters[')) &&
+        !key.startsWith('include_filters[geo]')
     )
     .map(([key, value]) => {
       const field = key.match(/(?:fq|include_filters)\[(.*?)\]/)?.[1] || '';
       return { field, value };
     });
+  const seenFacets = new Set<string>();
+  const facets = rawFacets.filter(({ field, value }) => {
+    const key = `${field}\0${value}`;
+    if (seenFacets.has(key)) return false;
+    seenFacets.add(key);
+    return true;
+  });
 
-  // Get excluded facet parameters
-  const excludeFacets = Array.from(searchParams.entries())
+  // Get excluded facet parameters; dedupe by (field, value)
+  const rawExcludeFacets = Array.from(searchParams.entries())
     .filter(([key]) => key.startsWith('exclude_filters['))
     .map(([key, value]) => {
       const field = key.match(/exclude_filters\[(.*?)\]/)?.[1] || '';
       return { field, value };
     });
+  const seenExclude = new Set<string>();
+  const excludeFacets = rawExcludeFacets.filter(({ field, value }) => {
+    const key = `${field}\0${value}`;
+    if (seenExclude.has(key)) return false;
+    seenExclude.add(key);
+    return true;
+  });
 
   const advancedQuery = parseAdvancedClauses(searchParams.get('adv_q'));
 

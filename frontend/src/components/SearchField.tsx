@@ -200,23 +200,7 @@ export function SearchField({
       bottomRightLon.toString()
     );
 
-    // Preserve category filters
-    const categoryFilters = searchParams.getAll(
-      'include_filters[gbl_resourceClass_sm][]'
-    );
-    const legacyCategoryFilters = searchParams.getAll(
-      'fq[gbl_resourceClass_sm][]'
-    );
-
-    if (categoryFilters.length > 0) {
-      categoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    } else if (legacyCategoryFilters.length > 0) {
-      legacyCategoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    }
+    // Other filters (e.g. category) are already in newParams from the copy above; do not re-append or we duplicate.
 
     // Reset to page 1 when bbox changes
     newParams.delete('page');

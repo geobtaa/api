@@ -422,10 +422,14 @@ export function FacetList({ facets }: FacetListProps) {
                               : 'text-gray-400 hover:text-red-600 hover:bg-gray-100'
                           } ${excluded ? '' : 'opacity-0 group-hover:opacity-100'}`}
                           aria-label={
-                            excluded ? 'Remove exclusion' : 'Exclude this value'
+                            excluded
+                              ? `Remove exclusion: ${facetLabel}: ${item.label}`
+                              : `Exclude ${facetLabel}: ${item.label}`
                           }
                           title={
-                            excluded ? 'Remove exclusion' : 'Exclude this value'
+                            excluded
+                              ? `Remove exclusion: ${facetLabel}: ${item.label}`
+                              : `Exclude ${facetLabel}: ${item.label}`
                           }
                         >
                           <MinusCircle className="w-4 h-4" />

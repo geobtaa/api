@@ -94,7 +94,7 @@ export function SearchConstraints({
   }
 
   return (
-    <div className="mb-6">
+    <div className="mt-4 mb-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-sm font-medium text-gray-500">Active Filters:</h2>
         {query && (

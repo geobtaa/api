@@ -464,7 +464,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       />
       <Header />
       <main className="flex-1 bg-gray-50 pb-8">
-        <div className="w-full px-4 sm:px-6 lg:px-8 pt-6">
+        <div className="w-full px-4 sm:px-6 lg:px-8 pt-2">
           {/* Spelling Suggestions */}
           {spellingSuggestions.length > 0 && (
             <div className="mb-4 p-4 bg-blue-50 rounded-lg">
@@ -518,69 +518,13 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
             </div>
           )}
 
-          {/* Responsive grid layout: row 1 = headers, row 2 = Location map + facets | results (map and first thumbnail aligned via spacer) */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-2">
-            {/* Row 1 left: Filter Results heading */}
-            <div className="hidden lg:block lg:col-span-3">
-              <h2 className="text-lg font-semibold text-gray-900">
+          {/* Two columns: left = Filter Results (heading + map + facets), right = single column with "Showing results" + list/gallery/map */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-2 mt-4">
+            {/* Left column: filters */}
+            <div className="lg:col-span-3 lg:self-start space-y-4">
+              <h2 className="sr-only text-lg font-semibold text-gray-900">
                 Filter Results
               </h2>
-            </div>
-
-            {/* Row 1 right: Showing results + view/sort */}
-            <div className="lg:col-span-9 mb-2 flex justify-between items-center">
-              {error ? (
-                <h2 className="text-lg text-gray-600">Results</h2>
-              ) : isLoading || shouldShowSearchingPlaceholder ? (
-                <h2 className="text-lg text-gray-600">Searching…</h2>
-              ) : (
-                <h2 className="text-lg text-gray-600">
-                  Showing results{' '}
-                  {(() => {
-                    let start, end;
-                    if (
-                      currentView === 'gallery' &&
-                      accumulatedResults.length > 0
-                    ) {
-                      start = (accumulatedStartPage - 1) * perPage + 1;
-                      end = start + accumulatedResults.length - 1;
-                    } else {
-                      start = Math.min(
-                        (page - 1) * perPage + 1,
-                        searchTotalResults
-                      );
-                      end = Math.min(page * perPage, searchTotalResults);
-                    }
-                    return `${formatCount(start)}-${formatCount(end)}`;
-                  })()}{' '}
-                  of {formatCount(searchTotalResults)}
-                </h2>
-              )}
-              {!error && (
-                <div className="flex items-center gap-4">
-                  <ViewToggle
-                    currentView={currentView}
-                    onViewChange={handleViewChange}
-                  />
-                  <SortControl
-                    options={
-                      searchResults?.included
-                        ?.filter((item) => item.type === 'sort')
-                        .map((sortOption) => ({
-                          id: sortOption.id,
-                          label: sortOption.attributes.label,
-                          url: sortOption.links?.self || '',
-                        })) || []
-                    }
-                    currentSort={sort || 'relevance'}
-                    onSortChange={handleSortChange}
-                  />
-                </div>
-              )}
-            </div>
-
-            {/* Row 2 left: Location map + facets (top aligns with first result thumbnail) */}
-            <div className="lg:col-span-3 space-y-4">
               <GeospatialFilterMap />
               {searchResults?.included ? (
                 <FacetList
@@ -593,8 +537,58 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
               )}
             </div>
 
-            {/* Row 2 right: spacer (matches Location heading height) then results — keeps map and first thumbnail aligned */}
-            <div className="lg:col-span-9">
+            {/* Right column: "Showing results" header + results list / gallery / map view */}
+            <div className="lg:col-span-9 flex flex-col pt-0 mt-0">
+              <div className="mb-2 flex justify-between items-center">
+                {error ? (
+                  <h2 className="text-lg text-gray-600">Results</h2>
+                ) : isLoading || shouldShowSearchingPlaceholder ? (
+                  <h2 className="text-lg text-gray-600">Searching…</h2>
+                ) : (
+                  <h2 className="text-lg text-gray-600">
+                    Showing results{' '}
+                    {(() => {
+                      let start, end;
+                      if (
+                        currentView === 'gallery' &&
+                        accumulatedResults.length > 0
+                      ) {
+                        start = (accumulatedStartPage - 1) * perPage + 1;
+                        end = start + accumulatedResults.length - 1;
+                      } else {
+                        start = Math.min(
+                          (page - 1) * perPage + 1,
+                          searchTotalResults
+                        );
+                        end = Math.min(page * perPage, searchTotalResults);
+                      }
+                      return `${formatCount(start)}-${formatCount(end)}`;
+                    })()}{' '}
+                    of {formatCount(searchTotalResults)}
+                  </h2>
+                )}
+                {!error && (
+                  <div className="flex items-center gap-4">
+                    <ViewToggle
+                      currentView={currentView}
+                      onViewChange={handleViewChange}
+                    />
+                    <SortControl
+                      options={
+                        searchResults?.included
+                          ?.filter((item) => item.type === 'sort')
+                          .map((sortOption) => ({
+                            id: sortOption.id,
+                            label: sortOption.attributes.label,
+                            url: sortOption.links?.self || '',
+                          })) || []
+                      }
+                      currentSort={sort || 'relevance'}
+                      onSortChange={handleSortChange}
+                    />
+                  </div>
+                )}
+              </div>
               {error ? (
                 <ErrorMessage message={error} />
               ) : (
@@ -630,7 +624,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                   )}
 
                   {currentView === 'map' && (
-                    <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative">
+                    <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative mt-0 pt-0">
                       {/* Middle Column: Brief Results */}
                       <div className="md:col-span-4 pr-2">
                         <SearchResults
