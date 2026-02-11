@@ -213,7 +213,8 @@ export function ResourceClassFilterTabs({
       );
     }
 
-    // Ensure we have a query parameter (even if empty) to trigger search
+    // Ensure we have a query parameter (even if empty) so the loader fetches.
+    // On homepage, currentQuery is ''; on search page, preserve existing query.
     if (!newParams.has('q')) {
       newParams.set('q', currentQuery || '');
     }

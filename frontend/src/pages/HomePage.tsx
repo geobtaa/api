@@ -105,13 +105,13 @@ export function HomePage() {
 
   const handleResourceTypeClick = (value: string) => {
     navigate(
-      `/search?include_filters[gbl_resourceType_sm][]=${encodeURIComponent(value)}`
+      `/search?q=&include_filters[gbl_resourceType_sm][]=${encodeURIComponent(value)}`
     );
   };
 
   const handlePlaceClick = (value: string) => {
     navigate(
-      `/search?include_filters[dct_spatial_sm][]=${encodeURIComponent(value)}`
+      `/search?q=&include_filters[dct_spatial_sm][]=${encodeURIComponent(value)}`
     );
   };
 
