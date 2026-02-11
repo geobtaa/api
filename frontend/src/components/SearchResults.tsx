@@ -383,12 +383,10 @@ export function SearchResults({
                 {/* Year and resource type inline before description - Hide in compact mode */}
                 {!isCompact && (
                   <p className="text-gray-600 mb-4 line-clamp-2">
-                    <span className="text-gray-500 text-sm font-medium flex-shrink-0">
-                      {ogm?.gbl_indexYear_im?.[0] ?? '—'}
-                      <span className="mx-1.5" aria-hidden>
-                        ·
-                      </span>
-                      <span className="uppercase tracking-tighter opacity-90">
+                    <span className="text-sm font-medium flex-shrink-0">
+                      <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
+                        {ogm?.gbl_indexYear_im?.[0] ?? '—'}
+                        <span className="mx-1.5 opacity-90" aria-hidden>·</span>
                         {resourceClass || 'Item'}
                       </span>
                     </span>
@@ -407,9 +405,10 @@ export function SearchResults({
 
                 {/* Subject and Theme tags */}
                 {isCompact ? (
-                  <div className="flex items-center justify-between text-xs text-gray-500 mt-auto pt-2">
-                    <span>{ogm?.gbl_indexYear_im?.[0] || '-'}</span>
-                    <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded ml-auto">
+                  <div className="mt-auto pt-2">
+                    <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
+                      {ogm?.gbl_indexYear_im?.[0] ?? '—'}
+                      <span className="mx-1.5 opacity-90" aria-hidden>·</span>
                       {resourceClass || 'Item'}
                     </span>
                   </div>

@@ -86,12 +86,36 @@ class SimilarItemsService:
                     )
                     # Continue without thumbnail
 
+                # Index year (DB: gbl_indexYear_im array of ints; support downcased column)
+                index_year_raw = resource_dict.get("gbl_indexYear_im") or resource_dict.get(
+                    "gbl_indexyear_im"
+                )
+                gbl_indexYear_im = (
+                    [index_year_raw] if isinstance(index_year_raw, int) else (index_year_raw or [])
+                )
+                if not isinstance(gbl_indexYear_im, list):
+                    gbl_indexYear_im = []
+
+                # Resource class (DB: gbl_resourceClass_sm array of strings)
+                resource_class_raw = resource_dict.get("gbl_resourceClass_sm") or resource_dict.get(
+                    "gbl_resourceclass_sm"
+                )
+                gbl_resourceClass_sm = (
+                    [resource_class_raw]
+                    if isinstance(resource_class_raw, str)
+                    else (resource_class_raw or [])
+                )
+                if not isinstance(gbl_resourceClass_sm, list):
+                    gbl_resourceClass_sm = []
+
                 similar_items.append(
                     {
                         "id": similar_id,
                         "title": title,
                         "temporal_coverage": temporal_coverage,
                         "thumbnail_url": thumbnail_url,
+                        "gbl_indexYear_im": gbl_indexYear_im,
+                        "gbl_resourceClass_sm": gbl_resourceClass_sm,
                     }
                 )
 

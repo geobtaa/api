@@ -429,13 +429,12 @@ export function HomePageHexMapBackground() {
                         )}
                   </p>
                 )}
-                <div className="flex items-center justify-between gap-2 mt-2 text-xs text-gray-500">
-                  <span>
+                <div className="mt-2">
+                  <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
                     {activeDetail.attributes?.ogm?.gbl_indexYear_im?.[0] ??
                       activeDetail.attributes?.ogm?.gbl_indexyear_im?.[0] ??
                       '—'}
-                  </span>
-                  <span className="uppercase tracking-tighter opacity-80 border border-gray-200 px-1.5 py-0.5 rounded">
+                    <span className="mx-1.5 opacity-90" aria-hidden>·</span>
                     {activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0] ??
                       'Item'}
                   </span>

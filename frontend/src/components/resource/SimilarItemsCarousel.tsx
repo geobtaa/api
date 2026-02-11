@@ -61,8 +61,16 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
     }
   };
 
-  const resourceClass = item?.attributes?.ogm?.gbl_resourceClass_sm?.[0];
-  const provider = item?.attributes?.ogm?.schema_provider_s;
+  // Similar items from API can be full GeoDocument (attributes.ogm) or flat shape from similar_items endpoint
+  const ogm = item?.attributes?.ogm;
+  const resourceClass =
+    ogm?.gbl_resourceClass_sm?.[0] ??
+    (item as { gbl_resourceClass_sm?: string[] })?.gbl_resourceClass_sm?.[0];
+  const indexYear =
+    ogm?.gbl_indexYear_im?.[0] ??
+    (ogm as { gbl_indexyear_im?: number[] })?.gbl_indexyear_im?.[0] ??
+    (item as { gbl_indexYear_im?: number[] })?.gbl_indexYear_im?.[0];
+  const provider = ogm?.schema_provider_s;
 
   // Debug logging for thumbnail URLs - must be before early return
   useEffect(() => {
@@ -119,11 +127,18 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
           )}
         </div>
 
-        {/* Content */}
-        <div className="p-4">
-          <h3 className="text-sm font-medium text-gray-900 line-clamp-2 group-hover:text-blue-600 transition-colors">
+        {/* Content - match gallery card: title, then index year + resource class */}
+        <div className="p-3 flex flex-col flex-1">
+          <h3 className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 group-hover:text-blue-600 transition-colors mb-2 leading-snug">
             {title}
           </h3>
+          <div className="mt-auto">
+            <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
+              {indexYear ?? '—'}
+              <span className="mx-1.5 opacity-90" aria-hidden>·</span>
+              {resourceClass || 'Item'}
+            </span>
+          </div>
           {provider && (
             <p className="text-xs text-gray-500 mt-1 line-clamp-1">
               {provider}

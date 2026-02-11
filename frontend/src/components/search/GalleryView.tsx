@@ -255,9 +255,10 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   >
                     {title}
                   </h3>
-                  <div className="mt-auto flex items-center justify-between text-xs text-gray-500">
-                    <span>{ogm?.gbl_indexYear_im?.[0] || '-'}</span>
-                    <span className="uppercase tracking-tighter opacity-70 border border-gray-200 px-1 rounded">
+                  <div className="mt-auto">
+                    <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
+                      {ogm?.gbl_indexYear_im?.[0] ?? '—'}
+                      <span className="mx-1.5 opacity-90" aria-hidden>·</span>
                       {resourceClass || 'Item'}
                     </span>
                   </div>

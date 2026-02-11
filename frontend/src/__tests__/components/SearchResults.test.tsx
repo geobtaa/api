@@ -206,6 +206,24 @@ describe('SearchResults Component', () => {
   });
 
   describe('Result Rendering', () => {
+    it('renders year and resource class in conjoined pill', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={4}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+      // First fixture has gbl_indexYear_im: [1950], gbl_resourceClass_sm: ['Paper Maps']
+      const pill = screen.getByText(/1950/);
+      expect(pill).toHaveTextContent('1950');
+      expect(pill).toHaveTextContent('Paper Maps');
+      expect(pill).toHaveClass('bg-brand', 'text-white');
+    });
+
     it('renders all search results', () => {
       render(
         <TestWrapper>
@@ -349,7 +367,8 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByText('1950')).toBeInTheDocument();
+      // Year appears in conjoined pill (1950 · Paper Maps)
+      expect(screen.getByText(/1950/)).toBeInTheDocument();
     });
 
     it('displays multiple temporal values correctly', () => {
@@ -364,7 +383,8 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByText('2019')).toBeInTheDocument();
+      // Index year appears in conjoined pill (2019 · Polygon Data)
+      expect(screen.getByText(/2019/)).toBeInTheDocument();
     });
 
     it('displays publisher information when available', () => {
