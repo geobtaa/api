@@ -42,11 +42,10 @@ describe('SimilarItemsCarousel', () => {
       </MemoryRouter>
     );
     expect(screen.getByText('Similar Items')).toBeInTheDocument();
-    // Conjoined pill: year · resource class (e.g. "1929 · MAPS")
-    const pill = screen.getByText(/1929/);
+    const pill = screen.getByTestId('result-card-pill');
     expect(pill).toHaveTextContent('1929');
     expect(pill).toHaveTextContent('Maps');
-    expect(pill).toHaveClass('bg-brand', 'text-white');
+    expect(pill).toHaveClass('bg-gray-600', 'text-white');
   });
 
   it('renders year and resource class from full GeoDocument attributes.ogm', () => {
@@ -67,12 +66,12 @@ describe('SimilarItemsCarousel', () => {
         <SimilarItemsCarousel similarItems={items as never} />
       </MemoryRouter>
     );
-    const pill = screen.getByText(/1943/);
+    const pill = screen.getByTestId('result-card-pill');
     expect(pill).toHaveTextContent('1943');
     expect(pill).toHaveTextContent('Datasets');
   });
 
-  it('shows — when index year is missing', () => {
+  it('shows only resource class when index year is missing (no em dash)', () => {
     const items = [
       {
         id: 'no-year',
@@ -85,9 +84,9 @@ describe('SimilarItemsCarousel', () => {
         <SimilarItemsCarousel similarItems={items as never} />
       </MemoryRouter>
     );
-    const pill = screen.getByText(/—/);
-    expect(pill).toHaveTextContent('—');
+    const pill = screen.getByTestId('result-card-pill');
     expect(pill).toHaveTextContent('Maps');
+    expect(pill).not.toHaveTextContent('—');
   });
 
   it('shows Item when resource class is missing', () => {
@@ -103,7 +102,7 @@ describe('SimilarItemsCarousel', () => {
         <SimilarItemsCarousel similarItems={items as never} />
       </MemoryRouter>
     );
-    const pill = screen.getByText(/2020/);
+    const pill = screen.getByTestId('result-card-pill');
     expect(pill).toHaveTextContent('2020');
     expect(pill).toHaveTextContent('Item');
   });

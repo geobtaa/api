@@ -293,7 +293,12 @@ export function MapUpdaterHex({
           onHexHover?.({ h3, count, resolution });
         });
         layer.on('mouseout', () => {
-          // Do not clear here; glow and popover stay until mouse leaves map or hovers another hex
+          const current = hoveredRef.current;
+          if (current && current.layer === layer) {
+            current.layer.setStyle(current.defaultStyle);
+            hoveredRef.current = null;
+            onHexHover?.(null);
+          }
         });
         layer.on('click', () =>
           onFeatureClick({

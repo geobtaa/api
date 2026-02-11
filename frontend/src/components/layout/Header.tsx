@@ -8,7 +8,6 @@ export function Header() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { theme } = useTheme();
-  const isHomePage = location.pathname === '/';
   const headerCfg = theme.institution?.header;
 
   const handleSearch = (query: string) => {
@@ -171,20 +170,34 @@ export function Header() {
 
           {/* Search (center column) */}
           <div className="col-span-6 flex items-center justify-center">
-            {!isHomePage && (
-              <div className="w-full relative top-4">
-                <SearchField
-                  placeholder="Search for maps, data, imagery..."
-                  onSearch={handleSearch}
-                  showAdvancedButton={true}
-                  onAdvancedSearchClick={handleAdvancedSearchClick}
-                />
-              </div>
-            )}
+            <div className="w-full relative top-4">
+              <SearchField
+                placeholder="Search for maps, data, imagery..."
+                onSearch={handleSearch}
+                showAdvancedButton={true}
+                onAdvancedSearchClick={handleAdvancedSearchClick}
+              />
+            </div>
           </div>
 
           {/* Links (right column) */}
-          <nav className="col-span-3 flex items-center justify-end pt-2">
+          <nav className="col-span-3 flex items-center justify-end gap-2 pt-2">
+            <a
+              href="https://gin.btaa.org/about/about-us/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/95 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+            >
+              About
+            </a>
+            <a
+              href="https://geo.btaa.org/feedback"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/95 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
+            >
+              Feedback
+            </a>
             <Link
               to="/bookmarks"
               className="text-white/95 hover:text-white px-3 py-2 rounded-md text-sm font-medium"
@@ -194,11 +207,9 @@ export function Header() {
           </nav>
 
           {/* Resource Class Filter Tabs (row 2, centered column) */}
-          {!isHomePage && (
-            <div className="col-span-6 col-start-4 self-end">
-              <ResourceClassFilterTabs variant="header" />
-            </div>
-          )}
+          <div className="col-span-6 col-start-4 self-end">
+            <ResourceClassFilterTabs variant="header" />
+          </div>
         </div>
       </div>
     </header>

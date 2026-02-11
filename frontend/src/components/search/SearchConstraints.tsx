@@ -46,14 +46,6 @@ export function SearchConstraints({
       'include_filters[geo][bottom_right][lon]'
     );
 
-    // Debug logging
-    console.log('🔍 SearchConstraints reading bbox from URL:', {
-      topLeftLat,
-      topLeftLon,
-      bottomRightLat,
-      bottomRightLon,
-    });
-
     if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
       // Format as N E S W (North, East, South, West)
       // top_left is northwest (N, W)
@@ -63,10 +55,7 @@ export function SearchConstraints({
       const s = parseFloat(bottomRightLat).toFixed(2);
       const w = parseFloat(topLeftLon).toFixed(2);
 
-      const display = `BBox: ${n}°N ${e}°E ${s}°S ${w}°W`;
-      console.log('📊 Bbox display string:', display);
-
-      return display;
+      return `BBox: ${n}°N ${e}°E ${s}°S ${w}°W`;
     }
     return null;
   };

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { GeoDocument } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
+import { ResultCardPill } from '../search/ResultCardPill';
 
 interface SimilarItemsCarouselProps {
   similarItems?: GeoDocument[];
@@ -133,11 +134,11 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
             {title}
           </h3>
           <div className="mt-auto">
-            <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
-              {indexYear ?? '—'}
-              <span className="mx-1.5 opacity-90" aria-hidden>·</span>
-              {resourceClass || 'Item'}
-            </span>
+            <ResultCardPill
+              indexYear={indexYear}
+              resourceClass={resourceClass}
+              provider={provider}
+            />
           </div>
           {provider && (
             <p className="text-xs text-gray-500 mt-1 line-clamp-1">

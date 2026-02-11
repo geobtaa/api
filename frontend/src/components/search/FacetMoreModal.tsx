@@ -12,7 +12,7 @@ import { LightboxModal } from '../ui/LightboxModal';
 import { useSearchParams } from 'react-router';
 import { useFacetModal } from '../../hooks/useFacetModal';
 import type { FacetValuesSort } from '../../types/api';
-import { FACET_LABELS, normalizeFacetId } from '../../utils/facetLabels';
+import { getFacetLabel, normalizeFacetId } from '../../utils/facetLabels';
 import { getFacetValueDisplayLabel } from '../../utils/facetDisplay';
 import { humanizeFieldName } from '../../constants/fieldLabels';
 import { formatCount } from '../../utils/formatNumber';
@@ -71,6 +71,25 @@ export function FacetMoreModal({
     searchParams: searchParamsProp,
   });
 
+  // Handler to remove geo bbox filter (matches SearchConstraints)
+  const handleRemoveGeoFilter = () => {
+    const params = new URLSearchParams(searchParamsProp);
+    Array.from(params.keys())
+      .filter((key) => key.startsWith('include_filters[geo]'))
+      .forEach((key) => params.delete(key));
+    params.delete('page');
+    setSearchParams(params);
+  };
+
+  // Handler to remove year range filter (matches SearchConstraints)
+  const handleRemoveYearRange = () => {
+    const params = new URLSearchParams(searchParamsProp);
+    params.delete('include_filters[year_range][start]');
+    params.delete('include_filters[year_range][end]');
+    params.delete('page');
+    setSearchParams(params);
+  };
+
   // Handler to remove an advanced clause
   const handleRemoveAdvancedClause = (clauseIndex: number) => {
     const params = new URLSearchParams(searchParamsProp);
@@ -125,17 +144,20 @@ export function FacetMoreModal({
     return 'No facet values available.';
   }, [isLoading, qFacet]);
 
+  // Build search context entries to match SearchConstraints display exactly
   const searchContextEntries = useMemo(() => {
     const entries: Array<{
-      type: 'query' | 'include' | 'exclude' | 'advanced';
+      type: 'query' | 'geo' | 'year_range' | 'include' | 'exclude' | 'advanced';
       label: string;
       value: string;
       fieldId?: string;
-      clauseIndex?: number; // For advanced clauses: index within the adv_q array
-      clauseData?: { op: string; f: string; q: string }; // For advanced clauses: the clause data
+      clauseIndex?: number;
+      clauseData?: { op: string; f: string; q: string };
+      displayValue?: string; // For geo/year_range: full display string
     }> = [];
     const seen = new Set<string>();
 
+    // 1. Search query (matches SearchConstraints)
     const queryValue = searchParamsProp.get('q');
     if (queryValue) {
       entries.push({
@@ -145,15 +167,86 @@ export function FacetMoreModal({
       });
     }
 
-    // Parse and create individual entries for each advanced query clause
-    // Note: There should only be one adv_q param, but we handle multiple for safety
+    // 2. Geo bbox - single entry "BBox: N°N E°E S°S W°W" (matches SearchConstraints)
+    const geoType = searchParamsProp.get('include_filters[geo][type]');
+    if (geoType === 'bbox') {
+      const topLeftLat = searchParamsProp.get('include_filters[geo][top_left][lat]');
+      const topLeftLon = searchParamsProp.get('include_filters[geo][top_left][lon]');
+      const bottomRightLat = searchParamsProp.get(
+        'include_filters[geo][bottom_right][lat]'
+      );
+      const bottomRightLon = searchParamsProp.get(
+        'include_filters[geo][bottom_right][lon]'
+      );
+      if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
+        const n = parseFloat(topLeftLat).toFixed(2);
+        const e = parseFloat(bottomRightLon).toFixed(2);
+        const s = parseFloat(bottomRightLat).toFixed(2);
+        const w = parseFloat(topLeftLon).toFixed(2);
+        entries.push({
+          type: 'geo',
+          label: 'BBox',
+          value: 'bbox',
+          displayValue: `${n}°N ${e}°E ${s}°S ${w}°W`,
+        });
+      }
+    }
+
+    // 3. Regular include facets (exclude geo and year_range - handled above)
+    const addFacetEntries = (
+      prefix: 'include_filters[' | 'exclude_filters[' | 'fq[',
+      type: 'include' | 'exclude'
+    ) => {
+      Array.from(searchParamsProp.keys())
+        .filter((key) => key.startsWith(prefix))
+        .forEach((key) => {
+          // Skip geo and year_range - we handle those specially
+          if (key.startsWith('include_filters[geo]') || key.startsWith('exclude_filters[geo]')) return;
+          if (key.startsWith('include_filters[year_range]') || key.startsWith('exclude_filters[year_range]')) return;
+
+          // Match include_filters[field][] or fq[field][]
+          const bracketMatch = key.match(/\[([^\]]+)\]/);
+          const fieldId = bracketMatch?.[1] ?? '';
+          const normalizedField = normalizeFacetId(fieldId);
+
+          searchParamsProp.getAll(key).forEach((value) => {
+            if (!value) return;
+            const signature = `${type}:${normalizedField}:${value}`;
+            if (seen.has(signature)) return;
+            seen.add(signature);
+            entries.push({
+              type,
+              label: getFacetLabel(normalizedField),
+              value,
+              fieldId: normalizedField,
+            });
+          });
+        });
+    };
+    addFacetEntries('include_filters[', 'include');
+    addFacetEntries('fq[', 'include');
+
+    // 4. Year range - single entry "Year Range: start - end" (matches SearchConstraints)
+    const yearStart = searchParamsProp.get('include_filters[year_range][start]');
+    const yearEnd = searchParamsProp.get('include_filters[year_range][end]');
+    if (yearStart || yearEnd) {
+      entries.push({
+        type: 'year_range',
+        label: 'Year Range',
+        value: `${yearStart || '?'} - ${yearEnd || '?'}`,
+        displayValue: `${yearStart || '?'} - ${yearEnd || '?'}`,
+      });
+    }
+
+    addFacetEntries('exclude_filters[', 'exclude');
+
+    // 5. Advanced query clauses
     let globalClauseIndex = 0;
     searchParamsProp.getAll('adv_q').forEach((value) => {
       if (!value) return;
       try {
         const parsed = JSON.parse(value);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          // Create a separate entry for each clause
           parsed.forEach((clause: { op: string; f: string; q: string }) => {
             const fieldLabel = humanizeFieldName(clause.f);
             entries.push({
@@ -167,57 +260,24 @@ export function FacetMoreModal({
           });
         }
       } catch (e) {
-        // If parsing fails, skip this adv_q entry
         console.warn('Failed to parse adv_q:', e);
       }
     });
 
-    const addFacetEntries = (
-      prefix: 'include_filters[' | 'exclude_filters[' | 'fq[',
-      type: 'include' | 'exclude'
-    ) => {
-      Array.from(searchParamsProp.keys())
-        .filter((key) => key.startsWith(prefix))
-        .forEach((key) => {
-          const fieldMatch = key.match(/\[(.*?)\]/);
-          const fieldId = fieldMatch?.[1] ?? '';
-          const normalizedField = normalizeFacetId(fieldId);
-          const displayLabel =
-            FACET_LABELS[normalizedField] ||
-            FACET_LABELS[fieldId] ||
-            fieldId ||
-            'Facet';
-
-          searchParamsProp.getAll(key).forEach((value) => {
-            if (!value) return;
-            const signature = `${type}:${normalizedField}:${value}`;
-            if (seen.has(signature)) return;
-            seen.add(signature);
-            entries.push({
-              type,
-              label: displayLabel,
-              value,
-              fieldId,
-            });
-          });
-        });
-    };
-
-    addFacetEntries('include_filters[', 'include');
-    addFacetEntries('fq[', 'include');
-    addFacetEntries('exclude_filters[', 'exclude');
-
     return entries;
   }, [searchParamsProp]);
 
+  // Match SearchConstraints badge styling
   const badgeStyles: Record<
-    'query' | 'include' | 'exclude' | 'advanced',
+    'query' | 'geo' | 'year_range' | 'include' | 'exclude' | 'advanced',
     string
   > = {
     query: 'bg-blue-50 text-blue-700 border border-blue-200',
-    include: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-    exclude: 'bg-rose-50 text-rose-700 border border-rose-200',
-    advanced: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+    geo: 'bg-blue-50 text-blue-700 border border-blue-200',
+    year_range: 'bg-blue-50 text-blue-700 border border-blue-200',
+    include: 'bg-blue-50 text-blue-700 border border-blue-200',
+    exclude: 'bg-red-50 text-red-700 border border-red-200',
+    advanced: 'bg-purple-50 text-purple-700 border border-purple-200',
   };
 
   if (!isOpen) return null;
@@ -232,7 +292,7 @@ export function FacetMoreModal({
       subtitle="Explore additional facet values to refine your search."
       data-testid="facet-modal-overlay"
     >
-      <div className="px-6 py-4 border-b border-gray-100 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div className="px-6 py-3 border-b border-gray-100 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <form
             onSubmit={handleSubmit}
             className="flex items-center gap-2 w-full md:max-w-sm"
@@ -281,16 +341,52 @@ export function FacetMoreModal({
         </div>
 
         {searchContextEntries.length > 0 && (
-          <div className="px-6 py-3 border-b border-gray-100 bg-white">
+          <div className="px-6 py-2 border-b border-gray-100 bg-white">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
               Current search context
             </h3>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-1.5 flex flex-wrap gap-2">
               {searchContextEntries.map((entry, index) => {
                 const key = `${entry.type}-${entry.label}-${entry.value}-${index}`;
                 const isTogglable =
                   (entry.type === 'include' || entry.type === 'exclude') &&
                   Boolean(entry.fieldId);
+
+                // Geo bbox - single consolidated badge (matches SearchConstraints)
+                if (entry.type === 'geo') {
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={handleRemoveGeoFilter}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500"
+                      aria-label="Remove location filter"
+                    >
+                      <span>
+                        {entry.label}: {entry.displayValue ?? entry.value}
+                      </span>
+                      <X className="h-3 w-3" />
+                    </button>
+                  );
+                }
+
+                // Year range - single consolidated badge (matches SearchConstraints)
+                if (entry.type === 'year_range') {
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={handleRemoveYearRange}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-blue-500"
+                      aria-label="Remove year range filter"
+                    >
+                      <span>
+                        {entry.label}: {entry.displayValue ?? entry.value}
+                      </span>
+                      <X className="h-3 w-3" />
+                    </button>
+                  );
+                }
 
                 if (isTogglable && entry.fieldId) {
                   const handleClick = () => {
@@ -313,8 +409,8 @@ export function FacetMoreModal({
                       onClick={handleClick}
                       className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 ${badgeStyles[entry.type]} ${
                         entry.type === 'include'
-                          ? 'hover:bg-emerald-100 focus-visible:ring-emerald-500'
-                          : 'hover:bg-rose-100 focus-visible:ring-rose-500'
+                          ? 'hover:bg-blue-100 focus-visible:ring-blue-500'
+                          : 'hover:bg-red-100 focus-visible:ring-red-500'
                       }`}
                       aria-label={ariaLabel}
                     >
@@ -392,34 +488,32 @@ export function FacetMoreModal({
                 return (
                   <li
                     key={`${facetId}-${item.id || String(rawValue)}`}
-                    className="flex items-center justify-between px-6 py-3 gap-4"
+                    className="flex items-center gap-3 px-6 py-2"
                   >
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-gray-900">
-                        {displayLabel}
-                      </div>
-                      <div className="text-xs text-gray-500 mt-1">
-                        ({formatCount(item.attributes.hits)})
-                      </div>
-                      <div className="mt-2 flex items-center gap-2 text-xs">
-                        {included && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-blue-600">
-                            <PlusCircle className="h-3 w-3" />
-                            Included
-                          </span>
-                        )}
-                        {excluded && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-rose-600">
-                            <MinusCircle className="h-3 w-3" />
-                            Excluded
-                          </span>
-                        )}
-                      </div>
+                    <div className="flex-1 min-w-0 flex items-center gap-2 overflow-hidden">
+                      <span className="text-sm font-medium text-gray-900 truncate min-w-0">
+                        {displayLabel}{' '}
+                        <span className="text-gray-500 font-normal">
+                          ({formatCount(item.attributes.hits)})
+                        </span>
+                      </span>
+                      {included && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-xs text-blue-600 shrink-0">
+                          <PlusCircle className="h-3 w-3" />
+                          Included
+                        </span>
+                      )}
+                      {excluded && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-xs text-rose-600 shrink-0">
+                          <MinusCircle className="h-3 w-3" />
+                          Excluded
+                        </span>
+                      )}
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         onClick={() => onToggleInclude(rawValue)}
-                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
+                        className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors border ${
                           included
                             ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
                             : 'text-gray-600 border-gray-200 hover:bg-gray-50'
@@ -431,13 +525,13 @@ export function FacetMoreModal({
                         }
                       >
                         <PlusCircle
-                          className={`h-4 w-4 ${included ? 'text-white' : 'text-blue-500'}`}
+                          className={`h-3 w-3 ${included ? 'text-white' : 'text-blue-500'}`}
                         />
                         {included ? 'Included' : 'Include'}
                       </button>
                       <button
                         onClick={() => onToggleExclude(rawValue)}
-                        className={`inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors border ${
+                        className={`inline-flex items-center gap-1.5 rounded px-2 py-1 text-xs font-medium transition-colors border ${
                           excluded
                             ? 'border-rose-400 text-rose-600 bg-rose-50 hover:bg-rose-100'
                             : 'text-gray-600 border-gray-200 hover:bg-gray-50'
@@ -449,7 +543,7 @@ export function FacetMoreModal({
                         }
                       >
                         <MinusCircle
-                          className={`h-4 w-4 ${excluded ? 'text-rose-500' : 'text-rose-400'}`}
+                          className={`h-3 w-3 ${excluded ? 'text-rose-500' : 'text-rose-400'}`}
                         />
                         {excluded ? 'Excluded' : 'Exclude'}
                       </button>

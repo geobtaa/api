@@ -20,6 +20,7 @@ import {
   Loader,
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router';
 
 interface Fixture {
   id: string;
@@ -1046,6 +1047,12 @@ export function FixturesTestPage() {
             Easter egg page of test fixtures. Click any link to test if that
             resource page renders properly.
           </p>
+          <Link
+            to="/test/fixtures/providers"
+            className="mt-2 inline-block text-sm text-blue-600 hover:text-blue-800"
+          >
+            View provider institution pills →
+          </Link>
           <div className="mt-2 text-sm text-gray-500">
             {selectedGblCategory ||
             selectedBtaaCategory ||
