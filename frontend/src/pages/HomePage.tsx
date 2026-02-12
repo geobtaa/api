@@ -133,7 +133,7 @@ export function HomePage() {
             </Suspense>
           )}
           {/* Description box - introduces the site; search is in header */}
-          <div className="absolute inset-0 z-30 pointer-events-none flex items-start justify-center pt-4 px-4 sm:px-6 lg:px-8">
+          <div className="absolute inset-0 z-30 pointer-events-none flex items-start justify-center pt-20 pl-12 pr-4 sm:pt-4 sm:pl-6 sm:pr-6 lg:px-8">
             <div className="max-w-3xl w-full bg-white/70 backdrop-blur-sm rounded-lg p-6 lg:p-4 shadow-sm">
               <p className="text-lg lg:text-xl text-gray-600">
                 {theme.institution.hero_text ||
