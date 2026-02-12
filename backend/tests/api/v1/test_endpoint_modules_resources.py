@@ -196,6 +196,7 @@ class TestResourcesEndpoints:
         expected_paths = [
             "/resources/",
             "/resources/{id}",
+            "/resources/{id}/citation",
             "/resources/{id}/metadata",  # Renamed from /ogm
             "/resources/{id}/links",
             "/resources/{id}/relationships",

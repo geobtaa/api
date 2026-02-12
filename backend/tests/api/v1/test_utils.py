@@ -409,6 +409,29 @@ class TestCreateJsonapiResource:
 
         assert "b1g" in result["attributes"]
 
+    def test_create_jsonapi_resource_with_ui_citations(self):
+        """Test that ui_citations is passed through to meta.ui.citations."""
+        resource_data = {
+            "id": "123",
+            "dct_title_s": "Test",
+            "ui_citation": "Author. (2023). Test [Data set]. Publisher.",
+            "ui_citations": {
+                "apa": "Author. (2023). Test [Data set]. Publisher.",
+                "mla": 'Author. "Test." Geoportal, Publisher, 2023.',
+                "chicago": 'Author. 2023. "Test." Publisher.',
+            },
+        }
+        result = create_jsonapi_resource(resource_data)
+
+        assert "meta" in result
+        assert "ui" in result["meta"]
+        assert result["meta"]["ui"]["citation"] == "Author. (2023). Test [Data set]. Publisher."
+        assert "citations" in result["meta"]["ui"]
+        assert result["meta"]["ui"]["citations"]["apa"] == (
+            "Author. (2023). Test [Data set]. Publisher."
+        )
+        assert set(result["meta"]["ui"]["citations"].keys()) == {"apa", "mla", "chicago"}
+
 
 class TestCreatePaginationLinks:
     """Test cases for create_pagination_links function."""

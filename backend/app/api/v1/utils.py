@@ -219,6 +219,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
     ui_field_names = [
         "ui_thumbnail_url",
         "ui_citation",
+        "ui_citations",
         "ui_downloads",
         "ui_links",
         "ui_viewer_protocol",
@@ -280,6 +281,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
             restructured_ui["thumbnail_placeholder"] = True
     if "ui_citation" in ui_fields:
         restructured_ui["citation"] = ui_fields["ui_citation"]
+    if "ui_citations" in ui_fields:
+        restructured_ui["citations"] = ui_fields["ui_citations"]
     if "ui_downloads" in ui_fields:
         restructured_ui["downloads"] = ui_fields["ui_downloads"]
     if "ui_links" in ui_fields:
@@ -535,9 +538,10 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     # Add thumbnail URL
     resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
 
-    # Generate citation using CitationService
+    # Generate citations (APA, MLA, Chicago)
     citation_service = CitationService(resource_dict, distribution_context=distribution_context)
-    ui_citation = citation_service.get_citation()
+    ui_citations = citation_service.get_all_citations()
+    ui_citation = ui_citations["apa"]
 
     # Use ViewerService to get viewer attributes
     viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
@@ -561,7 +565,8 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     # Create the attributes dictionary
     attributes = {
         **resource_dict,
-        "ui_citation": ui_citation,  # Use generated citation
+        "ui_citation": ui_citation,
+        "ui_citations": ui_citations,
         "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
         "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
         "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
@@ -677,9 +682,10 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     # Add thumbnail URL
     resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
 
-    # Generate citation using CitationService
+    # Generate citations (APA, MLA, Chicago)
     citation_service = CitationService(resource_dict, distribution_context=distribution_context)
-    ui_citation = citation_service.get_citation()
+    ui_citations = citation_service.get_all_citations()
+    ui_citation = ui_citations["apa"]
 
     # Use ViewerService to get viewer attributes
     viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
@@ -702,7 +708,8 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     # Create the attributes dictionary
     attributes = {
         **resource_dict,
-        "ui_citation": ui_citation,  # Use generated citation
+        "ui_citation": ui_citation,
+        "ui_citations": ui_citations,
         "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
         "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
         "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),

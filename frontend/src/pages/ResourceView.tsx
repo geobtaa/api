@@ -16,6 +16,7 @@ import { ResourceViewer } from '../components/resource/ResourceViewer';
 import { ResourceBreadcrumbs } from '../components/resource/ResourceBreadcrumbs';
 import { ResourceSubtitle } from '../components/resource/ResourceSubtitle';
 import { CitationTable } from '../components/resource/CitationTable';
+import { ResourceJsonLd } from '../components/resource/ResourceJsonLd';
 import { FullDetailsTable } from '../components/resource/FullDetailsTable';
 import { LocationMap } from '../components/resource/LocationMap';
 import { DownloadsTable } from '../components/resource/DownloadsTable';
@@ -124,9 +125,11 @@ function AttributeTable() {
 
 export function ResourceView({
   prefetchedResource,
+  jsonLd,
   currentUrl,
 }: {
   prefetchedResource?: GeoDocumentDetails | null;
+  jsonLd?: Record<string, unknown> | null;
   currentUrl?: string;
 } = {}) {
   const { id } = useParams<{ id: string }>();
@@ -444,6 +447,7 @@ export function ResourceView({
 
   return (
     <div className="min-h-screen flex flex-col">
+      {jsonLd && <ResourceJsonLd jsonLd={jsonLd} />}
       {data?.attributes && (
         <Seo
           title={data.attributes.ogm.dct_title_s}
@@ -595,12 +599,14 @@ export function ResourceView({
                         <LinksTable links={data.meta.ui.links} />
                       )}
 
-                    {/* Citation */}
-                    {data?.meta?.ui?.citation && (
+                    {/* Citation & Export */}
+                    {data && (
                       <div className="mt-6">
                         <CitationTable
-                          citation={data.meta.ui.citation}
+                          citation={data.meta?.ui?.citation ?? ''}
+                          citations={data.meta?.ui?.citations}
                           permalink={isMounted ? window.location.href : ''}
+                          resourceId={data.id}
                         />
                       </div>
                     )}

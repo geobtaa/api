@@ -43,6 +43,7 @@ def _separate_ogm_and_b1g_fields(resource_dict: dict) -> tuple[dict, dict]:
     ui_field_names = [
         "ui_thumbnail_url",
         "ui_citation",
+        "ui_citations",
         "ui_downloads",
         "ui_links",
         "ui_viewer_protocol",

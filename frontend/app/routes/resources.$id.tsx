@@ -22,12 +22,22 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const currentUrl = new URL(request.url).href;
 
   try {
-    const resource = await serverFetchJson<{ data: GeoDocumentDetails }>(
-      `/resources/${id}?format=json`
-    );
+    const [resourceRes, jsonLdRes] = await Promise.all([
+      serverFetchJson<{ data: GeoDocumentDetails }>(
+        `/resources/${id}?format=json`
+      ),
+      serverFetchJson<Record<string, unknown>>(
+        `/resources/${id}/citation/json-ld`
+      ).catch(() => null),
+    ]);
 
     const lastApiUrl = `/api/v1/resources/${id}?format=json`;
-    return { resource: resource.data, lastApiUrl, currentUrl };
+    return {
+      resource: resourceRes.data,
+      jsonLd: jsonLdRes,
+      lastApiUrl,
+      currentUrl,
+    };
   } catch (error) {
     console.error("Resource loader error:", error);
     if (error instanceof Response && error.status === 404) {
@@ -35,7 +45,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     }
     // Allow ResourceView to handle its own errors for now
     const lastApiUrl = `/api/v1/resources/${id}?format=json`;
-    return { resource: null, lastApiUrl, currentUrl };
+    return { resource: null, jsonLd: null, lastApiUrl, currentUrl };
   }
 }
 
@@ -45,8 +55,9 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
  * via useLoaderData() if we want to pre-populate in the future.
  */
 export default function Resource() {
-  const { resource, lastApiUrl, currentUrl } = useLoaderData() as {
+  const { resource, jsonLd, lastApiUrl, currentUrl } = useLoaderData() as {
     resource: GeoDocumentDetails | null;
+    jsonLd: Record<string, unknown> | null;
     lastApiUrl?: string;
     currentUrl?: string;
   };
@@ -58,5 +69,11 @@ export default function Resource() {
   }, [lastApiUrl, setLastApiUrl]);
 
   // Prefer loader data (server-side) to avoid duplicate client fetches.
-  return <ResourceView prefetchedResource={resource ?? undefined} currentUrl={currentUrl} />;
+  return (
+    <ResourceView
+      prefetchedResource={resource ?? undefined}
+      jsonLd={jsonLd ?? undefined}
+      currentUrl={currentUrl}
+    />
+  );
 }

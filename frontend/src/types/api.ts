@@ -57,6 +57,8 @@ export interface GeoDocument {
     ui?: {
       thumbnail_url?: string;
       citation?: string;
+      /** Citation formats: apa, mla, chicago */
+      citations?: Record<string, string>;
       downloads?: Array<{
         label: string;
         url: string;
