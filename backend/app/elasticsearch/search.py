@@ -1873,16 +1873,12 @@ async def get_facet_values(
                 year_range_filter = {"range": {"gbl_indexYear_im": {}}}
                 if "start" in values:
                     try:
-                        year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(
-                            values["start"]
-                        )
+                        year_range_filter["range"]["gbl_indexYear_im"]["gte"] = int(values["start"])
                     except (ValueError, TypeError):
                         pass
                 if "end" in values:
                     try:
-                        year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(
-                            values["end"]
-                        )
+                        year_range_filter["range"]["gbl_indexYear_im"]["lte"] = int(values["end"])
                     except (ValueError, TypeError):
                         pass
                 if year_range_filter["range"]["gbl_indexYear_im"]:
