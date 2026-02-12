@@ -1,5 +1,8 @@
-import { useState, useRef } from 'react';
+import { useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import L from 'leaflet';
 import { Table, Hexagon } from 'lucide-react';
+import { LeafletContext } from '@react-leaflet/core';
 import { HexTableModal } from './HexTableModal';
 
 const HEX_TABLE_MODAL_ID = 'hex-table-modal';
@@ -10,70 +13,152 @@ export interface HexTableControlProps {
   searchQuery?: string;
   queryString?: string;
   loading?: boolean;
-  /** Optional class for the wrapper div (e.g. to customize position). Default: bottom-4 left-4 */
+  /** Optional class for the wrapper div (overlay mode only). Default: bottom-4 left-4 */
   wrapperClassName?: string;
-  /** When true, use 30x30px button to match Leaflet zoom control size */
+  /** When true, match Leaflet zoom control size, border, and border-radius exactly */
   compact?: boolean;
 }
 
 /**
- * Leaflet-style control: button with table+hex icon in bottom-left corner.
- * Opens the H3 hex data table in a full lightbox modal (same as facet "More").
+ * Button + modal content; shared by both overlay and Leaflet Control modes.
  */
-export function HexTableControl({
+function HexTableButton({
+  compact,
   hexes,
   resolution,
   searchQuery,
   queryString,
-  loading = false,
-  wrapperClassName = 'bottom-4 left-4',
-  compact = false,
-}: HexTableControlProps) {
+  loading,
+  onOpenChange,
+  isOpen,
+}: HexTableControlProps & {
+  onOpenChange: (open: boolean) => void;
+  isOpen: boolean;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => onOpenChange(!isOpen)}
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        aria-controls={isOpen ? HEX_TABLE_MODAL_ID : undefined}
+        aria-label={isOpen ? 'Close hex data table' : 'View hex data as table'}
+        title={isOpen ? 'Close hex data table' : 'View hex table'}
+        className={`flex items-center justify-center bg-white hover:bg-[#f4f4f4] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors ${
+          compact
+            ? 'h-[30px] w-[30px] rounded-[2px] border-2 border-black/20 shadow-none bg-clip-padding'
+            : 'h-10 w-10 rounded-lg border border-gray-200 shadow-sm backdrop-blur-sm hover:bg-gray-50 hover:border-gray-300 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11'
+        }`}
+      >
+        <span className="relative inline-flex" aria-hidden>
+          <Table
+            className={`text-gray-700 ${compact ? 'h-4 w-4' : 'h-5 w-5'}`}
+            strokeWidth={2}
+          />
+          <Hexagon
+            className={`absolute -right-0.5 text-blue-600 fill-current ${
+              compact ? '-bottom-0.5 h-1.5 w-1.5' : '-bottom-1 -right-1 h-2.5 w-2.5'
+            }`}
+            fill="currentColor"
+            strokeWidth={0}
+          />
+        </span>
+      </button>
+    </>
+  );
+}
+
+/**
+ * Renders the hex table button inside Leaflet's control container (div.leaflet-bottom.leaflet-left).
+ * Uses map.addControl() so it appears alongside the zoom control in the proper layout.
+ */
+function HexTableControlInLeaflet(props: HexTableControlProps) {
+  const context = useContext(LeafletContext);
+  const map = context?.map;
   const [isOpen, setIsOpen] = useState(false);
-  const toggleRef = useRef<HTMLButtonElement>(null);
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!map) return;
+
+    const CustomControl = L.Control.extend({
+      onAdd: () => {
+        const div = document.createElement('div');
+        div.className = 'leaflet-control';
+        L.DomEvent.disableClickPropagation(div);
+        return div;
+      },
+    });
+
+    const control = new CustomControl({ position: 'bottomleft' as L.ControlPosition });
+    control.addTo(map);
+    setContainer(control.getContainer());
+
+    return () => {
+      control.remove();
+      setContainer(null);
+    };
+  }, [map]);
+
+  if (!container) return null;
+
+  return createPortal(
+    <>
+      <HexTableModal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        hexes={props.hexes}
+        resolution={props.resolution}
+        searchQuery={props.searchQuery}
+        queryString={props.queryString}
+        loading={props.loading}
+      />
+      <HexTableButton {...props} isOpen={isOpen} onOpenChange={setIsOpen} />
+    </>,
+    container
+  );
+}
+
+/**
+ * Overlay mode: positioned with absolute + wrapperClassName, used when not inside MapContainer.
+ */
+function HexTableControlOverlay(props: HexTableControlProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { wrapperClassName = 'bottom-4 left-4' } = props;
 
   return (
     <>
       <HexTableModal
         isOpen={isOpen}
         onClose={() => setIsOpen(false)}
-        hexes={hexes}
-        resolution={resolution}
-        searchQuery={searchQuery}
-        queryString={queryString}
-        loading={loading}
+        hexes={props.hexes}
+        resolution={props.resolution}
+        searchQuery={props.searchQuery}
+        queryString={props.queryString}
+        loading={props.loading}
       />
       <div className={`absolute ${wrapperClassName} z-[1000]`}>
-        <button
-          ref={toggleRef}
-          type="button"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-haspopup="dialog"
-          aria-expanded={isOpen}
-          aria-controls={isOpen ? HEX_TABLE_MODAL_ID : undefined}
-          aria-label={isOpen ? 'Close hex data table' : 'View hex data as table'}
-          title={isOpen ? 'Close hex data table' : 'View hex table'}
-          className={`flex items-center justify-center rounded-lg border border-gray-200 bg-white/95 shadow-sm backdrop-blur-sm hover:bg-gray-50 hover:border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors ${
-            compact
-              ? 'h-[30px] w-[30px]'
-              : 'h-10 w-10 [@media(pointer:coarse)]:h-11 [@media(pointer:coarse)]:w-11'
-          }`}
-        >
-          <span className="relative inline-flex" aria-hidden>
-            <Table
-              className={`text-gray-700 ${compact ? 'h-4 w-4' : 'h-5 w-5'}`}
-              strokeWidth={2}
-            />
-            <Hexagon
-              className={`absolute -right-0.5 text-blue-600 fill-current ${
-                compact ? '-bottom-0.5 h-1.5 w-1.5' : '-bottom-1 -right-1 h-2.5 w-2.5'
-              }`}
-              fill="currentColor"
-              strokeWidth={0}
-            />
-          </span>
-        </button>
+        <HexTableButton {...props} isOpen={isOpen} onOpenChange={setIsOpen} />
       </div>
     </>
   );
+}
+
+/**
+ * Leaflet-style control: button with table+hex icon in bottom-left corner.
+ * Opens the H3 hex data table in a full lightbox modal (same as facet "More").
+ *
+ * When used as a child of MapContainer, renders inside Leaflet's control layout
+ * (div.leaflet-control-container > div.leaflet-bottom.leaflet-left).
+ * When used outside MapContainer (e.g. GeospatialFilterMap), uses absolute positioning.
+ */
+export function HexTableControl(props: HexTableControlProps) {
+  const context = useContext(LeafletContext);
+
+  if (context?.map) {
+    return <HexTableControlInLeaflet {...props} />;
+  }
+
+  return <HexTableControlOverlay {...props} />;
 }
