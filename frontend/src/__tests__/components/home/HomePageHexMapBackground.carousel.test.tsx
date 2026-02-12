@@ -124,7 +124,11 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
   };
 
   const waitForFeaturedData = async () => {
-    await screen.findByRole('button', { name: /Featured Item 1|Test Resource/i }, { timeout: 8000 });
+    await screen.findByRole(
+      'button',
+      { name: /Featured Item 1|Test Resource/i },
+      { timeout: 8000 }
+    );
   };
 
   const getPlayPauseButton = () =>
@@ -154,9 +158,9 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     });
     await user.click(thirdThumb);
 
-    expect(
-      screen.getByRole('status', { hidden: true })
-    ).toHaveTextContent(/Current featured item: Featured Item 3/i);
+    expect(screen.getByRole('status', { hidden: true })).toHaveTextContent(
+      /Current featured item: Featured Item 3/i
+    );
 
     const progressBar = getProgressBar();
     expect(progressBar).toBeInTheDocument();

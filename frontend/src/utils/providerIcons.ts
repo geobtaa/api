@@ -43,10 +43,10 @@ const VALID_ICON_SLUGS = new Set([
 
 /** Explicit overrides for provider names that don't slugify cleanly */
 const PROVIDER_OVERRIDES: Record<string, string | null> = {
-  'uva': 'university_of_virginia',
+  uva: 'university_of_virginia',
   'uva libraries': 'university_of_virginia',
   'university of virginia': 'university_of_virginia',
-  'mit': 'mit',
+  mit: 'mit',
   'mit libraries': 'mit',
   'geoblacklight community': null,
   'u.s. geological survey, department of the interior': null,
@@ -59,7 +59,8 @@ const PROVIDER_OVERRIDES: Record<string, string | null> = {
   'uc berkeley': 'uc_berkeley',
   'university of california berkeley': 'uc_berkeley',
   'university of california, berkeley': 'uc_berkeley',
-  'university of illinois at urbana champaign': 'university_of_illinois_urbana_champaign',
+  'university of illinois at urbana champaign':
+    'university_of_illinois_urbana_champaign',
   'uw madison': 'university_of_wisconsin_madison',
   'university of wisconsin madison': 'university_of_wisconsin_madison',
   'university of nebraska lincoln': 'university_of_nebraska_lincoln',
@@ -171,7 +172,9 @@ export function getProviderSchoolColor(iconSlug: string | null): string {
  * Returns the icon slug for a provider name, or null if no icon exists.
  * Icons are served from /icons/{slug}.svg
  */
-export function getProviderIconSlug(provider: string | undefined | null): string | null {
+export function getProviderIconSlug(
+  provider: string | undefined | null
+): string | null {
   if (!provider || typeof provider !== 'string') return null;
   const trimmed = provider.trim();
   if (!trimmed) return null;

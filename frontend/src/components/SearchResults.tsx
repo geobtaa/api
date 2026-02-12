@@ -514,9 +514,7 @@ export function SearchResults({
                             <span>
                               {ogm.dc_publisher_sm
                                 .map((item) =>
-                                  typeof item === 'string'
-                                    ? item
-                                    : String(item)
+                                  typeof item === 'string' ? item : String(item)
                                 )
                                 .join(', ')}
                             </span>

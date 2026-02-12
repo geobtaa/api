@@ -4,6 +4,20 @@ import { fetchNominatimSearch } from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { GazetteerPlace } from '../types/api';
 
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() =>
+    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
+  );
+  useEffect(() => {
+    const m = window.matchMedia(query);
+    const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
+    m.addEventListener('change', handler);
+    setMatches(m.matches);
+    return () => m.removeEventListener('change', handler);
+  }, [query]);
+  return matches;
+}
+
 interface SearchFieldProps {
   onSearch?: (query: string) => void;
   placeholder?: string;
@@ -45,6 +59,15 @@ export function SearchField({
   const placeSuggestionsRef = useRef<HTMLDivElement>(null);
   const [isPlaceInputFocused, setIsPlaceInputFocused] = useState(false);
   const [isKeywordInputFocused, setIsKeywordInputFocused] = useState(false);
+
+  const isSmOrLarger = useMediaQuery('(min-width: 640px)');
+  const isXlOrLarger = useMediaQuery('(min-width: 1280px)');
+
+  // Full placeholder at xl+ (1280px); short "Search…" below. Guard: if placeholder was customized (not default), prefer full at lg+.
+  const fullPlaceholderPreferred =
+    placeholder !== 'Search...' || isXlOrLarger;
+  const responsivePlaceholder =
+    fullPlaceholderPreferred ? placeholder : 'Search…';
 
   // Sync query with URL params (e.g., when Clear All is clicked)
   useEffect(() => {
@@ -518,16 +541,19 @@ export function SearchField({
     }
   };
 
-  const rightPadding = showAdvancedButton ? 'pr-32' : 'pr-24';
+  const rightPadding = showAdvancedButton
+    ? 'pr-12 sm:pr-32'
+    : 'pr-12 sm:pr-24';
 
   // Determine place name to display
   const hasGeoFilter =
     searchParams.get('include_filters[geo][type]') === 'bbox';
-  const placeDisplayValue = selectedPlace
-    ? selectedPlace.attributes.name || selectedPlace.attributes.display_name
-    : hasGeoFilter
-      ? 'Location filtered'
-      : 'Everywhere';
+  const placeDisplayValue =
+    selectedPlace
+      ? selectedPlace.attributes.name || selectedPlace.attributes.display_name
+      : hasGeoFilter
+        ? 'Location filtered'
+        : 'Everywhere';
 
   // Check if either input is focused
   const isAnyInputFocused = isPlaceInputFocused || isKeywordInputFocused;
@@ -541,12 +567,12 @@ export function SearchField({
         aria-label="Search"
       >
         <div
-          className={`flex items-center gap-0 rounded-lg transition-all ${
+          className={`flex flex-col gap-2 sm:flex-row sm:gap-0 sm:items-center rounded-lg transition-all ${
             isAnyInputFocused ? 'ring-2 ring-blue-500 ring-offset-0' : ''
           }`}
         >
-          {/* Place input (left side) */}
-          <div className="relative">
+          {/* Place input (top on mobile, left on sm+) */}
+          <div className="relative w-full sm:w-auto sm:shrink-0">
             {isPlaceInputFocused ? (
               <>
                 <input
@@ -582,8 +608,9 @@ export function SearchField({
                     }, 200);
                   }}
                   onKeyDown={handlePlaceKeyDown}
-                  placeholder="Search for a place..."
-                  className="w-[180px] pl-8 pr-3 py-2 text-gray-900 placeholder-gray-500 border border-r-0 border-gray-300 rounded-l-lg focus:outline-none focus:z-10"
+                  placeholder="Place — Search for a location..."
+                  aria-label="Place: search for a location to limit your search"
+                  className="w-full min-w-0 sm:min-w-[12.5rem] sm:w-56 md:w-60 lg:w-64 xl:w-72 pl-8 pr-3 py-2 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg sm:rounded-r-none sm:rounded-l-lg sm:border-r-0 focus:outline-none focus:z-10"
                 />
                 <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
                   <MapPin
@@ -593,7 +620,13 @@ export function SearchField({
                 </div>
               </>
             ) : (
-              <div className="relative w-[180px]">
+              <div
+                className={`relative w-full min-w-0 sm:shrink-0 sm:min-w-[12.5rem] ${
+                  isSmOrLarger
+                    ? 'sm:w-56 md:w-60 lg:w-64 xl:w-72'
+                    : 'sm:w-[12.5rem]'
+                }`}
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -603,24 +636,33 @@ export function SearchField({
                     setTimeout(() => placeInputRef.current?.focus(), 0);
                   }}
                   onFocus={() => {
-                    // When button receives focus (e.g., via Shift+Tab), switch to input mode
                     setIsPlaceInputFocused(true);
                     setPlaceQuery('');
                     setShowPlaceSuggestions(false);
                     setTimeout(() => placeInputRef.current?.focus(), 0);
                   }}
-                  className={`w-full px-3 py-2 pl-8 pr-8 font-medium text-left border border-r-0 border-gray-300 rounded-l-lg bg-white hover:bg-gray-50 focus:outline-none focus:z-10 transition-colors ${
-                    selectedPlace ? 'text-blue-700' : 'text-gray-700'
-                  }`}
-                  aria-label="Select location"
+                  className="w-full py-2 px-3 pl-8 pr-8 font-medium text-left border border-gray-300 rounded-lg sm:rounded-r-none sm:rounded-l-lg sm:border-r-0 bg-white hover:bg-gray-50 focus:outline-none focus:z-10 transition-colors flex items-center"
+                  aria-label={`Place (location filter): ${placeDisplayValue}. Click to search by location.`}
+                  title={`Place: ${placeDisplayValue}. Click to limit search to a location.`}
                 >
                   <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
                     <MapPin
-                      className="w-4 h-4 text-gray-400"
+                      className="w-4 h-4 text-gray-400 shrink-0"
                       aria-hidden="true"
                     />
                   </div>
-                  <span className="truncate block">{placeDisplayValue}</span>
+                  <span
+                    className={`block pl-1 ${
+                      placeDisplayValue === 'Everywhere'
+                        ? 'whitespace-nowrap'
+                        : 'truncate'
+                    }`}
+                  >
+                    <span className="text-gray-500 font-normal">Place: </span>
+                    <span className="text-gray-900">
+                      {placeDisplayValue}
+                    </span>
+                  </span>
                 </button>
                 {selectedPlace && (
                   <button
@@ -636,8 +678,8 @@ export function SearchField({
             )}
           </div>
 
-          {/* Keyword search input (right side) */}
-          <div className="relative flex-1">
+          {/* Keyword search input (right side) — flex-1 so it grows; always larger than place */}
+          <div className="relative flex-1 min-w-0">
             <input
               ref={inputRef}
               type="search"
@@ -667,11 +709,11 @@ export function SearchField({
                 }, 200);
               }}
               onKeyDown={handleKeyDown}
-              placeholder={placeholder}
+              placeholder={responsivePlaceholder}
               autoFocus={autoFocus}
               aria-label="Search input"
               aria-describedby="search-description"
-              className={`w-full px-4 py-2 pl-10 ${rightPadding} text-gray-900 placeholder-gray-500 border border-gray-300 rounded-r-lg focus:outline-none`}
+              className={`w-full px-4 py-2 pl-10 ${rightPadding} text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg sm:rounded-l-none sm:rounded-r-lg focus:outline-none`}
             />
             <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
               <Search className="w-5 h-5 text-gray-400" aria-hidden="true" />
@@ -683,7 +725,7 @@ export function SearchField({
           <button
             type="button"
             onClick={handleAdvancedSearchClick}
-            className="absolute inset-y-0 right-24 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
+            className="absolute inset-y-0 right-12 sm:right-24 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
             aria-label="Advanced search"
             title="Advanced search"
           >
@@ -692,10 +734,11 @@ export function SearchField({
         )}
         <button
           type="submit"
-          className={`absolute inset-y-1 ${showAdvancedButton ? 'right-1' : 'right-1'} flex items-center px-4 py-1.5 text-sm font-medium text-white bg-brand hover:bg-brand/90 rounded-md focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 transition-colors`}
+          className={`absolute inset-y-1 right-1 flex items-center px-2 sm:px-4 py-1.5 text-sm font-medium text-white bg-brand hover:bg-brand/90 rounded-md focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 transition-colors`}
           aria-label="Submit search"
         >
-          Search
+          <Search className="w-4 h-4 sm:hidden" aria-hidden />
+          <span className="hidden sm:inline">Search</span>
         </button>
         <span id="search-description" className="sr-only">
           Press Enter or click the search button to submit your search

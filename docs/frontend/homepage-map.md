@@ -53,7 +53,7 @@ Hovering a hex shows a popover (bottom-left) with:
 
 ### Configuration
 
-Featured items are defined in `frontend/src/config/featured.ts` via `FEATURED_RESOURCE_IDS`. Each ID corresponds to a resource path (`/resources/{id}`). The list can include:
+Featured items are defined in `frontend/src/config/featured.ts`. Each ID corresponds to a resource path (`/resources/{id}`). The list can include:
 
 - Maps (WMS, WMTS, XYZ, etc.)
 - Datasets

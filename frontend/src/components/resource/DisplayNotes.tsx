@@ -34,24 +34,24 @@ function classifyNote(note: string): NoteConfig {
           return {
             variant,
             icon: <Flame className="h-4 w-4 text-red-600" aria-hidden="true" />,
-            classes:
-              'border-red-200 bg-red-50 text-red-800',
+            classes: 'border-red-200 bg-red-50 text-red-800',
           };
         case 'info':
           return {
             variant,
             icon: <Info className="h-4 w-4 text-blue-600" aria-hidden="true" />,
-            classes:
-              'border-blue-200 bg-blue-50 text-blue-800',
+            classes: 'border-blue-200 bg-blue-50 text-blue-800',
           };
         case 'tip':
           return {
             variant,
             icon: (
-              <Lightbulb className="h-4 w-4 text-emerald-600" aria-hidden="true" />
+              <Lightbulb
+                className="h-4 w-4 text-emerald-600"
+                aria-hidden="true"
+              />
             ),
-            classes:
-              'border-emerald-200 bg-emerald-50 text-emerald-800',
+            classes: 'border-emerald-200 bg-emerald-50 text-emerald-800',
           };
         case 'warning':
           return {
@@ -62,8 +62,7 @@ function classifyNote(note: string): NoteConfig {
                 aria-hidden="true"
               />
             ),
-            classes:
-              'border-amber-200 bg-amber-50 text-amber-800',
+            classes: 'border-amber-200 bg-amber-50 text-amber-800',
           };
       }
     }
@@ -104,4 +103,3 @@ export function DisplayNotes({ notes }: DisplayNotesProps) {
     </div>
   );
 }
-

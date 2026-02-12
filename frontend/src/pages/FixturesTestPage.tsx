@@ -1365,8 +1365,9 @@ export function FixturesTestPage() {
                           loading="lazy"
                           onError={(e) => {
                             // If thumbnail fails, keep the cell but avoid broken image icon
-                            (e.currentTarget as HTMLImageElement).style.display =
-                              'none';
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = 'none';
                           }}
                         />
                       </div>
@@ -1379,8 +1380,9 @@ export function FixturesTestPage() {
                           className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display =
-                              'none';
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = 'none';
                           }}
                         />
                       </div>

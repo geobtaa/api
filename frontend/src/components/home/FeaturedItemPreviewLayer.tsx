@@ -83,12 +83,9 @@ export function hasAllmapsViewer(
 
 function getAllmapsAnnotationUrl(detail: GeoDocumentDetails): string {
   const url = detail.meta?.ui?.allmaps?.allmaps_annotation_url;
-  if (url) return url;
   const manifestUri = detail.meta?.ui?.allmaps?.allmaps_manifest_uri;
-  if (manifestUri) {
-    return `https://annotations.allmaps.org/?url=${encodeURIComponent(manifestUri)}`;
-  }
-  return '';
+  if (!manifestUri) return url ?? '';
+  return url ?? `https://annotations.allmaps.org/?url=${encodeURIComponent(manifestUri)}`;
 }
 
 /** Ensures a pane exists for the featured preview layer. Layer order: hexes (back) -> bounds -> preview (front). */

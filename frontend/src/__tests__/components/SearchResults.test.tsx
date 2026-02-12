@@ -218,7 +218,9 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
       // First fixture has gbl_indexYear_im: [1950], gbl_resourceClass_sm: ['Paper Maps']
-      const pill = screen.getByText(/1950/).closest('[data-testid="result-card-pill"]');
+      const pill = screen
+        .getByText(/1950/)
+        .closest('[data-testid="result-card-pill"]');
       expect(pill).toBeInTheDocument();
       expect(pill).toHaveTextContent('1950');
       expect(pill).toHaveTextContent('Paper Maps');

@@ -281,7 +281,9 @@ describe('FacetMoreModal', () => {
     renderWithRouter(<FacetMoreModal {...props} />);
 
     // BBox: N E S W format (matches SearchConstraints)
-    expect(screen.getByText(/BBox: 41\.83°N -71\.15°E 37\.90°S -80\.51°W/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/BBox: 41\.83°N -71\.15°E 37\.90°S -80\.51°W/)
+    ).toBeInTheDocument();
     // Resource Class
     expect(screen.getByText(/Resource Class:/)).toBeInTheDocument();
     expect(screen.getByText(/Maps/)).toBeInTheDocument();

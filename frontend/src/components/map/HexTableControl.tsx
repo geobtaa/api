@@ -58,7 +58,9 @@ function HexTableButton({
           />
           <Hexagon
             className={`absolute -right-0.5 text-blue-600 fill-current ${
-              compact ? '-bottom-0.5 h-1.5 w-1.5' : '-bottom-1 -right-1 h-2.5 w-2.5'
+              compact
+                ? '-bottom-0.5 h-1.5 w-1.5'
+                : '-bottom-1 -right-1 h-2.5 w-2.5'
             }`}
             fill="currentColor"
             strokeWidth={0}
@@ -91,7 +93,9 @@ function HexTableControlInLeaflet(props: HexTableControlProps) {
       },
     });
 
-    const control = new CustomControl({ position: 'bottomleft' as L.ControlPosition });
+    const control = new CustomControl({
+      position: 'bottomleft' as L.ControlPosition,
+    });
     control.addTo(map);
     setContainer(control.getContainer());
 

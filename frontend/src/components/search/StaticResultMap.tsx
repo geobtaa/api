@@ -17,7 +17,7 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
   const geometry = result.meta?.ui?.viewer?.geometry;
   const hasBbox = Boolean(
     result.attributes?.ogm?.dcat_bbox &&
-      String(result.attributes.ogm.dcat_bbox).trim().length > 0
+    String(result.attributes.ogm.dcat_bbox).trim().length > 0
   );
   const hasMapData = geometry || hasBbox;
 

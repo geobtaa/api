@@ -140,9 +140,17 @@ function FeaturedItemBoundsLayer({
 
 /** Format H3 cell area in km² for display (e.g. 0.25, 15.3, 1,234). */
 function formatAreaKm2(km2: number): string {
-  if (km2 >= 1000) return km2.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  if (km2 >= 1) return km2.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-  return km2.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  if (km2 >= 1000)
+    return km2.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (km2 >= 1)
+    return km2.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2,
+    });
+  return km2.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
 }
 
 function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
@@ -396,7 +404,7 @@ export function HomePageHexMapBackground() {
           doubleClickZoom={true}
           touchZoom={true}
           keyboard={true}
-          attributionControl={false}
+          attributionControl={true}
           zoomAnimationThreshold={1}
           // @ts-expect-error - gestureHandling is a leaflet-gesture-handling plugin option
           gestureHandling={true}
@@ -419,9 +427,7 @@ export function HomePageHexMapBackground() {
             wrapperClassName="bottom-4 left-4"
             compact
           />
-          {hoveredHex && (
-            <HexHoverCard hoveredHex={hoveredHex} />
-          )}
+          {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
           <MapUpdaterHex
             searchQuery=""
             onFeatureClick={() => {}}
@@ -552,7 +558,8 @@ export function HomePageHexMapBackground() {
           }}
           onFocus={(e) => {
             // Don't pause when focus goes to Play/Pause — user is controlling playback
-            if ((e.target as Element).closest('[data-featured-play-pause]')) return;
+            if ((e.target as Element).closest('[data-featured-play-pause]'))
+              return;
             if (featuredInitiated && !carouselPausedRef.current) {
               if (featuredCardHoverRef.current) {
                 featuredTotalPausedRef.current +=
@@ -824,7 +831,6 @@ export function HomePageHexMapBackground() {
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

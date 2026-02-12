@@ -91,8 +91,10 @@ function sortResourceClasses(items: ResourceClassItem[]): ResourceClassItem[] {
 
 export function ResourceClassFilterTabs({
   variant = 'header',
+  layout = 'horizontal',
 }: {
   variant?: 'header' | 'content';
+  layout?: 'horizontal' | 'vertical';
 }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -237,13 +239,20 @@ export function ResourceClassFilterTabs({
     return null;
   }
 
-  return (
-    <div className="flex w-full items-center justify-center gap-1 overflow-x-auto scrollbar-hide">
+  const tabClass = (active: boolean) =>
+    `px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
+      layout === 'vertical'
+        ? `w-full text-left rounded-md ${
+            active ? 'bg-white/20' : 'hover:bg-white/10'
+          } ${active ? styles.active : styles.inactive}`
+        : `border-b-2 ${active ? styles.active : styles.inactive}`
+    }`;
+
+  const tabButtons = (
+    <>
       <button
         onClick={() => handleTabClick(null)}
-        className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-          !currentResourceClass ? styles.active : styles.inactive
-        }`}
+        className={tabClass(!currentResourceClass)}
         aria-label="Show all resources"
         aria-current={!currentResourceClass ? 'page' : undefined}
       >
@@ -255,9 +264,7 @@ export function ResourceClassFilterTabs({
           <button
             key={resourceClass.value}
             onClick={() => handleTabClick(resourceClass.value)}
-            className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors border-b-2 ${
-              isActive ? styles.active : styles.inactive
-            }`}
+            className={tabClass(isActive)}
             aria-label={`Filter by ${resourceClass.label}`}
             aria-current={isActive ? 'page' : undefined}
           >
@@ -265,6 +272,23 @@ export function ResourceClassFilterTabs({
           </button>
         );
       })}
+    </>
+  );
+
+  if (layout === 'vertical') {
+    return (
+      <div className="flex flex-col gap-1">
+        <p className="text-white/80 text-xs font-medium uppercase tracking-wider px-4 py-2">
+          Browse by type
+        </p>
+        {tabButtons}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex w-full min-w-0 items-center justify-center gap-1 overflow-x-auto scrollbar-hide">
+      {tabButtons}
     </div>
   );
 }
