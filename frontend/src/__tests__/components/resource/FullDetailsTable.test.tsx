@@ -133,6 +133,8 @@ describe('FullDetailsTable', () => {
     };
     renderWithRouter(<FullDetailsTable data={data} />);
     expect(screen.getByText('Has part...')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Browse all/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /Browse all/ })
+    ).not.toBeInTheDocument();
   });
 });

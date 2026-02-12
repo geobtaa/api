@@ -186,18 +186,19 @@ export function MapPage() {
                         : undefined
                     }
                   />
+                  <HexTableControl
+                    hexes={hexStats.hexes}
+                    resolution={hexStats.resolution}
+                    searchQuery={searchQuery}
+                    queryString={
+                      typeof window !== 'undefined'
+                        ? window.location.search.slice(1)
+                        : undefined
+                    }
+                    loading={hexStats.loading}
+                    compact
+                  />
                 </MapContainer>
-                <HexTableControl
-                  hexes={hexStats.hexes}
-                  resolution={hexStats.resolution}
-                  searchQuery={searchQuery}
-                  queryString={
-                    typeof window !== 'undefined'
-                      ? window.location.search.slice(1)
-                      : undefined
-                  }
-                  loading={hexStats.loading}
-                />
                 <div className="absolute bottom-4 right-4 z-[1000] bg-white/95 rounded-lg shadow-sm border border-gray-200 p-3">
                   <Legend />
                 </div>

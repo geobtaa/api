@@ -387,6 +387,53 @@ class TestFacetEndpointSuccess:
     @patch("app.api.v1.endpoint_modules.search.create_pagination_links")
     @patch("app.api.v1.endpoint_modules.search.create_jsonapi_response")
     @patch("app.api.v1.endpoint_modules.search.sanitize_for_json")
+    async def test_year_range_filter_passed_to_get_facet_values(
+        self,
+        mock_sanitize,
+        mock_jsonapi,
+        mock_pagination,
+        mock_search_criteria,
+        mock_process,
+        mock_get_facet,
+        async_client: AsyncClient,
+    ):
+        """Regression: year_range filter must be passed correctly to avoid [term] query error."""
+        mock_buckets = [{"key": "Minnesota", "doc_count": 10}]
+        mock_get_facet.return_value = mock_buckets
+        mock_search_criteria.return_value = {"query": None, "filters": {}}
+        mock_process.return_value = {
+            "data": [],
+            "meta": {
+                "totalCount": 1,
+                "totalPages": 1,
+                "currentPage": 1,
+                "perPage": 10,
+                "facetName": "dct_spatial_sm",
+                "sort": "count_desc",
+            },
+        }
+        mock_pagination.return_value = {"self": "/test"}
+        mock_jsonapi.return_value = {"jsonapi": {"version": "1.1"}}
+        mock_sanitize.side_effect = lambda x: x
+
+        response = await async_client.get(
+            "/api/v1/search/facets/dct_spatial_sm?"
+            "include_filters[year_range][start]=1900&"
+            "include_filters[year_range][end]=1949"
+        )
+
+        assert response.status_code == 200
+        call_args = mock_get_facet.call_args
+        include_filters = call_args.kwargs["include_filters"]
+        assert "year_range" in include_filters
+        assert include_filters["year_range"] == {"start": "1900", "end": "1949"}
+
+    @patch("app.api.v1.endpoint_modules.search.get_facet_values")
+    @patch("app.api.v1.endpoint_modules.search.process_facet_response")
+    @patch("app.api.v1.endpoint_modules.search.get_search_criteria")
+    @patch("app.api.v1.endpoint_modules.search.create_pagination_links")
+    @patch("app.api.v1.endpoint_modules.search.create_jsonapi_response")
+    @patch("app.api.v1.endpoint_modules.search.sanitize_for_json")
     @patch("app.api.v1.endpoint_modules.search.validate_adv_q")
     async def test_adv_q_parameter(
         self,

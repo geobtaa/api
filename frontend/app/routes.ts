@@ -26,5 +26,6 @@ export default [
   route("map", "routes/map.tsx"),
   route("test", "routes/test.tsx"),
   route("test/fixtures", "routes/test.fixtures.tsx"),
+  route("test/fixtures/providers", "routes/test.fixtures.providers.tsx"),
   route("*", "routes/$.tsx"),
 ] satisfies RouteConfig;

@@ -11,9 +11,7 @@ describe('linkifyText', () => {
   describe('plain text without URLs', () => {
     it('returns the original string when no URLs are present', () => {
       const text = 'This is plain text with no links.';
-      const { container } = render(
-        <Wrapper>{linkifyText(text)}</Wrapper>
-      );
+      const { container } = render(<Wrapper>{linkifyText(text)}</Wrapper>);
       expect(container).toHaveTextContent(text);
       expect(container.querySelector('a')).toBeNull();
     });
@@ -24,7 +22,9 @@ describe('linkifyText', () => {
     });
 
     it('returns empty string for nullish-like input', () => {
-      const { container } = render(<Wrapper>{linkifyText('' as string)}</Wrapper>);
+      const { container } = render(
+        <Wrapper>{linkifyText('' as string)}</Wrapper>
+      );
       expect(container).toHaveTextContent('');
     });
   });
@@ -56,7 +56,9 @@ describe('linkifyText', () => {
     it('preserves surrounding text before and after the URL', () => {
       const text = 'See https://example.com for details.';
       const { container } = render(<Wrapper>{linkifyText(text)}</Wrapper>);
-      expect(container).toHaveTextContent('See https://example.com for details.');
+      expect(container).toHaveTextContent(
+        'See https://example.com for details.'
+      );
     });
   });
 

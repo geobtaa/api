@@ -9,6 +9,7 @@ import { useSearchParams } from 'react-router';
 import { BookmarkProvider } from './context/BookmarkContext';
 import { BookmarksPage } from './pages/BookmarksPage';
 import { FixturesTestPage } from './pages/FixturesTestPage';
+import { ProviderPillsTestPage } from './pages/ProviderPillsTestPage';
 import { MapPage } from './pages/MapPage';
 import { TestPage } from './pages/TestPage';
 import { NotFoundPage } from './pages/NotFoundPage';
@@ -41,6 +42,10 @@ function App() {
             <Route path="/search" element={<SearchPage />} />
             <Route path="/bookmarks" element={<BookmarksPage />} />
             <Route path="/resources/:id" element={<ResourceView />} />
+            <Route
+              path="/test/fixtures/providers"
+              element={<ProviderPillsTestPage />}
+            />
             <Route path="/test/fixtures" element={<FixturesTestPage />} />
             <Route path="/test" element={<TestPage />} />
             <Route path="/map" element={<MapPage />} />

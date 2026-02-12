@@ -8,6 +8,7 @@ import { BookmarkButton } from './BookmarkButton';
 import { useBookmarks } from '../context/BookmarkContext';
 import { getResourceIcon } from '../utils/resourceIcons';
 import { StaticResultMap } from './search/StaticResultMap';
+import { ResultCardPill } from './search/ResultCardPill';
 
 interface SearchResultsProps {
   results: GeoDocument[];
@@ -384,11 +385,11 @@ export function SearchResults({
                 {!isCompact && (
                   <p className="text-gray-600 mb-4 line-clamp-2">
                     <span className="text-sm font-medium flex-shrink-0">
-                      <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
-                        {ogm?.gbl_indexYear_im?.[0] ?? '—'}
-                        <span className="mx-1.5 opacity-90" aria-hidden>·</span>
-                        {resourceClass || 'Item'}
-                      </span>
+                      <ResultCardPill
+                        indexYear={ogm?.gbl_indexYear_im?.[0]}
+                        resourceClass={resourceClass}
+                        provider={ogm?.schema_provider_s}
+                      />
                     </span>
                     {ogm?.dct_description_sm &&
                     Array.isArray(ogm.dct_description_sm) &&
@@ -406,11 +407,11 @@ export function SearchResults({
                 {/* Subject and Theme tags */}
                 {isCompact ? (
                   <div className="mt-auto pt-2">
-                    <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
-                      {ogm?.gbl_indexYear_im?.[0] ?? '—'}
-                      <span className="mx-1.5 opacity-90" aria-hidden>·</span>
-                      {resourceClass || 'Item'}
-                    </span>
+                    <ResultCardPill
+                      indexYear={ogm?.gbl_indexYear_im?.[0]}
+                      resourceClass={resourceClass}
+                      provider={ogm?.schema_provider_s}
+                    />
                   </div>
                 ) : (
                   <div className="flex flex-col gap-4 flex-1">
@@ -513,9 +514,7 @@ export function SearchResults({
                             <span>
                               {ogm.dc_publisher_sm
                                 .map((item) =>
-                                  typeof item === 'string'
-                                    ? item
-                                    : String(item)
+                                  typeof item === 'string' ? item : String(item)
                                 )
                                 .join(', ')}
                             </span>

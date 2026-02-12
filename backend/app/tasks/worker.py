@@ -127,8 +127,10 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
 
         logger.info(f"Fetching image: {resolved_url}")
         # Use User-Agent header to avoid 403 errors from servers that block bots
+        # Some ArcGIS ImageServer exportImage URLs can take 15-30s when server is cold
+        fetch_timeout = int(os.getenv("THUMBNAIL_FETCH_TIMEOUT", "30"))
         headers = {"User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"}
-        response = requests.get(resolved_url, timeout=15, headers=headers)
+        response = requests.get(resolved_url, timeout=fetch_timeout, headers=headers)
 
         # Don't retry non-recoverable bot-block/authorization responses.
         # - 401/403: auth

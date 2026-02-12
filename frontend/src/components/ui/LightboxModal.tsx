@@ -42,6 +42,17 @@ export function LightboxModal({
   const contentRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const previousActiveElement = useRef<Element | null>(null);
+  const previousBodyOverflow = useRef<string>('');
+
+  // Disable body scroll when modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    previousBodyOverflow.current = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousBodyOverflow.current;
+    };
+  }, [isOpen]);
 
   // Focus management: trap and return
   useEffect(() => {

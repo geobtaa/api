@@ -109,11 +109,11 @@ describe('GalleryView', () => {
   it('renders year and resource class in conjoined pill', () => {
     renderGallery();
     // Mock has gbl_indexYear_im: [2020] and gbl_resourceClass_sm: ['Map'] for each result
-    const pills = screen.getAllByText(/2020/);
+    const pills = screen.getAllByTestId('result-card-pill');
     expect(pills.length).toBeGreaterThan(0);
     const pill = pills[0];
     expect(pill).toHaveTextContent('2020');
     expect(pill).toHaveTextContent('Map');
-    expect(pill).toHaveClass('bg-brand', 'text-white');
+    expect(pill).toHaveClass('bg-gray-600', 'text-white');
   });
 });

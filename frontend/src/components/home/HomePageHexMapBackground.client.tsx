@@ -15,14 +15,22 @@ import {
   useMap,
   ZoomControl,
 } from 'react-leaflet';
+import L from 'leaflet';
+import { GestureHandling } from 'leaflet-gesture-handling';
 import 'leaflet/dist/leaflet.css';
-import { MapUpdaterHex } from '../map/MapUpdaterHex';
+import 'leaflet-gesture-handling/dist/leaflet-gesture-handling.css';
+import { cellArea, UNITS } from 'h3-js';
+
+L.Map.addInitHook('addHandler', 'gestureHandling', GestureHandling);
+import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
 import { HexTableControl } from '../map/HexTableControl';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_RESOURCE_IDS } from '../../config/featured';
 import { fetchResourceDetails } from '../../services/api';
 import type { GeoDocumentDetails } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
+import { ResultCardPill } from '../search/ResultCardPill';
+import { formatCount } from '../../utils/formatNumber';
 import { parseBboxToLeafletBounds } from '../../utils/bbox';
 import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
@@ -130,6 +138,58 @@ function FeaturedItemBoundsLayer({
   );
 }
 
+/** Format H3 cell area in km² for display (e.g. 0.25, 15.3, 1,234). */
+function formatAreaKm2(km2: number): string {
+  if (km2 >= 1000)
+    return km2.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (km2 >= 1)
+    return km2.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2,
+    });
+  return km2.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
+function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
+  let areaKm2: number | null = null;
+  try {
+    areaKm2 = cellArea(hoveredHex.h3, UNITS.km2);
+  } catch {
+    // Invalid H3 index or library error
+  }
+  return (
+    <div
+      data-hex-popover
+      className="absolute bottom-20 left-4 z-[1000] rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm p-3 min-w-[180px]"
+      role="status"
+      aria-live="polite"
+    >
+      <h3 className="text-sm font-semibold text-gray-900 mb-1">
+        H3 {hoveredHex.h3}
+      </h3>
+      <dl className="text-sm text-gray-600 space-y-1 mb-2">
+        <div className="flex justify-between gap-4">
+          <dt className="font-medium">Resources</dt>
+          <dd>{formatCount(hoveredHex.count)}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="font-medium">Resolution</dt>
+          <dd>Level {hoveredHex.resolution}</dd>
+        </div>
+        {areaKm2 != null && (
+          <div className="flex justify-between gap-4">
+            <dt className="font-medium">Area</dt>
+            <dd>{formatAreaKm2(areaKm2)} km²</dd>
+          </div>
+        )}
+      </dl>
+    </div>
+  );
+}
+
 /** One-time pan so Chicago (dense hex cluster) appears in the desired position on the homepage. Marks as programmatic so it is not counted as user engagement. */
 function MapPanner({
   programmaticFlyRef,
@@ -233,6 +293,8 @@ export function HomePageHexMapBackground() {
   const featuredCardHoverRef = useRef(false);
   const featuredPauseStartRef = useRef(0);
   const featuredTotalPausedRef = useRef(0);
+  const featuredExplicitPauseStartRef = useRef(0);
+  const featuredAnimationHasRunRef = useRef(false);
   const [carouselPaused, setCarouselPaused] = useState(false);
   const carouselPausedRef = useRef(false);
   const [hexDataForTable, setHexDataForTable] = useState<{
@@ -240,6 +302,7 @@ export function HomePageHexMapBackground() {
     resolution: number;
     loading: boolean;
   }>({ hexes: [], resolution: 6, loading: false });
+  const [hoveredHex, setHoveredHex] = useState<HexHoverData | null>(null);
 
   const handleHexData = useCallback(
     (data: {
@@ -320,7 +383,8 @@ export function HomePageHexMapBackground() {
 
   return (
     <div className="absolute inset-0 z-0">
-      <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }`}</style>
+      <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }
+.homepage-map .leaflet-top.leaflet-left { top: 1rem; }`}</style>
       <p className="sr-only">
         For a list of hex data, use the hex table button in the bottom-left
         corner of the map.
@@ -333,17 +397,19 @@ export function HomePageHexMapBackground() {
         <MapContainer
           center={HOME_PAGE_MAP_CENTER}
           zoom={DEFAULT_US_ZOOM}
-          className="h-full w-full"
+          className="homepage-map h-full w-full"
           zoomControl={false}
           dragging={true}
-          scrollWheelZoom={false}
+          scrollWheelZoom={true}
           doubleClickZoom={true}
           touchZoom={true}
           keyboard={true}
-          attributionControl={false}
+          attributionControl={true}
           zoomAnimationThreshold={1}
+          // @ts-expect-error - gestureHandling is a leaflet-gesture-handling plugin option
+          gestureHandling={true}
         >
-          <ZoomControl position="topright" />
+          <ZoomControl position="topleft" />
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
@@ -358,11 +424,15 @@ export function HomePageHexMapBackground() {
               typeof window !== 'undefined' ? window.location.search : undefined
             }
             loading={hexDataForTable.loading}
+            wrapperClassName="bottom-4 left-4"
+            compact
           />
+          {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
           <MapUpdaterHex
             searchQuery=""
             onFeatureClick={() => {}}
-            onHexHover={() => {}}
+            onHexHover={setHoveredHex}
+            hoveredHex={hoveredHex}
             onHexData={handleHexData}
             queryString={
               typeof window !== 'undefined' ? window.location.search : undefined
@@ -430,14 +500,16 @@ export function HomePageHexMapBackground() {
                   </p>
                 )}
                 <div className="mt-2">
-                  <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
-                    {activeDetail.attributes?.ogm?.gbl_indexYear_im?.[0] ??
-                      activeDetail.attributes?.ogm?.gbl_indexyear_im?.[0] ??
-                      '—'}
-                    <span className="mx-1.5 opacity-90" aria-hidden>·</span>
-                    {activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0] ??
-                      'Item'}
-                  </span>
+                  <ResultCardPill
+                    indexYear={
+                      activeDetail.attributes?.ogm?.gbl_indexYear_im?.[0] ??
+                      activeDetail.attributes?.ogm?.gbl_indexyear_im?.[0]
+                    }
+                    resourceClass={
+                      activeDetail.attributes?.ogm?.gbl_resourceClass_sm?.[0]
+                    }
+                    provider={activeDetail.attributes?.ogm?.schema_provider_s}
+                  />
                 </div>
                 <Link
                   to={`/resources/${activeDetail.id}`}
@@ -484,7 +556,19 @@ export function HomePageHexMapBackground() {
             featuredTotalPausedRef.current +=
               Date.now() - featuredPauseStartRef.current;
           }}
-          onFocus={() => {
+          onFocus={(e) => {
+            // Don't pause when focus goes to Play/Pause — user is controlling playback
+            if ((e.target as Element).closest('[data-featured-play-pause]'))
+              return;
+            if (featuredInitiated && !carouselPausedRef.current) {
+              if (featuredCardHoverRef.current) {
+                featuredTotalPausedRef.current +=
+                  Date.now() - featuredPauseStartRef.current;
+                featuredCardHoverRef.current = false;
+              }
+              featuredExplicitPauseStartRef.current = Date.now();
+              carouselPausedRef.current = true;
+            }
             setCarouselPaused(true);
           }}
           onKeyDown={(e) => {
@@ -585,11 +669,41 @@ export function HomePageHexMapBackground() {
             )}
             <button
               type="button"
+              data-featured-play-pause
+              onFocusCapture={(e) => e.stopPropagation()}
               onClick={() => {
                 if (!featuredInitiated) {
                   setFeaturedInitiated(true);
                   setCarouselPaused(false);
+                  featuredCardHoverRef.current = false; // start animation even if hovered
                   return;
+                }
+                if (carouselPaused) {
+                  // Unpausing: either start fresh (from thumbnail preview) or resume (from pause)
+                  if (featuredAnimationHasRunRef.current) {
+                    featuredTotalPausedRef.current +=
+                      Date.now() - featuredExplicitPauseStartRef.current;
+                  } else {
+                    // Started from thumbnail click—reset timer for current item
+                    featuredStartTimeRef.current = Date.now();
+                    featuredTotalPausedRef.current = 0;
+                    setFeaturedProgress(1);
+                  }
+                  if (featuredCardHoverRef.current) {
+                    featuredCardHoverRef.current = false;
+                  }
+                  featuredAnimationHasRunRef.current = true;
+                  carouselPausedRef.current = false; // sync immediately so tick resumes
+                } else {
+                  // Pausing: commit any hover pause, then record explicit pause start
+                  featuredAnimationHasRunRef.current = true; // animation was running
+                  if (featuredCardHoverRef.current) {
+                    featuredTotalPausedRef.current +=
+                      Date.now() - featuredPauseStartRef.current;
+                    featuredCardHoverRef.current = false;
+                  }
+                  featuredExplicitPauseStartRef.current = Date.now();
+                  carouselPausedRef.current = true; // sync immediately so tick stops updating progress
                 }
                 setCarouselPaused((p) => !p);
               }}
@@ -639,6 +753,24 @@ export function HomePageHexMapBackground() {
                 onClick={() => {
                   setActiveIndex(index);
                   setFeaturedInitiated(true);
+                  featuredAnimationHasRunRef.current = false; // user picked this item; Play will start fresh
+                  if (!featuredInitiated) {
+                    // First time: show item on map, do NOT start animation
+                    featuredExplicitPauseStartRef.current = Date.now();
+                    setCarouselPaused(true);
+                    carouselPausedRef.current = true;
+                  } else if (!carouselPausedRef.current) {
+                    // Animation running: stop it and jump to this item
+                    if (featuredCardHoverRef.current) {
+                      featuredTotalPausedRef.current +=
+                        Date.now() - featuredPauseStartRef.current;
+                      featuredCardHoverRef.current = false;
+                    }
+                    featuredExplicitPauseStartRef.current = Date.now();
+                    setCarouselPaused(true);
+                    carouselPausedRef.current = true;
+                  }
+                  // If already paused, just jump to item (carouselPaused stays true)
                 }}
                 className={`flex-shrink-0 w-16 h-16 rounded-lg overflow-hidden border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                   isActive
@@ -699,7 +831,6 @@ export function HomePageHexMapBackground() {
             </button>
           </div>
         </div>
-
       </div>
     </div>
   );

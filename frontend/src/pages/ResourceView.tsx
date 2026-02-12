@@ -523,9 +523,13 @@ export function ResourceView({
               </div>
 
               {/* Main content - Stack on mobile */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Title section */}
                 <div className="lg:col-span-8">
+                  <h1 className="text-3xl font-bold text-gray-900">
+                    {data.attributes.ogm.dct_title_s}
+                  </h1>
+                  <ResourceSubtitle item={data} />
                   {/* Display notes from OGM Aardvark (gbl_displayNote_sm) */}
                   {Array.isArray(data.attributes.ogm.gbl_displayNote_sm) &&
                     data.attributes.ogm.gbl_displayNote_sm.length > 0 && (
@@ -533,10 +537,6 @@ export function ResourceView({
                         notes={data.attributes.ogm.gbl_displayNote_sm}
                       />
                     )}
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {data.attributes.ogm.dct_title_s}
-                  </h1>
-                  <ResourceSubtitle item={data} />
                 </div>
 
                 {/* Viewer section */}

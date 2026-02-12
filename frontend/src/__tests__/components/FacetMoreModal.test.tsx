@@ -265,12 +265,38 @@ describe('FacetMoreModal', () => {
     expect(screen.getByText(/Illinois/)).toBeInTheDocument();
   });
 
+  it('displays geo bbox and year range as consolidated badges matching SearchConstraints', () => {
+    const props = {
+      ...defaultProps,
+      searchParams: new URLSearchParams(
+        'include_filters[geo][type]=bbox' +
+          '&include_filters[geo][field]=dcat_bbox' +
+          '&include_filters[geo][top_left][lat]=41.83&include_filters[geo][top_left][lon]=-80.51' +
+          '&include_filters[geo][bottom_right][lat]=37.90&include_filters[geo][bottom_right][lon]=-71.15' +
+          '&include_filters[gbl_resourceClass_sm][]=Maps' +
+          '&include_filters[year_range][start]=1900&include_filters[year_range][end]=1949'
+      ),
+    };
+
+    renderWithRouter(<FacetMoreModal {...props} />);
+
+    // BBox: N E S W format (matches SearchConstraints)
+    expect(
+      screen.getByText(/BBox: 41\.83°N -71\.15°E 37\.90°S -80\.51°W/)
+    ).toBeInTheDocument();
+    // Resource Class
+    expect(screen.getByText(/Resource Class:/)).toBeInTheDocument();
+    expect(screen.getByText(/Maps/)).toBeInTheDocument();
+    // Year range consolidated
+    expect(screen.getByText(/Year Range: 1900 - 1949/)).toBeInTheDocument();
+  });
+
   it('allows toggling include/exclude filters via context chips', async () => {
     const user = userEvent.setup();
     const props = {
       ...defaultProps,
       searchParams: new URLSearchParams(
-        'include_filters[resource_class_agg][]=Maps&exclude_filters[dct_spatial_sm][]=Illinois'
+        'include_filters[gbl_resourceClass_sm][]=Maps&exclude_filters[dct_spatial_sm][]=Illinois'
       ),
     };
 
@@ -282,7 +308,7 @@ describe('FacetMoreModal', () => {
       })
     );
     expect(mockToggleFacetInclude).toHaveBeenCalledWith(
-      'resource_class_agg',
+      'gbl_resourceClass_sm',
       'Maps'
     );
 

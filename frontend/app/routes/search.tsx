@@ -21,9 +21,10 @@ export async function loader({ request }: LoaderFunctionArgs) {
   apiParams.set("per_page", apiParams.get("per_page") || defaultPerPage);
   apiParams.set("search_field", apiParams.get("search_field") || "all_fields");
 
-  // Only fetch if we have any search criteria (q param, facets, excludes, adv_q, geo filters, etc.)
-  const hasAnyCriteria =
-    apiParams.has("q") ||
+  // Fetch when we have any search criteria: q (even empty = "show all"), adv_q, or filters.
+  // Empty q explicitly means "browse all results" and must trigger a fetch.
+  const hasQueryParam = apiParams.has("q");
+  const hasFilters =
     apiParams.has("adv_q") ||
     Array.from(apiParams.keys()).some(
       (k) =>
@@ -31,6 +32,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
         k.startsWith("exclude_filters[") ||
         k.startsWith("fq["),
     );
+  const hasAnyCriteria = hasQueryParam || hasFilters;
 
   if (!hasAnyCriteria) return { searchResults: null };
 

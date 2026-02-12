@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import type { GeoDocument } from '../../types/api';
 import { Link, useLocation } from 'react-router';
 import { getResourceIcon } from '../../utils/resourceIcons';
+import { ResultCardPill } from './ResultCardPill';
 import { BookmarkButton } from '../BookmarkButton';
 import { useBookmarks } from '../../context/BookmarkContext';
 
@@ -256,11 +257,11 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     {title}
                   </h3>
                   <div className="mt-auto">
-                    <span className="inline-flex items-center text-xs uppercase tracking-tighter bg-brand text-white px-1.5 py-0.5 rounded">
-                      {ogm?.gbl_indexYear_im?.[0] ?? '—'}
-                      <span className="mx-1.5 opacity-90" aria-hidden>·</span>
-                      {resourceClass || 'Item'}
-                    </span>
+                    <ResultCardPill
+                      indexYear={ogm?.gbl_indexYear_im?.[0]}
+                      resourceClass={resourceClass}
+                      provider={ogm?.schema_provider_s}
+                    />
                   </div>
                 </div>
               </Link>
