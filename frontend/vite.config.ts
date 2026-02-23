@@ -1,4 +1,5 @@
 import { reactRouter } from '@react-router/dev/vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vite';
 import path from "node:path";
 
@@ -10,9 +11,32 @@ export default defineConfig({
       // React Router v7 configuration
       // Server-side rendering enabled by default
     }),
+    VitePWA({
+      registerType: 'autoUpdate',
+      devOptions: { enabled: true },
+      // Use development mode to avoid terser/rollup plugin conflict during SW generation
+      workbox: {
+        mode: 'development',
+      },
+      manifest: {
+        name: 'BTAA Geoportal',
+        short_name: 'BTAA Geoportal',
+        description: 'Geospatial discovery platform for Big Ten Academic Alliance libraries',
+        start_url: '/',
+        display: 'standalone',
+        theme_color: '#003C5B',
+        background_color: '#003C5B',
+        icons: [
+          { src: '/pwa-64x64.png', sizes: '64x64', type: 'image/png' },
+          { src: '/pwa-192x192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/pwa-512x512.png', sizes: '512x512', type: 'image/png' },
+        ],
+      },
+    }),
   ],
   server: {
     port: 3000,
+    allowedHosts: ['btaa-geoportal.ngrok.io'],
   },
   resolve: {
     // GeoBlacklight's source files import internal modules via `geoblacklight/...`.

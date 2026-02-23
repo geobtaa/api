@@ -1,5 +1,4 @@
 import React, { useEffect } from "react";
-import { useLocation } from "react-router";
 import { ApiProvider } from "../src/context/ApiContext";
 import { BookmarkProvider } from "../src/context/BookmarkContext";
 import { DebugProvider } from "../src/context/DebugContext";
@@ -18,12 +17,12 @@ import type { ThemeId } from "../src/config/institution";
 export function Providers({
   children,
   initialThemeId,
+  locationKey,
 }: {
   children: React.ReactNode;
   initialThemeId?: ThemeId;
+  locationKey?: string;
 }) {
-  const location = useLocation();
-
   useEffect(() => {
     // Only runs in the browser
     if (typeof window === "undefined") return;
@@ -76,12 +75,15 @@ export function Providers({
       }
     }
 
-    void boot();
+    boot().catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn("GeoBlacklight boot failed:", err);
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [location.key]);
+  }, [locationKey]);
 
   return (
     <ThemeProvider initialThemeId={initialThemeId}>

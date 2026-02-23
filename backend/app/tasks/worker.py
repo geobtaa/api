@@ -159,6 +159,12 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
         # Cache image if Redis is available; otherwise, skip caching without retry storms
         if redis_available:
             try:
+                # TODO(cache-policy): Thumbnail cache should move away from fixed TTL eviction.
+                # Keep thumbnails effectively long-lived and invalidate only when:
+                # 1) associated resource metadata changes in a thumbnail-affecting way, or
+                # 2) an admin explicitly purges thumbnail cache entries.
+                # Implementation options: resource revision in cache key, tag-based invalidation,
+                # and targeted admin purge by resource ID/hash.
                 ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
                 # Store image content with detected type (prepend type as metadata)
                 # We'll use a simple format: store content as-is, content type in separate key

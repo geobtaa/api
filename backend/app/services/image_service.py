@@ -89,6 +89,9 @@ class ImageService:
 
         # Use shared connection pool to avoid creating new connections for each instance
         self.cache = redis.Redis(connection_pool=_get_redis_connection_pool())
+        # TODO(cache-policy): For thumbnail imagery, replace time-based expiry with
+        # metadata/admin-driven invalidation. Keep this TTL fallback until the
+        # invalidation workflow is fully implemented end-to-end.
         self.cache_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days in seconds
 
         # Setup binary Redis connection for images using shared connection pool

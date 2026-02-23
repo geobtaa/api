@@ -82,6 +82,12 @@ EOF
 chmod 600 .kamal/secrets
 ```
 
+**Note**: Our `.kamal/secrets` uses `export` lines, so you must source it in your shell before running Kamal commands in a new session:
+
+```bash
+set -a; source .kamal/secrets; set +a
+```
+
 ### 2. Verify `config/deploy.yml`
 
 The `config/deploy.yml` is now environment-agnostic and uses variables from `.kamal/secrets`:
@@ -623,4 +629,3 @@ jobs:
 - [Traefik Proxy Docs](https://doc.traefik.io/traefik/)
 - [Docker Best Practices](https://docs.docker.com/develop/dev-best-practices/)
 - [Let's Encrypt](https://letsencrypt.org/)
-
