@@ -18,6 +18,7 @@ import { CitationTable } from './CitationTable';
 import { FullDetailsTable } from './FullDetailsTable';
 import type { GeoDocumentDetails } from '../../types/api';
 import { formatCount } from '../../utils/formatNumber';
+import { DataDictionariesSection } from './DataDictionariesSection';
 
 interface SearchState {
   searchResults: Array<{ id: string }>;
@@ -228,6 +229,7 @@ export function ResourceView() {
   }
 
   const viewerProtocol = data?.data?.meta?.ui?.viewer?.protocol;
+  const dataDictionaries = data?.data?.attributes?.b1g?.data_dictionaries || [];
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -315,6 +317,10 @@ export function ResourceView() {
                     <AttributeTable />
                   )}
                   {viewerProtocol === 'open_index_map' && <IndexMap />}
+
+                  {dataDictionaries.length > 0 && (
+                    <DataDictionariesSection dictionaries={dataDictionaries} />
+                  )}
 
                   {/* Add Full Details table */}
                   <FullDetailsTable data={data.data} />

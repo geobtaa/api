@@ -6,12 +6,14 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    ForeignKey,
     Integer,
     MetaData,
     Numeric,
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.sql import func
 
@@ -339,6 +341,50 @@ resource_distributions = Table(
     Column("import_distribution_id", String(255), nullable=True),
 )
 
+# Read-only data dictionary tables imported from legacy Rails app.
+document_data_dictionaries = Table(
+    "document_data_dictionaries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("friendlier_id", String(255), nullable=False, index=True),
+    Column("name", String(255), nullable=True),
+    Column("description", Text, nullable=True),
+    Column("staff_notes", Text, nullable=True),
+    Column("tags", String(4096), nullable=False, server_default=""),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+document_data_dictionary_entries = Table(
+    "document_data_dictionary_entries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "document_data_dictionary_id",
+        Integer,
+        ForeignKey("document_data_dictionaries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("friendlier_id", String(255), nullable=False),
+    Column("field_name", String(255), nullable=False),
+    Column("field_type", String(255), nullable=True),
+    Column("values", Text, nullable=True),
+    Column("definition", Text, nullable=True),
+    Column("definition_source", Text, nullable=True),
+    Column("parent_field_name", String(255), nullable=True),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "document_data_dictionary_id",
+        "friendlier_id",
+        "field_name",
+        name="uq_document_data_dictionary_entries_dict_friendlier_field",
+    ),
+)
+
 # API Rate Limiting tables
 
 # API service tiers table
@@ -376,7 +422,8 @@ api_usage_logs = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("api_key_id", Integer, nullable=True, index=True),  # Nullable for anonymous requests
     Column("tier_id", Integer, nullable=False, index=True),
-    Column("visit_token", String(255), nullable=True, index=True),  # Unique identifier to group requests from same session/visit
+    # Unique identifier to group requests from same session/visit
+    Column("visit_token", String(255), nullable=True, index=True),
     Column("endpoint", String(500), nullable=False),
     Column("method", String(10), nullable=False),
     Column("status_code", Integer, nullable=False),

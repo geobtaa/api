@@ -32,6 +32,7 @@ def test_resource_endpoints_exist():
     assert "/api/v1/resources/{id}/metadata" in routes
     assert "/api/v1/resources/{id}/viewer" in routes
     assert "/api/v1/resources/{id}/spatial-facets" in routes  # Changed to kebab-case
+    assert "/api/v1/resources/{id}/data-dictionaries" in routes
 
 
 @pytest.mark.unit
@@ -561,6 +562,7 @@ class TestResourceEndpointsEnhanced:
         assert "/api/v1/resources/{id}/relationships" in routes
         assert "/api/v1/resources/{id}/links" in routes
         assert "/api/v1/resources/{id}/spatial-facets" in routes  # Changed to kebab-case
+        assert "/api/v1/resources/{id}/data-dictionaries" in routes
 
     @patch("app.api.v1.endpoint_modules.resources.async_session")
     def test_list_resources_success(self, mock_session):

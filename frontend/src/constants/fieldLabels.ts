@@ -114,6 +114,10 @@ export const FIELD_LABELS: Record<string, FieldConfig> = {
     display: true,
     facet: 'b1g_localCollectionLabel_sm',
   },
+  data_dictionaries: {
+    label: 'Data Dictionaries',
+    display: false,
+  },
 };
 
 export function humanizeFieldName(key: string): string {

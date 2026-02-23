@@ -59,10 +59,12 @@ const relationshipLabels: { [key: string]: string } = {
 };
 
 export function FullDetailsTable({ data }: FullDetailsTableProps) {
+  const b1gAttributes = { ...((data?.attributes?.b1g || {}) as Attributes) };
+  delete b1gAttributes.data_dictionaries;
   // Merge ogm and b1g attributes for display
   const attributes = {
     ...(data?.attributes?.ogm || {}),
-    ...(data?.attributes?.b1g || {}),
+    ...b1gAttributes,
   };
   const uiRelationships = data?.meta?.ui?.relationships || {};
   const [isPlaceExpanded, setIsPlaceExpanded] = useState(false);
@@ -382,7 +384,9 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         const match = valStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
         if (match) {
-          const [_, yearStr, monthStr, dayStr] = match;
+          const yearStr = match[1];
+          const monthStr = match[2];
+          const dayStr = match[3];
           const date = new Date(
             Date.UTC(
               parseInt(yearStr, 10),
