@@ -33,6 +33,8 @@ GEO_COUNTY_FACET_SIZE = int(os.getenv("GEO_COUNTY_FACET_SIZE", "100"))
 OGM_REPO_FACET_SIZE = int(os.getenv("OGM_REPO_FACET_SIZE", "200"))
 DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 NEAR_GLOBAL_DIAGONAL_KM = 15_000
+MIN_BBOX_IOU_OVERLAP_RATIO = float(os.getenv("MIN_BBOX_IOU_OVERLAP_RATIO", "0.001"))
+ALLOWED_GEO_RELATIONS = {"intersects", "within", "contains", "disjoint"}
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
 # Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
@@ -296,6 +298,94 @@ def _normalize_geo_params(geo_params: dict) -> dict:
     return normalized or geo_params
 
 
+def _normalize_geo_relation(relation: str | None, default: str = "intersects") -> str:
+    normalized = str(relation or default).lower()
+    if normalized not in ALLOWED_GEO_RELATIONS:
+        return default
+    return normalized
+
+
+def _normalize_min_overlap_ratio(raw: object) -> float:
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return MIN_BBOX_IOU_OVERLAP_RATIO
+    if value < 0.0 or value > 1.0:
+        return MIN_BBOX_IOU_OVERLAP_RATIO
+    return value
+
+
+def _build_bbox_overlap_filter(
+    *,
+    q_minx: float,
+    q_maxx: float,
+    q_miny: float,
+    q_maxy: float,
+    min_overlap_ratio: float,
+) -> dict:
+    """Filter out trivial bbox overlaps using IoU overlap ratio."""
+    return {
+        "script": {
+            "script": {
+                "source": """
+                    if (doc['bbox_minx'].size() == 0 ||
+                        doc['bbox_maxx'].size() == 0 ||
+                        doc['bbox_miny'].size() == 0 ||
+                        doc['bbox_maxy'].size() == 0) {
+                        return false;
+                    }
+                    double dMinX;
+                    double dMinY;
+                    double dMaxX;
+                    double dMaxY;
+                    try {
+                        dMinX = doc['bbox_minx'].value;
+                        dMinY = doc['bbox_miny'].value;
+                        dMaxX = doc['bbox_maxx'].value;
+                        dMaxY = doc['bbox_maxy'].value;
+                    } catch (Exception e) {
+                        return false;
+                    }
+
+                    double qMinX = params.qMinX;
+                    double qMaxX = params.qMaxX;
+                    double qMinY = params.qMinY;
+                    double qMaxY = params.qMaxY;
+
+                    double ix1 = Math.max(dMinX, qMinX);
+                    double iy1 = Math.max(dMinY, qMinY);
+                    double ix2 = Math.min(dMaxX, qMaxX);
+                    double iy2 = Math.min(dMaxY, qMaxY);
+
+                    double iw = Math.max(0.0, ix2 - ix1);
+                    double ih = Math.max(0.0, iy2 - iy1);
+                    double intersection = iw * ih;
+                    double docArea = Math.max(0.0, (dMaxX - dMinX) * (dMaxY - dMinY));
+                    double queryArea = Math.max(0.0, (qMaxX - qMinX) * (qMaxY - qMinY));
+                    if (intersection <= 0.0 || docArea <= 0.0 || queryArea <= 0.0) {
+                        return false;
+                    }
+
+                    double unionArea = docArea + queryArea - intersection;
+                    if (unionArea <= 0.0) {
+                        return false;
+                    }
+
+                    double overlapRatio = intersection / unionArea;
+                    return overlapRatio >= params.minOverlapRatio;
+                """,
+                "params": {
+                    "qMinX": q_minx,
+                    "qMaxX": q_maxx,
+                    "qMinY": q_miny,
+                    "qMaxY": q_maxy,
+                    "minOverlapRatio": min_overlap_ratio,
+                },
+            }
+        }
+    }
+
+
 def _build_advanced_query(adv_q: list) -> dict:
     """Build Elasticsearch bool query from advanced query clauses.
 
@@ -456,6 +546,7 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
                 [max_lon, min_lat],  # bottom-right corner
             ]
 
+            relation = _normalize_geo_relation(geo_params.get("relation"))
             geo_filter = {
                 "geo_shape": {
                     geo_field: {
@@ -463,7 +554,7 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
                             "type": "envelope",
                             "coordinates": envelope_coords,
                         },
-                        "relation": "intersects",
+                        "relation": relation,
                     }
                 }
             }
@@ -522,10 +613,7 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
         if coordinates[0] != coordinates[-1]:
             coordinates.append(coordinates[0])
 
-        relation = str(geo_params.get("relation", "intersects")).lower()
-        allowed_relations = {"intersects", "within", "contains", "disjoint"}
-        if relation not in allowed_relations:
-            relation = "intersects"
+        relation = _normalize_geo_relation(geo_params.get("relation"))
 
         return {
             "geo_shape": {
@@ -540,7 +628,7 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
         }
 
     elif geo_type == "shape":
-        relation = geo_params.get("relation", "intersects")
+        relation = _normalize_geo_relation(geo_params.get("relation"))
         shape = geo_params.get("shape", {})
 
         if not shape:
@@ -639,6 +727,7 @@ async def search_resources(
                                 "top_left": values["top_left"],
                                 "bottom_right": values["bottom_right"],
                                 "field": values.get("field", "dcat_centroid"),
+                                "min_overlap_ratio": values.get("min_overlap_ratio"),
                             }
                     else:
                         logger.warning(f"Failed to build geo filter from values: {values}")
@@ -875,6 +964,18 @@ async def search_resources(
                 "qMinY": q_miny,
                 "qMaxY": q_maxy,
             }
+            min_overlap_ratio = _normalize_min_overlap_ratio(
+                bbox_filter_info.get("min_overlap_ratio")
+            )
+            filter_clauses.append(
+                _build_bbox_overlap_filter(
+                    q_minx=q_minx,
+                    q_maxx=q_maxx,
+                    q_miny=q_miny,
+                    q_maxy=q_maxy,
+                    min_overlap_ratio=min_overlap_ratio,
+                )
+            )
 
             base_query = {
                 "query": {

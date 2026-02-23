@@ -377,6 +377,11 @@ export async function fetchSearchResults(
             url.searchParams.set(key, value);
           }
         });
+
+        const relation = currentUrl.searchParams.get('include_filters[geo][relation]');
+        if (relation) {
+          url.searchParams.set('include_filters[geo][relation]', relation);
+        }
       }
     }
   }

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { fetchBookmarkedResources, fetchFacetValues } from '../../services/api';
+import {
+  fetchBookmarkedResources,
+  fetchFacetValues,
+  fetchSearchResults,
+} from '../../services/api';
 import type { FacetValuesResponse } from '../../types/api';
 
 // Mock fetch
@@ -327,5 +331,56 @@ describe('fetchFacetValues', () => {
       const url = new URL(callUrl);
       expect(url.searchParams.get('sort')).toBe(sort);
     }
+  });
+});
+
+describe('fetchSearchResults', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('forwards bbox relation when present in URL params', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        href: 'https://example.com/search?include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox&include_filters[geo][top_left][lat]=45&include_filters[geo][top_left][lon]=-109&include_filters[geo][bottom_right][lat]=41&include_filters[geo][bottom_right][lon]=-104&include_filters[geo][relation]=within',
+      },
+      writable: true,
+    });
+
+    const onApiCall = vi.fn();
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [], meta: {}, included: [] }),
+    });
+
+    await fetchSearchResults('maps', 1, 10, [], onApiCall);
+
+    expect(onApiCall).toHaveBeenCalledTimes(1);
+    const requestUrl = new URL(onApiCall.mock.calls[0][0]);
+    expect(requestUrl.searchParams.get('include_filters[geo][relation]')).toBe(
+      'within'
+    );
+  });
+
+  it('does not add bbox relation when relation is absent', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        href: 'https://example.com/search?include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox&include_filters[geo][top_left][lat]=45&include_filters[geo][top_left][lon]=-109&include_filters[geo][bottom_right][lat]=41&include_filters[geo][bottom_right][lon]=-104',
+      },
+      writable: true,
+    });
+
+    const onApiCall = vi.fn();
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [], meta: {}, included: [] }),
+    });
+
+    await fetchSearchResults('maps', 1, 10, [], onApiCall);
+
+    const requestUrl = new URL(onApiCall.mock.calls[0][0]);
+    expect(requestUrl.searchParams.get('include_filters[geo][relation]')).toBeNull();
   });
 });

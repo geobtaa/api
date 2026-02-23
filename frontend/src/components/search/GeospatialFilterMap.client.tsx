@@ -75,6 +75,8 @@ interface BBox {
   bottomRight: { lat: number; lon: number };
 }
 
+type BBoxRelationMode = 'intersects' | 'within';
+
 export function GeospatialFilterMap() {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -90,6 +92,12 @@ export function GeospatialFilterMap() {
   >([]);
   const [hexResolution, setHexResolution] = useState(6);
   const [hexLoading, setHexLoading] = useState(false);
+
+  const getRelationFromParams = useCallback((): BBoxRelationMode => {
+    const relation = searchParams.get('include_filters[geo][relation]');
+    if (relation === 'within') return 'within';
+    return 'intersects';
+  }, [searchParams]);
 
   // Parse bbox from URL params
   const getBBoxFromParams = useCallback((): BBox | null => {
@@ -517,6 +525,7 @@ export function GeospatialFilterMap() {
 
     const bounds = mapRef.current.getBounds();
     const newParams = new URLSearchParams(searchParams);
+    const relation = getRelationFromParams();
 
     // Remove existing geo filters
     Array.from(newParams.keys())
@@ -531,6 +540,7 @@ export function GeospatialFilterMap() {
     // Bottom-right is southeast corner (south = lower lat, east = higher lon)
     newParams.set('include_filters[geo][type]', 'bbox');
     newParams.set('include_filters[geo][field]', 'dcat_bbox');
+    newParams.set('include_filters[geo][relation]', relation);
     newParams.set('include_filters[geo][top_left][lat]', ne.lat.toString());
     newParams.set('include_filters[geo][top_left][lon]', sw.lng.toString());
     newParams.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
@@ -581,6 +591,14 @@ export function GeospatialFilterMap() {
     setSearchParams(newParams);
   };
 
+  const handleRelationModeChange = (relation: BBoxRelationMode) => {
+    if (!hasBBox) return;
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('include_filters[geo][relation]', relation);
+    newParams.delete('page');
+    setSearchParams(newParams);
+  };
+
   // Clear place geometry and bbox rectangle when bbox is cleared
   useEffect(() => {
     const bbox = getBBoxFromParams();
@@ -597,6 +615,7 @@ export function GeospatialFilterMap() {
   }, [getBBoxFromParams]);
 
   const hasBBox = getBBoxFromParams() !== null;
+  const relationMode = getRelationFromParams();
 
   return (
     <div className="mb-6">
@@ -618,6 +637,41 @@ export function GeospatialFilterMap() {
         )}
       </div>
       <div className="relative" aria-labelledby="filter-location-heading">
+        {hasBBox && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs text-gray-600">Match mode:</span>
+            <div
+              className="inline-flex rounded-md border border-gray-200 bg-white p-0.5"
+              role="group"
+              aria-label="Map recall and precision toggle"
+            >
+              <button
+                type="button"
+                onClick={() => handleRelationModeChange('intersects')}
+                className={`rounded px-2 py-1 text-xs ${
+                  relationMode === 'intersects'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label="Set map mode to recall"
+              >
+                Recall
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRelationModeChange('within')}
+                className={`rounded px-2 py-1 text-xs ${
+                  relationMode === 'within'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label="Set map mode to precision"
+              >
+                Precision
+              </button>
+            </div>
+          </div>
+        )}
         <div
           ref={mapContainerRef}
           className="w-full rounded-lg border border-gray-200"

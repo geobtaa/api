@@ -810,6 +810,7 @@ class TestSearchService:
         params = (
             "include_filters[geo][type]=bbox&"
             "include_filters[geo][field]=dcat_bbox&"
+            "include_filters[geo][relation]=within&"
             "include_filters[geo][top_left][lat]=45&"
             "include_filters[geo][top_left][lon]=-109&"
             "include_filters[geo][bottom_right][lat]=41&"
@@ -821,6 +822,7 @@ class TestSearchService:
         bbox = include["geo"]
         assert bbox["type"] == "bbox"
         assert bbox["field"] == "dcat_bbox"
+        assert bbox["relation"] == "within"
         assert bbox["top_left"] == {"lat": 45.0, "lon": -109.0}
         assert bbox["bottom_right"] == {"lat": 41.0, "lon": -104.0}
         assert exclude == {}
