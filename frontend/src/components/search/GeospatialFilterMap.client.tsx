@@ -5,7 +5,8 @@ import { useSearchParams } from 'react-router';
 import { Search } from 'lucide-react';
 import { cellToBoundary } from 'h3-js';
 import { fetchMapH3 } from '../../services/api';
-import { HexTableControl } from '../map/HexTableControl';
+import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
+import { attachBasemapSwitcher } from '../../config/basemaps';
 
 function zoomToResolution(zoom: number): number {
   if (zoom <= 3) return 2;
@@ -80,6 +81,7 @@ type BBoxRelationMode = 'intersects' | 'within';
 export function GeospatialFilterMap() {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const isUpdatingFromParamsRef = useRef(false);
   const selectedPlaceGeoJsonRef = useRef<L.GeoJSON | null>(null);
@@ -87,11 +89,13 @@ export function GeospatialFilterMap() {
   const [showSearchButton, setShowSearchButton] = useState(false);
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
   const hexLayerRef = useRef<L.GeoJSON | null>(null);
+  const basemapCleanupRef = useRef<(() => void) | null>(null);
   const [hexesInView, setHexesInView] = useState<
     Array<{ h3: string; count: number }>
   >([]);
   const [hexResolution, setHexResolution] = useState(6);
   const [hexLoading, setHexLoading] = useState(false);
+  const [hexLayerEnabled, setHexLayerEnabled] = useState(true);
 
   const getRelationFromParams = useCallback((): BBoxRelationMode => {
     const relation = searchParams.get('include_filters[geo][relation]');
@@ -137,14 +141,8 @@ export function GeospatialFilterMap() {
         zoomControl: true,
         attributionControl: false,
       });
-
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        {
-          attribution:
-            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-        }
-      ).addTo(mapRef.current);
+      setMapInstance(mapRef.current);
+      basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
 
       // Set initial view: if URL has a location bbox, fit to it; otherwise world
       const initialBbox = getBBoxFromParams();
@@ -246,6 +244,9 @@ export function GeospatialFilterMap() {
     }
 
     return () => {
+      setMapInstance(null);
+      basemapCleanupRef.current?.();
+      basemapCleanupRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -411,6 +412,15 @@ export function GeospatialFilterMap() {
     const map = mapRef.current;
     if (!map) return;
 
+    if (!hexLayerEnabled) {
+      if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
+        map.removeLayer(hexLayerRef.current);
+        hexLayerRef.current = null;
+      }
+      setHexLoading(false);
+      return;
+    }
+
     let cancelled = false;
     const query = searchParams.get('q') ?? '';
 
@@ -518,7 +528,7 @@ export function GeospatialFilterMap() {
         hexLayerRef.current = null;
       }
     };
-  }, [searchParams]);
+  }, [searchParams, hexLayerEnabled]);
 
   const handleSearchHere = () => {
     if (!mapRef.current) return;
@@ -687,13 +697,17 @@ export function GeospatialFilterMap() {
             <span>Search here</span>
           </button>
         )}
-        <HexTableControl
+        <HexLayerToggleControl
+          mapInstance={mapInstance}
+          enabled={hexLayerEnabled}
           hexes={hexesInView}
           resolution={hexResolution}
           searchQuery={searchParams.get('q') ?? ''}
           queryString={searchParams.toString()}
           loading={hexLoading}
-          compact
+          onToggle={(enabled) => {
+            setHexLayerEnabled(enabled);
+          }}
         />
       </div>
     </div>

@@ -2,7 +2,7 @@
 // Data is fetched via useGeoFacets; county auto-fit/logic handled in specialized components/hooks.
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router';
-import { MapContainer, TileLayer } from 'react-leaflet';
+import { MapContainer } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Header } from '../components/layout/Header';
@@ -18,6 +18,7 @@ import { Legend } from '../components/map/Legend';
 import { ZoomLevelControls } from '../components/map/ZoomLevelControls';
 import { SelectedFeaturePanel } from '../components/map/SelectedFeaturePanel';
 import { StatsBar } from '../components/map/StatsBar';
+import { BasemapSwitcherControl } from '../components/map/BasemapSwitcherControl';
 import { formatCount } from '../utils/formatNumber';
 import { DEFAULT_US_CENTER, DEFAULT_US_ZOOM } from '../config/mapView';
 import type { ZoomLevel } from '../types/map';
@@ -172,10 +173,7 @@ export function MapPage() {
                   className="h-full w-full"
                   scrollWheelZoom
                 >
-                  <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <BasemapSwitcherControl />
                   <MapUpdaterHex
                     searchQuery={searchQuery}
                     onFeatureClick={handleFeatureClick}
@@ -282,10 +280,7 @@ export function MapPage() {
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
                 >
-                  <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <BasemapSwitcherControl />
                   <MapUpdater
                     level="country"
                     data={data}
@@ -301,10 +296,7 @@ export function MapPage() {
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
                 >
-                  <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <BasemapSwitcherControl />
                   <MapUpdater
                     level="region"
                     data={data}
@@ -320,10 +312,7 @@ export function MapPage() {
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
                 >
-                  <TileLayer
-                    attribution="&copy; OpenStreetMap contributors"
-                    url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  />
+                  <BasemapSwitcherControl />
                   <MapUpdater
                     level="county"
                     data={data}

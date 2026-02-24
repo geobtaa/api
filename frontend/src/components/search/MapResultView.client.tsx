@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo } from 'react';
 import {
   MapContainer,
-  TileLayer,
   Rectangle,
   Popup,
   useMap,
@@ -11,6 +10,7 @@ import type { GeoDocument } from '../../types/api';
 import type { LatLngBoundsExpression } from 'leaflet';
 import L from 'leaflet';
 import { Link } from 'react-router';
+import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 
 interface MapResultViewProps {
   results: GeoDocument[];
@@ -121,10 +121,7 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
         className="h-full w-full"
         scrollWheelZoom={true}
       >
-        <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        />
+        <BasemapSwitcherControl />
 
         {features.map((f) => {
           const isHighlighted = f.resource.id === highlightedResourceId;
