@@ -1,4 +1,5 @@
 import os
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import pytest_asyncio
@@ -198,3 +199,31 @@ async def test_close_elasticsearch(monkeypatch):
         except Exception:
             # Ignore errors when closing in test environment
             pass
+
+
+@pytest.mark.asyncio
+async def test_init_elasticsearch_ignores_resource_already_exists(monkeypatch):
+    """init_elasticsearch should continue if create races with another process."""
+    import app.elasticsearch.client as es_client_mod
+
+    class _FakeBadRequestError(Exception):
+        def __init__(self, body):
+            self.body = body
+            super().__init__("fake bad request")
+
+    fake_es = Mock()
+    fake_es.info = AsyncMock(return_value={"cluster_name": "test-cluster"})
+    fake_es.indices = Mock()
+    fake_es.indices.exists = AsyncMock(return_value=False)
+    fake_es.indices.create = AsyncMock(
+        side_effect=_FakeBadRequestError(
+            {"error": {"type": "resource_already_exists_exception"}}
+        )
+    )
+
+    monkeypatch.setattr(es_client_mod, "es", fake_es)
+    monkeypatch.setattr(es_client_mod, "BadRequestError", _FakeBadRequestError)
+
+    await es_client_mod.init_elasticsearch()
+
+    fake_es.indices.create.assert_awaited_once()

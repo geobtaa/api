@@ -2,7 +2,7 @@ import logging
 import os
 
 from dotenv import load_dotenv
-from elasticsearch import AsyncElasticsearch
+from elasticsearch import AsyncElasticsearch, BadRequestError
 
 try:
     load_dotenv()
@@ -42,11 +42,26 @@ async def init_elasticsearch():
         exists = await es.indices.exists(index=index_name)
         if not exists:
             logger.info(f"Creating index {index_name}")
-            await es.indices.create(
-                index=index_name,
-                mappings=INDEX_MAPPING["mappings"],
-                settings=INDEX_MAPPING["settings"],
-            )
+            try:
+                await es.indices.create(
+                    index=index_name,
+                    mappings=INDEX_MAPPING["mappings"],
+                    settings=INDEX_MAPPING["settings"],
+                )
+            except BadRequestError as e:
+                # Race-safe: another process may create the index between exists() and create().
+                error_type = ""
+                try:
+                    error_type = (e.body or {}).get("error", {}).get("type", "")
+                except Exception:
+                    error_type = ""
+                if error_type == "resource_already_exists_exception":
+                    logger.info(
+                        "Index %s was created by another process; continuing initialization",
+                        index_name,
+                    )
+                else:
+                    raise
         else:
             logger.info(f"Index {index_name} already exists")
             # Ensure newly-added fields exist in mappings (non-destructive).
