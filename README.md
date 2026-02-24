@@ -131,3 +131,4 @@ All documentation is now in the top-level `docs/` folder:
 - **Scripts (Python utilities)**: `docs/backend/scripts.md`
 - **Frontend docs**: `docs/frontend/`
 - **Developer Make tasks**: `docs/make_tasks.md`
+- **Old prod migration runbook (GBL Admin -> API -> reindex)**: `docs/make_tasks.md` (section: "GBL Admin migration runbook (old prod -> reindex)")

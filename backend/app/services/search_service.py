@@ -353,6 +353,7 @@ class SearchService:
             "index_year_agg": "gbl_indexYear_im",
             "language_agg": "dct_language_sm",
             "creator_agg": "dct_creator_sm",
+            "publisher_agg": "dct_publisher_sm",
             "provider_agg": "schema_provider_s",
             "access_rights_agg": "dct_accessRights_s",
             "georeferenced_agg": "gbl_georeferenced_b",

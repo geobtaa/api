@@ -4,8 +4,9 @@ import json
 import logging
 import time
 from datetime import date, datetime, timezone
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.services.ogm_harvest.aardvark_reader import extract_record_id
@@ -80,6 +81,34 @@ class OGMResourceImporter:
 
     def __init__(self, repo: Optional[OGMHarvestRepository] = None):
         self.repo = repo or OGMHarvestRepository()
+        self._resource_columns_cache: Optional[Set[str]] = None
+
+    async def _resource_columns_in_db(self) -> Set[str]:
+        """Return current resources table columns from the connected DB."""
+        if self._resource_columns_cache is not None:
+            return self._resource_columns_cache
+
+        rows = await database.fetch_all(
+            text(
+                """
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public' AND table_name = 'resources'
+                """
+            )
+        )
+        cols = set()
+        for r in rows:
+            try:
+                name = r["column_name"]
+            except Exception:
+                name = None
+            if name:
+                cols.add(str(name))
+        if not cols:
+            cols = {c.name for c in resources.c}
+        self._resource_columns_cache = cols
+        return cols
 
     def _normalize_record(self, record: Dict[str, Any], repo_name: str) -> Dict[str, Any]:
         out: Dict[str, Any] = {}
@@ -213,6 +242,8 @@ class OGMResourceImporter:
             await database.connect()
 
         run_started_at = datetime.utcnow()
+        db_columns = await self._resource_columns_in_db()
+        upsert_columns = [c for c in resources.c if c.name in db_columns]
 
         async with database.transaction():
             for record, source_path in records:
@@ -225,11 +256,11 @@ class OGMResourceImporter:
                         continue
 
                     # Ensure every column key exists (missing -> None) for a stable upsert payload
-                    row = {c.name: normalized.get(c.name) for c in resources.c}
+                    row = {c.name: normalized.get(c.name) for c in upsert_columns}
 
                     stmt = pg_insert(resources).values(row)
                     update_map = {
-                        c.name: stmt.excluded[c.name] for c in resources.c if c.name != "id"
+                        c.name: stmt.excluded[c.name] for c in upsert_columns if c.name != "id"
                     }
                     stmt = stmt.on_conflict_do_update(
                         index_elements=[resources.c.id], set_=update_map
@@ -242,6 +273,7 @@ class OGMResourceImporter:
                         ogm_resource_id=str(rid),
                         ogm_source_path=source_path,
                         ogm_source_commit_sha=source_commit_sha,
+                        ogm_last_seen_at=run_started_at,
                     )
                     stats["imported"] += 1
                 except Exception:
@@ -272,6 +304,8 @@ class OGMResourceImporter:
             await database.connect()
 
         run_started_at = run_started_at or datetime.utcnow()
+        db_columns = await self._resource_columns_in_db()
+        upsert_columns = [c for c in resources.c if c.name in db_columns]
 
         # asyncpg/Postgres has a hard limit on number of bind parameters per statement (32767).
         # Our bulk UPSERT is row_count * column_count parameters; clamp batch_size to
@@ -319,7 +353,9 @@ class OGMResourceImporter:
                 return 0
             try:
                 stmt = pg_insert(resources).values(rows)
-                update_map = {c.name: stmt.excluded[c.name] for c in resources.c if c.name != "id"}
+                update_map = {
+                    c.name: stmt.excluded[c.name] for c in upsert_columns if c.name != "id"
+                }
                 stmt = stmt.on_conflict_do_update(index_elements=[resources.c.id], set_=update_map)
                 async with database.transaction():
                     await database.execute(stmt)
@@ -360,12 +396,12 @@ class OGMResourceImporter:
                     stats["skipped"] += 1
                     continue
 
-                row = {c.name: normalized.get(c.name) for c in resources.c}
+                row = {c.name: normalized.get(c.name) for c in upsert_columns}
                 batch_rows.append(row)
                 seen_rows.append(
                     {
                         "ogm_resource_id": str(rid),
-                        "ogm_last_seen_at": datetime.utcnow(),
+                        "ogm_last_seen_at": run_started_at,
                         "ogm_source_path": source_path,
                         "ogm_source_commit_sha": source_commit_sha,
                     }

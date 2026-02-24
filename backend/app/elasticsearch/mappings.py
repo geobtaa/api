@@ -87,7 +87,6 @@ INDEX_MAPPING = {
                 "fields": {
                     "keyword": {
                         "type": "keyword",
-                        "normalizer": "lowercase",
                         "ignore_above": 8191,
                     }
                 },

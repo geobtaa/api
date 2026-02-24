@@ -397,6 +397,7 @@ export async function fetchSearchResults(
     resource_type_agg: 'gbl_resourceType_sm',
     provider_agg: 'schema_provider_s',
     creator_agg: 'dct_creator_sm',
+    publisher_agg: 'dct_publisher_sm',
     access_rights_agg: 'dct_accessRights_s',
     access_agg: 'dct_accessRights_s',
     index_year_agg: 'gbl_indexyear_im',

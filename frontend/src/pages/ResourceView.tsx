@@ -25,6 +25,8 @@ import { SimilarItemsCarousel } from '../components/resource/SimilarItemsCarouse
 import { EnvironmentNavButtons } from '../components/resource/EnvironmentNavButtons';
 import { formatCount } from '../utils/formatNumber';
 import { DisplayNotes } from '../components/resource/DisplayNotes';
+import { DataDictionariesSection } from '../components/resource/DataDictionariesSection';
+import { LightboxModal } from '../components/ui/LightboxModal';
 
 // Define types for search results
 interface SearchResult {
@@ -151,6 +153,8 @@ export function ResourceView({
     return true;
   });
   const [error, setError] = useState<string | null>(null);
+  const [isDataDictionaryModalOpen, setIsDataDictionaryModalOpen] =
+    useState(false);
   const { setLastApiUrl } = useApi();
 
   // Get configured perPage or default to 10
@@ -432,6 +436,7 @@ export function ResourceView({
 
   // Extract data from the new structure
   const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
+  const dataDictionaries = data?.attributes?.b1g?.data_dictionaries || [];
 
   // Open Graph / Twitter card image: prefer thumbnail; when none or placeholder, use static map when available
   const thumbnailUrl = data?.meta?.ui?.thumbnail_url;
@@ -593,6 +598,26 @@ export function ResourceView({
                         <DownloadsTable downloads={data.meta.ui.downloads} />
                       )}
 
+                    {/* Data Dictionary link card (opens modal) */}
+                    {dataDictionaries.length > 0 && (
+                      <div className="bg-white rounded-lg shadow-md overflow-hidden">
+                        <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+                          <h2 className="text-lg font-semibold text-gray-900">
+                            Data Dictionary
+                          </h2>
+                        </div>
+                        <div className="px-6 py-4">
+                          <button
+                            type="button"
+                            onClick={() => setIsDataDictionaryModalOpen(true)}
+                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                          >
+                            Data Dictionaries ({dataDictionaries.length})
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Links section */}
                     {data?.meta?.ui?.links &&
                       Object.keys(data.meta.ui.links).length > 0 && (
@@ -633,6 +658,23 @@ export function ResourceView({
 
       {/* Environment navigation buttons - fixed position */}
       {id && <EnvironmentNavButtons resourceId={id} />}
+
+      <LightboxModal
+        isOpen={isDataDictionaryModalOpen}
+        onClose={() => setIsDataDictionaryModalOpen(false)}
+        id="resource-data-dictionaries-modal"
+        labelledBy="resource-data-dictionaries-modal-title"
+        title="Data Dictionaries"
+        subtitle={data?.attributes?.ogm?.dct_title_s}
+        contentClassName="max-w-7xl"
+      >
+        <div className="overflow-y-auto p-6">
+          <DataDictionariesSection
+            dictionaries={dataDictionaries}
+            showContainer={false}
+          />
+        </div>
+      </LightboxModal>
     </div>
   );
 }

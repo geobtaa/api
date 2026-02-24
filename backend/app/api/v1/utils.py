@@ -9,8 +9,8 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.jsonp import JSONPResponse
 from app.services.data_dictionary_repository import (
-    fetch_document_data_dictionaries,
-    serialize_document_data_dictionaries,
+    fetch_resource_data_dictionaries,
+    serialize_resource_data_dictionaries,
 )
 from app.services.distribution_repository import (
     DistributionContext,
@@ -580,14 +580,14 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         "ui_relationships": ui_relationships,
     }
 
-    # Attach read-only data dictionaries for document detail views.
+    # Attach read-only resource data dictionaries.
     try:
-        data_dictionaries = await fetch_document_data_dictionaries(
+        data_dictionaries = await fetch_resource_data_dictionaries(
             resource_dict["id"], session=session
         )
         if data_dictionaries:
-            attributes["data_dictionaries"] = serialize_document_data_dictionaries(
-                data_dictionaries
+            attributes["data_dictionaries"] = sanitize_for_json(
+                serialize_resource_data_dictionaries(data_dictionaries)
             )
     except Exception as e:
         logger.warning(

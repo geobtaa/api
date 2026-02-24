@@ -75,7 +75,9 @@ class TestOGMHarvestService:
 
             # Verify tags injected
             row_a = await database.fetch_one(
-                select(resources).where(resources.c.id == "test-ogm-a")
+                select(resources.c.id, resources.c.b1g_adminTags_sm).where(
+                    resources.c.id == "test-ogm-a"
+                )
             )
             assert row_a is not None
             tags = row_a["b1g_adminTags_sm"] or []

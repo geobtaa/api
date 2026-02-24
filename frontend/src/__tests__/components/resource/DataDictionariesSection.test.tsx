@@ -20,7 +20,7 @@ describe('DataDictionariesSection', () => {
             entries: [
               {
                 id: 101,
-                document_data_dictionary_id: 1,
+                resource_data_dictionary_id: 1,
                 friendlier_id: 'resource-1',
                 field_name: 'road_class',
                 field_type: 'string',
@@ -34,7 +34,7 @@ describe('DataDictionariesSection', () => {
               },
               {
                 id: 102,
-                document_data_dictionary_id: 1,
+                resource_data_dictionary_id: 1,
                 friendlier_id: 'resource-1',
                 field_name: 'road_class_code',
                 field_type: 'integer',

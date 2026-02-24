@@ -396,6 +396,58 @@ document_data_dictionary_entries = Table(
     ),
 )
 
+# Resource-scoped data dictionary tables (new naming).
+resource_data_dictionaries = Table(
+    "resource_data_dictionaries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("legacy_document_data_dictionary_id", Integer, nullable=True, unique=True, index=True),
+    Column("name", String(255), nullable=True),
+    Column("description", Text, nullable=True),
+    Column("staff_notes", Text, nullable=True),
+    Column("tags", String(4096), nullable=False, server_default=""),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+resource_data_dictionary_entries = Table(
+    "resource_data_dictionary_entries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "resource_data_dictionary_id",
+        Integer,
+        ForeignKey("resource_data_dictionaries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column(
+        "legacy_document_data_dictionary_entry_id",
+        Integer,
+        nullable=True,
+        unique=True,
+        index=True,
+    ),
+    Column("field_name", String(255), nullable=False),
+    Column("field_type", String(255), nullable=True),
+    Column("values", Text, nullable=True),
+    Column("definition", Text, nullable=True),
+    Column("definition_source", Text, nullable=True),
+    Column("parent_field_name", String(255), nullable=True),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "resource_data_dictionary_id",
+        "field_name",
+        "parent_field_name",
+        "position",
+        name="uq_resource_data_dictionary_entries_dict_field_position",
+    ),
+)
+
 # API Rate Limiting tables
 
 # API service tiers table

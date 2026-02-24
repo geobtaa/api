@@ -216,9 +216,7 @@ async def test_init_elasticsearch_ignores_resource_already_exists(monkeypatch):
     fake_es.indices = Mock()
     fake_es.indices.exists = AsyncMock(return_value=False)
     fake_es.indices.create = AsyncMock(
-        side_effect=_FakeBadRequestError(
-            {"error": {"type": "resource_already_exists_exception"}}
-        )
+        side_effect=_FakeBadRequestError({"error": {"type": "resource_already_exists_exception"}})
     )
 
     monkeypatch.setattr(es_client_mod, "es", fake_es)

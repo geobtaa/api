@@ -1,3 +1,5 @@
+from datetime import datetime
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -617,6 +619,107 @@ class TestResourceEndpointsEnhanced:
 
         assert "data" in data
         assert "jsonapi" in data
+
+    @patch(
+        "app.services.similar_items_service.SimilarItemsService.get_similar_items",
+        new_callable=AsyncMock,
+    )
+    @patch(
+        "app.services.allmaps_service.AllmapsService.get_allmaps_attributes", new_callable=AsyncMock
+    )
+    @patch(
+        "app.services.relationship_service.RelationshipService.get_resource_relationships",
+        new_callable=AsyncMock,
+    )
+    @patch("app.services.link_service.LinkService.get_links")
+    @patch("app.services.download_service.DownloadService.get_download_options")
+    @patch("app.services.viewer_service.ViewerService.get_viewer_attributes")
+    @patch("app.services.citation_service.CitationService.get_all_citations")
+    @patch("app.api.v1.utils.fetch_distribution_context", new_callable=AsyncMock)
+    @patch("app.api.v1.utils.add_thumbnail_url")
+    @patch("app.api.v1.utils.serialize_resource_data_dictionaries")
+    @patch("app.api.v1.utils.fetch_resource_data_dictionaries", new_callable=AsyncMock)
+    @patch("app.api.v1.endpoint_modules.resources.async_session")
+    def test_get_resource_includes_json_safe_data_dictionaries(
+        self,
+        mock_session,
+        mock_fetch_resource_data_dictionaries,
+        mock_serialize_resource_data_dictionaries,
+        mock_add_thumbnail_url,
+        mock_fetch_distribution_context,
+        mock_get_all_citations,
+        mock_get_viewer_attributes,
+        mock_get_download_options,
+        mock_get_links,
+        mock_get_resource_relationships,
+        mock_get_allmaps_attributes,
+        mock_get_similar_items,
+    ):
+        """Resource endpoint should return data dictionaries with datetime values serialized."""
+        # Mock session and database response
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_resource = MagicMock()
+        mock_resource._mapping = {
+            "id": "test-resource-dictionaries",
+            "dct_title_s": "Test Resource With Dictionaries",
+            "schema_provider_s": "Test Provider",
+            "dct_description_sm": ["Description"],
+            "dct_accessRights_s": "Public",
+        }
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_resource
+        mock_session_instance.execute.return_value = mock_result
+
+        # Patch service dependencies used by process_resource()
+        mock_fetch_distribution_context.return_value = SimpleNamespace(
+            legacy_reference_payload={},
+            by_uri={},
+        )
+        mock_add_thumbnail_url.side_effect = lambda item, distribution_context=None: item
+        mock_get_all_citations.return_value = {
+            "apa": "APA citation",
+            "mla": "MLA citation",
+            "chicago": "Chicago citation",
+        }
+        mock_get_viewer_attributes.return_value = {}
+        mock_get_download_options.return_value = []
+        mock_get_links.return_value = {}
+        mock_get_resource_relationships.return_value = {}
+        mock_get_allmaps_attributes.return_value = {}
+        mock_get_similar_items.return_value = []
+
+        mock_fetch_resource_data_dictionaries.return_value = [object()]
+        mock_serialize_resource_data_dictionaries.return_value = [
+            {
+                "id": 1,
+                "friendlier_id": "test-resource-dictionaries",
+                "name": "Attributes",
+                "created_at": datetime(2026, 1, 1, 0, 0, 0),
+                "updated_at": datetime(2026, 1, 2, 0, 0, 0),
+                "entries": [
+                    {
+                        "id": 10,
+                        "resource_data_dictionary_id": 1,
+                        "field_name": "parcel_id",
+                        "created_at": datetime(2026, 1, 3, 0, 0, 0),
+                        "updated_at": datetime(2026, 1, 4, 0, 0, 0),
+                    }
+                ],
+            }
+        ]
+
+        response = client.get("/api/v1/resources/test-resource-dictionaries?cachebust=1")
+        assert response.status_code == 200
+
+        payload = response.json()
+        dictionaries = payload["data"]["attributes"]["b1g"]["data_dictionaries"]
+        assert len(dictionaries) == 1
+        assert dictionaries[0]["name"] == "Attributes"
+        assert dictionaries[0]["created_at"] == "2026-01-01T00:00:00"
+        assert dictionaries[0]["entries"][0]["resource_data_dictionary_id"] == 1
+        assert dictionaries[0]["entries"][0]["created_at"] == "2026-01-03T00:00:00"
 
     @patch("app.api.v1.endpoint_modules.resources.async_session")
     def test_get_resource_not_found(self, mock_session):

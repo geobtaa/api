@@ -40,7 +40,43 @@ Overrides:
 - `make db-import`: import dump to remote via Kamal (destructive)
 - `make db-sync`: `db-export` + `db-import`
 - **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores it into local ParadeDB. It streams from the compressed file (no decompression to disk), so you only need space for the `.gz`. The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
+- **GBL Admin add latest BTAA fields**: `make gbl-admin-db-add-latest-btaa-fields` adds latest BTAA compatibility columns to `resources`.
+- **GBL Admin import resources**: `make gbl-admin-db-import-resources` imports from `kithe_to_resources_bridge` into `btaa_geospatial_api` (`OLD_DB_NAME` auto-detected unless provided).
+- **GBL Admin populate distributions**: `make populate-distributions` migrates legacy `document_distributions` into `resource_distributions` (`OLD_DB_NAME` auto-detected unless provided).
+- **GBL Admin populate data dictionaries**: `make populate-data-dictionaries` migrates legacy `document_data_dictionaries` and `document_data_dictionary_entries` into `resource_data_dictionaries` and `resource_data_dictionary_entries`.
+- **GBL Admin full import pipeline**: `make gbl-admin-db-import-all` runs latest-field migration, resource import, distribution migration, data-dictionary migration, relationship population, and reindex.
 - `make populate-relationships`: populate `resource_relationships` from `resources` (run after ingest or when relationship columns change). See `docs/backend/relationships.md`.
+
+## GBL Admin migration runbook (old prod -> reindex)
+
+Use this sequence when rebuilding from the old GBL Admin production snapshot.
+
+1. Restore latest old-prod DB snapshot and build bridge materialized view:
+   ```bash
+   make gbl-admin-db-sync
+   ```
+
+2. Run full import pipeline into API DB, including distributions/relationships and reindex:
+   ```bash
+   make gbl-admin-db-import-all
+   ```
+
+If you need to pin a specific restored old DB instead of auto-detect:
+
+```bash
+OLD_DB_NAME=geoportal_production_YYYYMMDD make gbl-admin-db-import-all
+```
+
+Equivalent explicit step-by-step (instead of the all-in-one target):
+
+```bash
+make gbl-admin-db-add-latest-btaa-fields
+make gbl-admin-db-import-resources
+make populate-distributions
+make populate-data-dictionaries
+make populate-relationships
+make reindex
+```
 
 ## Troubleshooting
 

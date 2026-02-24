@@ -1,6 +1,6 @@
 export interface DataDictionaryEntry {
   id: number;
-  document_data_dictionary_id: number;
+  resource_data_dictionary_id: number;
   friendlier_id: string;
   field_name: string;
   field_type?: string | null;

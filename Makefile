@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -43,6 +43,8 @@ GBL_ADMIN_REMOTE_DIR ?= /opt/data/pgdump
 GBL_ADMIN_DUMP_GLOB ?= pgdump-geoportal_production-*.sql.gz
 GBL_ADMIN_LOCAL_DIR ?= tmp
 GBL_ADMIN_SQL_GLOB ?= pgdump-geoportal_production-*.sql
+GBL_ADMIN_IMPORT_CONFLICT ?= update
+GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
 
@@ -325,6 +327,117 @@ gbl-admin-db-restore:
 # End-to-end: download latest dump and restore (streams from .gz; no decompression to disk)
 gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-restore
 	@echo "GBL Admin database sync complete!"
+
+# Add latest BTAA schema compatibility fields to resources table.
+gbl-admin-db-add-latest-btaa-fields:
+	@echo "Adding latest BTAA schema fields to resources table..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/add_latest_btaa_schema_fields.py'
+
+# Import resources from kithe_to_resources_bridge into btaa_geospatial_api.
+# Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
+gbl-admin-db-import-resources:
+	@echo "Importing resources from GBL Admin bridge view..."
+	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
+	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
+		FOUND_DB=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$$RESOLVED_OLD_DB_NAME';"); \
+		if [ "$$FOUND_DB" != "1" ]; then \
+			echo "WARN: OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME not found; auto-detecting latest geoportal_production_* DB."; \
+			RESOLVED_OLD_DB_NAME=""; \
+		fi; \
+	fi; \
+	if [ -z "$$RESOLVED_OLD_DB_NAME" ]; then \
+		RESOLVED_OLD_DB_NAME=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT datname FROM pg_database WHERE datname LIKE 'geoportal_production_%' ORDER BY datname DESC LIMIT 1;"); \
+	fi; \
+	if [ -z "$$RESOLVED_OLD_DB_NAME" ]; then \
+		echo "ERROR: Could not resolve OLD_DB_NAME (no geoportal_production_* database found)."; \
+		exit 1; \
+	fi; \
+	DB_PASSWORD=$$(docker compose exec -T paradedb bash -lc 'printf %s "$$POSTGRES_PASSWORD"'); \
+	if [ -z "$$DB_PASSWORD" ]; then \
+		echo "ERROR: Could not read POSTGRES_PASSWORD from paradedb container."; \
+		exit 1; \
+	fi; \
+	echo "OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME"; \
+	docker compose exec -T \
+		-e OLD_DB_NAME="$$RESOLVED_OLD_DB_NAME" \
+		-e DB_NAME="btaa_geospatial_api" \
+		-e DB_HOST="paradedb" \
+		-e DB_PORT="5432" \
+		-e DB_USER="postgres" \
+		-e DB_PASSWORD="$$DB_PASSWORD" \
+		api bash -lc 'cd /app/backend && python db/migrations/import_from_old_production.py --conflict $(GBL_ADMIN_IMPORT_CONFLICT) --verify'
+
+# Populate resource_distributions from legacy document_distributions.
+# Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
+populate-distributions:
+	@echo "Populating resource_distributions from legacy document_distributions..."
+	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
+	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
+		FOUND_DB=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$$RESOLVED_OLD_DB_NAME';"); \
+		if [ "$$FOUND_DB" != "1" ]; then \
+			echo "WARN: OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME not found; auto-detecting latest geoportal_production_* DB."; \
+			RESOLVED_OLD_DB_NAME=""; \
+		fi; \
+	fi; \
+	if [ -z "$$RESOLVED_OLD_DB_NAME" ]; then \
+		RESOLVED_OLD_DB_NAME=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT datname FROM pg_database WHERE datname LIKE 'geoportal_production_%' ORDER BY datname DESC LIMIT 1;"); \
+	fi; \
+	if [ -z "$$RESOLVED_OLD_DB_NAME" ]; then \
+		echo "ERROR: Could not resolve OLD_DB_NAME (no geoportal_production_* database found)."; \
+		exit 1; \
+	fi; \
+	DB_PASSWORD=$$(docker compose exec -T paradedb bash -lc 'printf %s "$$POSTGRES_PASSWORD"'); \
+	if [ -z "$$DB_PASSWORD" ]; then \
+		echo "ERROR: Could not read POSTGRES_PASSWORD from paradedb container."; \
+		exit 1; \
+	fi; \
+	echo "OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME"; \
+	docker compose exec -T \
+		-e OLD_DB_NAME="$$RESOLVED_OLD_DB_NAME" \
+		-e DB_NAME="btaa_geospatial_api" \
+		-e DB_HOST="paradedb" \
+		-e DB_PORT="5432" \
+		-e DB_USER="postgres" \
+		-e DB_PASSWORD="$$DB_PASSWORD" \
+		api bash -lc 'cd /app/backend && python db/migrations/migrate_document_distributions.py --batch-size $(GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE)'
+
+# Populate resource_data_dictionaries and resource_data_dictionary_entries from legacy tables.
+# Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
+populate-data-dictionaries:
+	@echo "Populating resource_data_dictionaries from legacy document_data_dictionaries..."
+	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
+	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
+		FOUND_DB=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$$RESOLVED_OLD_DB_NAME';"); \
+		if [ "$$FOUND_DB" != "1" ]; then \
+			echo "WARN: OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME not found; auto-detecting latest geoportal_production_* DB."; \
+			RESOLVED_OLD_DB_NAME=""; \
+		fi; \
+	fi; \
+	if [ -z "$$RESOLVED_OLD_DB_NAME" ]; then \
+		RESOLVED_OLD_DB_NAME=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT datname FROM pg_database WHERE datname LIKE 'geoportal_production_%' ORDER BY datname DESC LIMIT 1;"); \
+	fi; \
+	if [ -z "$$RESOLVED_OLD_DB_NAME" ]; then \
+		echo "ERROR: Could not resolve OLD_DB_NAME (no geoportal_production_* database found)."; \
+		exit 1; \
+	fi; \
+	DB_PASSWORD=$$(docker compose exec -T paradedb bash -lc 'printf %s "$$POSTGRES_PASSWORD"'); \
+	if [ -z "$$DB_PASSWORD" ]; then \
+		echo "ERROR: Could not read POSTGRES_PASSWORD from paradedb container."; \
+		exit 1; \
+	fi; \
+	echo "OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME"; \
+	docker compose exec -T \
+		-e OLD_DB_NAME="$$RESOLVED_OLD_DB_NAME" \
+		-e DB_NAME="btaa_geospatial_api" \
+		-e DB_HOST="paradedb" \
+		-e DB_PORT="5432" \
+		-e DB_USER="postgres" \
+		-e DB_PASSWORD="$$DB_PASSWORD" \
+		api bash -lc 'cd /app/backend && python db/migrations/migrate_resource_data_dictionaries.py'
+
+# Full GBL Admin import pipeline after restore.
+gbl-admin-db-import-all: gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries populate-relationships reindex
+	@echo "GBL Admin full import pipeline complete!"
 
 # Search indexing tasks
 # ─────────────────────────────────────────────────────────────────────────

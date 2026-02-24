@@ -132,6 +132,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     'gbl_resourceType_sm',
     'dcat_theme_sm',
     'dct_spatial_sm',
+    'dct_publisher_sm',
     'schema_provider_s',
     'b1g_localCollectionLabel_sm',
   ];

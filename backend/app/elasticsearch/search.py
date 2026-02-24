@@ -805,6 +805,9 @@ async def search_resources(
             "dct_creator_sm": {
                 "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
             },
+            "dct_publisher_sm": {
+                "terms": {"field": "dct_publisher_sm.keyword", "size": DEFAULT_FACET_SIZE}
+            },
             "schema_provider_s": {
                 "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
             },
@@ -1807,6 +1810,7 @@ def process_aggregations(aggregations, search_context: dict):
         "time_period": "Time Period",
         "language_agg": "Language",
         "creator_agg": "Creator",
+        "dct_publisher_sm": "Publisher",
         "provider_agg": "Provider",
         "ogm_repo": "OGM Repo",
         "access_rights_agg": "Access Rights",
