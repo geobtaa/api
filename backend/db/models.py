@@ -85,6 +85,17 @@ resources = Table(
     Column("b1g_geodcat_spatialResolutionAsText_sm", ARRAY(String)),
     Column("b1g_dct_provenanceStatement_sm", ARRAY(String)),
     Column("b1g_adminTags_sm", ARRAY(String)),
+    # Latest BTAA schema compatibility fields
+    Column("b1g_adminNote_sm", ARRAY(String)),
+    Column("b1g_dateAccessioned_dt", TIMESTAMP),
+    Column("b1g_dateRetired_dt", TIMESTAMP),
+    Column("b1g_deprioritized_b", Boolean),
+    Column("b1g_harvestWorkflow_s", String),
+    Column("b1g_isHarvested_b", Boolean),
+    Column("b1g_lastHarvested_dt", TIMESTAMP),
+    Column("b1g_dct_provenance_sm", ARRAY(String)),
+    Column("b1g_dcat_spatialResolutionInMeters_s", String),
+    Column("b1g_websitePlatform_s", String),
     
     # Additional BTAA fields for old database migration
     Column("b1g_adms_supportedSchema_sm", ARRAY(String)),

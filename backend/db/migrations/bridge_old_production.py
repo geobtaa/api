@@ -63,6 +63,10 @@ RESOURCE_FIELDS = [
     "b1g_dcat_inSeries_sm", "b1g_localCollectionLabel_sm", "b1g_prov_softwareAgent_sm",
     "b1g_prov_wasGeneratedBy_sm", "date_created_dtsi", "date_modified_dtsi", "geomg_id_s",
     "publication_state", "import_id",
+    # BTAA latest-schema compatibility fields kept in the bridge view
+    "b1g_adminNote_sm", "b1g_dateAccessioned_dt", "b1g_dateRetired_dt", "b1g_deprioritized_b",
+    "b1g_harvestWorkflow_s", "b1g_isHarvested_b", "b1g_lastHarvested_dt", "b1g_dct_provenance_sm",
+    "b1g_dcat_spatialResolutionInMeters_s", "b1g_websitePlatform_s",
 ]
 
 # Field types for proper casting
@@ -79,6 +83,7 @@ ARRAY_FIELDS = {
     "b1g_dct_provenanceStatement_sm", "b1g_adminTags_sm",
     "b1g_dateAccessioned_sm", "b1g_adms_supportedSchema_sm", "b1g_dcat_inSeries_sm",
     "b1g_localCollectionLabel_sm", "b1g_prov_softwareAgent_sm", "b1g_prov_wasGeneratedBy_sm",
+    "b1g_adminNote_sm", "b1g_dct_provenance_sm",
 }
 
 INTEGER_ARRAY_FIELDS = {
@@ -91,10 +96,12 @@ DATE_FIELDS = {
 
 TIMESTAMP_FIELDS = {
     "gbl_mdModified_dt", "date_created_dtsi", "date_modified_dtsi",
+    "b1g_dateAccessioned_dt", "b1g_dateRetired_dt", "b1g_lastHarvested_dt",
 }
 
 BOOLEAN_FIELDS = {
     "gbl_suppressed_b", "gbl_georeferenced_b", "b1g_child_record_b",
+    "b1g_deprioritized_b", "b1g_isHarvested_b",
 }
 
 JSON_FIELDS = {
@@ -151,9 +158,37 @@ def generate_field_mapping_sql():
             
         json_key = field
         
+        # Special compatibility mappings where old/new schema names differ.
+        if field == "b1g_dct_provenance_sm":
+            mapping = (
+                "    ARRAY(SELECT jsonb_array_elements_text("
+                "COALESCE(json_attributes->'b1g_dct_provenance_sm', json_attributes->'b1g_dct_provenanceStatement_sm')"
+                ")) as \"b1g_dct_provenance_sm\""
+            )
+        elif field == "b1g_dcat_spatialResolutionInMeters_s":
+            mapping = (
+                "    COALESCE("
+                "NULLIF(NULLIF(json_attributes->>'b1g_dcat_spatialResolutionInMeters_s', ''), 'null'), "
+                "NULLIF(NULLIF((json_attributes->'b1g_dcat_spatialResolutionInMeters_sm'->>0), ''), 'null')"
+                ") as \"b1g_dcat_spatialResolutionInMeters_s\""
+            )
+        elif field == "b1g_dateAccessioned_dt":
+            mapping = (
+                "    COALESCE("
+                "NULLIF(NULLIF(json_attributes->>'b1g_dateAccessioned_dt', ''), 'null')::timestamp, "
+                "NULLIF(NULLIF(json_attributes->>'b1g_dateAccessioned_s', ''), 'null')::date::timestamp"
+                ") as \"b1g_dateAccessioned_dt\""
+            )
+        elif field == "b1g_dateRetired_dt":
+            mapping = (
+                "    COALESCE("
+                "NULLIF(NULLIF(json_attributes->>'b1g_dateRetired_dt', ''), 'null')::timestamp, "
+                "NULLIF(NULLIF(json_attributes->>'b1g_dateRetired_s', ''), 'null')::date::timestamp"
+                ") as \"b1g_dateRetired_dt\""
+            )
         # Determine JSON extraction operator and cast type based on field type
         # Use -> for JSONB fields (arrays, JSON) and ->> for scalar text fields
-        if field in INTEGER_ARRAY_FIELDS or field in ARRAY_FIELDS:
+        elif field in INTEGER_ARRAY_FIELDS or field in ARRAY_FIELDS:
             # Array fields stored as JSON arrays, use jsonb_array_elements to convert
             if field in INTEGER_ARRAY_FIELDS:
                 # For integer arrays, extract as text then cast to int
@@ -162,10 +197,19 @@ def generate_field_mapping_sql():
                 # For text arrays
                 mapping = f"    ARRAY(SELECT jsonb_array_elements_text(json_attributes->'{json_key}')) as \"{field}\""
         elif field in JSON_FIELDS:
-            # JSON fields, use -> and keep as jsonb
-            json_op = "->"
-            # Use NULLIF to handle empty strings and convert to NULL
-            mapping = f"    NULLIF(NULLIF(json_attributes{json_op}'{json_key}', ''::text), 'null'::text) as \"{field}\""
+            # JSON fields: keep JSON objects/arrays as-is and normalize string/null-ish values safely.
+            # Avoid comparing jsonb directly to text (invalid operator in Postgres).
+            mapping = (
+                f"    CASE "
+                f"WHEN json_attributes->'{json_key}' IS NULL OR json_attributes->'{json_key}' = 'null'::jsonb THEN NULL "
+                f"WHEN jsonb_typeof(json_attributes->'{json_key}') = 'string' THEN "
+                f"  CASE "
+                f"    WHEN NULLIF(NULLIF(json_attributes->>'{json_key}', ''), 'null') IS NULL THEN NULL "
+                f"    ELSE to_jsonb(json_attributes->>'{json_key}') "
+                f"  END "
+                f"ELSE json_attributes->'{json_key}' "
+                f"END as \"{field}\""
+            )
         else:
             # Scalar fields, use ->> to get text value
             json_op = "->>"

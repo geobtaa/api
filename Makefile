@@ -242,14 +242,14 @@ gbl-admin-db-download:
 	LOCAL_GZ="$(GBL_ADMIN_LOCAL_DIR)/$$(basename "$$REMOTE_DUMP")"; \
 	echo "Downloaded dump: $$LOCAL_GZ"
 
-# Decompress latest downloaded production GBL Admin dump
+# Decompress latest downloaded production GBL Admin dump (writes full .sql to disk; prefer gbl-admin-db-sync which streams)
 gbl-admin-db-unzip:
 	@echo "Decompressing latest production GBL Admin dump..."
 	@if ! command -v gunzip >/dev/null 2>&1; then \
 		echo "ERROR: gunzip is not installed or not on PATH."; \
 		exit 1; \
 	fi
-	@LOCAL_GZ=$$(ls -1t $(GBL_ADMIN_LOCAL_DIR)/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1); \
+	@LOCAL_GZ=$$(ls -1t "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1); \
 	if [ -z "$$LOCAL_GZ" ]; then \
 		echo "ERROR: No local dump found in $(GBL_ADMIN_LOCAL_DIR) matching $(GBL_ADMIN_DUMP_GLOB)."; \
 		echo "Run 'make gbl-admin-db-download' first."; \
@@ -257,10 +257,10 @@ gbl-admin-db-unzip:
 	fi; \
 	LOCAL_SQL="$${LOCAL_GZ%.gz}"; \
 	echo "Using dump: $$LOCAL_GZ"; \
-	gunzip -c "$$LOCAL_GZ" > "$$LOCAL_SQL"; \
+	gunzip -c "$$LOCAL_GZ" > "$$LOCAL_SQL" || { echo "ERROR: gunzip failed (check disk space)."; exit 1; }; \
 	echo "Decompressed SQL: $$LOCAL_SQL"
 
-# Restore latest decompressed production GBL Admin SQL dump to local ParadeDB
+# Restore production GBL Admin dump to local ParadeDB. Uses .sql if present, otherwise streams from .gz (no extra disk).
 gbl-admin-db-restore:
 	@echo "Restoring production GBL Admin SQL into local ParadeDB..."
 	@if ! command -v docker >/dev/null 2>&1; then \
@@ -272,30 +272,58 @@ gbl-admin-db-restore:
 		echo "Start it with: docker compose up -d paradedb"; \
 		exit 1; \
 	fi
-	@LOCAL_SQL=$$(ls -1t $(GBL_ADMIN_LOCAL_DIR)/$(GBL_ADMIN_SQL_GLOB) 2>/dev/null | head -n 1); \
-	if [ -z "$$LOCAL_SQL" ]; then \
-		echo "ERROR: No local SQL file found in $(GBL_ADMIN_LOCAL_DIR) matching $(GBL_ADMIN_SQL_GLOB)."; \
-		echo "Run 'make gbl-admin-db-unzip' first."; \
+	@LOCAL_SQL=$$(ls -1t "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_SQL_GLOB) 2>/dev/null | head -n 1); \
+	LOCAL_GZ=$$(ls -1t "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1); \
+	if [ -n "$$LOCAL_SQL" ]; then \
+		SOURCE="$$LOCAL_SQL"; \
+		DUMP_DATE=$$(basename "$$LOCAL_SQL" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql$$/\1/'); \
+	elif [ -n "$$LOCAL_GZ" ]; then \
+		SOURCE="$$LOCAL_GZ"; \
+		DUMP_DATE=$$(basename "$$LOCAL_GZ" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql\.gz$$/\1/'); \
+	else \
+		echo "ERROR: No dump found in $(GBL_ADMIN_LOCAL_DIR) (need $(GBL_ADMIN_SQL_GLOB) or $(GBL_ADMIN_DUMP_GLOB))."; \
+		echo "Run 'make gbl-admin-db-download' first."; \
 		exit 1; \
 	fi; \
-	DUMP_DATE=$$(basename "$$LOCAL_SQL" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql$$/\1/'); \
 	if ! echo "$$DUMP_DATE" | grep -Eq '^[0-9]{8}$$'; then \
-		echo "ERROR: Could not parse dump date from $$LOCAL_SQL."; \
+		echo "ERROR: Could not parse dump date from $$SOURCE."; \
 		exit 1; \
 	fi; \
 	DB_NAME="geoportal_production_$$DUMP_DATE"; \
 	echo "Target DB: $$DB_NAME"; \
+	docker compose exec -T paradedb psql -U postgres -d postgres -c "CREATE ROLE geomg;" 2>/dev/null || true; \
 	docker compose exec -T paradedb psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$$DB_NAME' AND pid <> pg_backend_pid();" || true; \
 	docker compose exec -T paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$$DB_NAME\";"; \
 	docker compose exec -T paradedb psql -U postgres -d postgres -c "CREATE DATABASE \"$$DB_NAME\" OWNER postgres;"; \
-	cat "$$LOCAL_SQL" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
+	if [ -n "$$LOCAL_SQL" ]; then \
+		echo "Restoring from decompressed SQL: $$LOCAL_SQL"; \
+		cat "$$LOCAL_SQL" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
+	else \
+		echo "Streaming from compressed dump: $$LOCAL_GZ (no extra disk used)"; \
+		gunzip -c "$$LOCAL_GZ" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
+	fi; \
 	echo "Restore complete."; \
-	echo "Dump used: $${LOCAL_SQL}.gz"; \
-	echo "Local SQL: $$LOCAL_SQL"; \
-	echo "Created DB: $$DB_NAME"
+	echo "Dump used: $$SOURCE"; \
+	echo "Created DB: $$DB_NAME"; \
+	echo "Creating kithe_to_resources_bridge materialized view in restored GBL Admin DB..."; \
+	DB_PASSWORD=$$(docker compose exec -T paradedb bash -lc 'printf %s "$$POSTGRES_PASSWORD"'); \
+	if [ -z "$$DB_PASSWORD" ]; then \
+		DB_PASSWORD="$(POSTGRES_PASSWORD)"; \
+		DB_PASSWORD="$${DB_PASSWORD#\"}"; \
+		DB_PASSWORD="$${DB_PASSWORD%\"}"; \
+		DB_PASSWORD="$${DB_PASSWORD#\'}"; \
+		DB_PASSWORD="$${DB_PASSWORD%\'}"; \
+	fi; \
+	docker compose exec -T \
+		-e OLD_DB_NAME="$$DB_NAME" \
+		-e DB_HOST="paradedb" \
+		-e DB_PORT="5432" \
+		-e DB_USER="postgres" \
+		-e DB_PASSWORD="$$DB_PASSWORD" \
+		api bash -lc 'cd /app/backend && python db/migrations/bridge_old_production.py --create-view'
 
-# End-to-end workflow: download latest dump, decompress, and restore locally
-gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore
+# End-to-end: download latest dump and restore (streams from .gz; no decompression to disk)
+gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-restore
 	@echo "GBL Admin database sync complete!"
 
 # Search indexing tasks
