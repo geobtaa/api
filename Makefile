@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync reindex es-unblock populate-relationships verify-h3-index clear_cache frontend-reset
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync reindex es-unblock populate-relationships verify-h3-index clear_cache frontend-reset
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -35,6 +35,14 @@ TIMEOUT_GRACE_SECONDS ?= 20
 # Enable only when debugging a true deadlock/hang:
 #   TIMEOUT_DUMP_STACKS=1 make test-no-coverage
 TIMEOUT_DUMP_STACKS ?= 0
+
+# GBL Admin production dump restore defaults
+GBL_ADMIN_SSH_USER ?= ewlarson
+GBL_ADMIN_SSH_HOST ?= geomg.lib.umn.edu
+GBL_ADMIN_REMOTE_DIR ?= /opt/data/pgdump
+GBL_ADMIN_DUMP_GLOB ?= pgdump-geoportal_production-*.sql.gz
+GBL_ADMIN_LOCAL_DIR ?= tmp
+GBL_ADMIN_SQL_GLOB ?= pgdump-geoportal_production-*.sql
 
 # Run both linting and formatting checks (without modifying files)
 lint:
@@ -211,6 +219,82 @@ db-import:
 # Export and import in one command
 db-sync: db-export db-import
 	@echo "Database sync complete!"
+
+# Download latest production GBL Admin SQL dump from remote host
+gbl-admin-db-download:
+	@echo "Resolving latest production GBL Admin dump..."
+	@for cmd in ssh scp; do \
+		if ! command -v $$cmd >/dev/null 2>&1; then \
+			echo "ERROR: $$cmd is not installed or not on PATH."; \
+			exit 1; \
+		fi; \
+	done
+	@mkdir -p "$(GBL_ADMIN_LOCAL_DIR)"
+	@REMOTE_DUMP=$$(ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) "ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1"); \
+	if [ -z "$$REMOTE_DUMP" ]; then \
+		echo "ERROR: No remote dump matched $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB)."; \
+		exit 1; \
+	fi; \
+	echo "Latest dump: $$REMOTE_DUMP"; \
+	scp "$(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST):$$REMOTE_DUMP" "$(GBL_ADMIN_LOCAL_DIR)/"; \
+	LOCAL_GZ="$(GBL_ADMIN_LOCAL_DIR)/$$(basename "$$REMOTE_DUMP")"; \
+	echo "Downloaded dump: $$LOCAL_GZ"
+
+# Decompress latest downloaded production GBL Admin dump
+gbl-admin-db-unzip:
+	@echo "Decompressing latest production GBL Admin dump..."
+	@if ! command -v gunzip >/dev/null 2>&1; then \
+		echo "ERROR: gunzip is not installed or not on PATH."; \
+		exit 1; \
+	fi
+	@LOCAL_GZ=$$(ls -1t $(GBL_ADMIN_LOCAL_DIR)/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1); \
+	if [ -z "$$LOCAL_GZ" ]; then \
+		echo "ERROR: No local dump found in $(GBL_ADMIN_LOCAL_DIR) matching $(GBL_ADMIN_DUMP_GLOB)."; \
+		echo "Run 'make gbl-admin-db-download' first."; \
+		exit 1; \
+	fi; \
+	LOCAL_SQL="$${LOCAL_GZ%.gz}"; \
+	echo "Using dump: $$LOCAL_GZ"; \
+	gunzip -c "$$LOCAL_GZ" > "$$LOCAL_SQL"; \
+	echo "Decompressed SQL: $$LOCAL_SQL"
+
+# Restore latest decompressed production GBL Admin SQL dump to local ParadeDB
+gbl-admin-db-restore:
+	@echo "Restoring production GBL Admin SQL into local ParadeDB..."
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "ERROR: docker is not installed or not on PATH."; \
+		exit 1; \
+	fi
+	@if [ -z "$$(docker compose ps --status running --services paradedb 2>/dev/null)" ]; then \
+		echo "ERROR: paradedb service is not running."; \
+		echo "Start it with: docker compose up -d paradedb"; \
+		exit 1; \
+	fi
+	@LOCAL_SQL=$$(ls -1t $(GBL_ADMIN_LOCAL_DIR)/$(GBL_ADMIN_SQL_GLOB) 2>/dev/null | head -n 1); \
+	if [ -z "$$LOCAL_SQL" ]; then \
+		echo "ERROR: No local SQL file found in $(GBL_ADMIN_LOCAL_DIR) matching $(GBL_ADMIN_SQL_GLOB)."; \
+		echo "Run 'make gbl-admin-db-unzip' first."; \
+		exit 1; \
+	fi; \
+	DUMP_DATE=$$(basename "$$LOCAL_SQL" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql$$/\1/'); \
+	if ! echo "$$DUMP_DATE" | grep -Eq '^[0-9]{8}$$'; then \
+		echo "ERROR: Could not parse dump date from $$LOCAL_SQL."; \
+		exit 1; \
+	fi; \
+	DB_NAME="geoportal_production_$$DUMP_DATE"; \
+	echo "Target DB: $$DB_NAME"; \
+	docker compose exec -T paradedb psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$$DB_NAME' AND pid <> pg_backend_pid();" || true; \
+	docker compose exec -T paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$$DB_NAME\";"; \
+	docker compose exec -T paradedb psql -U postgres -d postgres -c "CREATE DATABASE \"$$DB_NAME\" OWNER postgres;"; \
+	cat "$$LOCAL_SQL" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
+	echo "Restore complete."; \
+	echo "Dump used: $${LOCAL_SQL}.gz"; \
+	echo "Local SQL: $$LOCAL_SQL"; \
+	echo "Created DB: $$DB_NAME"
+
+# End-to-end workflow: download latest dump, decompress, and restore locally
+gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore
+	@echo "GBL Admin database sync complete!"
 
 # Search indexing tasks
 # ─────────────────────────────────────────────────────────────────────────
