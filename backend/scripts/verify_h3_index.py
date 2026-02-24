@@ -31,6 +31,7 @@ async def main() -> None:
     sample = await es.search(
         index=index,
         size=5,
+        track_total_hits=True,
         _source=[
             "id",
             "h3_res2",
@@ -46,6 +47,7 @@ async def main() -> None:
             "dcat_centroid",
         ],
         query={"match_all": {}},
+        sort=[{"id.keyword": {"order": "asc", "missing": "_last"}}],
     )
     hits = (sample.get("hits") or {}).get("hits") or []
     total = (sample.get("hits") or {}).get("total") or {}

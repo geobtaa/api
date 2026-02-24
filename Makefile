@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync reindex es-unblock populate-relationships verify-h3-index clear_cache frontend-reset
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -43,6 +43,8 @@ GBL_ADMIN_REMOTE_DIR ?= /opt/data/pgdump
 GBL_ADMIN_DUMP_GLOB ?= pgdump-geoportal_production-*.sql.gz
 GBL_ADMIN_LOCAL_DIR ?= tmp
 GBL_ADMIN_SQL_GLOB ?= pgdump-geoportal_production-*.sql
+KAMAL_APP_ROLE ?= web
+KAMAL_PYTHON ?= /opt/venv/bin/python
 
 # Run both linting and formatting checks (without modifying files)
 lint:
@@ -315,7 +317,7 @@ reindex:
 		set -e; \
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
-		cd /app/backend && python scripts/reindex_admin.py'
+		cd /app/backend && python3 scripts/reindex_admin.py'
 
 # Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
 # Run after ingest or when relationship columns change. Search "Has part" filter uses DB + ES;
@@ -347,7 +349,27 @@ ingest-featured:
 # Verify H3 pyramid fields (h3_res2..h3_res8, geo_or_near_global) in Elasticsearch
 verify-h3-index:
 	@echo "Verifying H3 pyramid fields in Elasticsearch..."
-	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/verify_h3_index.py'
+	@docker compose exec -T api bash -lc 'cd /app/backend && python3 scripts/verify_h3_index.py'
+
+# Reindex all resources into Elasticsearch on Kamal (single role run by default).
+kamal-reindex:
+	@echo "Reindexing all resources on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/reindex_admin.py'"
+
+# Verify H3 pyramid fields on Kamal (single role run by default).
+kamal-verify-h3-index:
+	@echo "Verifying H3 pyramid fields on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/verify_h3_index.py'"
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 
