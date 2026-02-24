@@ -31,8 +31,8 @@ const MapController: React.FC<{
       const feature = features.find((f) => f.resource.id === highlightedId);
       if (feature) {
         map.flyToBounds(feature.bounds as L.LatLngBoundsExpression, {
-          padding: [100, 100],
-          maxZoom: 8,
+          padding: [60, 60],
+          maxZoom: 14,
           duration: 0.5,
         });
       }
