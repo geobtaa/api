@@ -158,7 +158,7 @@ function BtaaFooter({ id }: FooterProps) {
                   Check out the latest stories from our blog:
                 </p>
                 <a
-                  href="https://geobtaa.blogspot.com/"
+                  href="https://gin.btaa.org/blog"
                   className="text-sm font-semibold text-white hover:text-blue-200 hover:underline flex items-center gap-1"
                 >
                   View Collection Stories <ExternalLink size={12} />
