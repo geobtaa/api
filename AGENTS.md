@@ -99,8 +99,11 @@ Run from the **project root**. Key targets:
 | `make test-fast`       | Backend tests, parallel, no coverage. |
 | `make test-fresh-db`   | Recreate test DB from main DB. |
 | `make lint-test`       | `lint-check` then `test`. |
-| `make reindex`         | Reindex all resources into Elasticsearch (via API container). |
+| `make reindex`         | Atomic local reindex using versioned index + alias swap, then clear local search cache. |
+| `make reindex-benchmark` | Run atomic local reindex with benchmark timing output enabled. |
+| `make kamal-reindex`   | Atomic reindex on Kamal with versioned index + alias swap; auto-runs `kamal-clear-cache`. |
 | `make verify-h3-index` | Verify H3 pyramid fields in Elasticsearch. |
+| `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). |
 | `make clear_cache`     | Flush Redis cache (needs `REDIS_PASSWORD` in `.env`). |
 | `make frontend-reset`  | Clear Vite cache and restart frontend-dev. |
 | `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz`. |
@@ -132,17 +135,21 @@ See `docs/make_tasks.md` for overrides (e.g. `COVERAGE_THRESHOLD`, `PARALLEL_WOR
 
 ### Indexing (Elasticsearch)
 
-- **Reindex all resources** (same behavior as `/admin/reindex`):  
+- **Reindex all resources locally** (safe atomic cutover):  
   `make reindex`  
   or  
-  `docker compose exec api bash -lc "cd /app/backend && python scripts/reindex_admin.py"`
+  `docker compose exec api bash -lc "cd /app/backend && python scripts/reindex_atomic.py"`
+
+- **Atomic reindex on Kamal** (safe cutover):  
+  `make kamal-reindex`  
+  Builds a versioned index, atomically swaps alias `ELASTICSEARCH_INDEX`, keeps one previous versioned index by default, then clears remote API cache.
 
 - **Verify H3 pyramid fields** after reindex:  
   `make verify-h3-index`  
   or  
   `docker compose exec api bash -lc "cd /app/backend && python scripts/verify_h3_index.py"`
 
-Backend scripts for one-off or debug indexing: `backend/scripts/reindex.py`, `simple_bulk_index.py`, `run_index.py`. See `docs/backend/scripts.md` and `docs/backend/ogm_harvesting.md`.
+Backend scripts for one-off or debug indexing: `backend/scripts/reindex.py`, `backend/scripts/reindex_atomic.py`, `simple_bulk_index.py`, `run_index.py`. See `docs/backend/scripts.md` and `docs/backend/ogm_harvesting.md`.
 
 ---
 

@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -47,6 +47,33 @@ GBL_ADMIN_IMPORT_CONFLICT ?= update
 GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
+# Local atomic reindex tuning.
+REINDEX_CHUNK_SIZE ?= 2000
+REINDEX_BULK_SIZE ?= 2000
+REINDEX_BULK_MAX_RETRIES ?= 2
+REINDEX_FAST_SETTINGS ?= true
+REINDEX_FORCE_REPLICAS_ZERO ?= true
+REINDEX_ALLOW_PARTIAL ?= false
+REINDEX_PRUNE_OLD ?= true
+REINDEX_RETAIN_PREVIOUS ?= 1
+REINDEX_REMOVE_LEGACY_INDEX ?= true
+REINDEX_BENCHMARK ?= false
+# Kamal atomic reindex defaults (versioned index + alias swap + prune).
+KAMAL_REINDEX_CHUNK_SIZE ?= 1000
+KAMAL_REINDEX_BULK_SIZE ?= 2000
+KAMAL_REINDEX_BULK_MAX_RETRIES ?= 2
+KAMAL_REINDEX_FAST_SETTINGS ?= true
+KAMAL_REINDEX_FORCE_REPLICAS_ZERO ?= true
+KAMAL_REINDEX_ALLOW_PARTIAL ?= false
+KAMAL_REINDEX_PRUNE_OLD ?= true
+KAMAL_REINDEX_RETAIN_PREVIOUS ?= 1
+KAMAL_REINDEX_REMOVE_LEGACY_INDEX ?= true
+# Optional override for remote API base URL used by kamal-clear-cache.
+# If unset, the target falls back to APPLICATION_URL from Kamal env.
+KAMAL_API_URL ?=
+KAMAL_CACHE_TYPE ?= search
+OGM_API_URL ?= http://localhost:8000
+OGM_STATUS_POLL_SECONDS ?= 5
 
 # Run both linting and formatting checks (without modifying files)
 lint:
@@ -451,14 +478,110 @@ es-unblock:
 		-d '{"index.blocks.read_only_allow_delete": null}' || true
 	@echo "Done. Run 'make reindex' if you need to reindex."
 
-# Reindex all resources into Elasticsearch
+# Reindex all resources into Elasticsearch using versioned index + alias swap.
 reindex:
-	@echo "Reindexing all resources into Elasticsearch (same logic as /admin/reindex)..."
+	@echo "Atomic reindex (versioned index + alias swap) in local Docker..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
-		echo "Index: $$ELASTICSEARCH_INDEX"; \
-		cd /app/backend && python3 scripts/reindex_admin.py'
+		echo "Alias: $$ELASTICSEARCH_INDEX"; \
+		cd /app/backend && \
+		REINDEX_ATOMIC_CHUNK_SIZE=$(REINDEX_CHUNK_SIZE) \
+		REINDEX_ATOMIC_BULK_SIZE=$(REINDEX_BULK_SIZE) \
+		REINDEX_ATOMIC_BULK_MAX_RETRIES=$(REINDEX_BULK_MAX_RETRIES) \
+		REINDEX_ATOMIC_FAST_SETTINGS=$(REINDEX_FAST_SETTINGS) \
+		REINDEX_ATOMIC_FORCE_REPLICAS_ZERO=$(REINDEX_FORCE_REPLICAS_ZERO) \
+		REINDEX_ATOMIC_ALLOW_PARTIAL=$(REINDEX_ALLOW_PARTIAL) \
+		REINDEX_ATOMIC_PRUNE_OLD=$(REINDEX_PRUNE_OLD) \
+		REINDEX_ATOMIC_RETAIN_PREVIOUS=$(REINDEX_RETAIN_PREVIOUS) \
+		REINDEX_ATOMIC_REMOVE_LEGACY_INDEX=$(REINDEX_REMOVE_LEGACY_INDEX) \
+		REINDEX_ATOMIC_BENCHMARK=$(REINDEX_BENCHMARK) \
+		python3 scripts/reindex_atomic.py'
+	@echo "Reindex complete; clearing local search cache..."
+	@$(MAKE) local-clear-search-cache
+
+# Reindex with benchmark timing output enabled.
+reindex-benchmark:
+	@$(MAKE) reindex REINDEX_BENCHMARK=true
+
+# Clear local API search cache via admin endpoint.
+local-clear-search-cache:
+	@docker compose exec -T api bash -lc 'ADMIN_USER=$${ADMIN_USERNAME:-admin}; ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST "http://localhost:8000/api/v1/admin/cache/clear?cache_type=search"'
+
+# Refresh OpenGeoMetadata (OGM) harvest for all enabled weekly repos.
+# Uses ADMIN_USERNAME/ADMIN_PASSWORD from env or .env (defaults to admin/changeme).
+ogm-refresh: ogm-refresh-all
+
+ogm-refresh-all:
+	@echo "Triggering OGM harvest for all enabled weekly repos via $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(OGM_API_URL)/api/v1/admin/ogm/harvest" \
+			-H "Content-Type: application/json" \
+			-d '\''{"ogm_all":true,"ogm_trigger":"weekly"}'\'''
+	@echo
+	@echo "OGM harvest request submitted."
+
+# Refresh a single OpenGeoMetadata (OGM) repo.
+# Usage: make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl
+ogm-refresh-repo:
+	@if [ -z "$(OGM_REPO_NAME)" ]; then \
+		echo "ERROR: OGM_REPO_NAME is required."; \
+		echo "Usage: make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl"; \
+		exit 1; \
+	fi
+	@echo "Triggering OGM harvest for repo $(OGM_REPO_NAME) via $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(OGM_API_URL)/api/v1/admin/ogm/harvest" \
+			-H "Content-Type: application/json" \
+			-d "{\"ogm_repo_name\":\"$(OGM_REPO_NAME)\",\"ogm_trigger\":\"manual\"}"'
+	@echo
+	@echo "OGM harvest request submitted for $(OGM_REPO_NAME)."
+
+# Show OGM harvest status snapshot.
+# Usage:
+#   make ogm-status                      # list recent runs
+#   make ogm-status OGM_RUN_ID=<run_id> # show one run detail
+ogm-status:
+	@echo "Fetching OGM harvest status from $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		if [ -n "$(OGM_RUN_ID)" ]; then \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs/$(OGM_RUN_ID)"; \
+		else \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs"; \
+		fi'
+	@echo
+
+# Continuously poll OGM harvest status.
+# Usage:
+#   make ogm-status-watch
+#   make ogm-status-watch OGM_RUN_ID=<run_id> OGM_STATUS_POLL_SECONDS=3
+ogm-status-watch:
+	@echo "Watching OGM harvest status (every $(OGM_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
+	@while true; do \
+		$(MAKE) --no-print-directory ogm-status OGM_RUN_ID="$(OGM_RUN_ID)"; \
+		sleep $(OGM_STATUS_POLL_SECONDS); \
+	done
+
+# Show only failed OGM harvest runs with error details.
+# Usage: make ogm-failures
+ogm-failures:
+	@echo "Fetching failed OGM harvest runs from $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+			"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs" \
+		| python -c "import json,sys; data=json.load(sys.stdin); failed=[r for r in data.get(\"runs\",[]) if r.get(\"ogm_status\")==\"failed\"]; print(\"No failed OGM runs found in current history window.\") if not failed else [print(\"ogm_id={0} repo={1} trigger={2} started_at={3}\\nerror={4}\\n\".format(r.get(\"ogm_id\"), r.get(\"ogm_repo_name\"), r.get(\"ogm_trigger\"), r.get(\"ogm_started_at\"), r.get(\"ogm_error\") or \"(none)\")) for r in failed]"'
 
 # Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
 # Run after ingest or when relationship columns change. Search "Has part" filter uses DB + ES;
@@ -494,13 +617,25 @@ verify-h3-index:
 
 # Reindex all resources into Elasticsearch on Kamal (single role run by default).
 kamal-reindex:
-	@echo "Reindexing all resources on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@echo "Atomic reindex on Kamal (role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
 		echo "Please source .kamal/secrets first."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/reindex_admin.py'"
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && \
+		REINDEX_ATOMIC_CHUNK_SIZE=$(KAMAL_REINDEX_CHUNK_SIZE) \
+		REINDEX_ATOMIC_BULK_SIZE=$(KAMAL_REINDEX_BULK_SIZE) \
+		REINDEX_ATOMIC_BULK_MAX_RETRIES=$(KAMAL_REINDEX_BULK_MAX_RETRIES) \
+		REINDEX_ATOMIC_FAST_SETTINGS=$(KAMAL_REINDEX_FAST_SETTINGS) \
+		REINDEX_ATOMIC_FORCE_REPLICAS_ZERO=$(KAMAL_REINDEX_FORCE_REPLICAS_ZERO) \
+		REINDEX_ATOMIC_ALLOW_PARTIAL=$(KAMAL_REINDEX_ALLOW_PARTIAL) \
+		REINDEX_ATOMIC_PRUNE_OLD=$(KAMAL_REINDEX_PRUNE_OLD) \
+		REINDEX_ATOMIC_RETAIN_PREVIOUS=$(KAMAL_REINDEX_RETAIN_PREVIOUS) \
+		REINDEX_ATOMIC_REMOVE_LEGACY_INDEX=$(KAMAL_REINDEX_REMOVE_LEGACY_INDEX) \
+		$(KAMAL_PYTHON) scripts/reindex_atomic.py'"
+	@echo "Reindex complete; clearing API cache (cache_type: $(KAMAL_CACHE_TYPE))..."
+	@$(MAKE) kamal-clear-cache
 
 # Verify H3 pyramid fields on Kamal (single role run by default).
 kamal-verify-h3-index:
@@ -511,6 +646,22 @@ kamal-verify-h3-index:
 		exit 1; \
 	fi
 	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/verify_h3_index.py'"
+
+# Clear API cache on Kamal via admin endpoint (defaults to search cache).
+# Usage:
+#   make kamal-clear-cache
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=all
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=suggest
+kamal-clear-cache:
+	@echo "Clearing remote cache on Kamal (role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
+	@echo
+	@echo "Remote cache clear request submitted."
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 

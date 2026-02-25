@@ -6,6 +6,7 @@ from .endpoint_modules.admin import router as admin_router
 from .endpoint_modules.gazetteer import router as gazetteer_router
 from .endpoint_modules.map import router as map_router
 from .endpoint_modules.mcp import router as mcp_router
+from .endpoint_modules.ogm import router as ogm_router
 from .endpoint_modules.ogm_webhook import router as ogm_webhook_router
 from .endpoint_modules.resources import router as resources_router
 
@@ -28,6 +29,7 @@ router.include_router(thumbnails_router, tags=["thumbnails"])
 router.include_router(static_maps_router, tags=["static-maps"])
 router.include_router(map_router, tags=["map"])
 router.include_router(mcp_router, tags=["mcp"])
+router.include_router(ogm_router, tags=["ogm"])
 # Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation
 router.include_router(admin_router, prefix="/admin", tags=["admin"], include_in_schema=False)
 router.include_router(ogm_webhook_router, prefix="/admin", tags=["admin"], include_in_schema=False)

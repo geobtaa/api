@@ -51,6 +51,8 @@ async def api_root(request: Request = None):
                 "/thumbnails/placeholder",
                 "/thumbnails/{image_hash}",
                 "/map/h3",
+                "/ogm/repos",
+                "/ogm/harvest/failures",
                 "/mcp",
             ],
         },

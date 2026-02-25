@@ -165,6 +165,17 @@ class OGMResourceImporter:
             except Exception:
                 pass
 
+        # Some OGM feeds provide scalar string fields as single-item lists.
+        if "dct_title_s" in out and isinstance(out["dct_title_s"], list):
+            title_list = [str(v).strip() for v in out["dct_title_s"] if str(v).strip()]
+            out["dct_title_s"] = title_list[0] if title_list else None
+
+        # Some OGM feeds provide b1g_harvestWorkflow_s as a single-item list,
+        # but the DB column is scalar text.
+        if "b1g_harvestWorkflow_s" in out and isinstance(out["b1g_harvestWorkflow_s"], list):
+            workflow_list = [str(v).strip() for v in out["b1g_harvestWorkflow_s"] if str(v).strip()]
+            out["b1g_harvestWorkflow_s"] = workflow_list[0] if workflow_list else None
+
         # Tag injection
         tags: List[str] = []
         existing = out.get("b1g_adminTags_sm")
@@ -238,6 +249,16 @@ class OGMResourceImporter:
         Returns stats dict: processed, imported, skipped, errors.
         """
         stats = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+        error_samples: List[Dict[str, Any]] = []
+        error_signature_counts: Dict[str, int] = {}
+
+        def _add_error_sample(stage: str, error: Exception, rid: Optional[str] = None) -> None:
+            signature = f"{error.__class__.__name__}: {str(error)[:180]}"
+            error_signature_counts[signature] = error_signature_counts.get(signature, 0) + 1
+            if len(error_samples) >= 20:
+                return
+            error_samples.append({"stage": stage, "resource_id": rid, "error": str(error)[:500]})
+
         if not database.is_connected:
             await database.connect()
 
@@ -276,12 +297,23 @@ class OGMResourceImporter:
                         ogm_last_seen_at=run_started_at,
                     )
                     stats["imported"] += 1
-                except Exception:
+                except Exception as e:
                     stats["errors"] += 1
+                    _add_error_sample(
+                        "upsert_record", e, rid=str(record.get("id")) if record else None
+                    )
 
         # Mark missing after transaction, without building a huge NOT IN list
         await self.repo.mark_missing_stale(repo_name, run_started_at=run_started_at)
 
+        if error_samples:
+            stats["error_samples"] = error_samples
+            stats["error_signatures"] = [
+                {"signature": k, "count": v}
+                for k, v in sorted(
+                    error_signature_counts.items(), key=lambda kv: kv[1], reverse=True
+                )[:10]
+            ]
         return stats
 
     async def upsert_stream(
@@ -300,6 +332,28 @@ class OGMResourceImporter:
         resources in batches, while also updating ogm_resource_state in batches.
         """
         stats = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+        error_samples: List[Dict[str, Any]] = []
+        error_signature_counts: Dict[str, int] = {}
+
+        def _add_error_sample(
+            stage: str,
+            error: Exception,
+            rid: Optional[str] = None,
+            source_path: Optional[str] = None,
+        ) -> None:
+            signature = f"{error.__class__.__name__}: {str(error)[:180]}"
+            error_signature_counts[signature] = error_signature_counts.get(signature, 0) + 1
+            if len(error_samples) >= 20:
+                return
+            error_samples.append(
+                {
+                    "stage": stage,
+                    "resource_id": rid,
+                    "source_path": source_path,
+                    "error": str(error)[:500],
+                }
+            )
+
         if not database.is_connected:
             await database.connect()
 
@@ -364,6 +418,7 @@ class OGMResourceImporter:
             except Exception as e:
                 if len(rows) == 1:
                     rid = (seen[0] or {}).get("ogm_resource_id") if seen else None
+                    source_path = (seen[0] or {}).get("ogm_source_path") if seen else None
                     logger.warning(
                         "OGM upsert failed for single record; skipping. repo=%s id=%s err=%s",
                         repo_name,
@@ -371,6 +426,7 @@ class OGMResourceImporter:
                         str(e),
                     )
                     stats["errors"] += 1
+                    _add_error_sample("bulk_upsert_single", e, rid=rid, source_path=source_path)
                     return 0
                 mid = len(rows) // 2
                 left = await _flush_rows(rows[:mid], seen[:mid])
@@ -419,6 +475,12 @@ class OGMResourceImporter:
                     str(e),
                 )
                 stats["errors"] += 1
+                _add_error_sample(
+                    "normalize_or_enqueue",
+                    e,
+                    rid=str(record.get("id")) if isinstance(record, dict) else None,
+                    source_path=source_path,
+                )
 
         # flush remaining
         await _flush()
@@ -427,4 +489,12 @@ class OGMResourceImporter:
         await _maybe_progress(force=True)
 
         await self.repo.mark_missing_stale(repo_name, run_started_at=run_started_at)
+        if error_samples:
+            stats["error_samples"] = error_samples
+            stats["error_signatures"] = [
+                {"signature": k, "count": v}
+                for k, v in sorted(
+                    error_signature_counts.items(), key=lambda kv: kv[1], reverse=True
+                )[:10]
+            ]
         return stats

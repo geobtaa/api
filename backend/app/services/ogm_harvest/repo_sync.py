@@ -13,7 +13,7 @@ class RepoSyncResult:
     repo_name: str
     repo_dir: Path
     head_sha: Optional[str]
-    action: str  # clone|pull|noop
+    action: str  # clone|pull|reclone|noop
 
 
 class OGMRepoSync:
@@ -38,6 +38,15 @@ class OGMRepoSync:
         repo_dir = self.base_dir / repo_name
         if not repo_dir.exists():
             return self._clone(repo_name, repo_dir)
+        if not (repo_dir / ".git").exists():
+            shutil.rmtree(repo_dir, ignore_errors=True)
+            result = self._clone(repo_name, repo_dir)
+            return RepoSyncResult(
+                repo_name=result.repo_name,
+                repo_dir=result.repo_dir,
+                head_sha=result.head_sha,
+                action="reclone",
+            )
         return self._pull(repo_name, repo_dir)
 
     def _clone(self, repo_name: str, repo_dir: Path) -> RepoSyncResult:
@@ -54,16 +63,27 @@ class OGMRepoSync:
         )
 
     def _pull(self, repo_name: str, repo_dir: Path) -> RepoSyncResult:
-        subprocess.run(
-            ["git", "-C", str(repo_dir), "pull", "--ff-only"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        head_sha = self._head_sha(repo_dir)
-        return RepoSyncResult(
-            repo_name=repo_name, repo_dir=repo_dir, head_sha=head_sha, action="pull"
-        )
+        try:
+            subprocess.run(
+                ["git", "-C", str(repo_dir), "pull", "--ff-only"],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            head_sha = self._head_sha(repo_dir)
+            return RepoSyncResult(
+                repo_name=repo_name, repo_dir=repo_dir, head_sha=head_sha, action="pull"
+            )
+        except subprocess.CalledProcessError:
+            # Self-heal broken or divergent local checkouts by recloning.
+            shutil.rmtree(repo_dir, ignore_errors=True)
+            result = self._clone(repo_name, repo_dir)
+            return RepoSyncResult(
+                repo_name=result.repo_name,
+                repo_dir=result.repo_dir,
+                head_sha=result.head_sha,
+                action="reclone",
+            )
 
     def _head_sha(self, repo_dir: Path) -> Optional[str]:
         try:

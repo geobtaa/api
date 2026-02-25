@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db.database import database
@@ -21,6 +21,81 @@ class OGMHarvestRepository:
     async def list_repos(self) -> List[Dict[str, Any]]:
         rows = await database.fetch_all(select(ogm_repos).order_by(ogm_repos.c.ogm_repo_name))
         return [dict(r) for r in rows]
+
+    async def list_public_repo_summaries(self) -> List[Dict[str, Any]]:
+        """
+        Public-facing OGM repo summaries.
+
+        For each configured OGM repo, return the latest crawl status and the
+        latest run's imported/error counts (when available).
+        """
+        latest_run_ids = (
+            select(
+                ogm_harvest_runs.c.ogm_repo_name.label("repo_name"),
+                func.max(ogm_harvest_runs.c.ogm_id).label("latest_ogm_id"),
+            )
+            .group_by(ogm_harvest_runs.c.ogm_repo_name)
+            .subquery()
+        )
+
+        q = (
+            select(
+                ogm_repos.c.ogm_repo_name,
+                ogm_repos.c.ogm_enabled,
+                ogm_repos.c.ogm_watch_mode,
+                ogm_repos.c.ogm_last_harvest_started_at,
+                ogm_repos.c.ogm_last_harvest_completed_at,
+                ogm_repos.c.ogm_last_harvest_status,
+                ogm_harvest_runs.c.ogm_id.label("last_run_id"),
+                ogm_harvest_runs.c.ogm_started_at.label("last_run_started_at"),
+                ogm_harvest_runs.c.ogm_completed_at.label("last_run_completed_at"),
+                ogm_harvest_runs.c.ogm_status.label("last_run_status"),
+                ogm_harvest_runs.c.ogm_stats_json.label("last_run_stats_json"),
+            )
+            .select_from(
+                ogm_repos.outerjoin(
+                    latest_run_ids, ogm_repos.c.ogm_repo_name == latest_run_ids.c.repo_name
+                ).outerjoin(
+                    ogm_harvest_runs, ogm_harvest_runs.c.ogm_id == latest_run_ids.c.latest_ogm_id
+                )
+            )
+            .order_by(ogm_repos.c.ogm_repo_name)
+        )
+        rows = await database.fetch_all(q)
+
+        def _to_int(value: Any) -> int:
+            try:
+                return int(value)
+            except (TypeError, ValueError):
+                return 0
+
+        summaries: List[Dict[str, Any]] = []
+        for row in rows:
+            item = dict(row)
+            stats = item.get("last_run_stats_json") or {}
+            latest_status = item.get("last_run_status") or item.get("ogm_last_harvest_status")
+            latest_started_at = item.get("last_run_started_at") or item.get(
+                "ogm_last_harvest_started_at"
+            )
+            latest_completed_at = item.get("last_run_completed_at") or item.get(
+                "ogm_last_harvest_completed_at"
+            )
+            summaries.append(
+                {
+                    "ogm_repo_name": item.get("ogm_repo_name"),
+                    "ogm_enabled": item.get("ogm_enabled"),
+                    "ogm_watch_mode": item.get("ogm_watch_mode"),
+                    "last_crawl_started_at": latest_started_at,
+                    "last_crawl_completed_at": latest_completed_at,
+                    "last_crawl_status": latest_status,
+                    "last_run_id": item.get("last_run_id"),
+                    "harvested_success_count": _to_int(stats.get("imported")),
+                    "harvested_failure_count": _to_int(stats.get("errors")),
+                    "harvest_failure_samples": list(stats.get("error_samples") or [])[:5],
+                }
+            )
+
+        return summaries
 
     async def get_repo(self, ogm_repo_name: str) -> Optional[Dict[str, Any]]:
         row = await database.fetch_one(
