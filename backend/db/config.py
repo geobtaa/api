@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from urllib.parse import urlparse, urlunparse
 
 # Load environment variables from .env file
 try:
@@ -29,7 +30,6 @@ else:
     # This handles cases where DATABASE_URL is set from .env with Docker service names
     is_docker = os.getenv("IS_DOCKER") == "true"
     if not is_docker and DATABASE_URL:
-        from urllib.parse import urlparse, urlunparse
         parsed = urlparse(DATABASE_URL)
         docker_hostnames = ["paradedb", "btaa-geospatial-api-paradedb", "btaa-geospatial-api-paradedb-1"]
         if parsed.hostname in docker_hostnames:
@@ -37,4 +37,21 @@ else:
             new_netloc = f"{parsed.username}:{parsed.password}@localhost:2345"
             DATABASE_URL = urlunparse(parsed._replace(netloc=new_netloc))
 
-print(f"Using database URL: {DATABASE_URL}")
+
+def _mask_database_url(url: str | None) -> str:
+    """Mask password in DB URL before logging."""
+    if not url:
+        return ""
+
+    parsed = urlparse(url)
+    if parsed.password is None:
+        return url
+
+    username = parsed.username or ""
+    hostname = parsed.hostname or ""
+    port = f":{parsed.port}" if parsed.port else ""
+    netloc = f"{username}:***@{hostname}{port}"
+    return urlunparse(parsed._replace(netloc=netloc))
+
+
+print(f"Using database URL: {_mask_database_url(DATABASE_URL)}")

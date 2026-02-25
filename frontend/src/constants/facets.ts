@@ -7,6 +7,7 @@ export const CONFIGURED_FACETS = [
   'gbl_indexyear_im',
   'dct_language_sm',
   'dct_creator_sm',
+  'dct_publisher_sm',
   'schema_provider_s',
   'dct_accessRights_s',
   'gbl_georeferenced_b',

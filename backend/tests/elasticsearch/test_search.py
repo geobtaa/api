@@ -6,7 +6,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from app.elasticsearch.search import get_search_criteria, search_resources
+from app.elasticsearch.search import (
+    MIN_BBOX_IOU_OVERLAP_RATIO,
+    get_search_criteria,
+    search_resources,
+)
 
 
 class TestElasticsearchSearch:
@@ -327,6 +331,92 @@ class TestElasticsearchSearch:
                     box = geo_filter["geo_bounding_box"]["dcat_bbox"]
                     assert box["top_left"] == {"lat": 45.0, "lon": -109.0}
                     assert box["bottom_right"] == {"lat": 41.0, "lon": -104.0}
+
+                # BBox searches now apply an overlap-ratio hard filter by default.
+                script_filter = next((f for f in filters if "script" in f), None)
+                assert script_filter is not None
+                params = script_filter["script"]["script"]["params"]
+                assert params["minOverlapRatio"] == MIN_BBOX_IOU_OVERLAP_RATIO
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_geospatial_bbox_relation(self):
+        """BBox include filter should honor relation parameter."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=5,
+                    sort=None,
+                    include_filters={
+                        "geo": {
+                            "type": "bbox",
+                            "field": "dcat_bbox",
+                            "relation": "within",
+                            "top_left": {"lat": 45.0, "lon": -109.0},
+                            "bottom_right": {"lat": 41.0, "lon": -104.0},
+                        }
+                    },
+                )
+
+                search_query = mock_es.search.call_args.kwargs["query"]
+                bool_query = search_query["script_score"]["query"]["bool"]
+                filters = bool_query["filter"]
+                geo_filter = next((f for f in filters if "geo_shape" in f), None)
+                assert geo_filter is not None
+                assert geo_filter["geo_shape"]["dcat_bbox"]["relation"] == "within"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_with_invalid_bbox_relation_falls_back_to_intersects(self):
+        """Invalid bbox relation should default to intersects."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=5,
+                    sort=None,
+                    include_filters={
+                        "geo": {
+                            "type": "bbox",
+                            "field": "dcat_bbox",
+                            "relation": "invalid-relation",
+                            "top_left": {"lat": 45.0, "lon": -109.0},
+                            "bottom_right": {"lat": 41.0, "lon": -104.0},
+                        }
+                    },
+                )
+
+                search_query = mock_es.search.call_args.kwargs["query"]
+                bool_query = search_query["script_score"]["query"]["bool"]
+                filters = bool_query["filter"]
+                geo_filter = next((f for f in filters if "geo_shape" in f), None)
+                assert geo_filter is not None
+                assert geo_filter["geo_shape"]["dcat_bbox"]["relation"] == "intersects"
 
     @pytest.mark.asyncio
     async def test_search_resources_with_geospatial_distance_filter(self):

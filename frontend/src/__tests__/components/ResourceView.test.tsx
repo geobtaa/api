@@ -255,6 +255,43 @@ const realFixtureData: GeoDocument[] = [
 
 // Use the first fixture as the default test data
 const mockResourceData = realFixtureData[0];
+const mockResourceWithDataDictionary: GeoDocument = {
+  ...mockResourceData,
+  attributes: {
+    ...mockResourceData.attributes,
+    b1g: {
+      data_dictionaries: [
+        {
+          id: 1,
+          friendlier_id: 'mit-001145244',
+          name: 'Attributes',
+          description: 'Dictionary description',
+          staff_notes: null,
+          tags: '',
+          position: 1,
+          created_at: '2026-01-01T00:00:00Z',
+          updated_at: '2026-01-01T00:00:00Z',
+          entries: [
+            {
+              id: 101,
+              resource_data_dictionary_id: 1,
+              friendlier_id: 'mit-001145244',
+              field_name: 'parcel_id',
+              field_type: 'string',
+              values: null,
+              definition: 'Parcel identifier',
+              definition_source: 'Source',
+              parent_field_name: null,
+              position: 1,
+              created_at: null,
+              updated_at: null,
+            },
+          ],
+        },
+      ],
+    },
+  },
+};
 
 const mockSearchState = {
   searchResults: realFixtureData.map((fixture) => ({ id: fixture.id })),
@@ -468,6 +505,55 @@ describe('ResourceView Component', () => {
 
       // ResourceSubtitle component should be rendered - check for publisher in breadcrumbs
       expect(screen.getAllByText('Paper Maps')).toHaveLength(2);
+    });
+  });
+
+  describe('Data Dictionary UI', () => {
+    it('renders sidebar Data Dictionary card when dictionaries exist', async () => {
+      fetchResourceDetails.mockResolvedValue(mockResourceWithDataDictionary);
+
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', {
+            name: 'Nondigitized paper map with library catalog link',
+          })
+        ).toBeInTheDocument();
+      });
+
+      expect(
+        screen.getByRole('button', { name: 'Data Dictionaries (1)' })
+      ).toBeInTheDocument();
+    });
+
+    it('opens data dictionary modal with table content', async () => {
+      fetchResourceDetails.mockResolvedValue(mockResourceWithDataDictionary);
+
+      const user = userEvent.setup();
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('button', { name: 'Data Dictionaries (1)' })
+        ).toBeInTheDocument();
+      });
+
+      await user.click(
+        screen.getByRole('button', { name: 'Data Dictionaries (1)' })
+      );
+
+      expect(screen.getByText('Data Dictionaries')).toBeInTheDocument();
+      expect(screen.getByText('Attributes')).toBeInTheDocument();
+      expect(screen.getByText('parcel_id')).toBeInTheDocument();
     });
   });
 

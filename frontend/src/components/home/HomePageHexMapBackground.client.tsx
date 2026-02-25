@@ -11,7 +11,6 @@ import {
 import {
   MapContainer,
   Rectangle,
-  TileLayer,
   useMap,
   ZoomControl,
 } from 'react-leaflet';
@@ -23,7 +22,7 @@ import { cellArea, UNITS } from 'h3-js';
 
 L.Map.addInitHook('addHandler', 'gestureHandling', GestureHandling);
 import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
-import { HexTableControl } from '../map/HexTableControl';
+import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_RESOURCE_IDS } from '../../config/featured';
 import { fetchResourceDetails } from '../../services/api';
@@ -34,6 +33,7 @@ import { formatCount } from '../../utils/formatNumber';
 import { parseBboxToLeafletBounds } from '../../utils/bbox';
 import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
+import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 function toSsrThumbnailUrl(url: string | undefined): string {
@@ -275,7 +275,6 @@ function SearchHereControl() {
  * Featured resources carousel at bottom; when an item is active, map flies to its bbox and a popup shows thumbnail and link.
  */
 export function HomePageHexMapBackground() {
-  const navigate = useNavigate();
   const [activeIndex, setActiveIndex] = useState(0);
   const [featuredDetails, setFeaturedDetails] = useState<
     (GeoDocumentDetails | null)[]
@@ -303,6 +302,7 @@ export function HomePageHexMapBackground() {
     loading: boolean;
   }>({ hexes: [], resolution: 6, loading: false });
   const [hoveredHex, setHoveredHex] = useState<HexHoverData | null>(null);
+  const [hexLayerEnabled, setHexLayerEnabled] = useState(true);
 
   const handleHexData = useCallback(
     (data: {
@@ -410,13 +410,9 @@ export function HomePageHexMapBackground() {
           gestureHandling={true}
         >
           <ZoomControl position="topleft" />
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          />
-          <MapPanner programmaticFlyRef={programmaticFlyRef} />
-          <SearchHereControl />
-          <HexTableControl
+          <BasemapSwitcherControl />
+          <HexLayerToggleControl
+            enabled={hexLayerEnabled}
             hexes={hexDataForTable.hexes}
             resolution={hexDataForTable.resolution}
             searchQuery=""
@@ -424,20 +420,32 @@ export function HomePageHexMapBackground() {
               typeof window !== 'undefined' ? window.location.search : undefined
             }
             loading={hexDataForTable.loading}
-            wrapperClassName="bottom-4 left-4"
-            compact
+            onToggle={(enabled) => {
+              setHexLayerEnabled(enabled);
+              if (!enabled) {
+                setHoveredHex(null);
+              }
+            }}
           />
-          {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
-          <MapUpdaterHex
-            searchQuery=""
-            onFeatureClick={() => {}}
-            onHexHover={setHoveredHex}
-            hoveredHex={hoveredHex}
-            onHexData={handleHexData}
-            queryString={
-              typeof window !== 'undefined' ? window.location.search : undefined
-            }
-          />
+          <MapPanner programmaticFlyRef={programmaticFlyRef} />
+          <SearchHereControl />
+          {hexLayerEnabled && (
+            <>
+              {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
+              <MapUpdaterHex
+                searchQuery=""
+                onFeatureClick={() => {}}
+                onHexHover={setHoveredHex}
+                hoveredHex={hoveredHex}
+                onHexData={handleHexData}
+                queryString={
+                  typeof window !== 'undefined'
+                    ? window.location.search
+                    : undefined
+                }
+              />
+            </>
+          )}
           <MapUserEngagementTracker
             programmaticFlyRef={programmaticFlyRef}
             onUserEngaged={() => setUserEngagedMap(true)}

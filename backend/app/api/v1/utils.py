@@ -8,6 +8,10 @@ from typing import Any, Dict, Optional
 from fastapi.responses import JSONResponse
 
 from app.api.v1.jsonp import JSONPResponse
+from app.services.data_dictionary_repository import (
+    fetch_resource_data_dictionaries,
+    serialize_resource_data_dictionaries,
+)
 from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
@@ -576,6 +580,22 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         "ui_relationships": ui_relationships,
     }
 
+    # Attach read-only resource data dictionaries.
+    try:
+        data_dictionaries = await fetch_resource_data_dictionaries(
+            resource_dict["id"], session=session
+        )
+        if data_dictionaries:
+            attributes["data_dictionaries"] = sanitize_for_json(
+                serialize_resource_data_dictionaries(data_dictionaries)
+            )
+    except Exception as e:
+        logger.warning(
+            "Failed to load data dictionaries for resource %s: %s",
+            resource_dict.get("id"),
+            str(e),
+        )
+
     # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
     try:
         legacy_refs = distribution_context.legacy_reference_payload
@@ -637,9 +657,6 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         resource["meta"]["ui"]["similar_items"] = similar_items
     except Exception as e:
         # Log error but don't fail resource processing
-        import logging
-
-        logger = logging.getLogger(__name__)
         logger.warning(
             f"Error getting similar items for resource {resource_dict.get('id')}: {str(e)}"
         )

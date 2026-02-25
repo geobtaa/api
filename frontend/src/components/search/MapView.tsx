@@ -4,6 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import type { GeoDocument } from '../../types/api';
 import { useMap } from '../../context/MapContext';
 import { useSearchParams } from 'react-router';
+import { attachBasemapSwitcher } from '../../config/basemaps';
 
 interface MapViewProps {
   results: GeoDocument[];
@@ -20,6 +21,7 @@ export function MapView({ results }: MapViewProps) {
   const highlightLayerRef = useRef<Leaflet.GeoJSON | null>(null);
   const filterRectRef = useRef<Leaflet.Rectangle | null>(null);
   const resultLayerRef = useRef<Leaflet.GeoJSON | null>(null);
+  const basemapCleanupRef = useRef<(() => void) | null>(null);
   const { hoveredGeometry } = useMap();
   const [searchParams] = useSearchParams();
   const isUpdatingFromParamsRef = useRef(false);
@@ -84,10 +86,7 @@ export function MapView({ results }: MapViewProps) {
           [39.8283, -98.5795],
           3
         );
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap contributors',
-        }).addTo(mapRef.current);
+        basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
         console.log('✅ Map initialized');
       })();
     }
@@ -165,6 +164,8 @@ export function MapView({ results }: MapViewProps) {
 
     return () => {
       // Cleanup on unmount: remove map and clear layer refs so next run doesn't call removeLayer on null
+      basemapCleanupRef.current?.();
+      basemapCleanupRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

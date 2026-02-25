@@ -137,4 +137,25 @@ describe('FullDetailsTable', () => {
       screen.queryByRole('link', { name: /Browse all/ })
     ).not.toBeInTheDocument();
   });
+
+  it('renders Publisher as a clickable metadata facet link', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_publisher_sm: ['MIT Libraries'],
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    const publisherLink = screen.getByRole('link', { name: 'MIT Libraries' });
+    expect(publisherLink).toHaveAttribute(
+      'href',
+      '/search?include_filters[dct_publisher_sm][]=MIT%20Libraries'
+    );
+  });
 });

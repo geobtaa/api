@@ -5,7 +5,8 @@ import { useSearchParams } from 'react-router';
 import { Search } from 'lucide-react';
 import { cellToBoundary } from 'h3-js';
 import { fetchMapH3 } from '../../services/api';
-import { HexTableControl } from '../map/HexTableControl';
+import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
+import { attachBasemapSwitcher } from '../../config/basemaps';
 
 function zoomToResolution(zoom: number): number {
   if (zoom <= 3) return 2;
@@ -75,9 +76,12 @@ interface BBox {
   bottomRight: { lat: number; lon: number };
 }
 
+type BBoxRelationMode = 'intersects' | 'within';
+
 export function GeospatialFilterMap() {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const isUpdatingFromParamsRef = useRef(false);
   const selectedPlaceGeoJsonRef = useRef<L.GeoJSON | null>(null);
@@ -85,11 +89,19 @@ export function GeospatialFilterMap() {
   const [showSearchButton, setShowSearchButton] = useState(false);
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
   const hexLayerRef = useRef<L.GeoJSON | null>(null);
+  const basemapCleanupRef = useRef<(() => void) | null>(null);
   const [hexesInView, setHexesInView] = useState<
     Array<{ h3: string; count: number }>
   >([]);
   const [hexResolution, setHexResolution] = useState(6);
   const [hexLoading, setHexLoading] = useState(false);
+  const [hexLayerEnabled, setHexLayerEnabled] = useState(true);
+
+  const getRelationFromParams = useCallback((): BBoxRelationMode => {
+    const relation = searchParams.get('include_filters[geo][relation]');
+    if (relation === 'within') return 'within';
+    return 'intersects';
+  }, [searchParams]);
 
   // Parse bbox from URL params
   const getBBoxFromParams = useCallback((): BBox | null => {
@@ -129,14 +141,8 @@ export function GeospatialFilterMap() {
         zoomControl: true,
         attributionControl: false,
       });
-
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        {
-          attribution:
-            '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/attributions">CARTO</a>',
-        }
-      ).addTo(mapRef.current);
+      setMapInstance(mapRef.current);
+      basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
 
       // Set initial view: if URL has a location bbox, fit to it; otherwise world
       const initialBbox = getBBoxFromParams();
@@ -238,6 +244,9 @@ export function GeospatialFilterMap() {
     }
 
     return () => {
+      setMapInstance(null);
+      basemapCleanupRef.current?.();
+      basemapCleanupRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;
@@ -403,6 +412,15 @@ export function GeospatialFilterMap() {
     const map = mapRef.current;
     if (!map) return;
 
+    if (!hexLayerEnabled) {
+      if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {
+        map.removeLayer(hexLayerRef.current);
+        hexLayerRef.current = null;
+      }
+      setHexLoading(false);
+      return;
+    }
+
     let cancelled = false;
     const query = searchParams.get('q') ?? '';
 
@@ -510,13 +528,14 @@ export function GeospatialFilterMap() {
         hexLayerRef.current = null;
       }
     };
-  }, [searchParams]);
+  }, [searchParams, hexLayerEnabled]);
 
   const handleSearchHere = () => {
     if (!mapRef.current) return;
 
     const bounds = mapRef.current.getBounds();
     const newParams = new URLSearchParams(searchParams);
+    const relation = getRelationFromParams();
 
     // Remove existing geo filters
     Array.from(newParams.keys())
@@ -531,6 +550,7 @@ export function GeospatialFilterMap() {
     // Bottom-right is southeast corner (south = lower lat, east = higher lon)
     newParams.set('include_filters[geo][type]', 'bbox');
     newParams.set('include_filters[geo][field]', 'dcat_bbox');
+    newParams.set('include_filters[geo][relation]', relation);
     newParams.set('include_filters[geo][top_left][lat]', ne.lat.toString());
     newParams.set('include_filters[geo][top_left][lon]', sw.lng.toString());
     newParams.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
@@ -581,6 +601,14 @@ export function GeospatialFilterMap() {
     setSearchParams(newParams);
   };
 
+  const handleRelationModeChange = (relation: BBoxRelationMode) => {
+    if (!hasBBox) return;
+    const newParams = new URLSearchParams(searchParams);
+    newParams.set('include_filters[geo][relation]', relation);
+    newParams.delete('page');
+    setSearchParams(newParams);
+  };
+
   // Clear place geometry and bbox rectangle when bbox is cleared
   useEffect(() => {
     const bbox = getBBoxFromParams();
@@ -597,6 +625,7 @@ export function GeospatialFilterMap() {
   }, [getBBoxFromParams]);
 
   const hasBBox = getBBoxFromParams() !== null;
+  const relationMode = getRelationFromParams();
 
   return (
     <div className="mb-6">
@@ -618,6 +647,41 @@ export function GeospatialFilterMap() {
         )}
       </div>
       <div className="relative" aria-labelledby="filter-location-heading">
+        {hasBBox && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-xs text-gray-600">Match mode:</span>
+            <div
+              className="inline-flex rounded-md border border-gray-200 bg-white p-0.5"
+              role="group"
+              aria-label="Map recall and precision toggle"
+            >
+              <button
+                type="button"
+                onClick={() => handleRelationModeChange('intersects')}
+                className={`rounded px-2 py-1 text-xs ${
+                  relationMode === 'intersects'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label="Set map mode to recall"
+              >
+                Recall
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRelationModeChange('within')}
+                className={`rounded px-2 py-1 text-xs ${
+                  relationMode === 'within'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label="Set map mode to precision"
+              >
+                Precision
+              </button>
+            </div>
+          </div>
+        )}
         <div
           ref={mapContainerRef}
           className="w-full rounded-lg border border-gray-200"
@@ -633,13 +697,17 @@ export function GeospatialFilterMap() {
             <span>Search here</span>
           </button>
         )}
-        <HexTableControl
+        <HexLayerToggleControl
+          mapInstance={mapInstance}
+          enabled={hexLayerEnabled}
           hexes={hexesInView}
           resolution={hexResolution}
           searchQuery={searchParams.get('q') ?? ''}
           queryString={searchParams.toString()}
           loading={hexLoading}
-          compact
+          onToggle={(enabled) => {
+            setHexLayerEnabled(enabled);
+          }}
         />
       </div>
     </div>

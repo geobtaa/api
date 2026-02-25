@@ -1,0 +1,27 @@
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+
+from app.api.v1.utils import sanitize_for_json
+from app.services.data_dictionary_repository import (
+    fetch_resource_data_dictionaries,
+    serialize_resource_data_dictionaries,
+)
+
+from . import get_async_session, logger, router
+
+
+@router.get("/resources/{id}/data-dictionaries")
+async def get_resource_data_dictionaries(id: str):
+    """Get data dictionaries for a single resource."""
+    try:
+        async with get_async_session() as session:
+            dictionaries = await fetch_resource_data_dictionaries(id, session=session)
+            payload = serialize_resource_data_dictionaries(dictionaries)
+            return JSONResponse(content=sanitize_for_json(payload))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            "Error getting data dictionaries for resource %s: %s", id, str(e), exc_info=True
+        )
+        return JSONResponse(content={"error": str(e)}, status_code=500)

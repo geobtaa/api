@@ -432,6 +432,34 @@ class TestCreateJsonapiResource:
         )
         assert set(result["meta"]["ui"]["citations"].keys()) == {"apa", "mla", "chicago"}
 
+    def test_create_jsonapi_resource_with_data_dictionaries_in_b1g(self):
+        """Test that data dictionaries are exposed in the b1g attribute namespace."""
+        resource_data = {
+            "id": "123",
+            "dct_title_s": "Test",
+            "data_dictionaries": [
+                {
+                    "id": 1,
+                    "friendlier_id": "123",
+                    "name": "Attributes",
+                    "entries": [
+                        {
+                            "id": 10,
+                            "field_name": "parcel_id",
+                            "parent_field_name": None,
+                        }
+                    ],
+                }
+            ],
+        }
+        result = create_jsonapi_resource(resource_data)
+
+        assert "b1g" in result["attributes"]
+        assert "data_dictionaries" in result["attributes"]["b1g"]
+        dictionaries = result["attributes"]["b1g"]["data_dictionaries"]
+        assert isinstance(dictionaries, list)
+        assert dictionaries[0]["name"] == "Attributes"
+
 
 class TestCreatePaginationLinks:
     """Test cases for create_pagination_links function."""

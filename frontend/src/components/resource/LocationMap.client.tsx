@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { normalizeGeometry } from '../../utils/geometryUtils';
+import { attachBasemapSwitcher } from '../../config/basemaps';
 
 interface LocationMapProps {
   geometry:
@@ -15,6 +16,7 @@ interface LocationMapProps {
 export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainer = useRef<HTMLDivElement>(null);
+  const basemapCleanupRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     if (!mapContainer.current || !geometry) return;
@@ -29,15 +31,7 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
     // Initialize map if it doesn't exist
     if (!mapRef.current) {
       mapRef.current = L.map(mapContainer.current).setView([0, 0], 2);
-
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-        {
-          attribution: '© OpenStreetMap contributors, © CARTO',
-          subdomains: 'abcd',
-          maxZoom: 20,
-        }
-      ).addTo(mapRef.current);
+      basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
     }
 
     // Clear existing layers
@@ -125,6 +119,8 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
     }
 
     return () => {
+      basemapCleanupRef.current?.();
+      basemapCleanupRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
         mapRef.current = null;

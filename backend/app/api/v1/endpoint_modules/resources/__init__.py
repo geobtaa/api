@@ -105,6 +105,7 @@ from . import (  # noqa: E402, I001
     list,
     get,
     citation,
+    data_dictionaries,
     distributions,
     downloads,
     links,
@@ -120,6 +121,7 @@ from . import (  # noqa: E402, I001
 
 # Export endpoint functions for testing
 from .get import get_resource  # noqa: E402, I001
+from .data_dictionaries import get_resource_data_dictionaries  # noqa: E402, I001
 from .links import get_resource_links  # noqa: E402, I001
 from .list import list_resources  # noqa: E402, I001
 from .metadata import get_resource_metadata  # noqa: E402, I001

@@ -6,12 +6,14 @@ from sqlalchemy import (
     Boolean,
     Column,
     Date,
+    ForeignKey,
     Integer,
     MetaData,
     Numeric,
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 from sqlalchemy.sql import func
 
@@ -83,6 +85,17 @@ resources = Table(
     Column("b1g_geodcat_spatialResolutionAsText_sm", ARRAY(String)),
     Column("b1g_dct_provenanceStatement_sm", ARRAY(String)),
     Column("b1g_adminTags_sm", ARRAY(String)),
+    # Latest BTAA schema compatibility fields
+    Column("b1g_adminNote_sm", ARRAY(String)),
+    Column("b1g_dateAccessioned_dt", TIMESTAMP),
+    Column("b1g_dateRetired_dt", TIMESTAMP),
+    Column("b1g_deprioritized_b", Boolean),
+    Column("b1g_harvestWorkflow_s", String),
+    Column("b1g_isHarvested_b", Boolean),
+    Column("b1g_lastHarvested_dt", TIMESTAMP),
+    Column("b1g_dct_provenance_sm", ARRAY(String)),
+    Column("b1g_dcat_spatialResolutionInMeters_s", String),
+    Column("b1g_websitePlatform_s", String),
     
     # Additional BTAA fields for old database migration
     Column("b1g_adms_supportedSchema_sm", ARRAY(String)),
@@ -339,6 +352,102 @@ resource_distributions = Table(
     Column("import_distribution_id", String(255), nullable=True),
 )
 
+# Read-only data dictionary tables imported from legacy Rails app.
+document_data_dictionaries = Table(
+    "document_data_dictionaries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("friendlier_id", String(255), nullable=False, index=True),
+    Column("name", String(255), nullable=True),
+    Column("description", Text, nullable=True),
+    Column("staff_notes", Text, nullable=True),
+    Column("tags", String(4096), nullable=False, server_default=""),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+document_data_dictionary_entries = Table(
+    "document_data_dictionary_entries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "document_data_dictionary_id",
+        Integer,
+        ForeignKey("document_data_dictionaries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("friendlier_id", String(255), nullable=False),
+    Column("field_name", String(255), nullable=False),
+    Column("field_type", String(255), nullable=True),
+    Column("values", Text, nullable=True),
+    Column("definition", Text, nullable=True),
+    Column("definition_source", Text, nullable=True),
+    Column("parent_field_name", String(255), nullable=True),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "document_data_dictionary_id",
+        "friendlier_id",
+        "field_name",
+        name="uq_document_data_dictionary_entries_dict_friendlier_field",
+    ),
+)
+
+# Resource-scoped data dictionary tables (new naming).
+resource_data_dictionaries = Table(
+    "resource_data_dictionaries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("legacy_document_data_dictionary_id", Integer, nullable=True, unique=True, index=True),
+    Column("name", String(255), nullable=True),
+    Column("description", Text, nullable=True),
+    Column("staff_notes", Text, nullable=True),
+    Column("tags", String(4096), nullable=False, server_default=""),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+resource_data_dictionary_entries = Table(
+    "resource_data_dictionary_entries",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "resource_data_dictionary_id",
+        Integer,
+        ForeignKey("resource_data_dictionaries.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column(
+        "legacy_document_data_dictionary_entry_id",
+        Integer,
+        nullable=True,
+        unique=True,
+        index=True,
+    ),
+    Column("field_name", String(255), nullable=False),
+    Column("field_type", String(255), nullable=True),
+    Column("values", Text, nullable=True),
+    Column("definition", Text, nullable=True),
+    Column("definition_source", Text, nullable=True),
+    Column("parent_field_name", String(255), nullable=True),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "resource_data_dictionary_id",
+        "field_name",
+        "parent_field_name",
+        "position",
+        name="uq_resource_data_dictionary_entries_dict_field_position",
+    ),
+)
+
 # API Rate Limiting tables
 
 # API service tiers table
@@ -376,7 +485,8 @@ api_usage_logs = Table(
     Column("id", Integer, primary_key=True, autoincrement=True),
     Column("api_key_id", Integer, nullable=True, index=True),  # Nullable for anonymous requests
     Column("tier_id", Integer, nullable=False, index=True),
-    Column("visit_token", String(255), nullable=True, index=True),  # Unique identifier to group requests from same session/visit
+    # Unique identifier to group requests from same session/visit
+    Column("visit_token", String(255), nullable=True, index=True),
     Column("endpoint", String(500), nullable=False),
     Column("method", String(10), nullable=False),
     Column("status_code", Integer, nullable=False),

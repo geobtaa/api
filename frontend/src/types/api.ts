@@ -1,3 +1,31 @@
+export interface DataDictionaryEntry {
+  id: number;
+  resource_data_dictionary_id: number;
+  friendlier_id: string;
+  field_name: string;
+  field_type?: string | null;
+  values?: string | null;
+  definition?: string | null;
+  definition_source?: string | null;
+  parent_field_name?: string | null;
+  position: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+}
+
+export interface DataDictionary {
+  id: number;
+  friendlier_id: string;
+  name?: string | null;
+  description?: string | null;
+  staff_notes?: string | null;
+  tags: string;
+  position: number;
+  created_at?: string | null;
+  updated_at?: string | null;
+  entries: DataDictionaryEntry[];
+}
+
 export interface GeoDocument {
   id: string;
   type: string;
@@ -50,6 +78,7 @@ export interface GeoDocument {
       geomg_id_s?: string;
       publication_state?: string;
       import_id?: string;
+      data_dictionaries?: DataDictionary[];
       [key: string]: unknown;
     };
   };

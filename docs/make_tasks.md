@@ -25,8 +25,10 @@ Overrides:
 
 ## Data + ops
 
-- `make reindex`: reindex resources into Elasticsearch (same logic as hitting `/api/v1/admin/reindex`)
+- `make reindex`: reindex resources into Elasticsearch (same logic as hitting `/api/v1/admin/reindex`). After successful reindex, this now purges `map` endpoint cache entries and warms `/map/h3` cache for common global queries (H3 resolutions `2..8` by default).
 - `make verify-h3-index`: query Elasticsearch to verify H3 pyramid fields (`h3_res2`–`h3_res8`, `geo_or_near_global`) are present (run after reindex)
+- `make kamal-reindex`: reindex on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
+- `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
 - `make ingest`: ingest BTAA fixture JSON files into the DB (runs inside the `api` Docker container). Default: `data/fixtures/btaa_fixtures_data`. Override with `make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources`. After ingest, run `make reindex` to index into Elasticsearch.
 - `make ingest-featured`: ingest `data/fixtures/btaa_featured_resources` into the DB and then reindex into Elasticsearch (one-step for featured resources).
 - `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
@@ -37,7 +39,44 @@ Overrides:
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`
 - `make db-import`: import dump to remote via Kamal (destructive)
 - `make db-sync`: `db-export` + `db-import`
+- **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores it into local ParadeDB. It streams from the compressed file (no decompression to disk), so you only need space for the `.gz`. The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
+- **GBL Admin add latest BTAA fields**: `make gbl-admin-db-add-latest-btaa-fields` adds latest BTAA compatibility columns to `resources`.
+- **GBL Admin import resources**: `make gbl-admin-db-import-resources` imports from `kithe_to_resources_bridge` into `btaa_geospatial_api` (`OLD_DB_NAME` auto-detected unless provided).
+- **GBL Admin populate distributions**: `make populate-distributions` migrates legacy `document_distributions` into `resource_distributions` (`OLD_DB_NAME` auto-detected unless provided).
+- **GBL Admin populate data dictionaries**: `make populate-data-dictionaries` migrates legacy `document_data_dictionaries` and `document_data_dictionary_entries` into `resource_data_dictionaries` and `resource_data_dictionary_entries`.
+- **GBL Admin full import pipeline**: `make gbl-admin-db-import-all` runs latest-field migration, resource import, distribution migration, data-dictionary migration, relationship population, and reindex.
 - `make populate-relationships`: populate `resource_relationships` from `resources` (run after ingest or when relationship columns change). See `docs/backend/relationships.md`.
+
+## GBL Admin migration runbook (old prod -> reindex)
+
+Use this sequence when rebuilding from the old GBL Admin production snapshot.
+
+1. Restore latest old-prod DB snapshot and build bridge materialized view:
+   ```bash
+   make gbl-admin-db-sync
+   ```
+
+2. Run full import pipeline into API DB, including distributions/relationships and reindex:
+   ```bash
+   make gbl-admin-db-import-all
+   ```
+
+If you need to pin a specific restored old DB instead of auto-detect:
+
+```bash
+OLD_DB_NAME=geoportal_production_YYYYMMDD make gbl-admin-db-import-all
+```
+
+Equivalent explicit step-by-step (instead of the all-in-one target):
+
+```bash
+make gbl-admin-db-add-latest-btaa-fields
+make gbl-admin-db-import-resources
+make populate-distributions
+make populate-data-dictionaries
+make populate-relationships
+make reindex
+```
 
 ## Troubleshooting
 

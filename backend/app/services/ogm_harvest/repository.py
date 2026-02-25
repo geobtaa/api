@@ -221,13 +221,15 @@ class OGMHarvestRepository:
         ogm_resource_id: str,
         ogm_source_path: Optional[str] = None,
         ogm_source_commit_sha: Optional[str] = None,
+        ogm_last_seen_at: Optional[datetime] = None,
     ) -> None:
         now = datetime.utcnow()
+        last_seen_at = ogm_last_seen_at or now
         stmt = pg_insert(ogm_resource_state).values(
             ogm_repo_name=ogm_repo_name,
             ogm_resource_id=ogm_resource_id,
             ogm_first_seen_at=now,
-            ogm_last_seen_at=now,
+            ogm_last_seen_at=last_seen_at,
             ogm_missing_since=None,
             ogm_source_path=ogm_source_path,
             ogm_source_commit_sha=ogm_source_commit_sha,
