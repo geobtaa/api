@@ -9,6 +9,11 @@ import { vi } from 'vitest';
 import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
+vi.mock('leaflet-gesture-handling', () => ({ GestureHandling: {} }));
+
+vi.mock('../../../components/map/BasemapSwitcherControl', () => ({
+  BasemapSwitcherControl: () => null,
+}));
 
 const mockPane = document.createElement('div');
 vi.mock('react-leaflet', () => ({
@@ -33,6 +38,7 @@ vi.mock('react-leaflet', () => ({
     on: () => {},
     off: () => {},
     hasLayer: () => false,
+    addLayer: vi.fn(),
     removeLayer: () => {},
     fitBounds: () => {},
     getPane: () => null,

@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { GeospatialFilterMap } from '../../components/search/GeospatialFilterMap.client';
 
+const mockControl = { addTo: vi.fn(), remove: vi.fn() };
 const mockMapInstance = {
   setView: vi.fn(),
   fitBounds: vi.fn(),
@@ -10,6 +11,7 @@ const mockMapInstance = {
   off: vi.fn(),
   remove: vi.fn(),
   invalidateSize: vi.fn(),
+  addLayer: vi.fn(),
   removeLayer: vi.fn(),
   hasLayer: vi.fn().mockReturnValue(false),
   getZoom: vi.fn().mockReturnValue(6),
@@ -31,6 +33,9 @@ vi.mock('leaflet', () => {
       rectangle: vi.fn(() => ({ addTo: vi.fn() })),
       geoJSON: vi.fn(() => ({ addTo: vi.fn() })),
       latLngBounds: vi.fn(() => ({ isValid: () => true })),
+      control: {
+        layers: vi.fn(() => mockControl),
+      },
     },
   };
 });
@@ -50,6 +55,10 @@ vi.mock('../../services/api', () => ({
 
 vi.mock('../../components/map/HexTableControl', () => ({
   HexTableControl: () => <div data-testid="hex-table-control" />,
+}));
+
+vi.mock('../../components/map/HexLayerToggleControl', () => ({
+  HexLayerToggleControl: () => null,
 }));
 
 function SearchLocationProbe() {
