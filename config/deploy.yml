@@ -88,6 +88,7 @@ env:
     - ADMIN_USERNAME
     - ADMIN_PASSWORD
     - BTAA_GEOSPATIAL_API_KEY
+    - APPSIGNAL_PUSH_API_KEY
 
 # ────────────── Accessories (one per Compose service) ──────────────
 accessories:
