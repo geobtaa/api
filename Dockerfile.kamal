@@ -7,6 +7,9 @@
 
 FROM node:20-bookworm-slim AS frontend_deps
 WORKDIR /frontend
+# Python + build tools required for @appsignal/nodejs native extension (node-gyp)
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY frontend/package.json frontend/package-lock.json* ./
 # Remove lockfile first to avoid npm optional deps edge-cases (mirrors frontend/Dockerfile)
 RUN rm -f package-lock.json 2>/dev/null || true
