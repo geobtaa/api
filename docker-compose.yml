@@ -79,6 +79,7 @@ services:
       - ./frontend/server:/app/server
       - ./frontend/index.html:/app/index.html
       - ./frontend/package.json:/app/package.json
+      - ./frontend/appsignal.cjs:/app/appsignal.cjs
       - ./frontend/vite.config.ts:/app/vite.config.ts
       - ./frontend/react-router.config.ts:/app/react-router.config.ts
       - ./frontend/tsconfig.json:/app/tsconfig.json
