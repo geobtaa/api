@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -47,6 +47,8 @@ GBL_ADMIN_IMPORT_CONFLICT ?= update
 GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
+OGM_API_URL ?= http://localhost:8000
+OGM_STATUS_POLL_SECONDS ?= 5
 
 # Run both linting and formatting checks (without modifying files)
 lint:
@@ -459,6 +461,81 @@ reindex:
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
 		echo "Index: $$ELASTICSEARCH_INDEX"; \
 		cd /app/backend && python3 scripts/reindex_admin.py'
+
+# Refresh OpenGeoMetadata (OGM) harvest for all enabled weekly repos.
+# Uses ADMIN_USERNAME/ADMIN_PASSWORD from env or .env (defaults to admin/changeme).
+ogm-refresh: ogm-refresh-all
+
+ogm-refresh-all:
+	@echo "Triggering OGM harvest for all enabled weekly repos via $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(OGM_API_URL)/api/v1/admin/ogm/harvest" \
+			-H "Content-Type: application/json" \
+			-d '\''{"ogm_all":true,"ogm_trigger":"weekly"}'\'''
+	@echo
+	@echo "OGM harvest request submitted."
+
+# Refresh a single OpenGeoMetadata (OGM) repo.
+# Usage: make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl
+ogm-refresh-repo:
+	@if [ -z "$(OGM_REPO_NAME)" ]; then \
+		echo "ERROR: OGM_REPO_NAME is required."; \
+		echo "Usage: make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl"; \
+		exit 1; \
+	fi
+	@echo "Triggering OGM harvest for repo $(OGM_REPO_NAME) via $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(OGM_API_URL)/api/v1/admin/ogm/harvest" \
+			-H "Content-Type: application/json" \
+			-d "{\"ogm_repo_name\":\"$(OGM_REPO_NAME)\",\"ogm_trigger\":\"manual\"}"'
+	@echo
+	@echo "OGM harvest request submitted for $(OGM_REPO_NAME)."
+
+# Show OGM harvest status snapshot.
+# Usage:
+#   make ogm-status                      # list recent runs
+#   make ogm-status OGM_RUN_ID=<run_id> # show one run detail
+ogm-status:
+	@echo "Fetching OGM harvest status from $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		if [ -n "$(OGM_RUN_ID)" ]; then \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs/$(OGM_RUN_ID)"; \
+		else \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs"; \
+		fi'
+	@echo
+
+# Continuously poll OGM harvest status.
+# Usage:
+#   make ogm-status-watch
+#   make ogm-status-watch OGM_RUN_ID=<run_id> OGM_STATUS_POLL_SECONDS=3
+ogm-status-watch:
+	@echo "Watching OGM harvest status (every $(OGM_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
+	@while true; do \
+		$(MAKE) --no-print-directory ogm-status OGM_RUN_ID="$(OGM_RUN_ID)"; \
+		sleep $(OGM_STATUS_POLL_SECONDS); \
+	done
+
+# Show only failed OGM harvest runs with error details.
+# Usage: make ogm-failures
+ogm-failures:
+	@echo "Fetching failed OGM harvest runs from $(OGM_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+			"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs" \
+		| python -c "import json,sys; data=json.load(sys.stdin); failed=[r for r in data.get(\"runs\",[]) if r.get(\"ogm_status\")==\"failed\"]; print(\"No failed OGM runs found in current history window.\") if not failed else [print(\"ogm_id={0} repo={1} trigger={2} started_at={3}\\nerror={4}\\n\".format(r.get(\"ogm_id\"), r.get(\"ogm_repo_name\"), r.get(\"ogm_trigger\"), r.get(\"ogm_started_at\"), r.get(\"ogm_error\") or \"(none)\")) for r in failed]"'
 
 # Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
 # Run after ingest or when relationship columns change. Search "Has part" filter uses DB + ES;

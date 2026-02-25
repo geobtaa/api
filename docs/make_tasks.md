@@ -26,6 +26,13 @@ Overrides:
 ## Data + ops
 
 - `make reindex`: reindex resources into Elasticsearch (same logic as hitting `/api/v1/admin/reindex`). After successful reindex, this now purges `map` endpoint cache entries and warms `/map/h3` cache for common global queries (H3 resolutions `2..8` by default).
+- `make ogm-refresh`: trigger OpenGeoMetadata harvest for all enabled weekly repos (`POST /api/v1/admin/ogm/harvest` with `{"ogm_all":true,"ogm_trigger":"weekly"}`).
+- `make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl`: trigger OpenGeoMetadata harvest for one repo (`{"ogm_repo_name":"...","ogm_trigger":"manual"}`).
+- `make ogm-status`: show current OGM harvest runs (`GET /api/v1/admin/ogm/harvest/runs`).
+- `make ogm-status OGM_RUN_ID=<run_id>`: show detail for one run (`GET /api/v1/admin/ogm/harvest/runs/{run_id}`).
+- `make ogm-status-watch [OGM_RUN_ID=<run_id>] [OGM_STATUS_POLL_SECONDS=5]`: poll OGM status until you stop it (`Ctrl+C`).
+- `make ogm-failures`: show only failed OGM harvest runs with `ogm_error` details.
+- These OGM make tasks run `curl` from inside the `api` container and use that container's `ADMIN_USERNAME` / `ADMIN_PASSWORD`, so they stay aligned with the live API auth config.
 - `make verify-h3-index`: query Elasticsearch to verify H3 pyramid fields (`h3_res2`–`h3_res8`, `geo_or_near_global`) are present (run after reindex)
 - `make kamal-reindex`: reindex on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
 - `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
