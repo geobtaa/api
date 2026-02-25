@@ -347,9 +347,7 @@ async def _bulk_index_documents(
 
 async def _apply_fast_index_settings(index_name: str, force_replicas_zero: bool) -> dict[str, str]:
     settings_response = await es.indices.get_settings(index=index_name)
-    index_settings = (
-        settings_response.get(index_name, {}).get("settings", {}).get("index", {})
-    )
+    index_settings = settings_response.get(index_name, {}).get("settings", {}).get("index", {})
 
     previous = {
         "refresh_interval": str(index_settings.get("refresh_interval", "1s")),
