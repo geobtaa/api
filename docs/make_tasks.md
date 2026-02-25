@@ -25,7 +25,9 @@ Overrides:
 
 ## Data + ops
 
-- `make reindex`: reindex resources into Elasticsearch (same logic as hitting `/api/v1/admin/reindex`). After successful reindex, this now purges `map` endpoint cache entries and warms `/map/h3` cache for common global queries (H3 resolutions `2..8` by default).
+- `make reindex`: atomic local reindex using a versioned index + alias swap (non-destructive build + atomic cutover). Defaults favor safety: swap is blocked on indexing errors/count mismatch, and one previous versioned index is retained. After a successful swap, it automatically clears local `search` cache.
+  - Useful local tuning overrides: `REINDEX_CHUNK_SIZE`, `REINDEX_BULK_SIZE`, `REINDEX_BULK_MAX_RETRIES`, `REINDEX_FAST_SETTINGS`, `REINDEX_FORCE_REPLICAS_ZERO`, `REINDEX_RETAIN_PREVIOUS`.
+  - Benchmark mode: `make reindex-benchmark` (or `REINDEX_BENCHMARK=true make reindex`) prints per-chunk timings and a final phase summary.
 - `make ogm-refresh`: trigger OpenGeoMetadata harvest for all enabled weekly repos (`POST /api/v1/admin/ogm/harvest` with `{"ogm_all":true,"ogm_trigger":"weekly"}`).
 - `make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl`: trigger OpenGeoMetadata harvest for one repo (`{"ogm_repo_name":"...","ogm_trigger":"manual"}`).
 - `make ogm-status`: show current OGM harvest runs (`GET /api/v1/admin/ogm/harvest/runs`).
@@ -34,7 +36,8 @@ Overrides:
 - `make ogm-failures`: show only failed OGM harvest runs with `ogm_error` details.
 - These OGM make tasks run `curl` from inside the `api` container and use that container's `ADMIN_USERNAME` / `ADMIN_PASSWORD`, so they stay aligned with the live API auth config.
 - `make verify-h3-index`: query Elasticsearch to verify H3 pyramid fields (`h3_res2`–`h3_res8`, `geo_or_near_global`) are present (run after reindex)
-- `make kamal-reindex`: reindex on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
+- `make kamal-reindex`: atomic remote reindex on Kamal using a versioned index + alias swap (runs once by default with `--roles web`; source `.kamal/secrets` first). On success, this now also runs `make kamal-clear-cache`.
+  - Useful overrides: `KAMAL_REINDEX_RETAIN_PREVIOUS=1` (default), `KAMAL_REINDEX_PRUNE_OLD=true` (default), `KAMAL_REINDEX_ALLOW_PARTIAL=false` (default; blocks swap on indexing/count mismatch), `KAMAL_REINDEX_REMOVE_LEGACY_INDEX=true` (default; one-time migration from legacy non-alias index name).
 - `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
 - `make kamal-clear-cache`: clear remote API cache on Kamal (defaults to `KAMAL_CACHE_TYPE=search`). Uses `KAMAL_API_URL` if set, otherwise falls back to `APPLICATION_URL` from Kamal env. Override with `make kamal-clear-cache KAMAL_CACHE_TYPE=all` (or `suggest`/`item`).
 - `make ingest`: ingest BTAA fixture JSON files into the DB (runs inside the `api` Docker container). Default: `data/fixtures/btaa_fixtures_data`. Override with `make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources`. After ingest, run `make reindex` to index into Elasticsearch.

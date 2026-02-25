@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -47,6 +47,27 @@ GBL_ADMIN_IMPORT_CONFLICT ?= update
 GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
+# Local atomic reindex tuning.
+REINDEX_CHUNK_SIZE ?= 2000
+REINDEX_BULK_SIZE ?= 2000
+REINDEX_BULK_MAX_RETRIES ?= 2
+REINDEX_FAST_SETTINGS ?= true
+REINDEX_FORCE_REPLICAS_ZERO ?= true
+REINDEX_ALLOW_PARTIAL ?= false
+REINDEX_PRUNE_OLD ?= true
+REINDEX_RETAIN_PREVIOUS ?= 1
+REINDEX_REMOVE_LEGACY_INDEX ?= true
+REINDEX_BENCHMARK ?= false
+# Kamal atomic reindex defaults (versioned index + alias swap + prune).
+KAMAL_REINDEX_CHUNK_SIZE ?= 1000
+KAMAL_REINDEX_BULK_SIZE ?= 2000
+KAMAL_REINDEX_BULK_MAX_RETRIES ?= 2
+KAMAL_REINDEX_FAST_SETTINGS ?= true
+KAMAL_REINDEX_FORCE_REPLICAS_ZERO ?= true
+KAMAL_REINDEX_ALLOW_PARTIAL ?= false
+KAMAL_REINDEX_PRUNE_OLD ?= true
+KAMAL_REINDEX_RETAIN_PREVIOUS ?= 1
+KAMAL_REINDEX_REMOVE_LEGACY_INDEX ?= true
 # Optional override for remote API base URL used by kamal-clear-cache.
 # If unset, the target falls back to APPLICATION_URL from Kamal env.
 KAMAL_API_URL ?=
@@ -457,14 +478,35 @@ es-unblock:
 		-d '{"index.blocks.read_only_allow_delete": null}' || true
 	@echo "Done. Run 'make reindex' if you need to reindex."
 
-# Reindex all resources into Elasticsearch
+# Reindex all resources into Elasticsearch using versioned index + alias swap.
 reindex:
-	@echo "Reindexing all resources into Elasticsearch (same logic as /admin/reindex)..."
+	@echo "Atomic reindex (versioned index + alias swap) in local Docker..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
 		: $${ELASTICSEARCH_INDEX:=btaa_geospatial_api}; \
-		echo "Index: $$ELASTICSEARCH_INDEX"; \
-		cd /app/backend && python3 scripts/reindex_admin.py'
+		echo "Alias: $$ELASTICSEARCH_INDEX"; \
+		cd /app/backend && \
+		REINDEX_ATOMIC_CHUNK_SIZE=$(REINDEX_CHUNK_SIZE) \
+		REINDEX_ATOMIC_BULK_SIZE=$(REINDEX_BULK_SIZE) \
+		REINDEX_ATOMIC_BULK_MAX_RETRIES=$(REINDEX_BULK_MAX_RETRIES) \
+		REINDEX_ATOMIC_FAST_SETTINGS=$(REINDEX_FAST_SETTINGS) \
+		REINDEX_ATOMIC_FORCE_REPLICAS_ZERO=$(REINDEX_FORCE_REPLICAS_ZERO) \
+		REINDEX_ATOMIC_ALLOW_PARTIAL=$(REINDEX_ALLOW_PARTIAL) \
+		REINDEX_ATOMIC_PRUNE_OLD=$(REINDEX_PRUNE_OLD) \
+		REINDEX_ATOMIC_RETAIN_PREVIOUS=$(REINDEX_RETAIN_PREVIOUS) \
+		REINDEX_ATOMIC_REMOVE_LEGACY_INDEX=$(REINDEX_REMOVE_LEGACY_INDEX) \
+		REINDEX_ATOMIC_BENCHMARK=$(REINDEX_BENCHMARK) \
+		python3 scripts/reindex_atomic.py'
+	@echo "Reindex complete; clearing local search cache..."
+	@$(MAKE) local-clear-search-cache
+
+# Reindex with benchmark timing output enabled.
+reindex-benchmark:
+	@$(MAKE) reindex REINDEX_BENCHMARK=true
+
+# Clear local API search cache via admin endpoint.
+local-clear-search-cache:
+	@docker compose exec -T api bash -lc 'ADMIN_USER=$${ADMIN_USERNAME:-admin}; ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST "http://localhost:8000/api/v1/admin/cache/clear?cache_type=search"'
 
 # Refresh OpenGeoMetadata (OGM) harvest for all enabled weekly repos.
 # Uses ADMIN_USERNAME/ADMIN_PASSWORD from env or .env (defaults to admin/changeme).
@@ -575,13 +617,25 @@ verify-h3-index:
 
 # Reindex all resources into Elasticsearch on Kamal (single role run by default).
 kamal-reindex:
-	@echo "Reindexing all resources on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@echo "Atomic reindex on Kamal (role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
 		echo "Please source .kamal/secrets first."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/reindex_admin.py'"
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && \
+		REINDEX_ATOMIC_CHUNK_SIZE=$(KAMAL_REINDEX_CHUNK_SIZE) \
+		REINDEX_ATOMIC_BULK_SIZE=$(KAMAL_REINDEX_BULK_SIZE) \
+		REINDEX_ATOMIC_BULK_MAX_RETRIES=$(KAMAL_REINDEX_BULK_MAX_RETRIES) \
+		REINDEX_ATOMIC_FAST_SETTINGS=$(KAMAL_REINDEX_FAST_SETTINGS) \
+		REINDEX_ATOMIC_FORCE_REPLICAS_ZERO=$(KAMAL_REINDEX_FORCE_REPLICAS_ZERO) \
+		REINDEX_ATOMIC_ALLOW_PARTIAL=$(KAMAL_REINDEX_ALLOW_PARTIAL) \
+		REINDEX_ATOMIC_PRUNE_OLD=$(KAMAL_REINDEX_PRUNE_OLD) \
+		REINDEX_ATOMIC_RETAIN_PREVIOUS=$(KAMAL_REINDEX_RETAIN_PREVIOUS) \
+		REINDEX_ATOMIC_REMOVE_LEGACY_INDEX=$(KAMAL_REINDEX_REMOVE_LEGACY_INDEX) \
+		$(KAMAL_PYTHON) scripts/reindex_atomic.py'"
+	@echo "Reindex complete; clearing API cache (cache_type: $(KAMAL_CACHE_TYPE))..."
+	@$(MAKE) kamal-clear-cache
 
 # Verify H3 pyramid fields on Kamal (single role run by default).
 kamal-verify-h3-index:
