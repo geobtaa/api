@@ -4,7 +4,11 @@ import sys
 from contextlib import asynccontextmanager
 from urllib.parse import urlparse
 
-import appsignal
+try:
+    import appsignal
+except ImportError:
+    appsignal = None  # Optional: not installed in minimal/test envs
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,7 +20,11 @@ from fastapi.openapi.docs import (
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+
+try:
+    from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+except ImportError:
+    FastAPIInstrumentor = None  # Optional: requires appsignal/otel stack
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.v1.endpoints import router as public_router
@@ -27,7 +35,8 @@ from db.database import database
 
 # Load environment variables from .env file
 load_dotenv()
-appsignal.start()
+if appsignal is not None and os.getenv("APP_ENV") != "test":
+    appsignal.start()
 
 # Create logs directory if it doesn't exist
 os.makedirs("logs", exist_ok=True)
@@ -125,7 +134,8 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
-FastAPIInstrumentor().instrument_app(app)
+if FastAPIInstrumentor is not None and appsignal is not None and os.getenv("APP_ENV") != "test":
+    FastAPIInstrumentor().instrument_app(app)
 
 
 # Optional: compress responses (negotiated via Accept-Encoding)
