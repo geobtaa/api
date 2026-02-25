@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -47,6 +47,10 @@ GBL_ADMIN_IMPORT_CONFLICT ?= update
 GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
+# Optional override for remote API base URL used by kamal-clear-cache.
+# If unset, the target falls back to APPLICATION_URL from Kamal env.
+KAMAL_API_URL ?=
+KAMAL_CACHE_TYPE ?= search
 OGM_API_URL ?= http://localhost:8000
 OGM_STATUS_POLL_SECONDS ?= 5
 
@@ -588,6 +592,22 @@ kamal-verify-h3-index:
 		exit 1; \
 	fi
 	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/verify_h3_index.py'"
+
+# Clear API cache on Kamal via admin endpoint (defaults to search cache).
+# Usage:
+#   make kamal-clear-cache
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=all
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=suggest
+kamal-clear-cache:
+	@echo "Clearing remote cache on Kamal (role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
+	@echo
+	@echo "Remote cache clear request submitted."
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 
