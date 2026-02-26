@@ -417,6 +417,32 @@ describe('Pagination Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('previous button has accessible name for screen readers and Lighthouse', () => {
+      render(
+        <Pagination
+          currentPage={3}
+          totalPages={5}
+          onPageChange={mockOnPageChange}
+        />
+      );
+
+      const prevButton = screen.getByRole('button', { name: 'Previous page' });
+      expect(prevButton).toBeInTheDocument();
+    });
+
+    it('next button has accessible name for screen readers and Lighthouse', () => {
+      render(
+        <Pagination
+          currentPage={3}
+          totalPages={5}
+          onPageChange={mockOnPageChange}
+        />
+      );
+
+      const nextButton = screen.getByRole('button', { name: 'Next page' });
+      expect(nextButton).toBeInTheDocument();
+    });
+
     it('has proper button roles', () => {
       render(
         <Pagination

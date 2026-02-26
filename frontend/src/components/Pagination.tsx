@@ -22,11 +22,13 @@ export function Pagination({
   return (
     <div className="flex justify-center items-center space-x-2 mt-8">
       <button
+        type="button"
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
+        aria-label="Previous page"
         className="p-2 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <ChevronLeft size={20} />
+        <ChevronLeft size={20} aria-hidden />
       </button>
 
       {pages[0] > 1 && (
@@ -70,11 +72,13 @@ export function Pagination({
       )}
 
       <button
+        type="button"
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
+        aria-label="Next page"
         className="p-2 rounded-md hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        <ChevronRight size={20} />
+        <ChevronRight size={20} aria-hidden />
       </button>
     </div>
   );
