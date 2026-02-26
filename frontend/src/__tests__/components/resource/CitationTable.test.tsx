@@ -149,6 +149,19 @@ describe('CitationTable', () => {
     });
   });
 
+  it('has accessible label for BTAA Geoportal Link input', () => {
+    renderWithRouter(<CitationTable {...defaultProps} />);
+    const input = screen.getByLabelText('BTAA Geoportal Link');
+    expect(input).toHaveAttribute('id', 'citation-permalink');
+    expect(input).toHaveValue(defaultProps.permalink);
+  });
+
+  it('Copy permalink button has accessible name', () => {
+    renderWithRouter(<CitationTable {...defaultProps} />);
+    const button = screen.getByRole('button', { name: 'Copy permalink' });
+    expect(button).toBeInTheDocument();
+  });
+
   it('renders when citation is empty but citations provided', () => {
     const citations = {
       apa: 'APA citation',

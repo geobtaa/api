@@ -144,20 +144,26 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
           )}
           <tr className="hover:bg-gray-50">
             <td className="px-6 py-4">
-              <div className="text-sm font-medium text-gray-500 mb-1">
+              <label
+                htmlFor="citation-permalink"
+                className="block text-sm font-medium text-gray-500 mb-1"
+              >
                 BTAA Geoportal Link
-              </div>
+              </label>
               <div className="flex gap-2">
                 <input
+                  id="citation-permalink"
                   type="text"
                   readOnly
                   value={permalink}
                   className="flex-1 text-sm text-gray-900 border border-gray-300 rounded-md px-3 py-1.5"
                 />
                 <button
+                  type="button"
                   onClick={handleCopyPermalink}
                   className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                   title="Copy permalink"
+                  aria-label="Copy permalink"
                 >
                   {copiedPermalink ? (
                     <Check size={16} className="text-green-500" />
