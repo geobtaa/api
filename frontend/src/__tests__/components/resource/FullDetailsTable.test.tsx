@@ -158,4 +158,21 @@ describe('FullDetailsTable', () => {
       '/search?include_filters[dct_publisher_sm][]=MIT%20Libraries'
     );
   });
+
+  it('metadata facets sidebar uses light background for sufficient contrast', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_publisher_sm: ['MIT Libraries'],
+        },
+      },
+    };
+
+    const { container } = renderWithRouter(<FullDetailsTable data={data} />);
+    const sidebar = container.querySelector('.bg-gray-50');
+    expect(sidebar).toBeInTheDocument();
+  });
 });

@@ -271,7 +271,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {facetField && shouldLink ? (
               <Link
                 to={`/search?include_filters[${facetField}][]=${encodeURIComponent(place)}`}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-700 hover:text-blue-900"
               >
                 {place}
               </Link>
@@ -433,7 +433,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {i > 0 && ', '}
             <Link
               to={searchUrl(String(v))}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-700 hover:text-blue-900"
             >
               {v}
             </Link>
@@ -443,7 +443,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       return (
         <Link
           to={searchUrl(value.toString())}
-          className="text-blue-600 hover:text-blue-800"
+          className="text-blue-700 hover:text-blue-900"
         >
           {value.toString()}
         </Link>
@@ -520,7 +520,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                     <li key={id} className="text-sm text-gray-900">
                       <Link
                         to={`/resources/${id}`}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-blue-700 hover:text-blue-900"
                       >
                         {title}
                       </Link>
@@ -588,12 +588,12 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
           </table>
         </div>
         <div className="w-full sm:w-1/3">
-          <div className="sr-only px-6 py-4 bg-gray-100 border-b border-gray-200">
+          <div className="sr-only px-6 py-4 bg-gray-50 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900">
               Metadata Facets
             </h2>
           </div>
-          <div className="px-6 py-4 bg-gray-100">
+          <div className="px-6 py-4 bg-gray-50">
             {metadataFacets.map(([key, value]) => (
               <div key={key} className="mb-4">
                 <h5 className="text-sm font-medium text-gray-500">
