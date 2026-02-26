@@ -44,20 +44,20 @@ export function EnvironmentNavButtons({
             href={devUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-700 text-white text-base font-semibold rounded-lg shadow-lg hover:bg-blue-800 transition-colors"
             title="View on Dev Server"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
             Dev Server
           </a>
           <a
             href={prodUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-green-700 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white text-base font-semibold rounded-lg shadow-lg hover:bg-green-800 transition-colors"
             title="View on Production Server"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
             Production
           </a>
         </>
@@ -67,10 +67,10 @@ export function EnvironmentNavButtons({
           href={prodUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-green-700 transition-colors"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-green-700 text-white text-base font-semibold rounded-lg shadow-lg hover:bg-green-800 transition-colors"
           title="View on Production Server"
         >
-          <ExternalLink className="w-4 h-4" />
+          <ExternalLink className="w-4 h-4 shrink-0" aria-hidden />
           Production
         </a>
       )}
