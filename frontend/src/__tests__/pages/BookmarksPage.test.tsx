@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
+import { HelmetProvider } from 'react-helmet-async';
 import { vi } from 'vitest';
 import Cookies from 'js-cookie';
 import { BookmarksPage } from '../../pages/BookmarksPage';
@@ -67,13 +68,15 @@ const mockFetchBookmarkedResources = vi.mocked(fetchBookmarkedResources);
 // Test wrapper component
 const TestWrapper = ({ children }: { children: React.ReactNode }) => {
   return (
-    <BrowserRouter>
-      <ApiProvider>
-        <BookmarkProvider>
-          <DebugProvider>{children}</DebugProvider>
-        </BookmarkProvider>
-      </ApiProvider>
-    </BrowserRouter>
+    <HelmetProvider>
+      <BrowserRouter>
+        <ApiProvider>
+          <BookmarkProvider>
+            <DebugProvider>{children}</DebugProvider>
+          </BookmarkProvider>
+        </ApiProvider>
+      </BrowserRouter>
+    </HelmetProvider>
   );
 };
 

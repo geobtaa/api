@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router';
 import { useTheme } from '../hooks/useTheme';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
+import { Seo } from '../components/Seo';
 
 const HomePageHexMapBackground = lazy(() =>
   import('../components/home/HomePageHexMapBackground.client').then((m) => ({
@@ -121,6 +122,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Seo title="Big Ten Academic Alliance Geoportal" />
       <Header />
 
       <main className="flex-1 bg-gray-50 flex flex-col">

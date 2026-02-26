@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
+import { HelmetProvider } from 'react-helmet-async';
 import { HomePage } from '../../pages/HomePage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
@@ -13,13 +14,15 @@ vi.mock('../../components/SearchField', () => ({
 describe('Home Page', () => {
   const renderHome = () => {
     render(
-      <BrowserRouter>
-        <ApiProvider>
-          <DebugProvider>
-            <HomePage />
-          </DebugProvider>
-        </ApiProvider>
-      </BrowserRouter>
+      <HelmetProvider>
+        <BrowserRouter>
+          <ApiProvider>
+            <DebugProvider>
+              <HomePage />
+            </DebugProvider>
+          </ApiProvider>
+        </BrowserRouter>
+      </HelmetProvider>
     );
   };
 

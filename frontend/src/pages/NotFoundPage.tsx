@@ -1,8 +1,10 @@
 import { Link } from 'react-router';
+import { Seo } from '../components/Seo';
 
 export function NotFoundPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+      <Seo title="Page Not Found" />
       <div className="max-w-md w-full text-center">
         <h1 className="text-4xl font-bold text-gray-900 mb-4">
           Page not found

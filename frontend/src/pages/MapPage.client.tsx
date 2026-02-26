@@ -2,6 +2,7 @@
 // Data is fetched via useGeoFacets; county auto-fit/logic handled in specialized components/hooks.
 import { useState, useCallback } from 'react';
 import { Link } from 'react-router';
+import { Seo } from '../components/Seo';
 import { MapContainer } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Header } from '../components/layout/Header';
@@ -96,6 +97,7 @@ export function MapPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
+        <Seo title="Map" />
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="flex items-center justify-center h-64">
@@ -113,6 +115,7 @@ export function MapPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50">
+        <Seo title="Map" />
         <Header />
         <div className="container mx-auto px-4 py-8">
           <div className="bg-red-50 border border-red-200 rounded-md p-4">
@@ -143,6 +146,7 @@ export function MapPage() {
     <div
       className={`bg-gray-50 flex flex-col ${zoomLevel === 'hex' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
     >
+      <Seo title="Map" />
       <Header />
 
       <main

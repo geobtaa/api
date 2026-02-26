@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
+import { Seo } from '../components/Seo';
 import { SearchResults } from '../components/SearchResults';
 import { useBookmarks } from '../context/BookmarkContext';
 import { fetchBookmarkedResources } from '../services/api';
@@ -57,6 +58,7 @@ export function BookmarksPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <Seo title="Bookmarked Resources" />
       <Header />
       <MapProvider>
         <main className="flex-1 bg-gray-50">
