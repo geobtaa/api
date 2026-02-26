@@ -72,9 +72,15 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
             <tr className="hover:bg-gray-50">
               <td className="px-6 py-4">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <div className="text-sm font-medium text-gray-500">Citation</div>
+                  <label
+                    htmlFor="citation-style"
+                    className="text-sm font-medium text-gray-500"
+                  >
+                    Citation
+                  </label>
                   {styleOptions.length > 1 && (
                     <select
+                      id="citation-style"
                       value={selectedStyle}
                       onChange={(e) => setSelectedStyle(e.target.value as CitationStyle)}
                       className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"

@@ -73,6 +73,22 @@ describe('CitationTable', () => {
     expect(bibLink).toHaveAttribute('download', 'xyz-789.bib');
   });
 
+  it('citation style select has associated label', () => {
+    const citations: Partial<Record<CitationStyle, string>> = {
+      apa: 'APA format citation',
+      mla: 'MLA format citation',
+    };
+    renderWithRouter(
+      <CitationTable
+        citation={citations.apa!}
+        citations={citations}
+        permalink={defaultProps.permalink}
+      />
+    );
+    const select = screen.getByLabelText('Citation');
+    expect(select).toHaveAttribute('id', 'citation-style');
+  });
+
   it('renders style selector when citations prop has multiple styles', () => {
     const citations: Partial<Record<CitationStyle, string>> = {
       apa: 'APA format citation',
