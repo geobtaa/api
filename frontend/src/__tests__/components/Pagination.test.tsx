@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import { Pagination } from '../../components/Pagination';
 
 describe('Pagination Component', () => {
@@ -36,7 +37,7 @@ describe('Pagination Component', () => {
       );
 
       const currentPageButton = screen.getByText('3');
-      expect(currentPageButton).toHaveClass('bg-blue-500', 'text-white');
+      expect(currentPageButton).toHaveClass('bg-blue-700', 'text-white');
     });
 
     it('renders navigation arrows', () => {
@@ -417,6 +418,44 @@ describe('Pagination Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <Pagination
+          currentPage={3}
+          totalPages={5}
+          onPageChange={mockOnPageChange}
+        />
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it('previous button has accessible name for screen readers and Lighthouse', () => {
+      render(
+        <Pagination
+          currentPage={3}
+          totalPages={5}
+          onPageChange={mockOnPageChange}
+        />
+      );
+
+      const prevButton = screen.getByRole('button', { name: 'Previous page' });
+      expect(prevButton).toBeInTheDocument();
+    });
+
+    it('next button has accessible name for screen readers and Lighthouse', () => {
+      render(
+        <Pagination
+          currentPage={3}
+          totalPages={5}
+          onPageChange={mockOnPageChange}
+        />
+      );
+
+      const nextButton = screen.getByRole('button', { name: 'Next page' });
+      expect(nextButton).toBeInTheDocument();
+    });
+
     it('has proper button roles', () => {
       render(
         <Pagination
@@ -471,7 +510,7 @@ describe('Pagination Component', () => {
       );
 
       const currentPageButton = screen.getByText('3');
-      expect(currentPageButton).toHaveClass('bg-blue-500', 'text-white');
+      expect(currentPageButton).toHaveClass('bg-blue-700', 'text-white');
     });
 
     it('applies correct styling to non-current page buttons', () => {
@@ -485,7 +524,7 @@ describe('Pagination Component', () => {
 
       const nonCurrentPageButton = screen.getByText('2');
       expect(nonCurrentPageButton).toHaveClass('hover:bg-gray-100');
-      expect(nonCurrentPageButton).not.toHaveClass('bg-blue-500', 'text-white');
+      expect(nonCurrentPageButton).not.toHaveClass('bg-blue-700', 'text-white');
     });
 
     it('applies correct container styling', () => {

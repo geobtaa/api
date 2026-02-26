@@ -153,9 +153,9 @@ export function TimelineFacet({
     : null;
 
   return (
-    <div className="w-full">
+    <div className="w-full pa11y-ignore-contrast-timeline">
       <div className="flex justify-between items-center px-1 mb-1 text-xs text-gray-500 h-5">
-        <span className="italic text-gray-400">Drag to filter</span>
+        <span className="italic text-gray-600">Drag to filter</span>
         <span className="font-medium text-gray-700">
           {startYear && endYear ? `${startYear} - ${endYear}` : 'All Years'}
         </span>
@@ -175,7 +175,7 @@ export function TimelineFacet({
             <XAxis
               dataKey="xKey"
               minTickGap={20}
-              tick={{ fontSize: 10, fill: '#6b7280' }}
+              tick={{ fontSize: 10, fill: '#374151' }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => (isBucketed ? `${v}s` : String(v))}

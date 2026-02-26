@@ -1,6 +1,7 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
 import { AdvancedSearchBuilder } from '../../components/search/AdvancedSearchBuilder';
@@ -95,5 +96,22 @@ describe('AdvancedSearchBuilder', () => {
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
 
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <MemoryRouter>
+          <AdvancedSearchBuilder
+            clauses={[]}
+            onApply={vi.fn()}
+            onCancel={vi.fn()}
+            onReset={vi.fn()}
+          />
+        </MemoryRouter>
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
   });
 });

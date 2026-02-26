@@ -17,3 +17,16 @@
   --color-primary: 87 6 140;
   --color-active: 137 0 225;
 }
+
+/* Logo lockup text: explicit hex bg + color for axe/Pa11y contrast checks.
+   !important ensures no override; hex values are unambiguous. */
+.header-logo-lockup-text {
+  background-color: #003C5B !important;
+  color: #ffffff !important;
+}
+:root[data-theme='uwmadison'] .header-logo-lockup-text {
+  background-color: #C5050C !important;
+}
+:root[data-theme='nyu'] .header-logo-lockup-text {
+  background-color: #57068C !important;
+}

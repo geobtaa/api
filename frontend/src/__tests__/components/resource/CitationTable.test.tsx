@@ -73,6 +73,22 @@ describe('CitationTable', () => {
     expect(bibLink).toHaveAttribute('download', 'xyz-789.bib');
   });
 
+  it('citation style select has associated label', () => {
+    const citations: Partial<Record<CitationStyle, string>> = {
+      apa: 'APA format citation',
+      mla: 'MLA format citation',
+    };
+    renderWithRouter(
+      <CitationTable
+        citation={citations.apa!}
+        citations={citations}
+        permalink={defaultProps.permalink}
+      />
+    );
+    const select = screen.getByLabelText('Citation');
+    expect(select).toHaveAttribute('id', 'citation-style');
+  });
+
   it('renders style selector when citations prop has multiple styles', () => {
     const citations: Partial<Record<CitationStyle, string>> = {
       apa: 'APA format citation',
@@ -147,6 +163,19 @@ describe('CitationTable', () => {
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(defaultProps.permalink);
     });
+  });
+
+  it('has accessible label for BTAA Geoportal Link input', () => {
+    renderWithRouter(<CitationTable {...defaultProps} />);
+    const input = screen.getByLabelText('BTAA Geoportal Link');
+    expect(input).toHaveAttribute('id', 'citation-permalink');
+    expect(input).toHaveValue(defaultProps.permalink);
+  });
+
+  it('Copy permalink button has accessible name', () => {
+    renderWithRouter(<CitationTable {...defaultProps} />);
+    const button = screen.getByRole('button', { name: 'Copy permalink' });
+    expect(button).toBeInTheDocument();
   });
 
   it('renders when citation is empty but citations provided', () => {

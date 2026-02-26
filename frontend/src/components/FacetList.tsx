@@ -403,13 +403,13 @@ export function FacetList({ facets }: FacetListProps) {
                           <span>{item.label}</span>
                           <span
                             className={`${
-                              isActive ? 'text-blue-400' : 'text-gray-400'
+                              isActive ? 'text-blue-600' : 'text-gray-600'
                             }`}
                           >
                             ({formatCount(item.hits)})
                           </span>
                           {isActive && (
-                            <span className="text-blue-400 ml-auto">×</span>
+                            <span className="text-blue-600 ml-auto">×</span>
                           )}
                         </button>
                         <button

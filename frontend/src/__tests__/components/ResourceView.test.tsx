@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { ResourceView } from '../../pages/ResourceView';
@@ -1174,6 +1175,25 @@ describe('ResourceView Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', {
+            name: 'Nondigitized paper map with library catalog link',
+          })
+        ).toBeInTheDocument();
+      });
+
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('has proper ARIA roles and labels', async () => {
       render(
         <TestWrapper>

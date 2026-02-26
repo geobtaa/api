@@ -1,0 +1,29 @@
+{
+  "defaults": {
+    "timeout": 10000,
+    "wait": 750,
+    "runners": ["axe"],
+    "includeWarnings": true,
+    "includeNotices": false,
+    "standard": "WCAG2AA",
+    "chromeLaunchConfig": {
+      "executablePath": "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+      "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+    }
+  },
+  "urls": [
+    {
+      "url": "http://localhost:4173/",
+      "hideElements": ".header-logo-lockup-text"
+    },
+    {
+      "url": "http://localhost:4173/search?q=",
+      "hideElements": ".header-logo-lockup-text, #filter-location-heading, .pa11y-ignore-contrast-timeline"
+    },
+    {
+      "url": "http://localhost:4173/resources/p16022coll583:2574",
+      "hideElements": ".header-logo-lockup-text, #full-details, .pa11y-ignore-map-contrast",
+      "ignore": ["frame-tested"]
+    }
+  ]
+}

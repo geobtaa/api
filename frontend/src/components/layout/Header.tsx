@@ -166,7 +166,7 @@ export function Header() {
                     />
                   )}
                   <span
-                    className={`inline text-white font-semibold tracking-wide${
+                    className={`inline-block font-semibold tracking-wide px-1 py-0.5 rounded-sm header-logo-lockup-text${
                       headerCfg?.lockup_text_size_rem == null
                         ? ' text-sm sm:text-base md:text-lg lg:text-xl'
                         : ''
@@ -185,6 +185,9 @@ export function Header() {
                         headerCfg?.lockup_text_size_rem == null
                           ? undefined
                           : `clamp(1.5rem, 1.8vw, ${headerCfg.lockup_text_size_rem}rem)`,
+                      // Keep contrast deterministic for Pa11y/axe.
+                      backgroundColor: '#ffffff',
+                      color: '#0b2942',
                     }}
                   >
                     {theme.institution.logo_lockup.right_text}

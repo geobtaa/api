@@ -86,6 +86,18 @@ describe('TimelineFacet', () => {
     expect(screen.getByText('Drag to filter')).toBeInTheDocument();
   });
 
+  it('uses sufficient contrast for "Drag to filter" (WCAG AA)', () => {
+    render(
+      <TimelineFacet
+        facet={mockFacet}
+        selectedRange={null}
+        onChange={() => {}}
+      />
+    );
+    const dragHint = screen.getByText('Drag to filter');
+    expect(dragHint).toHaveClass('text-gray-600');
+  });
+
   it('renders the BarChart', () => {
     render(
       <TimelineFacet

@@ -391,7 +391,7 @@ export function HomePageHexMapBackground() {
       </p>
       <div
         className="relative h-full w-full"
-        role="img"
+        role="region"
         aria-label="Resource density hex map"
       >
         <MapContainer

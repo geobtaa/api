@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { ResourceView } from '../../components/resource/ResourceView';
@@ -343,8 +344,10 @@ describe('ResourceView Component', () => {
       );
 
       await waitFor(() => {
-        // Check for breadcrumb link specifically
-        const links = screen.getAllByRole('link', { name: 'Paper Maps' });
+        // Check for breadcrumb link specifically (aria-label: "Filter by {value}")
+        const links = screen.getAllByRole('link', {
+          name: 'Filter by Paper Maps',
+        });
         const breadcrumbLink = links.find(
           (a) =>
             a.getAttribute('href') ===
@@ -364,10 +367,9 @@ describe('ResourceView Component', () => {
       await waitFor(() => {
         // ResourceSubtitle should render publisher and year
         // Check for the subtitle heading
-        const subtitle = screen.getByRole('heading', { level: 3 });
+        const subtitle = screen.getByRole('heading', { name: /1950/ });
         expect(subtitle).toBeInTheDocument();
-        // The component is only rendering the year, so check for that
-        expect(subtitle).toHaveTextContent('1950');
+        expect(subtitle.tagName).toBe('H2');
       });
     });
   });
@@ -822,6 +824,25 @@ describe('ResourceView Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', {
+            name: 'Nondigitized paper map with library catalog link',
+          })
+        ).toBeInTheDocument();
+      });
+
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('has proper ARIA roles and labels', async () => {
       render(
         <TestWrapper>

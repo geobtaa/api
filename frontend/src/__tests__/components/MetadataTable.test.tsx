@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import { MetadataTable } from '../../components/resource/MetadataTable';
 
 // Real fixture data from the /test/fixtures page
@@ -386,6 +387,14 @@ describe('MetadataTable Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <MetadataTable data={realFixtureWithAllFields} />
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('uses proper table structure', () => {
       const { container } = render(
         <MetadataTable data={realFixtureWithAllFields} />

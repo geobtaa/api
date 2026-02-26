@@ -7,7 +7,8 @@
 // Minimal Node-ish env typing without pulling in @types/node.
 declare const process: { env: Record<string, string | undefined> };
 
-const API_BASE_URL = process.env.API_BASE_URL || "http://api:8000/api/v1";
+// Docker sets API_BASE_URL=http://api:8000/api/v1; fallback for local preview/start
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:8000/api/v1";
 const API_KEY = process.env.BTAA_GEOSPATIAL_API_KEY;
 
 function applyDefaultQueryParams(url: URL, defaults: string[] | undefined) {

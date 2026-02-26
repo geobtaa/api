@@ -203,7 +203,7 @@ it('shows loading state', () => {
 
 ## Accessibility Testing
 
-The project uses **axe-core** and **vitest-axe** to run automated accessibility checks in unit tests. The goal is to maintain **WCAG 2.2 AA** compliance for key features (H3 hex grid, Featured carousel).
+The project uses **axe-core** and **vitest-axe** to run automated accessibility checks in unit tests. The goal is to maintain **WCAG 2.2 AA** compliance for key features (H3 hex grid, Featured carousel, SearchResults, Pagination, FacetList, LinksTable).
 
 ### Running accessibility tests
 
@@ -213,10 +213,20 @@ Accessibility tests run as part of the normal Vitest suite:
 npm test
 ```
 
-Tests that use axe are in:
+To run only axe-focused a11y tests:
+
+```bash
+npm run test:a11y
+```
+
+Tests that use axe (vitest-axe) include:
 
 - `src/__tests__/components/map/H3HexDataTable.test.tsx` — H3 hex data table (region, caption, headers, links)
 - `src/__tests__/components/home/HomePageHexMapBackground.carousel-a11y.test.tsx` — Featured carousel (region, roledescription, controls)
+- `src/__tests__/components/SearchResults.test.tsx` — Search results (with data and empty state)
+- `src/__tests__/components/Pagination.test.tsx` — Pagination controls
+- `src/__tests__/components/LinksTable.test.tsx` — Links table
+- `src/__tests__/components/FacetList.test.tsx` — Facet list filters
 
 ### Using vitest-axe in a test
 
@@ -228,25 +238,57 @@ Tests that use axe are in:
    expect.extend(matchers);
    ```
 
-2. In a test, render the component, then run axe on the container or a specific region:
+2. Use the shared `axeWithWCAG22` helper (targets WCAG 2.0, 2.1, and 2.2 Level A and AA):
 
    ```typescript
-   import { axe } from 'vitest-axe';
+   import { axeWithWCAG22 } from '../../test-utils/axe';
 
    it('has no accessibility violations', async () => {
      const { container } = render(<MyComponent />);
-     const results = await axe(container);
+     const results = await axeWithWCAG22(container);
      expect(results).toHaveNoViolations();
    });
    ```
+
+   The helper lives in `src/test-utils/axe.ts` and configures axe to run WCAG 2.2 rules.
 
 3. To restrict checks to a region (e.g. carousel only), pass that element:
 
    ```typescript
    const carousel = screen.getByRole('region', { name: /Featured resources/i });
-   const results = await axe(carousel);
+   const results = await axeWithWCAG22(carousel);
    expect(results).toHaveNoViolations();
    ```
+
+### Full-page Pa11y scans
+
+Run axe against built pages with Pa11y CI. First build and start the preview server:
+
+```bash
+npm run build && npm run preview
+```
+
+In another terminal, run:
+
+```bash
+npm run test:a11y:pa11y
+```
+
+Or use the combined script (builds, starts server, runs pa11y, then stops):
+
+```bash
+npm run test:a11y:pa11y:ci
+```
+
+To run Pa11y on a single resource page in local dev:
+
+```bash
+npm run test:a11y:pa11y:item
+```
+
+Pa11y CI tests `/`, `/search`, and `/resources/p16022coll583:2574` by default (preview server on port `4173`). Configure URLs and options in `frontend/.pa11yci.json`. The config uses system Chrome on macOS (`/Applications/Google Chrome.app`). On Linux or if Chrome is elsewhere, set `PUPPETEER_EXECUTABLE_PATH` to your Chrome binary path, or run `npx puppeteer browsers install chrome` and remove the `executablePath` from the config.
+
+The config includes narrow `hideElements` selectors for known false-positive contrast findings (header lockup text, timeline chart tick labels, full-details metadata panel, and Leaflet map card) so we can keep `color-contrast` enabled for the rest of each page. The resource page also ignores `frame-tested` for the sandboxed Mirador iframe.
 
 ### Common axe violations and fixes
 
@@ -326,6 +368,15 @@ A detailed HTML report is generated in the `coverage/` directory:
 
 #### JSON Report
 A machine-readable JSON report is saved as `coverage/coverage-final.json` for CI/CD integration.
+
+#### Accessibility (AXE) Report
+
+When you run tests (including `npm run test:coverage`), a custom reporter generates accessibility test results alongside the coverage report:
+
+- **`coverage/a11y-report.json`** — Machine-readable summary of all accessibility-related tests (axe and manual a11y checks)
+- **`coverage/a11y-report.html`** — Human-readable HTML report with pass/fail status for each a11y test
+
+Open `coverage/a11y-report.html` in a browser to view the accessibility test summary. The report includes all tests whose name or file path mentions "accessibility", "a11y", "violations", or "axe".
 
 ## Test Data and Fixtures
 

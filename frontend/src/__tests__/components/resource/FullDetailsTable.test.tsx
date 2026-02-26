@@ -152,10 +152,49 @@ describe('FullDetailsTable', () => {
 
     renderWithRouter(<FullDetailsTable data={data} />);
 
-    const publisherLink = screen.getByRole('link', { name: 'MIT Libraries' });
+    const publisherLink = screen.getByRole('link', {
+      name: 'Filter by MIT Libraries',
+    });
     expect(publisherLink).toHaveAttribute(
       'href',
       '/search?include_filters[dct_publisher_sm][]=MIT%20Libraries'
     );
+  });
+
+  it('metadata facet labels use sequential heading level (h3 under h2)', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_publisher_sm: ['MIT Libraries'],
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+    const publisherLabel = screen.getByRole('heading', {
+      name: 'Publisher',
+      level: 3,
+    });
+    expect(publisherLabel).toBeInTheDocument();
+  });
+
+  it('metadata facets sidebar uses light background for sufficient contrast', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_publisher_sm: ['MIT Libraries'],
+        },
+      },
+    };
+
+    const { container } = renderWithRouter(<FullDetailsTable data={data} />);
+    const sidebar = container.querySelector('.bg-gray-50');
+    expect(sidebar).toBeInTheDocument();
   });
 });

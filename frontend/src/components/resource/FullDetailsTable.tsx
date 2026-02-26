@@ -271,7 +271,8 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {facetField && shouldLink ? (
               <Link
                 to={`/search?include_filters[${facetField}][]=${encodeURIComponent(place)}`}
-                className="text-blue-600 hover:text-blue-800"
+                className="text-blue-800 hover:text-blue-900"
+                aria-label={`Filter by ${place}`}
               >
                 {place}
               </Link>
@@ -433,7 +434,8 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {i > 0 && ', '}
             <Link
               to={searchUrl(String(v))}
-              className="text-blue-600 hover:text-blue-800"
+              className="text-blue-800 hover:text-blue-900"
+              aria-label={`Filter by ${v}`}
             >
               {v}
             </Link>
@@ -443,7 +445,8 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       return (
         <Link
           to={searchUrl(value.toString())}
-          className="text-blue-600 hover:text-blue-800"
+          className="text-blue-800 hover:text-blue-900"
+          aria-label={`Filter by ${value.toString()}`}
         >
           {value.toString()}
         </Link>
@@ -500,10 +503,10 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
         return (
           <div key={relationshipType} className="mb-4">
-            <h5 className="text-sm font-medium text-gray-500">
+            <h3 className="text-sm font-medium text-gray-500">
               {relationshipLabels[relationshipType] ||
                 humanizeFieldName(relationshipType)}
-            </h5>
+            </h3>
             <ul className="list-none">
               {/* Display the first 5 items */}
               {displayItems.map(
@@ -520,7 +523,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                     <li key={id} className="text-sm text-gray-900">
                       <Link
                         to={`/resources/${id}`}
-                        className="text-blue-600 hover:text-blue-800"
+                        className="text-blue-800 hover:text-blue-900"
                       >
                         {title}
                       </Link>
@@ -559,7 +562,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       id="full-details"
       className="bg-white rounded-lg shadow-md overflow-hidden"
     >
-      <h2 className="text-lg font-semibold text-gray-900 px-6 py-4">
+      <h2 className="text-lg font-semibold text-gray-950 px-6 py-4">
         Full Details
       </h2>
       <div className="flex flex-col sm:flex-row">
@@ -574,7 +577,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-sm text-gray-950">
                       {renderValue(
                         key,
                         value as string | string[] | null | undefined,
@@ -588,19 +591,19 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
           </table>
         </div>
         <div className="w-full sm:w-1/3">
-          <div className="sr-only px-6 py-4 bg-gray-100 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+          <div className="sr-only px-6 py-4 bg-gray-50 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-950">
               Metadata Facets
             </h2>
           </div>
-          <div className="px-6 py-4 bg-gray-100">
+          <div className="px-6 py-4 bg-gray-50">
             {metadataFacets.map(([key, value]) => (
               <div key={key} className="mb-4">
-                <h5 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-gray-500">
                   {customFieldLabels[key] || humanizeFieldName(key)}
-                </h5>
+                </h3>
                 <ul className="list-none">
-                  <li className="text-sm text-gray-900">
+                  <li className="text-sm text-gray-950">
                     {key === 'dct_spatial_sm' &&
                     Array.isArray(value) &&
                     value.length > 15

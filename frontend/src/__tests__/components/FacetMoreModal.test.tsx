@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { vi } from 'vitest';
 import { FacetMoreModal } from '../../components/search/FacetMoreModal';
@@ -88,6 +89,12 @@ describe('FacetMoreModal', () => {
 
   const renderWithRouter = (ui: React.ReactElement) =>
     render(<MemoryRouter>{ui}</MemoryRouter>);
+
+  it('has no accessibility violations when open', async () => {
+    const { container } = renderWithRouter(<FacetMoreModal {...defaultProps} />);
+    const results = await axeWithWCAG22(container);
+    expect(results).toHaveNoViolations();
+  });
 
   it('does not render when closed', () => {
     renderWithRouter(<FacetMoreModal {...defaultProps} isOpen={false} />);

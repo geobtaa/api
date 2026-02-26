@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import { LinksTable } from '../../components/resource/LinksTable';
 
 describe('LinksTable', () => {
@@ -62,5 +63,11 @@ describe('LinksTable', () => {
   it('does not render when links are null', () => {
     const { container } = render(<LinksTable links={null} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  it('has no accessibility violations', async () => {
+    const { container } = render(<LinksTable links={mockLinks} />);
+    const results = await axeWithWCAG22(container);
+    expect(results).toHaveNoViolations();
   });
 });

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { SortControl } from '../../components/search/SortControl';
 
@@ -203,6 +204,18 @@ describe('SortControl', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <SortControl
+          options={mockSortOptions}
+          currentSort="relevance"
+          onSortChange={mockOnSortChange}
+        />
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('has proper label association', () => {
       render(
         <SortControl

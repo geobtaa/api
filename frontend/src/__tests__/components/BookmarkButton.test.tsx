@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import { vi } from 'vitest';
 import { BookmarkButton } from '../../components/BookmarkButton';
 import { BookmarkProvider } from '../../context/BookmarkContext';
@@ -258,6 +259,16 @@ describe('BookmarkButton', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <BookmarkButton itemId="test-item-1" />
+        </TestWrapper>
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('has correct aria-label for unbookmarked state', () => {
       render(
         <TestWrapper>
