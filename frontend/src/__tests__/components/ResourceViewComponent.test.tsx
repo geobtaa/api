@@ -343,8 +343,10 @@ describe('ResourceView Component', () => {
       );
 
       await waitFor(() => {
-        // Check for breadcrumb link specifically
-        const links = screen.getAllByRole('link', { name: 'Paper Maps' });
+        // Check for breadcrumb link specifically (aria-label: "Filter by {value}")
+        const links = screen.getAllByRole('link', {
+          name: 'Filter by Paper Maps',
+        });
         const breadcrumbLink = links.find(
           (a) =>
             a.getAttribute('href') ===

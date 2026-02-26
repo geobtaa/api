@@ -272,6 +272,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
               <Link
                 to={`/search?include_filters[${facetField}][]=${encodeURIComponent(place)}`}
                 className="text-blue-700 hover:text-blue-900"
+                aria-label={`Filter by ${place}`}
               >
                 {place}
               </Link>
@@ -434,6 +435,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             <Link
               to={searchUrl(String(v))}
               className="text-blue-700 hover:text-blue-900"
+              aria-label={`Filter by ${v}`}
             >
               {v}
             </Link>
@@ -444,6 +446,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         <Link
           to={searchUrl(value.toString())}
           className="text-blue-700 hover:text-blue-900"
+          aria-label={`Filter by ${value.toString()}`}
         >
           {value.toString()}
         </Link>

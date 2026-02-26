@@ -152,7 +152,9 @@ describe('FullDetailsTable', () => {
 
     renderWithRouter(<FullDetailsTable data={data} />);
 
-    const publisherLink = screen.getByRole('link', { name: 'MIT Libraries' });
+    const publisherLink = screen.getByRole('link', {
+      name: 'Filter by MIT Libraries',
+    });
     expect(publisherLink).toHaveAttribute(
       'href',
       '/search?include_filters[dct_publisher_sm][]=MIT%20Libraries'

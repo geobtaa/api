@@ -93,6 +93,7 @@ export function ResourceBreadcrumbs({ item }: ResourceBreadcrumbsProps) {
             <Link
               to={buildSearchUrl(crumb.facets)}
               className="text-sm font-medium text-gray-500 hover:text-blue-600"
+              aria-label={`Filter by ${crumb.label}`}
             >
               {crumb.label}
             </Link>
