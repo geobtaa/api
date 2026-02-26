@@ -159,6 +159,26 @@ describe('FullDetailsTable', () => {
     );
   });
 
+  it('metadata facet labels use sequential heading level (h3 under h2)', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_publisher_sm: ['MIT Libraries'],
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+    const publisherLabel = screen.getByRole('heading', {
+      name: 'Publisher',
+      level: 3,
+    });
+    expect(publisherLabel).toBeInTheDocument();
+  });
+
   it('metadata facets sidebar uses light background for sufficient contrast', () => {
     const data = {
       ...baseData,

@@ -500,10 +500,10 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
         return (
           <div key={relationshipType} className="mb-4">
-            <h5 className="text-sm font-medium text-gray-500">
+            <h3 className="text-sm font-medium text-gray-500">
               {relationshipLabels[relationshipType] ||
                 humanizeFieldName(relationshipType)}
-            </h5>
+            </h3>
             <ul className="list-none">
               {/* Display the first 5 items */}
               {displayItems.map(
@@ -596,9 +596,9 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
           <div className="px-6 py-4 bg-gray-50">
             {metadataFacets.map(([key, value]) => (
               <div key={key} className="mb-4">
-                <h5 className="text-sm font-medium text-gray-500">
+                <h3 className="text-sm font-medium text-gray-500">
                   {customFieldLabels[key] || humanizeFieldName(key)}
-                </h5>
+                </h3>
                 <ul className="list-none">
                   <li className="text-sm text-gray-900">
                     {key === 'dct_spatial_sm' &&

@@ -364,10 +364,9 @@ describe('ResourceView Component', () => {
       await waitFor(() => {
         // ResourceSubtitle should render publisher and year
         // Check for the subtitle heading
-        const subtitle = screen.getByRole('heading', { level: 3 });
+        const subtitle = screen.getByRole('heading', { name: /1950/ });
         expect(subtitle).toBeInTheDocument();
-        // The component is only rendering the year, so check for that
-        expect(subtitle).toHaveTextContent('1950');
+        expect(subtitle.tagName).toBe('H2');
       });
     });
   });

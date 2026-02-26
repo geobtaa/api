@@ -21,10 +21,10 @@ export function ResourceSubtitle({ item }: ResourceSubtitleProps) {
   if (!mainCredit && !year) return null;
 
   return (
-    <h3 className="text-lg text-gray-600 italic">
+    <h2 className="text-lg text-gray-600 italic">
       {mainCredit}
       {mainCredit && year && <span className="mx-2">&middot;</span>}
       {year}
-    </h3>
+    </h2>
   );
 }
