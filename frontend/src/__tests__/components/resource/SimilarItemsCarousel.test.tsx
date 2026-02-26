@@ -124,4 +124,23 @@ describe('SimilarItemsCarousel', () => {
     const link = screen.getByRole('link', { name: /Test Resource/i });
     expect(link).toHaveAttribute('href', '/resources/resource-abc');
   });
+
+  it('pagination dot buttons meet minimum touch target size (44x44px)', () => {
+    const items = Array.from({ length: 8 }, (_, i) => ({
+      id: `item-${i}`,
+      title: `Item ${i}`,
+      gbl_indexYear_im: [2020],
+      gbl_resourceClass_sm: ['Maps'],
+    }));
+    render(
+      <MemoryRouter>
+        <SimilarItemsCarousel similarItems={items as never} />
+      </MemoryRouter>
+    );
+    const pageButtons = screen.getAllByRole('button', { name: /Go to page/ });
+    expect(pageButtons.length).toBeGreaterThan(0);
+    pageButtons.forEach((btn) => {
+      expect(btn).toHaveClass('min-w-[44px]', 'min-h-[44px]');
+    });
+  });
 });

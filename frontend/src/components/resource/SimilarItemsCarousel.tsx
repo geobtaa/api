@@ -241,15 +241,21 @@ export function SimilarItemsCarousel({
               {Array.from({ length: totalPages }, (_, i) => (
                 <button
                   key={i}
+                  type="button"
                   onClick={() => setCurrentPage(i)}
-                  className={`w-2 h-2 rounded-full transition-colors ${
-                    i === currentPage
-                      ? 'bg-blue-600'
-                      : 'bg-gray-300 hover:bg-gray-400'
-                  }`}
+                  className="min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                   aria-label={`Go to page ${i + 1}`}
                   aria-current={i === currentPage ? 'page' : undefined}
-                />
+                >
+                  <span
+                    className={`block w-2 h-2 rounded-full transition-colors ${
+                      i === currentPage
+                        ? 'bg-blue-600'
+                        : 'bg-gray-300'
+                    }`}
+                    aria-hidden
+                  />
+                </button>
               ))}
             </div>
 
