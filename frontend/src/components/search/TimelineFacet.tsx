@@ -155,7 +155,7 @@ export function TimelineFacet({
   return (
     <div className="w-full">
       <div className="flex justify-between items-center px-1 mb-1 text-xs text-gray-500 h-5">
-        <span className="italic text-gray-400">Drag to filter</span>
+        <span className="italic text-gray-600">Drag to filter</span>
         <span className="font-medium text-gray-700">
           {startYear && endYear ? `${startYear} - ${endYear}` : 'All Years'}
         </span>

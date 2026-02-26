@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { FacetList } from '../../components/FacetList';
@@ -799,6 +799,36 @@ describe('FacetList Component', () => {
         name: /Paper Maps\s*\(\d+\)/,
       });
       expect(paperMapsButton).toHaveClass('hover:bg-gray-100');
+    });
+
+    it('uses sufficient contrast for inactive facet counts (WCAG AA)', () => {
+      render(
+        <TestWrapper>
+          <FacetList facets={mockFacetData} />
+        </TestWrapper>
+      );
+
+      const paperMapsButton = screen.getByRole('button', {
+        name: /Paper Maps\s*\(\d+\)/,
+      });
+      const countSpan = within(paperMapsButton).getByText('(45)');
+      expect(countSpan).toHaveClass('text-gray-600');
+    });
+
+    it('uses sufficient contrast for active facet counts (WCAG AA)', () => {
+      mockSearchParams.set('fq[resource_class_agg][]', 'Paper Maps');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockFacetData} />
+        </TestWrapper>
+      );
+
+      const paperMapsButton = screen.getByRole('button', {
+        name: /Paper Maps\s*\(\d+\)/,
+      });
+      const countSpan = within(paperMapsButton).getByText('(45)');
+      expect(countSpan).toHaveClass('text-blue-600');
     });
   });
 
