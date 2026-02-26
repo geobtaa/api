@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import a11yReporter from './vitest-a11y-reporter'
 
 export default defineConfig({
   plugins: [react()],
@@ -9,6 +10,7 @@ export default defineConfig({
     environment: 'happy-dom',
     setupFiles: ['./src/setupTests.ts'],
     css: true,
+    reporters: ['default', a11yReporter],
     coverage: {
       provider: 'v8', // Use v8 provider for Vitest 3.x
       reporter: ['text', 'json', 'html'],

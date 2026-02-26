@@ -632,7 +632,14 @@ export function GeospatialFilterMap() {
       <div className="flex items-center justify-between mb-1">
         <h3
           id="filter-location-heading"
-          className="font-semibold text-gray-900"
+          className="font-semibold text-gray-950"
+          style={{
+            color: '#111827',
+            backgroundColor: '#ffffff',
+            display: 'inline-block',
+            paddingInline: '0.25rem',
+            borderRadius: '0.125rem',
+          }}
         >
           Location
         </h3>
@@ -646,7 +653,11 @@ export function GeospatialFilterMap() {
           </button>
         )}
       </div>
-      <div className="relative" aria-labelledby="filter-location-heading">
+      <div
+        className="relative"
+        role="group"
+        aria-labelledby="filter-location-heading"
+      >
         {hasBBox && (
           <div className="mb-2 flex items-center gap-2">
             <span className="text-xs text-gray-600">Match mode:</span>

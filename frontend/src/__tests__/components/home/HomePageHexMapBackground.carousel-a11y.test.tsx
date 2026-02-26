@@ -3,7 +3,7 @@
  * Mocks map/Leaflet so the carousel UI renders and can be tested with axe.
  */
 import { render, screen } from '@testing-library/react';
-import { axe } from 'vitest-axe';
+import { axeWithWCAG22 } from '../../../test-utils/axe';
 import { BrowserRouter } from 'react-router';
 import { vi } from 'vitest';
 import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
@@ -90,7 +90,7 @@ describe('HomePageHexMapBackground – Featured carousel accessibility', () => {
     });
     expect(carousel).toBeInTheDocument();
 
-    const results = await axe(carousel);
+    const results = await axeWithWCAG22(carousel);
     expect(results).toHaveNoViolations();
   });
 

@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { SearchResults } from '../../components/SearchResults';
@@ -674,6 +675,36 @@ describe('SearchResults Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations with results', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={4}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
+    it('has no accessibility violations when empty', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={[]}
+            isLoading={false}
+            totalResults={0}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('has proper ARIA roles and labels', () => {
       render(
         <TestWrapper>

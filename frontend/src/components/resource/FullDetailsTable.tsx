@@ -271,7 +271,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {facetField && shouldLink ? (
               <Link
                 to={`/search?include_filters[${facetField}][]=${encodeURIComponent(place)}`}
-                className="text-blue-700 hover:text-blue-900"
+                className="text-blue-800 hover:text-blue-900"
                 aria-label={`Filter by ${place}`}
               >
                 {place}
@@ -434,7 +434,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
             {i > 0 && ', '}
             <Link
               to={searchUrl(String(v))}
-              className="text-blue-700 hover:text-blue-900"
+              className="text-blue-800 hover:text-blue-900"
               aria-label={`Filter by ${v}`}
             >
               {v}
@@ -445,7 +445,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       return (
         <Link
           to={searchUrl(value.toString())}
-          className="text-blue-700 hover:text-blue-900"
+          className="text-blue-800 hover:text-blue-900"
           aria-label={`Filter by ${value.toString()}`}
         >
           {value.toString()}
@@ -523,7 +523,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                     <li key={id} className="text-sm text-gray-900">
                       <Link
                         to={`/resources/${id}`}
-                        className="text-blue-700 hover:text-blue-900"
+                        className="text-blue-800 hover:text-blue-900"
                       >
                         {title}
                       </Link>
@@ -562,7 +562,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       id="full-details"
       className="bg-white rounded-lg shadow-md overflow-hidden"
     >
-      <h2 className="text-lg font-semibold text-gray-900 px-6 py-4">
+      <h2 className="text-lg font-semibold text-gray-950 px-6 py-4">
         Full Details
       </h2>
       <div className="flex flex-col sm:flex-row">
@@ -577,7 +577,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">
+                    <div className="text-sm text-gray-950">
                       {renderValue(
                         key,
                         value as string | string[] | null | undefined,
@@ -592,7 +592,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         </div>
         <div className="w-full sm:w-1/3">
           <div className="sr-only px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-lg font-semibold text-gray-950">
               Metadata Facets
             </h2>
           </div>
@@ -603,7 +603,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
                   {customFieldLabels[key] || humanizeFieldName(key)}
                 </h3>
                 <ul className="list-none">
-                  <li className="text-sm text-gray-900">
+                  <li className="text-sm text-gray-950">
                     {key === 'dct_spatial_sm' &&
                     Array.isArray(value) &&
                     value.length > 15

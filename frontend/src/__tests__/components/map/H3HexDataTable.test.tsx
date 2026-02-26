@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import { axe } from 'vitest-axe';
+import { axeWithWCAG22 } from '../../../test-utils/axe';
 import { BrowserRouter } from 'react-router';
 import { H3HexDataTable } from '../../../components/map/H3HexDataTable';
 
@@ -54,13 +54,13 @@ describe('H3HexDataTable', () => {
       ],
       resolution: 6,
     });
-    const results = await axe(container);
+    const results = await axeWithWCAG22(container);
     expect(results).toHaveNoViolations();
   });
 
   it('has no accessibility violations when empty', async () => {
     const { container } = renderTable({ hexes: [], resolution: 6 });
-    const results = await axe(container);
+    const results = await axeWithWCAG22(container);
     expect(results).toHaveNoViolations();
   });
 });

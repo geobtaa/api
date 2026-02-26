@@ -37,7 +37,10 @@ export function EnvironmentNavButtons({
   const prodUrl = `https://geo.btaa.org/catalog/${resourceId}`;
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3">
+    <nav
+      className="fixed bottom-6 right-6 z-50 flex flex-col gap-3"
+      aria-label="Environment shortcuts"
+    >
       {isLocalhost && (
         <>
           <a
@@ -74,6 +77,6 @@ export function EnvironmentNavButtons({
           Production
         </a>
       )}
-    </div>
+    </nav>
   );
 }

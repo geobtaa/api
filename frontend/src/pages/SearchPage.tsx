@@ -464,6 +464,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       />
       <Header />
       <main className="flex-1 bg-gray-50 pb-8">
+        <h1 className="sr-only">
+          {query ? `Search results for ${query}` : 'Search'}
+        </h1>
         <div className="w-full px-4 sm:px-6 lg:px-8 pt-2">
           {/* Spelling Suggestions */}
           {spellingSuggestions.length > 0 && (

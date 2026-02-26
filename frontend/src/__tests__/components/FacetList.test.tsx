@@ -1,4 +1,5 @@
 import { render, screen, within } from '@testing-library/react';
+import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { FacetList } from '../../components/FacetList';
@@ -757,6 +758,16 @@ describe('FacetList Component', () => {
   });
 
   describe('Accessibility', () => {
+    it('has no accessibility violations', async () => {
+      const { container } = render(
+        <TestWrapper>
+          <FacetList facets={mockFacetData} />
+        </TestWrapper>
+      );
+      const results = await axeWithWCAG22(container);
+      expect(results).toHaveNoViolations();
+    });
+
     it('has proper heading structure', () => {
       render(
         <TestWrapper>
