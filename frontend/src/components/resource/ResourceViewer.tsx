@@ -343,8 +343,8 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                       }
                     );
 
-                    // Fix the view immediately when controller connects, before wrong render
-                    const fixViewImmediately = () => {
+                    // Fit to known geometry extent, retrying after render when size is stable.
+                    const fitToGeometryExtent = (reason: string) => {
                       const map = controller.map;
                       if (map) {
                         const view = map.getView?.();
@@ -361,34 +361,42 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                               'EPSG:3857'
                             );
 
+                            map.updateSize?.();
                             const size = map.getSize();
-                            if (size && size.length === 2) {
+                            if (
+                              size &&
+                              size.length === 2 &&
+                              size[0] > 0 &&
+                              size[1] > 0
+                            ) {
                               view.fit(webMercatorExtent, {
                                 size: size,
                                 padding: [50, 50, 50, 50],
                                 maxZoom: 14,
                                 duration: 0, // Instant, no animation
                               });
-                              console.log(
-                                'View fixed immediately with correct extent'
-                              );
+                              console.log(`View fit to extent (${reason})`);
                             }
                           }
                         }
                       }
                     };
 
-                    // Try to fix immediately, using requestAnimationFrame to ensure map is initialized
+                    // Try immediately, then after map render settles.
                     if (controller.map) {
                       requestAnimationFrame(() => {
-                        fixViewImmediately();
+                        fitToGeometryExtent('raf');
+                      });
+                      controller.map.once?.('rendercomplete', () => {
+                        fitToGeometryExtent('rendercomplete');
                       });
                     } else {
                       // Map not ready yet, wait a bit
                       setTimeout(() => {
-                        fixViewImmediately();
+                        fitToGeometryExtent('delayed-init');
                       }, 50);
                     }
+                    setTimeout(() => fitToGeometryExtent('post-init-timeout'), 250);
 
                     // Check if the map was created and inspect its state
                     setTimeout(() => {
@@ -439,6 +447,10 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                                 resolution: view.getResolution?.(),
                               });
                             }
+
+                            // Ensure final map position is based on record geometry even if
+                            // PMTiles layer/source registration happens after initial connect.
+                            fitToGeometryExtent('post-map-state-check');
 
                             // Check if PMTiles layer is present
                             const pmtilesLayer = layers.find((l) => {
