@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { leafletViewerOptions } from '../../config/leafletConfig';
 import { MetadataTable } from './MetadataTable';
-import { transformExtent, fromLonLat } from 'ol/proj';
+import { transformExtent } from 'ol/proj';
 
 interface ResourceViewerProps {
   data: {
@@ -343,8 +343,11 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                       }
                     );
 
-                    // Fix the view immediately when controller connects, before wrong render
-                    const fixViewImmediately = () => {
+                    // Fit to known geometry extent, retrying after render when size is stable.
+                    // We try both raw lon/lat extent and a transformed extent because
+                    // GeoBlacklight's PMTiles path uses OpenLayers `useGeographic()`,
+                    // and projection handling can differ across environments/builds.
+                    const fitToGeometryExtent = (reason: string) => {
                       const map = controller.map;
                       if (map) {
                         const view = map.getView?.();
@@ -354,41 +357,94 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             preCalculatedExtent || controller.extent;
                           if (extent && extent.length === 4) {
                             const [minX, minY, maxX, maxY] = extent;
-                            const wgs84Extent = [minX, minY, maxX, maxY];
-                            const webMercatorExtent = transformExtent(
-                              wgs84Extent,
-                              'EPSG:4326',
-                              'EPSG:3857'
-                            );
+                            const wgs84Extent: [number, number, number, number] = [
+                              minX,
+                              minY,
+                              maxX,
+                              maxY,
+                            ];
+                            const projectionCode =
+                              view.getProjection?.()?.getCode?.() || 'EPSG:3857';
+                            const transformedExtent =
+                              projectionCode === 'EPSG:4326'
+                                ? wgs84Extent
+                                : transformExtent(wgs84Extent, 'EPSG:4326', projectionCode);
 
+                            map.updateSize?.();
                             const size = map.getSize();
-                            if (size && size.length === 2) {
-                              view.fit(webMercatorExtent, {
-                                size: size,
-                                padding: [50, 50, 50, 50],
+                            if (
+                              size &&
+                              size.length === 2 &&
+                              size[0] > 0 &&
+                              size[1] > 0
+                            ) {
+                              const fitOptions = {
+                                size,
+                                padding: [50, 50, 50, 50] as [number, number, number, number],
                                 maxZoom: 14,
-                                duration: 0, // Instant, no animation
+                                duration: 0,
+                              };
+
+                              let bestZoom = -Infinity;
+                              let bestCenter: number[] | undefined;
+                              let bestLabel = 'wgs84-raw';
+
+                              const tryFit = (candidateExtent: number[], label: string) => {
+                                if (!candidateExtent || candidateExtent.length !== 4) return;
+                                if (candidateExtent.some((n) => !isFinite(n))) return;
+                                view.fit(candidateExtent, fitOptions);
+                                const z = view.getZoom?.() ?? -Infinity;
+                                const c = view.getCenter?.();
+                                if (z > bestZoom && c && c.length === 2) {
+                                  bestZoom = z;
+                                  bestCenter = [c[0], c[1]];
+                                  bestLabel = label;
+                                }
+                              };
+
+                              tryFit(wgs84Extent, 'wgs84-raw');
+                              tryFit(transformedExtent, `to-${projectionCode}`);
+
+                              if (bestCenter && isFinite(bestZoom)) {
+                                view.setCenter?.(bestCenter);
+                                view.setZoom?.(bestZoom);
+                              }
+
+                              console.log(`View fit to extent (${reason})`, {
+                                projectionCode,
+                                bestLabel,
+                                bestZoom,
                               });
-                              console.log(
-                                'View fixed immediately with correct extent'
-                              );
                             }
                           }
                         }
                       }
                     };
 
-                    // Try to fix immediately, using requestAnimationFrame to ensure map is initialized
+                    // Try immediately, then after map render settles.
                     if (controller.map) {
                       requestAnimationFrame(() => {
-                        fixViewImmediately();
+                        fitToGeometryExtent('raf');
+                      });
+                      controller.map.once?.('rendercomplete', () => {
+                        fitToGeometryExtent('rendercomplete');
                       });
                     } else {
                       // Map not ready yet, wait a bit
                       setTimeout(() => {
-                        fixViewImmediately();
+                        fitToGeometryExtent('delayed-init');
                       }, 50);
                     }
+                    setTimeout(() => fitToGeometryExtent('post-init-timeout'), 250);
+                    // One final guarded refit: only if still at obvious world-view zoom.
+                    setTimeout(() => {
+                      const map = controller.map;
+                      const view = map?.getView?.();
+                      const zoom = view?.getZoom?.() ?? 0;
+                      if (zoom <= 3.5) {
+                        fitToGeometryExtent('world-view-guard');
+                      }
+                    }, 900);
 
                     // Check if the map was created and inspect its state
                     setTimeout(() => {
@@ -439,6 +495,10 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                                 resolution: view.getResolution?.(),
                               });
                             }
+
+                            // Ensure final map position is based on record geometry even if
+                            // PMTiles layer/source registration happens after initial connect.
+                            fitToGeometryExtent('post-map-state-check');
 
                             // Check if PMTiles layer is present
                             const pmtilesLayer = layers.find((l) => {
