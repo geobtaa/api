@@ -5,6 +5,7 @@ import {
   FacetValuesSort,
   GazetteerResponse,
   GazetteerPlace,
+  HomeBlogPostsResponse,
 } from '../types/api';
 import { AdvancedClause, FacetFilter } from '../types/search';
 import { getActiveThemeConfig } from '../config/institution';
@@ -274,13 +275,17 @@ async function unifiedFetch<T>(
       // Ensure thumbnail_url is preserved and enumerable in meta.ui objects
       // React Router serialization might remove non-enumerable properties
       if (jsonData && typeof jsonData === 'object' && 'data' in jsonData) {
-        const apiResponse = jsonData as any;
+        const apiResponse = jsonData as {
+          data?: Array<{ meta?: { ui?: Record<string, unknown> } }>;
+        };
         if (Array.isArray(apiResponse.data)) {
-          apiResponse.data = apiResponse.data.map((item: any) => {
+          apiResponse.data = apiResponse.data.map((item) => {
             if (item?.meta?.ui && typeof item.meta.ui === 'object') {
               // Check if thumbnail_url exists but might be non-enumerable
               const hasThumbnail = 'thumbnail_url' in item.meta.ui;
-              const thumbnailValue = item.meta.ui.thumbnail_url;
+              const thumbnailValue = item.meta.ui.thumbnail_url as
+                | string
+                | undefined;
 
               // If thumbnail_url exists (even if undefined), ensure it's enumerable
               if (hasThumbnail || thumbnailValue) {
@@ -666,6 +671,94 @@ interface Suggestion {
 
 interface SuggestResponse {
   data: Suggestion[];
+}
+
+export async function fetchHomeBlogPosts(params?: {
+  limit?: number;
+  theme?: string;
+  pinnedSlugs?: string[];
+  tag?: string;
+}): Promise<HomeBlogPostsResponse> {
+  const apiBase = `${getApiBasePath().replace(/\/$/, '')}/home/blog-posts`;
+  const candidates: string[] =
+    typeof window !== 'undefined'
+      ? [
+          '/home/blog-posts', // SSR proxy route (frontend-dev :3000)
+          '/api/v1/home/blog-posts', // Same-origin API path when app served from API host
+          apiBase, // Absolute/configured API base fallback (e.g. localhost:8000)
+        ]
+      : [apiBase];
+
+  let lastError: ApiError | null = null;
+  const attempted: string[] = [];
+
+  for (const base of candidates) {
+    let url: URL;
+    try {
+      url =
+        typeof window !== 'undefined'
+          ? new URL(base, window.location.origin)
+          : new URL(base);
+    } catch (error) {
+      lastError = new ApiError(
+        `Home blog request failed: ${error instanceof Error ? error.message : 'Invalid URL'}`
+      );
+      continue;
+    }
+
+    if (params?.limit) {
+      url.searchParams.set('limit', String(params.limit));
+    }
+    if (params?.theme) {
+      url.searchParams.set('theme', params.theme);
+    }
+    if (params?.tag) {
+      url.searchParams.set('tag', params.tag);
+    }
+    if (params?.pinnedSlugs?.length) {
+      params.pinnedSlugs.forEach((slug) => {
+        if (slug) url.searchParams.append('pinned_slugs', slug);
+      });
+    }
+    attempted.push(url.toString());
+
+    try {
+      const res = await fetch(url.toString(), {
+        headers: { Accept: 'application/json' },
+      });
+      const contentType = (res.headers.get('content-type') || '').toLowerCase();
+      const bodyText = await res.text();
+      if (!res.ok) {
+        lastError = new ApiError(
+          `Home blog request failed (${url.toString()}): ${bodyText}`,
+          res.status
+        );
+        continue;
+      }
+      // Some dev route fallbacks return HTML with 200 status; treat as miss and continue.
+      if (!contentType.includes('application/json')) {
+        lastError = new ApiError(
+          `Home blog request failed (${url.toString()}): expected JSON but got ${contentType || 'unknown content-type'}`
+        );
+        continue;
+      }
+      return JSON.parse(bodyText) as HomeBlogPostsResponse;
+    } catch (error) {
+      lastError =
+        error instanceof ApiError
+          ? error
+          : new ApiError(
+              `Home blog request failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+            );
+    }
+  }
+
+  const attemptedMsg =
+    attempted.length > 0 ? ` (attempted: ${attempted.join(', ')})` : '';
+  if (lastError) {
+    throw new ApiError(`${lastError.message}${attemptedMsg}`, lastError.status);
+  }
+  throw new ApiError(`Home blog request failed${attemptedMsg}`);
 }
 
 export async function fetchSuggestions(

@@ -24,13 +24,17 @@ L.Map.addInitHook('addHandler', 'gestureHandling', GestureHandling);
 import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
-import { FEATURED_RESOURCE_IDS } from '../../config/featured';
+import { FEATURED_ITEMS } from '../../config/featured';
 import { fetchResourceDetails } from '../../services/api';
 import type { GeoDocumentDetails } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { ResultCardPill } from '../search/ResultCardPill';
 import { formatCount } from '../../utils/formatNumber';
 import { parseBboxToLeafletBounds } from '../../utils/bbox';
+import {
+  getSavedHexLayerEnabled,
+  saveHexLayerEnabled,
+} from '../../utils/hexLayerPreference';
 import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
@@ -163,7 +167,7 @@ function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
   return (
     <div
       data-hex-popover
-      className="absolute bottom-20 left-4 z-[1000] rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm p-3 min-w-[180px]"
+      className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm p-3 min-w-[180px]"
       role="status"
       aria-live="polite"
     >
@@ -193,8 +197,10 @@ function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
 /** One-time pan so Chicago (dense hex cluster) appears in the desired position on the homepage. Marks as programmatic so it is not counted as user engagement. */
 function MapPanner({
   programmaticFlyRef,
+  onInitialViewReady,
 }: {
   programmaticFlyRef: React.MutableRefObject<boolean>;
+  onInitialViewReady: (center: [number, number], zoom: number) => void;
 }) {
   const map = useMap();
   const panned = useRef(false);
@@ -205,12 +211,14 @@ function MapPanner({
       map.panBy([400, 0], { animate: false });
       panned.current = true;
       const onMoveEnd = () => {
+        const center = map.getCenter();
+        onInitialViewReady([center.lat, center.lng], map.getZoom());
         programmaticFlyRef.current = false;
         map.off('moveend', onMoveEnd);
       };
       map.on('moveend', onMoveEnd);
     });
-  }, [map, programmaticFlyRef]);
+  }, [map, onInitialViewReady, programmaticFlyRef]);
   return null;
 }
 
@@ -258,7 +266,7 @@ function SearchHereControl() {
       <button
         type="button"
         onClick={handleSearchHere}
-        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+        className="flex items-center gap-2 rounded-lg border border-brand bg-brand px-3 py-2 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#002f49] focus:outline-none focus:ring-2 focus:ring-brand-active focus:ring-offset-2"
         aria-label="Search in this area"
       >
         <Search className="w-4 h-4" />
@@ -266,6 +274,45 @@ function SearchHereControl() {
       </button>
     </div>
   );
+}
+
+/** Listens for homepage Home-nav clicks and restores the initial rendered camera. */
+function HomeMapResetListener({
+  initialHomeViewRef,
+  programmaticFlyRef,
+}: {
+  initialHomeViewRef: React.MutableRefObject<{
+    center: [number, number];
+    zoom: number;
+  } | null>;
+  programmaticFlyRef: React.MutableRefObject<boolean>;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    const handleReset = () => {
+      const homeView = initialHomeViewRef.current ?? {
+        center: HOME_PAGE_MAP_CENTER,
+        zoom: DEFAULT_US_ZOOM,
+      };
+      programmaticFlyRef.current = true;
+      map.flyTo(
+        L.latLng(homeView.center[0], homeView.center[1]),
+        homeView.zoom,
+        { duration: 0.6 }
+      );
+      const onMoveEnd = () => {
+        programmaticFlyRef.current = false;
+        map.off('moveend', onMoveEnd);
+      };
+      map.on('moveend', onMoveEnd);
+    };
+
+    window.addEventListener('btaa-home-map-reset', handleReset);
+    return () => window.removeEventListener('btaa-home-map-reset', handleReset);
+  }, [initialHomeViewRef, map, programmaticFlyRef]);
+
+  return null;
 }
 
 /**
@@ -278,7 +325,7 @@ export function HomePageHexMapBackground() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [featuredDetails, setFeaturedDetails] = useState<
     (GeoDocumentDetails | null)[]
-  >(() => FEATURED_RESOURCE_IDS.map(() => null));
+  >(() => FEATURED_ITEMS.map(() => null));
   const [featuredInitiated, setFeaturedInitiated] = useState(false);
   const [userEngagedMap, setUserEngagedMap] = useState(false);
   const [featuredProgress, setFeaturedProgress] = useState(1); // 1 = full (10s left), 0 = empty (advancing)
@@ -302,7 +349,13 @@ export function HomePageHexMapBackground() {
     loading: boolean;
   }>({ hexes: [], resolution: 6, loading: false });
   const [hoveredHex, setHoveredHex] = useState<HexHoverData | null>(null);
-  const [hexLayerEnabled, setHexLayerEnabled] = useState(true);
+  const [hexLayerEnabled, setHexLayerEnabled] = useState(
+    getSavedHexLayerEnabled
+  );
+  const initialHomeViewRef = useRef<{
+    center: [number, number];
+    zoom: number;
+  } | null>(null);
 
   const handleHexData = useCallback(
     (data: {
@@ -326,14 +379,24 @@ export function HomePageHexMapBackground() {
   }, [carouselPaused]);
 
   useEffect(() => {
+    saveHexLayerEnabled(hexLayerEnabled);
+  }, [hexLayerEnabled]);
+
+  useEffect(() => {
     if (userEngagedMap) userEngagedMapRef.current = true;
   }, [userEngagedMap]);
 
   useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('btaa-hero-description-visibility', {
+        detail: { visible: !featuredInitiated },
+      })
+    );
+  }, [featuredInitiated]);
+
+  useEffect(() => {
     let cancelled = false;
-    Promise.allSettled(
-      FEATURED_RESOURCE_IDS.map((id) => fetchResourceDetails(id))
-    ).then((results) => {
+    Promise.allSettled(FEATURED_ITEMS.map((item) => fetchResourceDetails(item.id))).then((results) => {
       if (cancelled) return;
       setFeaturedDetails(
         results.map((r) => (r.status === 'fulfilled' ? r.value : null))
@@ -361,7 +424,7 @@ export function HomePageHexMapBackground() {
       }
       const elapsed = now - featuredStartTimeRef.current - pausedMs;
       if (elapsed >= FEATURED_ITEM_DURATION_MS) {
-        setActiveIndex((prev) => (prev + 1) % FEATURED_RESOURCE_IDS.length);
+        setActiveIndex((prev) => (prev + 1) % FEATURED_ITEMS.length);
         featuredStartTimeRef.current = Date.now();
         featuredTotalPausedRef.current = 0;
         setFeaturedProgress(1);
@@ -420,6 +483,7 @@ export function HomePageHexMapBackground() {
               typeof window !== 'undefined' ? window.location.search : undefined
             }
             loading={hexDataForTable.loading}
+            stackOrder="beforeBasemap"
             onToggle={(enabled) => {
               setHexLayerEnabled(enabled);
               if (!enabled) {
@@ -427,7 +491,18 @@ export function HomePageHexMapBackground() {
               }
             }}
           />
-          <MapPanner programmaticFlyRef={programmaticFlyRef} />
+          <MapPanner
+            programmaticFlyRef={programmaticFlyRef}
+            onInitialViewReady={(center, zoom) => {
+              if (!initialHomeViewRef.current) {
+                initialHomeViewRef.current = { center, zoom };
+              }
+            }}
+          />
+          <HomeMapResetListener
+            initialHomeViewRef={initialHomeViewRef}
+            programmaticFlyRef={programmaticFlyRef}
+          />
           <SearchHereControl />
           {hexLayerEnabled && (
             <>
@@ -453,8 +528,10 @@ export function HomePageHexMapBackground() {
           <FeaturedMapController
             activeIndex={activeIndex}
             featuredDetails={featuredDetails}
+            featuredCamera={FEATURED_ITEMS[activeIndex]?.camera}
             featuredInitiated={featuredInitiated}
             programmaticFlyRef={programmaticFlyRef}
+            initialHomeViewRef={initialHomeViewRef}
           />
           <FeaturedItemPreviewLayer
             activeIndex={activeIndex}
@@ -553,7 +630,7 @@ export function HomePageHexMapBackground() {
           aria-roledescription="carousel"
           aria-label="Featured resources"
           aria-describedby="featured-carousel-desc"
-          className="absolute bottom-14 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2 px-3 py-2 rounded-lg bg-white/60 backdrop-blur-sm shadow-lg border border-gray-200"
           data-featured-carousel
           onMouseEnter={() => {
             featuredCardHoverRef.current = true;
@@ -582,7 +659,7 @@ export function HomePageHexMapBackground() {
           onKeyDown={(e) => {
             const carouselEl = e.currentTarget;
             if (!carouselEl.contains(document.activeElement)) return;
-            const len = FEATURED_RESOURCE_IDS.length;
+            const len = FEATURED_ITEMS.length;
             let newIndex: number | null = null;
             if (e.key === 'ArrowLeft') {
               e.preventDefault();
@@ -742,7 +819,8 @@ export function HomePageHexMapBackground() {
               )}
             </button>
           </div>
-          {FEATURED_RESOURCE_IDS.map((id, index) => {
+          {FEATURED_ITEMS.map((item, index) => {
+            const id = item.id;
             const detail = featuredDetails[index];
             const isActive = index === activeIndex;
             const title =
@@ -808,8 +886,8 @@ export function HomePageHexMapBackground() {
               onClick={() => {
                 setActiveIndex(
                   (prev) =>
-                    (prev - 1 + FEATURED_RESOURCE_IDS.length) %
-                    FEATURED_RESOURCE_IDS.length
+                    (prev - 1 + FEATURED_ITEMS.length) %
+                    FEATURED_ITEMS.length
                 );
                 featuredStartTimeRef.current = Date.now();
                 featuredTotalPausedRef.current = 0;
@@ -825,7 +903,7 @@ export function HomePageHexMapBackground() {
               type="button"
               onClick={() => {
                 setActiveIndex(
-                  (prev) => (prev + 1) % FEATURED_RESOURCE_IDS.length
+                  (prev) => (prev + 1) % FEATURED_ITEMS.length
                 );
                 featuredStartTimeRef.current = Date.now();
                 featuredTotalPausedRef.current = 0;

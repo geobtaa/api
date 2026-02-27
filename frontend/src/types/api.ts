@@ -238,6 +238,28 @@ export interface JsonApiResponse {
   included?: Array<Facet | SortOption>;
 }
 
+export interface HomeBlogPost {
+  slug: string;
+  url: string;
+  title: string;
+  excerpt: string;
+  published_at: string;
+  category: 'post' | 'update';
+  authors: string[];
+  tags: string[];
+  image_url: string | null;
+  image_alt: string | null;
+}
+
+export interface HomeBlogPostsResponse {
+  data: HomeBlogPost[];
+  meta: {
+    pinned_slugs: string[];
+    total_count: number;
+    fetched_at: string;
+  };
+}
+
 interface SpellingSuggestion {
   text: string;
   highlighted: string;

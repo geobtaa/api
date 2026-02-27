@@ -58,7 +58,24 @@ vi.mock('../../components/map/HexTableControl', () => ({
 }));
 
 vi.mock('../../components/map/HexLayerToggleControl', () => ({
-  HexLayerToggleControl: () => null,
+  HexLayerToggleControl: ({
+    enabled,
+    onToggle,
+  }: {
+    enabled: boolean;
+    onToggle: (enabled: boolean) => void;
+  }) => (
+    <div>
+      <div data-testid="hex-enabled-state">{String(enabled)}</div>
+      <button
+        type="button"
+        data-testid="hex-toggle-btn"
+        onClick={() => onToggle(!enabled)}
+      >
+        Toggle hex
+      </button>
+    </div>
+  ),
 }));
 
 function SearchLocationProbe() {
@@ -69,6 +86,7 @@ function SearchLocationProbe() {
 describe('GeospatialFilterMap client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     class MockIntersectionObserver {
       observe() {}
       disconnect() {}
@@ -111,5 +129,28 @@ describe('GeospatialFilterMap client', () => {
       const params = new URLSearchParams(search);
       expect(params.get('include_filters[geo][relation]')).toBe('within');
     });
+  });
+
+  it('restores and persists hex layer preference via localStorage', async () => {
+    localStorage.setItem('hex_layer_enabled', '0');
+
+    render(
+      <MemoryRouter initialEntries={['/search?q=']}>
+        <Routes>
+          <Route path="/search" element={<GeospatialFilterMap />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByTestId('hex-enabled-state')).toHaveTextContent(
+      'false'
+    );
+
+    fireEvent.click(screen.getByTestId('hex-toggle-btn'));
+
+    await waitFor(() => {
+      expect(localStorage.getItem('hex_layer_enabled')).toBe('1');
+    });
+    expect(screen.getByTestId('hex-enabled-state')).toHaveTextContent('true');
   });
 });

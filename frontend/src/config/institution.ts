@@ -52,6 +52,12 @@ export interface ThemeConfig {
     };
   };
   homepage?: {
+    announcement?: {
+      enabled?: boolean;
+      text: string;
+      link_label: string;
+      link_url: string;
+    };
     /** Optional resource IDs to show first in the featured carousel (e.g. ["uuid-1", "uuid-2"]). */
     featured_resource_ids?: string[];
     featured?: Array<{
@@ -61,6 +67,15 @@ export interface ThemeConfig {
       sort: string;
       limit: number;
     }>;
+    blog?: {
+      enabled?: boolean;
+      title?: string;
+      subtitle?: string;
+      limit?: number;
+      cta_label?: string;
+      cta_url?: string;
+      pinned_slugs?: string[];
+    };
   };
 }
 

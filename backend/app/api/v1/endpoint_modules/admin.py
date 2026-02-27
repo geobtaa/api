@@ -23,7 +23,9 @@ from app.services.admin_service import (
 )
 from app.services.api_key_service import APIKeyService
 from app.services.cache_service import CacheService
+from app.services.gin_blog_service import GINBlogService
 from app.services.ogm_harvest.repository import OGMHarvestRepository
+from app.tasks.gin_blog_sync import gin_blog_sync
 from app.tasks.ogm_harvest import ogm_harvest_all, ogm_harvest_repo
 
 logger = logging.getLogger(__name__)
@@ -89,6 +91,10 @@ class TriggerOGMHarvestRequest(BaseModel):
     ogm_repo_name: Optional[str] = None
     ogm_all: bool = False
     ogm_trigger: str = "manual"
+
+
+class TriggerGINBlogSyncRequest(BaseModel):
+    run_now: bool = False
 
 
 @router.post("/cache/clear")
@@ -389,6 +395,16 @@ async def trigger_ogm_harvest(body: TriggerOGMHarvestRequest):
 
     task = ogm_harvest_repo.delay(repo_name=body.ogm_repo_name, trigger=body.ogm_trigger)
     return create_response({"queued": body.ogm_repo_name, "task_id": task.id})
+
+
+@router.post("/home/blog/sync")
+async def trigger_home_blog_sync(body: TriggerGINBlogSyncRequest):
+    """Trigger a GIN blog sync (enqueues Celery by default)."""
+    if body.run_now:
+        service_result = await GINBlogService().sync_posts_from_github()
+        return create_response({"queued": "inline", "result": service_result})
+    task = gin_blog_sync.delay()
+    return create_response({"queued": "gin_blog_sync", "task_id": task.id})
 
 
 @router.get("/ogm/harvest/runs")

@@ -7,6 +7,10 @@ import { cellToBoundary } from 'h3-js';
 import { fetchMapH3 } from '../../services/api';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { attachBasemapSwitcher } from '../../config/basemaps';
+import {
+  getSavedHexLayerEnabled,
+  saveHexLayerEnabled,
+} from '../../utils/hexLayerPreference';
 
 function zoomToResolution(zoom: number): number {
   if (zoom <= 3) return 2;
@@ -95,7 +99,9 @@ export function GeospatialFilterMap() {
   >([]);
   const [hexResolution, setHexResolution] = useState(6);
   const [hexLoading, setHexLoading] = useState(false);
-  const [hexLayerEnabled, setHexLayerEnabled] = useState(true);
+  const [hexLayerEnabled, setHexLayerEnabled] = useState(
+    getSavedHexLayerEnabled
+  );
 
   const getRelationFromParams = useCallback((): BBoxRelationMode => {
     const relation = searchParams.get('include_filters[geo][relation]');
@@ -352,6 +358,10 @@ export function GeospatialFilterMap() {
       }
     }
   }, [getBBoxFromParams]);
+
+  useEffect(() => {
+    saveHexLayerEnabled(hexLayerEnabled);
+  }, [hexLayerEnabled]);
 
   // Handle visibility changes (e.g., when details element opens); also fit to bbox if map was created with zero size
   useEffect(() => {
@@ -716,6 +726,7 @@ export function GeospatialFilterMap() {
           searchQuery={searchParams.get('q') ?? ''}
           queryString={searchParams.toString()}
           loading={hexLoading}
+          stackOrder="beforeBasemap"
           onToggle={(enabled) => {
             setHexLayerEnabled(enabled);
           }}
