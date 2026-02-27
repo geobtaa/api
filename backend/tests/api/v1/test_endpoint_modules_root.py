@@ -243,7 +243,7 @@ class TestRootEndpoints:
 
         # Should have a reasonable number of endpoints
         assert len(endpoints) >= 5
-        assert len(endpoints) <= 30  # Not too many
+        assert len(endpoints) <= 40  # Not too many; allows normal endpoint growth
 
     def test_api_root_response_structure_validation(self):
         """Test that API root response has proper JSON:API structure."""

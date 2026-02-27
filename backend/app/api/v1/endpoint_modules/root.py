@@ -26,6 +26,7 @@ async def api_root(request: Request = None):
             "endpoints": [
                 "/",
                 "/search",
+                "/home/blog-posts",
                 "/search/facets/{facet_name}",
                 "/suggest",
                 "/resources",

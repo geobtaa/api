@@ -558,3 +558,27 @@ ogm_resource_state = Table(
     Column("ogm_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("ogm_updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
+
+# Homepage content ingest tables
+gin_blog_posts = Table(
+    "gin_blog_posts",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("slug", String(255), nullable=False, index=True),
+    Column("source_path", String(500), nullable=False, unique=True, index=True),
+    Column("url", String(500), nullable=False),
+    Column("title", String(500), nullable=False),
+    Column("excerpt", Text, nullable=False),
+    Column("published_at", TIMESTAMP, nullable=False, index=True),
+    Column("category", String(20), nullable=False, index=True),  # post|update
+    Column("authors_json", JSON, nullable=False),
+    Column("tags_json", JSON, nullable=False),
+    Column("image_url", String(1000), nullable=True),
+    Column("image_alt", Text, nullable=True),
+    Column("source_sha", String(64), nullable=True),
+    Column("synced_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("is_active", Boolean, nullable=False, server_default="true", index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint("slug", name="uq_gin_blog_posts_slug"),
+)

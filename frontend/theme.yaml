@@ -30,6 +30,11 @@ themes:
       search_path: "/search"
       default_query_params: []
     homepage:
+      announcement:
+        enabled: true
+        text: "New from BTAA:"
+        link_label: "Read GIN News & Stories"
+        link_url: "https://gin.btaa.org/blog/"
       # First item(s) in the featured carousel (fetched by ID); remaining slots filled from featured search.
       featured_resource_ids:
         - "a10a0f50-994e-0134-2096-0050569601ca-c"
@@ -44,6 +49,16 @@ themes:
           value: "Maps"
           sort: "title_asc"
           limit: 4
+      blog:
+        enabled: true
+        title: "GIN News & Stories"
+        subtitle: "Program updates, collection highlights, and community stories."
+        limit: 6
+        cta_label: "View all stories"
+        cta_url: "https://gin.btaa.org/blog/"
+        pinned_slugs:
+          - "2026-02-02-january-2026-program-update"
+          - "2026-01-29-collaborative-storytelling-about-important-farmlands-maps-collection"
 
   uwmadison:
     label: "University of Wisconsin–Madison"

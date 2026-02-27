@@ -25,6 +25,42 @@ import { formatCount } from '../utils/formatNumber';
 import type { JsonApiResponse, GeoDocument } from '../types/api';
 import { useState, useEffect, useRef } from 'react';
 
+const GALLERY_STATE_STORAGE_KEY = 'b1g_gallery_state';
+
+const isQuotaExceededError = (error: unknown): boolean => {
+  if (error instanceof DOMException) {
+    return (
+      error.name === 'QuotaExceededError' ||
+      error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
+    );
+  }
+  return false;
+};
+
+const persistGalleryState = (state: {
+  context: string;
+  results: GeoDocument[];
+  startPage: number;
+}) => {
+  try {
+    sessionStorage.setItem(GALLERY_STATE_STORAGE_KEY, JSON.stringify(state));
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      // Avoid crashing the page when gallery payload exceeds browser storage quota.
+      try {
+        sessionStorage.removeItem(GALLERY_STATE_STORAGE_KEY);
+      } catch {
+        // ignore cleanup errors
+      }
+      console.warn(
+        'Gallery state cache exceeded session storage quota; skipping persistence.'
+      );
+      return;
+    }
+    throw error;
+  }
+};
+
 type SearchPageProps = {
   // Loader-provided results (SSR/server-side).
   searchResults?: JsonApiResponse | null;
@@ -100,7 +136,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   // Restore state from session storage on mount (Client-side only)
   useEffect(() => {
     try {
-      const cached = sessionStorage.getItem('b1g_gallery_state');
+      const cached = sessionStorage.getItem(GALLERY_STATE_STORAGE_KEY);
       if (cached) {
         const { context, results, startPage } = JSON.parse(cached);
 
@@ -132,7 +168,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
         results: accumulatedResults,
         startPage: accumulatedStartPage,
       };
-      sessionStorage.setItem('b1g_gallery_state', JSON.stringify(state));
+      persistGalleryState(state);
     }
   }, [
     accumulatedResults,
@@ -155,7 +191,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       setAccumulatedResults(searchResults?.data || []);
       setAccumulatedStartPage(page);
       // Clear cache for new context (optional, but good for cleanup)
-      sessionStorage.removeItem('b1g_gallery_state');
+      sessionStorage.removeItem(GALLERY_STATE_STORAGE_KEY);
     } else {
       // Context is SAME. Check page.
       if (page === 1) {

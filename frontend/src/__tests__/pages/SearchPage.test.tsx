@@ -156,6 +156,28 @@ describe('SearchPage Logic', () => {
     ).toBeInTheDocument();
   });
 
+  it('does not crash when gallery session cache exceeds quota', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20), 100, 1);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    setItemSpy.mockImplementation(() => {
+      throw new DOMException(
+        'Setting the value exceeded the quota.',
+        'QuotaExceededError'
+      );
+    });
+
+    renderWithRouter('/search?view=gallery', results);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gallery-view')).toBeInTheDocument();
+    });
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      'Gallery state cache exceeded session storage quota; skipping persistence.'
+    );
+  });
+
   it('appends results when Load More is clicked (simulating infinite scroll)', async () => {
     // Initial load: Page 1 (items 1-20)
     // We simulate the router/loader response updating. In a real integration test we'd update the router state or mock the loader.

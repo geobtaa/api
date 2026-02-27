@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .endpoint_modules.admin import router as admin_router
 from .endpoint_modules.gazetteer import router as gazetteer_router
+from .endpoint_modules.home import router as home_router
 from .endpoint_modules.map import router as map_router
 from .endpoint_modules.mcp import router as mcp_router
 from .endpoint_modules.ogm import router as ogm_router
@@ -24,6 +25,7 @@ router = APIRouter()
 # Include all endpoint modules
 router.include_router(root_router, tags=["root"])
 router.include_router(search_router, tags=["search"])
+router.include_router(home_router, tags=["home"])
 router.include_router(resources_router, tags=["resources"])
 router.include_router(thumbnails_router, tags=["thumbnails"])
 router.include_router(static_maps_router, tags=["static-maps"])

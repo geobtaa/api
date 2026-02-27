@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, type MouseEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { Menu, X } from 'lucide-react';
 import { SearchField } from '../SearchField';
@@ -118,6 +118,12 @@ export function Header() {
     navigate(`/search?${newParams.toString()}`);
   };
 
+  const handleHomeClick = (e: MouseEvent<HTMLAnchorElement>) => {
+    if (location.pathname !== '/') return;
+    e.preventDefault();
+    window.dispatchEvent(new Event('btaa-home-map-reset'));
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-brand text-white shadow-[0_2px_10px_rgba(0,0,0,0.15)]">
       <div className="w-full px-4 sm:px-6 lg:px-8 pb-4 xl:pb-0">
@@ -127,6 +133,7 @@ export function Header() {
           <div className="col-span-6 xl:col-span-3 row-span-2 flex items-center justify-start min-w-0">
             <Link
               to="/"
+              onClick={handleHomeClick}
               className={`text-xl font-bold text-white flex items-center min-w-0 shrink-0${
                 headerCfg?.lockup_gap_rem == null ? ' gap-2' : ''
               }`}

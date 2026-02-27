@@ -28,7 +28,29 @@ describe('Home Page', () => {
 
   it('renders the search input', () => {
     renderHome();
+    expect(screen.getByText(/new from btaa:/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /read gin news & stories/i })
+    ).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /partner institutions/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /sanborn fire insurance maps/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', {
+        name: /big ten academic alliance libraries historical maps collection/i,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: /urban base layers collection/i })
+    ).toBeInTheDocument();
+    expect(screen.getByAltText(/logo for indiana university/i)).toBeInTheDocument();
+    expect(
+      screen.getByAltText(/logo for university of washington/i)
+    ).toBeInTheDocument();
   });
 
   it('shows suggestions when typing', async () => {

@@ -14,164 +14,131 @@ function BtaaFooter({ id }: FooterProps) {
   return (
     <footer className="bg-[#003C5B] text-white print:hidden">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-          {/* Left Column: Logos & Links */}
-          <div className="space-y-8">
-            {/* Logo Section */}
-            <div>
-              <a href="https://gin.btaa.org">
-                <img
-                  src="/gin-white.png"
-                  alt="Big Ten Academic Alliance Geospatial Information Network"
-                  className="h-16 w-auto mb-4 rounded"
-                />
-              </a>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-8 text-sm">
-              {/* About & Help */}
-              <div>
-                <h3 className="font-bold text-lg mb-3 text-blue-100">
-                  About & Help
-                </h3>
-                <ul className="space-y-2">
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/about/about-us/"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      About Us
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/updates"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Program Updates
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://geo.btaa.org/feedback"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Contact Us
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/guides/"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Help Guides
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/tutorials"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Tutorials
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Policies */}
-              <div>
-                <h3 className="font-bold text-lg mb-3 text-blue-100">
-                  Policies
-                </h3>
-                <ul className="space-y-2">
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/policies/harmful-language"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Harmful Language Statement
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://btaa.org/privacy"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Privacy Statement
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/policies/collection-development"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Collection Development
-                    </a>
-                  </li>
-                </ul>
-              </div>
-
-              {/* Sponsors */}
-              <div>
-                <h3 className="font-bold text-lg mb-3 text-blue-100">
-                  Sponsors
-                </h3>
-                <ul className="space-y-2">
-                  <li>
-                    <a
-                      href="https://btaa.org/"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      Big Ten Academic Alliance
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://gin.btaa.org/"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      BTAA Geospatial Information Network
-                    </a>
-                  </li>
-                  <li>
-                    <a
-                      href="https://lib.umn.edu/"
-                      className="hover:text-blue-200 hover:underline"
-                    >
-                      University of Minnesota Libraries
-                    </a>
-                  </li>
-                </ul>
-              </div>
-            </div>
+        <div className="space-y-8">
+          <div>
+            <a href="https://gin.btaa.org">
+              <img
+                src="/gin-white.png"
+                alt="Big Ten Academic Alliance Geospatial Information Network"
+                className="h-16 w-auto mb-4 rounded"
+              />
+            </a>
           </div>
 
-          {/* Right Column: Stories & Members */}
-          <div className="space-y-8">
-            {/* Stories */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-sm">
             <div>
               <h3 className="font-bold text-lg mb-3 text-blue-100">
-                BTAA Geoportal Collection Stories
+                About & Help
               </h3>
-              <div className="bg-blue-900/30 rounded p-4 border border-blue-800/50">
-                <p className="text-sm italic text-blue-200 mb-2">
-                  Check out the latest stories from our blog:
-                </p>
-                <a
-                  href="https://gin.btaa.org/blog"
-                  className="text-sm font-semibold text-white hover:text-blue-200 hover:underline flex items-center gap-1"
-                >
-                  View Collection Stories <ExternalLink size={12} />
-                </a>
-              </div>
+              <ul className="space-y-2">
+                <li>
+                  <a
+                    href="https://gin.btaa.org/about/about-us/"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    About Us
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://gin.btaa.org/updates"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Program Updates
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://geo.btaa.org/feedback"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Contact Us
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://gin.btaa.org/guides/"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Help Guides
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://gin.btaa.org/tutorials"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Tutorials
+                  </a>
+                </li>
+              </ul>
             </div>
 
-            {/* Member Libraries */}
             <div>
-              <h4 className="font-bold text-base mb-3 text-blue-100">
+              <h3 className="font-bold text-lg mb-3 text-blue-100">Policies</h3>
+              <ul className="space-y-2">
+                <li>
+                  <a
+                    href="https://gin.btaa.org/policies/harmful-language"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Harmful Language Statement
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://btaa.org/privacy"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Privacy Statement
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://gin.btaa.org/policies/collection-development"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Collection Development
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-lg mb-3 text-blue-100">Sponsors</h3>
+              <ul className="space-y-2">
+                <li>
+                  <a
+                    href="https://btaa.org/"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    Big Ten Academic Alliance
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://gin.btaa.org/"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    BTAA Geospatial Information Network
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://lib.umn.edu/"
+                    className="hover:text-blue-200 hover:underline"
+                  >
+                    University of Minnesota Libraries
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="font-bold text-lg mb-3 text-blue-100">
                 BTAA Member Libraries
-              </h4>
-              <ul className="text-xs text-blue-200 grid grid-cols-2 gap-x-4 gap-y-1">
+              </h3>
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-blue-100/90">
                 <li>Indiana University</li>
                 <li>Michigan State University</li>
                 <li>Northwestern University</li>
@@ -195,7 +162,7 @@ function BtaaFooter({ id }: FooterProps) {
         </div>
 
         {/* Divider */}
-        <hr className="border-blue-800 my-8" />
+        <hr className="border-white my-8" />
 
         {/* Bottom Section: App Controls & Copyright */}
         <div className="flex flex-col md:flex-row justify-between items-end gap-6 text-sm">
