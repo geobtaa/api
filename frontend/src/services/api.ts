@@ -812,7 +812,7 @@ export async function fetchBookmarkedResources(
   }
 
   const apiBasePath = getApiBasePath();
-  const baseUrl = `${apiBasePath}/search/`;
+  const baseUrl = `${apiBasePath}/search`;
   const url = createApiUrl(baseUrl);
 
   url.searchParams.set('search_field', 'all_fields');

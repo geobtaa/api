@@ -13,7 +13,7 @@ global.fetch = vi.fn();
 vi.unmock('../../services/api');
 
 describe('fetchBookmarkedResources', () => {
-  it('constructs correct URL for bookmarked resources', async () => {
+  it('constructs bookmark URL without trailing slash redirect', async () => {
     const ids = ['123', '456'];
     const onApiCall = vi.fn();
 
@@ -27,20 +27,15 @@ describe('fetchBookmarkedResources', () => {
 
     expect(onApiCall).toHaveBeenCalled();
     const url = new URL(onApiCall.mock.calls[0][0]);
-
-    // Verify we are using the correct filter parameter
-    // Current implementation uses fq[id][], which is suspected to be wrong.
-    // We expect it to be include_filters[id][] based on fetchSearchResults logic.
-
-    // Log what we got for debugging
-    console.log('Generated URL search params:', url.search);
-
-    // The test serves to document current behavior first
-    const fqIds = url.searchParams.getAll('fq[id][]');
     const includeIds = url.searchParams.getAll('include_filters[id][]');
 
-    console.log('fq[id][] values:', fqIds);
-    console.log('include_filters[id][] values:', includeIds);
+    // Path must end in /search (not /search/) to avoid redirect behavior.
+    expect(url.pathname.endsWith('/search')).toBe(true);
+    expect(url.pathname.endsWith('/search/')).toBe(false);
+    expect(includeIds).toEqual(ids);
+    expect(url.searchParams.get('format')).toBe('json');
+    expect(url.searchParams.get('search_field')).toBe('all_fields');
+    expect(url.searchParams.get('q')).toBe('');
   });
 });
 
