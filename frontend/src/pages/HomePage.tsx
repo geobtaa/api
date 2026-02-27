@@ -28,6 +28,7 @@ import { getActiveThemeId } from '../config/institution';
 import type { HomeBlogPost } from '../types/api';
 import { normalizeFacetId } from '../utils/facetLabels';
 import { normalizeFacetValueForUrl } from '../utils/searchParams';
+import { primaryCtaClass, secondaryCtaClass } from '../styles/cta';
 
 type FacetItem = { value: string; label: string; count: number };
 type FacetLike = { attributes?: { items?: unknown } };
@@ -272,15 +273,11 @@ export function HomePage() {
     onClick: (value: string) => void,
     iconRenderer?: (value: string) => ReactNode
   ) => {
-    const maxCount = Math.max(...items.map((item) => item.count), 1);
-
     return (
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">{title}</h3>
         <div className="space-y-2">
           {items.map((item) => {
-            const ratio = item.count > 0 ? item.count / maxCount : 0;
-            const barWidth = `${Math.max(ratio * 100, item.count > 0 ? 6 : 0)}%`;
             const formattedCount = !isLoading ? formatCount(item.count) : '';
             const rowAriaLabel = !isLoading
               ? `${title} ${item.label}, ${formattedCount} resources`
@@ -290,24 +287,19 @@ export function HomePage() {
               <button
                 key={`${title.toLowerCase()}-${item.value}`}
                 onClick={() => onClick(item.value)}
-                className="relative flex w-full items-center gap-2 overflow-hidden border border-gray-200 border-l-[2px] border-l-[#003C5B] bg-white px-3 py-2 text-left transition-all group hover:border-brand-active hover:shadow-sm"
+                className="flex w-full items-center gap-2 border border-gray-200 border-l-[2px] border-l-[#003C5B] bg-white px-3 py-2 text-left transition-colors group hover:bg-slate-50"
                 aria-label={rowAriaLabel}
               >
-                <div
-                  className="absolute inset-y-0 left-0 bg-brand-active/15"
-                  style={{ width: barWidth }}
-                  aria-hidden
-                />
-                <div className="relative z-10 flex w-full items-center gap-2">
+                <div className="flex w-full items-center gap-2">
                   {iconRenderer && (
-                    <div className="shrink-0 text-gray-400 group-hover:text-brand-active">
+                    <div className="shrink-0 text-gray-500">
                       {iconRenderer(item.value)}
                     </div>
                   )}
-                  <span className="truncate text-gray-700 group-hover:text-gray-900">
+                  <span className="truncate text-gray-700">
                     {item.label}
                   </span>
-                  <span className="ml-auto shrink-0 bg-white/90 px-1.5 py-0.5 text-sm font-semibold tabular-nums text-gray-900 group-hover:bg-white">
+                  <span className="ml-auto shrink-0 px-1.5 py-0.5 text-sm font-semibold tabular-nums text-gray-900">
                     {formattedCount}
                   </span>
                 </div>
@@ -318,7 +310,7 @@ export function HomePage() {
         <button
           type="button"
           onClick={() => setActiveFacetModal({ id: facetId, label: title })}
-          className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-brand/30 bg-white/90 px-3 py-1.5 text-sm font-medium text-brand transition-colors hover:bg-white hover:border-brand/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+          className={`${secondaryCtaClass} mt-3 px-3 py-1.5`}
         >
           View more
         </button>
@@ -388,17 +380,17 @@ export function HomePage() {
         </div>
         <SanbornFeaturedCollection />
         {/* Browse All Resources section */}
-        <div className="flex-shrink-0 w-full border-y border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex-shrink-0 w-full border-y border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10">
           <div>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
               <div className="max-w-2xl">
-                <h2 className="text-2xl font-semibold text-gray-900">
+                <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">
                   Browse All Resources
                 </h2>
               </div>
               <button
                 onClick={handleBrowseAll}
-                className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#002f49] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+                className={primaryCtaClass}
               >
                 View all resources
                 <ArrowRight className="h-4 w-4" />
@@ -432,7 +424,7 @@ export function HomePage() {
             </div>
           </div>
         </div>
-        <section className="w-full border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
+        <section className="w-full border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10">
           <div className="w-full">
             <p className="text-xs font-semibold tracking-[0.16em] text-brand-primary uppercase text-center mb-2">
               Big Ten Academic Alliance Geoportal
@@ -476,12 +468,12 @@ export function HomePage() {
           </div>
         </section>
         {blogEnabled && (
-          <div className="w-full border-t border-gray-200">
+          <div className="w-full">
             <GinBlogSection
               posts={blogPosts}
               loading={blogLoading}
               error={blogError}
-              title={blogCfg?.title || 'BTAA GIN News & Stories'}
+              title={blogCfg?.title || 'BTAA-GIN News & Stories'}
               subtitle={blogCfg?.subtitle}
               ctaLabel={blogCfg?.cta_label || 'View all stories'}
               ctaUrl={blogCfg?.cta_url || 'https://gin.btaa.org/blog/'}

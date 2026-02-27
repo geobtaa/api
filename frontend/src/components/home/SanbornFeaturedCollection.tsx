@@ -1,4 +1,5 @@
 import { ArrowRight, ExternalLink } from 'lucide-react';
+import { primaryCtaClass, secondaryCtaClass } from '../../styles/cta';
 
 const SANBORN_COLLECTION_ID = 'b35f927e-9051-4d7f-9ca3-ad5b19024e0b';
 const SANBORN_COLLECTION_URL = `/resources/${SANBORN_COLLECTION_ID}`;
@@ -193,7 +194,7 @@ function CollectionPreview({
 
 export function SanbornFeaturedCollection() {
   return (
-    <section className="w-full bg-white px-4 py-12 sm:px-6 lg:px-8">
+    <section className="w-full bg-white px-4 py-10 sm:px-6 lg:px-8">
       <div className="w-full">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-2xl font-semibold text-gray-900 sm:text-3xl">
@@ -201,7 +202,7 @@ export function SanbornFeaturedCollection() {
           </h2>
           <a
             href={VIEW_ALL_COLLECTIONS_URL}
-            className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#002f49] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+            className={primaryCtaClass}
           >
             View all collections
             <ArrowRight className="h-4 w-4" />
@@ -239,14 +240,14 @@ export function SanbornFeaturedCollection() {
               <div className="mt-5 flex flex-wrap gap-3">
                 <a
                   href={collection.collectionUrl}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-800 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active"
+                  className={secondaryCtaClass}
                 >
                   View collection record
                   <ExternalLink className="h-4 w-4" />
                 </a>
                 <a
                   href={collection.browseUrl}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#002f49] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active"
+                  className={primaryCtaClass}
                 >
                   {collection.browseLabel}
                   <ArrowRight className="h-4 w-4" />

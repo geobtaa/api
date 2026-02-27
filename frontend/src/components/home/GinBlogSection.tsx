@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 import type { HomeBlogPost } from '../../types/api';
+import { primaryCtaClass } from '../../styles/cta';
 
 interface GinBlogSectionProps {
   posts: HomeBlogPost[];
@@ -113,18 +114,18 @@ export function GinBlogSection({
   const visiblePosts = useMemo(() => posts.slice(0, 3), [posts]);
 
   return (
-    <section className="w-full bg-white text-gray-900 px-4 sm:px-6 lg:px-8 py-14">
+    <section className="w-full bg-white text-gray-900 px-4 sm:px-6 lg:px-8 py-10">
       <div className="w-full">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">
-            <h2 className="text-2xl font-semibold">{title}</h2>
+            <h2 className="text-2xl sm:text-3xl font-semibold">{title}</h2>
             {subtitle && <p className="mt-2 text-slate-600">{subtitle}</p>}
           </div>
           <a
             href={ctaUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#002f49] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+            className={primaryCtaClass}
           >
             {ctaLabel}
             <ArrowRight className="h-4 w-4" />

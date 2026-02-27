@@ -51,7 +51,7 @@ themes:
           limit: 4
       blog:
         enabled: true
-        title: "GIN News & Stories"
+        title: "BTAA-GIN News & Stories"
         subtitle: "Program updates, collection highlights, and community stories."
         limit: 6
         cta_label: "View all stories"

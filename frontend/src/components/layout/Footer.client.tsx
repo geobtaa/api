@@ -10,11 +10,12 @@ interface FooterProps {
 function BtaaFooter({ id }: FooterProps) {
   const { lastApiUrl } = useApi();
   const { themeId, themes, setThemeId } = useTheme();
+  const footerLinkClass = 'text-white/85 hover:text-white hover:underline';
 
   return (
     <footer className="bg-[#003C5B] text-white print:hidden">
       <div className="w-full px-4 sm:px-6 lg:px-8 py-12">
-        <div className="space-y-8">
+        <div className="space-y-10">
           <div>
             <a href="https://gin.btaa.org">
               <img
@@ -34,7 +35,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/about/about-us/"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     About Us
                   </a>
@@ -42,7 +43,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/updates"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Program Updates
                   </a>
@@ -50,7 +51,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://geo.btaa.org/feedback"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Contact Us
                   </a>
@@ -58,7 +59,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/guides/"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Help Guides
                   </a>
@@ -66,7 +67,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/tutorials"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Tutorials
                   </a>
@@ -80,7 +81,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/policies/harmful-language"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Harmful Language Statement
                   </a>
@@ -88,7 +89,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://btaa.org/privacy"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Privacy Statement
                   </a>
@@ -96,7 +97,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/policies/collection-development"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Collection Development
                   </a>
@@ -110,7 +111,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://btaa.org/"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     Big Ten Academic Alliance
                   </a>
@@ -118,7 +119,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://gin.btaa.org/"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     BTAA Geospatial Information Network
                   </a>
@@ -126,7 +127,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>
                   <a
                     href="https://lib.umn.edu/"
-                    className="hover:text-blue-200 hover:underline"
+                    className={footerLinkClass}
                   >
                     University of Minnesota Libraries
                   </a>
@@ -138,7 +139,7 @@ function BtaaFooter({ id }: FooterProps) {
               <h3 className="font-bold text-lg mb-3 text-white">
                 BTAA Member Libraries
               </h3>
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-white">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs text-white/85">
                 <li>Indiana University</li>
                 <li>Michigan State University</li>
                 <li>Northwestern University</li>
@@ -162,28 +163,28 @@ function BtaaFooter({ id }: FooterProps) {
         </div>
 
         {/* Divider */}
-        <hr className="border-white my-8" />
+        <hr className="border-white/20 my-10" />
 
         {/* Bottom Section: App Controls & Copyright */}
-        <div className="flex flex-col md:flex-row justify-between items-end gap-6 text-sm">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-8 text-sm">
           {/* Copyright & API Info */}
           <div className="flex flex-col gap-4 w-full md:w-auto">
-            <div className="text-blue-200">
+            <div className="text-white/70">
               © {new Date().getFullYear()} Big Ten Academic Alliance. All rights
               reserved.
             </div>
 
             {/* API Debug Info */}
             {lastApiUrl ? (
-              <div className="flex items-center gap-2 bg-[#002a41] rounded px-3 py-1.5 border border-blue-900/50 w-full md:w-fit">
-                <span className="text-xs uppercase tracking-wider font-semibold text-blue-400 shrink-0">
+              <div className="flex items-center gap-2 bg-[#002a41] rounded px-3 py-1.5 border border-white/15 w-full md:w-fit">
+                <span className="text-xs uppercase tracking-wider font-semibold text-white/60 shrink-0">
                   API:
                 </span>
                 <a
                   href={lastApiUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="truncate text-xs font-mono text-blue-300 hover:text-white transition-colors flex items-center gap-1 group"
+                  className="truncate text-xs font-mono text-white/75 hover:text-white transition-colors flex items-center gap-1 group"
                 >
                   <span className="truncate max-w-[200px] sm:max-w-[400px]">
                     {lastApiUrl}
@@ -195,18 +196,18 @@ function BtaaFooter({ id }: FooterProps) {
                 </a>
               </div>
             ) : (
-              <div className="text-xs text-blue-400 italic">
+              <div className="text-xs text-white/60 italic">
                 No API requests yet
               </div>
             )}
           </div>
 
           {/* App Tools (Theme) */}
-          <div className="flex flex-wrap items-center gap-6 bg-[#002a41] px-4 py-3 rounded-lg border border-blue-900/30">
+          <div className="flex flex-wrap items-center gap-6 bg-[#002a41] px-4 py-3 rounded-lg border border-white/15">
             {/* Theme Selector */}
             <div className="flex items-center gap-2">
               <label
-                className="text-xs text-blue-300 uppercase font-semibold tracking-wider"
+                className="text-xs text-white/70 uppercase font-semibold tracking-wider"
                 htmlFor="theme-select"
               >
                 Theme:
@@ -233,12 +234,12 @@ function BtaaFooter({ id }: FooterProps) {
             {/* View in Portal Link (Contextual) */}
             {id && (
               <>
-                <div className="h-4 w-px bg-blue-800"></div>
+                <div className="h-4 w-px bg-white/25"></div>
                 <a
                   href={`https://geo.btaa.org/catalog/${id}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs text-blue-300 hover:text-white transition-colors flex items-center gap-1 uppercase font-semibold tracking-wider"
+                  className="text-xs text-white/75 hover:text-white transition-colors flex items-center gap-1 uppercase font-semibold tracking-wider"
                 >
                   View Original
                   <ExternalLink size={10} />
