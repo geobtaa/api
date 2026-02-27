@@ -49,6 +49,8 @@ describe('GinBlogSection', () => {
     expect(
       screen.getByRole('link', { name: /view all stories/i })
     ).toHaveAttribute('href', 'https://gin.btaa.org/blog/');
+    expect(screen.queryAllByText(/2026|jan|feb/i)).toHaveLength(0);
+    expect(document.querySelector('time')).toBeNull();
   });
 
   it('renders loading state', () => {

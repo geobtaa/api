@@ -13,16 +13,6 @@ interface GinBlogSectionProps {
   ctaUrl: string;
 }
 
-function formatPublishedDate(value: string): string {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return '';
-  return parsed.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-  });
-}
-
 function BlogImage({ post, featured }: { post: HomeBlogPost; featured: boolean }) {
   const [failed, setFailed] = useState(false);
   const hasImage = !!post.image_url && !failed;
@@ -54,7 +44,6 @@ function BlogCard({
   post: HomeBlogPost;
   featured?: boolean;
 }) {
-  const published = formatPublishedDate(post.published_at);
   const categoryLabel =
     post.category === 'update' ? 'Program Update' : 'Collection Highlight';
 
@@ -77,9 +66,6 @@ function BlogCard({
         </div>
 
         <div className="absolute inset-x-0 bottom-0 z-10 p-3.5 sm:p-4">
-          <div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.11em] text-slate-100/90">
-            {published && <time dateTime={post.published_at}>{published}</time>}
-          </div>
           <h3
             className={`${
               featured ? 'text-lg sm:text-xl lg:text-2xl' : 'text-base sm:text-lg'
