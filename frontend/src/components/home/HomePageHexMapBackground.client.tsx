@@ -473,6 +473,7 @@ export function HomePageHexMapBackground() {
               typeof window !== 'undefined' ? window.location.search : undefined
             }
             loading={hexDataForTable.loading}
+            stackOrder="beforeBasemap"
             onToggle={(enabled) => {
               setHexLayerEnabled(enabled);
               if (!enabled) {

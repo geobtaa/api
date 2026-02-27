@@ -716,6 +716,7 @@ export function GeospatialFilterMap() {
           searchQuery={searchParams.get('q') ?? ''}
           queryString={searchParams.toString()}
           loading={hexLoading}
+          stackOrder="beforeBasemap"
           onToggle={(enabled) => {
             setHexLayerEnabled(enabled);
           }}

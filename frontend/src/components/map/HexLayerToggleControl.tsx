@@ -14,6 +14,7 @@ interface HexLayerToggleControlProps {
   queryString?: string;
   loading?: boolean;
   mapInstance?: L.Map | null;
+  stackOrder?: 'default' | 'beforeBasemap';
 }
 
 export function HexLayerToggleControl({
@@ -25,6 +26,7 @@ export function HexLayerToggleControl({
   queryString,
   loading,
   mapInstance,
+  stackOrder = 'default',
 }: HexLayerToggleControlProps) {
   const context = useContext(LeafletContext);
   const map = context?.map ?? mapInstance ?? null;
@@ -47,13 +49,25 @@ export function HexLayerToggleControl({
       position: 'topleft' as L.ControlPosition,
     });
     control.addTo(map);
-    setContainer(control.getContainer());
+    const controlContainer = control.getContainer();
+    if (stackOrder === 'beforeBasemap') {
+      const cornerContainer = controlContainer?.parentElement;
+      if (cornerContainer && controlContainer) {
+        const basemapControl = cornerContainer.querySelector(
+          '.leaflet-control-layers'
+        );
+        if (basemapControl) {
+          cornerContainer.insertBefore(controlContainer, basemapControl);
+        }
+      }
+    }
+    setContainer(controlContainer);
 
     return () => {
       control.remove();
       setContainer(null);
     };
-  }, [map]);
+  }, [map, stackOrder]);
 
   if (!container) return null;
 
