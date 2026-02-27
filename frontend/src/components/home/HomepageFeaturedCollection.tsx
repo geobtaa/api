@@ -11,7 +11,7 @@ const SANBORN_SEARCH_URL = `/search?include_filters[pcdm_memberOf_sm][]=${encode
   SANBORN_COLLECTION_ID
 )}&view=gallery&per_page=20`;
 const BTAA_HISTORICAL_MAPS_COLLECTION_ID =
-  '64bd8c4c-8e60-4956-b43d-bdc3f93db488';
+  '64bd8c4c-8e60-4956-b43d-bdc3f93db4883';
 const BTAA_HISTORICAL_MAPS_COLLECTION_URL = `/resources/${BTAA_HISTORICAL_MAPS_COLLECTION_ID}`;
 const BTAA_HISTORICAL_FEATURED_ITEM_URL =
   '/resources/a10a0f50-994e-0134-2096-0050569601ca-c';
@@ -22,7 +22,7 @@ const BTAA_HISTORICAL_MAPS_SEARCH_URL = `/search?include_filters[pcdm_memberOf_s
 )}&view=gallery&per_page=20`;
 const URBAN_BASE_LAYERS_COLLECTION_ID = 'b1g_urbanBaseLayers';
 const URBAN_BASE_LAYERS_COLLECTION_URL =
-  '/resources/b1g_urbanBaseLayers';
+  'https://geo.btaa.org/catalog/b1g_urbanBaseLayers';
 const URBAN_BASE_LAYERS_FEATURED_ITEM_URL = '/resources/b1g_cUc3IBtJNisJ';
 const URBAN_BASE_LAYERS_FEATURED_ITEM_TITLE =
   'Building footprints [Pennsylvania--Philadelphia] {2025}';
@@ -192,7 +192,7 @@ function CollectionPreview({
   );
 }
 
-export function SanbornFeaturedCollection() {
+export function HomepageFeaturedCollection() {
   return (
     <section className="w-full bg-white px-4 py-10 sm:px-6 lg:px-8">
       <div className="w-full">

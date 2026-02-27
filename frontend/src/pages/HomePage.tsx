@@ -12,7 +12,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { Seo } from '../components/Seo';
 import { GinBlogSection } from '../components/home/GinBlogSection';
-import { SanbornFeaturedCollection } from '../components/home/SanbornFeaturedCollection';
+import { HomepageFeaturedCollection } from '../components/home/HomepageFeaturedCollection';
 import { FacetMoreModal } from '../components/search/FacetMoreModal';
 
 const HomePageHexMapBackground = lazy(() =>
@@ -378,7 +378,7 @@ export function HomePage() {
             </div>
           )}
         </div>
-        <SanbornFeaturedCollection />
+        <HomepageFeaturedCollection />
         {/* Browse All Resources section */}
         <div className="flex-shrink-0 w-full border-y border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10">
           <div>

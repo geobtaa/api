@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/react';
-import { SanbornFeaturedCollection } from '../../../components/home/SanbornFeaturedCollection';
+import { HomepageFeaturedCollection } from '../../../components/home/HomepageFeaturedCollection';
 
-describe('SanbornFeaturedCollection', () => {
+describe('HomepageFeaturedCollection', () => {
   it('renders all highlighted collections and CTA links', () => {
-    render(<SanbornFeaturedCollection />);
+    render(<HomepageFeaturedCollection />);
 
     expect(
       screen.getByRole('heading', { name: /sanborn fire insurance maps/i })
