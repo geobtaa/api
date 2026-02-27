@@ -17,6 +17,27 @@ vi.mock('../../../components/map/BasemapSwitcherControl', () => ({
   BasemapSwitcherControl: () => null,
 }));
 
+vi.mock('../../../components/map/HexLayerToggleControl', () => ({
+  HexLayerToggleControl: ({
+    enabled,
+    onToggle,
+  }: {
+    enabled: boolean;
+    onToggle: (enabled: boolean) => void;
+  }) => (
+    <div>
+      <div data-testid="homepage-hex-enabled-state">{String(enabled)}</div>
+      <button
+        type="button"
+        data-testid="homepage-hex-toggle-btn"
+        onClick={() => onToggle(!enabled)}
+      >
+        Toggle homepage hex
+      </button>
+    </div>
+  ),
+}));
+
 const mockPane = document.createElement('div');
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => (
@@ -107,6 +128,7 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
 
   beforeEach(() => {
     vi.useRealTimers();
+    localStorage.clear();
     vi.mocked(api.fetchResourceDetails).mockImplementation((id: string) => {
       const idx = FEATURED_RESOURCE_IDS.indexOf(id);
       return Promise.resolve(
@@ -153,6 +175,24 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     expect(carousel).toBeInTheDocument();
     expect(carousel).toHaveAttribute('aria-roledescription', 'carousel');
     expect(getPlayPauseButton()).toBeInTheDocument();
+  });
+
+  it('restores and persists homepage hex layer preference via localStorage', async () => {
+    localStorage.setItem('hex_layer_enabled', '0');
+    renderCarousel();
+
+    expect(
+      await screen.findByTestId('homepage-hex-enabled-state')
+    ).toHaveTextContent('false');
+
+    await user.click(screen.getByTestId('homepage-hex-toggle-btn'));
+
+    await waitFor(() => {
+      expect(localStorage.getItem('hex_layer_enabled')).toBe('1');
+    });
+    expect(screen.getByTestId('homepage-hex-enabled-state')).toHaveTextContent(
+      'true'
+    );
   });
 
   it('clicking a featured item thumbnail highlights it without starting the animation', async () => {

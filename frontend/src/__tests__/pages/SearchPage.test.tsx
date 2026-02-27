@@ -55,6 +55,10 @@ vi.mock('../../components/search/GalleryView', () => ({
   ),
 }));
 
+vi.mock('../../components/search/MapResultView', () => ({
+  MapResultView: () => <div data-testid="map-result-view">Map Result View</div>,
+}));
+
 const mockResults: GeoDocument[] = Array.from({ length: 40 }, (_, i) => ({
   type: 'file',
   id: `result-${i + 1}`,
@@ -95,6 +99,8 @@ describe('SearchPage Logic', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
     getItemSpy = vi.spyOn(sessionStorage, 'getItem');
     setItemSpy = vi.spyOn(sessionStorage, 'setItem');
   });
@@ -144,6 +150,29 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByTestId('search-results-list')).toBeInTheDocument();
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
+  });
+
+  it('restores saved map view preference when URL has no view param', async () => {
+    localStorage.setItem('b1g_view_preference', 'map');
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?q=', results);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('map-result-view')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
+  });
+
+  it('restores saved gallery view preference when URL has no view param', async () => {
+    localStorage.setItem('b1g_view_preference', 'gallery');
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?q=', results);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('gallery-view')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('search-results-list')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('map-result-view')).not.toBeInTheDocument();
   });
 
   it('displays correct pagination text for initial gallery load', async () => {

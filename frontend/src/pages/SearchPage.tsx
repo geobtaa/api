@@ -256,26 +256,32 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   const shouldShowSearchingPlaceholder =
     !error && hasAnySearchCriteria && !searchResults && !isLoading;
 
-  // Restore view preference from local storage on mount
+  // Restore view preference whenever URL lacks a view param.
+  // This keeps preferred layout sticky even when new searches navigate to /search?q=...
   useEffect(() => {
-    // Only restore if no view param is present in the URL
-    if (!searchParams.has('view')) {
-      const savedView = localStorage.getItem(
-        'b1g_view_preference'
-      ) as ViewMode | null;
-      if (savedView && savedView !== 'list') {
-        // We need to apply the saved view.
-        // We can't use updateSearch easily here because of closure/deps,
-        // but we can use setSearchParams directly.
-        const next = new URLSearchParams(searchParams);
-        next.set('view', savedView);
-        if (savedView === 'gallery') {
-          next.set('per_page', '20');
-        }
-        setSearchParams(next, { replace: true });
-      }
+    if (searchParams.has('view')) return;
+
+    const savedView = localStorage.getItem(
+      'b1g_view_preference'
+    ) as ViewMode | null;
+    if (!savedView) return;
+
+    const next = new URLSearchParams(searchParams);
+
+    if (savedView === 'gallery' || savedView === 'map') {
+      next.set('view', savedView);
+      if (savedView === 'gallery') next.set('per_page', '20');
+      else next.delete('per_page');
+      setSearchParams(next, { replace: true });
+      return;
     }
-  }, []); // Run once on mount
+
+    // savedView === 'list' should behave as explicit default.
+    if (next.has('per_page')) {
+      next.delete('per_page');
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const updateSearch = ({
     query,

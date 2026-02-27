@@ -31,6 +31,10 @@ import { getResourceIcon } from '../../utils/resourceIcons';
 import { ResultCardPill } from '../search/ResultCardPill';
 import { formatCount } from '../../utils/formatNumber';
 import { parseBboxToLeafletBounds } from '../../utils/bbox';
+import {
+  getSavedHexLayerEnabled,
+  saveHexLayerEnabled,
+} from '../../utils/hexLayerPreference';
 import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
@@ -345,7 +349,9 @@ export function HomePageHexMapBackground() {
     loading: boolean;
   }>({ hexes: [], resolution: 6, loading: false });
   const [hoveredHex, setHoveredHex] = useState<HexHoverData | null>(null);
-  const [hexLayerEnabled, setHexLayerEnabled] = useState(true);
+  const [hexLayerEnabled, setHexLayerEnabled] = useState(
+    getSavedHexLayerEnabled
+  );
   const initialHomeViewRef = useRef<{
     center: [number, number];
     zoom: number;
@@ -371,6 +377,10 @@ export function HomePageHexMapBackground() {
   useEffect(() => {
     carouselPausedRef.current = carouselPaused;
   }, [carouselPaused]);
+
+  useEffect(() => {
+    saveHexLayerEnabled(hexLayerEnabled);
+  }, [hexLayerEnabled]);
 
   useEffect(() => {
     if (userEngagedMap) userEngagedMapRef.current = true;
