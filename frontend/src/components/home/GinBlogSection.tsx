@@ -62,7 +62,7 @@ function BlogCard({
       href={post.url}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block overflow-hidden border border-slate-700/60 bg-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-brand-active/60 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+      className="group block overflow-hidden bg-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
     >
       <div className="relative">
         <BlogImage post={post} featured={featured} />

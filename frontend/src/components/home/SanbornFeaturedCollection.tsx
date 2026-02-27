@@ -112,7 +112,7 @@ function TiltedPreviewCard({
           <div className="pointer-events-none absolute -left-[8%] top-[-12%] h-[150%] w-[1px] rotate-[14deg] bg-white/25" />
           <div className="pointer-events-none absolute -right-[6%] top-[-10%] h-[150%] w-[1px] rotate-[14deg] bg-white/20" />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/75 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 border-t border-white/20 bg-[#003C5B]/90 px-4 py-3 shadow-md backdrop-blur-[1px]">
+          <div className="absolute inset-x-0 bottom-0 bg-[#003C5B]/90 px-4 py-3 shadow-md backdrop-blur-[1px]">
             <p className="text-sm font-semibold text-white">{featuredItemTitle}</p>
           </div>
         </div>
@@ -193,7 +193,7 @@ function CollectionPreview({
 
 export function SanbornFeaturedCollection() {
   return (
-    <section className="w-full border-t border-slate-200 bg-white px-4 py-12 sm:px-6 lg:px-8">
+    <section className="w-full bg-white px-4 py-12 sm:px-6 lg:px-8">
       <div className="w-full">
         <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <h2 className="text-2xl font-semibold text-gray-900 sm:text-3xl">

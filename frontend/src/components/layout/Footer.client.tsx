@@ -25,9 +25,9 @@ function BtaaFooter({ id }: FooterProps) {
             </a>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 text-sm">
             <div>
-              <h3 className="font-bold text-lg mb-3 text-blue-100">
+              <h3 className="font-bold text-lg mb-3 text-white">
                 About & Help
               </h3>
               <ul className="space-y-2">
@@ -75,7 +75,7 @@ function BtaaFooter({ id }: FooterProps) {
             </div>
 
             <div>
-              <h3 className="font-bold text-lg mb-3 text-blue-100">Policies</h3>
+              <h3 className="font-bold text-lg mb-3 text-white">Policies</h3>
               <ul className="space-y-2">
                 <li>
                   <a
@@ -105,7 +105,7 @@ function BtaaFooter({ id }: FooterProps) {
             </div>
 
             <div>
-              <h3 className="font-bold text-lg mb-3 text-blue-100">Sponsors</h3>
+              <h3 className="font-bold text-lg mb-3 text-white">Sponsors</h3>
               <ul className="space-y-2">
                 <li>
                   <a
@@ -134,11 +134,11 @@ function BtaaFooter({ id }: FooterProps) {
               </ul>
             </div>
 
-            <div>
-              <h3 className="font-bold text-lg mb-3 text-blue-100">
+            <div className="lg:col-span-2">
+              <h3 className="font-bold text-lg mb-3 text-white">
                 BTAA Member Libraries
               </h3>
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-blue-100/90">
+              <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-white">
                 <li>Indiana University</li>
                 <li>Michigan State University</li>
                 <li>Northwestern University</li>

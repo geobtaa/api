@@ -290,7 +290,7 @@ export function HomePage() {
               <button
                 key={`${title.toLowerCase()}-${item.value}`}
                 onClick={() => onClick(item.value)}
-                className="relative flex w-full items-center gap-2 overflow-hidden border border-gray-200 bg-white px-3 py-2 text-left transition-all group hover:border-brand-active hover:shadow-sm"
+                className="relative flex w-full items-center gap-2 overflow-hidden border border-gray-200 border-l-[2px] border-l-[#003C5B] bg-white px-3 py-2 text-left transition-all group hover:border-brand-active hover:shadow-sm"
                 aria-label={rowAriaLabel}
               >
                 <div
@@ -432,19 +432,6 @@ export function HomePage() {
             </div>
           </div>
         </div>
-        {blogEnabled && (
-          <div className="w-full border-t border-gray-200">
-            <GinBlogSection
-              posts={blogPosts}
-              loading={blogLoading}
-              error={blogError}
-              title={blogCfg?.title || 'BTAA GIN News & Stories'}
-              subtitle={blogCfg?.subtitle}
-              ctaLabel={blogCfg?.cta_label || 'View all stories'}
-              ctaUrl={blogCfg?.cta_url || 'https://gin.btaa.org/blog/'}
-            />
-          </div>
-        )}
         <section className="w-full border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-6">
           <div className="w-full">
             <p className="text-xs font-semibold tracking-[0.16em] text-brand-primary uppercase text-center mb-2">
@@ -488,6 +475,19 @@ export function HomePage() {
             </ul>
           </div>
         </section>
+        {blogEnabled && (
+          <div className="w-full border-t border-gray-200">
+            <GinBlogSection
+              posts={blogPosts}
+              loading={blogLoading}
+              error={blogError}
+              title={blogCfg?.title || 'BTAA GIN News & Stories'}
+              subtitle={blogCfg?.subtitle}
+              ctaLabel={blogCfg?.cta_label || 'View all stories'}
+              ctaUrl={blogCfg?.cta_url || 'https://gin.btaa.org/blog/'}
+            />
+          </div>
+        )}
       </main>
 
       {activeFacetModal && (
