@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { leafletViewerOptions } from '../../config/leafletConfig';
 import { MetadataTable } from './MetadataTable';
-import { transformExtent, fromLonLat } from 'ol/proj';
+import { transformExtent } from 'ol/proj';
 
 interface ResourceViewerProps {
   data: {
@@ -343,8 +343,6 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                       }
                     );
 
-                    let appliedCenterFallback = false;
-
                     // Fit to known geometry extent, retrying after render when size is stable.
                     const fitToGeometryExtent = (reason: string) => {
                       const map = controller.map;
@@ -385,50 +383,6 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                                 duration: 0, // Instant, no animation
                               });
                               console.log(`View fit to extent (${reason})`);
-
-                              // If another lifecycle step resets to a world view,
-                              // force center/zoom from the geometry centroid once.
-                              setTimeout(() => {
-                                if (appliedCenterFallback) return;
-                                const currentCenter = view.getCenter?.();
-                                const currentZoom = view.getZoom?.() ?? 0;
-                                if (!currentCenter || currentCenter.length < 2) {
-                                  return;
-                                }
-
-                                const centerLon = (minX + maxX) / 2;
-                                const centerLat = (minY + maxY) / 2;
-                                const expectedCenter =
-                                  projectionCode === 'EPSG:4326'
-                                    ? [centerLon, centerLat]
-                                    : fromLonLat([centerLon, centerLat]);
-
-                                const dx = currentCenter[0] - expectedCenter[0];
-                                const dy = currentCenter[1] - expectedCenter[1];
-                                const distance = Math.sqrt(dx * dx + dy * dy);
-                                const tooFar =
-                                  projectionCode === 'EPSG:4326'
-                                    ? distance > 10
-                                    : distance > 2000000;
-                                const tooZoomedOut = currentZoom < 5;
-
-                                if (tooFar || tooZoomedOut) {
-                                  view.setCenter?.(expectedCenter as number[]);
-                                  if (currentZoom < 10) {
-                                    view.setZoom?.(10);
-                                  }
-                                  appliedCenterFallback = true;
-                                  console.log(
-                                    `Applied center/zoom fallback (${reason})`,
-                                    {
-                                      projectionCode,
-                                      currentCenter,
-                                      currentZoom,
-                                      expectedCenter,
-                                    }
-                                  );
-                                }
-                              }, 0);
                             }
                           }
                         }
@@ -450,6 +404,15 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                       }, 50);
                     }
                     setTimeout(() => fitToGeometryExtent('post-init-timeout'), 250);
+                    // One final guarded refit: only if still at obvious world-view zoom.
+                    setTimeout(() => {
+                      const map = controller.map;
+                      const view = map?.getView?.();
+                      const zoom = view?.getZoom?.() ?? 0;
+                      if (zoom <= 3.5) {
+                        fitToGeometryExtent('world-view-guard');
+                      }
+                    }, 900);
 
                     // Check if the map was created and inspect its state
                     setTimeout(() => {
