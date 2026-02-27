@@ -343,6 +343,8 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                       }
                     );
 
+                    let appliedCenterFallback = false;
+
                     // Fit to known geometry extent, retrying after render when size is stable.
                     const fitToGeometryExtent = (reason: string) => {
                       const map = controller.map;
@@ -354,12 +356,19 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             preCalculatedExtent || controller.extent;
                           if (extent && extent.length === 4) {
                             const [minX, minY, maxX, maxY] = extent;
-                            const wgs84Extent = [minX, minY, maxX, maxY];
-                            const webMercatorExtent = transformExtent(
-                              wgs84Extent,
-                              'EPSG:4326',
-                              'EPSG:3857'
-                            );
+                            const wgs84Extent: [number, number, number, number] =
+                              [minX, minY, maxX, maxY];
+                            const projectionCode =
+                              view.getProjection?.()?.getCode?.() ||
+                              'EPSG:3857';
+                            const targetExtent =
+                              projectionCode === 'EPSG:4326'
+                                ? wgs84Extent
+                                : transformExtent(
+                                    wgs84Extent,
+                                    'EPSG:4326',
+                                    projectionCode
+                                  );
 
                             map.updateSize?.();
                             const size = map.getSize();
@@ -369,13 +378,57 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                               size[0] > 0 &&
                               size[1] > 0
                             ) {
-                              view.fit(webMercatorExtent, {
+                              view.fit(targetExtent, {
                                 size: size,
                                 padding: [50, 50, 50, 50],
                                 maxZoom: 14,
                                 duration: 0, // Instant, no animation
                               });
                               console.log(`View fit to extent (${reason})`);
+
+                              // If another lifecycle step resets to a world view,
+                              // force center/zoom from the geometry centroid once.
+                              setTimeout(() => {
+                                if (appliedCenterFallback) return;
+                                const currentCenter = view.getCenter?.();
+                                const currentZoom = view.getZoom?.() ?? 0;
+                                if (!currentCenter || currentCenter.length < 2) {
+                                  return;
+                                }
+
+                                const centerLon = (minX + maxX) / 2;
+                                const centerLat = (minY + maxY) / 2;
+                                const expectedCenter =
+                                  projectionCode === 'EPSG:4326'
+                                    ? [centerLon, centerLat]
+                                    : fromLonLat([centerLon, centerLat]);
+
+                                const dx = currentCenter[0] - expectedCenter[0];
+                                const dy = currentCenter[1] - expectedCenter[1];
+                                const distance = Math.sqrt(dx * dx + dy * dy);
+                                const tooFar =
+                                  projectionCode === 'EPSG:4326'
+                                    ? distance > 10
+                                    : distance > 2000000;
+                                const tooZoomedOut = currentZoom < 5;
+
+                                if (tooFar || tooZoomedOut) {
+                                  view.setCenter?.(expectedCenter as number[]);
+                                  if (currentZoom < 10) {
+                                    view.setZoom?.(10);
+                                  }
+                                  appliedCenterFallback = true;
+                                  console.log(
+                                    `Applied center/zoom fallback (${reason})`,
+                                    {
+                                      projectionCode,
+                                      currentCenter,
+                                      currentZoom,
+                                      expectedCenter,
+                                    }
+                                  );
+                                }
+                              }, 0);
                             }
                           }
                         }
