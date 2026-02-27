@@ -36,6 +36,23 @@ NEAR_GLOBAL_DIAGONAL_KM = 15_000
 MIN_BBOX_IOU_OVERLAP_RATIO = float(os.getenv("MIN_BBOX_IOU_OVERLAP_RATIO", "0.001"))
 ALLOWED_GEO_RELATIONS = {"intersects", "within", "contains", "disjoint"}
 
+
+def _escape_query_string_brackets(query_text: str) -> str:
+    """Escape bracket-like literals for Elasticsearch query_string queries.
+
+    query_string treats [] and {} as special syntax (ranges/expressions), which can
+    cause literal bracketed text in titles to be parsed unexpectedly and return zero hits.
+    """
+    if not query_text:
+        return query_text
+    return (
+        query_text.replace("\\", r"\\")
+        .replace("[", r"\[")
+        .replace("]", r"\]")
+        .replace("{", r"\{")
+        .replace("}", r"\}")
+    )
+
 # Fields that should use their `.keyword` subfield for aggregations and filters
 # Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
 KEYWORD_FILTER_FIELDS = {
@@ -452,7 +469,7 @@ def _build_advanced_query(adv_q: list) -> dict:
             # so use the original query text
             query_clause = {
                 "query_string": {
-                    "query": query,
+                    "query": _escape_query_string_brackets(query),
                     "fields": ALL_FIELDS_SEARCH_FIELDS,
                     "default_operator": "AND",
                     "analyze_wildcard": True,
@@ -883,7 +900,7 @@ async def search_resources(
                 must_clauses.append(
                     {
                         "query_string": {
-                            "query": query_text,
+                            "query": _escape_query_string_brackets(query_text),
                             "fields": [
                                 "id^5",
                                 "dct_title_s^3",
@@ -1587,10 +1604,11 @@ async def map_h3_aggregation(
 
     must = [{"match_all": {}}]
     if q and str(q).strip():
+        escaped_q = _escape_query_string_brackets(str(q).strip())
         must = [
             {
                 "query_string": {
-                    "query": str(q).strip(),
+                    "query": escaped_q,
                     "fields": [
                         "id^5",
                         "dct_title_s^3",
@@ -2022,7 +2040,7 @@ async def get_facet_values(
         must_clauses.append(
             {
                 "query_string": {
-                    "query": query_text,
+                    "query": _escape_query_string_brackets(query_text),
                     "fields": [
                         "id^5",
                         "dct_title_s^3",

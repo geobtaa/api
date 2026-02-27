@@ -8,6 +8,7 @@ import pytest
 
 from app.elasticsearch.search import (
     MIN_BBOX_IOU_OVERLAP_RATIO,
+    _escape_query_string_brackets,
     get_search_criteria,
     search_resources,
 )
@@ -15,6 +16,18 @@ from app.elasticsearch.search import (
 
 class TestElasticsearchSearch:
     """Test cases for Elasticsearch search functionality."""
+
+    def test_escape_query_string_brackets(self):
+        """Literal [] in user queries should be escaped for query_string."""
+        query = "Michigan Aquaculture Testing Veterinarians [Michigan]"
+        escaped = _escape_query_string_brackets(query)
+        assert escaped == r"Michigan Aquaculture Testing Veterinarians \[Michigan\]"
+
+    def test_escape_query_string_curly_braces(self):
+        """Literal {} in user queries should be escaped for query_string."""
+        query = "Precipitation (08) [Minnesota] {1991-2020 August}"
+        escaped = _escape_query_string_brackets(query)
+        assert escaped == r"Precipitation (08) \[Minnesota\] \{1991-2020 August\}"
 
     def test_get_search_criteria(self):
         """Test the get_search_criteria function."""
@@ -742,6 +755,68 @@ class TestElasticsearchSearch:
                 # Verify query_string receives the phrase query with quotes
                 query_string_clause = search_query["bool"]["must"][0]["query_string"]
                 assert query_string_clause["query"] == '"Lake Superior"'
+
+    @pytest.mark.asyncio
+    async def test_search_resources_escapes_square_brackets_for_query_string(self):
+        """Bracketed text should be treated as literal, not query syntax."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query="Michigan Aquaculture Testing Veterinarians [Michigan]",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == (
+                    r"Michigan Aquaculture Testing Veterinarians \[Michigan\]"
+                )
+
+    @pytest.mark.asyncio
+    async def test_search_resources_escapes_curly_braces_for_query_string(self):
+        """Curly-braced text should be treated as literal, not query syntax."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query="Precipitation (08) [Minnesota] {1991-2020 August}",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == (
+                    r"Precipitation (08) \[Minnesota\] \{1991-2020 August\}"
+                )
 
     @pytest.mark.asyncio
     async def test_query_string_has_correct_parameters(self):
