@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { wktToGeoJSON, normalizeGeometry } from '../../utils/geometryUtils';
+import {
+  wktToGeoJSON,
+  normalizeGeometry,
+  getCentroidFromGeometry,
+} from '../../utils/geometryUtils';
 
 describe('geometryUtils', () => {
   beforeEach(() => {
@@ -510,6 +514,69 @@ describe('geometryUtils', () => {
 
         consoleSpy.mockRestore();
       });
+    });
+  });
+
+  describe('getCentroidFromGeometry', () => {
+    it('returns centroid for GeoJSON Point', () => {
+      const geom = { type: 'Point', coordinates: [-71.0935, 42.3601] };
+      expect(getCentroidFromGeometry(geom)).toEqual([42.3601, -71.0935]);
+    });
+
+    it('returns bbox center for GeoJSON Polygon', () => {
+      const geom = {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-96.796, 48.756],
+            [-90.379, 48.756],
+            [-90.379, 43.429],
+            [-96.796, 43.429],
+            [-96.796, 48.756],
+          ],
+        ],
+      };
+      const result = getCentroidFromGeometry(geom);
+      expect(result).toEqual([46.0925, -93.5875]); // center of bbox
+    });
+
+    it('returns centroid for ENVELOPE string', () => {
+      const envelope = 'ENVELOPE(-96.796, -90.379, 48.756, 43.429)';
+      const result = getCentroidFromGeometry(envelope);
+      expect(result).toEqual([46.0925, -93.5875]);
+    });
+
+    it('returns centroid for GeoJSON string', () => {
+      const json = '{"type":"Point","coordinates":[-74.006,40.7128]}';
+      expect(getCentroidFromGeometry(json)).toEqual([40.7128, -74.006]);
+    });
+
+    it('returns null for null or undefined', () => {
+      expect(getCentroidFromGeometry(null)).toBeNull();
+      expect(getCentroidFromGeometry(undefined)).toBeNull();
+    });
+
+    it('returns null for invalid geometry', () => {
+      expect(getCentroidFromGeometry('')).toBeNull();
+      expect(getCentroidFromGeometry('not-valid')).toBeNull();
+      expect(getCentroidFromGeometry('{}')).toBeNull();
+    });
+
+    it('returns bbox center for LineString', () => {
+      const geom = {
+        type: 'LineString',
+        coordinates: [
+          [-100, 40],
+          [-90, 45],
+        ],
+      };
+      const result = getCentroidFromGeometry(geom);
+      expect(result).toEqual([42.5, -95]);
+    });
+
+    it('returns null for coordinates outside valid range', () => {
+      const geom = { type: 'Point', coordinates: [200, 100] };
+      expect(getCentroidFromGeometry(geom)).toBeNull();
     });
   });
 });

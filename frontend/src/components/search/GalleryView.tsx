@@ -31,13 +31,11 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   const observerTarget = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
-  // Calculate absolute index in full result set
+  // Calculate absolute index in full result set (1-based)
   // Uses startPage (if provided) to determine offset of the start of the list
   const getAbsoluteIndex = (relativeIndex: number) => {
-    const page = startPage || 1;
-    const effectivePerPage = 20;
-    const idx = (page - 1) * effectivePerPage + relativeIndex + 1;
-    return { idx, page, effectivePerPage };
+    const page = startPage || currentPage;
+    return (page - 1) * perPage + relativeIndex + 1;
   };
 
   useEffect(() => {
@@ -182,7 +180,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
           const thumbnailUrl = getThumbnailUrl(r);
           const ssrThumbnailUrl = toSsrThumbnailUrl(thumbnailUrl);
-          const { idx: absIndex } = getAbsoluteIndex(index);
+          const absIndex = getAbsoluteIndex(index);
           const bookmarked = isBookmarked(r.id);
 
           return (
@@ -199,7 +197,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   totalResults: totalResults,
                   searchUrl: location.pathname + location.search,
                   currentPage: currentPage,
-                  perPage: 20, // Explicitly pass gallery view page size
+                  perPage: perPage,
                 }}
                 className="flex flex-col flex-1"
               >
@@ -254,6 +252,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     className="text-sm font-semibold text-blue-600 hover:text-blue-800 line-clamp-2 mb-2 leading-snug"
                     title={typeof title === 'string' ? title : String(title)}
                   >
+                    <span className="text-sm text-slate-600 dark:text-slate-400 font-semibold mr-1">
+                      {absIndex}.
+                    </span>
                     {title}
                   </h3>
                   <div className="mt-auto">

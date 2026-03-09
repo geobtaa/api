@@ -70,7 +70,7 @@ type SearchPageProps = {
 
 // Create a separate component for the search content
 function SearchContent({ searchResults, isLoading }: SearchPageProps) {
-  const { hoveredResourceId } = useMap();
+  const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
 
@@ -644,6 +644,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       isLoading={isLoading}
                       totalResults={searchTotalResults}
                       currentPage={page}
+                      perPage={perPage}
                     />
                   )}
 
@@ -677,6 +678,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                           isLoading={isLoading}
                           totalResults={searchTotalResults}
                           currentPage={page}
+                          perPage={perPage}
                           variant="compact"
                         />
                         {/* Pagination for map view (inside scrollable column) */}
@@ -696,6 +698,8 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                         <MapResultView
                           results={searchResults?.data || []}
                           highlightedResourceId={hoveredResourceId}
+                          highlightedGeometry={hoveredGeometry}
+                          resultStartIndex={(page - 1) * perPage + 1}
                         />
                       </div>
                     </div>

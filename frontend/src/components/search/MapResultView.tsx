@@ -10,6 +10,8 @@ const MapResultViewClient = React.lazy(() =>
 interface MapResultViewProps {
   results: GeoDocument[];
   highlightedResourceId?: string | null;
+  highlightedGeometry?: string | null;
+  resultStartIndex?: number;
 }
 
 export function MapResultView(props: MapResultViewProps) {

@@ -15,6 +15,7 @@ interface SearchResultsProps {
   isLoading: boolean;
   totalResults: number;
   currentPage: number;
+  perPage?: number;
   variant?: 'default' | 'compact';
 }
 
@@ -23,6 +24,7 @@ export function SearchResults({
   isLoading,
   totalResults,
   currentPage,
+  perPage = 10,
   variant = 'default',
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
@@ -107,9 +109,9 @@ export function SearchResults({
     }
   };
 
-  // Calculate absolute index in full result set
+  // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
-    return (currentPage - 1) * 10 + relativeIndex + 1;
+    return (currentPage - 1) * perPage + relativeIndex + 1;
   };
 
   // Add debug logging
@@ -360,6 +362,12 @@ export function SearchResults({
                 )}
 
                 <div className="flex items-center gap-2 mb-2 pr-8">
+                  <span
+                    className={`flex-shrink-0 font-semibold text-slate-600 dark:text-slate-400 ${isCompact ? 'text-sm' : 'text-xl'}`}
+                    aria-hidden
+                  >
+                    {getAbsoluteIndex(index)}.
+                  </span>
                   <Link
                     to={`/resources/${result.id}`}
                     state={{
@@ -369,7 +377,7 @@ export function SearchResults({
                       totalResults: totalResults,
                       searchUrl: location.pathname + location.search,
                       currentPage: currentPage,
-                      perPage: 10, // Explicitly pass default page size
+                      perPage: perPage,
                     }}
                     className="flex-1"
                   >

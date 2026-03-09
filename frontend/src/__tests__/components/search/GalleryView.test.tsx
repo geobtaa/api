@@ -116,4 +116,25 @@ describe('GalleryView', () => {
     expect(pill).toHaveTextContent('Map');
     expect(pill).toHaveClass('bg-gray-600', 'text-white');
   });
+
+  describe('result numbers', () => {
+    it('displays result numbers before titles (e.g. 1. Result 1)', () => {
+      renderGallery({ perPage: 20 });
+      expect(screen.getByText('1.')).toBeInTheDocument();
+      expect(screen.getByText('2.')).toBeInTheDocument();
+      expect(screen.getByText('20.')).toBeInTheDocument();
+    });
+
+    it('uses perPage and startPage for numbering', () => {
+      renderGallery({
+        results: mockResults.slice(0, 10),
+        startPage: 2,
+        perPage: 10,
+        currentPage: 2,
+      });
+      // Page 2, 10 per page: results 11-20
+      expect(screen.getByText('11.')).toBeInTheDocument();
+      expect(screen.getByText('20.')).toBeInTheDocument();
+    });
+  });
 });

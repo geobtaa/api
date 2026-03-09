@@ -146,6 +146,7 @@ export function GeospatialFilterMap() {
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
         attributionControl: false,
+        minZoom: 1,
       });
       setMapInstance(mapRef.current);
       basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
@@ -348,7 +349,7 @@ export function GeospatialFilterMap() {
       // Hide search button when bbox is cleared
       setShowSearchButton(false);
 
-      // Show world view only if zoomed out
+      // Show world view only if zoomed out past minZoom
       if (mapRef.current.getZoom() < 1) {
         isUpdatingFromParamsRef.current = true;
         mapRef.current.setView([20, 0], 1);

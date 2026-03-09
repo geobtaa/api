@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
@@ -154,6 +155,14 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 describe('SearchResults Component', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'log').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   describe('Loading State', () => {
     it('displays loading spinner when isLoading is true', () => {
       render(
@@ -282,15 +291,72 @@ describe('SearchResults Component', () => {
             isLoading={false}
             totalResults={4}
             currentPage={2}
+            perPage={10}
           />
         </TestWrapper>
       );
 
-      // Page 2 should show results 11-14 (assuming 10 per page)
+      // Page 2 should show results 11-14 (10 per page)
       expect(screen.getByText('Result 11')).toBeInTheDocument();
       expect(screen.getByText('Result 12')).toBeInTheDocument();
       expect(screen.getByText('Result 13')).toBeInTheDocument();
       expect(screen.getByText('Result 14')).toBeInTheDocument();
+    });
+
+    it('displays visible result number before title (e.g. 1. Title)', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={4}
+            currentPage={1}
+            perPage={10}
+          />
+        </TestWrapper>
+      );
+
+      // First result should have "1." before the title
+      const firstTitle = screen.getByText(
+        'Nondigitized paper map with library catalog link'
+      );
+      expect(firstTitle.closest('article')).toHaveTextContent('1.');
+    });
+
+    it('displays result numbers in compact (map) variant', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData.slice(0, 2)}
+            isLoading={false}
+            totalResults={4}
+            currentPage={1}
+            perPage={10}
+            variant="compact"
+          />
+        </TestWrapper>
+      );
+
+      expect(screen.getByText('1.')).toBeInTheDocument();
+      expect(screen.getByText('2.')).toBeInTheDocument();
+    });
+
+    it('uses perPage for result numbering', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={20}
+            currentPage={2}
+            perPage={5}
+          />
+        </TestWrapper>
+      );
+
+      // Page 2 with 5 per page: results 6-9
+      expect(screen.getByText('Result 6')).toBeInTheDocument();
+      expect(screen.getByText('Result 9')).toBeInTheDocument();
     });
   });
 
