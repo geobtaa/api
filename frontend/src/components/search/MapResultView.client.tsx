@@ -32,15 +32,14 @@ function parseCentroid(centroid: string | undefined): [number, number] | null {
   return [a, b]; // fallback: assume first is lat
 }
 
-// Controller: fit map to all centroid pins on initial load only (no pan/zoom on hover)
+// Controller: fit map to all centroid pins when results change (e.g. new search or facet filter)
 const MapInitialFitController: React.FC<{
   centerCoords: [number, number][];
 }> = ({ centerCoords }) => {
   const map = useMap();
-  const hasFitRef = React.useRef(false);
 
   useEffect(() => {
-    if (centerCoords.length === 0 || hasFitRef.current) return;
+    if (centerCoords.length === 0) return;
     const valid = centerCoords.filter(
       ([lat, lon]) =>
         !isNaN(lat) &&
@@ -56,7 +55,6 @@ const MapInitialFitController: React.FC<{
     );
     if (group.getBounds().isValid()) {
       map.flyToBounds(group.getBounds(), { padding: [50, 50], duration: 0.5 });
-      hasFitRef.current = true;
     }
   }, [centerCoords, map]);
 

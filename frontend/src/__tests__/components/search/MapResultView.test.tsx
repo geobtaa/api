@@ -5,6 +5,15 @@ import { MapProvider } from '../../../context/MapContext';
 import { MapResultView } from '../../../components/search/MapResultView.client';
 import type { GeoDocument } from '../../../types/api';
 
+const mockFlyToBounds = vi.fn();
+const mockMap = {
+  flyToBounds: mockFlyToBounds,
+  openPopup: vi.fn(),
+  addLayer: vi.fn(),
+  removeLayer: vi.fn(),
+  eachLayer: vi.fn(),
+};
+
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
 vi.mock('react-leaflet', () => ({
   MapContainer: ({
@@ -13,13 +22,7 @@ vi.mock('react-leaflet', () => ({
     children: React.ReactNode;
   }) => <div data-testid="map-container">{children}</div>,
   GeoJSON: () => null,
-  useMap: () => ({
-    flyToBounds: vi.fn(),
-    openPopup: vi.fn(),
-    addLayer: vi.fn(),
-    removeLayer: vi.fn(),
-    eachLayer: vi.fn(),
-  }),
+  useMap: () => mockMap,
 }));
 
 vi.mock('@krozamdev/overlapping-marker-spiderfier', () => ({
@@ -60,6 +63,36 @@ const mockResultsWithCentroid: GeoDocument[] = [
   },
 ];
 
+// US locations (for refit-on-results-change test)
+const mockResultsUS: GeoDocument[] = [
+  {
+    id: 'us-1',
+    type: 'document',
+    attributes: {
+      ogm: {
+        id: 'us-1',
+        dct_title_s: 'US Result',
+        dcat_centroid: '41.88,-87.62',
+      },
+    },
+  },
+];
+
+// France/Europe locations (for refit-on-results-change test)
+const mockResultsFrance: GeoDocument[] = [
+  {
+    id: 'fr-1',
+    type: 'document',
+    attributes: {
+      ogm: {
+        id: 'fr-1',
+        dct_title_s: 'Paris Result',
+        dcat_centroid: '48.85,2.35',
+      },
+    },
+  },
+];
+
 const mockResultsWithGeometryOnly: GeoDocument[] = [
   {
     id: 'res-geom',
@@ -92,6 +125,7 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 describe('MapResultView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockFlyToBounds.mockClear();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
@@ -157,6 +191,27 @@ describe('MapResultView', () => {
       );
 
       expect(screen.getByTestId('map-container')).toBeInTheDocument();
+    });
+  });
+
+  describe('map refit on results change', () => {
+    it('refits map when search results change (e.g. facet filter applied)', () => {
+      const { rerender } = render(
+        <TestWrapper>
+          <MapResultView results={mockResultsFrance} />
+        </TestWrapper>
+      );
+
+      expect(mockFlyToBounds).toHaveBeenCalledTimes(1);
+
+      rerender(
+        <TestWrapper>
+          <MapResultView results={mockResultsUS} />
+        </TestWrapper>
+      );
+
+      // Should refit again when results change
+      expect(mockFlyToBounds).toHaveBeenCalledTimes(2);
     });
   });
 
