@@ -535,9 +535,9 @@ async def get_facet(
 @router.get("/suggest")
 @cached_endpoint(ttl=SUGGEST_CACHE_TTL)
 async def suggest(
+    request: Request,
     q: str = Query(..., description="Search query for suggestions"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
 ):
     """Get search suggestions."""
     try:

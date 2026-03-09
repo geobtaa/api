@@ -33,7 +33,7 @@ def _svg_placeholder(*, title: str, subtitle: str) -> Response:
 @router.get("/resources/{id}/static-map")
 async def get_resource_static_map(
     id: str,
-    request: Request = None,
+    request: Request,
 ):
     """Get a static map image for a resource based on its locn_geometry or dcat_bbox."""
     try:
@@ -108,7 +108,7 @@ async def get_resource_static_map(
 @router.get("/resources/{id}/static-map/no-cache")
 async def get_resource_static_map_no_cache(
     id: str,
-    request: Request = None,
+    request: Request,
 ):
     """
     Regenerate and serve a static map image for a resource, bypassing the Redis cache.

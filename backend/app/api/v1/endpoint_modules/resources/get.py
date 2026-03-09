@@ -14,11 +14,11 @@ from . import RESOURCE_CACHE_TTL, filter_resource_fields, get_async_session, log
 @router.get("/resources/{id}")
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource(
+    request: Request,
     id: str,
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
-    request: Request = None,
 ):
     """Get a single resource by ID."""
     try:

@@ -14,12 +14,12 @@ from . import LIST_CACHE_TTL, filter_resource_fields, get_async_session, logger,
 @router.get("/resources/")
 @cached_endpoint(ttl=LIST_CACHE_TTL)
 async def list_resources(
+    request: Request,
     skip: int = 0,
     limit: int = 10,
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
-    request: Request = None,
 ):
     try:
         async with get_async_session() as session:

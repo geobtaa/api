@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/")
-async def api_root(request: Request = None):
+async def api_root(request: Request):
     """Return basic API information including version."""
     api_info = {
         "type": "api_info",
@@ -60,7 +60,7 @@ async def api_root(request: Request = None):
     }
 
     # Create JSON:API compliant response
-    request_url = str(request.url) if request else None
+    request_url = str(request.url)
     jsonapi_response = create_jsonapi_response(data=api_info, request_url=request_url)
 
     return JSONResponse(content=jsonapi_response)

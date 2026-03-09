@@ -11,7 +11,18 @@ async def test_list_gazetteers_success(monkeypatch):
         return 1
 
     monkeypatch.setattr(gaz.database, "fetch_val", fake_fetch_val)
-    resp = await gaz.list_gazetteers()
+
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/gazetteers")
+
+        @property
+        def url(self):
+            return self._url
+
+    resp = await gaz.list_gazetteers(request=DummyRequest())
     assert hasattr(resp, "body")
     data = json.loads(resp.body)
     assert "data" in data
@@ -24,8 +35,20 @@ async def test_search_all_gazetteers_invalid():
 
     from app.api.v1.endpoint_modules import gazetteer as gaz
 
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/gazetteers/search")
+
+        @property
+        def url(self):
+            return self._url
+
     with pytest.raises(HTTPException) as exc:
-        await gaz.search_all_gazetteers(q="x", gazetteer="bad", limit=10, offset=0)
+        await gaz.search_all_gazetteers(
+            request=DummyRequest(), q="x", gazetteer="bad", limit=10, offset=0
+        )
     assert exc.value.status_code == 400
 
 
@@ -38,11 +61,23 @@ async def test_search_all_gazetteers_combined(monkeypatch):
     async def fake_resp(name):
         return JSONResponse({"data": [{"id": name}]})
 
-    monkeypatch.setattr(gaz, "search_geonames", lambda q, limit, o, r: fake_resp("geonames"))
-    monkeypatch.setattr(gaz, "search_wof", lambda q, limit, o, r: fake_resp("wof"))
-    monkeypatch.setattr(gaz, "search_btaa", lambda q, limit, o, r: fake_resp("btaa"))
+    monkeypatch.setattr(gaz, "search_geonames", lambda request, q, limit, o: fake_resp("geonames"))
+    monkeypatch.setattr(gaz, "search_wof", lambda request, q, limit, o: fake_resp("wof"))
+    monkeypatch.setattr(gaz, "search_btaa", lambda request, q, limit, o: fake_resp("btaa"))
 
-    combined = await gaz.search_all_gazetteers(q="x", gazetteer=None, limit=10, offset=0)
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/gazetteers/search")
+
+        @property
+        def url(self):
+            return self._url
+
+    combined = await gaz.search_all_gazetteers(
+        request=DummyRequest(), q="x", gazetteer=None, limit=10, offset=0
+    )
     # Function may be cached and return JSONResponse; handle both
     if hasattr(combined, "body"):
         data = json.loads(combined.body)
@@ -72,7 +107,7 @@ async def test_search_geonames_success(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await gaz.search_geonames(q="abc", limit=10, offset=0, request=DummyRequest())
+    resp = await gaz.search_geonames(request=DummyRequest(), q="abc", limit=10, offset=0)
     assert hasattr(resp, "body")
 
 
@@ -102,7 +137,7 @@ async def test_search_geonames_pagination(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await gaz.search_geonames(q="abc", limit=1, offset=0, request=DummyRequest())
+    resp = await gaz.search_geonames(request=DummyRequest(), q="abc", limit=1, offset=0)
     body = json.loads(resp.body)
     assert "links" in body
 
@@ -127,7 +162,7 @@ async def test_search_wof_success(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await gaz.search_wof(q="abc", limit=10, offset=0, request=DummyRequest())
+    resp = await gaz.search_wof(request=DummyRequest(), q="abc", limit=10, offset=0)
     assert hasattr(resp, "body")
 
 
@@ -151,7 +186,7 @@ async def test_search_btaa_success(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await gaz.search_btaa(q="abc", limit=10, offset=0, request=DummyRequest())
+    resp = await gaz.search_btaa(request=DummyRequest(), q="abc", limit=10, offset=0)
     assert hasattr(resp, "body")
 
 
@@ -165,6 +200,17 @@ async def test_search_btaa_error(monkeypatch):
         raise Exception("db")
 
     monkeypatch.setattr(gaz.database, "fetch_all", raise_exc)
+
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/gazetteers/btaa/search")
+
+        @property
+        def url(self):
+            return self._url
+
     with pytest.raises(HTTPException) as exc:
-        await gaz.search_btaa(q="x", limit=10, offset=0)
+        await gaz.search_btaa(request=DummyRequest(), q="x", limit=10, offset=0)
     assert exc.value.status_code == 500

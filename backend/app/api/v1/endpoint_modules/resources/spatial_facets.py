@@ -12,10 +12,10 @@ from . import get_async_session, logger, router
 
 @router.get("/resources/{id}/spatial-facets")
 async def get_resource_spatial_facets(
+    request: Request,
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     debug: bool = Query(False, description="Include overlap ratios in results"),
-    request: Request = None,
 ):
     """Get spatial hierarchical facets (country, state, county) and bounding box for a resource."""
     try:

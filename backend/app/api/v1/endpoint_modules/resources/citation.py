@@ -28,9 +28,9 @@ def _geoportal_base_url() -> str:
 
 @router.get("/resources/{id}/citation")
 async def get_resource_citation(
+    request: Request,
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
 ):
     """Get the citation for a resource."""
     try:

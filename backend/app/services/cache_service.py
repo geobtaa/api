@@ -521,6 +521,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
 
             # Pull request if present (we don't include it directly in args hashing)
             request = bound_args.arguments.get("request")
+            # Fallback: Starlette passes request as first positional when handler has *args
+            if request is None and args:
+                request = args[0]
             cache_args = {k: v for k, v in bound_args.arguments.items() if k != "request"}
 
             namespace = f"{func.__module__}.{func.__name__}"

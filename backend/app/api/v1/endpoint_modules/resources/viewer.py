@@ -14,9 +14,9 @@ from . import async_session, logger, router
 
 @router.get("/resources/{id}/viewer")
 async def get_resource_viewer_data(
+    request: Request,
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
 ):
     """Get the viewer data for a resource."""
     try:

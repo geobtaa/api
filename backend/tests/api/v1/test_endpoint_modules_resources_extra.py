@@ -67,15 +67,14 @@ async def test_list_resources_success(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_list_resources_error(monkeypatch):
+async def test_list_resources_error(async_client, monkeypatch):
+    """Hit /resources/ with a patched session that raises; assert 500 response."""
     from app.api.v1.endpoint_modules import resources as res
 
-    res.async_session = lambda: DummySession(raise_on="execute")
-    from fastapi import HTTPException
+    monkeypatch.setattr(res.list, "get_async_session", lambda: DummySession(raise_on="execute"))
 
-    with pytest.raises(HTTPException) as exc:
-        await res.list_resources(skip=0, limit=10, callback=None, request=None)
-    assert exc.value.status_code == 500
+    response = await async_client.get("/api/v1/resources/?skip=0&limit=10")
+    assert response.status_code == 500
 
 
 @pytest.mark.asyncio
@@ -100,7 +99,7 @@ async def test_get_resource_found(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await res.get_resource("r1", callback=None, request=DummyRequest())
+    resp = await res.get_resource(request=DummyRequest(), id="r1", callback=None)
     assert hasattr(resp, "body")
 
 
@@ -109,7 +108,18 @@ async def test_get_resource_not_found(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 
     res.async_session = lambda: DummySession(fetchone_row=None)
-    resp = await res.get_resource("missing", callback=None, request=None)
+
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/resources/missing")
+
+        @property
+        def url(self):
+            return self._url
+
+    resp = await res.get_resource(request=DummyRequest(), id="missing", callback=None)
     assert hasattr(resp, "body")
     assert resp.status_code == 404
 
@@ -125,7 +135,18 @@ async def test_get_resource_error(monkeypatch):
         raise Exception("processing")
 
     monkeypatch.setattr(res, "process_resource", raise_process)
-    resp = await res.get_resource("r1", callback=None, request=None)
+
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/resources/r1")
+
+        @property
+        def url(self):
+            return self._url
+
+    resp = await res.get_resource(request=DummyRequest(), id="r1", callback=None)
     assert hasattr(resp, "body")
     assert resp.status_code == 500
 
@@ -223,7 +244,7 @@ async def test_get_resource_spatial_facets_exists(monkeypatch):
             return self._url
 
     resp = await res.get_resource_spatial_facets(
-        "r1", callback=None, debug=False, request=DummyRequest()
+        request=DummyRequest(), id="r1", callback=None, debug=False
     )
     # Response should be a JSONResponse, check body content
     assert hasattr(resp, "body")
@@ -251,7 +272,7 @@ async def test_get_resource_spatial_facets_missing(monkeypatch):
             return self._url
 
     resp = await res.get_resource_spatial_facets(
-        "x", callback=None, debug=False, request=DummyRequest()
+        request=DummyRequest(), id="x", callback=None, debug=False
     )
     # Response should be a JSONResponse, check body content
     assert hasattr(resp, "body")
@@ -271,6 +292,18 @@ async def test_get_resource_spatial_facets_error(monkeypatch):
     res.async_session = lambda: DummySession(raise_on="execute")
     from fastapi import HTTPException
 
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/resources/x/spatial_facets")
+
+        @property
+        def url(self):
+            return self._url
+
     with pytest.raises(HTTPException) as exc:
-        await res.get_resource_spatial_facets("x", callback=None, debug=False, request=None)
+        await res.get_resource_spatial_facets(
+            request=DummyRequest(), id="x", callback=None, debug=False
+        )
     assert exc.value.status_code == 500

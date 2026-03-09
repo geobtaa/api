@@ -15,9 +15,9 @@ from . import RESOURCE_CACHE_TTL, async_session, logger, router
 @router.get("/resources/{id}/similar-items")
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource_similar_items(
+    request: Request,
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
 ):
     """Get similar items for a resource."""
     try:

@@ -53,6 +53,7 @@ def _escape_query_string_brackets(query_text: str) -> str:
         .replace("}", r"\}")
     )
 
+
 # Fields that should use their `.keyword` subfield for aggregations and filters
 # Note: geo_country, geo_region, geo_county are already keyword fields, so they don't need .keyword
 KEYWORD_FILTER_FIELDS = {

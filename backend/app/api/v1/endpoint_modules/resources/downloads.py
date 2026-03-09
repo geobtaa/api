@@ -14,9 +14,9 @@ from . import async_session, logger, router
 
 @router.get("/resources/{id}/downloads")
 async def get_resource_downloads(
+    request: Request,
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
-    request: Request = None,
 ):
     """Get the download options for a resource."""
     try:

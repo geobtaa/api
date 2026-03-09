@@ -39,7 +39,7 @@ GAZETTEER_CACHE_TTL = int(os.getenv("GAZETTEER_CACHE_TTL", 3600))
 @router.get("/gazetteers")
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def list_gazetteers(
-    request: Request = None,
+    request: Request,
 ):
     """List all available gazetteers with record counts."""
     try:
@@ -124,29 +124,29 @@ async def list_gazetteers(
 @router.get("/gazetteers/search")
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_all_gazetteers(
+    request: Request,
     q: str = Query(..., description="Search query"),
     gazetteer: Optional[str] = Query(None, description="Specific gazetteer to search"),
     limit: int = Query(10, description="Maximum number of results per gazetteer", ge=1, le=100),
     offset: int = Query(0, description="Number of results to skip", ge=0),
-    request: Request = None,
 ):
     """Search across all gazetteers or a specific one."""
     try:
         if gazetteer:
             if gazetteer == "geonames":
-                return await search_geonames(q, limit, offset, request)
+                return await search_geonames(request, q, limit, offset)
             elif gazetteer == "wof":
-                return await search_wof(q, limit, offset, request)
+                return await search_wof(request, q, limit, offset)
             elif gazetteer == "btaa":
-                return await search_btaa(q, limit, offset, request)
+                return await search_btaa(request, q, limit, offset)
             else:
                 raise HTTPException(status_code=400, detail="Invalid gazetteer specified")
 
         # Search all gazetteers
         results = {}
-        results["geonames"] = await search_geonames(q, limit, offset, request)
-        results["wof"] = await search_wof(q, limit, offset, request)
-        results["btaa"] = await search_btaa(q, limit, offset, request)
+        results["geonames"] = await search_geonames(request, q, limit, offset)
+        results["wof"] = await search_wof(request, q, limit, offset)
+        results["btaa"] = await search_btaa(request, q, limit, offset)
 
         # Extract data from JSONResponse objects for the combined response
         combined_results = {}
@@ -172,10 +172,10 @@ async def search_all_gazetteers(
 @router.get("/gazetteers/btaa/search")
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_btaa(
+    request: Request,
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, description="Maximum number of results", ge=1, le=100),
     offset: int = Query(0, description="Number of results to skip", ge=0),
-    request: Request = None,
 ):
     """Search BTAA gazetteer."""
     try:
@@ -246,10 +246,10 @@ async def search_btaa(
 @router.get("/gazetteers/geonames/search")
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_geonames(
+    request: Request,
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, description="Maximum number of results", ge=1, le=100),
     offset: int = Query(0, description="Number of results to skip", ge=0),
-    request: Request = None,
 ):
     """Search GeoNames gazetteer."""
     try:
@@ -328,6 +328,7 @@ async def search_geonames(
 @router.get("/gazetteers/wof/search")
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_wof(
+    request: Request,
     q: str = Query(..., description="Search query"),
     limit: int = Query(10, description="Maximum number of results", ge=1, le=100),
     offset: int = Query(0, description="Number of results to skip", ge=0),
@@ -337,7 +338,6 @@ async def search_wof(
             "Comma-separated list of placetypes to exclude (default: microhood,neighbourhood,venue)"
         ),
     ),
-    request: Request = None,
 ):
     """Search Who's on First gazetteer."""
     try:

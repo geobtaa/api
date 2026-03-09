@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
@@ -68,7 +66,7 @@ def _pinned_slugs_for_theme(theme: Optional[str]) -> List[str]:
 @router.get("/home/blog-posts")
 @cached_endpoint(ttl=HOME_BLOG_CACHE_TTL, tags=["home", "home_blog"])
 async def list_home_blog_posts(
-    request: Request = None,
+    request: Request,
     limit: int = Query(6, ge=1, le=24),
     theme: Optional[str] = Query(None, description="Theme id from frontend theme registry"),
     tag: Optional[str] = Query(
