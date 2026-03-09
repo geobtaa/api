@@ -286,7 +286,7 @@ class TestLinkServiceMetadataLinks:
     """Test cases for metadata link extraction."""
 
     def test_get_metadata_links_iso_metadata(self):
-        """Test getting ISO metadata links."""
+        """Test getting ISO metadata links with format for transform."""
         resource_dict = {
             "dct_references_s": json.dumps(
                 {"http://www.isotc211.org/schemas/2005/gmd/": "http://example.com/iso.xml"}
@@ -297,7 +297,11 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 1
-        assert {"label": "ISO 19115 XML", "url": "http://example.com/iso.xml"} in links
+        assert {
+            "label": "ISO 19115 XML",
+            "url": "http://example.com/iso.xml",
+            "format": "iso",
+        } in links
 
     def test_get_metadata_links_iso_metadata_no_trailing_slash(self):
         """Test getting ISO metadata links without trailing slash."""
@@ -311,10 +315,14 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 1
-        assert {"label": "ISO 19115 XML", "url": "http://example.com/iso.xml"} in links
+        assert {
+            "label": "ISO 19115 XML",
+            "url": "http://example.com/iso.xml",
+            "format": "iso",
+        } in links
 
     def test_get_metadata_links_fgdc_metadata(self):
-        """Test getting FGDC metadata links."""
+        """Test getting FGDC metadata links with format for transform."""
         resource_dict = {
             "dct_references_s": json.dumps(
                 {"http://www.fgdc.gov/schemas/metadata/": "http://example.com/fgdc.xml"}
@@ -325,10 +333,14 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 1
-        assert {"label": "FGDC XML", "url": "http://example.com/fgdc.xml"} in links
+        assert {
+            "label": "FGDC XML",
+            "url": "http://example.com/fgdc.xml",
+            "format": "fgdc",
+        } in links
 
     def test_get_metadata_links_csgdm_metadata(self):
-        """Test getting CS-GDM metadata links."""
+        """Test getting CS-GDM metadata links with format for transform."""
         resource_dict = {
             "dct_references_s": json.dumps(
                 {"http://www.opengis.net/cat/csw/csdgm": "http://example.com/csgdm.xml"}
@@ -339,10 +351,14 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 1
-        assert {"label": "CS-GDM XML", "url": "http://example.com/csgdm.xml"} in links
+        assert {
+            "label": "CS-GDM XML",
+            "url": "http://example.com/csgdm.xml",
+            "format": "fgdc",
+        } in links
 
     def test_get_metadata_links_mods_metadata(self):
-        """Test getting MODS metadata links."""
+        """Test getting MODS metadata links (no format - no XSLT transform)."""
         resource_dict = {
             "dct_references_s": json.dumps(
                 {"http://www.loc.gov/mods/v3": "http://example.com/mods.xml"}
@@ -353,10 +369,13 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 1
-        assert {"label": "MODS XML", "url": "http://example.com/mods.xml"} in links
+        link = links[0]
+        assert link["label"] == "MODS XML"
+        assert link["url"] == "http://example.com/mods.xml"
+        assert "format" not in link
 
     def test_get_metadata_links_html_metadata(self):
-        """Test getting HTML metadata links."""
+        """Test getting HTML metadata links with format for render."""
         resource_dict = {
             "dct_references_s": json.dumps(
                 {"http://www.w3.org/1999/xhtml": "http://example.com/metadata.html"}
@@ -367,10 +386,14 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 1
-        assert {"label": "HTML Metadata", "url": "http://example.com/metadata.html"} in links
+        assert {
+            "label": "HTML Metadata",
+            "url": "http://example.com/metadata.html",
+            "format": "html",
+        } in links
 
     def test_get_metadata_links_multiple_types(self):
-        """Test getting multiple metadata link types."""
+        """Test getting multiple metadata link types with format where applicable."""
         resource_dict = {
             "dct_references_s": json.dumps(
                 {
@@ -385,9 +408,14 @@ class TestLinkServiceMetadataLinks:
         links = service._get_metadata_links()
 
         assert len(links) == 3
-        assert {"label": "ISO 19115 XML", "url": "http://example.com/iso.xml"} in links
-        assert {"label": "FGDC XML", "url": "http://example.com/fgdc.xml"} in links
-        assert {"label": "MODS XML", "url": "http://example.com/mods.xml"} in links
+        labels_urls = [(link["label"], link["url"]) for link in links]
+        assert ("ISO 19115 XML", "http://example.com/iso.xml") in labels_urls
+        assert ("FGDC XML", "http://example.com/fgdc.xml") in labels_urls
+        assert ("MODS XML", "http://example.com/mods.xml") in labels_urls
+        iso_link = next(link for link in links if link["label"] == "ISO 19115 XML")
+        assert iso_link.get("format") == "iso"
+        fgdc_link = next(link for link in links if link["label"] == "FGDC XML")
+        assert fgdc_link.get("format") == "fgdc"
 
 
 class TestLinkServiceArcGISLinks:

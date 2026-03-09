@@ -1,9 +1,17 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { vi } from 'vitest';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import { LinksTable } from '../../components/resource/LinksTable';
 
+// Mock fetch for metadata display endpoint
+const mockFetch = vi.fn();
+
 describe('LinksTable', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
   const mockLinks = {
     'Visit Source': [{ label: 'Original Website', url: 'https://example.com' }],
     'Web Services': [
@@ -11,6 +19,21 @@ describe('LinksTable', () => {
       { label: 'WFS Service', url: 'https://example.com/wfs' },
     ],
     Metadata: [{ label: 'ISO 19115', url: 'https://example.com/metadata.xml' }],
+  };
+
+  const mockMetadataLinksWithFormat = {
+    Metadata: [
+      {
+        label: 'ISO 19115 XML',
+        url: 'https://example.com/iso.xml',
+        format: 'iso' as const,
+      },
+      {
+        label: 'FGDC XML',
+        url: 'https://example.com/fgdc.xml',
+        format: 'fgdc' as const,
+      },
+    ],
   };
 
   it('renders without crashing', () => {
@@ -25,6 +48,11 @@ describe('LinksTable', () => {
     expect(screen.getByText('Metadata')).toBeInTheDocument();
   });
 
+  it('renders with optional resourceId prop', () => {
+    render(<LinksTable links={mockLinks} resourceId="test-resource-123" />);
+    expect(screen.getByText('Links')).toBeInTheDocument();
+  });
+
   it('opens lightbox for Web Services category', () => {
     render(<LinksTable links={mockLinks} />);
     const webServicesButton = screen.getByRole('button', {
@@ -32,7 +60,6 @@ describe('LinksTable', () => {
     });
     fireEvent.click(webServicesButton);
 
-    // Check if lightbox is opened - look for the lightbox content
     expect(screen.getByText('WMS Service')).toBeInTheDocument();
     expect(screen.getByText('WFS Service')).toBeInTheDocument();
   });
@@ -44,14 +71,11 @@ describe('LinksTable', () => {
     });
     fireEvent.click(webServicesButton);
 
-    // Lightbox should be open
     expect(screen.getByText('WMS Service')).toBeInTheDocument();
 
-    // Click close button (X) - it's the button with no accessible name
-    const closeButton = screen.getByRole('button', { name: '' });
+    const closeButton = screen.getByRole('button', { name: 'Close' });
     fireEvent.click(closeButton);
 
-    // Lightbox should be closed
     expect(screen.queryByText('WMS Service')).not.toBeInTheDocument();
   });
 
@@ -69,5 +93,79 @@ describe('LinksTable', () => {
     const { container } = render(<LinksTable links={mockLinks} />);
     const results = await axeWithWCAG22(container);
     expect(results).toHaveNoViolations();
+  });
+
+  describe('Metadata lightbox with transformable formats', () => {
+    it('opens Metadata lightbox and fetches transformed content when resourceId and format provided', async () => {
+      const originalFetch = global.fetch;
+      global.fetch = mockFetch;
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () => Promise.resolve('<html><body>Transformed Metadata</body></html>'),
+      });
+
+      render(
+        <LinksTable
+          links={mockMetadataLinksWithFormat}
+          resourceId="test-resource-123"
+        />
+      );
+
+      const metadataButton = screen.getByRole('button', { name: 'Metadata' });
+      fireEvent.click(metadataButton);
+
+      await waitFor(() => {
+        expect(mockFetch).toHaveBeenCalled();
+      });
+
+      await waitFor(() => {
+        expect(screen.getByTitle('ISO 19115 XML')).toBeInTheDocument();
+      });
+
+      global.fetch = originalFetch;
+    });
+
+    it('shows Download button when viewing transformed metadata', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () =>
+          Promise.resolve('<html><body>Transformed</body></html>'),
+      });
+
+      render(
+        <LinksTable
+          links={mockMetadataLinksWithFormat}
+          resourceId="test-resource-123"
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Metadata' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('link', { name: /Download/i })).toBeInTheDocument();
+      });
+    });
+
+    it('shows format tabs when multiple transformable formats', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: () =>
+          Promise.resolve('<html><body>ISO Content</body></html>'),
+      });
+
+      render(
+        <LinksTable
+          links={mockMetadataLinksWithFormat}
+          resourceId="test-resource-123"
+        />
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'Metadata' }));
+
+      await waitFor(() => {
+        expect(screen.getByRole('tab', { name: 'ISO 19115' })).toBeInTheDocument();
+        expect(screen.getByRole('tab', { name: 'FGDC' })).toBeInTheDocument();
+      });
+    });
   });
 });

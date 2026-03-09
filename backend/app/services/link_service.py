@@ -144,25 +144,32 @@ class LinkService:
 
         return links
 
-    def _get_metadata_links(self) -> List[Dict[str, str]]:
-        """Get the “Metadata” links derived from resource distributions."""
+    def _get_metadata_links(self) -> List[Dict[str, Any]]:
+        """Get the “Metadata” links derived from resource distributions.
+        Each link includes 'label', 'url', and optionally 'format' (iso, fgdc, html)
+        for transformable types.
+        """
         links = []
         try:
-            metadata_map = {
-                "http://www.isotc211.org/schemas/2005/gmd/": "ISO 19115 XML",
-                "http://www.isotc211.org/schemas/2005/gmd": "ISO 19115 XML",
-                "http://www.fgdc.gov/schemas/metadata/": "FGDC XML",
-                "http://www.opengis.net/cat/csw/csdgm": "CS-GDM XML",
-                "http://www.loc.gov/mods/v3": "MODS XML",
-                "http://www.w3.org/1999/xhtml": "HTML Metadata",
-            }
-            seen = set()
-            for uri, label in metadata_map.items():
-                if uri in seen:
+            # (uri, label, format for display endpoint or None)
+            metadata_map = [
+                ("http://www.isotc211.org/schemas/2005/gmd/", "ISO 19115 XML", "iso"),
+                ("http://www.isotc211.org/schemas/2005/gmd", "ISO 19115 XML", "iso"),
+                ("http://www.fgdc.gov/schemas/metadata/", "FGDC XML", "fgdc"),
+                ("http://www.opengis.net/cat/csw/csdgm", "CS-GDM XML", "fgdc"),
+                ("http://www.loc.gov/mods/v3", "MODS XML", None),
+                ("http://www.w3.org/1999/xhtml", "HTML Metadata", "html"),
+            ]
+            seen_labels = set()
+            for uri, label, fmt in metadata_map:
+                if label in seen_labels:
                     continue
                 if url := self._first_url(uri):
-                    links.append({"label": label, "url": url})
-                    seen.add(label)
+                    link: Dict[str, Any] = {"label": label, "url": url}
+                    if fmt is not None:
+                        link["format"] = fmt
+                    links.append(link)
+                    seen_labels.add(label)
 
         except Exception as e:
             logger.error(f"Error getting metadata links: {e}", exc_info=True)

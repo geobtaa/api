@@ -58,6 +58,7 @@ dependencies = [
     "appsignal>=1.0.0",
     "opentelemetry-instrumentation-fastapi>=0.49b0",
     "pyyaml>=6.0.3",
+    "lxml>=5.0.0",
 ]
 
 [project.optional-dependencies]

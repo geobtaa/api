@@ -7,6 +7,7 @@ expect.extend(matchers);
 
 // Mock API functions
 vi.mock('./services/api', () => ({
+  getApiBasePath: vi.fn(() => '/api/v1'),
   fetchSearchResults: vi.fn().mockResolvedValue({
     jsonapi: { version: '1.1', profile: [] },
     links: {

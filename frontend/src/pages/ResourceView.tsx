@@ -621,7 +621,10 @@ export function ResourceView({
                     {/* Links section */}
                     {data?.meta?.ui?.links &&
                       Object.keys(data.meta.ui.links).length > 0 && (
-                        <LinksTable links={data.meta.ui.links} />
+                        <LinksTable
+                          links={data.meta.ui.links}
+                          resourceId={data?.id}
+                        />
                       )}
 
                     {/* Citation & Export */}

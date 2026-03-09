@@ -1,16 +1,40 @@
 import json
 from typing import Optional
 
+import aiohttp
 from fastapi import HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import filter_empty_values, sanitize_for_json
-from app.services.distribution_repository import fetch_distribution_context
+from app.services.distribution_repository import (
+    DistributionContext,
+    fetch_distribution_context,
+)
+from app.services.link_service import LinkService
+from app.services.metadata_transform_service import (
+    MetadataTransformError,
+    transform_fgdc_to_html,
+    transform_iso_to_html,
+)
 from app.services.ogm_field_mapper import OGMFieldMapper
 from db.models import resources
 
 from . import filter_resource_fields, get_async_session, logger, router
+
+# Format -> list of distribution URIs to try (SSRF-safe: only use resolved resource URLs)
+_FORMAT_URIS = {
+    "iso": [
+        "http://www.isotc211.org/schemas/2005/gmd/",
+        "http://www.isotc211.org/schemas/2005/gmd",
+    ],
+    "fgdc": [
+        "http://www.fgdc.gov/schemas/metadata/",
+        "http://www.opengis.net/cat/csw/csdgm",
+    ],
+    "html": ["http://www.w3.org/1999/xhtml"],
+}
+METADATA_FETCH_TIMEOUT = 30
 
 
 def _separate_ogm_and_b1g_fields(resource_dict: dict) -> tuple[dict, dict]:
@@ -209,3 +233,80 @@ async def get_resource_metadata_b1g(
     except Exception as e:
         logger.error(f"Error getting B1G metadata for resource {id}: {str(e)}", exc_info=True)
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+def _get_metadata_url_for_format(
+    resource_dict: dict, distribution_context: DistributionContext, format_key: str
+) -> Optional[str]:
+    """Resolve the metadata URL for a format from the resource's distributions."""
+    uris = _FORMAT_URIS.get(format_key, [])
+    link_service = LinkService(resource_dict, distribution_context=distribution_context)
+    for uri in uris:
+        if url := link_service._first_url(uri):
+            return url
+    return None
+
+
+@router.get("/resources/{id}/metadata/display", response_class=HTMLResponse)
+async def get_resource_metadata_display(
+    id: str,
+    format_key: str = Query(..., alias="format", description="Metadata format: iso, fgdc, or html"),
+):
+    """
+    Fetch metadata from the resource's distribution URL, transform to HTML if needed,
+    and return for in-page display. SSRF-safe: only URLs from the resource's own
+    distributions are used.
+    """
+    fmt = format_key.lower().strip()
+    if fmt not in ("iso", "fgdc", "html"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid format '{format_key}'. Must be one of: iso, fgdc, html",
+        )
+
+    async with get_async_session() as session:
+        query = select(resources).where(resources.c.id == id)
+        result = await session.execute(query)
+        row = result.fetchone()
+        if not row:
+            raise HTTPException(status_code=404, detail="Resource not found")
+
+        resource_dict = sanitize_for_json(dict(row._mapping))
+        distribution_context = await fetch_distribution_context(id)
+        url = _get_metadata_url_for_format(resource_dict, distribution_context, fmt)
+
+    if not url:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No {fmt.upper()} metadata URL found for this resource",
+        )
+
+    try:
+        timeout = aiohttp.ClientTimeout(total=METADATA_FETCH_TIMEOUT)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url) as resp:
+                if resp.status != 200:
+                    raise HTTPException(
+                        status_code=502,
+                        detail=f"Metadata source returned status {resp.status}",
+                    )
+                content = await resp.text()
+    except aiohttp.ClientError as e:
+        logger.warning(f"Failed to fetch metadata from {url}: {e}")
+        raise HTTPException(status_code=502, detail="Failed to fetch metadata from source") from e
+
+    if fmt == "html":
+        return HTMLResponse(content=content)
+
+    try:
+        if fmt == "iso":
+            html = transform_iso_to_html(content)
+        else:
+            html = transform_fgdc_to_html(content)
+        return HTMLResponse(content=html)
+    except MetadataTransformError as e:
+        logger.warning(f"Metadata transform failed for {id} ({fmt}): {e}")
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to transform metadata to HTML",
+        ) from e
