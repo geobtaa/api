@@ -501,6 +501,12 @@ class ImageService:
         if cog_url := self._first_url(cog_uri, references=references):
             return cog_url
 
+        # Check for PMTiles - use as thumbnail source when no other image available.
+        # PMTiles URLs are processed by generate_pmtiles_thumbnail to produce a picture preview.
+        pmtiles_uri = "https://github.com/protomaps/PMTiles"
+        if pmtiles_url := self._first_url(pmtiles_uri, references=references):
+            return pmtiles_url
+
         # Return None when no thumbnail source is found
         # This allows the frontend to show a default icon based on resource class
         # (gbl_resourceClass_sm)
@@ -517,6 +523,13 @@ class ImageService:
             or "geotiff" in url_lower
             or "display_raster" in url_lower
         )
+
+    def _is_pmtiles_url(self, url: str) -> bool:
+        """Check if URL looks like a PMTiles URL."""
+        if not url:
+            return False
+        url_lower = url.lower()
+        return url_lower.endswith(".pmtiles") or ".pmtiles?" in url_lower
 
     def _is_manifest_url(self, url: str) -> bool:
         """Check if URL looks like a IIIF manifest URL."""
@@ -628,6 +641,16 @@ class ImageService:
         except Exception as e:
             self.logger.error(f"Error retrieving cached image: {e}")
             return None
+
+    def is_pmtiles_skip_cached(self, image_hash: str) -> bool:
+        """
+        Check if PMTiles thumbnail generation was skipped (e.g. vector tiles).
+        When True, the endpoint should redirect to static map instead of re-queuing.
+        """
+        try:
+            return bool(self.image_cache.exists(f"pmtiles_skip_v2:{image_hash}"))
+        except Exception:
+            return False
 
     async def get_iiif_image(self, image_url: str) -> Optional[bytes]:
         """

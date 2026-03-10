@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -183,6 +183,22 @@ test-coverage-baseline:
 	BASELINE_COVERAGE=$$(grep -o 'line-rate="[^"]*"' coverage.xml | head -1 | sed 's/line-rate="\([^"]*\)"/\1/' | awk '{printf "%.0f", $$1 * 100}'); \
 	echo "Baseline coverage: $$BASELINE_COVERAGE%"; \
 	echo "To use this baseline, run: BASELINE_COVERAGE=$$BASELINE_COVERAGE make test-coverage-compare"
+
+# Clear cached thumbnail for a resource (PMTiles/COG) so it can be regenerated.
+# Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT
+clear-thumbnail-cache:
+	@if [ -z "$(RESOURCE_ID)" ]; then \
+		echo "ERROR: RESOURCE_ID is required."; \
+		echo "Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT"; \
+		exit 1; \
+	fi
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/clear_thumbnail_cache.py "$(RESOURCE_ID)"'
+
+# Run PMTiles network integration test (proves raster thumbnail harvest works).
+# Requires network access. The fixture b1g_PJxxfKgpqpUT uses MVT PMTiles which may fail;
+# this test uses a known-good raster URL (pmtiles.io Stamen Toner).
+test-pmtiles-network:
+	@cd backend && uv run pytest -m network tests/tasks/test_worker_pmtiles_thumbnail.py -v
 
 # Run linting and then tests (for CI)
 lint-test: lint-check test

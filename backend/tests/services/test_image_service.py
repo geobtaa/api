@@ -389,6 +389,35 @@ class TestImageServiceThumbnailSourceURL:
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
+    def test_get_thumbnail_source_url_pmtiles_only(self):
+        """Test PMTiles URL as thumbnail source when no other image sources exist."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            pmtiles_url = "https://geodata.lib.princeton.edu/fe/d2/80/display_vector.pmtiles"
+            references = {
+                "https://github.com/protomaps/PMTiles": pmtiles_url,
+                "http://schema.org/url": "https://catalog.example.com/record",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == pmtiles_url
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_thumbnailurl_overrides_pmtiles(self):
+        """Test that thumbnailUrl takes precedence over PMTiles when both exist."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            references = {
+                "http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg",
+                "https://github.com/protomaps/PMTiles": "https://example.com/tiles.pmtiles",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
 
 class TestImageServiceIsCogUrl:
     """Test _is_cog_url helper."""
@@ -429,6 +458,39 @@ class TestImageServiceIsCogUrl:
             assert service._is_cog_url("https://example.com/manifest.json") is False
             assert service._is_cog_url("") is False
             assert service._is_cog_url(None) is False
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+
+class TestImageServiceIsPmtilesUrl:
+    """Test _is_pmtiles_url helper."""
+
+    def test_is_pmtiles_url_pmtiles_extension(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_pmtiles_url("https://example.com/tiles.pmtiles") is True
+            assert service._is_pmtiles_url("https://example.com/TILES.PMTILES") is True
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_pmtiles_url_with_query_string(self):
+        """URL ending in .pmtiles with query params is detected."""
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_pmtiles_url("https://example.com/tiles.pmtiles?token=abc") is True
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_pmtiles_url_rejects_non_pmtiles(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_pmtiles_url("https://example.com/tiles.tif") is False
+            assert service._is_pmtiles_url("https://example.com/image.jpg") is False
+            assert service._is_pmtiles_url("") is False
+            assert service._is_pmtiles_url(None) is False
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 

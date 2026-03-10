@@ -13,7 +13,10 @@ from app.services.image_service import ImageService
 from app.tasks.worker import (
     _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
+    _generate_pmtiles_thumbnail_bytes,
+    _pmtiles_thumbnail_image_hash,
     generate_cog_thumbnail,
+    generate_pmtiles_thumbnail,
 )
 from db.models import resources
 
@@ -169,6 +172,9 @@ async def get_resource_thumbnail(
         # For COG URLs, use COG-specific hash and task
         if image_service._is_cog_url(source_url):
             image_hash = _cog_thumbnail_image_hash(source_url)
+        # For PMTiles URLs, use PMTiles-specific hash and task
+        elif image_service._is_pmtiles_url(source_url):
+            image_hash = _pmtiles_thumbnail_image_hash(source_url)
         # For manifest URLs, try to resolve from cache
         elif image_service._is_manifest_url(source_url):
             manifest_cache_key = f"manifest:{source_url}"
@@ -202,15 +208,30 @@ async def get_resource_thumbnail(
                         "Cache-Control": "no-store",
                     },
                 )
+            # PMTiles: if we previously failed (e.g. vector tiles), redirect to static map
+            # instead of re-queuing forever.
+            if image_service._is_pmtiles_url(source_url) and image_service.is_pmtiles_skip_cached(
+                image_hash
+            ):
+                geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+                if geometry:
+                    logger.info(f"PMTiles thumbnail skipped for {id}, redirecting to static map")
+                    return RedirectResponse(
+                        url=f"/api/v1/resources/{id}/static-map",
+                        status_code=302,
+                        headers={"Cache-Control": "no-store"},
+                    )
 
-        # For direct (non-manifest, non-COG) thumbnail URLs: probe once so we don't stick on
-        # "Generating thumbnail" when the source returns 404 or non-image (e.g. ArcGIS
-        # /info/thumbnail not supported). If probe fails and resource has geometry,
-        # serve static map instead. (COG URLs are processed server-side; skip probe.)
+        # For direct (non-manifest, non-COG, non-PMTiles) thumbnail URLs: probe once
+        # so we don't stick on "Generating thumbnail" when source returns 404 or
+        # non-image (e.g. ArcGIS /info/thumbnail). If probe fails and resource has
+        # geometry, serve static map. (COG/PMTiles URLs are processed server-side;
+        # skip probe.)
         geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
         if (
             not image_service._is_manifest_url(source_url)
             and not image_service._is_cog_url(source_url)
+            and not image_service._is_pmtiles_url(source_url)
             and geometry
         ):
             fetch_url = image_service._standardize_iiif_url(source_url)
@@ -229,6 +250,8 @@ async def get_resource_thumbnail(
         try:
             if image_service._is_cog_url(source_url):
                 generate_cog_thumbnail.delay(source_url, id)
+            elif image_service._is_pmtiles_url(source_url):
+                generate_pmtiles_thumbnail.delay(source_url, id)
             elif image_service._is_manifest_url(source_url):
                 image_service._queue_thumbnail_processing(source_url, id)
             else:
@@ -315,6 +338,30 @@ async def get_resource_thumbnail_no_cache(
                 )
             return _svg_placeholder(
                 title="Thumbnail unavailable", subtitle="Error generating COG preview"
+            )
+
+        # For PMTiles: generate thumbnail synchronously (raster tiles only; vector falls back)
+        if image_service._is_pmtiles_url(source_url):
+            image_bytes = await asyncio.to_thread(_generate_pmtiles_thumbnail_bytes, source_url)
+            if image_bytes:
+                from app.api.v1.endpoint_modules.thumbnails import _detect_image_type
+
+                content_type = _detect_image_type(image_bytes)
+                return Response(
+                    content=image_bytes,
+                    media_type=content_type or "image/png",
+                    headers={"Cache-Control": "no-store"},
+                )
+            geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+            if geometry:
+                return RedirectResponse(
+                    url=f"/api/v1/resources/{id}/static-map/no-cache",
+                    status_code=302,
+                    headers={"Cache-Control": "no-store"},
+                )
+            return _svg_placeholder(
+                title="Thumbnail unavailable",
+                subtitle="PMTiles vector or empty (static map used)",
             )
 
         # Resolve manifests to actual image URLs when needed
