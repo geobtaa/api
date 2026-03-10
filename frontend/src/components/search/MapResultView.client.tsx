@@ -6,7 +6,7 @@ import {
 } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { GeoDocument } from '../../types/api';
-import { getCentroidFromGeometry } from '../../utils/geometryUtils';
+import { getBboxFromGeometry, getCentroidFromGeometry, type Bounds } from '../../utils/geometryUtils';
 import L from 'leaflet';
 import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfier';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
@@ -32,31 +32,57 @@ function parseCentroid(centroid: string | undefined): [number, number] | null {
   return [a, b]; // fallback: assume first is lat
 }
 
-// Controller: fit map to all centroid pins when results change (e.g. new search or facet filter)
+/** Parse dcat_bbox to Leaflet bounds [[minLat, minLon], [maxLat, maxLon]]. */
+function parseBbox(bbox: string | undefined): Bounds | null {
+  if (!bbox || typeof bbox !== 'string') return null;
+  const s = bbox.trim();
+
+  // ENVELOPE(minX, maxX, maxY, minY)
+  const envMatch = s.match(
+    /ENVELOPE\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/i
+  );
+  if (envMatch) {
+    const minx = parseFloat(envMatch[1]);
+    const maxx = parseFloat(envMatch[2]);
+    const maxy = parseFloat(envMatch[3]);
+    const miny = parseFloat(envMatch[4]);
+    if (!isNaN(minx + maxx + maxy + miny)) {
+      return [[miny, minx], [maxy, maxx]];
+    }
+  }
+
+  // CSV: minX,minY,maxX,maxY
+  const parts = s.split(',').map((p) => parseFloat(p.trim()));
+  if (parts.length >= 4 && parts.every((n) => !isNaN(n))) {
+    const [minx, miny, maxx, maxy] = parts;
+    return [[miny, minx], [maxy, maxx]];
+  }
+
+  return null;
+}
+
+// Controller: fit map to union of result bboxes when results change
 const MapInitialFitController: React.FC<{
-  centerCoords: [number, number][];
-}> = ({ centerCoords }) => {
+  bounds: Bounds[];
+}> = ({ bounds }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (centerCoords.length === 0) return;
-    const valid = centerCoords.filter(
-      ([lat, lon]) =>
-        !isNaN(lat) &&
-        !isNaN(lon) &&
-        lat >= -90 &&
-        lat <= 90 &&
-        lon >= -180 &&
-        lon <= 180
+    if (bounds.length === 0) return;
+    const valid = bounds.filter(
+      ([[minLat, minLon], [maxLat, maxLon]]) =>
+        !isNaN(minLat + minLon + maxLat + maxLon) &&
+        minLat >= -90 && maxLat <= 90 &&
+        minLon >= -180 && maxLon <= 180
     );
     if (valid.length === 0) return;
     const group = L.featureGroup(
-      valid.map(([lat, lon]) => L.marker([lat, lon]))
+      valid.map((b) => L.rectangle(b))
     );
     if (group.getBounds().isValid()) {
       map.flyToBounds(group.getBounds(), { padding: [50, 50], duration: 0.5 });
     }
-  }, [centerCoords, map]);
+  }, [bounds, map]);
 
   return null;
 };
@@ -211,10 +237,40 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
     [results, resultStartIndex]
   );
 
-  const centerCoords = useMemo(
-    () => pins.map((p) => p.position),
-    [pins]
-  );
+  // Fit map to union of result bboxes (not centroids) so full extent is visible
+  const allBounds = useMemo(() => {
+    const out: Bounds[] = [];
+    for (const r of results) {
+      const ogm = r.attributes?.ogm;
+      let b = parseBbox(ogm?.dcat_bbox ?? ogm?.dcat_bbox_original);
+      if (!b) {
+        const geom =
+          r.meta?.ui?.viewer?.geometry ??
+          ogm?.locn_geometry ??
+          ogm?.locn_geometry_original;
+        b = getBboxFromGeometry(geom ?? undefined) ?? null;
+      }
+      if (!b) {
+        const centroid =
+          ogm?.dcat_centroid ?? ogm?.dcat_centroid_original;
+        let pos = parseCentroid(centroid);
+        if (!pos) {
+          const geom =
+            r.meta?.ui?.viewer?.geometry ??
+            ogm?.locn_geometry ??
+            ogm?.locn_geometry_original;
+          pos = getCentroidFromGeometry(geom ?? undefined) ?? null;
+        }
+        if (pos) {
+          const [lat, lon] = pos;
+          const ε = 0.01;
+          b = [[lat - ε, lon - ε], [lat + ε, lon + ε]];
+        }
+      }
+      if (b) out.push(b);
+    }
+    return out;
+  }, [results]);
 
   const highlightedGeoJson = useMemo(() => {
     if (!highlightedGeometry || typeof highlightedGeometry !== 'string') return null;
@@ -267,7 +323,7 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
           />
         )}
 
-        <MapInitialFitController centerCoords={centerCoords} />
+        <MapInitialFitController bounds={allBounds} />
       </MapContainer>
     </div>
   );

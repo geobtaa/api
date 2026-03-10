@@ -318,3 +318,85 @@ export function getCentroidFromGeometry(
 
   return [lat, lon];
 }
+
+/**
+ * Bounds as [[minLat, minLon], [maxLat, maxLon]] (Leaflet format).
+ */
+export type Bounds = [[number, number], [number, number]];
+
+/**
+ * Compute bbox [[minLat, minLon], [maxLat, maxLon]] from geometry.
+ * Use for map fit-to-bounds when dcat_bbox is missing but locn_geometry exists.
+ */
+export function getBboxFromGeometry(
+  geometry:
+    | string
+    | GeoJsonGeometry
+    | { type: string; coordinates: unknown }
+    | null
+    | undefined
+): Bounds | null {
+  if (!geometry) return null;
+
+  let geom: GeoJsonGeometry | null = null;
+
+  if (typeof geometry === 'object' && geometry !== null && 'type' in geometry && 'coordinates' in geometry) {
+    geom = geometry as GeoJsonGeometry;
+  } else if (typeof geometry === 'string') {
+    const s = geometry.trim();
+    if (s.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(s) as { type?: string; coordinates?: unknown };
+        if (parsed && parsed.type && parsed.coordinates) {
+          geom = parsed as GeoJsonGeometry;
+        }
+      } catch {
+        // not JSON
+      }
+    }
+    if (!geom && /^ENVELOPE\s*\(/i.test(s)) {
+      const match = s.match(
+        /ENVELOPE\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/i
+      );
+      if (match) {
+        const minx = parseFloat(match[1]);
+        const maxx = parseFloat(match[2]);
+        const maxy = parseFloat(match[3]);
+        const miny = parseFloat(match[4]);
+        if (!isNaN(minx + maxx + maxy + miny)) {
+          return [[miny, minx], [maxy, maxx]];
+        }
+      }
+    }
+    if (!geom && (s.toUpperCase().startsWith('POLYGON') || s.toUpperCase().startsWith('MULTIPOLYGON'))) {
+      const normalized = normalizeGeometry(s);
+      if (normalized) geom = normalized as GeoJsonGeometry;
+    }
+  }
+
+  if (!geom) return null;
+
+  const pairs = collectLonLatPairs(geom);
+  if (pairs.length === 0) return null;
+
+  const lons = pairs.map(([lon]) => lon);
+  const lats = pairs.map(([, lat]) => lat);
+  let minLon = Math.min(...lons);
+  let maxLon = Math.max(...lons);
+  let minLat = Math.min(...lats);
+  let maxLat = Math.max(...lats);
+
+  // For point geometries, add small buffer so bounds are non-degenerate
+  if (minLat === maxLat && minLon === maxLon) {
+    const ε = 0.001;
+    minLat -= ε;
+    maxLat += ε;
+    minLon -= ε;
+    maxLon += ε;
+  }
+
+  if (!Number.isFinite(minLat) || !Number.isFinite(maxLat) || !Number.isFinite(minLon) || !Number.isFinite(maxLon)) return null;
+  if (minLat < -90 || maxLat > 90 || minLon < -180 || maxLon > 180) return null;
+
+  return [[minLat, minLon], [maxLat, maxLon]];
+}

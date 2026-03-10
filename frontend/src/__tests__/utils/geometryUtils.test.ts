@@ -3,6 +3,7 @@ import {
   wktToGeoJSON,
   normalizeGeometry,
   getCentroidFromGeometry,
+  getBboxFromGeometry,
 } from '../../utils/geometryUtils';
 
 describe('geometryUtils', () => {
@@ -577,6 +578,57 @@ describe('geometryUtils', () => {
     it('returns null for coordinates outside valid range', () => {
       const geom = { type: 'Point', coordinates: [200, 100] };
       expect(getCentroidFromGeometry(geom)).toBeNull();
+    });
+  });
+
+  describe('getBboxFromGeometry', () => {
+    it('returns bbox for ENVELOPE string', () => {
+      const envelope = 'ENVELOPE(-96.796, -90.379, 48.756, 43.429)';
+      expect(getBboxFromGeometry(envelope)).toEqual([
+        [43.429, -96.796],
+        [48.756, -90.379],
+      ]);
+    });
+
+    it('returns bbox for GeoJSON Polygon', () => {
+      const geom = {
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-96.796, 48.756],
+            [-90.379, 48.756],
+            [-90.379, 43.429],
+            [-96.796, 43.429],
+            [-96.796, 48.756],
+          ],
+        ],
+      };
+      expect(getBboxFromGeometry(geom)).toEqual([
+        [43.429, -96.796],
+        [48.756, -90.379],
+      ]);
+    });
+
+    it('returns buffered bbox for GeoJSON Point (non-degenerate)', () => {
+      const geom = { type: 'Point', coordinates: [-87.62, 41.88] };
+      const result = getBboxFromGeometry(geom);
+      expect(result).not.toBeNull();
+      expect(result![0][0]).toBeLessThan(result![1][0]);
+      expect(result![0][1]).toBeLessThan(result![1][1]);
+      expect(result![0][0]).toBeCloseTo(41.879, 2);
+      expect(result![0][1]).toBeCloseTo(-87.621, 2);
+      expect(result![1][0]).toBeCloseTo(41.881, 2);
+      expect(result![1][1]).toBeCloseTo(-87.619, 2);
+    });
+
+    it('returns null for null or undefined', () => {
+      expect(getBboxFromGeometry(null)).toBeNull();
+      expect(getBboxFromGeometry(undefined)).toBeNull();
+    });
+
+    it('returns null for invalid geometry', () => {
+      expect(getBboxFromGeometry('')).toBeNull();
+      expect(getBboxFromGeometry('not-valid')).toBeNull();
     });
   });
 });
