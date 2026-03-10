@@ -495,10 +495,28 @@ class ImageService:
         ):
             return f"{tms_endpoint}/reflect?format=application/vnd.google-earth.kml+xml"
 
+        # Check for COG - use as thumbnail source when no other image available.
+        # COG URLs are processed by generate_cog_thumbnail to produce a picture preview.
+        cog_uri = "https://github.com/cogeotiff/cog-spec"
+        if cog_url := self._first_url(cog_uri, references=references):
+            return cog_url
+
         # Return None when no thumbnail source is found
         # This allows the frontend to show a default icon based on resource class
         # (gbl_resourceClass_sm)
         return None
+
+    def _is_cog_url(self, url: str) -> bool:
+        """Check if URL looks like a COG (Cloud Optimized GeoTIFF) URL."""
+        if not url:
+            return False
+        url_lower = url.lower()
+        return (
+            url_lower.endswith((".tif", ".tiff"))
+            or ".tif?" in url_lower
+            or "geotiff" in url_lower
+            or "display_raster" in url_lower
+        )
 
     def _is_manifest_url(self, url: str) -> bool:
         """Check if URL looks like a IIIF manifest URL."""

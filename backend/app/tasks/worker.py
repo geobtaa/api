@@ -305,6 +305,116 @@ def _validate_image_content(
         return False, None
 
 
+COG_THUMBNAIL_PREFIX = "cog-thumb:"
+
+
+def _cog_thumbnail_image_hash(cog_url: str) -> str:
+    """Compute Redis cache key hash for a COG-derived thumbnail."""
+    return hashlib.sha256((COG_THUMBNAIL_PREFIX + cog_url).encode()).hexdigest()
+
+
+def _is_cog_url(url: str) -> bool:
+    """Heuristic to detect COG (Cloud Optimized GeoTIFF) URLs."""
+    if not url:
+        return False
+    url_lower = url.lower()
+    return (
+        url_lower.endswith((".tif", ".tiff"))
+        or ".tif?" in url_lower
+        or "geotiff" in url_lower
+        or "display_raster" in url_lower
+    )
+
+
+def _generate_cog_thumbnail_bytes(cog_url: str) -> Optional[bytes]:
+    """
+    Generate PNG thumbnail bytes from a COG URL. Returns None on failure.
+    Used by both the Celery task and the no-cache thumbnail endpoint.
+    """
+    try:
+        import numpy as np
+        from rio_tiler.io import Reader
+        from rio_tiler.utils import linear_rescale
+        from rio_tiler.utils import render as rio_render
+
+        with Reader(cog_url) as src:
+            img = src.preview(max_size=512)
+            if img is None or img.data is None:
+                return None
+
+            data = img.data
+            if data.dtype != "uint8":
+                compressed = (
+                    np.ma.compressed(data) if hasattr(data, "compressed") else data.flatten()
+                )
+                if len(compressed) == 0:
+                    p2, p98 = 0, 255
+                else:
+                    p2, p98 = np.percentile(compressed, (2, 98))
+                    if p2 >= p98:
+                        p2, p98 = 0, 255
+                data = linear_rescale(
+                    np.ma.filled(data, 0) if hasattr(data, "filled") else data,
+                    (float(p2), float(p98)),
+                    (0, 255),
+                ).astype("uint8")
+
+            return rio_render(data, img.mask, img_format="PNG")
+    except Exception as e:
+        logger.warning(f"COG thumbnail generation failed for {cog_url}: {e}")
+        return None
+
+
+@celery_app.task(bind=True, name="generate_cog_thumbnail")
+def generate_cog_thumbnail(self, cog_url: str, doc_id: Optional[str] = None) -> bool:
+    """
+    Generate a thumbnail from a COG URL using rio-tiler and cache in Redis.
+    Returns True if successful, False otherwise.
+    """
+    logger.info(f"Starting COG thumbnail generation for {cog_url}")
+    try:
+        image_hash = _cog_thumbnail_image_hash(cog_url)
+        image_key = f"image:{image_hash}"
+
+        # Check if already cached
+        try:
+            if redis_client.exists(image_key):
+                logger.info(f"COG thumbnail already cached for {cog_url}")
+                return True
+        except Exception as redis_err:
+            logger.warning(f"Redis unavailable during COG cache check: {redis_err}")
+
+        image_bytes = _generate_cog_thumbnail_bytes(cog_url)
+        if not image_bytes or len(image_bytes) < 100:
+            logger.error(f"COG render produced invalid output for {cog_url}")
+            return False
+
+        # Validate as image
+        is_valid, _ = _validate_image_content(image_bytes, "image/png")
+        if not is_valid:
+            logger.error(f"COG thumbnail failed validation for {cog_url}")
+            return False
+
+        # Cache in Redis
+        try:
+            ttl = int(os.getenv("REDIS_TTL", 604800))
+            redis_client.setex(image_key, ttl, image_bytes)
+            type_key = f"image_type:{image_hash}"
+            redis_client.setex(type_key, ttl, "image/png")
+            logger.info(
+                f"Successfully cached COG thumbnail for {cog_url} (size: {len(image_bytes)} bytes)"
+            )
+            return True
+        except Exception as redis_err:
+            logger.warning(f"Failed to cache COG thumbnail: {redis_err}")
+            return False
+
+    except Exception as e:
+        logger.error(f"COG thumbnail generation failed for {cog_url}: {e}", exc_info=True)
+        self.retry(exc=e, countdown=60, max_retries=2)
+        return False
+
+
 def _resolve_image_url(url: str) -> str:
     """Resolve the URL to an actual image URL if given a manifest; otherwise return the original."""
     try:

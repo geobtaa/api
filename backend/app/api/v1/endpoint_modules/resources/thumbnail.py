@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 import json
 
@@ -9,6 +10,11 @@ from sqlalchemy.sql import select
 from app.api.v1.utils import sanitize_for_json
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
+from app.tasks.worker import (
+    _cog_thumbnail_image_hash,
+    _generate_cog_thumbnail_bytes,
+    generate_cog_thumbnail,
+)
 from db.models import resources
 
 from . import async_session, logger, router
@@ -160,8 +166,11 @@ async def get_resource_thumbnail(
         # Check if we have a cached image
         image_hash = None
 
+        # For COG URLs, use COG-specific hash and task
+        if image_service._is_cog_url(source_url):
+            image_hash = _cog_thumbnail_image_hash(source_url)
         # For manifest URLs, try to resolve from cache
-        if image_service._is_manifest_url(source_url):
+        elif image_service._is_manifest_url(source_url):
             manifest_cache_key = f"manifest:{source_url}"
             try:
                 cached_manifest_data = image_service.cache.get(manifest_cache_key)
@@ -194,12 +203,16 @@ async def get_resource_thumbnail(
                     },
                 )
 
-        # For direct (non-manifest) thumbnail URLs: probe once so we don't stick on
+        # For direct (non-manifest, non-COG) thumbnail URLs: probe once so we don't stick on
         # "Generating thumbnail" when the source returns 404 or non-image (e.g. ArcGIS
         # /info/thumbnail not supported). If probe fails and resource has geometry,
-        # serve static map instead.
+        # serve static map instead. (COG URLs are processed server-side; skip probe.)
         geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
-        if not image_service._is_manifest_url(source_url) and geometry:
+        if (
+            not image_service._is_manifest_url(source_url)
+            and not image_service._is_cog_url(source_url)
+            and geometry
+        ):
             fetch_url = image_service._standardize_iiif_url(source_url)
             probe_ok = await _probe_thumbnail_url(fetch_url)
             if not probe_ok:
@@ -214,7 +227,9 @@ async def get_resource_thumbnail(
 
         # Image doesn't exist, trigger Celery task to fetch and cache it
         try:
-            if image_service._is_manifest_url(source_url):
+            if image_service._is_cog_url(source_url):
+                generate_cog_thumbnail.delay(source_url, id)
+            elif image_service._is_manifest_url(source_url):
                 image_service._queue_thumbnail_processing(source_url, id)
             else:
                 standardized_url = image_service._standardize_iiif_url(source_url)
@@ -281,6 +296,26 @@ async def get_resource_thumbnail_no_cache(
             if "Collections" in resource_classes:
                 return _svg_collection_icon()
             return _svg_placeholder(title="Thumbnail", subtitle="Not available")
+
+        # For COG: generate thumbnail synchronously
+        if image_service._is_cog_url(source_url):
+            image_bytes = await asyncio.to_thread(_generate_cog_thumbnail_bytes, source_url)
+            if image_bytes:
+                return Response(
+                    content=image_bytes,
+                    media_type="image/png",
+                    headers={"Cache-Control": "no-store"},
+                )
+            geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+            if geometry:
+                return RedirectResponse(
+                    url=f"/api/v1/resources/{id}/static-map/no-cache",
+                    status_code=302,
+                    headers={"Cache-Control": "no-store"},
+                )
+            return _svg_placeholder(
+                title="Thumbnail unavailable", subtitle="Error generating COG preview"
+            )
 
         # Resolve manifests to actual image URLs when needed
         if image_service._is_manifest_url(source_url):
