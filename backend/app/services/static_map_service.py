@@ -16,7 +16,7 @@ import cairo
 import redis
 import staticmaps
 from dotenv import load_dotenv
-from PIL import Image, ImageDraw
+from PIL import Image
 from shapely import wkt as shapely_wkt
 from shapely.geometry import shape
 
@@ -289,9 +289,7 @@ class StaticMapService:
         buf = io.BytesIO()
         surface.write_to_png(buf)
         buf.seek(0)
-        return Image.open(buf).convert("RGBA").resize(
-            (size, size), Image.Resampling.LANCZOS
-        )
+        return Image.open(buf).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
 
     def _overlay_no_data_symbol(self, image: Image.Image) -> Image.Image:
         """Overlay a circle-with-slash symbol on a world map for no-geometry resources."""

@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 _LOCAL_STATE_LOCK = threading.Lock()
 _LOCAL_NEXT_ALLOWED: dict[str, float] = {}
 _LOCAL_SLOT_LOCKS: dict[str, list[threading.Lock]] = {}
+_LOCAL_FAILURE_COUNTS: dict[str, int] = {}
+_LOCAL_COOLDOWN_UNTIL: dict[str, float] = {}
 
 _redis_client = redis.Redis(
     host=os.getenv("REDIS_HOST", "redis"),
@@ -46,6 +48,28 @@ class ProviderThrottleProfile:
 class ProviderLease:
     origin: str
     waited_seconds: float
+
+
+def _failure_threshold() -> int:
+    return max(1, int(os.getenv("THUMBNAIL_PROVIDER_FAILURE_THRESHOLD", "3")))
+
+
+def _cooldown_seconds() -> int:
+    return max(30, int(os.getenv("THUMBNAIL_PROVIDER_COOLDOWN_SECONDS", "1800")))
+
+
+def _slow_request_seconds() -> float:
+    return max(1.0, float(os.getenv("THUMBNAIL_PROVIDER_SLOW_REQUEST_SECONDS", "20")))
+
+
+def _count_slow_failure(
+    failure_type: str | None, *, elapsed_seconds: float, status_code: int | None
+) -> bool:
+    if elapsed_seconds >= _slow_request_seconds():
+        return True
+    if failure_type in {"timeout", "connection", "request_error"}:
+        return True
+    return status_code is not None and status_code >= 500
 
 
 def normalize_origin(url: str | None) -> str | None:
@@ -113,6 +137,14 @@ def _next_allowed_key(origin: str) -> str:
     return f"thumbnail_provider_next_allowed:{origin}"
 
 
+def _failure_count_key(origin: str) -> str:
+    return f"thumbnail_provider_failure_count:{origin}"
+
+
+def _cooldown_until_key(origin: str) -> str:
+    return f"thumbnail_provider_cooldown_until:{origin}"
+
+
 def _local_acquire(origin: str, profile: ProviderThrottleProfile) -> tuple[threading.Lock, float]:
     started = time.time()
     with _LOCAL_STATE_LOCK:
@@ -144,6 +176,96 @@ def _local_acquire(origin: str, profile: ProviderThrottleProfile) -> tuple[threa
 
 def _local_release(lock: threading.Lock) -> None:
     lock.release()
+
+
+def provider_origin_cooldown_remaining(url: str | None) -> float:
+    origin = normalize_origin(url)
+    if not origin:
+        return 0.0
+
+    try:
+        raw_until = _redis_client.get(_cooldown_until_key(origin))
+        if raw_until:
+            remaining = float(raw_until) - time.time()
+            if remaining > 0:
+                return remaining
+    except Exception:
+        pass
+
+    with _LOCAL_STATE_LOCK:
+        remaining = _LOCAL_COOLDOWN_UNTIL.get(origin, 0.0) - time.time()
+    return max(0.0, remaining)
+
+
+def record_provider_success(url: str | None) -> None:
+    origin = normalize_origin(url)
+    if not origin:
+        return
+
+    try:
+        _redis_client.delete(_failure_count_key(origin))
+        _redis_client.delete(_cooldown_until_key(origin))
+    except Exception:
+        pass
+
+    with _LOCAL_STATE_LOCK:
+        _LOCAL_FAILURE_COUNTS.pop(origin, None)
+        _LOCAL_COOLDOWN_UNTIL.pop(origin, None)
+
+
+def record_provider_failure(
+    url: str | None,
+    *,
+    elapsed_seconds: float,
+    failure_type: str | None = None,
+    status_code: int | None = None,
+) -> float:
+    """
+    Track repeated slow failures and return cooldown seconds if the origin should be deprioritized.
+    """
+    origin = normalize_origin(url)
+    if not origin:
+        return 0.0
+
+    if not _count_slow_failure(
+        failure_type,
+        elapsed_seconds=elapsed_seconds,
+        status_code=status_code,
+    ):
+        return 0.0
+
+    threshold = _failure_threshold()
+    cooldown_seconds = float(_cooldown_seconds())
+
+    try:
+        count = _redis_client.incr(_failure_count_key(origin))
+        _redis_client.expire(_failure_count_key(origin), max(int(cooldown_seconds), 300))
+        if count >= threshold:
+            until = time.time() + cooldown_seconds
+            _redis_client.set(_cooldown_until_key(origin), until, ex=int(cooldown_seconds))
+            logger.info(
+                "Deprioritizing provider %s for %.0fs after %s slow failures",
+                origin,
+                cooldown_seconds,
+                count,
+            )
+            return cooldown_seconds
+    except Exception:
+        pass
+
+    with _LOCAL_STATE_LOCK:
+        count = _LOCAL_FAILURE_COUNTS.get(origin, 0) + 1
+        _LOCAL_FAILURE_COUNTS[origin] = count
+        if count >= threshold:
+            _LOCAL_COOLDOWN_UNTIL[origin] = time.time() + cooldown_seconds
+            logger.info(
+                "Deprioritizing provider %s for %.0fs after %s slow failures (local)",
+                origin,
+                cooldown_seconds,
+                count,
+            )
+            return cooldown_seconds
+    return 0.0
 
 
 def _release_redis_key(key: str, owner: str) -> None:

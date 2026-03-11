@@ -26,6 +26,7 @@ import json
 import logging
 import os
 import sys
+import time
 from collections import Counter
 from typing import Any
 
@@ -45,7 +46,12 @@ from app.services.distribution_repository import (  # noqa: E402
     fetch_distribution_context,
 )
 from app.services.image_service import ImageService  # noqa: E402
-from app.services.provider_throttle import provider_request_slot  # noqa: E402
+from app.services.provider_throttle import (  # noqa: E402
+    provider_origin_cooldown_remaining,
+    provider_request_slot,
+    record_provider_failure,
+    record_provider_success,
+)
 from app.services.thumbnail_state_service import (  # noqa: E402
     ThumbnailState,
     ThumbnailStatePayload,
@@ -61,7 +67,7 @@ from app.tasks.worker import (  # noqa: E402
     _validate_image_content,
     redis_client,
 )
-from db.models import resources  # noqa: E402
+from db.models import resource_thumbnail_state, resources  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -159,27 +165,98 @@ def _prime_pmtiles_thumbnail(source_url: str, image_hash: str) -> tuple[bool, bo
     return (_store_image_bytes(image_hash, image_bytes, content_type or "image/png"), False)
 
 
-def _prime_remote_thumbnail(image_hash: str, source_url: str) -> bool:
+def _prime_remote_thumbnail(image_hash: str, source_url: str) -> tuple[str, str]:
     resolved_url = _resolve_image_url(source_url)
+    cooldown_remaining = provider_origin_cooldown_remaining(resolved_url)
+    if cooldown_remaining > 0:
+        return (
+            "deprioritized",
+            f"provider cooldown active for {cooldown_remaining:.0f}s ({resolved_url})",
+        )
+
     headers = {"User-Agent": USER_AGENT}
-    with provider_request_slot(resolved_url, action="thumbnail prime (remote)"):
-        response = requests.get(resolved_url, timeout=_thumbnail_fetch_timeout(), headers=headers)
+    started = time.monotonic()
+    try:
+        with provider_request_slot(resolved_url, action="thumbnail prime (remote)"):
+            response = requests.get(
+                resolved_url, timeout=_thumbnail_fetch_timeout(), headers=headers
+            )
+    except requests.Timeout:
+        elapsed = time.monotonic() - started
+        cooldown_seconds = record_provider_failure(
+            resolved_url,
+            elapsed_seconds=elapsed,
+            failure_type="timeout",
+        )
+        if cooldown_seconds > 0:
+            return (
+                "deprioritized",
+                f"provider timed out; cooling down for {cooldown_seconds:.0f}s ({resolved_url})",
+            )
+        return ("failed", f"request timed out after {elapsed:.1f}s ({resolved_url})")
+    except requests.RequestException as exc:
+        elapsed = time.monotonic() - started
+        status_code = getattr(getattr(exc, "response", None), "status_code", None)
+        cooldown_seconds = record_provider_failure(
+            resolved_url,
+            elapsed_seconds=elapsed,
+            failure_type="request_error",
+            status_code=status_code,
+        )
+        if cooldown_seconds > 0:
+            return (
+                "deprioritized",
+                "provider request failed; "
+                f"cooling down for {cooldown_seconds:.0f}s ({resolved_url})",
+            )
+        return ("failed", f"{exc} ({resolved_url})")
 
     if response.status_code in (401, 403, 418):
         logger.warning(
             "Authorization/bot-block status %s for %s", response.status_code, resolved_url
         )
-        return False
+        record_provider_failure(
+            resolved_url,
+            elapsed_seconds=time.monotonic() - started,
+            failure_type=f"http_{response.status_code}",
+            status_code=response.status_code,
+        )
+        return ("failed", f"HTTP {response.status_code} ({resolved_url})")
 
-    response.raise_for_status()
+    try:
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        elapsed = time.monotonic() - started
+        cooldown_seconds = record_provider_failure(
+            resolved_url,
+            elapsed_seconds=elapsed,
+            failure_type="request_error",
+            status_code=response.status_code,
+        )
+        if cooldown_seconds > 0:
+            return (
+                "deprioritized",
+                f"provider HTTP failure; cooling down for {cooldown_seconds:.0f}s ({resolved_url})",
+            )
+        return ("failed", f"{exc} ({resolved_url})")
 
     is_valid, detected_type = _validate_image_content(
         response.content, response.headers.get("Content-Type")
     )
     if not is_valid:
-        return False
+        record_provider_failure(
+            resolved_url,
+            elapsed_seconds=time.monotonic() - started,
+            failure_type="invalid_content",
+            status_code=response.status_code,
+        )
+        return ("failed", f"invalid image content ({resolved_url})")
 
-    return _store_image_bytes(image_hash, response.content, detected_type or "image/jpeg")
+    if _store_image_bytes(image_hash, response.content, detected_type or "image/jpeg"):
+        record_provider_success(resolved_url)
+        return ("generated", "remote")
+
+    return ("failed", f"failed to cache thumbnail ({resolved_url})")
 
 
 async def _count_resources(resource_ids: list[str]) -> int:
@@ -213,10 +290,59 @@ async def _fetch_resource_batch(last_id: str | None, batch_size: int) -> list[di
         return [sanitize_for_json(dict(row._mapping)) for row in result.fetchall()]
 
 
+async def _fetch_thumbnail_states(resource_ids: list[str]) -> dict[str, dict[str, Any]]:
+    if not resource_ids:
+        return {}
+
+    async with async_session_factory() as session:
+        stmt = select(resource_thumbnail_state).where(
+            resource_thumbnail_state.c.resource_id.in_(resource_ids)
+        )
+        result = await session.execute(stmt)
+        rows = result.fetchall()
+        return {
+            str(row._mapping["resource_id"]): sanitize_for_json(dict(row._mapping)) for row in rows
+        }
+
+
+def _should_resume_skip(
+    existing_state: dict[str, Any] | None,
+    *,
+    force: bool,
+    retry_failures: bool,
+    retry_placeheld: bool,
+) -> tuple[bool, str]:
+    if force or not existing_state:
+        return (False, "")
+
+    state = str(existing_state.get("state") or "").strip().lower()
+    if state == ThumbnailState.SUCCESS:
+        return (True, "already succeeded in prior run")
+    if state == ThumbnailState.FAILURE and not retry_failures:
+        return (True, "already failed in prior run")
+    if state == ThumbnailState.PLACEHELD and not retry_placeheld:
+        return (True, "already resolved to placeholder in prior run")
+    return (False, "")
+
+
 async def _prime_thumbnail_for_resource(
-    resource_dict: dict[str, Any], *, force: bool
+    resource_dict: dict[str, Any],
+    *,
+    force: bool,
+    retry_failures: bool = False,
+    retry_placeheld: bool = False,
+    existing_state: dict[str, Any] | None = None,
 ) -> tuple[str, str, str]:
     resource_id = str(resource_dict["id"])
+
+    should_skip, skip_reason = _should_resume_skip(
+        existing_state,
+        force=force,
+        retry_failures=retry_failures,
+        retry_placeheld=retry_placeheld,
+    )
+    if should_skip:
+        return ("skipped-resume", resource_id, skip_reason)
 
     if resource_dict.get("dct_accessrights_s") == "Restricted":
         return ("skipped-restricted", resource_id, "restricted")
@@ -337,7 +463,13 @@ async def _prime_thumbnail_for_resource(
             )
             return ("failed", resource_id, "pmtiles")
 
-        ok = await asyncio.to_thread(_prime_remote_thumbnail, image_hash, source_url)
+        remote_status, remote_detail = await asyncio.to_thread(
+            _prime_remote_thumbnail, image_hash, source_url
+        )
+        if remote_status == "deprioritized":
+            return ("deprioritized", resource_id, remote_detail)
+
+        ok = remote_status == "generated"
         await safe_record_thumbnail_state(
             ThumbnailStatePayload(
                 resource_id=resource_id,
@@ -346,10 +478,12 @@ async def _prime_thumbnail_for_resource(
                 source_url=source_url,
                 source_hash=image_hash,
                 state_detail="Remote thumbnail primed" if ok else "Remote thumbnail prime failed",
-                last_error=None if ok else "Remote thumbnail prime failed",
+                last_error=None if ok else remote_detail,
             )
         )
-        return ("generated", resource_id, "remote") if ok else ("failed", resource_id, "remote")
+        return (
+            ("generated", resource_id, "remote") if ok else ("failed", resource_id, remote_detail)
+        )
     except Exception as exc:
         await safe_record_thumbnail_state(
             ThumbnailStatePayload(
@@ -369,15 +503,24 @@ async def _process_batch(
     *,
     concurrency: int,
     force: bool,
+    retry_failures: bool,
+    retry_placeheld: bool,
     counters: Counter[str],
     progress: tqdm,
     failures: list[str],
 ) -> None:
     semaphore = asyncio.Semaphore(concurrency)
+    state_map = await _fetch_thumbnail_states([str(resource_dict["id"]) for resource_dict in batch])
 
     async def _run(resource_dict: dict[str, Any]) -> tuple[str, str, str]:
         async with semaphore:
-            return await _prime_thumbnail_for_resource(resource_dict, force=force)
+            return await _prime_thumbnail_for_resource(
+                resource_dict,
+                force=force,
+                retry_failures=retry_failures,
+                retry_placeheld=retry_placeheld,
+                existing_state=state_map.get(str(resource_dict["id"])),
+            )
 
     tasks = [asyncio.create_task(_run(resource_dict)) for resource_dict in batch]
 
@@ -390,7 +533,12 @@ async def _process_batch(
         progress.set_postfix(
             generated=counters["generated"] + counters["generated-skip"],
             cached=counters["cached"] + counters["cached-skip"],
-            skipped=counters["skipped-no-source"] + counters["skipped-restricted"],
+            skipped=(
+                counters["skipped-no-source"]
+                + counters["skipped-restricted"]
+                + counters["skipped-resume"]
+                + counters["deprioritized"]
+            ),
             failed=counters["failed"],
         )
 
@@ -426,6 +574,8 @@ async def _run(args: argparse.Namespace) -> int:
                     batch,
                     concurrency=args.concurrency,
                     force=args.force,
+                    retry_failures=args.retry_failures,
+                    retry_placeheld=args.retry_placeheld,
                     counters=counters,
                     progress=progress,
                     failures=failures,
@@ -442,6 +592,8 @@ async def _run(args: argparse.Namespace) -> int:
                     batch,
                     concurrency=args.concurrency,
                     force=args.force,
+                    retry_failures=args.retry_failures,
+                    retry_placeheld=args.retry_placeheld,
                     counters=counters,
                     progress=progress,
                     failures=failures,
@@ -453,13 +605,15 @@ async def _run(args: argparse.Namespace) -> int:
 
     logger.info(
         "Thumbnail priming complete: generated=%s generated_skip=%s cached=%s cached_skip=%s "
-        "skipped_no_source=%s skipped_restricted=%s failed=%s",
+        "skipped_no_source=%s skipped_restricted=%s skipped_resume=%s deprioritized=%s failed=%s",
         counters["generated"],
         counters["generated-skip"],
         counters["cached"],
         counters["cached-skip"],
         counters["skipped-no-source"],
         counters["skipped-restricted"],
+        counters["skipped-resume"],
+        counters["deprioritized"],
         counters["failed"],
     )
 
@@ -483,6 +637,16 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--force", action="store_true", help="Regenerate thumbnails even if cache exists"
+    )
+    parser.add_argument(
+        "--retry-failures",
+        action="store_true",
+        help="Retry resources already marked as failure in resource_thumbnail_state",
+    )
+    parser.add_argument(
+        "--retry-placeheld",
+        action="store_true",
+        help="Retry resources already marked as placeheld in resource_thumbnail_state",
     )
     return parser.parse_args()
 
