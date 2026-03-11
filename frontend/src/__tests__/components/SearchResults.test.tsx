@@ -383,7 +383,7 @@ describe('SearchResults Component', () => {
       );
     });
 
-    it('displays fallback icon when thumbnail is not available', () => {
+    it('falls back to the backend thumbnail endpoint when thumbnail_url is not available', () => {
       render(
         <TestWrapper>
           <SearchResults
@@ -395,15 +395,14 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      // Should not have an img element
-      expect(screen.queryByRole('img')).not.toBeInTheDocument();
-
-      // Should have the fallback icon container
-      const fallbackContainer = screen
-        .getByText('Point dataset with WMS and WFS')
-        .closest('article')
-        ?.querySelector('.bg-gray-50');
-      expect(fallbackContainer).toBeInTheDocument();
+      const thumbnail = screen.getByAltText(
+        'Thumbnail for Point dataset with WMS and WFS'
+      );
+      expect(thumbnail).toBeInTheDocument();
+      expect(thumbnail).toHaveAttribute(
+        'src',
+        '/resources/nyu-2451-34564/thumbnail'
+      );
     });
   });
 
@@ -638,6 +637,42 @@ describe('SearchResults Component', () => {
   });
 
   describe('Edge Cases', () => {
+    it('uses the backend thumbnail endpoint when thumbnail_url is missing', () => {
+      const missingThumbnailResult: GeoDocument = {
+        id: 'missing-thumb-test',
+        type: 'document',
+        attributes: {
+          ogm: {
+            id: 'missing-thumb-test',
+            dct_title_s: 'Missing Thumbnail Test',
+            gbl_resourceClass_sm: ['Websites'],
+          },
+        },
+        meta: {
+          ui: {
+            thumbnail_url: null,
+            viewer: {
+              geometry: null,
+            },
+          },
+        },
+      };
+
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={[missingThumbnailResult]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const thumbnail = screen.getByAltText('Thumbnail for Missing Thumbnail Test');
+      expect(thumbnail).toHaveAttribute('src', '/resources/missing-thumb-test/thumbnail');
+    });
+
     it('handles results with missing attributes gracefully', () => {
       const incompleteResult: GeoDocument = {
         id: 'incomplete-test',

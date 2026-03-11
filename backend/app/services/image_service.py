@@ -13,6 +13,13 @@ from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
 )
+from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
+from app.services.thumbnail_state_service import (
+    ThumbnailState,
+    ThumbnailStatePayload,
+    infer_source_type,
+    safe_record_thumbnail_state_sync,
+)
 
 # Load environment variables from .env file
 try:
@@ -624,12 +631,35 @@ class ImageService:
         This method is fire-and-forget.
         """
         try:
+            if not acquire_thumbnail_queue_slot(doc_id, thumbnail_url):
+                self.logger.info(f"Thumbnail task already queued for {doc_id}: {thumbnail_url}")
+                safe_record_thumbnail_state_sync(
+                    ThumbnailStatePayload(
+                        resource_id=doc_id,
+                        state=ThumbnailState.QUEUED,
+                        source_type=infer_source_type(thumbnail_url),
+                        source_url=thumbnail_url,
+                        state_detail="Thumbnail fetch already queued; waiting for existing task",
+                    )
+                )
+                return
+
             # LIGHTNING SPEED OPTIMIZATION: Skip validation, queue immediately
             # The Celery worker will handle validation and caching
             from app.tasks.worker import fetch_and_cache_image
 
             task = fetch_and_cache_image.delay(thumbnail_url, doc_id)
             self.logger.info(f"Task queued for {doc_id}: {task.id}")
+            safe_record_thumbnail_state_sync(
+                ThumbnailStatePayload(
+                    resource_id=doc_id,
+                    state=ThumbnailState.QUEUED,
+                    source_type=infer_source_type(thumbnail_url),
+                    source_url=thumbnail_url,
+                    queue_task_id=task.id,
+                    state_detail="Queued thumbnail fetch task",
+                )
+            )
 
         except Exception as e:
             self.logger.error(f"Failed to queue thumbnail processing for {doc_id}: {e}")

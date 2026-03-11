@@ -13,6 +13,12 @@ from app.api.v1.utils import sanitize_for_json
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
+from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
+from app.services.thumbnail_state_service import (
+    ThumbnailState,
+    ThumbnailStatePayload,
+    safe_record_thumbnail_state,
+)
 from app.tasks.worker import (
     _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
@@ -295,6 +301,15 @@ async def get_resource_thumbnail(
 
         if not source_url:
             # No thumbnail source: show resource-class icon
+            await safe_record_thumbnail_state(
+                ThumbnailStatePayload(
+                    resource_id=id,
+                    state=ThumbnailState.PLACEHELD,
+                    source_type=None,
+                    source_url=None,
+                    state_detail="No thumbnail source available; using placeholder",
+                )
+            )
             return await _svg_icon_for_resource(resource_dict)
 
         # Check if we have a cached image
@@ -330,6 +345,24 @@ async def get_resource_thumbnail(
         if image_hash:
             image_data = await image_service.get_cached_image(image_hash)
             if image_data:
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=id,
+                        state=ThumbnailState.SUCCESS,
+                        source_type=(
+                            "cog"
+                            if image_service._is_cog_url(source_url)
+                            else "pmtiles"
+                            if image_service._is_pmtiles_url(source_url)
+                            else "manifest"
+                            if image_service._is_manifest_url(source_url)
+                            else "remote"
+                        ),
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="Thumbnail cache hit",
+                    )
+                )
                 # Image exists, redirect to the serving endpoint (same pattern as static-maps)
                 return RedirectResponse(
                     url=f"/api/v1/thumbnails/{image_hash}",
@@ -344,6 +377,16 @@ async def get_resource_thumbnail(
                 image_hash
             ):
                 logger.info(f"PMTiles thumbnail skipped for {id}, showing resource-class icon")
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=id,
+                        state=ThumbnailState.PLACEHELD,
+                        source_type="pmtiles",
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="PMTiles skip marker present; using placeholder",
+                    )
+                )
                 return await _svg_icon_for_resource(resource_dict)
 
         # For direct (non-manifest, non-COG, non-PMTiles) thumbnail URLs: probe once
@@ -364,14 +407,70 @@ async def get_resource_thumbnail(
                 logger.info(
                     f"Thumbnail source unreachable or invalid for {id}, showing resource-class icon"
                 )
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=id,
+                        state=ThumbnailState.PLACEHELD,
+                        source_type="remote",
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="Thumbnail probe failed; using placeholder",
+                    )
+                )
                 return await _svg_icon_for_resource(resource_dict)
 
         # Image doesn't exist, trigger Celery task to fetch and cache it
         try:
             if image_service._is_cog_url(source_url):
-                generate_cog_thumbnail.delay(source_url, id)
+                if acquire_thumbnail_queue_slot(id, source_url):
+                    task = generate_cog_thumbnail.delay(source_url, id)
+                    await safe_record_thumbnail_state(
+                        ThumbnailStatePayload(
+                            resource_id=id,
+                            state=ThumbnailState.QUEUED,
+                            source_type="cog",
+                            source_url=source_url,
+                            source_hash=image_hash,
+                            queue_task_id=task.id,
+                            state_detail="Queued COG thumbnail generation",
+                        )
+                    )
+                else:
+                    await safe_record_thumbnail_state(
+                        ThumbnailStatePayload(
+                            resource_id=id,
+                            state=ThumbnailState.QUEUED,
+                            source_type="cog",
+                            source_url=source_url,
+                            source_hash=image_hash,
+                            state_detail="COG thumbnail generation already queued",
+                        )
+                    )
             elif image_service._is_pmtiles_url(source_url):
-                generate_pmtiles_thumbnail.delay(source_url, id)
+                if acquire_thumbnail_queue_slot(id, source_url):
+                    task = generate_pmtiles_thumbnail.delay(source_url, id)
+                    await safe_record_thumbnail_state(
+                        ThumbnailStatePayload(
+                            resource_id=id,
+                            state=ThumbnailState.QUEUED,
+                            source_type="pmtiles",
+                            source_url=source_url,
+                            source_hash=image_hash,
+                            queue_task_id=task.id,
+                            state_detail="Queued PMTiles thumbnail generation",
+                        )
+                    )
+                else:
+                    await safe_record_thumbnail_state(
+                        ThumbnailStatePayload(
+                            resource_id=id,
+                            state=ThumbnailState.QUEUED,
+                            source_type="pmtiles",
+                            source_url=source_url,
+                            source_hash=image_hash,
+                            state_detail="PMTiles thumbnail generation already queued",
+                        )
+                    )
             elif image_service._is_manifest_url(source_url):
                 image_service._queue_thumbnail_processing(source_url, id)
             else:
@@ -380,6 +479,25 @@ async def get_resource_thumbnail(
             logger.info(f"Triggered thumbnail generation for resource {id}")
         except Exception as e:
             logger.error(f"Error triggering thumbnail generation for resource {id}: {e}")
+            await safe_record_thumbnail_state(
+                ThumbnailStatePayload(
+                    resource_id=id,
+                    state=ThumbnailState.FAILURE,
+                    source_type=(
+                        "cog"
+                        if image_service._is_cog_url(source_url)
+                        else "pmtiles"
+                        if image_service._is_pmtiles_url(source_url)
+                        else "manifest"
+                        if image_service._is_manifest_url(source_url)
+                        else "remote"
+                    ),
+                    source_url=source_url,
+                    source_hash=image_hash,
+                    state_detail="Failed to queue thumbnail generation",
+                    last_error=str(e),
+                )
+            )
 
         # Return a placeholder image while the thumbnail is being generated (never JSON to <img>).
         return _svg_placeholder(title="Generating thumbnail", subtitle="Please try again shortly")

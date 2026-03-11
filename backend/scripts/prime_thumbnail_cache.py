@@ -45,6 +45,13 @@ from app.services.distribution_repository import (  # noqa: E402
     fetch_distribution_context,
 )
 from app.services.image_service import ImageService  # noqa: E402
+from app.services.provider_throttle import provider_request_slot  # noqa: E402
+from app.services.thumbnail_state_service import (  # noqa: E402
+    ThumbnailState,
+    ThumbnailStatePayload,
+    infer_source_type,
+    safe_record_thumbnail_state,
+)
 from app.tasks.worker import (  # noqa: E402
     _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
@@ -123,7 +130,8 @@ def _set_pmtiles_skip_marker(image_hash: str) -> bool:
 
 
 def _prime_cog_thumbnail(source_url: str, image_hash: str) -> bool:
-    image_bytes = _generate_cog_thumbnail_bytes(source_url)
+    with provider_request_slot(source_url, action="thumbnail prime (COG)"):
+        image_bytes = _generate_cog_thumbnail_bytes(source_url)
     if not image_bytes or len(image_bytes) < 100:
         return False
     is_valid, _ = _validate_image_content(image_bytes, "image/png")
@@ -139,7 +147,8 @@ def _prime_pmtiles_thumbnail(source_url: str, image_hash: str) -> tuple[bool, bo
     Returns:
         (success, skip_marker_written)
     """
-    image_bytes = _generate_pmtiles_thumbnail_bytes(source_url)
+    with provider_request_slot(source_url, action="thumbnail prime (PMTiles)"):
+        image_bytes = _generate_pmtiles_thumbnail_bytes(source_url)
     if not image_bytes or len(image_bytes) < 100:
         return (False, _set_pmtiles_skip_marker(image_hash))
 
@@ -153,7 +162,8 @@ def _prime_pmtiles_thumbnail(source_url: str, image_hash: str) -> tuple[bool, bo
 def _prime_remote_thumbnail(image_hash: str, source_url: str) -> bool:
     resolved_url = _resolve_image_url(source_url)
     headers = {"User-Agent": USER_AGENT}
-    response = requests.get(resolved_url, timeout=_thumbnail_fetch_timeout(), headers=headers)
+    with provider_request_slot(resolved_url, action="thumbnail prime (remote)"):
+        response = requests.get(resolved_url, timeout=_thumbnail_fetch_timeout(), headers=headers)
 
     if response.status_code in (401, 403, 418):
         logger.warning(
@@ -216,24 +226,74 @@ async def _prime_thumbnail_for_resource(
     source_url = image_service._get_thumbnail_source_url()
 
     if not source_url:
+        await safe_record_thumbnail_state(
+            ThumbnailStatePayload(
+                resource_id=resource_id,
+                state=ThumbnailState.PLACEHELD,
+                source_type=None,
+                source_url=None,
+                state_detail="No thumbnail source available during prime run",
+            )
+        )
         return ("skipped-no-source", resource_id, "no thumbnail source")
 
     try:
         image_hash = _compute_thumbnail_image_hash(image_service, source_url)
         if not image_hash:
+            await safe_record_thumbnail_state(
+                ThumbnailStatePayload(
+                    resource_id=resource_id,
+                    state=ThumbnailState.FAILURE,
+                    source_type=infer_source_type(source_url),
+                    source_url=source_url,
+                    state_detail="Could not resolve thumbnail hash during prime run",
+                    last_error="Could not resolve image hash",
+                )
+            )
             return ("failed", resource_id, "could not resolve image hash")
 
         if not force:
             cached_image = await image_service.get_cached_image(image_hash)
             if cached_image:
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=resource_id,
+                        state=ThumbnailState.SUCCESS,
+                        source_type=infer_source_type(source_url),
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="Thumbnail already cached before prime run",
+                    )
+                )
                 return ("cached", resource_id, "thumbnail already cached")
             if image_service._is_pmtiles_url(source_url) and image_service.is_pmtiles_skip_cached(
                 image_hash
             ):
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=resource_id,
+                        state=ThumbnailState.PLACEHELD,
+                        source_type="pmtiles",
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="PMTiles skip marker already cached before prime run",
+                    )
+                )
                 return ("cached-skip", resource_id, "pmtiles skip marker already cached")
 
         if image_service._is_cog_url(source_url):
             ok = await asyncio.to_thread(_prime_cog_thumbnail, source_url, image_hash)
+            await safe_record_thumbnail_state(
+                ThumbnailStatePayload(
+                    resource_id=resource_id,
+                    state=ThumbnailState.SUCCESS if ok else ThumbnailState.FAILURE,
+                    source_type="cog",
+                    source_url=source_url,
+                    source_hash=image_hash,
+                    state_detail="COG thumbnail primed" if ok else "COG thumbnail prime failed",
+                    last_error=None if ok else "COG thumbnail prime failed",
+                )
+            )
             return ("generated", resource_id, "cog") if ok else ("failed", resource_id, "cog")
 
         if image_service._is_pmtiles_url(source_url):
@@ -241,14 +301,66 @@ async def _prime_thumbnail_for_resource(
                 _prime_pmtiles_thumbnail, source_url, image_hash
             )
             if ok:
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=resource_id,
+                        state=ThumbnailState.SUCCESS,
+                        source_type="pmtiles",
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="PMTiles thumbnail primed",
+                    )
+                )
                 return ("generated", resource_id, "pmtiles")
             if wrote_skip:
+                await safe_record_thumbnail_state(
+                    ThumbnailStatePayload(
+                        resource_id=resource_id,
+                        state=ThumbnailState.PLACEHELD,
+                        source_type="pmtiles",
+                        source_url=source_url,
+                        source_hash=image_hash,
+                        state_detail="PMTiles source yielded no raster thumbnail during prime run",
+                    )
+                )
                 return ("generated-skip", resource_id, "pmtiles skip marker")
+            await safe_record_thumbnail_state(
+                ThumbnailStatePayload(
+                    resource_id=resource_id,
+                    state=ThumbnailState.FAILURE,
+                    source_type="pmtiles",
+                    source_url=source_url,
+                    source_hash=image_hash,
+                    state_detail="PMTiles thumbnail prime failed",
+                    last_error="PMTiles thumbnail prime failed",
+                )
+            )
             return ("failed", resource_id, "pmtiles")
 
         ok = await asyncio.to_thread(_prime_remote_thumbnail, image_hash, source_url)
+        await safe_record_thumbnail_state(
+            ThumbnailStatePayload(
+                resource_id=resource_id,
+                state=ThumbnailState.SUCCESS if ok else ThumbnailState.FAILURE,
+                source_type=infer_source_type(source_url),
+                source_url=source_url,
+                source_hash=image_hash,
+                state_detail="Remote thumbnail primed" if ok else "Remote thumbnail prime failed",
+                last_error=None if ok else "Remote thumbnail prime failed",
+            )
+        )
         return ("generated", resource_id, "remote") if ok else ("failed", resource_id, "remote")
     except Exception as exc:
+        await safe_record_thumbnail_state(
+            ThumbnailStatePayload(
+                resource_id=resource_id,
+                state=ThumbnailState.FAILURE,
+                source_type=infer_source_type(source_url),
+                source_url=source_url,
+                state_detail="Thumbnail prime run raised an exception",
+                last_error=str(exc),
+            )
+        )
         return ("failed", resource_id, str(exc))
 
 

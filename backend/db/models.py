@@ -322,6 +322,32 @@ resource_allmaps = Table(
     Column("updated_at", TIMESTAMP, nullable=False),
 )
 
+resource_thumbnail_state = Table(
+    "resource_thumbnail_state",
+    metadata,
+    Column(
+        "resource_id",
+        String(255),
+        ForeignKey("resources.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column("state", String(32), nullable=False, index=True),
+    Column("source_type", String(32), nullable=True, index=True),
+    Column("source_url", Text, nullable=True),
+    Column("source_host", String(255), nullable=True, index=True),
+    Column("source_hash", String(64), nullable=True, index=True),
+    Column("queue_task_id", String(255), nullable=True),
+    Column("state_detail", Text, nullable=True),
+    Column("last_error", Text, nullable=True),
+    Column("queued_at", TIMESTAMP, nullable=True, index=True),
+    Column("succeeded_at", TIMESTAMP, nullable=True, index=True),
+    Column("failed_at", TIMESTAMP, nullable=True, index=True),
+    Column("placeheld_at", TIMESTAMP, nullable=True, index=True),
+    Column("last_transition_at", TIMESTAMP, nullable=False, server_default=func.now(), index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
 # Distribution types lookup table
 distribution_types = Table(
     "distribution_types",

@@ -10,11 +10,13 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import cairo
 import redis
 import staticmaps
 from dotenv import load_dotenv
+from PIL import Image, ImageDraw
 from shapely import wkt as shapely_wkt
 from shapely.geometry import shape
 
@@ -253,7 +255,64 @@ class StaticMapService:
     _STROKE_COLOR = staticmaps.Color(37, 99, 235, 153)  # 60% opacity
     _LINE_WIDTH = 2
     _TRANSPARENT_COLOR = staticmaps.Color(0, 0, 0, 0)
-    _BASEMAP_VARIANT = "static_basemap_v3"
+    _MAP_VARIANT = "static_map_v4"
+    _BASEMAP_VARIANT = "static_basemap_v4"
+
+    def _ban_icon_image(self, size: int) -> Image.Image:
+        """Render the provided ban SVG path exactly via Cairo."""
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 640, 640)
+        ctx = cairo.Context(surface)
+        ctx.set_source_rgba(23 / 255, 58 / 255, 83 / 255, 235 / 255)
+
+        ctx.move_to(431.2, 476.5)
+        ctx.line_to(163.5, 208.8)
+        ctx.curve_to(141.1, 240.2, 128, 278.6, 128, 320)
+        ctx.curve_to(128, 426, 214, 512, 320, 512)
+        ctx.curve_to(361.5, 512, 399.9, 498.9, 431.2, 476.5)
+        ctx.close_path()
+
+        ctx.move_to(476.5, 431.2)
+        ctx.curve_to(498.9, 399.8, 512, 361.4, 512, 320)
+        ctx.curve_to(512, 214, 426, 128, 320, 128)
+        ctx.curve_to(278.5, 128, 240.1, 141.1, 208.8, 163.5)
+        ctx.line_to(476.5, 431.2)
+        ctx.close_path()
+
+        ctx.move_to(64, 320)
+        ctx.curve_to(64, 178.6, 178.6, 64, 320, 64)
+        ctx.curve_to(461.4, 64, 576, 178.6, 576, 320)
+        ctx.curve_to(576, 461.4, 461.4, 576, 320, 576)
+        ctx.curve_to(178.6, 576, 64, 461.4, 64, 320)
+        ctx.close_path()
+        ctx.fill()
+
+        buf = io.BytesIO()
+        surface.write_to_png(buf)
+        buf.seek(0)
+        return Image.open(buf).convert("RGBA").resize(
+            (size, size), Image.Resampling.LANCZOS
+        )
+
+    def _overlay_no_data_symbol(self, image: Image.Image) -> Image.Image:
+        """Overlay a circle-with-slash symbol on a world map for no-geometry resources."""
+        rendered = image.convert("RGBA")
+        overlay = Image.new("RGBA", rendered.size, (0, 0, 0, 0))
+
+        width, height = rendered.size
+        target_size = int(min(width, height) * 0.64)
+        icon = self._ban_icon_image(target_size)
+        icon_x = (width - target_size) // 2
+        icon_y = (height - target_size) // 2
+        overlay.alpha_composite(icon, (icon_x, icon_y))
+        return Image.alpha_composite(rendered, overlay)
+
+    def _global_map_context(self) -> staticmaps.Context:
+        """Build the shared world-view context for all no-geometry map variants."""
+        context = staticmaps.Context()
+        context.set_tile_provider(tile_provider_Carto)
+        context.set_center(staticmaps.create_latlng(0, 0))
+        context.set_zoom(1)
+        return context
 
     def _bbox_points(self, bbox_coords: Tuple[float, float, float, float]) -> list:
         """Convert bbox coords into a closed polygon usable by py-staticmaps."""
@@ -442,14 +501,21 @@ class StaticMapService:
         return None
 
     def _render_and_cache(
-        self, context: Any, resource_id: str, *, variant: str = "static_map"
+        self,
+        context: Any,
+        resource_id: str,
+        *,
+        variant: str = "static_map",
+        post_process: Callable[[Image.Image], Image.Image] | None = None,
+        render_width: int | None = None,
+        render_height: int | None = None,
     ) -> Optional[bytes]:
         """Render context to PNG bytes and store in Redis. Returns bytes or None."""
-        from PIL import Image
-
+        render_width = render_width or self.map_width
+        render_height = render_height or self.map_height
         try:
             logger.debug(f"Rendering map for resource {resource_id} (this requires tile downloads)")
-            cairo_surface = context.render_cairo(self.map_width, self.map_height)
+            cairo_surface = context.render_cairo(render_width, render_height)
             buf = io.BytesIO()
             cairo_surface.write_to_png(buf)
             buf.seek(0)
@@ -469,7 +535,7 @@ class StaticMapService:
             else:
                 logger.warning(f"Failed to render with cairo, trying pillow: {e}")
             try:
-                image = context.render_pillow(self.map_width, self.map_height)
+                image = context.render_pillow(render_width, render_height)
             except Exception as pillow_error:
                 error_msg = str(pillow_error).lower()
                 if any(
@@ -495,6 +561,10 @@ class StaticMapService:
                 else:
                     logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
                 raise
+        if image.size != (self.map_width, self.map_height):
+            image = image.resize((self.map_width, self.map_height), Image.Resampling.LANCZOS)
+        if post_process is not None:
+            image = post_process(image)
         buf = io.BytesIO()
         image.save(buf, "PNG")
         map_bytes = buf.getvalue()
@@ -565,7 +635,7 @@ class StaticMapService:
                 context.add_object(rectangle)
 
             # Render and cache (requires outbound HTTP for tiles)
-            return self._render_and_cache(context, resource_id)
+            return self._render_and_cache(context, resource_id, variant=self._MAP_VARIANT)
 
         except Exception as e:
             logger.error(
@@ -579,11 +649,15 @@ class StaticMapService:
         Uses the same tile layer and cache key as generate_map.
         """
         try:
-            context = staticmaps.Context()
-            context.set_tile_provider(tile_provider_Carto)
-            context.set_center(staticmaps.create_latlng(0, 0))
-            context.set_zoom(1)  # whole world in web mercator
-            return self._render_and_cache(context, resource_id)
+            context = self._global_map_context()
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._MAP_VARIANT,
+                post_process=self._overlay_no_data_symbol,
+                render_width=512,
+                render_height=512,
+            )
         except Exception as e:
             logger.error(
                 f"Error generating global static map for resource {resource_id}: {e}",
@@ -636,11 +710,14 @@ class StaticMapService:
     def generate_global_basemap(self, resource_id: str) -> Optional[bytes]:
         """Generate a world-view basemap image with no geometry overlay."""
         try:
-            context = staticmaps.Context()
-            context.set_tile_provider(tile_provider_Carto)
-            context.set_center(staticmaps.create_latlng(0, 0))
-            context.set_zoom(1)
-            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
+            context = self._global_map_context()
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._BASEMAP_VARIANT,
+                render_width=512,
+                render_height=512,
+            )
         except Exception as e:
             logger.error(
                 f"Error generating global basemap for resource {resource_id}: {e}",
@@ -688,7 +765,7 @@ class StaticMapService:
             return None
 
         try:
-            map_key = self._cache_key(resource_id)
+            map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
             map_data = self.map_cache.get(map_key)
             if map_data:
                 logger.debug(f"Serving cached static map for resource {resource_id}")
@@ -740,7 +817,7 @@ class StaticMapService:
             return False
 
         try:
-            map_key = self._cache_key(resource_id)
+            map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
             return bool(self.map_cache.exists(map_key))
         except Exception as e:
             logger.error(f"Error checking if static map exists for {resource_id}: {e}")

@@ -4,6 +4,7 @@ Includes COG thumbnail flow.
 """
 
 import io
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -35,6 +36,21 @@ def client(app):
     return TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def patch_thumbnail_side_effects():
+    with (
+        patch(
+            "app.api.v1.endpoint_modules.resources.thumbnail.safe_record_thumbnail_state",
+            new=AsyncMock(),
+        ) as mock_state,
+        patch(
+            "app.api.v1.endpoint_modules.resources.thumbnail.acquire_thumbnail_queue_slot",
+            return_value=True,
+        ) as mock_queue_slot,
+    ):
+        yield {"state": mock_state, "queue_slot": mock_queue_slot}
+
+
 def _resource_row(id: str, dct_references_s: str, locn_geometry: str | None = None):
     """Build mock resource row."""
     row = MagicMock()
@@ -55,7 +71,7 @@ class TestResourceThumbnailCogFlow:
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
     def test_cog_queues_generate_task_returns_placeholder(
-        self, mock_fetch_dist, mock_session, client
+        self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
         """When source is COG and not cached, queue task and return placeholder."""
         mock_session_instance = AsyncMock()
@@ -79,6 +95,7 @@ class TestResourceThumbnailCogFlow:
                 "app.api.v1.endpoint_modules.resources.thumbnail.generate_cog_thumbnail"
             ) as mock_task,
         ):
+            mock_task.delay.return_value = SimpleNamespace(id="cog-task-1")
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = cog_url
             svc._is_cog_url.return_value = True
@@ -92,10 +109,16 @@ class TestResourceThumbnailCogFlow:
             assert resp.headers["content-type"] == "image/svg+xml"
             assert "Generating thumbnail" in resp.text
             mock_task.delay.assert_called_once_with(cog_url, "utaustin_121171")
+            payload = patch_thumbnail_side_effects["state"].await_args.args[0]
+            assert payload.state == "queued"
+            assert payload.queue_task_id == "cog-task-1"
+            assert payload.source_type == "cog"
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_cog_redirects_when_cached(self, mock_fetch_dist, mock_session, client):
+    def test_cog_redirects_when_cached(
+        self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
+    ):
         """When COG thumbnail is cached, redirect to thumbnails/{hash}."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
@@ -126,6 +149,9 @@ class TestResourceThumbnailCogFlow:
             resp = client.get("/resources/test-cog-resource/thumbnail", allow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            payload = patch_thumbnail_side_effects["state"].await_args.args[0]
+            assert payload.state == "success"
+            assert payload.source_hash == image_hash
 
 
 class TestResourceThumbnailNoCacheCogFlow:
@@ -228,7 +254,7 @@ class TestResourceThumbnailPmtilesFlow:
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
     def test_pmtiles_queues_generate_task_returns_placeholder(
-        self, mock_fetch_dist, mock_session, client
+        self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
         """When source is PMTiles and not cached, queue task and return placeholder."""
         mock_session_instance = AsyncMock()
@@ -252,6 +278,7 @@ class TestResourceThumbnailPmtilesFlow:
                 "app.api.v1.endpoint_modules.resources.thumbnail.generate_pmtiles_thumbnail"
             ) as mock_task,
         ):
+            mock_task.delay.return_value = SimpleNamespace(id="pmtiles-task-1")
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = pmtiles_url
             svc._is_cog_url.return_value = False
@@ -266,10 +293,16 @@ class TestResourceThumbnailPmtilesFlow:
             assert resp.headers["content-type"] == "image/svg+xml"
             assert "Generating thumbnail" in resp.text
             mock_task.delay.assert_called_once_with(pmtiles_url, "b1g_PJxxfKgpqpUT")
+            payload = patch_thumbnail_side_effects["state"].await_args.args[0]
+            assert payload.state == "queued"
+            assert payload.queue_task_id == "pmtiles-task-1"
+            assert payload.source_type == "pmtiles"
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_pmtiles_redirects_when_cached(self, mock_fetch_dist, mock_session, client):
+    def test_pmtiles_redirects_when_cached(
+        self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
+    ):
         """When PMTiles thumbnail is cached, redirect to thumbnails/{hash}."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
@@ -301,11 +334,14 @@ class TestResourceThumbnailPmtilesFlow:
             resp = client.get("/resources/test-pmtiles-resource/thumbnail", allow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            payload = patch_thumbnail_side_effects["state"].await_args.args[0]
+            assert payload.state == "success"
+            assert payload.source_hash == image_hash
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
     def test_missing_thumbnail_source_uses_basemap_background(
-        self, mock_fetch_dist, mock_session, client
+        self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
         """When no thumbnail source exists, the icon fallback can include a basemap background."""
         mock_session_instance = AsyncMock()
@@ -336,6 +372,48 @@ class TestResourceThumbnailPmtilesFlow:
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "image/svg+xml"
             assert "data:image/png;base64," in resp.text
+            payload = patch_thumbnail_side_effects["state"].await_args.args[0]
+            assert payload.state == "placeheld"
+            assert payload.source_url is None
+
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
+    def test_pmtiles_skip_marker_marks_placeheld(
+        self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
+    ):
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        pmtiles_url = "https://example.com/vector.pmtiles"
+        refs = f'{{"https://github.com/protomaps/PMTiles": "{pmtiles_url}"}}'
+        mock_row = _resource_row("test-pmtiles-skip", refs)
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute = AsyncMock(return_value=mock_result)
+
+        mock_ctx = MagicMock()
+        mock_ctx.by_uri = {"https://github.com/protomaps/PMTiles": [MagicMock(url=pmtiles_url)]}
+        mock_ctx.legacy_reference_payload = {"https://github.com/protomaps/PMTiles": pmtiles_url}
+        mock_fetch_dist.return_value = mock_ctx
+
+        image_hash = _pmtiles_thumbnail_image_hash(pmtiles_url)
+
+        with patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls:
+            svc = MagicMock()
+            svc._get_thumbnail_source_url.return_value = pmtiles_url
+            svc._is_cog_url.return_value = False
+            svc._is_pmtiles_url.return_value = True
+            svc._is_manifest_url.return_value = False
+            svc.get_cached_image = AsyncMock(return_value=None)
+            svc.is_pmtiles_skip_cached.return_value = True
+            mock_svc_cls.return_value = svc
+
+            resp = client.get("/resources/test-pmtiles-skip/thumbnail")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/svg+xml"
+            payload = patch_thumbnail_side_effects["state"].await_args.args[0]
+            assert payload.state == "placeheld"
+            assert payload.source_hash == image_hash
 
 
 class TestResourceThumbnailNoCachePmtilesFlow:
