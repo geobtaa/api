@@ -10,11 +10,13 @@ import json
 import logging
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
+import cairo
 import redis
 import staticmaps
 from dotenv import load_dotenv
+from PIL import Image
 from shapely import wkt as shapely_wkt
 from shapely.geometry import shape
 
@@ -252,8 +254,111 @@ class StaticMapService:
     _FILL_COLOR = staticmaps.Color(37, 99, 235, 26)  # 10% opacity
     _STROKE_COLOR = staticmaps.Color(37, 99, 235, 153)  # 60% opacity
     _LINE_WIDTH = 2
+    _TRANSPARENT_COLOR = staticmaps.Color(0, 0, 0, 0)
+    _MAP_VARIANT = "static_map_v4"
+    _BASEMAP_VARIANT = "static_basemap_v4"
 
-    def _geojson_to_staticmaps_objects(self, geojson: Dict[str, Any]) -> Optional[List[Any]]:
+    def _ban_icon_image(self, size: int) -> Image.Image:
+        """Render the provided ban SVG path exactly via Cairo."""
+        surface = cairo.ImageSurface(cairo.FORMAT_ARGB32, 640, 640)
+        ctx = cairo.Context(surface)
+        ctx.set_source_rgba(23 / 255, 58 / 255, 83 / 255, 235 / 255)
+
+        ctx.move_to(431.2, 476.5)
+        ctx.line_to(163.5, 208.8)
+        ctx.curve_to(141.1, 240.2, 128, 278.6, 128, 320)
+        ctx.curve_to(128, 426, 214, 512, 320, 512)
+        ctx.curve_to(361.5, 512, 399.9, 498.9, 431.2, 476.5)
+        ctx.close_path()
+
+        ctx.move_to(476.5, 431.2)
+        ctx.curve_to(498.9, 399.8, 512, 361.4, 512, 320)
+        ctx.curve_to(512, 214, 426, 128, 320, 128)
+        ctx.curve_to(278.5, 128, 240.1, 141.1, 208.8, 163.5)
+        ctx.line_to(476.5, 431.2)
+        ctx.close_path()
+
+        ctx.move_to(64, 320)
+        ctx.curve_to(64, 178.6, 178.6, 64, 320, 64)
+        ctx.curve_to(461.4, 64, 576, 178.6, 576, 320)
+        ctx.curve_to(576, 461.4, 461.4, 576, 320, 576)
+        ctx.curve_to(178.6, 576, 64, 461.4, 64, 320)
+        ctx.close_path()
+        ctx.fill()
+
+        buf = io.BytesIO()
+        surface.write_to_png(buf)
+        buf.seek(0)
+        return Image.open(buf).convert("RGBA").resize((size, size), Image.Resampling.LANCZOS)
+
+    def _overlay_no_data_symbol(self, image: Image.Image) -> Image.Image:
+        """Overlay a circle-with-slash symbol on a world map for no-geometry resources."""
+        rendered = image.convert("RGBA")
+        overlay = Image.new("RGBA", rendered.size, (0, 0, 0, 0))
+
+        width, height = rendered.size
+        target_size = int(min(width, height) * 0.64)
+        icon = self._ban_icon_image(target_size)
+        icon_x = (width - target_size) // 2
+        icon_y = (height - target_size) // 2
+        overlay.alpha_composite(icon, (icon_x, icon_y))
+        return Image.alpha_composite(rendered, overlay)
+
+    def _global_map_context(self) -> staticmaps.Context:
+        """Build the shared world-view context for all no-geometry map variants."""
+        context = staticmaps.Context()
+        context.set_tile_provider(tile_provider_Carto)
+        context.set_center(staticmaps.create_latlng(0, 0))
+        context.set_zoom(1)
+        return context
+
+    def _bbox_points(self, bbox_coords: Tuple[float, float, float, float]) -> list:
+        """Convert bbox coords into a closed polygon usable by py-staticmaps."""
+        xmin, ymin, xmax, ymax = bbox_coords
+        bbox_width_degrees = xmax - xmin
+        num_segments = max(50, int(bbox_width_degrees * 2))
+        points = []
+        points.append(staticmaps.create_latlng(ymin, xmin))
+        points.append(staticmaps.create_latlng(ymax, xmin))
+        for i in range(1, num_segments):
+            lon = xmin + (xmax - xmin) * (i / num_segments)
+            points.append(staticmaps.create_latlng(ymax, lon))
+        points.append(staticmaps.create_latlng(ymax, xmax))
+        points.append(staticmaps.create_latlng(ymin, xmax))
+        for i in range(num_segments - 1, 0, -1):
+            lon = xmin + (xmax - xmin) * (i / num_segments)
+            points.append(staticmaps.create_latlng(ymin, lon))
+        points.append(points[0])
+        return points
+
+    def _bbox_area(
+        self,
+        bbox_coords: Tuple[float, float, float, float],
+        *,
+        fill_color: Any,
+        color: Any,
+        width: int,
+    ) -> Any:
+        """Create a py-staticmaps polygon for the bbox."""
+        return staticmaps.Area(
+            self._bbox_points(bbox_coords),
+            fill_color=fill_color,
+            color=color,
+            width=width,
+        )
+
+    def _cache_key(self, resource_id: str, *, variant: str = "static_map") -> str:
+        """Build Redis key for a map variant."""
+        return f"{variant}:{resource_id}"
+
+    def _geojson_to_staticmaps_objects(
+        self,
+        geojson: Dict[str, Any],
+        *,
+        fill_color: Any | None = None,
+        stroke_color: Any | None = None,
+        width: int | None = None,
+    ) -> Optional[List[Any]]:
         """
         Convert GeoJSON geometry to py-staticmaps Area/Line objects (best geometry).
         Matches show page style: polygon fill + stroke, line stroke.
@@ -267,6 +372,9 @@ class StaticMapService:
             return None
 
         objects: List[Any] = []
+        fill_color = self._FILL_COLOR if fill_color is None else fill_color
+        stroke_color = self._STROKE_COLOR if stroke_color is None else stroke_color
+        width = self._LINE_WIDTH if width is None else width
 
         def coord_to_latlngs(coord_list: list) -> list:
             """GeoJSON coords are [lon, lat]; create_latlng(lat, lon)."""
@@ -284,9 +392,9 @@ class StaticMapService:
                         points.append(points[0])
                     area = staticmaps.Area(
                         points,
-                        fill_color=self._FILL_COLOR,
-                        color=self._STROKE_COLOR,
-                        width=self._LINE_WIDTH,
+                        fill_color=fill_color,
+                        color=stroke_color,
+                        width=width,
                     )
                     objects.append(area)
 
@@ -301,9 +409,9 @@ class StaticMapService:
                             points.append(points[0])
                         area = staticmaps.Area(
                             points,
-                            fill_color=self._FILL_COLOR,
-                            color=self._STROKE_COLOR,
-                            width=self._LINE_WIDTH,
+                            fill_color=fill_color,
+                            color=stroke_color,
+                            width=width,
                         )
                         objects.append(area)
                 # Show full extent with a bbox rectangle (show page uses dashed; py-staticmaps
@@ -320,8 +428,8 @@ class StaticMapService:
                     ]
                     extent_line = staticmaps.Line(
                         extent_points,
-                        color=self._STROKE_COLOR,
-                        width=self._LINE_WIDTH,
+                        color=stroke_color,
+                        width=width,
                     )
                     objects.append(extent_line)
 
@@ -331,8 +439,8 @@ class StaticMapService:
                 points = coord_to_latlngs(coordinates)
                 line = staticmaps.Line(
                     points,
-                    color=self._STROKE_COLOR,
-                    width=self._LINE_WIDTH,
+                    color=stroke_color,
+                    width=width,
                 )
                 objects.append(line)
 
@@ -343,8 +451,8 @@ class StaticMapService:
                     points = coord_to_latlngs(line_coords)
                     line = staticmaps.Line(
                         points,
-                        color=self._STROKE_COLOR,
-                        width=self._LINE_WIDTH,
+                        color=stroke_color,
+                        width=width,
                     )
                     objects.append(line)
 
@@ -390,13 +498,22 @@ class StaticMapService:
                 pass
         return None
 
-    def _render_and_cache(self, context: Any, resource_id: str) -> Optional[bytes]:
+    def _render_and_cache(
+        self,
+        context: Any,
+        resource_id: str,
+        *,
+        variant: str = "static_map",
+        post_process: Callable[[Image.Image], Image.Image] | None = None,
+        render_width: int | None = None,
+        render_height: int | None = None,
+    ) -> Optional[bytes]:
         """Render context to PNG bytes and store in Redis. Returns bytes or None."""
-        from PIL import Image
-
+        render_width = render_width or self.map_width
+        render_height = render_height or self.map_height
         try:
             logger.debug(f"Rendering map for resource {resource_id} (this requires tile downloads)")
-            cairo_surface = context.render_cairo(self.map_width, self.map_height)
+            cairo_surface = context.render_cairo(render_width, render_height)
             buf = io.BytesIO()
             cairo_surface.write_to_png(buf)
             buf.seek(0)
@@ -416,7 +533,7 @@ class StaticMapService:
             else:
                 logger.warning(f"Failed to render with cairo, trying pillow: {e}")
             try:
-                image = context.render_pillow(self.map_width, self.map_height)
+                image = context.render_pillow(render_width, render_height)
             except Exception as pillow_error:
                 error_msg = str(pillow_error).lower()
                 if any(
@@ -442,20 +559,24 @@ class StaticMapService:
                 else:
                     logger.error(f"Both cairo and pillow rendering failed: {pillow_error}")
                 raise
+        if image.size != (self.map_width, self.map_height):
+            image = image.resize((self.map_width, self.map_height), Image.Resampling.LANCZOS)
+        if post_process is not None:
+            image = post_process(image)
         buf = io.BytesIO()
         image.save(buf, "PNG")
         map_bytes = buf.getvalue()
         if self.map_cache:
             try:
-                map_key = f"static_map:{resource_id}"
+                map_key = self._cache_key(resource_id, variant=variant)
                 self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
                 logger.info(
-                    f"Generated and cached static map for resource {resource_id} "
+                    f"Generated and cached {variant} for resource {resource_id} "
                     f"(size: {len(map_bytes)} bytes)"
                 )
                 return map_bytes
             except Exception as e:
-                logger.error(f"Failed to cache static map for {resource_id}: {e}")
+                logger.error(f"Failed to cache {variant} for {resource_id}: {e}")
                 return None
         logger.warning("Redis not available, cannot cache static map")
         return None
@@ -503,22 +624,8 @@ class StaticMapService:
                     context.add_object(obj)
             else:
                 # Fallback: bbox rectangle only (e.g. ENVELOPE or dcat_bbox string)
-                bbox_width_degrees = xmax - xmin
-                num_segments = max(50, int(bbox_width_degrees * 2))
-                points = []
-                points.append(staticmaps.create_latlng(ymin, xmin))
-                points.append(staticmaps.create_latlng(ymax, xmin))
-                for i in range(1, num_segments):
-                    lon = xmin + (xmax - xmin) * (i / num_segments)
-                    points.append(staticmaps.create_latlng(ymax, lon))
-                points.append(staticmaps.create_latlng(ymax, xmax))
-                points.append(staticmaps.create_latlng(ymin, xmax))
-                for i in range(num_segments - 1, 0, -1):
-                    lon = xmin + (xmax - xmin) * (i / num_segments)
-                    points.append(staticmaps.create_latlng(ymin, lon))
-                points.append(points[0])
-                rectangle = staticmaps.Area(
-                    points,
+                rectangle = self._bbox_area(
+                    bbox_coords,
                     fill_color=self._FILL_COLOR,
                     color=self._STROKE_COLOR,
                     width=self._LINE_WIDTH,
@@ -526,7 +633,7 @@ class StaticMapService:
                 context.add_object(rectangle)
 
             # Render and cache (requires outbound HTTP for tiles)
-            return self._render_and_cache(context, resource_id)
+            return self._render_and_cache(context, resource_id, variant=self._MAP_VARIANT)
 
         except Exception as e:
             logger.error(
@@ -540,14 +647,104 @@ class StaticMapService:
         Uses the same tile layer and cache key as generate_map.
         """
         try:
-            context = staticmaps.Context()
-            context.set_tile_provider(tile_provider_Carto)
-            context.set_center(staticmaps.create_latlng(0, 0))
-            context.set_zoom(1)  # whole world in web mercator
-            return self._render_and_cache(context, resource_id)
+            context = self._global_map_context()
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._MAP_VARIANT,
+                post_process=self._overlay_no_data_symbol,
+                render_width=512,
+                render_height=512,
+            )
         except Exception as e:
             logger.error(
                 f"Error generating global static map for resource {resource_id}: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def generate_basemap(self, resource_id: str, geometry: Any) -> Optional[bytes]:
+        """
+        Generate a basemap-only image using the resource extent with no visible geometry overlay.
+        """
+        try:
+            geojson_dict = self._geometry_to_geojson_dict(geometry)
+            extent_objects = (
+                self._geojson_to_staticmaps_objects(
+                    geojson_dict,
+                    fill_color=self._TRANSPARENT_COLOR,
+                    stroke_color=self._TRANSPARENT_COLOR,
+                    width=self._LINE_WIDTH,
+                )
+                if geojson_dict
+                else None
+            )
+            bbox_coords = self._parse_geometry_to_bbox(geometry)
+            if not bbox_coords:
+                logger.warning(f"Could not parse geometry for basemap {resource_id}")
+                return self.generate_global_basemap(resource_id)
+
+            if self._is_global_bbox(bbox_coords):
+                return self.generate_global_basemap(resource_id)
+
+            context = staticmaps.Context()
+            context.set_tile_provider(tile_provider_Carto)
+            if extent_objects:
+                for obj in extent_objects:
+                    context.add_object(obj)
+            else:
+                invisible_extent = self._bbox_area(
+                    bbox_coords,
+                    fill_color=self._TRANSPARENT_COLOR,
+                    color=self._TRANSPARENT_COLOR,
+                    width=self._LINE_WIDTH,
+                )
+                context.add_object(invisible_extent)
+            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
+        except Exception as e:
+            logger.error(f"Error generating basemap for resource {resource_id}: {e}", exc_info=True)
+            return None
+
+    def generate_global_basemap(self, resource_id: str) -> Optional[bytes]:
+        """Generate a world-view basemap image with no geometry overlay."""
+        try:
+            context = self._global_map_context()
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._BASEMAP_VARIANT,
+                render_width=512,
+                render_height=512,
+            )
+        except Exception as e:
+            logger.error(
+                f"Error generating global basemap for resource {resource_id}: {e}",
+                exc_info=True,
+            )
+            return None
+
+    def generate_centered_basemap(
+        self, resource_id: str, *, latitude: float, longitude: float, zoom: int = 15
+    ) -> Optional[bytes]:
+        """Generate a basemap centered on a specific lat/lon at a fixed zoom."""
+        try:
+            if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
+                logger.warning(
+                    "Invalid campus basemap coordinates for %s: lat=%s lon=%s",
+                    resource_id,
+                    latitude,
+                    longitude,
+                )
+                return None
+
+            context = staticmaps.Context()
+            context.set_tile_provider(tile_provider_Carto)
+            context.set_center(staticmaps.create_latlng(latitude, longitude))
+            context.set_zoom(max(1, min(int(zoom), 20)))
+            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
+        except Exception as e:
+            logger.error(
+                f"Error generating centered basemap for resource {resource_id}: {e}",
                 exc_info=True,
             )
             return None
@@ -566,7 +763,7 @@ class StaticMapService:
             return None
 
         try:
-            map_key = f"static_map:{resource_id}"
+            map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
             map_data = self.map_cache.get(map_key)
             if map_data:
                 logger.debug(f"Serving cached static map for resource {resource_id}")
@@ -575,6 +772,34 @@ class StaticMapService:
         except Exception as e:
             logger.error(f"Error retrieving cached static map for {resource_id}: {e}")
             return None
+
+    async def get_cached_basemap(self, resource_id: str) -> Optional[bytes]:
+        """Retrieve a cached basemap-only image from Redis."""
+        if not self.map_cache:
+            return None
+
+        try:
+            map_key = self._cache_key(resource_id, variant=self._BASEMAP_VARIANT)
+            map_data = self.map_cache.get(map_key)
+            if map_data:
+                logger.debug(f"Serving cached basemap for resource {resource_id}")
+                return map_data
+            return None
+        except Exception as e:
+            logger.error(f"Error retrieving cached basemap for {resource_id}: {e}")
+            return None
+
+    def basemap_exists(self, resource_id: str) -> bool:
+        """Check if a basemap-only image exists in Redis cache."""
+        if not self.map_cache:
+            return False
+
+        try:
+            map_key = self._cache_key(resource_id, variant=self._BASEMAP_VARIANT)
+            return bool(self.map_cache.exists(map_key))
+        except Exception as e:
+            logger.error(f"Error checking if basemap exists for {resource_id}: {e}")
+            return False
 
     def map_exists(self, resource_id: str) -> bool:
         """
@@ -590,7 +815,7 @@ class StaticMapService:
             return False
 
         try:
-            map_key = f"static_map:{resource_id}"
+            map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
             return bool(self.map_cache.exists(map_key))
         except Exception as e:
             logger.error(f"Error checking if static map exists for {resource_id}: {e}")

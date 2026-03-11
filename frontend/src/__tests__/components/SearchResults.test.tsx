@@ -362,7 +362,7 @@ describe('SearchResults Component', () => {
 
   describe('Thumbnail Handling', () => {
     it('displays thumbnails when available', () => {
-      render(
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[mockFixtureData[0]]} // First fixture has thumbnail
@@ -373,18 +373,13 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const thumbnail = screen.getByAltText(
-        'Thumbnail for Nondigitized paper map with library catalog link'
-      );
+      const thumbnail = container.querySelector('img[src="https://example.com/thumbnail1.jpg"]');
       expect(thumbnail).toBeInTheDocument();
-      expect(thumbnail).toHaveAttribute(
-        'src',
-        'https://example.com/thumbnail1.jpg'
-      );
+      expect(thumbnail).toHaveAttribute('alt', '');
     });
 
-    it('displays fallback icon when thumbnail is not available', () => {
-      render(
+    it('falls back to the backend thumbnail endpoint when thumbnail_url is not available', () => {
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[mockFixtureData[1]]} // Second fixture has no thumbnail
@@ -395,15 +390,11 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      // Should not have an img element
-      expect(screen.queryByRole('img')).not.toBeInTheDocument();
-
-      // Should have the fallback icon container
-      const fallbackContainer = screen
-        .getByText('Point dataset with WMS and WFS')
-        .closest('article')
-        ?.querySelector('.bg-gray-50');
-      expect(fallbackContainer).toBeInTheDocument();
+      const thumbnail = container.querySelector(
+        'img[src="/resources/nyu-2451-34564/thumbnail"]'
+      );
+      expect(thumbnail).toBeInTheDocument();
+      expect(thumbnail).toHaveAttribute('alt', '');
     });
   });
 
@@ -638,6 +629,45 @@ describe('SearchResults Component', () => {
   });
 
   describe('Edge Cases', () => {
+    it('uses the backend thumbnail endpoint when thumbnail_url is missing', () => {
+      const missingThumbnailResult: GeoDocument = {
+        id: 'missing-thumb-test',
+        type: 'document',
+        attributes: {
+          ogm: {
+            id: 'missing-thumb-test',
+            dct_title_s: 'Missing Thumbnail Test',
+            gbl_resourceClass_sm: ['Websites'],
+          },
+        },
+        meta: {
+          ui: {
+            thumbnail_url: null,
+            viewer: {
+              geometry: null,
+            },
+          },
+        },
+      };
+
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={[missingThumbnailResult]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const thumbnail = container.querySelector(
+        'img[src="/resources/missing-thumb-test/thumbnail"]'
+      );
+      expect(thumbnail).toHaveAttribute('src', '/resources/missing-thumb-test/thumbnail');
+      expect(thumbnail).toHaveAttribute('alt', '');
+    });
+
     it('handles results with missing attributes gracefully', () => {
       const incompleteResult: GeoDocument = {
         id: 'incomplete-test',
@@ -788,8 +818,8 @@ describe('SearchResults Component', () => {
       expect(screen.getByRole('button')).toBeInTheDocument();
     });
 
-    it('has proper alt text for images', () => {
-      render(
+    it('marks result images as decorative', () => {
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[mockFixtureData[0]]}
@@ -800,10 +830,9 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const image = screen.getByAltText(
-        'Thumbnail for Nondigitized paper map with library catalog link'
-      );
+      const image = container.querySelector('img[src="https://example.com/thumbnail1.jpg"]');
       expect(image).toBeInTheDocument();
+      expect(image).toHaveAttribute('alt', '');
     });
   });
 });

@@ -261,10 +261,10 @@ export function SearchResults({
                     thumbnailUrl = (metaUi as any).thumbnail_url;
                   }
 
+                  const fallbackThumbnailUrl = thumbnailUrl || `/resources/${result.id}/thumbnail`;
                   const hasThumbnail =
-                    thumbnailUrl &&
-                    typeof thumbnailUrl === 'string' &&
-                    thumbnailUrl.trim() !== '' &&
+                    typeof fallbackThumbnailUrl === 'string' &&
+                    fallbackThumbnailUrl.trim() !== '' &&
                     !imageErrors.has(result.id);
 
                   // Debug logging for thumbnail rendering decision
@@ -273,6 +273,7 @@ export function SearchResults({
                       hasMeta: !!result.meta,
                       hasMetaUi: !!result.meta?.ui,
                       thumbnailUrl: thumbnailUrl,
+                      fallbackThumbnailUrl,
                       thumbnailUrlType: typeof thumbnailUrl,
                       thumbnailUrlTrimmed:
                         typeof thumbnailUrl === 'string'
@@ -295,15 +296,16 @@ export function SearchResults({
                       className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} rounded-l-lg`}
                     >
                       <img
-                        src={toSsrThumbnailUrl(thumbnailUrl)}
-                        alt={`Thumbnail for ${title}`}
+                        src={toSsrThumbnailUrl(fallbackThumbnailUrl)}
+                        alt=""
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
                           console.error(
                             `Error loading thumbnail for ${result.id}:`,
                             {
                               originalUrl: thumbnailUrl,
-                              transformedUrl: toSsrThumbnailUrl(thumbnailUrl),
+                              fallbackUrl: fallbackThumbnailUrl,
+                              transformedUrl: toSsrThumbnailUrl(fallbackThumbnailUrl),
                               error: e,
                               target: (e.target as HTMLImageElement)?.src,
                             }
@@ -317,7 +319,8 @@ export function SearchResults({
                             `Successfully loaded thumbnail for ${result.id}:`,
                             {
                               originalUrl: thumbnailUrl,
-                              transformedUrl: toSsrThumbnailUrl(thumbnailUrl),
+                              fallbackUrl: fallbackThumbnailUrl,
+                              transformedUrl: toSsrThumbnailUrl(fallbackThumbnailUrl),
                             }
                           );
                         }}
@@ -361,7 +364,7 @@ export function SearchResults({
                   </pre>
                 )}
 
-                <div className="flex items-center gap-2 mb-2 pr-8">
+                <div className="flex items-start gap-2 mb-2 pr-8">
                   <span
                     className={`flex-shrink-0 font-semibold text-slate-600 dark:text-slate-400 ${isCompact ? 'text-sm' : 'text-xl'}`}
                     aria-hidden

@@ -4,6 +4,8 @@ import {
   normalizeGeometry,
   getCentroidFromGeometry,
   getBboxFromGeometry,
+  getWgs84ExtentFromViewerGeometry,
+  looksLikeWgs84Extent,
 } from '../../utils/geometryUtils';
 
 describe('geometryUtils', () => {
@@ -629,6 +631,91 @@ describe('geometryUtils', () => {
     it('returns null for invalid geometry', () => {
       expect(getBboxFromGeometry('')).toBeNull();
       expect(getBboxFromGeometry('not-valid')).toBeNull();
+    });
+  });
+
+  describe('getWgs84ExtentFromViewerGeometry', () => {
+    it('extracts extent from GeoJSON Feature with Polygon geometry (COG/PMTiles)', () => {
+      const geometryForViewer = JSON.stringify({
+        type: 'Feature',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-97.73743, 30.28753],
+              [-97.73743, 30.28409],
+              [-97.73346, 30.28409],
+              [-97.73346, 30.28753],
+              [-97.73743, 30.28753],
+            ],
+          ],
+        },
+        properties: {},
+      });
+      expect(getWgs84ExtentFromViewerGeometry(geometryForViewer)).toEqual([
+        -97.73743,
+        30.28409,
+        -97.73346,
+        30.28753,
+      ]);
+    });
+
+    it('extracts extent from raw Polygon geometry', () => {
+      const geometryForViewer = JSON.stringify({
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-96.796, 48.756],
+            [-90.379, 48.756],
+            [-90.379, 43.429],
+            [-96.796, 43.429],
+            [-96.796, 48.756],
+          ],
+        ],
+      });
+      expect(getWgs84ExtentFromViewerGeometry(geometryForViewer)).toEqual([
+        -96.796,
+        43.429,
+        -90.379,
+        48.756,
+      ]);
+    });
+
+    it('returns null for null, undefined, or empty string', () => {
+      expect(getWgs84ExtentFromViewerGeometry(null)).toBeNull();
+      expect(getWgs84ExtentFromViewerGeometry(undefined)).toBeNull();
+      expect(getWgs84ExtentFromViewerGeometry('')).toBeNull();
+    });
+
+    it('returns null for invalid JSON', () => {
+      expect(getWgs84ExtentFromViewerGeometry('not-valid-json')).toBeNull();
+    });
+
+    it('returns null for geometry without coordinates', () => {
+      expect(
+        getWgs84ExtentFromViewerGeometry(JSON.stringify({ type: 'Feature' }))
+      ).toBeNull();
+    });
+  });
+
+  describe('looksLikeWgs84Extent', () => {
+    it('returns true for valid lon/lat range', () => {
+      expect(looksLikeWgs84Extent([-97.73, 30.28, -97.73, 30.28])).toBe(true);
+      expect(looksLikeWgs84Extent([0, 0, 1, 1])).toBe(true);
+      expect(looksLikeWgs84Extent([-180, -90, 180, 90])).toBe(true);
+    });
+
+    it('returns false for projected coordinates (e.g. State Plane, UTM)', () => {
+      expect(looksLikeWgs84Extent([2400000, 700000, 2410000, 701000])).toBe(
+        false
+      );
+    });
+
+    it('returns false for null, undefined, or short array', () => {
+      expect(looksLikeWgs84Extent(null)).toBe(false);
+      expect(looksLikeWgs84Extent(undefined)).toBe(false);
+      expect(looksLikeWgs84Extent([])).toBe(false);
+      expect(looksLikeWgs84Extent([0])).toBe(false);
     });
   });
 });

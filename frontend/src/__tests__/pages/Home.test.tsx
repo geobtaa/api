@@ -6,6 +6,7 @@ import { HomePage } from '../../pages/HomePage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
+import { getPartnerInstitutionSearchHref } from '../../constants/partnerInstitutions';
 
 vi.mock('../../components/SearchField', () => ({
   SearchField: () => <input placeholder="Search for maps, data, imagery..." />,
@@ -13,7 +14,7 @@ vi.mock('../../components/SearchField', () => ({
 
 describe('Home Page', () => {
   const renderHome = () => {
-    render(
+    return render(
       <HelmetProvider>
         <BrowserRouter>
           <ApiProvider>
@@ -27,7 +28,7 @@ describe('Home Page', () => {
   };
 
   it('renders the search input', () => {
-    renderHome();
+    const { container } = renderHome();
     expect(screen.getByText(/new from btaa:/i)).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /read gin news & stories/i })
@@ -51,6 +52,27 @@ describe('Home Page', () => {
     expect(
       screen.getByAltText(/logo for university of washington/i)
     ).toBeInTheDocument();
+    expect(
+      container.querySelector(
+        '[style*="/institutions/indiana-university/static-map"]'
+      )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /search resources near indiana university/i })
+    ).toHaveAttribute(
+      'href',
+      getPartnerInstitutionSearchHref({
+        slug: 'indiana-university',
+        name: 'Indiana University',
+        iconSlug: 'indiana_university',
+        logoClassName: 'translate-x-0.5',
+        campusMap: {
+          latitude: 39.1702,
+          longitude: -86.5235,
+          zoom: 15,
+        },
+      })
+    );
   });
 
   it('shows suggestions when typing', async () => {
@@ -62,5 +84,23 @@ describe('Home Page', () => {
       // The suggestions dropdown should appear with the mocked suggestion
       expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
     });
+  });
+
+  it('opens the BTAA video lightbox when the BTAA tile is clicked', async () => {
+    renderHome();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /open big ten academic alliance video/i })
+    );
+
+    expect(
+      screen.getByRole('dialog', { name: /big ten academic alliance video/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTitle(/big ten academic alliance overview video/i)
+    ).toHaveAttribute(
+      'src',
+      'https://www.youtube.com/embed/p060LdJodXQ?autoplay=1&rel=0'
+    );
   });
 });

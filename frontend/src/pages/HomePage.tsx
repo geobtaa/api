@@ -6,7 +6,7 @@ import {
   lazy,
   type ReactNode,
 } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
 import { useTheme } from '../hooks/useTheme';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
@@ -14,6 +14,7 @@ import { Seo } from '../components/Seo';
 import { GinBlogSection } from '../components/home/GinBlogSection';
 import { HomepageFeaturedCollection } from '../components/home/HomepageFeaturedCollection';
 import { FacetMoreModal } from '../components/search/FacetMoreModal';
+import { LightboxModal } from '../components/ui/LightboxModal';
 
 const HomePageHexMapBackground = lazy(() =>
   import('../components/home/HomePageHexMapBackground.client').then((m) => ({
@@ -23,7 +24,10 @@ const HomePageHexMapBackground = lazy(() =>
 import { ArrowRight, X } from 'lucide-react';
 import { fetchHomeBlogPosts, fetchSearchResults } from '../services/api';
 import { formatCount } from '../utils/formatNumber';
-import { BTAA_PARTNER_INSTITUTIONS } from '../constants/partnerInstitutions';
+import {
+  BTAA_PARTNER_INSTITUTIONS,
+  getPartnerInstitutionSearchHref,
+} from '../constants/partnerInstitutions';
 import { getActiveThemeId } from '../config/institution';
 import type { HomeBlogPost } from '../types/api';
 import { normalizeFacetId } from '../utils/facetLabels';
@@ -32,6 +36,10 @@ import { primaryCtaClass, secondaryCtaClass } from '../styles/cta';
 
 type FacetItem = { value: string; label: string; count: number };
 type FacetLike = { attributes?: { items?: unknown } };
+const BTAA_VIDEO_MODAL_ID = 'btaa-video-modal';
+const BTAA_VIDEO_MODAL_TITLE_ID = 'btaa-video-modal-title';
+const BTAA_VIDEO_EMBED_URL =
+  'https://www.youtube.com/embed/p060LdJodXQ?autoplay=1&rel=0';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -62,6 +70,7 @@ export function HomePage() {
   const [blogPosts, setBlogPosts] = useState<HomeBlogPost[]>([]);
   const [mounted, setMounted] = useState(false);
   const [showHeroDescription, setShowHeroDescription] = useState(true);
+  const [isBtaaVideoOpen, setIsBtaaVideoOpen] = useState(false);
   useEffect(() => setMounted(true), []);
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
@@ -434,36 +443,71 @@ export function HomePage() {
             </h2>
 
             <ul className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-9 gap-2">
-              {BTAA_PARTNER_INSTITUTIONS.map((institution) => (
-                <li
-                  key={institution.name}
-                  title={institution.name}
-                  aria-label={`${institution.name} logo`}
-                  className="group min-h-[64px] text-center"
-                >
+              {BTAA_PARTNER_INSTITUTIONS.map((institution) => {
+                const searchHref = getPartnerInstitutionSearchHref(institution);
+                const tileContent = (
                   <div
-                    className="flex h-full min-h-[64px] w-[88%] items-center justify-center border border-white/20 bg-[#003C5B] p-2 transition-colors group-hover:bg-[#002f49]"
-                    style={{ clipPath: 'polygon(4% 0%, 100% 0%, 96% 100%, 0% 100%)' }}
+                    className="relative flex h-full min-h-[84px] w-full items-center justify-center overflow-hidden bg-[#003C5B] p-3"
                   >
-                    <img
-                      src={
-                        institution.iconSrc ||
-                        `/icons/${institution.iconSlug}.svg`
-                      }
-                      alt={`Logo for ${institution.name}`}
-                      title={institution.name}
-                      loading="lazy"
-                      className={`w-auto object-contain ${
-                        institution.iconSrc ? 'h-10' : 'h-8'
-                      } ${
-                        institution.monochrome === false
-                          ? 'opacity-95'
-                          : 'brightness-0 invert opacity-90'
-                      }`}
-                    />
+                    {institution.campusMap && (
+                      <div
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-100 transition-transform duration-300 group-hover:scale-105"
+                        style={{
+                          backgroundImage: `url(/institutions/${institution.slug}/static-map)`,
+                        }}
+                      />
+                    )}
+                    <div className="relative z-10 flex items-center justify-center rounded-md bg-[#003C5B]/70 px-3 py-2 shadow-sm backdrop-blur-[1px] transition-colors group-hover:bg-[#003C5B]/78">
+                      <img
+                        src={
+                          institution.iconSrc ||
+                          `/icons/${institution.iconSlug}.svg`
+                        }
+                        alt={`Logo for ${institution.name}`}
+                        title={institution.name}
+                        loading="lazy"
+                        className={`w-auto object-contain drop-shadow-[0_1px_2px_rgba(0,0,0,0.55)] ${institution.logoClassName || ''} ${
+                          institution.iconSrc ? 'h-10' : 'h-8'
+                        } ${
+                          institution.monochrome === false
+                            ? 'opacity-95'
+                            : 'brightness-0 invert opacity-90'
+                        }`}
+                      />
+                    </div>
                   </div>
-                </li>
-              ))}
+                );
+
+                return (
+                  <li
+                    key={institution.name}
+                    title={institution.name}
+                    className="group text-center"
+                  >
+                    {institution.slug === 'big-ten-academic-alliance' ? (
+                      <button
+                        type="button"
+                        onClick={() => setIsBtaaVideoOpen(true)}
+                        aria-label="Open Big Ten Academic Alliance video"
+                        className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+                      >
+                        {tileContent}
+                      </button>
+                    ) : searchHref ? (
+                      <Link
+                        to={searchHref}
+                        aria-label={`Search resources near ${institution.name}`}
+                        className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
+                      >
+                        {tileContent}
+                      </Link>
+                    ) : (
+                      tileContent
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </section>
@@ -505,6 +549,28 @@ export function HomePage() {
           isValueExcluded={() => false}
         />
       )}
+
+      <LightboxModal
+        isOpen={isBtaaVideoOpen}
+        onClose={() => setIsBtaaVideoOpen(false)}
+        id={BTAA_VIDEO_MODAL_ID}
+        labelledBy={BTAA_VIDEO_MODAL_TITLE_ID}
+        title="Big Ten Academic Alliance video"
+        subtitle="Watch the BTAA overview video."
+        contentClassName="max-w-4xl"
+        data-testid="btaa-video-modal-overlay"
+      >
+        <div className="aspect-video w-full bg-black">
+          <iframe
+            src={BTAA_VIDEO_EMBED_URL}
+            title="Big Ten Academic Alliance overview video"
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            referrerPolicy="strict-origin-when-cross-origin"
+            allowFullScreen
+          />
+        </div>
+      </LightboxModal>
 
       <Footer />
     </div>

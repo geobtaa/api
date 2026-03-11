@@ -205,7 +205,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   {ssrThumbnailUrl ? (
                     <img
                       src={ssrThumbnailUrl}
-                      alt={`Thumbnail for ${title}`}
+                      alt=""
                       className="w-full h-full object-cover"
                       onError={(e) => {
                         // Handle error by hiding image and showing icon fallback

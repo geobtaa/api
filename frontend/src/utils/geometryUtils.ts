@@ -400,3 +400,55 @@ export function getBboxFromGeometry(
 
   return [[minLat, minLon], [maxLat, maxLon]];
 }
+
+/**
+ * WGS84 extent as [minLon, minLat, maxLon, maxLat] for OpenLayers view.fit().
+ * Used by ResourceViewer to pan/zoom COG/PMTiles map to the correct location.
+ */
+export type Wgs84Extent = [number, number, number, number];
+
+/**
+ * Extract WGS84 extent [minLon, minLat, maxLon, maxLat] from viewer geometry.
+ * Handles GeoJSON Feature (with geometry), raw Polygon, and FeatureCollection.
+ * Returns null if geometry is invalid or cannot be parsed.
+ */
+export function getWgs84ExtentFromViewerGeometry(
+  geometryForViewer: string | null | undefined
+): Wgs84Extent | null {
+  if (!geometryForViewer || typeof geometryForViewer !== 'string') return null;
+  try {
+    const geom = JSON.parse(geometryForViewer) as Record<string, unknown>;
+    const poly =
+      (geom.geometry as { coordinates?: unknown[] } | undefined) ??
+      (geom.type === 'Polygon' ? (geom as { coordinates?: unknown[] }) : null);
+    const coords = poly?.coordinates?.[0];
+    if (!coords || !Array.isArray(coords)) return null;
+    const lons = coords.map((c: unknown) =>
+      Array.isArray(c) ? (c as number[])[0] : NaN
+    );
+    const lats = coords.map((c: unknown) =>
+      Array.isArray(c) ? (c as number[])[1] : NaN
+    );
+    const minX = Math.min(...lons);
+    const minY = Math.min(...lats);
+    const maxX = Math.max(...lons);
+    const maxY = Math.max(...lats);
+    if (!Number.isFinite(minX + minY + maxX + maxY)) return null;
+    return [minX, minY, maxX, maxY];
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns true if extent values look like WGS84 lon/lat (not projected coords).
+ * Used to avoid using COG GeoTIFF extent (which may be in State Plane, UTM) as WGS84.
+ */
+export function looksLikeWgs84Extent(
+  extent: number[] | null | undefined
+): boolean {
+  if (!extent || extent.length < 2) return false;
+  const lon = extent[0];
+  const lat = extent[1];
+  return lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90;
+}

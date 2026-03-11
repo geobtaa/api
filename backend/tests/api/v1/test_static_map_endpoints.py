@@ -73,6 +73,28 @@ class TestStaticMapsEndpoint:
             assert second.status_code == 304
             assert second.headers["etag"] == etag
 
+    def test_get_institution_static_map_generates_and_serves_png(self, client):
+        png_bytes = create_valid_png_image()
+
+        with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
+            svc = MagicMock()
+            svc.get_cached_basemap = AsyncMock(return_value=None)
+            svc.generate_centered_basemap.return_value = png_bytes
+            svc_cls.return_value = svc
+
+            resp = client.get(
+                "/static-maps/institutions/indiana-university?lat=39.1702&lon=-86.5235&zoom=15"
+            )
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/png"
+            assert resp.headers["etag"] == weak_etag_from_body(png_bytes)
+            svc.generate_centered_basemap.assert_called_once_with(
+                "institution:indiana-university",
+                latitude=39.1702,
+                longitude=-86.5235,
+                zoom=15,
+            )
+
 
 class TestResourceStaticMapEndpoint:
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
@@ -136,3 +158,30 @@ class TestResourceStaticMapEndpoint:
             assert resp.status_code == 302
             assert resp.headers["location"] == "/api/v1/static-maps/test-resource-id"
             assert resp.headers["cache-control"] == "no-store"
+
+    @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
+    def test_resource_static_map_no_geometry_generates_global_map(self, mock_session, client):
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_row = MagicMock()
+        mock_row._mapping = {
+            "id": "no-geometry-resource",
+            "locn_geometry": None,
+            "dcat_bbox": None,
+        }
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute.return_value = mock_result
+
+        with patch("app.api.v1.endpoint_modules.resources.static_map.StaticMapService") as svc_cls:
+            svc = MagicMock()
+            svc.map_exists.return_value = False
+            svc.generate_global_map.return_value = create_valid_png_image()
+            svc_cls.return_value = svc
+
+            resp = client.get("/resources/no-geometry-resource/static-map", allow_redirects=False)
+
+            assert resp.status_code == 302
+            assert resp.headers["location"] == "/api/v1/static-maps/no-geometry-resource"
+            svc.generate_global_map.assert_called_once_with("no-geometry-resource")

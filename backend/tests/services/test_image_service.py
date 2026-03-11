@@ -146,6 +146,51 @@ class TestImageServiceURLStandardization:
 class TestImageServiceThumbnailSourceURL:
     """Test cases for thumbnail source URL extraction using real reference data."""
 
+    def test_get_thumbnail_source_url_b1g_image_ss_takes_priority(self):
+        """b1g_image_ss MUST be used when present; overrides all other sources."""
+        metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+        try:
+            service = ImageService(metadata)
+            references = {
+                "http://schema.org/thumbnailUrl": "https://example.com/other.jpg",
+                "http://iiif.io/api/image": "http://example.com/iiif/image",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://curated.example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_b1g_image_ss_list_uses_first(self):
+        """When b1g_image_ss is a list, use first element."""
+        metadata = {"id": "test-doc", "b1g_image_ss": ["https://first.jpg", "https://second.jpg"]}
+        try:
+            service = ImageService(metadata)
+            result = service._get_thumbnail_source_url()
+            assert result == "https://first.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_b1g_image_ss_json_array_string(self):
+        """b1g_image_ss stored as JSON array string '["url"]' is parsed and used."""
+        metadata = {"id": "test-doc", "b1g_image_ss": '["https://curated.example.com/thumb.jpg"]'}
+        try:
+            service = ImageService(metadata)
+            result = service._get_thumbnail_source_url()
+            assert result == "https://curated.example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_b1g_image_ss_non_http_skipped(self):
+        """b1g_image_ss with non-http(s) URL is skipped, fallback to other sources."""
+        metadata = {"id": "test-doc", "b1g_image_ss": "ftp://invalid.example/image.jpg"}
+        try:
+            service = ImageService(metadata)
+            references = {"http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg"}
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
     def test_get_thumbnail_source_url_schema_thumbnail(self):
         """Test extraction of schema.org thumbnail URL."""
         metadata = {"id": "test-doc"}
@@ -334,6 +379,164 @@ class TestImageServiceThumbnailSourceURL:
 
         except Exception as e:
             # Handle Redis connection errors gracefully
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_cog_only(self):
+        """Test COG URL as thumbnail source when no other image sources exist."""
+        metadata = {"id": "test-doc"}
+
+        try:
+            service = ImageService(metadata)
+
+            cog_url = "https://geodata.lib.princeton.edu/13/f5/58/display_raster.tif"
+            references = {
+                "https://github.com/cogeotiff/cog-spec": cog_url,
+                "http://schema.org/url": "https://catalog.example.com/record",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == cog_url
+
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_cog_precedence_after_others(self):
+        """Test COG is used when thumbnailUrl/IIIF/manifest are not present."""
+        metadata = {"id": "test-doc"}
+
+        try:
+            service = ImageService(metadata)
+
+            # No thumbnailUrl, no IIIF - COG should be used
+            references = {
+                "https://github.com/cogeotiff/cog-spec": "https://example.com/cog.tif",
+                "http://schema.org/downloadUrl": [{"url": "https://example.com/download.zip"}],
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/cog.tif"
+
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_thumbnailurl_overrides_cog(self):
+        """Test that thumbnailUrl takes precedence over COG when both exist."""
+        metadata = {"id": "test-doc"}
+
+        try:
+            service = ImageService(metadata)
+
+            references = {
+                "http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg",
+                "https://github.com/cogeotiff/cog-spec": "https://example.com/cog.tif",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/thumb.jpg"
+
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_pmtiles_only(self):
+        """Test PMTiles URL as thumbnail source when no other image sources exist."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            pmtiles_url = "https://geodata.lib.princeton.edu/fe/d2/80/display_vector.pmtiles"
+            references = {
+                "https://github.com/protomaps/PMTiles": pmtiles_url,
+                "http://schema.org/url": "https://catalog.example.com/record",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == pmtiles_url
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_thumbnailurl_overrides_pmtiles(self):
+        """Test that thumbnailUrl takes precedence over PMTiles when both exist."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            references = {
+                "http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg",
+                "https://github.com/protomaps/PMTiles": "https://example.com/tiles.pmtiles",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+
+class TestImageServiceIsCogUrl:
+    """Test _is_cog_url helper."""
+
+    def test_is_cog_url_tif_extension(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_cog_url("https://example.com/raster.tif") is True
+            assert service._is_cog_url("https://example.com/raster.TIFF") is True
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_cog_url_display_raster(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert (
+                service._is_cog_url("https://geodata.lib.princeton.edu/13/f5/58/display_raster.tif")
+                is True
+            )
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_cog_url_geotiff_in_path(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_cog_url("https://example.com/geotiff/file.tif") is True
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_cog_url_rejects_non_cog(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_cog_url("https://example.com/image.jpg") is False
+            assert service._is_cog_url("https://example.com/manifest.json") is False
+            assert service._is_cog_url("") is False
+            assert service._is_cog_url(None) is False
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+
+class TestImageServiceIsPmtilesUrl:
+    """Test _is_pmtiles_url helper."""
+
+    def test_is_pmtiles_url_pmtiles_extension(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_pmtiles_url("https://example.com/tiles.pmtiles") is True
+            assert service._is_pmtiles_url("https://example.com/TILES.PMTILES") is True
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_pmtiles_url_with_query_string(self):
+        """URL ending in .pmtiles with query params is detected."""
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_pmtiles_url("https://example.com/tiles.pmtiles?token=abc") is True
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_is_pmtiles_url_rejects_non_pmtiles(self):
+        metadata = {"id": "test"}
+        try:
+            service = ImageService(metadata)
+            assert service._is_pmtiles_url("https://example.com/tiles.tif") is False
+            assert service._is_pmtiles_url("https://example.com/image.jpg") is False
+            assert service._is_pmtiles_url("") is False
+            assert service._is_pmtiles_url(None) is False
+        except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
 

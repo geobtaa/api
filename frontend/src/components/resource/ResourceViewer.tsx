@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { leafletViewerOptions } from '../../config/leafletConfig';
 import { MetadataTable } from './MetadataTable';
+import {
+  getWgs84ExtentFromViewerGeometry,
+  looksLikeWgs84Extent,
+} from '../../utils/geometryUtils';
 import { transformExtent } from 'ol/proj';
 
 interface ResourceViewerProps {
@@ -276,25 +280,11 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
         'data-openlayers-viewer-map-geom-value': geometryForViewer,
       };
 
-      // Pre-calculate the correct extent from geometry to avoid wrong initial render
-      let preCalculatedExtent: number[] | null = null;
-      if (geometryForViewer) {
-        try {
-          const geom = JSON.parse(geometryForViewer);
-          if (geom.geometry && geom.geometry.coordinates) {
-            const coords = geom.geometry.coordinates[0]; // First ring
-            const lons = coords.map((c: number[]) => c[0]);
-            const lats = coords.map((c: number[]) => c[1]);
-            const minX = Math.min(...lons);
-            const minY = Math.min(...lats);
-            const maxX = Math.max(...lons);
-            const maxY = Math.max(...lats);
-            preCalculatedExtent = [minX, minY, maxX, maxY];
-          }
-        } catch (e) {
-          // Ignore parsing errors, will use controller's extent as fallback
-        }
-      }
+      // Pre-calculate the correct extent from geometry (WGS84) to avoid wrong initial render.
+      // For COG, the GeoBlacklight controller gets extent from the GeoTIFF which may be in a
+      // projected CRS or wrong; we always prefer our geometry-based extent for reliable pan/zoom.
+      const preCalculatedExtent =
+        getWgs84ExtentFromViewerGeometry(geometryForViewer);
 
       // Debug: Log what we're passing to the controller
       console.log('OpenLayers viewer props:', {
@@ -344,31 +334,38 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                     );
 
                     // Fit to known geometry extent, retrying after render when size is stable.
-                    // We try both raw lon/lat extent and a transformed extent because
-                    // GeoBlacklight's PMTiles path uses OpenLayers `useGeographic()`,
-                    // and projection handling can differ across environments/builds.
-                    const fitToGeometryExtent = (reason: string) => {
+                    // Our preCalculatedExtent is always WGS84 (lon/lat). The map view may be
+                    // EPSG:4326 (PMTiles uses useGeographic) or EPSG:3857 (COG default). We must
+                    // pass extent in the view's projection to fit() — passing WGS84 to a 3857
+                    // view would wrongly interpret lon/lat as meters (e.g. map off Africa).
+                    const fitToGeometryExtent = (_reason: string) => {
                       const map = controller.map;
                       if (map) {
                         const view = map.getView?.();
                         if (view) {
-                          // Use pre-calculated extent or controller's extent
-                          const extent =
-                            preCalculatedExtent || controller.extent;
-                          if (extent && extent.length === 4) {
-                            const [minX, minY, maxX, maxY] = extent;
+                          const extent = preCalculatedExtent || controller.extent;
+                          const useExtent =
+                            preCalculatedExtent ||
+                            (extent && looksLikeWgs84Extent(extent)
+                              ? extent
+                              : null);
+                          if (useExtent && useExtent.length === 4 && useExtent.every((n: number) => isFinite(n))) {
                             const wgs84Extent: [number, number, number, number] = [
-                              minX,
-                              minY,
-                              maxX,
-                              maxY,
+                              useExtent[0],
+                              useExtent[1],
+                              useExtent[2],
+                              useExtent[3],
                             ];
                             const projectionCode =
                               view.getProjection?.()?.getCode?.() || 'EPSG:3857';
-                            const transformedExtent =
+                            const extentInViewProj: [number, number, number, number] =
                               projectionCode === 'EPSG:4326'
                                 ? wgs84Extent
-                                : transformExtent(wgs84Extent, 'EPSG:4326', projectionCode);
+                                : (transformExtent(
+                                    wgs84Extent,
+                                    'EPSG:4326',
+                                    projectionCode
+                                  ) as [number, number, number, number]);
 
                             map.updateSize?.();
                             const size = map.getSize();
@@ -378,42 +375,16 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                               size[0] > 0 &&
                               size[1] > 0
                             ) {
-                              const fitOptions = {
+                              view.fit(extentInViewProj, {
                                 size,
-                                padding: [50, 50, 50, 50] as [number, number, number, number],
-                                maxZoom: 14,
+                                padding: [16, 16, 16, 16] as [
+                                  number,
+                                  number,
+                                  number,
+                                  number,
+                                ],
+                                maxZoom: 19,
                                 duration: 0,
-                              };
-
-                              let bestZoom = -Infinity;
-                              let bestCenter: number[] | undefined;
-                              let bestLabel = 'wgs84-raw';
-
-                              const tryFit = (candidateExtent: number[], label: string) => {
-                                if (!candidateExtent || candidateExtent.length !== 4) return;
-                                if (candidateExtent.some((n) => !isFinite(n))) return;
-                                view.fit(candidateExtent, fitOptions);
-                                const z = view.getZoom?.() ?? -Infinity;
-                                const c = view.getCenter?.();
-                                if (z > bestZoom && c && c.length === 2) {
-                                  bestZoom = z;
-                                  bestCenter = [c[0], c[1]];
-                                  bestLabel = label;
-                                }
-                              };
-
-                              tryFit(wgs84Extent, 'wgs84-raw');
-                              tryFit(transformedExtent, `to-${projectionCode}`);
-
-                              if (bestCenter && isFinite(bestZoom)) {
-                                view.setCenter?.(bestCenter);
-                                view.setZoom?.(bestZoom);
-                              }
-
-                              console.log(`View fit to extent (${reason})`, {
-                                projectionCode,
-                                bestLabel,
-                                bestZoom,
                               });
                             }
                           }
