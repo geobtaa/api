@@ -628,9 +628,7 @@ class StaticMapService:
                     width=self._LINE_WIDTH,
                 )
                 context.add_object(invisible_extent)
-            return self._render_and_cache(
-                context, resource_id, variant=self._BASEMAP_VARIANT
-            )
+            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
         except Exception as e:
             logger.error(f"Error generating basemap for resource {resource_id}: {e}", exc_info=True)
             return None
@@ -642,9 +640,7 @@ class StaticMapService:
             context.set_tile_provider(tile_provider_Carto)
             context.set_center(staticmaps.create_latlng(0, 0))
             context.set_zoom(1)
-            return self._render_and_cache(
-                context, resource_id, variant=self._BASEMAP_VARIANT
-            )
+            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
         except Exception as e:
             logger.error(
                 f"Error generating global basemap for resource {resource_id}: {e}",
@@ -670,9 +666,7 @@ class StaticMapService:
             context.set_tile_provider(tile_provider_Carto)
             context.set_center(staticmaps.create_latlng(latitude, longitude))
             context.set_zoom(max(1, min(int(zoom), 20)))
-            return self._render_and_cache(
-                context, resource_id, variant=self._BASEMAP_VARIANT
-            )
+            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
         except Exception as e:
             logger.error(
                 f"Error generating centered basemap for resource {resource_id}: {e}",

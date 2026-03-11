@@ -105,7 +105,9 @@ async def clear_thumbnail_for_resource(resource_id: str) -> bool:
 
     image_hash = _compute_thumbnail_image_hash(image_service, source_url)
     if not image_hash:
-        logger.warning(f"Could not compute cache hash for {resource_id} (manifest resolution failed)")
+        logger.warning(
+            f"Could not compute cache hash for {resource_id} (manifest resolution failed)"
+        )
         return False
 
     redis_host = os.getenv("REDIS_HOST", "redis")

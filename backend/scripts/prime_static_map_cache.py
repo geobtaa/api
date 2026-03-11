@@ -37,7 +37,6 @@ from app.services.distribution_repository import async_session_factory  # noqa: 
 from app.services.static_map_service import StaticMapService  # noqa: E402
 from db.models import resources  # noqa: E402
 
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -45,7 +44,9 @@ logger = logging.getLogger(__name__)
 async def _count_resources(resource_ids: list[str]) -> int:
     async with async_session_factory() as session:
         if resource_ids:
-            stmt = select(func.count()).select_from(resources).where(resources.c.id.in_(resource_ids))
+            stmt = (
+                select(func.count()).select_from(resources).where(resources.c.id.in_(resource_ids))
+            )
         else:
             stmt = select(func.count()).select_from(resources)
         result = await session.execute(stmt)
@@ -128,7 +129,9 @@ async def _prime_static_maps_for_resource(
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
 
     try:
-        status, detail = await asyncio.to_thread(_prime_static_maps_sync, resource_id, geometry, force)
+        status, detail = await asyncio.to_thread(
+            _prime_static_maps_sync, resource_id, geometry, force
+        )
         return (status, resource_id, detail)
     except Exception as exc:
         return ("failed", resource_id, str(exc))
@@ -247,9 +250,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--concurrency", type=int, default=2, help="Concurrent static-map generation tasks"
     )
-    parser.add_argument(
-        "--force", action="store_true", help="Regenerate maps even if cache exists"
-    )
+    parser.add_argument("--force", action="store_true", help="Regenerate maps even if cache exists")
     return parser.parse_args()
 
 

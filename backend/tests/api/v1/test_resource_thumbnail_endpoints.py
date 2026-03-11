@@ -388,7 +388,9 @@ class TestResourceThumbnailNoCachePmtilesFlow:
     def test_no_cache_pmtiles_fallback_to_resource_class_icon_on_failure(
         self, mock_fetch_dist, mock_session, client
     ):
-        """No-cache PMTiles falls back to resource-class icon when generation fails (vector/empty)."""
+        """
+        No-cache PMTiles falls back to resource-class icon when generation fails.
+        """
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
 

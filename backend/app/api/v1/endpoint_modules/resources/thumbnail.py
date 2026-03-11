@@ -1,3 +1,4 @@
+# ruff: noqa: E501
 import asyncio
 import base64
 import hashlib
@@ -84,9 +85,7 @@ def _svg_placeholder(*, title: str, subtitle: str) -> Response:
 def _get_first_resource_class(resource_dict: dict) -> str | None:
     """Extract the first resource class from gbl_resourceClass_sm."""
     resource_classes = (
-        resource_dict.get("gbl_resourceClass_sm")
-        or resource_dict.get("gbl_resourceclass_sm")
-        or []
+        resource_dict.get("gbl_resourceClass_sm") or resource_dict.get("gbl_resourceclass_sm") or []
     )
     if isinstance(resource_classes, str):
         resource_classes = [resource_classes]
@@ -100,13 +99,7 @@ def _canonicalize_resource_class(resource_class: str | None) -> str:
     rc = (resource_class or "").lower().strip()
     if "map" in rc:
         return "maps"
-    if (
-        "dataset" in rc
-        or "point" in rc
-        or "polygon" in rc
-        or "raster" in rc
-        or "vector" in rc
-    ):
+    if "dataset" in rc or "point" in rc or "polygon" in rc or "raster" in rc or "vector" in rc:
         return "datasets"
     if "web service" in rc:
         return "web services"
@@ -232,9 +225,15 @@ async def _svg_icon_for_resource(resource_dict: dict) -> Response:
             if not map_bytes:
                 geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
                 generator = (
-                    map_service.generate_basemap if geometry else map_service.generate_global_basemap
+                    map_service.generate_basemap
+                    if geometry
+                    else map_service.generate_global_basemap
                 )
-                map_bytes = await asyncio.to_thread(generator, resource_id, geometry) if geometry else await asyncio.to_thread(generator, resource_id)
+                map_bytes = (
+                    await asyncio.to_thread(generator, resource_id, geometry)
+                    if geometry
+                    else await asyncio.to_thread(generator, resource_id)
+                )
             if map_bytes:
                 encoded = base64.b64encode(map_bytes).decode("ascii")
                 background_data_uri = f"data:image/png;base64,{encoded}"

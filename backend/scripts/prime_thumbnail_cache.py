@@ -56,7 +56,6 @@ from app.tasks.worker import (  # noqa: E402
 )
 from db.models import resources  # noqa: E402
 
-
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
@@ -157,7 +156,9 @@ def _prime_remote_thumbnail(image_hash: str, source_url: str) -> bool:
     response = requests.get(resolved_url, timeout=_thumbnail_fetch_timeout(), headers=headers)
 
     if response.status_code in (401, 403, 418):
-        logger.warning("Authorization/bot-block status %s for %s", response.status_code, resolved_url)
+        logger.warning(
+            "Authorization/bot-block status %s for %s", response.status_code, resolved_url
+        )
         return False
 
     response.raise_for_status()
@@ -174,7 +175,9 @@ def _prime_remote_thumbnail(image_hash: str, source_url: str) -> bool:
 async def _count_resources(resource_ids: list[str]) -> int:
     async with async_session_factory() as session:
         if resource_ids:
-            stmt = select(func.count()).select_from(resources).where(resources.c.id.in_(resource_ids))
+            stmt = (
+                select(func.count()).select_from(resources).where(resources.c.id.in_(resource_ids))
+            )
         else:
             stmt = select(func.count()).select_from(resources)
         result = await session.execute(stmt)

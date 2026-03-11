@@ -555,7 +555,7 @@ export function HomePage() {
         onClose={() => setIsBtaaVideoOpen(false)}
         id={BTAA_VIDEO_MODAL_ID}
         labelledBy={BTAA_VIDEO_MODAL_TITLE_ID}
-        title='The Big Ten loves "Maps"'
+        title="Big Ten Academic Alliance video"
         subtitle="Watch the BTAA overview video."
         contentClassName="max-w-4xl"
         data-testid="btaa-video-modal-overlay"
