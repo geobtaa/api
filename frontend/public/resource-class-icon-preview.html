@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resource Class Icon Preview</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #173a53;
+        --paper: #ffffff;
+        --page: #f5f7f8;
+        --muted: #5f7281;
+        --border: #d9e2e7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        background: var(--page);
+        color: #12212b;
+      }
+
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        color: var(--ink);
+        font-size: 28px;
+      }
+
+      p {
+        margin: 0 0 28px;
+        color: var(--muted);
+        font-size: 15px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 22px;
+      }
+
+      .card {
+        background: var(--paper);
+        border: 1px solid var(--border);
+        padding: 18px 18px 16px;
+        box-shadow: 0 8px 18px rgba(0, 0, 0, 0.04);
+      }
+
+      .thumb {
+        width: 200px;
+        height: 200px;
+        display: block;
+        margin: 0 auto;
+      }
+
+      .label {
+        margin-top: 10px;
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--ink);
+        text-align: center;
+      }
+
+      code {
+        background: #eaf1f5;
+        padding: 2px 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>New Resource Class Icons</h1>
+      <p>
+        Preview of the reset icon-only fallback system from
+        <code>backend/app/api/v1/endpoint_modules/resources/thumbnail.py</code>.
+      </p>
+
+      <div class="grid">
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Datasets icon">
+            <title>Datasets icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M96 144L96 192C96 236.2 196.3 272 320 272C443.7 272 544 236.2 544 192L544 144C544 99.8 443.7 64 320 64C196.3 64 96 99.8 96 144zM96 269.8L96 352C96 396.2 196.3 432 320 432C443.7 432 544 396.2 544 352L544 269.8C529.2 279.6 512.2 287.5 494.5 293.8C447.5 310.6 385.8 320 320 320C254.2 320 192.4 310.5 145.5 293.8C127.9 287.5 110.8 279.6 96 269.8zM96 429.8L96 496C96 540.2 196.3 576 320 576C443.7 576 544 540.2 544 496L544 429.8C529.2 439.6 512.2 447.5 494.5 453.8C447.5 470.6 385.8 480 320 480C254.2 480 192.4 470.5 145.5 453.8C127.9 447.5 110.8 439.6 96 429.8z"/>
+              <path d="M96 269.8L96 192C96 236.2 196.3 272 320 272C443.7 272 544 236.2 544 192L544 269.8C529.2 279.6 512.2 287.5 494.5 293.8C447.5 310.6 385.8 320 320 320C254.2 320 192.4 310.5 145.5 293.8C127.9 287.5 110.8 279.6 96 269.8zM96 429.8L96 352C96 396.2 196.3 432 320 432C443.7 432 544 396.2 544 352L544 429.8C529.2 439.6 512.2 447.5 494.5 453.8C447.5 470.6 385.8 480 320 480C254.2 480 192.4 470.5 145.5 453.8C127.9 447.5 110.8 439.6 96 429.8z"/>
+            </g>
+          </svg>
+          <div class="label">Datasets</div>
+        </div>
+
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Maps icon">
+            <title>Maps icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M224 96L416 160L416 544L224 480L224 96z"/>
+              <path d="M549.5 477.3L416 544L416 160L541.3 97.4C557.3 89.4 576 101 576 118.9L576 434.4C576 452.6 565.7 469.2 549.5 477.3zM90.5 162.7L224 96L224 480L98.7 542.6C82.8 550.6 64 539 64 521.2L64 205.7C64 187.5 74.3 170.9 90.5 162.8z"/>
+            </g>
+          </svg>
+          <div class="label">Maps</div>
+        </div>
+
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Web Services icon">
+            <title>Web Services icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M96 416L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 416C544 380.7 515.3 352 480 352L160 352C124.7 352 96 380.7 96 416zM400 448C400 461.3 389.3 472 376 472C362.7 472 352 461.3 352 448C352 434.7 362.7 424 376 424C389.3 424 400 434.7 400 448zM432 192C432 205.3 442.7 216 456 216C469.3 216 480 205.3 480 192C480 178.7 469.3 168 456 168C442.7 168 432 178.7 432 192zM480 448C480 461.3 469.3 472 456 472C442.7 472 432 461.3 432 448C432 434.7 442.7 424 456 424C469.3 424 480 434.7 480 448z"/>
+              <path d="M160 96C124.7 96 96 124.7 96 160L96 224C96 259.3 124.7 288 160 288L480 288C515.3 288 544 259.3 544 224L544 160C544 124.7 515.3 96 480 96L160 96zM376 168C389.3 168 400 178.7 400 192C400 205.3 389.3 216 376 216C362.7 216 352 205.3 352 192C352 178.7 362.7 168 376 168zM432 192C432 178.7 442.7 168 456 168C469.3 168 480 178.7 480 192C480 205.3 469.3 216 456 216C442.7 216 432 205.3 432 192zM456 472C469.3 472 480 461.3 480 448C480 434.7 469.3 424 456 424C442.7 424 432 434.7 432 448C432 461.3 442.7 472 456 472z"/>
+            </g>
+          </svg>
+          <div class="label">Web Services</div>
+        </div>
+
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Collections icon">
+            <title>Collections icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M240 112L240 464L496 464L496 256L352 256L352 112L240 112z"/>
+              <path d="M352 112L352 256L496 256L496 464L240 464L240 112L352 112zM400 115.9L492.1 208L400 208L400 115.9zM416 64L192 64L192 512L544 512L544 192L416 64zM144 160L96 160L96 608L448 608L448 560L144 560L144 160z"/>
+            </g>
+          </svg>
+          <div class="label">Collections</div>
+        </div>
+
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Imagery icon">
+            <title>Imagery icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M96 160L96 480C96 515.3 124.7 544 160 544L480 544C515.3 544 544 515.3 544 480L544 160C544 124.7 515.3 96 480 96L160 96C124.7 96 96 124.7 96 160zM162.7 467.1C158.6 459.2 159.2 449.6 164.3 442.3L220.3 362.3C224.8 355.9 232.1 352.1 240 352.1C247.9 352.1 255.2 355.9 259.7 362.3L286.1 400.1L347.5 299.6C351.9 292.5 359.6 288.1 368 288.1C376.4 288.1 384.1 292.5 388.5 299.6L476.5 443.6C481 451 481.2 460.3 477 467.9C472.8 475.5 464.7 480 456 480L184 480C175.1 480 166.8 475 162.7 467.1zM272 224C272 250.5 250.5 272 224 272C197.5 272 176 250.5 176 224C176 197.5 197.5 176 224 176C250.5 176 272 197.5 272 224z"/>
+              <path d="M388.5 299.5C384.1 292.4 376.4 288 368 288C359.6 288 351.9 292.4 347.5 299.5L286.1 400L259.7 362.2C255.2 355.8 247.9 352 240 352C232.1 352 224.8 355.8 220.3 362.2L164.3 442.2C159.2 449.5 158.5 459.1 162.7 467C166.9 474.9 175.1 480 184 480L456 480C464.7 480 472.7 475.3 476.9 467.7C481.1 460.1 481 450.9 476.4 443.4L388.4 299.4z"/>
+            </g>
+          </svg>
+          <div class="label">Imagery</div>
+        </div>
+
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Websites icon">
+            <title>Websites icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M64 320L576 320L576 448C576 483.3 547.3 512 512 512L128 512C92.7 512 64 483.3 64 448L64 320z"/>
+              <path d="M64 192C64 156.7 92.7 128 128 128L512 128C547.3 128 576 156.7 576 192L576 320L64 320L64 192zM192 224C192 206.3 177.7 192 160 192C142.3 192 128 206.3 128 224C128 241.7 142.3 256 160 256C177.7 256 192 241.7 192 224zM248 200C234.7 200 224 210.7 224 224C224 237.3 234.7 248 248 248L488 248C501.3 248 512 237.3 512 224C512 210.7 501.3 200 488 200L248 200z"/>
+            </g>
+          </svg>
+          <div class="label">Websites</div>
+        </div>
+
+        <div class="card">
+          <svg class="thumb" width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Other icon">
+            <title>Other icon</title>
+            <g transform="translate(36 36) scale(0.2)" fill="#173a53">
+              <path opacity=".4" d="M128 128L128 512C128 547.3 156.7 576 192 576L448 576C483.3 576 512 547.3 512 512L512 224L384 224C366.3 224 352 209.7 352 192L352 64L192 64C156.7 64 128 92.7 128 128z"/>
+              <path d="M352 64C367.4 64 382.1 70.1 393 81L495 183C505.9 193.9 512 208.6 512 224L384 224C366.3 224 352 209.7 352 192L352 64z"/>
+            </g>
+          </svg>
+          <div class="label">Other</div>
+        </div>
+      </div>
+    </main>
+  </body>
+</html>

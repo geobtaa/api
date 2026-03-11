@@ -8,6 +8,10 @@ export default [
   // Resource routes (return non-HTML responses via loaders)
   route("resources/:id/static-map", "routes/resources.$id.static-map.ts"),
   route(
+    "institutions/:slug/static-map",
+    "routes/institutions.$slug.static-map.ts",
+  ),
+  route(
     "resources/:id/static-map/no-cache",
     "routes/resources.$id.static-map.no-cache.ts",
   ),

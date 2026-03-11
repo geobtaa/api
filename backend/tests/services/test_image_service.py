@@ -146,6 +146,51 @@ class TestImageServiceURLStandardization:
 class TestImageServiceThumbnailSourceURL:
     """Test cases for thumbnail source URL extraction using real reference data."""
 
+    def test_get_thumbnail_source_url_b1g_image_ss_takes_priority(self):
+        """b1g_image_ss MUST be used when present; overrides all other sources."""
+        metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+        try:
+            service = ImageService(metadata)
+            references = {
+                "http://schema.org/thumbnailUrl": "https://example.com/other.jpg",
+                "http://iiif.io/api/image": "http://example.com/iiif/image",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://curated.example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_b1g_image_ss_list_uses_first(self):
+        """When b1g_image_ss is a list, use first element."""
+        metadata = {"id": "test-doc", "b1g_image_ss": ["https://first.jpg", "https://second.jpg"]}
+        try:
+            service = ImageService(metadata)
+            result = service._get_thumbnail_source_url()
+            assert result == "https://first.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_b1g_image_ss_json_array_string(self):
+        """b1g_image_ss stored as JSON array string '["url"]' is parsed and used."""
+        metadata = {"id": "test-doc", "b1g_image_ss": '["https://curated.example.com/thumb.jpg"]'}
+        try:
+            service = ImageService(metadata)
+            result = service._get_thumbnail_source_url()
+            assert result == "https://curated.example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_b1g_image_ss_non_http_skipped(self):
+        """b1g_image_ss with non-http(s) URL is skipped, fallback to other sources."""
+        metadata = {"id": "test-doc", "b1g_image_ss": "ftp://invalid.example/image.jpg"}
+        try:
+            service = ImageService(metadata)
+            references = {"http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg"}
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
     def test_get_thumbnail_source_url_schema_thumbnail(self):
         """Test extraction of schema.org thumbnail URL."""
         metadata = {"id": "test-doc"}

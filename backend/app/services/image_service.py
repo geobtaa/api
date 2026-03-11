@@ -388,6 +388,27 @@ class ImageService:
         Extract thumbnail source URL from references without making external calls.
         This method only does local string processing - no HTTP requests.
         """
+        # b1g_image_ss takes priority: MUST use when present (BTAA curated image)
+        b1g_image = self.metadata.get("b1g_image_ss")
+        if b1g_image:
+            url = None
+            if isinstance(b1g_image, list) and b1g_image:
+                url = b1g_image[0]
+            elif isinstance(b1g_image, str):
+                # Handle JSON array string, e.g. '["https://..."]' from DB
+                s = b1g_image.strip()
+                if s.startswith(("http://", "https://")):
+                    url = s
+                elif s.startswith("["):
+                    try:
+                        parsed = json.loads(s)
+                        if isinstance(parsed, list) and parsed:
+                            url = parsed[0]
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+            if isinstance(url, str) and url.strip().startswith(("http://", "https://")):
+                return url.strip()
+
         # Check for direct thumbnail URL first (support http and https keys)
         for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
             if url := self._first_url(thumb_key, references=references):

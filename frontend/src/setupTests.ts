@@ -60,6 +60,9 @@ vi.mock('./services/api', () => ({
       },
     },
   ]),
+  fetchHomeBlogPosts: vi.fn().mockResolvedValue({
+    data: [],
+  }),
   fetchBookmarkedResources: vi.fn().mockResolvedValue({
     jsonapi: { version: '1.1', profile: [] },
     links: {

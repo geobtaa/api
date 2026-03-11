@@ -361,7 +361,7 @@ export function SearchResults({
                   </pre>
                 )}
 
-                <div className="flex items-center gap-2 mb-2 pr-8">
+                <div className="flex items-start gap-2 mb-2 pr-8">
                   <span
                     className={`flex-shrink-0 font-semibold text-slate-600 dark:text-slate-400 ${isCompact ? 'text-sm' : 'text-xl'}`}
                     aria-hidden

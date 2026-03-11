@@ -174,10 +174,10 @@ class TestResourceThumbnailNoCacheCogFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_no_cache_cog_fallback_to_static_map_on_failure(
+    def test_no_cache_cog_fallback_to_resource_class_icon_on_failure(
         self, mock_fetch_dist, mock_session, client
     ):
-        """No-cache COG falls back to static map when generation fails."""
+        """No-cache COG falls back to resource-class icon when generation fails."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
 
@@ -195,6 +195,9 @@ class TestResourceThumbnailNoCacheCogFlow:
         with (
             patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
             patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.StaticMapService"
+            ) as mock_map_service_cls,
+            patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._generate_cog_thumbnail_bytes",
                 return_value=None,
             ),
@@ -207,10 +210,16 @@ class TestResourceThumbnailNoCacheCogFlow:
             svc._get_thumbnail_source_url.return_value = cog_url
             svc._is_cog_url.return_value = True
             mock_svc_cls.return_value = svc
+            map_svc = MagicMock()
+            map_svc.get_cached_basemap = AsyncMock(return_value=None)
+            map_svc.generate_basemap.return_value = None
+            map_svc.generate_global_basemap.return_value = None
+            mock_map_service_cls.return_value = map_svc
 
-            resp = client.get("/resources/test-cog/thumbnail/no-cache", allow_redirects=False)
-            assert resp.status_code == 302
-            assert "/static-map/no-cache" in resp.headers["location"]
+            resp = client.get("/resources/test-cog/thumbnail/no-cache")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/svg+xml"
+            assert "<svg" in resp.text
 
 
 class TestResourceThumbnailPmtilesFlow:
@@ -293,6 +302,41 @@ class TestResourceThumbnailPmtilesFlow:
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
 
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
+    def test_missing_thumbnail_source_uses_basemap_background(
+        self, mock_fetch_dist, mock_session, client
+    ):
+        """When no thumbnail source exists, the icon fallback can include a basemap background."""
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_row = _resource_row("test-no-source", "{}")
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute = AsyncMock(return_value=mock_result)
+
+        mock_fetch_dist.return_value = MagicMock(by_uri={}, legacy_reference_payload={})
+
+        with (
+            patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.StaticMapService"
+            ) as mock_map_service_cls,
+        ):
+            svc = MagicMock()
+            svc._get_thumbnail_source_url.return_value = None
+            mock_svc_cls.return_value = svc
+
+            map_svc = MagicMock()
+            map_svc.get_cached_basemap = AsyncMock(return_value=_valid_png_bytes())
+            mock_map_service_cls.return_value = map_svc
+
+            resp = client.get("/resources/test-no-source/thumbnail")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/svg+xml"
+            assert "data:image/png;base64," in resp.text
+
 
 class TestResourceThumbnailNoCachePmtilesFlow:
     """Test PMTiles handling in no-cache thumbnail endpoint."""
@@ -341,10 +385,10 @@ class TestResourceThumbnailNoCachePmtilesFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_no_cache_pmtiles_fallback_to_static_map_on_failure(
+    def test_no_cache_pmtiles_fallback_to_resource_class_icon_on_failure(
         self, mock_fetch_dist, mock_session, client
     ):
-        """No-cache PMTiles falls back to static map when generation fails (vector/empty)."""
+        """No-cache PMTiles falls back to resource-class icon when generation fails (vector/empty)."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
 
@@ -362,6 +406,9 @@ class TestResourceThumbnailNoCachePmtilesFlow:
         with (
             patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
             patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.StaticMapService"
+            ) as mock_map_service_cls,
+            patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._generate_pmtiles_thumbnail_bytes",
                 return_value=None,
             ),
@@ -375,7 +422,13 @@ class TestResourceThumbnailNoCachePmtilesFlow:
             svc._is_cog_url.return_value = False
             svc._is_pmtiles_url.return_value = True
             mock_svc_cls.return_value = svc
+            map_svc = MagicMock()
+            map_svc.get_cached_basemap = AsyncMock(return_value=None)
+            map_svc.generate_basemap.return_value = None
+            map_svc.generate_global_basemap.return_value = None
+            mock_map_service_cls.return_value = map_svc
 
-            resp = client.get("/resources/test-pmtiles/thumbnail/no-cache", allow_redirects=False)
-            assert resp.status_code == 302
-            assert "/static-map/no-cache" in resp.headers["location"]
+            resp = client.get("/resources/test-pmtiles/thumbnail/no-cache")
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/svg+xml"
+            assert "<svg" in resp.text

@@ -73,6 +73,28 @@ class TestStaticMapsEndpoint:
             assert second.status_code == 304
             assert second.headers["etag"] == etag
 
+    def test_get_institution_static_map_generates_and_serves_png(self, client):
+        png_bytes = create_valid_png_image()
+
+        with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
+            svc = MagicMock()
+            svc.get_cached_basemap = AsyncMock(return_value=None)
+            svc.generate_centered_basemap.return_value = png_bytes
+            svc_cls.return_value = svc
+
+            resp = client.get(
+                "/static-maps/institutions/indiana-university?lat=39.1702&lon=-86.5235&zoom=15"
+            )
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/png"
+            assert resp.headers["etag"] == weak_etag_from_body(png_bytes)
+            svc.generate_centered_basemap.assert_called_once_with(
+                "institution:indiana-university",
+                latitude=39.1702,
+                longitude=-86.5235,
+                zoom=15,
+            )
+
 
 class TestResourceStaticMapEndpoint:
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")

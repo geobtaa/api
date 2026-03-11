@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -74,6 +74,12 @@ KAMAL_API_URL ?=
 KAMAL_CACHE_TYPE ?= search
 OGM_API_URL ?= http://localhost:8000
 OGM_STATUS_POLL_SECONDS ?= 5
+PRIME_LIMIT ?=
+PRIME_BATCH_SIZE ?= 100
+PRIME_THUMBNAIL_CONCURRENCY ?= 4
+PRIME_STATIC_MAP_CONCURRENCY ?= 2
+PRIME_FORCE ?=
+RESOURCE_IDS ?=
 
 # Run both linting and formatting checks (without modifying files)
 lint:
@@ -193,6 +199,55 @@ clear-thumbnail-cache:
 		exit 1; \
 	fi
 	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/clear_thumbnail_cache.py "$(RESOURCE_ID)"'
+
+# Prime thumbnail cache entries with progress meter + ETA.
+# Usage examples:
+#   make prime-thumbnail-cache
+#   make prime-thumbnail-cache PRIME_LIMIT=500 PRIME_THUMBNAIL_CONCURRENCY=6
+#   make prime-thumbnail-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
+prime-thumbnail-cache:
+	@echo "Priming thumbnail cache..."
+	@docker compose exec -T api bash -lc '\
+		set -e; \
+		cd /app/backend; \
+		ARGS=""; \
+		if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
+		if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
+		if [ -n "$(PRIME_THUMBNAIL_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_THUMBNAIL_CONCURRENCY)"; fi; \
+		case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+		python scripts/prime_thumbnail_cache.py $$ARGS $(RESOURCE_IDS)'
+
+# Prime static-map + thumbnail-basemap cache entries with progress meter + ETA.
+# Usage examples:
+#   make prime-static-map-cache
+#   make prime-static-map-cache PRIME_LIMIT=500 PRIME_STATIC_MAP_CONCURRENCY=3
+#   make prime-static-map-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
+prime-static-map-cache:
+	@echo "Priming static-map caches..."
+	@docker compose exec -T api bash -lc '\
+		set -e; \
+		cd /app/backend; \
+		ARGS=""; \
+		if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
+		if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
+		if [ -n "$(PRIME_STATIC_MAP_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_STATIC_MAP_CONCURRENCY)"; fi; \
+		case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+		python scripts/prime_static_map_cache.py $$ARGS $(RESOURCE_IDS)'
+
+# Prime both visual caches in sequence.
+prime-visual-caches:
+	@$(MAKE) --no-print-directory prime-thumbnail-cache \
+		PRIME_LIMIT="$(PRIME_LIMIT)" \
+		PRIME_BATCH_SIZE="$(PRIME_BATCH_SIZE)" \
+		PRIME_THUMBNAIL_CONCURRENCY="$(PRIME_THUMBNAIL_CONCURRENCY)" \
+		PRIME_FORCE="$(PRIME_FORCE)" \
+		RESOURCE_IDS="$(RESOURCE_IDS)"
+	@$(MAKE) --no-print-directory prime-static-map-cache \
+		PRIME_LIMIT="$(PRIME_LIMIT)" \
+		PRIME_BATCH_SIZE="$(PRIME_BATCH_SIZE)" \
+		PRIME_STATIC_MAP_CONCURRENCY="$(PRIME_STATIC_MAP_CONCURRENCY)" \
+		PRIME_FORCE="$(PRIME_FORCE)" \
+		RESOURCE_IDS="$(RESOURCE_IDS)"
 
 # Run PMTiles network integration test (proves raster thumbnail harvest works).
 # Requires network access. The fixture b1g_PJxxfKgpqpUT uses MVT PMTiles which may fail;
