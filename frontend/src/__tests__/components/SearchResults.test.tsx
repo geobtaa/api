@@ -362,7 +362,7 @@ describe('SearchResults Component', () => {
 
   describe('Thumbnail Handling', () => {
     it('displays thumbnails when available', () => {
-      render(
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[mockFixtureData[0]]} // First fixture has thumbnail
@@ -373,18 +373,13 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const thumbnail = screen.getByAltText(
-        'Thumbnail for Nondigitized paper map with library catalog link'
-      );
+      const thumbnail = container.querySelector('img[src="https://example.com/thumbnail1.jpg"]');
       expect(thumbnail).toBeInTheDocument();
-      expect(thumbnail).toHaveAttribute(
-        'src',
-        'https://example.com/thumbnail1.jpg'
-      );
+      expect(thumbnail).toHaveAttribute('alt', '');
     });
 
     it('falls back to the backend thumbnail endpoint when thumbnail_url is not available', () => {
-      render(
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[mockFixtureData[1]]} // Second fixture has no thumbnail
@@ -395,14 +390,11 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const thumbnail = screen.getByAltText(
-        'Thumbnail for Point dataset with WMS and WFS'
+      const thumbnail = container.querySelector(
+        'img[src="/resources/nyu-2451-34564/thumbnail"]'
       );
       expect(thumbnail).toBeInTheDocument();
-      expect(thumbnail).toHaveAttribute(
-        'src',
-        '/resources/nyu-2451-34564/thumbnail'
-      );
+      expect(thumbnail).toHaveAttribute('alt', '');
     });
   });
 
@@ -658,7 +650,7 @@ describe('SearchResults Component', () => {
         },
       };
 
-      render(
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[missingThumbnailResult]}
@@ -669,8 +661,11 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const thumbnail = screen.getByAltText('Thumbnail for Missing Thumbnail Test');
+      const thumbnail = container.querySelector(
+        'img[src="/resources/missing-thumb-test/thumbnail"]'
+      );
       expect(thumbnail).toHaveAttribute('src', '/resources/missing-thumb-test/thumbnail');
+      expect(thumbnail).toHaveAttribute('alt', '');
     });
 
     it('handles results with missing attributes gracefully', () => {
@@ -823,8 +818,8 @@ describe('SearchResults Component', () => {
       expect(screen.getByRole('button')).toBeInTheDocument();
     });
 
-    it('has proper alt text for images', () => {
-      render(
+    it('marks result images as decorative', () => {
+      const { container } = render(
         <TestWrapper>
           <SearchResults
             results={[mockFixtureData[0]]}
@@ -835,10 +830,9 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const image = screen.getByAltText(
-        'Thumbnail for Nondigitized paper map with library catalog link'
-      );
+      const image = container.querySelector('img[src="https://example.com/thumbnail1.jpg"]');
       expect(image).toBeInTheDocument();
+      expect(image).toHaveAttribute('alt', '');
     });
   });
 });

@@ -24,10 +24,11 @@ describe('StaticResultMap', () => {
       },
     };
 
-    render(<StaticResultMap result={result} />);
+    const { container } = render(<StaticResultMap result={result} />);
 
-    const image = screen.getByAltText('Map for No Geometry Result');
+    const image = container.querySelector('img[src="/resources/no-geometry-result/static-map"]');
     expect(image).toHaveAttribute('src', '/resources/no-geometry-result/static-map');
+    expect(image).toHaveAttribute('alt', '');
     expect(screen.queryByText('No map data')).not.toBeInTheDocument();
   });
 });

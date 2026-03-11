@@ -52,7 +52,7 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
       <img
         ref={imgRef}
         src={getStaticMapUrl()}
-        alt={`Map for ${result.attributes.ogm.dct_title_s}`}
+        alt=""
         className="h-full w-full object-cover"
         onLoad={() => setIsLoading(false)}
         onError={() => {

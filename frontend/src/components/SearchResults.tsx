@@ -297,7 +297,7 @@ export function SearchResults({
                     >
                       <img
                         src={toSsrThumbnailUrl(fallbackThumbnailUrl)}
-                        alt={`Thumbnail for ${title}`}
+                        alt=""
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
                           console.error(

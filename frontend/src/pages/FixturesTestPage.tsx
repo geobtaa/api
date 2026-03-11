@@ -1360,7 +1360,7 @@ export function FixturesTestPage() {
                       <div className="w-20 h-16 border border-gray-200 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
                         <img
                           src={`/resources/${fixture.id}/thumbnail`}
-                          alt={`Thumbnail for ${fixture.id}`}
+                          alt=""
                           className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {
@@ -1376,7 +1376,7 @@ export function FixturesTestPage() {
                       <div className="w-20 h-16 border border-gray-200 rounded bg-gray-50 flex items-center justify-center overflow-hidden">
                         <img
                           src={`/resources/${fixture.id}/static-map`}
-                          alt={`Static map for ${fixture.id}`}
+                          alt=""
                           className="w-full h-full object-cover"
                           loading="lazy"
                           onError={(e) => {

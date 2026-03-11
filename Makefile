@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -79,6 +79,8 @@ PRIME_BATCH_SIZE ?= 100
 PRIME_THUMBNAIL_CONCURRENCY ?= 4
 PRIME_STATIC_MAP_CONCURRENCY ?= 2
 PRIME_FORCE ?=
+PRIME_RETRY_FAILURES ?=
+PRIME_RETRY_PLACEHELD ?=
 RESOURCE_IDS ?=
 
 # Run both linting and formatting checks (without modifying files)
@@ -733,6 +735,29 @@ kamal-clear-cache:
 	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
 	@echo
 	@echo "Remote cache clear request submitted."
+
+# Prime thumbnail cache on remote Kamal app container.
+# Usage examples:
+#   source .kamal/secrets && make kamal-prime-thumbnail-cache
+#   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_LIMIT=500 PRIME_THUMBNAIL_CONCURRENCY=4
+#   source .kamal/secrets && make kamal-prime-thumbnail-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123"
+#   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_RETRY_FAILURES=1
+#   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_FORCE=1
+kamal-prime-thumbnail-cache:
+	@echo "Priming thumbnail cache on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@ARGS=""; \
+	if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
+	if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
+	if [ -n "$(PRIME_THUMBNAIL_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_THUMBNAIL_CONCURRENCY)"; fi; \
+	case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+	case "$(PRIME_RETRY_FAILURES)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --retry-failures" ;; esac; \
+	case "$(PRIME_RETRY_PLACEHELD)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --retry-placeheld" ;; esac; \
+	kamal app exec -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_thumbnail_cache.py $$ARGS $(RESOURCE_IDS)'"
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 
