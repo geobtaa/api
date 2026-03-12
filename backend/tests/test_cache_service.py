@@ -1,4 +1,5 @@
 import importlib
+import os
 
 import pytest
 from fastapi import FastAPI, HTTPException, Request
@@ -6,12 +7,26 @@ from fastapi.responses import JSONResponse
 from httpx import ASGITransport, AsyncClient
 
 
+def _cache_test_redis_db() -> str:
+    """Use a worker-specific Redis DB to avoid xdist tests flushing each other."""
+    worker = os.getenv("PYTEST_XDIST_WORKER", "master")
+    if worker == "master":
+        return "15"
+    try:
+        worker_num = int(worker.removeprefix("gw"))
+    except ValueError:
+        return "15"
+    # Redis commonly exposes 16 logical DBs (0-15). Reserve DB 15 for master and
+    # use DBs 2-14 for xdist workers to avoid the session fixture's default DB 1.
+    return str(2 + (worker_num % 13))
+
+
 @pytest.mark.asyncio
 async def test_success_response_caching_and_etag(monkeypatch):
     # Ensure cache_service module reads envs at import-time with caching enabled.
     monkeypatch.setenv("ENDPOINT_CACHE", "true")
     monkeypatch.setenv("CACHE_DEBUG_HEADERS", "true")
-    monkeypatch.setenv("REDIS_DB", "15")
+    monkeypatch.setenv("REDIS_DB", _cache_test_redis_db())
 
     import app.services.cache_service as cache_service_mod
 
@@ -55,7 +70,7 @@ async def test_success_response_caching_and_etag(monkeypatch):
 async def test_query_string_normalization(monkeypatch):
     monkeypatch.setenv("ENDPOINT_CACHE", "true")
     monkeypatch.setenv("CACHE_DEBUG_HEADERS", "true")
-    monkeypatch.setenv("REDIS_DB", "15")
+    monkeypatch.setenv("REDIS_DB", _cache_test_redis_db())
 
     import app.services.cache_service as cache_service_mod
 
@@ -92,7 +107,7 @@ async def test_query_string_normalization(monkeypatch):
 async def test_error_response_not_cached(monkeypatch):
     monkeypatch.setenv("ENDPOINT_CACHE", "true")
     monkeypatch.setenv("CACHE_DEBUG_HEADERS", "true")
-    monkeypatch.setenv("REDIS_DB", "15")
+    monkeypatch.setenv("REDIS_DB", _cache_test_redis_db())
 
     import app.services.cache_service as cache_service_mod
 

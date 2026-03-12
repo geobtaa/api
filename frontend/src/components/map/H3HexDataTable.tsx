@@ -1,5 +1,6 @@
 import { Link } from 'react-router';
 import { formatCount } from '../../utils/formatNumber';
+import { buildSearchUrl } from '../../utils/h3SearchUrl';
 
 export interface H3HexDataTableProps {
   hexes: Array<{ h3: string; count: number }>;
@@ -7,31 +8,6 @@ export interface H3HexDataTableProps {
   searchQuery?: string;
   queryString?: string;
   loading?: boolean;
-}
-
-/**
- * Builds the search URL for a given H3 cell, preserving existing query params
- * and adding the H3 filter for the given resolution.
- */
-function buildSearchUrl(
-  h3: string,
-  resolution: number,
-  searchQuery?: string,
-  queryString?: string
-): string {
-  const params = new URLSearchParams(
-    typeof queryString === 'string' && queryString.startsWith('?')
-      ? queryString.slice(1)
-      : (queryString ?? '')
-  );
-  if (searchQuery) params.set('q', searchQuery);
-  // Remove any existing H3 filters and set this hex
-  Array.from(params.keys())
-    .filter((k) => k.startsWith('include_filters[h3_res'))
-    .forEach((k) => params.delete(k));
-  params.set(`include_filters[h3_res${resolution}][]`, h3);
-  params.delete('page');
-  return `/search?${params.toString()}`;
 }
 
 /**

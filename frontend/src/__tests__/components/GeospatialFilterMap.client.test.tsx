@@ -98,7 +98,7 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
-  it('updates geo relation to precision when toggle is clicked', async () => {
+  it('updates geo relation to within when toggle is clicked', async () => {
     render(
       <MemoryRouter
         initialEntries={[
@@ -119,16 +119,48 @@ describe('GeospatialFilterMap client', () => {
       </MemoryRouter>
     );
 
-    const precisionButton = await screen.findByRole('button', {
-      name: 'Set map mode to precision',
+    const withinButton = await screen.findByRole('button', {
+      name: 'Set map mode to within',
     });
-    fireEvent.click(precisionButton);
+    fireEvent.click(withinButton);
 
     await waitFor(() => {
       const search = screen.getByTestId('location-search').textContent ?? '';
       const params = new URLSearchParams(search);
       expect(params.get('include_filters[geo][relation]')).toBe('within');
     });
+  });
+
+  it('defaults bbox relation mode to within when relation is absent', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/search?include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox&include_filters[geo][top_left][lat]=45&include_filters[geo][top_left][lon]=-109&include_filters[geo][bottom_right][lat]=41&include_filters[geo][bottom_right][lon]=-104',
+        ]}
+      >
+        <Routes>
+          <Route
+            path="/search"
+            element={
+              <>
+                <GeospatialFilterMap />
+                <SearchLocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const withinButton = await screen.findByRole('button', {
+      name: 'Set map mode to within',
+    });
+    const overlapButton = screen.getByRole('button', {
+      name: 'Set map mode to overlap',
+    });
+
+    expect(withinButton).toHaveClass('bg-blue-600');
+    expect(overlapButton).not.toHaveClass('bg-blue-600');
   });
 
   it('restores and persists hex layer preference via localStorage', async () => {
