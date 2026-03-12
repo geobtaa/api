@@ -98,7 +98,7 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
-  it('updates geo relation to precision when toggle is clicked', async () => {
+  it('updates geo relation to within when toggle is clicked', async () => {
     render(
       <MemoryRouter
         initialEntries={[
@@ -119,10 +119,10 @@ describe('GeospatialFilterMap client', () => {
       </MemoryRouter>
     );
 
-    const precisionButton = await screen.findByRole('button', {
-      name: 'Set map mode to precision',
+    const withinButton = await screen.findByRole('button', {
+      name: 'Set map mode to within',
     });
-    fireEvent.click(precisionButton);
+    fireEvent.click(withinButton);
 
     await waitFor(() => {
       const search = screen.getByTestId('location-search').textContent ?? '';
@@ -131,7 +131,7 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
-  it('defaults bbox relation mode to precision when relation is absent', async () => {
+  it('defaults bbox relation mode to within when relation is absent', async () => {
     render(
       <MemoryRouter
         initialEntries={[
@@ -152,15 +152,15 @@ describe('GeospatialFilterMap client', () => {
       </MemoryRouter>
     );
 
-    const precisionButton = await screen.findByRole('button', {
-      name: 'Set map mode to precision',
+    const withinButton = await screen.findByRole('button', {
+      name: 'Set map mode to within',
     });
-    const recallButton = screen.getByRole('button', {
-      name: 'Set map mode to recall',
+    const overlapButton = screen.getByRole('button', {
+      name: 'Set map mode to overlap',
     });
 
-    expect(precisionButton).toHaveClass('bg-blue-600');
-    expect(recallButton).not.toHaveClass('bg-blue-600');
+    expect(withinButton).toHaveClass('bg-blue-600');
+    expect(overlapButton).not.toHaveClass('bg-blue-600');
   });
 
   it('restores and persists hex layer preference via localStorage', async () => {

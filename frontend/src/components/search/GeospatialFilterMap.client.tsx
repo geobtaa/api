@@ -675,7 +675,7 @@ export function GeospatialFilterMap() {
             <div
               className="inline-flex rounded-md border border-gray-200 bg-white p-0.5"
               role="group"
-              aria-label="Map recall and precision toggle"
+              aria-label="Map within and overlap toggle"
             >
               <button
                 type="button"
@@ -685,9 +685,9 @@ export function GeospatialFilterMap() {
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
-                aria-label="Set map mode to precision"
+                aria-label="Set map mode to within"
               >
-                Precision
+                Within
               </button>
               <button
                 type="button"
@@ -697,9 +697,9 @@ export function GeospatialFilterMap() {
                     ? 'bg-blue-600 text-white'
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
-                aria-label="Set map mode to recall"
+                aria-label="Set map mode to overlap"
               >
-                Recall
+                Overlap
               </button>
             </div>
           </div>
