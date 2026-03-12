@@ -6,6 +6,8 @@ import {
   getBboxFromGeometry,
   getWgs84ExtentFromViewerGeometry,
   looksLikeWgs84Extent,
+  geometryToGeoJSONForDisplay,
+  getHoverGeometryForResult,
 } from '../../utils/geometryUtils';
 
 describe('geometryUtils', () => {
@@ -102,7 +104,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON or MULTIPOLYGON:',
+          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
           wkt
         );
 
@@ -189,7 +191,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON or MULTIPOLYGON:',
+          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
           wkt
         );
 
@@ -287,7 +289,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON or MULTIPOLYGON:',
+          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
           wkt
         );
 
@@ -451,7 +453,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON or MULTIPOLYGON:',
+          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
           'INVALID WKT'
         );
 
@@ -468,7 +470,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON or MULTIPOLYGON:',
+          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
           'INVALID WKT'
         );
 
@@ -511,7 +513,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON or MULTIPOLYGON:',
+          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
           ''
         );
 
@@ -716,6 +718,100 @@ describe('geometryUtils', () => {
       expect(looksLikeWgs84Extent(undefined)).toBe(false);
       expect(looksLikeWgs84Extent([])).toBe(false);
       expect(looksLikeWgs84Extent([0])).toBe(false);
+    });
+  });
+
+  describe('wktToGeoJSON ENVELOPE', () => {
+    it('converts ENVELOPE WKT to GeoJSON Polygon', () => {
+      const wkt = 'ENVELOPE(-96.796, -90.379, 48.756, 43.429)';
+      const result = wktToGeoJSON(wkt);
+      expect(result).toEqual({
+        type: 'Polygon',
+        coordinates: [
+          [
+            [-96.796, 48.756],
+            [-90.379, 48.756],
+            [-90.379, 43.429],
+            [-96.796, 43.429],
+            [-96.796, 48.756],
+          ],
+        ],
+      });
+    });
+  });
+
+  describe('geometryToGeoJSONForDisplay', () => {
+    it('returns GeoJSON object as-is', () => {
+      const geom = { type: 'Polygon', coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]] };
+      expect(geometryToGeoJSONForDisplay(geom)).toEqual(geom);
+    });
+    it('parses GeoJSON string', () => {
+      const json = '{"type":"Polygon","coordinates":[[[0,0],[1,0],[1,1],[0,1],[0,0]]]}';
+      const result = geometryToGeoJSONForDisplay(json);
+      expect(result?.type).toBe('Polygon');
+      expect(result?.coordinates).toHaveLength(1);
+    });
+    it('parses WKT POLYGON', () => {
+      const wkt = 'POLYGON((-96.796 48.756, -90.379 48.756, -90.379 43.429, -96.796 43.429, -96.796 48.756))';
+      const result = geometryToGeoJSONForDisplay(wkt);
+      expect(result?.type).toBe('Polygon');
+    });
+    it('parses WKT ENVELOPE', () => {
+      const wkt = 'ENVELOPE(-96.796, -90.379, 48.756, 43.429)';
+      const result = geometryToGeoJSONForDisplay(wkt);
+      expect(result?.type).toBe('Polygon');
+    });
+    it('returns null for null/undefined', () => {
+      expect(geometryToGeoJSONForDisplay(null)).toBeNull();
+      expect(geometryToGeoJSONForDisplay(undefined)).toBeNull();
+    });
+  });
+
+  describe('getHoverGeometryForResult', () => {
+    it('prefers locn_geometry over meta.ui.viewer.geometry', () => {
+      const result = {
+        attributes: {
+          ogm: {
+            locn_geometry: 'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
+          },
+        },
+        meta: {
+          ui: {
+            viewer: {
+              geometry: { type: 'Polygon', coordinates: [[[-90, 48], [-88, 48], [-88, 46], [-90, 46], [-90, 48]]] },
+            },
+          },
+        },
+      };
+      const json = getHoverGeometryForResult(result);
+      expect(json).not.toBeNull();
+      const parsed = JSON.parse(json!);
+      expect(parsed.type).toBe('Polygon');
+      // Should be from locn_geometry (wider extent -97 to -87)
+      const ring = parsed.coordinates[0];
+      const lons = ring.map((c: number[]) => c[0]);
+      expect(Math.min(...lons)).toBe(-97);
+      expect(Math.max(...lons)).toBe(-87);
+    });
+    it('falls back to meta.ui.viewer.geometry when locn_geometry missing', () => {
+      const result = {
+        attributes: { ogm: {} },
+        meta: {
+          ui: {
+            viewer: {
+              geometry: { type: 'Polygon', coordinates: [[[-90, 48], [-88, 48], [-88, 46], [-90, 46], [-90, 48]]] },
+            },
+          },
+        },
+      };
+      const json = getHoverGeometryForResult(result);
+      expect(json).not.toBeNull();
+      const parsed = JSON.parse(json!);
+      expect(parsed.type).toBe('Polygon');
+    });
+    it('returns null when no geometry available', () => {
+      expect(getHoverGeometryForResult({})).toBeNull();
+      expect(getHoverGeometryForResult({ attributes: { ogm: {} } })).toBeNull();
     });
   });
 });

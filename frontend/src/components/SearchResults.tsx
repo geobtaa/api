@@ -7,6 +7,7 @@ import { useMap } from '../context/MapContext';
 import { BookmarkButton } from './BookmarkButton';
 import { useBookmarks } from '../context/BookmarkContext';
 import { getResourceIcon } from '../utils/resourceIcons';
+import { getHoverGeometryForResult } from '../utils/geometryUtils';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
 
@@ -199,21 +200,14 @@ export function SearchResults({
           thumbnail: result.meta?.ui?.thumbnail_url,
         });
 
+        const hoverGeometry = getHoverGeometryForResult(result);
         return (
           <article
             key={result.id}
             className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative group"
-            data-geom={
-              result.meta?.ui?.viewer?.geometry
-                ? JSON.stringify(result.meta.ui.viewer.geometry)
-                : ''
-            }
+            data-geom={hoverGeometry ?? ''}
             onMouseEnter={() => {
-              setHoveredGeometry(
-                result.meta?.ui?.viewer?.geometry
-                  ? JSON.stringify(result.meta.ui.viewer.geometry)
-                  : null
-              );
+              setHoveredGeometry(hoverGeometry);
               if (setHoveredResourceId) setHoveredResourceId(result.id);
             }}
             onMouseLeave={() => {

@@ -341,6 +341,54 @@ describe('SearchResults Component', () => {
       expect(screen.getByText('2.')).toBeInTheDocument();
     });
 
+    it('uses locn_geometry for hover display (not bbox) when available', () => {
+      const resultsWithLocnGeometry: GeoDocument[] = [
+        {
+          id: 'polygon-result',
+          type: 'document',
+          attributes: {
+            ogm: {
+              id: 'polygon-result',
+              dct_title_s: 'Result with complex locn_geometry',
+              locn_geometry:
+                'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
+            },
+          },
+          meta: {
+            ui: {
+              thumbnail_url: 'https://example.com/thumb.jpg',
+              viewer: {
+                geometry: {
+                  type: 'Point',
+                  coordinates: [-92, 46],
+                },
+              },
+            },
+          },
+        },
+      ];
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={resultsWithLocnGeometry}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+      const article = screen.getByRole('article');
+      const dataGeom = article.getAttribute('data-geom');
+      expect(dataGeom).not.toBe('');
+      const parsed = JSON.parse(dataGeom!);
+      expect(parsed.type).toBe('Polygon');
+      expect(parsed.coordinates[0]).toHaveLength(5);
+      // locn_geometry extent -97 to -87 (not the Point at -92)
+      const lons = parsed.coordinates[0].map((c: number[]) => c[0]);
+      expect(Math.min(...lons)).toBe(-97);
+      expect(Math.max(...lons)).toBe(-87);
+    });
+
     it('uses perPage for result numbering', () => {
       render(
         <TestWrapper>

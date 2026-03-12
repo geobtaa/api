@@ -7,6 +7,31 @@
  * @param wkt - WKT string (e.g., "POLYGON((-96.796 48.756, -90.379 48.756, -90.379 43.429, -96.796 43.429, -96.796 48.756))")
  * @returns GeoJSON object or null if parsing fails
  */
+/**
+ * Parse ENVELOPE(minx, maxx, maxy, miny) WKT to GeoJSON Polygon.
+ * ENVELOPE format: west, east, north, south (lon, lon, lat, lat).
+ */
+function parseEnvelope(wkt: string): GeoJSON.Polygon | null {
+  const match = wkt.match(
+    /ENVELOPE\s*\(\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*,\s*(-?[\d.]+)\s*\)/i
+  );
+  if (!match) return null;
+  const minx = parseFloat(match[1]);
+  const maxx = parseFloat(match[2]);
+  const maxy = parseFloat(match[3]);
+  const miny = parseFloat(match[4]);
+  if (Number.isNaN(minx + maxx + maxy + miny)) return null;
+  // GeoJSON polygon ring: [minx,maxy], [maxx,maxy], [maxx,miny], [minx,miny], [minx,maxy]
+  const ring: [number, number][] = [
+    [minx, maxy],
+    [maxx, maxy],
+    [maxx, miny],
+    [minx, miny],
+    [minx, maxy],
+  ];
+  return { type: 'Polygon', coordinates: [ring] };
+}
+
 export function wktToGeoJSON(
   wkt: string
 ): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
@@ -24,7 +49,12 @@ export function wktToGeoJSON(
       return parsePolygon(cleanWkt);
     }
 
-    console.warn('WKT is not a POLYGON or MULTIPOLYGON:', wkt);
+    // Check if it's an ENVELOPE (bbox in WKT form)
+    if (cleanWkt.toUpperCase().startsWith('ENVELOPE')) {
+      return parseEnvelope(cleanWkt);
+    }
+
+    console.warn('WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:', wkt);
     return null;
   } catch (error) {
     console.error('Error parsing WKT to GeoJSON:', error);
@@ -451,4 +481,93 @@ export function looksLikeWgs84Extent(
   const lon = extent[0];
   const lat = extent[1];
   return lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90;
+}
+
+type GeoJsonGeometryForDisplay =
+  | GeoJSON.Polygon
+  | GeoJSON.MultiPolygon
+  | GeoJSON.Point
+  | GeoJSON.LineString
+  | GeoJSON.MultiPoint
+  | GeoJSON.MultiLineString;
+
+/**
+ * Convert geometry (locn_geometry, etc.) to GeoJSON for map display.
+ * Handles WKT (POLYGON, MULTIPOLYGON, ENVELOPE) and GeoJSON object/string.
+ * Does NOT use dcat_bbox - use locn_geometry for the actual shape.
+ */
+export function geometryToGeoJSONForDisplay(
+  geometry: string | object | null | undefined
+): GeoJsonGeometryForDisplay | null {
+  if (geometry == null) return null;
+
+  // Already a GeoJSON object
+  if (typeof geometry === 'object' && geometry !== null) {
+    const g = geometry as { type?: string; coordinates?: unknown };
+    if (g.type && g.coordinates) {
+      return g as GeoJsonGeometryForDisplay;
+    }
+  }
+
+  if (typeof geometry !== 'string') return null;
+  const s = geometry.trim();
+
+  // GeoJSON string
+  if (s.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(s) as { type?: string; coordinates?: unknown };
+      if (parsed?.type && parsed?.coordinates) {
+        return parsed as GeoJsonGeometryForDisplay;
+      }
+    } catch {
+      // not valid JSON
+    }
+    return null;
+  }
+
+  // WKT
+  const fromWkt = wktToGeoJSON(s);
+  return fromWkt;
+}
+
+/**
+ * Result-like shape for hover geometry extraction (avoids circular import).
+ */
+interface ResultLike {
+  attributes?: {
+    ogm?: {
+      locn_geometry?: string | object;
+      locn_geometry_original?: string | object;
+      dcat_bbox?: string;
+    };
+  };
+  meta?: {
+    ui?: {
+      viewer?: {
+        geometry?: string | object;
+      };
+    };
+  };
+}
+
+/**
+ * Get the hover geometry for a search result for map highlight.
+ * Prefers locn_geometry (actual shape - polygon, multipolygon, etc.) over meta.ui.viewer.geometry.
+ * Does NOT use dcat_bbox - we want the complex geometry, not a bounding box.
+ */
+export function getHoverGeometryForResult(result: ResultLike): string | null {
+  const ogm = result?.attributes?.ogm;
+  const locnGeom =
+    ogm?.locn_geometry ?? ogm?.locn_geometry_original ?? undefined;
+  const viewerGeom = result?.meta?.ui?.viewer?.geometry;
+
+  // Prefer locn_geometry (complex shape) over viewer geometry
+  const geom = geometryToGeoJSONForDisplay(locnGeom) ?? geometryToGeoJSONForDisplay(viewerGeom);
+  if (!geom) return null;
+
+  try {
+    return JSON.stringify(geom);
+  } catch {
+    return null;
+  }
 }
