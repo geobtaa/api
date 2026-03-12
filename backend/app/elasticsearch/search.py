@@ -38,10 +38,11 @@ ALLOWED_GEO_RELATIONS = {"intersects", "within", "contains", "disjoint"}
 
 
 def _escape_query_string_brackets(query_text: str) -> str:
-    """Escape bracket-like literals for Elasticsearch query_string queries.
+    """Escape literal characters that frequently break identifier searches.
 
-    query_string treats [] and {} as special syntax (ranges/expressions), which can
-    cause literal bracketed text in titles to be parsed unexpectedly and return zero hits.
+    query_string treats [] and {} as special syntax (ranges/expressions), and a colon
+    inside tokens is interpreted as fielded-query syntax. That breaks common resource
+    identifiers like ``p16022coll244:471`` unless we escape the literal colon.
     """
     if not query_text:
         return query_text
@@ -51,6 +52,7 @@ def _escape_query_string_brackets(query_text: str) -> str:
         .replace("]", r"\]")
         .replace("{", r"\{")
         .replace("}", r"\}")
+        .replace(":", r"\:")
     )
 
 

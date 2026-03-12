@@ -1,55 +1,15 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { TimelineFacet } from '../../../components/search/TimelineFacet';
-import { Facet } from '../../types/facet';
 
 // Mock Recharts since it renders on canvas/SVG and is hard to test interactively in JSDOM
-// We will mock the components to render simple elements we can assert on
 vi.mock('recharts', () => {
   const OriginalModule = vi.importActual('recharts');
   return {
     ...OriginalModule,
     ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-    BarChart: ({ children, onMouseDown, onMouseUp }: any) => (
-      <div data-testid="bar-chart">
-        {children}
-        {/* 
-                  Expose a button to simulate drag for testing since we can't easily 
-                  trigger the internal recharts event logic without a real DOM/Canvas 
-                */}
-        <button
-          data-testid="simulate-drag"
-          onClick={() => {
-            // Simulate a drag from 1900 to 1950
-            onMouseDown({ activeLabel: 1900 });
-            onMouseUp();
-            // This mocks the state update flow but in a real component
-            // onMouseUp relies on state set by MouseDown/Move.
-            // In our component:
-            // 1. MouseDown -> sets state.refAreaLeft
-            // 2. MouseMove -> sets state.refAreaRight
-            // 3. MouseUp -> reads state -> calls onChange
-
-            // BUT, since we are mocking the component, we can't easily access the internal state
-            // of the component unless we expose it or use a more integration-y test.
-            // However, the `BarChart` props `onMouseDown` etc are passed FROM our component TO BarChart.
-            // So calling them here calls the functions defined INSIDE TimelineFacet.
-
-            // Proper simulation:
-            // 1. MouseDown
-            onMouseDown({ activeLabel: 1900 });
-            // 2. MouseMove (simulated manually if we had access, or we just rely on the component state logic)
-            // The component logic for onMouseUp relies on `state` which we can't inject.
-            // Wait, `onMouseMove` sets state.
-
-            // We need to trigger the callbacks that are passed TO BarChart.
-            // We can expose them via the mock
-          }}
-        >
-          Simulate Drag
-        </button>
-      </div>
-    ),
+    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
     Bar: () => <div data-testid="bar" />,
     Tooltip: () => <div data-testid="tooltip" />,
     ReferenceArea: () => <div data-testid="reference-area" />,
@@ -58,7 +18,7 @@ vi.mock('recharts', () => {
 });
 
 describe('TimelineFacet', () => {
-  const mockFacet: Facet = {
+  const mockFacet = {
     id: 'year_histogram',
     type: 'terms',
     attributes: {
@@ -73,6 +33,10 @@ describe('TimelineFacet', () => {
     links: { self: '...' },
   };
 
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
   it('renders the chart title', () => {
     render(
       <TimelineFacet
@@ -81,12 +45,12 @@ describe('TimelineFacet', () => {
         onChange={() => {}}
       />
     );
-    // We added a specific text for range, currently "All Years" if null
     expect(screen.getByText('All Years')).toBeInTheDocument();
-    expect(screen.getByText('Drag to filter')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Graph' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Form' })).toBeInTheDocument();
   });
 
-  it('uses sufficient contrast for "Drag to filter" (WCAG AA)', () => {
+  it('defaults to graph mode', () => {
     render(
       <TimelineFacet
         facet={mockFacet}
@@ -94,8 +58,10 @@ describe('TimelineFacet', () => {
         onChange={() => {}}
       />
     );
-    const dragHint = screen.getByText('Drag to filter');
-    expect(dragHint).toHaveClass('text-gray-600');
+    expect(screen.getByRole('button', { name: 'Graph' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
   });
 
   it('renders the BarChart', () => {
@@ -113,14 +79,191 @@ describe('TimelineFacet', () => {
     render(
       <TimelineFacet
         facet={mockFacet}
-        selectedRange={[1950, 2000]}
+        selectedRange={{ start: 1950, end: 2000 }}
         onChange={() => {}}
       />
     );
     expect(screen.getByText('1950 - 2000')).toBeInTheDocument();
   });
 
-  // Note: detailed interaction testing for Recharts drag-to-zoom is difficult in JSDOM
-  // without a more complex setup or E2E tests.
-  // We verified the rendering of ReferenceArea logic in the component structure.
+  it('renders open-ended selected range text', () => {
+    render(
+      <TimelineFacet
+        facet={mockFacet}
+        selectedRange={{ start: 1950, end: null }}
+        onChange={() => {}}
+      />
+    );
+
+    expect(screen.getByText('1950+')).toBeInTheDocument();
+  });
+
+  it('prefills manual entry fields with available min and max years when no range is active', async () => {
+    render(<TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={() => {}} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+
+    expect(screen.getByLabelText('Start year')).toHaveValue('1900');
+    expect(screen.getByLabelText('End year')).toHaveValue('2000');
+  });
+
+  it('prefills manual entry fields from the selected range', async () => {
+    render(
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={{ start: 1950, end: 2000 }}
+        onChange={() => {}}
+      />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+
+    expect(screen.getByLabelText('Start year')).toHaveValue('1950');
+    expect(screen.getByLabelText('End year')).toHaveValue('2000');
+    expect(screen.getByRole('button', { name: 'Form' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
+  it('preserves a partial active range when opening manual entry', async () => {
+    render(
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={{ start: 1950, end: null }}
+        onChange={() => {}}
+      />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+
+    expect(screen.getByLabelText('Start year')).toHaveValue('1950');
+    expect(screen.getByLabelText('End year')).toHaveValue('');
+  });
+
+  it('requires at least one year before applying', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.clear(screen.getByLabelText('Start year'));
+    await user.clear(screen.getByLabelText('End year'));
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(
+      screen.getByText('Enter a start year, an end year, or both.')
+    ).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('validates manual entry as 4-digit years', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.clear(screen.getByLabelText('Start year'));
+    await user.type(screen.getByLabelText('Start year'), '950');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(screen.getByText('Enter years as 4-digit numbers.')).toBeInTheDocument();
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('allows start-only manual year input', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.clear(screen.getByLabelText('Start year'));
+    await user.clear(screen.getByLabelText('End year'));
+    await user.type(screen.getByLabelText('Start year'), '1950');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(onChange).toHaveBeenCalledWith({ start: 1950, end: null });
+  });
+
+  it('allows end-only manual year input', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.clear(screen.getByLabelText('Start year'));
+    await user.clear(screen.getByLabelText('End year'));
+    await user.type(screen.getByLabelText('End year'), '1950');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(onChange).toHaveBeenCalledWith({ start: null, end: 1950 });
+  });
+
+  it('normalizes reversed manual year input before applying', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.clear(screen.getByLabelText('Start year'));
+    await user.clear(screen.getByLabelText('End year'));
+    await user.type(screen.getByLabelText('Start year'), '2000');
+    await user.type(screen.getByLabelText('End year'), '1950');
+    await user.click(screen.getByRole('button', { name: 'Apply' }));
+
+    expect(onChange).toHaveBeenCalledWith({ start: 1950, end: 2000 });
+  });
+
+  it('clears the active year range from manual mode', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={{ start: 1950, end: 2000 }}
+        onChange={onChange}
+      />
+    );
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.click(screen.getByRole('button', { name: 'Clear' }));
+
+    expect(onChange).toHaveBeenCalledWith(null);
+  });
+
+  it('persists the selected mode in localStorage', async () => {
+    render(<TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={() => {}} />);
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Form' }));
+
+    expect(window.localStorage.getItem('b1g_year_facet_mode')).toBe('form');
+  });
+
+  it('restores form mode from localStorage', async () => {
+    window.localStorage.setItem('b1g_year_facet_mode', 'form');
+
+    render(<TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={() => {}} />);
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Form' })).toHaveAttribute(
+        'aria-pressed',
+        'true'
+      );
+    });
+    expect(screen.getByLabelText('Start year')).toBeInTheDocument();
+  });
 });

@@ -26,6 +26,27 @@ interface SearchFieldProps {
   onAdvancedSearchClick?: () => void;
 }
 
+interface GeoBBoxParams {
+  topLeftLat: string;
+  topLeftLon: string;
+  bottomRightLat: string;
+  bottomRightLon: string;
+}
+
+function setGeoBBoxParams(
+  params: URLSearchParams,
+  bbox: GeoBBoxParams,
+  relation: 'within' | 'intersects' = 'within'
+) {
+  params.set('include_filters[geo][type]', 'bbox');
+  params.set('include_filters[geo][field]', 'dcat_bbox');
+  params.set('include_filters[geo][relation]', relation);
+  params.set('include_filters[geo][top_left][lat]', bbox.topLeftLat);
+  params.set('include_filters[geo][top_left][lon]', bbox.topLeftLon);
+  params.set('include_filters[geo][bottom_right][lat]', bbox.bottomRightLat);
+  params.set('include_filters[geo][bottom_right][lon]', bbox.bottomRightLon);
+}
+
 export function SearchField({
   onSearch: _onSearch, // eslint-disable-line @typescript-eslint/no-unused-vars
   placeholder = 'Search...',
@@ -68,6 +89,11 @@ export function SearchField({
     placeholder !== 'Search...' || isXlOrLarger;
   const responsivePlaceholder =
     fullPlaceholderPreferred ? placeholder : 'Search…';
+
+  const getGeoRelationFromParams = () => {
+    const relation = searchParams.get('include_filters[geo][relation]');
+    return relation === 'intersects' ? 'intersects' : 'within';
+  };
 
   // Sync query with URL params (e.g., when Clear All is clicked)
   useEffect(() => {
@@ -210,18 +236,12 @@ export function SearchField({
       bottom_right: { lat: bottomRightLat, lon: bottomRightLon },
     });
 
-    newParams.set('include_filters[geo][type]', 'bbox');
-    newParams.set('include_filters[geo][field]', 'dcat_bbox');
-    newParams.set('include_filters[geo][top_left][lat]', topLeftLat.toString());
-    newParams.set('include_filters[geo][top_left][lon]', topLeftLon.toString());
-    newParams.set(
-      'include_filters[geo][bottom_right][lat]',
-      bottomRightLat.toString()
-    );
-    newParams.set(
-      'include_filters[geo][bottom_right][lon]',
-      bottomRightLon.toString()
-    );
+    setGeoBBoxParams(newParams, {
+      topLeftLat: topLeftLat.toString(),
+      topLeftLon: topLeftLon.toString(),
+      bottomRightLat: bottomRightLat.toString(),
+      bottomRightLon: bottomRightLon.toString(),
+    });
 
     // Other filters (e.g. category) are already in newParams from the copy above; do not re-append or we duplicate.
 
@@ -308,40 +328,26 @@ export function SearchField({
       );
 
       if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
-        newParams.set('include_filters[geo][type]', 'bbox');
-        newParams.set('include_filters[geo][field]', 'dcat_bbox');
-        newParams.set('include_filters[geo][top_left][lat]', topLeftLat);
-        newParams.set('include_filters[geo][top_left][lon]', topLeftLon);
-        newParams.set(
-          'include_filters[geo][bottom_right][lat]',
-          bottomRightLat
-        );
-        newParams.set(
-          'include_filters[geo][bottom_right][lon]',
-          bottomRightLon
+        setGeoBBoxParams(
+          newParams,
+          {
+            topLeftLat,
+            topLeftLon,
+            bottomRightLat,
+            bottomRightLon,
+          },
+          getGeoRelationFromParams()
         );
       }
     } else if (selectedPlace) {
       // Fallback to component state if URL params don't have geo filters but we have a selected place
       const attrs = selectedPlace.attributes;
-      newParams.set('include_filters[geo][type]', 'bbox');
-      newParams.set('include_filters[geo][field]', 'dcat_bbox');
-      newParams.set(
-        'include_filters[geo][top_left][lat]',
-        attrs.max_latitude.toString()
-      );
-      newParams.set(
-        'include_filters[geo][top_left][lon]',
-        attrs.min_longitude.toString()
-      );
-      newParams.set(
-        'include_filters[geo][bottom_right][lat]',
-        attrs.min_latitude.toString()
-      );
-      newParams.set(
-        'include_filters[geo][bottom_right][lon]',
-        attrs.max_longitude.toString()
-      );
+      setGeoBBoxParams(newParams, {
+        topLeftLat: attrs.max_latitude.toString(),
+        topLeftLon: attrs.min_longitude.toString(),
+        bottomRightLat: attrs.min_latitude.toString(),
+        bottomRightLon: attrs.max_longitude.toString(),
+      });
     }
 
     // Preserve category filters from current URL
@@ -431,24 +437,12 @@ export function SearchField({
         // Preserve geo filters if place is selected
         if (selectedPlace) {
           const attrs = selectedPlace.attributes;
-          newParams.set('include_filters[geo][type]', 'bbox');
-          newParams.set('include_filters[geo][field]', 'dcat_bbox');
-          newParams.set(
-            'include_filters[geo][top_left][lat]',
-            attrs.max_latitude.toString()
-          );
-          newParams.set(
-            'include_filters[geo][top_left][lon]',
-            attrs.min_longitude.toString()
-          );
-          newParams.set(
-            'include_filters[geo][bottom_right][lat]',
-            attrs.min_latitude.toString()
-          );
-          newParams.set(
-            'include_filters[geo][bottom_right][lon]',
-            attrs.max_longitude.toString()
-          );
+          setGeoBBoxParams(newParams, {
+            topLeftLat: attrs.max_latitude.toString(),
+            topLeftLon: attrs.min_longitude.toString(),
+            bottomRightLat: attrs.min_latitude.toString(),
+            bottomRightLon: attrs.max_longitude.toString(),
+          });
         } else {
           // Also check URL params for geo filters (in case place was set but component state wasn't updated)
           const geoType = searchParams.get('include_filters[geo][type]');
@@ -467,17 +461,15 @@ export function SearchField({
             );
 
             if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
-              newParams.set('include_filters[geo][type]', 'bbox');
-              newParams.set('include_filters[geo][field]', 'dcat_bbox');
-              newParams.set('include_filters[geo][top_left][lat]', topLeftLat);
-              newParams.set('include_filters[geo][top_left][lon]', topLeftLon);
-              newParams.set(
-                'include_filters[geo][bottom_right][lat]',
-                bottomRightLat
-              );
-              newParams.set(
-                'include_filters[geo][bottom_right][lon]',
-                bottomRightLon
+              setGeoBBoxParams(
+                newParams,
+                {
+                  topLeftLat,
+                  topLeftLon,
+                  bottomRightLat,
+                  bottomRightLon,
+                },
+                getGeoRelationFromParams()
               );
             }
           }
@@ -804,24 +796,12 @@ export function SearchField({
                 // Preserve geo filters if place is selected
                 if (selectedPlace) {
                   const attrs = selectedPlace.attributes;
-                  newParams.set('include_filters[geo][type]', 'bbox');
-                  newParams.set('include_filters[geo][field]', 'dcat_bbox');
-                  newParams.set(
-                    'include_filters[geo][top_left][lat]',
-                    attrs.max_latitude.toString()
-                  );
-                  newParams.set(
-                    'include_filters[geo][top_left][lon]',
-                    attrs.min_longitude.toString()
-                  );
-                  newParams.set(
-                    'include_filters[geo][bottom_right][lat]',
-                    attrs.min_latitude.toString()
-                  );
-                  newParams.set(
-                    'include_filters[geo][bottom_right][lon]',
-                    attrs.max_longitude.toString()
-                  );
+                  setGeoBBoxParams(newParams, {
+                    topLeftLat: attrs.max_latitude.toString(),
+                    topLeftLon: attrs.min_longitude.toString(),
+                    bottomRightLat: attrs.min_latitude.toString(),
+                    bottomRightLon: attrs.max_longitude.toString(),
+                  });
                 } else {
                   // Also check URL params for geo filters (in case place was set but component state wasn't updated)
                   const geoType = searchParams.get(
@@ -847,23 +827,15 @@ export function SearchField({
                       bottomRightLat &&
                       bottomRightLon
                     ) {
-                      newParams.set('include_filters[geo][type]', 'bbox');
-                      newParams.set('include_filters[geo][field]', 'dcat_bbox');
-                      newParams.set(
-                        'include_filters[geo][top_left][lat]',
-                        topLeftLat
-                      );
-                      newParams.set(
-                        'include_filters[geo][top_left][lon]',
-                        topLeftLon
-                      );
-                      newParams.set(
-                        'include_filters[geo][bottom_right][lat]',
-                        bottomRightLat
-                      );
-                      newParams.set(
-                        'include_filters[geo][bottom_right][lon]',
-                        bottomRightLon
+                      setGeoBBoxParams(
+                        newParams,
+                        {
+                          topLeftLat,
+                          topLeftLon,
+                          bottomRightLat,
+                          bottomRightLon,
+                        },
+                        getGeoRelationFromParams()
                       );
                     }
                   }
