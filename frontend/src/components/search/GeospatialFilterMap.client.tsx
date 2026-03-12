@@ -670,8 +670,7 @@ export function GeospatialFilterMap() {
         aria-labelledby="filter-location-heading"
       >
         {hasBBox && (
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs text-gray-600">Match mode:</span>
+          <div className="mb-2">
             <div
               className="inline-flex rounded-md border border-gray-200 bg-white p-0.5"
               role="group"
@@ -704,21 +703,23 @@ export function GeospatialFilterMap() {
             </div>
           </div>
         )}
-        <div
-          ref={mapContainerRef}
-          className="w-full rounded-lg border border-gray-200"
-          style={{ height: '200px', minHeight: '200px' }}
-        />
-        {showSearchButton && (
-          <button
-            onClick={handleSearchHere}
-            className="absolute top-2 right-2 z-[1000] flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-            aria-label="Search in this area"
-          >
-            <Search className="w-4 h-4" />
-            <span>Search here</span>
-          </button>
-        )}
+        <div className="relative">
+          <div
+            ref={mapContainerRef}
+            className="w-full rounded-lg border border-gray-200"
+            style={{ height: '200px', minHeight: '200px' }}
+          />
+          {showSearchButton && (
+            <button
+              onClick={handleSearchHere}
+              className="absolute top-2 right-2 z-[1000] flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              aria-label="Search in this area"
+            >
+              <Search className="w-4 h-4" />
+              <span>Search here</span>
+            </button>
+          )}
+        </div>
         <HexLayerToggleControl
           mapInstance={mapInstance}
           enabled={hexLayerEnabled}

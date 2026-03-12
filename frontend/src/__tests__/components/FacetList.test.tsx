@@ -34,6 +34,7 @@ vi.mock('../../constants/facets', () => ({
     'resource_class_agg',
     'dc_publisher_sm',
     'dct_temporal_sm',
+    'year_histogram',
     'dct_spatial_sm',
     'georeferenced_agg',
   ],
@@ -50,6 +51,36 @@ vi.mock('../../components/search/FacetMoreModal', () => ({
     isOpen ? (
       <div data-testid="facet-more-modal">More modal for {facetLabel}</div>
     ) : null,
+}));
+
+vi.mock('../../components/search/TimelineFacet', () => ({
+  TimelineFacet: ({
+    onChange,
+    selectedRange,
+  }: {
+    onChange: (range: { start: number | null; end: number | null } | null) => void;
+    selectedRange: { start: number | null; end: number | null } | null;
+  }) => (
+    <div data-testid="timeline-facet">
+      <span data-testid="timeline-selected-range">
+        {selectedRange
+          ? `${selectedRange.start ?? 'null'}-${selectedRange.end ?? 'null'}`
+          : 'no-range'}
+      </span>
+      <button type="button" onClick={() => onChange({ start: 1900, end: 1949 })}>
+        Apply year range
+      </button>
+      <button type="button" onClick={() => onChange({ start: 1900, end: null })}>
+        Apply start-only year range
+      </button>
+      <button type="button" onClick={() => onChange({ start: null, end: 1949 })}>
+        Apply end-only year range
+      </button>
+      <button type="button" onClick={() => onChange(null)}>
+        Clear year range
+      </button>
+    </div>
+  ),
 }));
 
 // Real fixture data structure for facets
@@ -173,6 +204,21 @@ const mockFacetData = [
   },
 ];
 
+const mockTimelineFacetData: any = [
+  {
+    type: 'timeline' as const,
+    id: 'year_histogram',
+    attributes: {
+      label: 'Year Distribution',
+      items: [
+        [1900, 10],
+        [1950, 20],
+        [2000, 30],
+      ],
+    },
+  },
+];
+
 const buildFacetItems = (count: number) =>
   Array.from({ length: count }, (_, index) => ({
     attributes: {
@@ -250,7 +296,7 @@ describe('FacetList Component', () => {
 
       render(
         <TestWrapper>
-          <FacetList facets={compactFacetData} />
+          <FacetList facets={compactFacetData as any} />
         </TestWrapper>
       );
 
@@ -631,7 +677,7 @@ describe('FacetList Component', () => {
 
       render(
         <TestWrapper>
-          <FacetList facets={facetsWithMissingItems} />
+          <FacetList facets={facetsWithMissingItems as any} />
         </TestWrapper>
       );
 
@@ -755,6 +801,142 @@ describe('FacetList Component', () => {
         lastCallArgs.getAll('include_filters[resource_class_agg][]')
       ).toContain('Paper Maps');
     });
+
+    it('passes the current year range to the timeline facet', () => {
+      mockSearchParams.set('include_filters[year_range][start]', '1910');
+      mockSearchParams.set('include_filters[year_range][end]', '1932');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByRole('heading', { level: 3, name: 'Year' })).toBeInTheDocument();
+      expect(screen.getByTestId('timeline-selected-range')).toHaveTextContent(
+        '1910-1932'
+      );
+    });
+
+    it('passes a start-only year range to the timeline facet', () => {
+      mockSearchParams.set('include_filters[year_range][start]', '1910');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('timeline-selected-range')).toHaveTextContent(
+        '1910-null'
+      );
+    });
+
+    it('passes an end-only year range to the timeline facet', () => {
+      mockSearchParams.set('include_filters[year_range][end]', '1932');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('timeline-selected-range')).toHaveTextContent(
+        'null-1932'
+      );
+    });
+
+    it('writes the year range params and clears page when the timeline changes', async () => {
+      mockSearchParams.set('page', '3');
+      mockSearchParams.set('q', 'maps');
+      mockSearchParams.set('include_filters[year_range][start]', '1800');
+      mockSearchParams.set('include_filters[year_range][end]', '1899');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: 'Apply year range' }));
+
+      expect(mockSetSearchParams).toHaveBeenCalled();
+      const lastCallArgs = mockSetSearchParams.mock.lastCall?.[0];
+      expect(lastCallArgs.get('include_filters[year_range][start]')).toBe('1900');
+      expect(lastCallArgs.get('include_filters[year_range][end]')).toBe('1949');
+      expect(lastCallArgs.get('page')).toBeNull();
+      expect(lastCallArgs.get('q')).toBe('maps');
+    });
+
+    it('writes only the start year param for open-ended ranges', async () => {
+      mockSearchParams.set('page', '3');
+      mockSearchParams.set('q', 'maps');
+      mockSearchParams.set('include_filters[year_range][end]', '1899');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole('button', { name: 'Apply start-only year range' })
+      );
+
+      expect(mockSetSearchParams).toHaveBeenCalled();
+      const lastCallArgs = mockSetSearchParams.mock.lastCall?.[0];
+      expect(lastCallArgs.get('include_filters[year_range][start]')).toBe('1900');
+      expect(lastCallArgs.get('include_filters[year_range][end]')).toBeNull();
+      expect(lastCallArgs.get('page')).toBeNull();
+      expect(lastCallArgs.get('q')).toBe('maps');
+    });
+
+    it('writes only the end year param for open-ended ranges', async () => {
+      mockSearchParams.set('page', '3');
+      mockSearchParams.set('q', 'maps');
+      mockSearchParams.set('include_filters[year_range][start]', '1800');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      const user = userEvent.setup();
+      await user.click(
+        screen.getByRole('button', { name: 'Apply end-only year range' })
+      );
+
+      expect(mockSetSearchParams).toHaveBeenCalled();
+      const lastCallArgs = mockSetSearchParams.mock.lastCall?.[0];
+      expect(lastCallArgs.get('include_filters[year_range][start]')).toBeNull();
+      expect(lastCallArgs.get('include_filters[year_range][end]')).toBe('1949');
+      expect(lastCallArgs.get('page')).toBeNull();
+      expect(lastCallArgs.get('q')).toBe('maps');
+    });
+
+    it('clears the year range params when the timeline clears the selection', async () => {
+      mockSearchParams.set('q', 'maps');
+      mockSearchParams.set('include_filters[year_range][start]', '1900');
+      mockSearchParams.set('include_filters[year_range][end]', '1949');
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mockTimelineFacetData} />
+        </TestWrapper>
+      );
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: 'Clear year range' }));
+
+      expect(mockSetSearchParams).toHaveBeenCalled();
+      const lastCallArgs = mockSetSearchParams.mock.lastCall?.[0];
+      expect(lastCallArgs.get('include_filters[year_range][start]')).toBeNull();
+      expect(lastCallArgs.get('include_filters[year_range][end]')).toBeNull();
+      expect(lastCallArgs.get('q')).toBe('maps');
+    });
   });
 
   describe('Accessibility', () => {
@@ -765,7 +947,7 @@ describe('FacetList Component', () => {
         </TestWrapper>
       );
       const results = await axeWithWCAG22(container);
-      expect(results).toHaveNoViolations();
+      expect(results.violations).toHaveLength(0);
     });
 
     it('has proper heading structure', () => {

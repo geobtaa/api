@@ -8,6 +8,7 @@ import { FacetMoreModal } from './search/FacetMoreModal';
 import { formatCount } from '../utils/formatNumber';
 import { getFacetValueDisplayLabel } from '../utils/facetDisplay';
 import { TimelineFacet } from './search/TimelineFacet';
+import type { SelectedYearRange } from './search/TimelineFacet';
 
 // New JSON:API facet structure
 type JsonApiFacetItemTuple = [value: string | number, hits: number];
@@ -63,18 +64,22 @@ export function FacetList({ facets }: FacetListProps) {
     label: string;
   } | null>(null);
 
-  // Helper for timeline change
-  const handleTimelineChange = (range: [number, number] | null) => {
+  const applyYearRange = (range: SelectedYearRange | null) => {
     const newParams = new URLSearchParams(searchParams);
 
-    // Remove existing range params
     newParams.delete('include_filters[year_range][start]');
     newParams.delete('include_filters[year_range][end]');
 
     if (range) {
-      const [min, max] = range;
-      newParams.set('include_filters[year_range][start]', min.toString());
-      newParams.set('include_filters[year_range][end]', max.toString());
+      if (range.start != null) {
+        newParams.set(
+          'include_filters[year_range][start]',
+          range.start.toString()
+        );
+      }
+      if (range.end != null) {
+        newParams.set('include_filters[year_range][end]', range.end.toString());
+      }
     }
 
     newParams.delete('page');
@@ -195,7 +200,13 @@ export function FacetList({ facets }: FacetListProps) {
         }));
       } else {
         items = facet.attributes.items.map((item) => ({
-          label: getFacetValueDisplayLabel(item, facet.id),
+          label: getFacetValueDisplayLabel(
+            {
+              id: String(item.attributes.value),
+              attributes: item.attributes,
+            },
+            facet.id
+          ),
           value: item.attributes.value,
           hits: item.attributes.hits,
           url: item.links?.self,
@@ -272,7 +283,6 @@ export function FacetList({ facets }: FacetListProps) {
         {orderedFacets.map((facet) => {
           // Special rendering for timeline facet
           if (facet.type === 'timeline') {
-            console.log('Rendering TimelineFacet:', facet);
             const isOpen =
               forcedOpenFacetIds.has(facet.id) ||
               accordion.opened.has(facet.id) ||
@@ -300,13 +310,13 @@ export function FacetList({ facets }: FacetListProps) {
                 }}
                 className="group border-b"
               >
-                <summary className="flex items-center justify-between cursor-pointer select-none py-2">
+                <summary className="flex items-center justify-between cursor-pointer select-none py-1 mb-1">
                   <h3 className="font-semibold text-gray-900">
-                    Year Distribution
+                    Year
                   </h3>
                   <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
                 </summary>
-                <div className="pt-2">
+                <div>
                   <TimelineFacet
                     facet={{
                       type: 'timeline',
@@ -321,10 +331,15 @@ export function FacetList({ facets }: FacetListProps) {
                         })) as any,
                       },
                     }}
-                    onChange={handleTimelineChange}
+                    onChange={applyYearRange}
                     selectedRange={
-                      yearRangeStart && yearRangeEnd
-                        ? [parseInt(yearRangeStart), parseInt(yearRangeEnd)]
+                      yearRangeStart || yearRangeEnd
+                        ? {
+                            start: yearRangeStart
+                              ? parseInt(yearRangeStart, 10)
+                              : null,
+                            end: yearRangeEnd ? parseInt(yearRangeEnd, 10) : null,
+                          }
                         : null
                     }
                   />
