@@ -29,6 +29,12 @@ class TestElasticsearchSearch:
         escaped = _escape_query_string_brackets(query)
         assert escaped == r"Precipitation (08) \[Minnesota\] \{1991-2020 August\}"
 
+    def test_escape_query_string_colon_in_identifier(self):
+        """Literal colons in identifiers should not become fielded-query syntax."""
+        query = "p16022coll244:471"
+        escaped = _escape_query_string_brackets(query)
+        assert escaped == r"p16022coll244\:471"
+
     def test_get_search_criteria(self):
         """Test the get_search_criteria function."""
         criteria = get_search_criteria(
@@ -817,6 +823,35 @@ class TestElasticsearchSearch:
                 assert query_string_clause["query"] == (
                     r"Precipitation (08) \[Minnesota\] \{1991-2020 August\}"
                 )
+
+    @pytest.mark.asyncio
+    async def test_search_resources_escapes_colon_for_identifier_query_string(self):
+        """Identifier-style queries with colons should be treated literally."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query="p16022coll244:471",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                )
+
+                call_args = mock_es.search.call_args
+                search_query = call_args.kwargs.get("query")
+                query_string_clause = search_query["bool"]["must"][0]["query_string"]
+                assert query_string_clause["query"] == r"p16022coll244\:471"
 
     @pytest.mark.asyncio
     async def test_query_string_has_correct_parameters(self):
