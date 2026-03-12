@@ -105,8 +105,8 @@ export function GeospatialFilterMap() {
 
   const getRelationFromParams = useCallback((): BBoxRelationMode => {
     const relation = searchParams.get('include_filters[geo][relation]');
-    if (relation === 'within') return 'within';
-    return 'intersects';
+    if (relation === 'intersects') return 'intersects';
+    return 'within';
   }, [searchParams]);
 
   // Parse bbox from URL params
@@ -679,18 +679,6 @@ export function GeospatialFilterMap() {
             >
               <button
                 type="button"
-                onClick={() => handleRelationModeChange('intersects')}
-                className={`rounded px-2 py-1 text-xs ${
-                  relationMode === 'intersects'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-                aria-label="Set map mode to recall"
-              >
-                Recall
-              </button>
-              <button
-                type="button"
                 onClick={() => handleRelationModeChange('within')}
                 className={`rounded px-2 py-1 text-xs ${
                   relationMode === 'within'
@@ -700,6 +688,18 @@ export function GeospatialFilterMap() {
                 aria-label="Set map mode to precision"
               >
                 Precision
+              </button>
+              <button
+                type="button"
+                onClick={() => handleRelationModeChange('intersects')}
+                className={`rounded px-2 py-1 text-xs ${
+                  relationMode === 'intersects'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+                aria-label="Set map mode to recall"
+              >
+                Recall
               </button>
             </div>
           </div>

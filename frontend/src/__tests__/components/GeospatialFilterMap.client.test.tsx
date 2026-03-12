@@ -131,6 +131,38 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
+  it('defaults bbox relation mode to precision when relation is absent', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/search?include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox&include_filters[geo][top_left][lat]=45&include_filters[geo][top_left][lon]=-109&include_filters[geo][bottom_right][lat]=41&include_filters[geo][bottom_right][lon]=-104',
+        ]}
+      >
+        <Routes>
+          <Route
+            path="/search"
+            element={
+              <>
+                <GeospatialFilterMap />
+                <SearchLocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const precisionButton = await screen.findByRole('button', {
+      name: 'Set map mode to precision',
+    });
+    const recallButton = screen.getByRole('button', {
+      name: 'Set map mode to recall',
+    });
+
+    expect(precisionButton).toHaveClass('bg-blue-600');
+    expect(recallButton).not.toHaveClass('bg-blue-600');
+  });
+
   it('restores and persists hex layer preference via localStorage', async () => {
     localStorage.setItem('hex_layer_enabled', '0');
 

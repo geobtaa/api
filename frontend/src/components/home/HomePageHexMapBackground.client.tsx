@@ -23,6 +23,7 @@ import { cellArea, UNITS } from 'h3-js';
 L.Map.addInitHook('addHandler', 'gestureHandling', GestureHandling);
 import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
+import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_ITEMS } from '../../config/featured';
 import { fetchResourceDetails } from '../../services/api';
@@ -157,7 +158,11 @@ function formatAreaKm2(km2: number): string {
   });
 }
 
-function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
+function HexHoverCard({
+  hoveredHex,
+}: {
+  hoveredHex: HexHoverData;
+}) {
   let areaKm2: number | null = null;
   try {
     areaKm2 = cellArea(hoveredHex.h3, UNITS.km2);
@@ -253,6 +258,7 @@ function SearchHereControl() {
     const params = new URLSearchParams();
     params.set('include_filters[geo][type]', 'bbox');
     params.set('include_filters[geo][field]', 'dcat_bbox');
+    params.set('include_filters[geo][relation]', 'within');
     params.set('include_filters[geo][top_left][lat]', ne.lat.toString());
     params.set('include_filters[geo][top_left][lon]', sw.lng.toString());
     params.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
@@ -356,6 +362,8 @@ export function HomePageHexMapBackground() {
     center: [number, number];
     zoom: number;
   } | null>(null);
+  const queryString =
+    typeof window !== 'undefined' ? window.location.search : undefined;
 
   const handleHexData = useCallback(
     (data: {
@@ -447,6 +455,10 @@ export function HomePageHexMapBackground() {
   return (
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }
+.map-hex-search-popup .leaflet-popup-content-wrapper { background: transparent; box-shadow: none; padding: 0; border-radius: 0; }
+.map-hex-search-popup .leaflet-popup-content { margin: 0; min-width: 0; }
+.map-hex-search-popup .leaflet-popup-tip-container { margin-top: -1px; }
+.map-hex-search-popup .leaflet-popup-tip { background: rgba(255, 255, 255, 0.95); box-shadow: none; }
 .homepage-map .leaflet-top.leaflet-left { top: 1rem; }`}</style>
       <p className="sr-only">
         For a list of hex data, use the hex table button in the bottom-left
@@ -506,19 +518,19 @@ export function HomePageHexMapBackground() {
           <SearchHereControl />
           {hexLayerEnabled && (
             <>
-              {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
+              {hoveredHex && (
+                <HexHoverCard hoveredHex={hoveredHex} />
+              )}
               <MapUpdaterHex
                 searchQuery=""
                 onFeatureClick={() => {}}
+                enableSearchPopup
                 onHexHover={setHoveredHex}
                 hoveredHex={hoveredHex}
                 onHexData={handleHexData}
-                queryString={
-                  typeof window !== 'undefined'
-                    ? window.location.search
-                    : undefined
-                }
+                queryString={queryString}
               />
+              <BboxRectangleSelector />
             </>
           )}
           <MapUserEngagementTracker

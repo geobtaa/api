@@ -1,21 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
-import { cellToBoundary } from 'h3-js';
+import { cellArea, cellToBoundary, UNITS } from 'h3-js';
 import type { MapFeatureClickPayload } from '../../types/map';
 import { useMapH3 } from '../../hooks/useMapH3';
 import { formatCount } from '../../utils/formatNumber';
-
-/** Map Leaflet zoom to H3 resolution so hex size changes more visibly when zooming (e.g. into Chicago). */
-function zoomToResolution(zoom: number): number {
-  if (zoom <= 3) return 2;
-  if (zoom <= 4) return 3;
-  if (zoom <= 6) return 4;
-  if (zoom <= 8) return 5;
-  if (zoom <= 10) return 6;
-  if (zoom <= 12) return 7;
-  return 8;
-}
+import { zoomToResolution } from '../../utils/h3Resolution';
+import { buildSearchUrl } from '../../utils/h3SearchUrl';
 
 /** Zoom at or below this level may request global hexes (no bbox) when bbox is not yet available. */
 const ZOOM_GLOBAL_THRESHOLD = 5;
@@ -84,9 +75,25 @@ function getColor(intensity: number): string {
 
 export type HexHoverData = { h3: string; count: number; resolution: number };
 
+function formatAreaKm2(km2: number): string {
+  if (km2 >= 1000)
+    return km2.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (km2 >= 1)
+    return km2.toLocaleString('en-US', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2,
+    });
+  return km2.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
+}
+
 export function MapUpdaterHex({
   searchQuery,
   onFeatureClick,
+  onHexClick,
+  enableSearchPopup = false,
   onHexData,
   onHexHover,
   hoveredHex,
@@ -94,6 +101,8 @@ export function MapUpdaterHex({
 }: {
   searchQuery: string;
   onFeatureClick: (feature: MapFeatureClickPayload) => void;
+  onHexClick?: (data: { h3: string; count: number; resolution: number }) => void;
+  enableSearchPopup?: boolean;
   onHexData?: (stats: {
     hexCount: number;
     totalInView: number;
@@ -113,6 +122,54 @@ export function MapUpdaterHex({
     defaultStyle: L.PathOptions;
   } | null>(null);
   const prevHoveredHexRef = useRef<HexHoverData | null | undefined>(undefined);
+
+  const openSearchPopup = useCallback(
+    (layer: L.Layer, h3: string, count: number, popupResolution: number) => {
+      if (!(layer instanceof L.Path)) return;
+      let areaMarkup = '';
+      try {
+        const areaKm2 = cellArea(h3, UNITS.km2);
+        areaMarkup =
+          `<div class="flex justify-between gap-4">` +
+          `<dt class="font-medium">Area</dt>` +
+          `<dd>${formatAreaKm2(areaKm2)} km²</dd>` +
+          `</div>`;
+      } catch {
+        // Invalid H3 index or library error
+      }
+      const searchUrl = buildSearchUrl(
+        h3,
+        popupResolution,
+        searchQuery,
+        queryString
+      );
+      const popupHtml =
+        `<div class="rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm p-3 min-w-[180px]">` +
+        `<h3 class="text-sm font-semibold text-gray-900 mb-1">H3 ${h3}</h3>` +
+        `<dl class="text-sm text-gray-600 space-y-1 mb-2">` +
+        `<div class="flex justify-between gap-4">` +
+        `<dt class="font-medium">Resources</dt>` +
+        `<dd>${formatCount(count)}</dd>` +
+        `</div>` +
+        `<div class="flex justify-between gap-4">` +
+        `<dt class="font-medium">Resolution</dt>` +
+        `<dd>Level ${popupResolution}</dd>` +
+        `</div>` +
+        areaMarkup +
+        `</dl>` +
+        `<a href="${searchUrl}" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">Search this hex</a>` +
+        `</div>`;
+      layer.bindPopup(popupHtml, {
+        autoPan: false,
+        closeButton: false,
+        autoClose: true,
+        closeOnClick: true,
+        className: 'map-hex-search-popup',
+      });
+      layer.openPopup();
+    },
+    [queryString, searchQuery]
+  );
 
   const updateBbox = useCallback(() => {
     const b = map.getBounds();
@@ -300,11 +357,23 @@ export function MapUpdaterHex({
             onHexHover?.(null);
           }
         });
-        layer.on('click', () =>
+        layer.on('click', (event: L.LeafletMouseEvent) => {
+          if (event.originalEvent.ctrlKey || event.originalEvent.metaKey) {
+            return;
+          }
+          if (enableSearchPopup) {
+            L.DomEvent.stopPropagation(event);
+            openSearchPopup(layer, h3, count, resolution);
+            return;
+          }
+          if (onHexClick) {
+            onHexClick({ h3, count, resolution });
+            return;
+          }
           onFeatureClick({
             properties: { name: `Hex ${h3.slice(-6)}`, hits: count },
-          })
-        );
+          });
+        });
       }}
     />
   );
