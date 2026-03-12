@@ -9,9 +9,12 @@ interface ResourceClassItem {
   hits: number;
 }
 
-const CACHE_KEY = 'resource_classes_cache';
+const CACHE_KEY = 'resource_classes_cache_v2'; // Bump to invalidate when exclusions change
 const CACHE_TIMESTAMP_KEY = 'resource_classes_cache_timestamp';
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+/** Resource class values to hide from the header tabs (still searchable via filters). */
+const EXCLUDED_RESOURCE_CLASSES = ['Collections', 'Series', 'Other'];
 
 type FacetItemTuple = [value: string | number, hits: number];
 type FacetItemObject = {
@@ -174,6 +177,14 @@ export function ResourceClassFilterTabs({
                 .filter(
                   (x): x is ResourceClassItem =>
                     x !== null && x.value.length > 0
+                )
+                .filter(
+                  (x) =>
+                    !EXCLUDED_RESOURCE_CLASSES.some(
+                      (excl) =>
+                        x.value.toLowerCase() === excl.toLowerCase() ||
+                        x.label.toLowerCase() === excl.toLowerCase()
+                    )
                 )
             : [];
 
