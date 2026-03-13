@@ -82,7 +82,14 @@ interface BBox {
 
 type BBoxRelationMode = 'intersects' | 'within';
 
-export function GeospatialFilterMap() {
+interface GeospatialFilterMapProps {
+  /** When true, hide the "Location" heading and Clear button (e.g. when used inside LocationFacetCollapsible). */
+  hideHeading?: boolean;
+}
+
+export function GeospatialFilterMap({
+  hideHeading = false,
+}: GeospatialFilterMapProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
@@ -639,35 +646,38 @@ export function GeospatialFilterMap() {
   const relationMode = getRelationFromParams();
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center justify-between mb-1">
-        <h3
-          id="filter-location-heading"
-          className="font-semibold text-gray-950"
-          style={{
-            color: '#111827',
-            backgroundColor: '#ffffff',
-            display: 'inline-block',
-            paddingInline: '0.25rem',
-            borderRadius: '0.125rem',
-          }}
-        >
-          Location
-        </h3>
-        {hasBBox && (
-          <button
-            onClick={handleClearBBox}
-            className="text-xs text-blue-600 hover:text-blue-800 underline"
-            aria-label="Clear location filter"
+    <div className={hideHeading ? '' : 'mb-6'}>
+      {!hideHeading && (
+        <div className="flex items-center justify-between mb-1">
+          <h3
+            id="filter-location-heading"
+            className="font-semibold text-gray-950"
+            style={{
+              color: '#111827',
+              backgroundColor: '#ffffff',
+              display: 'inline-block',
+              paddingInline: '0.25rem',
+              borderRadius: '0.125rem',
+            }}
           >
-            Clear
-          </button>
-        )}
-      </div>
+            Location
+          </h3>
+          {hasBBox && (
+            <button
+              onClick={handleClearBBox}
+              className="text-xs text-blue-600 hover:text-blue-800 underline"
+              aria-label="Clear location filter"
+            >
+              Clear
+            </button>
+          )}
+        </div>
+      )}
       <div
         className="relative"
         role="group"
-        aria-labelledby="filter-location-heading"
+        aria-labelledby={hideHeading ? undefined : 'filter-location-heading'}
+        aria-label={hideHeading ? 'Location filter map' : undefined}
       >
         {hasBBox && (
           <div className="mb-2">
@@ -706,8 +716,7 @@ export function GeospatialFilterMap() {
         <div className="relative">
           <div
             ref={mapContainerRef}
-            className="w-full rounded-lg border border-gray-200"
-            style={{ height: '200px', minHeight: '200px' }}
+            className="aspect-square w-full rounded-lg border border-gray-200"
           />
           {showSearchButton && (
             <button

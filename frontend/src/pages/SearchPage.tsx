@@ -16,7 +16,8 @@ import { ViewToggle, type ViewMode } from '../components/search/ViewToggle';
 import { GalleryView } from '../components/search/GalleryView';
 import { MapResultView } from '../components/search/MapResultView';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
-import { GeospatialFilterMap } from '../components/search/GeospatialFilterMap';
+import { LocationFacetCollapsible } from '../components/search/LocationFacetCollapsible';
+import { useFacetAccordion } from '../hooks/useFacetAccordion';
 import {
   parseSearchParams,
   normalizeFacetValueForUrl,
@@ -72,6 +73,7 @@ type SearchPageProps = {
 function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { accordion, setAccordion } = useFacetAccordion();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
 
   // Ensure ?q= is present if no params are set to trigger default search
@@ -570,12 +572,17 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
               <h2 className="sr-only text-lg font-semibold text-gray-900">
                 Filter Results
               </h2>
-              <GeospatialFilterMap />
+              <LocationFacetCollapsible
+                accordion={accordion}
+                setAccordion={setAccordion}
+              />
               {searchResults?.included ? (
                 <FacetList
                   facets={searchResults.included.filter(
                     (item) => item.type === 'facet' || item.type === 'timeline'
                   )}
+                  accordion={accordion}
+                  setAccordion={setAccordion}
                 />
               ) : (
                 <div className="text-gray-500">Loading facets...</div>

@@ -9,6 +9,7 @@ import { useApi } from '../context/ApiContext';
 import type { JsonApiResponse } from '../types/api';
 import { MapProvider } from '../context/MapContext';
 import { FacetList } from '../components/FacetList';
+import { useFacetAccordion } from '../hooks/useFacetAccordion';
 import { MapView } from '../components/search/MapView';
 import { SortControl } from '../components/search/SortControl';
 import { CONFIGURED_FACETS } from '../constants/facets';
@@ -16,6 +17,7 @@ import { formatCount } from '../utils/formatNumber';
 
 export function BookmarksPage() {
   const { bookmarks } = useBookmarks();
+  const { accordion, setAccordion } = useFacetAccordion();
   const [results, setResults] = useState<JsonApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { setLastApiUrl } = useApi();
@@ -95,7 +97,13 @@ export function BookmarksPage() {
                     Filter Results
                   </summary>
                   {results?.included?.filter((item) => item.type === 'facet')
-                    .length > 0 && <FacetList facets={filteredFacets} />}
+                    .length > 0 && (
+                    <FacetList
+                      facets={filteredFacets}
+                      accordion={accordion}
+                      setAccordion={setAccordion}
+                    />
+                  )}
                 </details>
                 <div className="hidden lg:block">
                   <div className="sticky top-16">
@@ -105,7 +113,13 @@ export function BookmarksPage() {
                       </h2>
                       {results?.included?.filter(
                         (item) => item.type === 'facet'
-                      ).length > 0 && <FacetList facets={filteredFacets} />}
+                      ).length > 0 && (
+                        <FacetList
+                          facets={filteredFacets}
+                          accordion={accordion}
+                          setAccordion={setAccordion}
+                        />
+                      )}
                     </div>
                   </div>
                 </div>

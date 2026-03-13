@@ -4,7 +4,12 @@ const GeospatialFilterMapClient = React.lazy(
   () => import('./GeospatialFilterMap.client')
 );
 
-export function GeospatialFilterMap() {
+interface GeospatialFilterMapProps {
+  /** When true, hide the "Location" heading and Clear button (e.g. when used inside LocationFacetCollapsible). */
+  hideHeading?: boolean;
+}
+
+export function GeospatialFilterMap({ hideHeading }: GeospatialFilterMapProps) {
   // Prevent hydration mismatches: render deterministic placeholder on the server
   // and on the client's first render. Then swap in the Leaflet map after mount.
   const [mounted, setMounted] = useState(false);
@@ -20,7 +25,7 @@ export function GeospatialFilterMap() {
 
   return (
     <Suspense fallback={null}>
-      <GeospatialFilterMapClient />
+      <GeospatialFilterMapClient hideHeading={hideHeading} />
     </Suspense>
   );
 }

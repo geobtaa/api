@@ -9,6 +9,7 @@ import { formatCount } from '../utils/formatNumber';
 import { getFacetValueDisplayLabel } from '../utils/facetDisplay';
 import { TimelineFacet } from './search/TimelineFacet';
 import type { SelectedYearRange } from './search/TimelineFacet';
+import type { FacetAccordionState } from '../hooks/useFacetAccordion';
 
 // New JSON:API facet structure
 type JsonApiFacetItemTuple = [value: string | number, hits: number];
@@ -38,9 +39,16 @@ export interface JsonApiFacet {
 
 interface FacetListProps {
   facets: JsonApiFacet[];
+  /** Optional shared accordion state (persisted via useFacetAccordion). When provided, collapse/expand state is shared across facets and persisted. */
+  accordion?: FacetAccordionState;
+  setAccordion?: React.Dispatch<
+    React.SetStateAction<FacetAccordionState>
+  >;
 }
 
-const DEFAULT_OPEN_FACET_IDS = new Set<string>([
+/** Facet IDs that are open by default. Includes geo (Location map) for use by SearchPage. */
+export const DEFAULT_OPEN_FACET_IDS = new Set<string>([
+  'geo', // Location (map filter)
   'dct_spatial_sm', // Place
   'gbl_resourceClass_sm', // Resource Class
   'gbl_resourceType_sm', // Resource Type
@@ -57,7 +65,11 @@ function isCompactTupleItems(
   );
 }
 
-export function FacetList({ facets }: FacetListProps) {
+export function FacetList({
+  facets,
+  accordion: controlledAccordion,
+  setAccordion: controlledSetAccordion,
+}: FacetListProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeFacetModal, setActiveFacetModal] = useState<{
     id: string;
@@ -260,12 +272,12 @@ export function FacetList({ facets }: FacetListProps) {
   }, [orderedFacets, searchParams.toString()]);
 
   // Track user toggles separately from default/forced-open behavior.
-  // - opened: user explicitly opened this facet
-  // - closed: user explicitly closed this facet (used to override default-open facets)
-  const [accordion, setAccordion] = useState<{
-    opened: Set<string>;
-    closed: Set<string>;
-  }>(() => ({ opened: new Set(), closed: new Set() }));
+  // Use controlled accordion when provided (persisted); otherwise internal state.
+  const [internalAccordion, setInternalAccordion] = useState<FacetAccordionState>(
+    () => ({ opened: new Set(), closed: new Set() })
+  );
+  const accordion = controlledAccordion ?? internalAccordion;
+  const setAccordion = controlledSetAccordion ?? setInternalAccordion;
 
   if (!safeFacets || safeFacets.length === 0) {
     return <div className="text-gray-500">No facets available</div>;
@@ -308,9 +320,9 @@ export function FacetList({ facets }: FacetListProps) {
                     return { opened, closed };
                   });
                 }}
-                className="group border-b"
+                className="group border-b pb-4"
               >
-                <summary className="flex items-center justify-between cursor-pointer select-none py-1 mb-1">
+                <summary className="flex items-center justify-between cursor-pointer select-none py-2">
                   <h3 className="font-semibold text-gray-900">
                     Year
                   </h3>
