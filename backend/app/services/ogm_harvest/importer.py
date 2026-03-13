@@ -9,6 +9,10 @@ from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.services.distribution_sync import (
+    sync_distributions_for_batch,
+    sync_distributions_for_resource,
+)
 from app.services.ogm_harvest.aardvark_reader import extract_record_id
 from app.services.ogm_harvest.repository import OGMHarvestRepository
 from db.database import database
@@ -288,6 +292,15 @@ class OGMResourceImporter:
                     )
                     await database.execute(stmt)
 
+                    try:
+                        await sync_distributions_for_resource(str(rid), row.get("dct_references_s"))
+                    except Exception as dist_err:
+                        logger.warning(
+                            "Distribution sync failed for %s; continuing. err=%s",
+                            rid,
+                            str(dist_err),
+                        )
+
                     # Mark seen for missing tracking
                     await self.repo.upsert_resource_seen(
                         ogm_repo_name=repo_name,
@@ -413,6 +426,13 @@ class OGMResourceImporter:
                 stmt = stmt.on_conflict_do_update(index_elements=[resources.c.id], set_=update_map)
                 async with database.transaction():
                     await database.execute(stmt)
+                    try:
+                        await sync_distributions_for_batch(rows)
+                    except Exception as dist_err:
+                        logger.warning(
+                            "Distribution sync failed for batch; continuing. err=%s",
+                            str(dist_err),
+                        )
                     await self.repo.upsert_resources_seen_batch(repo_name, seen)
                 return len(rows)
             except Exception as e:
