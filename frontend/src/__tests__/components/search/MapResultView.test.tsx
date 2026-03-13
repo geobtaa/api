@@ -11,6 +11,7 @@ const mockMap = {
   openPopup: vi.fn(),
   addLayer: vi.fn(),
   removeLayer: vi.fn(),
+  hasLayer: vi.fn().mockReturnValue(false),
   eachLayer: vi.fn(),
 };
 
@@ -191,6 +192,28 @@ describe('MapResultView', () => {
       );
 
       expect(screen.getByTestId('map-container')).toBeInTheDocument();
+    });
+
+    it('adds dashed extent overlay for MultiPolygon (same as resource view LocationMap)', () => {
+      const multiPolygonJson = JSON.stringify({
+        type: 'MultiPolygon',
+        coordinates: [
+          [[[-75.6, 39.8], [-75.8, 39.7], [-80.5, 39.7], [-80.5, 42.3], [-75.6, 39.8]]],
+        ],
+      });
+      render(
+        <TestWrapper>
+          <MapResultView
+            results={mockResultsWithCentroid}
+            highlightedResourceId="res-1"
+            highlightedGeometry={multiPolygonJson}
+          />
+        </TestWrapper>
+      );
+
+      // HighlightOverlayController adds geoJSON layer + dashed rectangle for MultiPolygon
+      const addLayerCalls = mockMap.addLayer.mock.calls.length;
+      expect(addLayerCalls).toBeGreaterThanOrEqual(2);
     });
   });
 

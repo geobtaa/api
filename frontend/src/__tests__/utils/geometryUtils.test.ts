@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   wktToGeoJSON,
   normalizeGeometry,
+  geometryToLeafletFeatures,
   getCentroidFromGeometry,
   getBboxFromGeometry,
   getWgs84ExtentFromViewerGeometry,
@@ -361,6 +362,20 @@ describe('geometryUtils', () => {
         const result = normalizeGeometry(multipolygon);
         expect(result).toBe(multipolygon);
       });
+
+      it('extracts geometry from GeoJSON Feature', () => {
+        const feature = {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'Polygon',
+            coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+          },
+        };
+        const result = normalizeGeometry(feature as any);
+        expect(result?.type).toBe('Polygon');
+        expect(result?.coordinates).toEqual([[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]);
+      });
     });
 
     describe('WKT String Input', () => {
@@ -383,14 +398,40 @@ describe('geometryUtils', () => {
         });
       });
 
-      it('converts WKT multipolygon string to GeoJSON', () => {
+      it('converts WKT multipolygon string to GeoJSON with standard structure', () => {
         const wkt =
           'MULTIPOLYGON(((-96.796 48.756, -90.379 48.756, -90.379 43.429, -96.796 43.429, -96.796 48.756)))';
         const result = normalizeGeometry(wkt);
 
         expect(result).toBeDefined();
         expect(result?.type).toBe('MultiPolygon');
-        expect(Array.isArray(result?.coordinates)).toBe(true);
+        // Standard GeoJSON: [[[ring]]] per polygon
+        expect(result?.coordinates).toEqual([
+          [
+            [
+              [-96.796, 48.756],
+              [-90.379, 48.756],
+              [-90.379, 43.429],
+              [-96.796, 43.429],
+              [-96.796, 48.756],
+            ],
+          ],
+        ]);
+      });
+
+      it('converts WKT multipolygon with two polygons to standard structure', () => {
+        const wkt =
+          'MULTIPOLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)), ((2 2, 2 3, 3 3, 3 2, 2 2)))';
+        const result = normalizeGeometry(wkt);
+
+        expect(result?.type).toBe('MultiPolygon');
+        expect(result?.coordinates).toHaveLength(2);
+        expect(result?.coordinates[0]).toEqual([
+          [[0, 0], [0, 1], [1, 1], [1, 0], [0, 0]],
+        ]);
+        expect(result?.coordinates[1]).toEqual([
+          [[2, 2], [2, 3], [3, 3], [3, 2], [2, 2]],
+        ]);
       });
     });
 
@@ -522,6 +563,35 @@ describe('geometryUtils', () => {
     });
   });
 
+  describe('geometryToLeafletFeatures', () => {
+    it('wraps Polygon in single Feature (same as LocationMap)', () => {
+      const polygon: GeoJSON.Polygon = {
+        type: 'Polygon',
+        coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+      };
+      const features = geometryToLeafletFeatures(polygon);
+      expect(features).toHaveLength(1);
+      expect(features[0].type).toBe('Feature');
+      expect(features[0].geometry).toEqual(polygon);
+    });
+    it('splits MultiPolygon into one Feature per polygon (same as LocationMap)', () => {
+      const multi: GeoJSON.MultiPolygon = {
+        type: 'MultiPolygon',
+        coordinates: [
+          [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+          [[[2, 2], [3, 2], [3, 3], [2, 3], [2, 2]]],
+        ],
+      };
+      const features = geometryToLeafletFeatures(multi);
+      expect(features).toHaveLength(2);
+      expect(features[0].geometry).toEqual({ type: 'Polygon', coordinates: multi.coordinates[0] });
+      expect(features[1].geometry).toEqual({ type: 'Polygon', coordinates: multi.coordinates[1] });
+    });
+    it('returns empty array for null', () => {
+      expect(geometryToLeafletFeatures(null)).toEqual([]);
+    });
+  });
+
   describe('getCentroidFromGeometry', () => {
     it('returns centroid for GeoJSON Point', () => {
       const geom = { type: 'Point', coordinates: [-71.0935, 42.3601] };
@@ -633,6 +703,31 @@ describe('geometryUtils', () => {
     it('returns null for invalid geometry', () => {
       expect(getBboxFromGeometry('')).toBeNull();
       expect(getBboxFromGeometry('not-valid')).toBeNull();
+    });
+
+    it('returns bbox for GeoJSON MultiPolygon (standard structure)', () => {
+      const geom: GeoJSON.MultiPolygon = {
+        type: 'MultiPolygon',
+        coordinates: [
+          [[[-75.6, 39.8], [-75.8, 39.7], [-80.5, 39.7], [-80.5, 42.3], [-75.6, 39.8]]],
+          [[[2, 2], [2, 3], [3, 3], [3, 2], [2, 2]]],
+        ],
+      };
+      const result = getBboxFromGeometry(geom);
+      expect(result).toEqual([
+        [2, -80.5],
+        [42.3, 3],
+      ]);
+    });
+
+    it('returns bbox for MultiPolygon WKT string', () => {
+      const wkt =
+        'MULTIPOLYGON(((0 0, 0 1, 1 1, 1 0, 0 0)), ((2 2, 2 3, 3 3, 3 2, 2 2)))';
+      const result = getBboxFromGeometry(wkt);
+      expect(result).toEqual([
+        [0, 0],
+        [3, 3],
+      ]);
     });
   });
 
@@ -765,10 +860,29 @@ describe('geometryUtils', () => {
       expect(geometryToGeoJSONForDisplay(null)).toBeNull();
       expect(geometryToGeoJSONForDisplay(undefined)).toBeNull();
     });
+    it('extracts geometry from GeoJSON Feature object', () => {
+      const feature = {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'Polygon',
+          coordinates: [[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]],
+        },
+      };
+      const result = geometryToGeoJSONForDisplay(feature);
+      expect(result?.type).toBe('Polygon');
+      expect(result?.coordinates).toEqual([[[0, 0], [1, 0], [1, 1], [0, 1], [0, 0]]]);
+    });
+    it('extracts geometry from GeoJSON Feature string', () => {
+      const featureJson = '{"type":"Feature","geometry":{"type":"Point","coordinates":[-71,42]},"properties":{}}';
+      const result = geometryToGeoJSONForDisplay(featureJson);
+      expect(result?.type).toBe('Point');
+      expect(result?.coordinates).toEqual([-71, 42]);
+    });
   });
 
   describe('getHoverGeometryForResult', () => {
-    it('prefers locn_geometry over meta.ui.viewer.geometry', () => {
+    it('prefers meta.ui.viewer.geometry over locn_geometry (same as resource page LocationMap)', () => {
       const result = {
         attributes: {
           ogm: {
@@ -787,11 +901,11 @@ describe('geometryUtils', () => {
       expect(json).not.toBeNull();
       const parsed = JSON.parse(json!);
       expect(parsed.type).toBe('Polygon');
-      // Should be from locn_geometry (wider extent -97 to -87)
+      // Should be from meta.ui.viewer.geometry (extent -90 to -88)
       const ring = parsed.coordinates[0];
       const lons = ring.map((c: number[]) => c[0]);
-      expect(Math.min(...lons)).toBe(-97);
-      expect(Math.max(...lons)).toBe(-87);
+      expect(Math.min(...lons)).toBe(-90);
+      expect(Math.max(...lons)).toBe(-88);
     });
     it('falls back to meta.ui.viewer.geometry when locn_geometry missing', () => {
       const result = {
@@ -812,6 +926,44 @@ describe('geometryUtils', () => {
     it('returns null when no geometry available', () => {
       expect(getHoverGeometryForResult({})).toBeNull();
       expect(getHoverGeometryForResult({ attributes: { ogm: {} } })).toBeNull();
+    });
+    it('returns MultiPolygon from meta.ui.viewer.geometry (search hover + resource view parity)', () => {
+      const multi: GeoJSON.MultiPolygon = {
+        type: 'MultiPolygon',
+        coordinates: [
+          [[[-75.6, 39.8], [-75.8, 39.7], [-80.5, 39.7], [-80.5, 42.3], [-75.6, 39.8]]],
+          [[[2, 2], [2, 3], [3, 3], [3, 2], [2, 2]]],
+        ],
+      };
+      const result = {
+        attributes: { ogm: {} },
+        meta: { ui: { viewer: { geometry: multi } } },
+      };
+      const json = getHoverGeometryForResult(result);
+      expect(json).not.toBeNull();
+      const parsed = JSON.parse(json!);
+      expect(parsed.type).toBe('MultiPolygon');
+      expect(parsed.coordinates).toHaveLength(2);
+      // Ring has 5 points (closed polygon: first === last)
+      expect(parsed.coordinates[0][0]).toHaveLength(5);
+    });
+
+    it('uses normalizeGeometry for locn_geometry WKT (same as LocationMap)', () => {
+      // When only locn_geometry (no viewer.geometry), uses WKT path
+      const result = {
+        attributes: {
+          ogm: {
+            locn_geometry: 'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
+          },
+        },
+      };
+      const json = getHoverGeometryForResult(result);
+      expect(json).not.toBeNull();
+      const parsed = JSON.parse(json!);
+      expect(parsed.type).toBe('Polygon');
+      const lons = parsed.coordinates[0].map((c: number[]) => c[0]);
+      expect(Math.min(...lons)).toBe(-97);
+      expect(Math.max(...lons)).toBe(-87);
     });
   });
 });

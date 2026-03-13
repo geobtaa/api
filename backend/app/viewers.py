@@ -88,6 +88,48 @@ class ItemViewer:
         endpoint = self.references.get(protocol)
         return {"protocol": protocol, "endpoint": endpoint} if endpoint else None
 
+    def _parse_polygon_coords(
+        self, coordinates_str: str, geometry: str
+    ) -> Optional[Dict[str, Union[str, List]]]:
+        """Parse WKT polygon coordinate string to GeoJSON Polygon."""
+        coordinates = [list(map(float, coord.split())) for coord in coordinates_str.split(",")]
+        if coordinates[0] != coordinates[-1]:
+            coordinates.append(coordinates[0])
+        from app.elasticsearch.index import _is_valid_single_polygon
+
+        if not _is_valid_single_polygon([coordinates]):
+            logger.warning(f"Invalid polygon coordinates in viewer: {geometry} - skipping")
+            return None
+        return {"type": "Polygon", "coordinates": [coordinates]}
+
+    def _parse_multipolygon_wkt(self, geometry: str) -> Optional[Dict[str, Union[str, List]]]:
+        """Parse MultiPolygon WKT to GeoJSON MultiPolygon, preserving all polygons."""
+        # Extract content inside MultiPolygon(...)
+        match = re.match(r"MULTIPOLYGON\s*\(\s*(.+)\s*\)\s*$", geometry, re.IGNORECASE | re.DOTALL)
+        if not match:
+            return None
+        inner = match.group(1)
+        # Find all polygon rings: ((x y, x y, ...))
+        ring_matches = self._multipolygon_ring_pattern.findall(inner)
+        if not ring_matches:
+            return None
+        polygons = []
+        from app.elasticsearch.index import _is_valid_single_polygon
+
+        for coords_str in ring_matches:
+            ring = [list(map(float, coord.split())) for coord in coords_str.split(",")]
+            if len(ring) < 3:
+                continue
+            if ring[0] != ring[-1]:
+                ring.append(ring[0])
+            if not _is_valid_single_polygon([ring]):
+                logger.warning(f"Invalid ring in MultiPolygon: {geometry[:80]}... - skipping")
+                continue
+            polygons.append([ring])
+        if not polygons:
+            return None
+        return {"type": "MultiPolygon", "coordinates": polygons}
+
     def viewer_geometry(self) -> Optional[GeoJSON]:
         """Convert locn_geometry to a GeoJSON object."""
         if not self.references.get("locn_geometry"):
@@ -124,6 +166,10 @@ class ItemViewer:
                 r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)"
             )
             self._polygon_pattern = re.compile(r"POLYGON\s*\(\s*\(\s*([-\d.\s,]+)\s*\)\s*\)")
+            # Match each polygon in MultiPolygon: ((ring)) or (((ring)))
+            self._multipolygon_ring_pattern = re.compile(
+                r"\(\s*\(\s*([-\d.\s,]+)\s*\)\s*\)", re.IGNORECASE
+            )
 
         # Check if it's an ENVELOPE format using pre-compiled pattern
         envelope_match = self._envelope_pattern.match(geometry)
@@ -169,28 +215,16 @@ class ItemViewer:
         # Check if it's a POLYGON format using pre-compiled pattern
         polygon_match = self._polygon_pattern.match(geometry)
         if polygon_match:
-            # Extract coordinates from POLYGON((x1 y1, x2 y2, ..., xn yn))
-            coordinates_str = polygon_match.group(1)
-            # Split the coordinates and convert them to float pairs
-            coordinates = [list(map(float, coord.split())) for coord in coordinates_str.split(",")]
-            # Ensure the polygon is closed by repeating the first point at the end
-            if coordinates[0] != coordinates[-1]:
-                coordinates.append(coordinates[0])
+            result = self._parse_polygon_coords(polygon_match.group(1), geometry)
+            if result:
+                self._geometry_cache[geometry] = result
+            return result
 
-            # Import validation function from elasticsearch module
-            from app.elasticsearch.index import _is_valid_single_polygon
-
-            # Validate the polygon coordinates
-            if not _is_valid_single_polygon([coordinates]):
-                logger.warning(f"Invalid polygon coordinates in viewer: {geometry} - skipping")
-                return None
-
-            result = {
-                "type": "Polygon",
-                "coordinates": [coordinates],
-            }  # Ensure proper capitalization
-            # LIGHTNING SPEED OPTIMIZATION: Cache the result
-            self._geometry_cache[geometry] = result
+        # Check if it's a MultiPolygon format: MultiPolygon(((r1)), ((r2)), ...)
+        if geometry.strip().upper().startswith("MULTIPOLYGON"):
+            result = self._parse_multipolygon_wkt(geometry)
+            if result:
+                self._geometry_cache[geometry] = result
             return result
 
         # Try parsing as JSON (handling escaped quotes)

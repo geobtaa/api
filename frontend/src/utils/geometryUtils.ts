@@ -186,14 +186,16 @@ function parseMultiPolygon(wkt: string): GeoJSON.MultiPolygon | null {
     return null;
   }
 
+  // GeoJSON MultiPolygon: each polygon is [ring1, hole?, ...], wrap each ring
   return {
     type: 'MultiPolygon' as const,
-    coordinates: polygons,
+    coordinates: polygons.map((ring) => [ring]),
   };
 }
 
 /**
- * Converts various geometry formats to GeoJSON
+ * Converts various geometry formats to GeoJSON Polygon/MultiPolygon.
+ * Same logic used by LocationMap on the resource page.
  * @param geometry - Geometry data in various formats
  * @returns GeoJSON object or null if conversion fails
  */
@@ -202,12 +204,19 @@ export function normalizeGeometry(
     | string
     | GeoJSON.Polygon
     | GeoJSON.MultiPolygon
-    | { wkt: string }
+    | GeoJSON.Feature
+    | { wkt: string; type?: string; geometry?: unknown; coordinates?: unknown }
     | null
 ): GeoJSON.Polygon | GeoJSON.MultiPolygon | null {
   if (!geometry) return null;
 
-  // If it's already GeoJSON
+  // GeoJSON Feature: extract nested geometry
+  if (typeof geometry === 'object' && (geometry as { type?: string }).type === 'Feature') {
+    const geom = (geometry as GeoJSON.Feature).geometry;
+    return geom ? normalizeGeometry(geom) : null;
+  }
+
+  // If it's already GeoJSON with coordinates
   if (
     typeof geometry === 'object' &&
     'type' in geometry &&
@@ -218,6 +227,15 @@ export function normalizeGeometry(
 
   // If it's a WKT string
   if (typeof geometry === 'string') {
+    const s = geometry.trim();
+    if (s.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(s) as { type?: string; geometry?: unknown; coordinates?: unknown };
+        return normalizeGeometry(parsed);
+      } catch {
+        // Not valid JSON, try as WKT
+      }
+    }
     return wktToGeoJSON(geometry);
   }
 
@@ -228,6 +246,33 @@ export function normalizeGeometry(
 
   console.warn('Unknown geometry format:', geometry);
   return null;
+}
+
+/**
+ * Convert normalized geometry to Leaflet GeoJSON features (same format as LocationMap).
+ * Use this for search hover overlay so we match resource page behavior exactly.
+ */
+export function geometryToLeafletFeatures(
+  normalized: GeoJSON.Polygon | GeoJSON.MultiPolygon | null
+): GeoJSON.Feature[] {
+  if (!normalized) return [];
+  if (normalized.type === 'MultiPolygon') {
+    return normalized.coordinates.map((polygonRings) => ({
+      type: 'Feature' as const,
+      geometry: {
+        type: 'Polygon' as const,
+        coordinates: polygonRings, // polygonRings is [exterior, hole1, ...]
+      },
+      properties: {},
+    }));
+  }
+  return [
+    {
+      type: 'Feature' as const,
+      geometry: normalized,
+      properties: {},
+    },
+  ];
 }
 
 /** GeoJSON geometry with coordinates (Point, Polygon, MultiPolygon, LineString, etc.) */
@@ -267,7 +312,25 @@ function collectLonLatPairs(geom: GeoJsonGeometry): [number, number][] {
         )
       : [];
   }
-  if (type === 'multipolygon' || type === 'multilinestring') {
+  if (type === 'multipolygon') {
+    const parts = coords as number[][][][];
+    return parts.flatMap((polygon) =>
+      Array.isArray(polygon)
+        ? polygon.flatMap((ring) =>
+            Array.isArray(ring)
+              ? ring.filter(
+                  (c): c is [number, number] =>
+                    Array.isArray(c) &&
+                    c.length >= 2 &&
+                    typeof c[0] === 'number' &&
+                    typeof c[1] === 'number'
+                )
+              : []
+          )
+        : []
+    );
+  }
+  if (type === 'multilinestring') {
     const parts = coords as number[][][];
     return parts.flatMap((part) =>
       Array.isArray(part)
@@ -491,9 +554,47 @@ type GeoJsonGeometryForDisplay =
   | GeoJSON.MultiPoint
   | GeoJSON.MultiLineString;
 
+/** Check if a coordinate pair is valid for Leaflet (finite numbers, WGS84 bounds). */
+function isValidCoord(lon: unknown, lat: unknown): boolean {
+  const l = typeof lon === 'number' && Number.isFinite(lon) ? lon : NaN;
+  const a = typeof lat === 'number' && Number.isFinite(lat) ? lat : NaN;
+  return !Number.isNaN(l) && !Number.isNaN(a) && a >= -90 && a <= 90 && l >= -180 && l <= 180;
+}
+
+/**
+ * Recursively validate that GeoJSON coordinates are valid for Leaflet.
+ * Rejects null, undefined, NaN, or out-of-range values.
+ */
+function hasValidGeoJsonCoordinates(coords: unknown): boolean {
+  if (!Array.isArray(coords)) return false;
+  const first = coords[0];
+  if (first === null || first === undefined) return false;
+  if (typeof first === 'number') {
+    const lon = first;
+    const lat = Array.isArray(coords) && coords.length >= 2 ? coords[1] : undefined;
+    return isValidCoord(lon, lat);
+  }
+  if (Array.isArray(first)) {
+    return (coords as unknown[]).every((c) => hasValidGeoJsonCoordinates(c));
+  }
+  return false;
+}
+
+/**
+ * Returns true if the geometry is safe to pass to Leaflet (no undefined/NaN/out-of-range coords).
+ */
+export function isValidGeoJsonForLeaflet(
+  geom: GeoJSON.Geometry | GeoJSON.Feature | GeoJSON.FeatureCollection | null | undefined
+): boolean {
+  if (!geom || typeof geom !== 'object') return false;
+  const g = 'geometry' in geom ? (geom as GeoJSON.Feature).geometry : (geom as GeoJSON.Geometry);
+  if (!g || typeof g !== 'object' || !('coordinates' in g)) return false;
+  return hasValidGeoJsonCoordinates((g as { coordinates: unknown }).coordinates);
+}
+
 /**
  * Convert geometry (locn_geometry, etc.) to GeoJSON for map display.
- * Handles WKT (POLYGON, MULTIPOLYGON, ENVELOPE) and GeoJSON object/string.
+ * Handles WKT (POLYGON, MULTIPOLYGON, ENVELOPE), GeoJSON object/string, and GeoJSON Feature.
  * Does NOT use dcat_bbox - use locn_geometry for the actual shape.
  */
 export function geometryToGeoJSONForDisplay(
@@ -503,7 +604,10 @@ export function geometryToGeoJSONForDisplay(
 
   // Already a GeoJSON object
   if (typeof geometry === 'object' && geometry !== null) {
-    const g = geometry as { type?: string; coordinates?: unknown };
+    const g = geometry as { type?: string; coordinates?: unknown; geometry?: unknown };
+    if (g.type === 'Feature' && g.geometry && typeof g.geometry === 'object') {
+      return geometryToGeoJSONForDisplay(g.geometry);
+    }
     if (g.type && g.coordinates) {
       return g as GeoJsonGeometryForDisplay;
     }
@@ -515,7 +619,10 @@ export function geometryToGeoJSONForDisplay(
   // GeoJSON string
   if (s.startsWith('{')) {
     try {
-      const parsed = JSON.parse(s) as { type?: string; coordinates?: unknown };
+      const parsed = JSON.parse(s) as { type?: string; coordinates?: unknown; geometry?: unknown };
+      if (parsed?.type === 'Feature' && parsed?.geometry) {
+        return geometryToGeoJSONForDisplay(parsed.geometry);
+      }
       if (parsed?.type && parsed?.coordinates) {
         return parsed as GeoJsonGeometryForDisplay;
       }
@@ -552,21 +659,27 @@ interface ResultLike {
 
 /**
  * Get the hover geometry for a search result for map highlight.
- * Prefers locn_geometry (actual shape - polygon, multipolygon, etc.) over meta.ui.viewer.geometry.
- * Does NOT use dcat_bbox - we want the complex geometry, not a bounding box.
+ * Uses the SAME pipeline as resource page LocationMap: normalizeGeometry on the same
+ * geometry sources (viewer.geometry, locn_geometry_original, locn_geometry).
+ * Returns JSON string of normalized Polygon/MultiPolygon, or null.
  */
 export function getHoverGeometryForResult(result: ResultLike): string | null {
   const ogm = result?.attributes?.ogm;
-  const locnGeom =
-    ogm?.locn_geometry ?? ogm?.locn_geometry_original ?? undefined;
   const viewerGeom = result?.meta?.ui?.viewer?.geometry;
+  const locnGeom =
+    ogm?.locn_geometry_original ?? ogm?.locn_geometry ?? undefined;
 
-  // Prefer locn_geometry (complex shape) over viewer geometry
-  const geom = geometryToGeoJSONForDisplay(locnGeom) ?? geometryToGeoJSONForDisplay(viewerGeom);
-  if (!geom) return null;
+  // Same priority and normalizer as resource page LocationMap
+  const raw = viewerGeom ?? locnGeom ?? undefined;
+  if (raw === undefined) return null;
+
+  const normalized = normalizeGeometry(
+    raw as string | GeoJSON.Polygon | GeoJSON.MultiPolygon | { wkt: string } | null
+  );
+  if (!normalized) return null;
 
   try {
-    return JSON.stringify(geom);
+    return JSON.stringify(normalized);
   } catch {
     return null;
   }

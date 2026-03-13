@@ -147,6 +147,29 @@ class TestSearchProductionDatabase:
                 meta = data["meta"]
                 assert isinstance(meta, dict)
 
+    def test_search_results_include_viewer_geometry_when_resource_has_locn_geometry(self):
+        """Search results with locn_geometry in attributes should have meta.ui.viewer.geometry."""
+        response = client.get("/search?q=shipping+pennsylvania&per_page=5")
+
+        if response.status_code == 200:
+            data = response.json()
+            results = data.get("data") or []
+            for item in results:
+                attrs = item.get("attributes", {})
+                ogm = attrs.get("ogm") or {}
+                locn = ogm.get("locn_geometry") or ogm.get("dcat_bbox")
+                if locn:
+                    meta = item.get("meta") or {}
+                    ui = meta.get("ui") or {}
+                    viewer = ui.get("viewer") or {}
+                    geom = viewer.get("geometry")
+                    assert geom is not None, (
+                        f"Resource {item.get('id')} has locn_geometry/dcat_bbox but "
+                        "meta.ui.viewer.geometry is missing"
+                    )
+                    assert geom.get("type") in ("Polygon", "MultiPolygon")
+                    assert "coordinates" in geom
+
     def test_search_endpoint_links_structure(self):
         """Test search endpoint links structure."""
         response = client.get("/search?q=test")

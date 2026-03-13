@@ -341,17 +341,23 @@ describe('SearchResults Component', () => {
       expect(screen.getByText('2.')).toBeInTheDocument();
     });
 
-    it('uses locn_geometry for hover display (not bbox) when available', () => {
-      const resultsWithLocnGeometry: GeoDocument[] = [
+    it('uses viewer geometry for hover display (not bbox) when available', () => {
+      const polygonCoords = [
+        [-97, 49],
+        [-87, 49],
+        [-87, 43],
+        [-97, 43],
+        [-97, 49],
+      ];
+      const resultsWithGeometry: GeoDocument[] = [
         {
           id: 'polygon-result',
           type: 'document',
           attributes: {
             ogm: {
               id: 'polygon-result',
-              dct_title_s: 'Result with complex locn_geometry',
-              locn_geometry:
-                'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
+              dct_title_s: 'Result with complex geometry',
+              locn_geometry: 'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
             },
           },
           meta: {
@@ -359,8 +365,8 @@ describe('SearchResults Component', () => {
               thumbnail_url: 'https://example.com/thumb.jpg',
               viewer: {
                 geometry: {
-                  type: 'Point',
-                  coordinates: [-92, 46],
+                  type: 'Polygon',
+                  coordinates: [polygonCoords],
                 },
               },
             },
@@ -370,7 +376,7 @@ describe('SearchResults Component', () => {
       render(
         <TestWrapper>
           <SearchResults
-            results={resultsWithLocnGeometry}
+            results={resultsWithGeometry}
             isLoading={false}
             totalResults={1}
             currentPage={1}
@@ -383,10 +389,67 @@ describe('SearchResults Component', () => {
       const parsed = JSON.parse(dataGeom!);
       expect(parsed.type).toBe('Polygon');
       expect(parsed.coordinates[0]).toHaveLength(5);
-      // locn_geometry extent -97 to -87 (not the Point at -92)
+      // meta.ui.viewer.geometry (same source as resource page LocationMap)
       const lons = parsed.coordinates[0].map((c: number[]) => c[0]);
       expect(Math.min(...lons)).toBe(-97);
       expect(Math.max(...lons)).toBe(-87);
+    });
+
+    it('uses MultiPolygon viewer geometry for hover (same as resource view, with dashed extent)', () => {
+      const multi: GeoJSON.MultiPolygon = {
+        type: 'MultiPolygon',
+        coordinates: [
+          [
+            [
+              [-75.6, 39.8],
+              [-75.8, 39.7],
+              [-80.5, 39.7],
+              [-80.5, 42.3],
+              [-75.6, 39.8],
+            ],
+          ],
+        ],
+      };
+      const resultsWithMulti: GeoDocument[] = [
+        {
+          id: 'multipolygon-result',
+          type: 'document',
+          attributes: {
+            ogm: {
+              id: 'multipolygon-result',
+              dct_title_s: 'Shipping Fairways [Pennsylvania]',
+              locn_geometry:
+                'MultiPolygon(((-75.6 39.8, -75.8 39.7, -80.5 39.7, -80.5 42.3, -75.6 39.8)))',
+            },
+          },
+          meta: {
+            ui: {
+              thumbnail_url: 'https://example.com/thumb.jpg',
+              viewer: { geometry: multi },
+            },
+          },
+        },
+      ];
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={resultsWithMulti}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+      const article = screen.getByRole('article');
+      const dataGeom = article.getAttribute('data-geom');
+      expect(dataGeom).not.toBe('');
+      const parsed = JSON.parse(dataGeom!);
+      expect(parsed.type).toBe('MultiPolygon');
+      expect(parsed.coordinates).toHaveLength(1);
+      expect(parsed.coordinates[0][0]).toHaveLength(5);
+      const lons = parsed.coordinates[0][0].map((c: number[]) => c[0]);
+      expect(Math.min(...lons)).toBe(-80.5);
+      expect(Math.max(...lons)).toBe(-75.6);
     });
 
     it('uses perPage for result numbering', () => {

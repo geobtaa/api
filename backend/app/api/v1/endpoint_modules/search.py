@@ -26,6 +26,7 @@ from app.elasticsearch.search import (
 )
 from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
+from app.services.viewer_service import create_viewer_attributes
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -139,6 +140,20 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         for rd in resource_data:
             d = lookup.get(rd["id"]) or {}
             obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
+            # Ensure meta.ui.viewer.geometry is present when resource has geometry.
+            # Search results must include it for map hover; ViewerService can miss it
+            # when keys/format differ from resource detail path.
+            if d and (d.get("locn_geometry") or d.get("dcat_bbox")):
+                ui = (obj.get("meta") or {}).get("ui") or {}
+                viewer_geom = (ui.get("viewer") or {}).get("geometry")
+                if not viewer_geom:
+                    viewer_attrs = create_viewer_attributes(d)
+                    geom = viewer_attrs.get("ui_viewer_geometry")
+                    if geom:
+                        obj.setdefault("meta", {})
+                        obj["meta"].setdefault("ui", {})
+                        obj["meta"]["ui"].setdefault("viewer", {})
+                        obj["meta"]["ui"]["viewer"]["geometry"] = geom
             # obj["attributes"] is already nested with "ogm" and "b1g" structure
             # from create_jsonapi_resource
             attrs = obj.get("attributes", {})

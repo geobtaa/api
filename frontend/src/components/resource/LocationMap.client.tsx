@@ -43,14 +43,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
 
     try {
       // Handle MultiPolygon by converting to individual Polygon features
+      // Standard GeoJSON: coordinates = [[ring1, hole?], [ring2], ...] per polygon
       let features;
       if (normalizedGeometry.type === 'MultiPolygon') {
-        features = normalizedGeometry.coordinates.map((polygonCoords) => {
+        features = normalizedGeometry.coordinates.map((polygonRings) => {
           return {
             type: 'Feature' as const,
             geometry: {
               type: 'Polygon' as const,
-              coordinates: [polygonCoords], // Wrap in array for proper Polygon structure
+              coordinates: polygonRings, // [exteriorRing, hole1?, ...]
             },
             properties: {},
           };
@@ -83,13 +84,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
           minLon = Infinity,
           maxLon = -Infinity;
 
-        normalizedGeometry.coordinates.forEach((polygonCoords) => {
-          polygonCoords.forEach((coord) => {
-            const [lon, lat] = coord;
-            minLat = Math.min(minLat, lat);
-            maxLat = Math.max(maxLat, lat);
-            minLon = Math.min(minLon, lon);
-            maxLon = Math.max(maxLon, lon);
+        normalizedGeometry.coordinates.forEach((polygonRings) => {
+          polygonRings.forEach((ring) => {
+            ring.forEach((coord) => {
+              const [lon, lat] = coord;
+              minLat = Math.min(minLat, lat);
+              maxLat = Math.max(maxLat, lat);
+              minLon = Math.min(minLon, lon);
+              maxLon = Math.max(maxLon, lon);
+            });
           });
         });
 

@@ -3,6 +3,7 @@ import type * as Leaflet from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { GeoDocument } from '../../types/api';
 import { useMap } from '../../context/MapContext';
+import { isValidGeoJsonForLeaflet } from '../../utils/geometryUtils';
 import { useSearchParams } from 'react-router';
 import { attachBasemapSwitcher } from '../../config/basemaps';
 
@@ -252,6 +253,7 @@ export function MapView({ results }: MapViewProps) {
           const L = await loadLeaflet();
           if (!mapRef.current) return;
           const parsedGeometry = JSON.parse(hoveredGeometry);
+          if (!isValidGeoJsonForLeaflet(parsedGeometry)) return;
           highlightLayerRef.current = L.geoJSON(parsedGeometry, {
             style: {
               color: '#2563eb',

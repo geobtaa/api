@@ -8,6 +8,7 @@ import { BookmarkButton } from './BookmarkButton';
 import { useBookmarks } from '../context/BookmarkContext';
 import { getResourceIcon } from '../utils/resourceIcons';
 import { getHoverGeometryForResult } from '../utils/geometryUtils';
+import { fetchResourceDetails } from '../services/api';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
 
@@ -30,7 +31,7 @@ export function SearchResults({
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
-  const { setHoveredGeometry, setHoveredResourceId } = useMap();
+  const { setHoveredGeometry, setHoveredResourceId, setGeometryIfHovering } = useMap();
   const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
@@ -207,12 +208,23 @@ export function SearchResults({
             className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative group"
             data-geom={hoverGeometry ?? ''}
             onMouseEnter={() => {
-              setHoveredGeometry(hoverGeometry);
-              if (setHoveredResourceId) setHoveredResourceId(result.id);
+              setHoveredResourceId?.(result.id);
+              if (hoverGeometry) {
+                setHoveredGeometry(hoverGeometry);
+              } else {
+                setHoveredGeometry(null);
+                // Fallback: search result may lack meta.ui.viewer.geometry; fetch full resource
+                fetchResourceDetails(result.id)
+                  .then((full) => {
+                    const geom = getHoverGeometryForResult(full);
+                    if (geom) setGeometryIfHovering(result.id, geom);
+                  })
+                  .catch(() => {});
+              }
             }}
             onMouseLeave={() => {
               setHoveredGeometry(null);
-              if (setHoveredResourceId) setHoveredResourceId(null);
+              setHoveredResourceId?.(null);
             }}
           >
             <div className="flex">

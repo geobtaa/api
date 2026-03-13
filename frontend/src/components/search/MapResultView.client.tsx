@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useRef } from 'react';
-import {
-  MapContainer,
-  GeoJSON,
-  useMap,
-} from 'react-leaflet';
+import { MapContainer, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import type { GeoDocument } from '../../types/api';
-import { getBboxFromGeometry, getCentroidFromGeometry, type Bounds } from '../../utils/geometryUtils';
+import {
+  geometryToLeafletFeatures,
+  getBboxFromGeometry,
+  getCentroidFromGeometry,
+  type Bounds,
+} from '../../utils/geometryUtils';
 import L from 'leaflet';
 import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfier';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
@@ -60,6 +61,99 @@ function parseBbox(bbox: string | undefined): Bounds | null {
 
   return null;
 }
+
+/** Imperatively add/remove hover overlay layer with try-catch to prevent Leaflet crashes from bad geometry.
+ * Matches LocationMap: polygons + dashed extent box for MultiPolygon. */
+const HighlightOverlayController: React.FC<{
+  highlightedGeometry: string | null;
+  highlightedResourceId: string | null;
+}> = ({ highlightedGeometry, highlightedResourceId }) => {
+  const map = useMap();
+  const geoJsonRef = useRef<L.GeoJSON | null>(null);
+  const rectRef = useRef<L.Rectangle | null>(null);
+
+  useEffect(() => {
+    const removeLayers = () => {
+      for (const ref of [geoJsonRef, rectRef]) {
+        if (!ref.current) continue;
+        try {
+          if (typeof map?.hasLayer === 'function' && map.hasLayer(ref.current)) {
+            map.removeLayer(ref.current);
+          }
+        } catch {
+          // Ignore cleanup errors (e.g. in test mocks)
+        }
+        ref.current = null;
+      }
+    };
+
+    removeLayers();
+
+    if (!highlightedGeometry || typeof highlightedGeometry !== 'string') return;
+
+    try {
+      const parsed = JSON.parse(highlightedGeometry) as
+        | GeoJSON.Polygon
+        | GeoJSON.MultiPolygon;
+      const features = geometryToLeafletFeatures(parsed);
+      if (features.length === 0) return;
+
+      // Same Feature format as LocationMap; try-catch handles any Leaflet errors
+      const geoJsonLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
+        style: {
+          color: '#f59e0b',
+          weight: 3,
+          opacity: 1,
+          fillOpacity: 0.25,
+          fillColor: '#f59e0b',
+        },
+      });
+      geoJsonLayer.addTo(map);
+      geoJsonRef.current = geoJsonLayer;
+
+      // Add dashed extent box for MultiPolygon (same as LocationMap)
+      if (parsed.type === 'MultiPolygon') {
+        let minLat = Infinity,
+          maxLat = -Infinity,
+          minLon = Infinity,
+          maxLon = -Infinity;
+        parsed.coordinates.forEach((polygonRings) => {
+          polygonRings.forEach((ring) => {
+            ring.forEach((coord) => {
+              const [lon, lat] = coord;
+              minLat = Math.min(minLat, lat);
+              maxLat = Math.max(maxLat, lat);
+              minLon = Math.min(minLon, lon);
+              maxLon = Math.max(maxLon, lon);
+            });
+          });
+        });
+        if (Number.isFinite(minLat)) {
+          const bounds = L.latLngBounds(
+            L.latLng(minLat, minLon),
+            L.latLng(maxLat, maxLon)
+          );
+          const rect = L.rectangle(bounds, {
+            color: '#f59e0b',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0,
+            dashArray: '10, 5',
+            className: 'multipolygon-extent',
+          });
+          rect.addTo(map);
+          rectRef.current = rect;
+        }
+      }
+    } catch {
+      // Silently ignore parse or Leaflet errors from bad coordinates
+    }
+
+    return removeLayers;
+  }, [map, highlightedGeometry, highlightedResourceId]);
+
+  return null;
+};
 
 // Controller: fit map to union of result bboxes when results change
 const MapInitialFitController: React.FC<{
@@ -272,17 +366,6 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
     return out;
   }, [results]);
 
-  const highlightedGeoJson = useMemo(() => {
-    if (!highlightedGeometry || typeof highlightedGeometry !== 'string') return null;
-    try {
-      const parsed = JSON.parse(highlightedGeometry);
-      // GeoJSON component expects Feature, FeatureCollection, or raw geometry
-      return parsed as GeoJSON.Feature | GeoJSON.FeatureCollection | GeoJSON.Geometry;
-    } catch {
-      return null;
-    }
-  }, [highlightedGeometry]);
-
   if (pins.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center text-slate-500 bg-gray-50 dark:bg-slate-900">
@@ -308,20 +391,11 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
           highlightedResourceId={highlightedResourceId ?? null}
         />
 
-        {/* Hover overlay: show complex locn_geometry on hover — no pan/zoom */}
-        {highlightedGeoJson && (
-          <GeoJSON
-            key={highlightedResourceId ?? 'hover'}
-            data={highlightedGeoJson}
-            style={{
-              color: '#f59e0b',
-              weight: 3,
-              opacity: 1,
-              fillOpacity: 0.25,
-              fillColor: '#f59e0b',
-            }}
-          />
-        )}
+        {/* Hover overlay: show complex locn_geometry on hover — no pan/zoom (imperative + try-catch prevents Leaflet crash) */}
+        <HighlightOverlayController
+          highlightedGeometry={highlightedGeometry ?? null}
+          highlightedResourceId={highlightedResourceId ?? null}
+        />
 
         <MapInitialFitController bounds={allBounds} />
       </MapContainer>
