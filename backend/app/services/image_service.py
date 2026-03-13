@@ -388,13 +388,46 @@ class ImageService:
                 pass
         return None
 
+    def _parse_legacy_references(self) -> Optional[Dict[str, Any]]:
+        """
+        Parse dct_references_s from metadata when distribution context is empty.
+        Used as fallback for OGM-harvested resources that lack resource_distributions rows.
+        """
+        raw = self.metadata.get("dct_references_s")
+        if not raw:
+            return None
+        if isinstance(raw, dict):
+            refs = raw
+        elif isinstance(raw, str):
+            try:
+                refs = json.loads(raw)
+            except (json.JSONDecodeError, TypeError):
+                return None
+        else:
+            return None
+        if not isinstance(refs, dict):
+            return None
+        result = dict(refs)
+        for uri in list(result.keys()):
+            if uri.startswith("https://iiif.io/"):
+                http_uri = "http://" + uri[len("https://") :]
+                result.setdefault(http_uri, result[uri])
+        return result
+
     def _get_thumbnail_source_url(
         self, references: Optional[Dict[str, Any]] = None
     ) -> Optional[str]:
         """
         Extract thumbnail source URL from references without making external calls.
         This method only does local string processing - no HTTP requests.
+
+        When distribution context (resource_distributions) is empty, falls back to
+        parsing dct_references_s from metadata (e.g. OGM-harvested resources).
         """
+        # Fall back to dct_references_s when distribution context is empty
+        if references is None and not self.by_uri:
+            references = self._parse_legacy_references()
+
         # b1g_image_ss takes priority: MUST use when present (BTAA curated image)
         b1g_image = self.metadata.get("b1g_image_ss")
         if b1g_image:

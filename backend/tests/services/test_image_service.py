@@ -601,11 +601,10 @@ class TestImageServiceThumbnailURL:
             service = ImageService(metadata)
             result = service.get_thumbnail_url()
 
-            # Should return either a cached URL, placeholder URL, or None
-            # depending on Redis connection and cache state
+            # Should return resource thumbnail URL, cached thumbnails URL, placeholder, or None
             assert result is None or isinstance(result, str)
             if result:
-                assert "thumbnails" in result or "placeholder" in result
+                assert "thumbnail" in result
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -625,6 +624,26 @@ class TestImageServiceThumbnailURL:
 
         except Exception as e:
             # Handle Redis connection errors gracefully
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_fallback_to_dct_references_s(self):
+        """When distribution context is empty, fall back to dct_references_s (OGM-harvested)."""
+        manifest_url = "https://figgy.princeton.edu/concern/scanned_maps/abc123/manifest"
+        metadata = {
+            "id": "princeton-1r66j4821",
+            "dct_references_s": json.dumps(
+                {
+                    "http://iiif.io/api/presentation#manifest": manifest_url,
+                    "http://schema.org/url": "https://catalog.princeton.edu/catalog/123",
+                }
+            ),
+        }
+        try:
+            service = ImageService(metadata)
+            # by_uri is empty (no distribution_context records); should use dct_references_s
+            source = service._get_thumbnail_source_url()
+            assert source == manifest_url
+        except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_get_thumbnail_url_references_as_dict(self):
@@ -981,10 +1000,10 @@ class TestImageServiceCacheInteractions:
             # Test the full flow without actual Redis interaction
             result = service.get_thumbnail_url()
 
-            # Should return None or placeholder URL
+            # Should return None or resource thumbnail URL (or cached thumbnails URL)
             assert result is None or isinstance(result, str)
             if result:
-                assert "thumbnails" in result
+                assert "thumbnail" in result
 
         except Exception as e:
             # Handle Redis connection errors gracefully

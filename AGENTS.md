@@ -110,6 +110,7 @@ Run from the **project root**. Key targets:
 | `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz`. |
 | `make db-import`       | Import that dump to remote (Kamal); destructive. |
 | `make db-sync`         | `db-export` then `db-import`. |
+| `make backfill-distributions` | Backfill resource_distributions for resources with dct_references_s but no distribution rows (e.g. OGM-harvested). |
 
 See `docs/make_tasks.md` for overrides (e.g. `COVERAGE_THRESHOLD`, `PARALLEL_WORKERS`).
 
