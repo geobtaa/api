@@ -1,6 +1,6 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
@@ -113,5 +113,23 @@ describe('AdvancedSearchBuilder', () => {
       const results = await axeWithWCAG22(container);
       expect(results).toHaveNoViolations();
     });
+  });
+
+  it('focuses first field with preventScroll so page does not jump when user has scrolled', async () => {
+    const focusSpy = vi.spyOn(HTMLSelectElement.prototype, 'focus');
+    vi.useFakeTimers();
+
+    try {
+      renderBuilder();
+
+      await act(async () => {
+        vi.advanceTimersByTime(200);
+      });
+
+      expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    } finally {
+      focusSpy.mockRestore();
+      vi.useRealTimers();
+    }
   });
 });

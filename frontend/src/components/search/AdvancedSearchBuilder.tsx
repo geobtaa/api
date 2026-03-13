@@ -107,8 +107,10 @@ export function AdvancedSearchBuilder({
       if (firstRowId && fieldSelectRefs.current[firstRowId]) {
         const selectElement = fieldSelectRefs.current[firstRowId];
         if (selectElement && selectElement.offsetParent !== null) {
-          // Element is visible and in the DOM
-          selectElement.focus();
+          // Element is visible and in the DOM.
+          // Use preventScroll: true so focus does not scroll the page when the user
+          // has already scrolled down to view results (avoids jumping back to form).
+          selectElement.focus({ preventScroll: true });
           hasFocusedInitial.current = true;
           return true;
         }
