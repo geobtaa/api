@@ -157,10 +157,13 @@ export function useSearch() {
     }
 
     if (facets !== undefined) {
-      // Clear existing include filters
+      // Clear existing include filters (preserve geo/bbox and year_range - they use distinct param structures)
       Array.from(newParams.keys())
         .filter(
-          (key) => key.startsWith('include_filters[') || key.startsWith('fq[')
+          (key) =>
+            (key.startsWith('include_filters[') || key.startsWith('fq[')) &&
+            !key.startsWith('include_filters[geo]') &&
+            !key.startsWith('include_filters[year_range]')
         )
         .forEach((key) => newParams.delete(key));
 

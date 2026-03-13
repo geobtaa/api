@@ -353,9 +353,13 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     }
 
     if (facets !== undefined) {
+      // Preserve geo/bbox and year_range - they use distinct param structures
       Array.from(newParams.keys())
         .filter(
-          (key) => key.startsWith('include_filters[') || key.startsWith('fq[')
+          (key) =>
+            (key.startsWith('include_filters[') || key.startsWith('fq[')) &&
+            !key.startsWith('include_filters[geo]') &&
+            !key.startsWith('include_filters[year_range]')
         )
         .forEach((key) => newParams.delete(key));
       facets.forEach(({ field, value }) =>

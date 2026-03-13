@@ -459,6 +459,47 @@ describe('useSearch', () => {
       });
     });
 
+    it('preserves geo bbox params when updating facets', async () => {
+      const geoAndFacetParams =
+        'q=&include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox' +
+        '&include_filters[geo][top_left][lat]=41.28&include_filters[geo][top_left][lon]=-90.76' +
+        '&include_filters[geo][bottom_right][lat]=34.59&include_filters[geo][bottom_right][lon]=-82.28' +
+        '&include_filters[gbl_resourceClass_sm][]=Maps';
+
+      const { result } = renderUseSearch(geoAndFacetParams);
+
+      act(() => {
+        result.current.updateSearch({ facets: [] });
+      });
+
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get('include_filters[geo][type]')).toBe('bbox');
+      expect(params.get('include_filters[geo][top_left][lat]')).toBe('41.28');
+      expect(params.get('include_filters[geo][bottom_right][lat]')).toBe(
+        '34.59'
+      );
+      expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
+    });
+
+    it('preserves year_range params when updating facets', async () => {
+      const params =
+        'q=&include_filters[year_range][start]=1910&include_filters[year_range][end]=1932' +
+        '&include_filters[gbl_resourceClass_sm][]=Maps';
+
+      const { result } = renderUseSearch(params);
+
+      act(() => {
+        result.current.updateSearch({ facets: [] });
+      });
+
+      const urlParams = new URLSearchParams(window.location.search);
+      expect(urlParams.get('include_filters[year_range][start]')).toBe('1910');
+      expect(urlParams.get('include_filters[year_range][end]')).toBe('1932');
+      expect(
+        urlParams.get('include_filters[gbl_resourceClass_sm][]')
+      ).toBeNull();
+    });
+
     it('updates advanced query parameter', async () => {
       const { result } = renderUseSearch('q=test');
 

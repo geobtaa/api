@@ -111,7 +111,8 @@ describe('SearchPage Logic', () => {
 
   const renderWithRouter = (
     initialUrl = '/search',
-    searchResults: JsonApiResponse | null = null
+    searchResults: JsonApiResponse | null = null,
+    options?: { returnRouter?: boolean }
   ) => {
     const routes = [
       {
@@ -133,7 +134,8 @@ describe('SearchPage Logic', () => {
       initialEntries: [initialUrl],
     });
 
-    return render(<RouterProvider router={router} />);
+    const result = render(<RouterProvider router={router} />);
+    return options?.returnRouter ? { ...result, router } : result;
   };
 
   it('renders Gallery View when view=gallery param is present', async () => {
@@ -173,6 +175,38 @@ describe('SearchPage Logic', () => {
     });
     expect(screen.queryByTestId('search-results-list')).not.toBeInTheDocument();
     expect(screen.queryByTestId('map-result-view')).not.toBeInTheDocument();
+  });
+
+  it('preserves bbox filter when removing facet from search constraints', async () => {
+    const bboxAndMapsUrl =
+      '/search?q=&view=map' +
+      '&include_filters%5Bgeo%5D%5Btype%5D=bbox' +
+      '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=41.28' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=-90.76' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=34.59' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=-82.28' +
+      '&include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Maps';
+
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    const { router } = renderWithRouter(bboxAndMapsUrl, results, {
+      returnRouter: true,
+    });
+
+    const mapsButton = screen.getByRole('button', {
+      name: /Resource Class: Maps/i,
+    });
+    await act(async () => {
+      mapsButton.click();
+    });
+
+    const params = new URLSearchParams(router.state.location.search);
+    expect(params.get('include_filters[geo][type]')).toBe('bbox');
+    expect(params.get('include_filters[geo][top_left][lat]')).toBe('41.28');
+    expect(params.get('include_filters[geo][bottom_right][lat]')).toBe(
+      '34.59'
+    );
+    expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
   });
 
   it('displays correct pagination text for initial gallery load', async () => {
