@@ -1,4 +1,4 @@
-.PHONY: lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -83,25 +83,33 @@ PRIME_RETRY_FAILURES ?=
 PRIME_RETRY_PLACEHELD ?=
 RESOURCE_IDS ?=
 
+# List all make targets with descriptions (like rake -T)
+help:
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-35s\033[0m %s\n", $$1, $$2}'
+
 # Run both linting and formatting checks (without modifying files)
-lint:
+lint: ## Check code with ruff (no modifications)
 	@echo "Checking code with ruff..."
 	ruff check backend/app/ backend/tests/ backend/scripts/
 
 # Format code in-place
-format:
+format: ## Format and fix code with ruff
 	@echo "Formatting code with ruff..."
 	ruff format backend/app/ backend/tests/ backend/scripts/
 	ruff check --fix backend/app/ backend/tests/ backend/scripts/
 
 # Check formatting only (for CI)
-lint-check:
+lint-check: ## CI-style lint/format check (no edits)
 	@echo "Checking formatting with ruff..."
 	ruff format --check backend/app/ backend/tests/ backend/scripts/
 	ruff check backend/app/ backend/tests/ backend/scripts/
 
 # Run just the tests with coverage threshold
-test:
+test: ## Run tests with coverage threshold
 	@echo "Setting up test database..."
 	@echo "Checking if test database exists..."
 	@if docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -lqt | cut -d \| -f 1 | grep -qw btaa_geospatial_api_test'; then \
@@ -125,7 +133,7 @@ test:
 	fi
 
 # Run just the tests without coverage threshold (for debugging)
-test-no-coverage:
+test-no-coverage: ## Run tests without coverage threshold
 	@echo "Running tests without coverage threshold..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
 		echo "Running tests in parallel with $(PARALLEL_WORKERS) workers..."; \
@@ -139,7 +147,7 @@ test-no-coverage:
 	fi
 
 # Run tests in parallel without coverage (fastest option for local development)
-test-fast:
+test-fast: ## Run tests in parallel, no coverage (fastest)
 	@echo "Running tests in parallel without coverage (fast mode)..."
 	@if [ -n "$(PARALLEL_WORKERS)" ] && [ "$(PARALLEL_WORKERS)" != "0" ]; then \
 		cd backend && \
@@ -152,7 +160,7 @@ test-fast:
 	fi
 
 # Force a fresh clone of the test database
-test-fresh-db:
+test-fresh-db: ## Recreate test DB from production
 	@echo "Force cloning fresh test database..."
 	@docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '"'"'btaa_geospatial_api'"'"' AND pid <> pg_backend_pid();"' || true
 	@docker compose exec -T paradedb bash -lc 'PGPASSWORD=$$POSTGRES_PASSWORD psql -U postgres -c "DROP DATABASE IF EXISTS btaa_geospatial_api_test;"' || true
@@ -160,7 +168,7 @@ test-fresh-db:
 	@echo "Fresh test database created!"
 
 # Run tests and compare coverage against previous run (fails if coverage drops)
-test-coverage-compare:
+test-coverage-compare: ## Compare coverage to BASELINE_COVERAGE
 	@echo "Running tests with coverage comparison..."
 	@if [ -n "$$BASELINE_COVERAGE" ]; then \
 		echo "Baseline coverage: $$BASELINE_COVERAGE%"; \
@@ -185,7 +193,7 @@ test-coverage-compare:
 	fi
 
 # Create a baseline coverage file for comparison
-test-coverage-baseline:
+test-coverage-baseline: ## Create baseline coverage for comparison
 	@echo "Creating baseline coverage file..."
 	pytest --cov=app --cov-report=term-missing --cov-report=html --cov-report=xml
 	BASELINE_COVERAGE=$$(grep -o 'line-rate="[^"]*"' coverage.xml | head -1 | sed 's/line-rate="\([^"]*\)"/\1/' | awk '{printf "%.0f", $$1 * 100}'); \
@@ -194,7 +202,7 @@ test-coverage-baseline:
 
 # Clear cached thumbnail for a resource (PMTiles/COG) so it can be regenerated.
 # Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT
-clear-thumbnail-cache:
+clear-thumbnail-cache: ## Clear thumbnail cache for RESOURCE_ID
 	@if [ -z "$(RESOURCE_ID)" ]; then \
 		echo "ERROR: RESOURCE_ID is required."; \
 		echo "Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT"; \
@@ -207,7 +215,7 @@ clear-thumbnail-cache:
 #   make prime-thumbnail-cache
 #   make prime-thumbnail-cache PRIME_LIMIT=500 PRIME_THUMBNAIL_CONCURRENCY=6
 #   make prime-thumbnail-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
-prime-thumbnail-cache:
+prime-thumbnail-cache: ## Prime thumbnail cache (PRIME_LIMIT, PRIME_BATCH_SIZE, etc.)
 	@echo "Priming thumbnail cache..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
@@ -224,7 +232,7 @@ prime-thumbnail-cache:
 #   make prime-static-map-cache
 #   make prime-static-map-cache PRIME_LIMIT=500 PRIME_STATIC_MAP_CONCURRENCY=3
 #   make prime-static-map-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
-prime-static-map-cache:
+prime-static-map-cache: ## Prime static-map cache
 	@echo "Priming static-map caches..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
@@ -237,7 +245,7 @@ prime-static-map-cache:
 		python scripts/prime_static_map_cache.py $$ARGS $(RESOURCE_IDS)'
 
 # Prime both visual caches in sequence.
-prime-visual-caches:
+prime-visual-caches: ## Prime thumbnail + static-map caches
 	@$(MAKE) --no-print-directory prime-thumbnail-cache \
 		PRIME_LIMIT="$(PRIME_LIMIT)" \
 		PRIME_BATCH_SIZE="$(PRIME_BATCH_SIZE)" \
@@ -254,17 +262,17 @@ prime-visual-caches:
 # Run PMTiles network integration test (proves raster thumbnail harvest works).
 # Requires network access. The fixture b1g_PJxxfKgpqpUT uses MVT PMTiles which may fail;
 # this test uses a known-good raster URL (pmtiles.io Stamen Toner).
-test-pmtiles-network:
+test-pmtiles-network: ## Run PMTiles raster thumbnail integration test (network)
 	@cd backend && uv run pytest -m network tests/tasks/test_worker_pmtiles_thumbnail.py -v
 
 # Run linting and then tests (for CI)
-lint-test: lint-check test
+lint-test: lint-check test ## Lint-check then test
 
 # Database export/import tasks
 # ─────────────────────────────────────────────────────────────────────────
 
 # Export local database to SQL dump file
-db-export:
+db-export: ## Export ParadeDB to tmp/btaa_geospatial_api_export.sql.gz
 	@echo "Exporting local ParadeDB database..."
 	@if [ -z "$$POSTGRES_PASSWORD" ]; then \
 		echo "ERROR: POSTGRES_PASSWORD environment variable is not set."; \
@@ -291,7 +299,7 @@ db-export:
 	@ls -lh tmp/btaa_geospatial_api_export.sql.gz
 
 # Import database dump to remote server via Kamal
-db-import:
+db-import: ## Import dump to remote (Kamal); destructive
 	@echo "Importing database to remote PostgreSQL..."
 	@if [ ! -f tmp/btaa_geospatial_api_export.sql.gz ]; then \
 		echo "ERROR: Export file not found. Run 'make db-export' first."; \
@@ -321,11 +329,11 @@ db-import:
 	@echo "✓ Import complete!"
 
 # Export and import in one command
-db-sync: db-export db-import
+db-sync: db-export db-import ## Export then import (db-export + db-import)
 	@echo "Database sync complete!"
 
 # Download latest production GBL Admin SQL dump from remote host
-gbl-admin-db-download:
+gbl-admin-db-download: ## Download latest GBL Admin production dump
 	@echo "Resolving latest production GBL Admin dump..."
 	@for cmd in ssh scp; do \
 		if ! command -v $$cmd >/dev/null 2>&1; then \
@@ -345,7 +353,7 @@ gbl-admin-db-download:
 	echo "Downloaded dump: $$LOCAL_GZ"
 
 # Decompress latest downloaded production GBL Admin dump (writes full .sql to disk; prefer gbl-admin-db-sync which streams)
-gbl-admin-db-unzip:
+gbl-admin-db-unzip: ## Decompress latest GBL Admin dump
 	@echo "Decompressing latest production GBL Admin dump..."
 	@if ! command -v gunzip >/dev/null 2>&1; then \
 		echo "ERROR: gunzip is not installed or not on PATH."; \
@@ -363,7 +371,7 @@ gbl-admin-db-unzip:
 	echo "Decompressed SQL: $$LOCAL_SQL"
 
 # Restore production GBL Admin dump to local ParadeDB. Uses .sql if present, otherwise streams from .gz (no extra disk).
-gbl-admin-db-restore:
+gbl-admin-db-restore: ## Restore GBL Admin dump to local ParadeDB
 	@echo "Restoring production GBL Admin SQL into local ParadeDB..."
 	@if ! command -v docker >/dev/null 2>&1; then \
 		echo "ERROR: docker is not installed or not on PATH."; \
@@ -425,17 +433,17 @@ gbl-admin-db-restore:
 		api bash -lc 'cd /app/backend && python db/migrations/bridge_old_production.py --create-view'
 
 # End-to-end: download latest dump and restore (streams from .gz; no decompression to disk)
-gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-restore
+gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-restore ## Download + restore GBL Admin dump
 	@echo "GBL Admin database sync complete!"
 
 # Add latest BTAA schema compatibility fields to resources table.
-gbl-admin-db-add-latest-btaa-fields:
+gbl-admin-db-add-latest-btaa-fields: ## Add BTAA schema fields to resources
 	@echo "Adding latest BTAA schema fields to resources table..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/add_latest_btaa_schema_fields.py'
 
 # Import resources from kithe_to_resources_bridge into btaa_geospatial_api.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
-gbl-admin-db-import-resources:
+gbl-admin-db-import-resources: ## Import resources from GBL Admin bridge
 	@echo "Importing resources from GBL Admin bridge view..."
 	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
 	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
@@ -469,7 +477,7 @@ gbl-admin-db-import-resources:
 
 # Populate resource_distributions from legacy document_distributions.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
-populate-distributions:
+populate-distributions: ## Populate distributions from legacy document_distributions
 	@echo "Populating resource_distributions from legacy document_distributions..."
 	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
 	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
@@ -503,7 +511,7 @@ populate-distributions:
 
 # Populate resource_data_dictionaries and resource_data_dictionary_entries from legacy tables.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
-populate-data-dictionaries:
+populate-data-dictionaries: ## Populate data dictionaries from legacy tables
 	@echo "Populating resource_data_dictionaries from legacy document_data_dictionaries..."
 	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
 	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
@@ -536,7 +544,7 @@ populate-data-dictionaries:
 		api bash -lc 'cd /app/backend && python db/migrations/migrate_resource_data_dictionaries.py'
 
 # Full GBL Admin import pipeline after restore.
-gbl-admin-db-import-all: gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries populate-relationships reindex
+gbl-admin-db-import-all: gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries populate-relationships reindex ## Full GBL Admin import pipeline
 	@echo "GBL Admin full import pipeline complete!"
 
 # Search indexing tasks
@@ -544,7 +552,7 @@ gbl-admin-db-import-all: gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import
 
 # Clear Elasticsearch read-only block (after freeing disk space post flood-stage).
 # Run this when reindex fails with "flood stage disk watermark exceeded"; then run make reindex.
-es-unblock:
+es-unblock: ## Clear ES read-only block (after disk watermark)
 	@echo "Clearing read-only block on all Elasticsearch indices..."
 	@docker compose exec -T elasticsearch curl -s -X PUT "http://localhost:9200/_all/_settings" \
 		-H "Content-Type: application/json" \
@@ -552,7 +560,7 @@ es-unblock:
 	@echo "Done. Run 'make reindex' if you need to reindex."
 
 # Reindex all resources into Elasticsearch using versioned index + alias swap.
-reindex:
+reindex: ## Atomic reindex (versioned index + alias swap)
 	@echo "Atomic reindex (versioned index + alias swap) in local Docker..."
 	@docker compose exec -T api bash -lc '\
 		set -e; \
@@ -574,18 +582,18 @@ reindex:
 	@$(MAKE) local-clear-search-cache
 
 # Reindex with benchmark timing output enabled.
-reindex-benchmark:
+reindex-benchmark: ## Reindex with benchmark timing
 	@$(MAKE) reindex REINDEX_BENCHMARK=true
 
 # Clear local API search cache via admin endpoint.
-local-clear-search-cache:
+local-clear-search-cache: ## Clear local search cache
 	@docker compose exec -T api bash -lc 'ADMIN_USER=$${ADMIN_USERNAME:-admin}; ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST "http://localhost:8000/api/v1/admin/cache/clear?cache_type=search"'
 
 # Refresh OpenGeoMetadata (OGM) harvest for all enabled weekly repos.
 # Uses ADMIN_USERNAME/ADMIN_PASSWORD from env or .env (defaults to admin/changeme).
-ogm-refresh: ogm-refresh-all
+ogm-refresh: ogm-refresh-all ## Alias for ogm-refresh-all
 
-ogm-refresh-all:
+ogm-refresh-all: ## Trigger OGM harvest for all enabled weekly repos
 	@echo "Triggering OGM harvest for all enabled weekly repos via $(OGM_API_URL)..."
 	@docker compose exec -T api bash -lc '\
 		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
@@ -599,7 +607,7 @@ ogm-refresh-all:
 
 # Refresh a single OpenGeoMetadata (OGM) repo.
 # Usage: make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl
-ogm-refresh-repo:
+ogm-refresh-repo: ## Trigger OGM harvest for one repo (OGM_REPO_NAME=...)
 	@if [ -z "$(OGM_REPO_NAME)" ]; then \
 		echo "ERROR: OGM_REPO_NAME is required."; \
 		echo "Usage: make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl"; \
@@ -620,7 +628,7 @@ ogm-refresh-repo:
 # Usage:
 #   make ogm-status                      # list recent runs
 #   make ogm-status OGM_RUN_ID=<run_id> # show one run detail
-ogm-status:
+ogm-status: ## Show OGM harvest status (OGM_RUN_ID=... for detail)
 	@echo "Fetching OGM harvest status from $(OGM_API_URL)..."
 	@docker compose exec -T api bash -lc '\
 		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
@@ -638,7 +646,7 @@ ogm-status:
 # Usage:
 #   make ogm-status-watch
 #   make ogm-status-watch OGM_RUN_ID=<run_id> OGM_STATUS_POLL_SECONDS=3
-ogm-status-watch:
+ogm-status-watch: ## Poll OGM harvest status continuously
 	@echo "Watching OGM harvest status (every $(OGM_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
 	@while true; do \
 		$(MAKE) --no-print-directory ogm-status OGM_RUN_ID="$(OGM_RUN_ID)"; \
@@ -647,7 +655,7 @@ ogm-status-watch:
 
 # Show only failed OGM harvest runs with error details.
 # Usage: make ogm-failures
-ogm-failures:
+ogm-failures: ## Show failed OGM harvest runs
 	@echo "Fetching failed OGM harvest runs from $(OGM_API_URL)..."
 	@docker compose exec -T api bash -lc '\
 		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
@@ -659,13 +667,13 @@ ogm-failures:
 # Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
 # Backfill resource_distributions for resources with dct_references_s but no distributions
 # (e.g. OGM-harvested resources). Run periodically or after bulk imports.
-backfill-distributions:
+backfill-distributions: ## Backfill resource_distributions for resources missing them
 	@echo "Backfilling resource_distributions for resources missing distributions..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/backfill_distributions.py'
 
 # Run after ingest or when relationship columns change. Search "Has part" filter uses DB + ES;
 # reindex copies resources.dct_isPartOf_sm into Elasticsearch for filtering.
-populate-relationships:
+populate-relationships: ## Populate resource_relationships from resources table
 	@echo "Populating resource_relationships from resources table..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/populate_relationships.py'
 
@@ -675,7 +683,7 @@ populate-relationships:
 # After ingest, run: make reindex
 FIXTURES_DIR ?= btaa_fixtures_data
 REPO_NAME ?= btaa_fixtures
-ingest:
+ingest: ## Ingest BTAA fixtures (FIXTURES_DIR=..., REPO_NAME=...)
 	@echo "Ingesting fixtures from data/fixtures/$(FIXTURES_DIR) into database..."
 	@docker compose exec -T api bash -lc '\
 		cd /app/backend && python scripts/ingest_btaa_fixtures.py "$(FIXTURES_DIR)" "$(REPO_NAME)"'
@@ -683,19 +691,19 @@ ingest:
 # Ingest featured resources (btaa_featured_resources) then reindex into Elasticsearch
 ingest-featured: FIXTURES_DIR := btaa_featured_resources
 ingest-featured: REPO_NAME := btaa_featured_resources
-ingest-featured:
+ingest-featured: ## Ingest btaa_featured_resources + reindex
 	@echo "Ingesting btaa_featured_resources into database..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/ingest_btaa_fixtures.py btaa_featured_resources btaa_featured_resources'
 	@echo "Reindexing into Elasticsearch..."
 	@$(MAKE) reindex
 
 # Verify H3 pyramid fields (h3_res2..h3_res8, geo_or_near_global) in Elasticsearch
-verify-h3-index:
+verify-h3-index: ## Verify H3 pyramid fields in Elasticsearch
 	@echo "Verifying H3 pyramid fields in Elasticsearch..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python3 scripts/verify_h3_index.py'
 
 # Reindex all resources into Elasticsearch on Kamal (single role run by default).
-kamal-reindex:
+kamal-reindex: ## Atomic reindex on Kamal
 	@echo "Atomic reindex on Kamal (role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -717,7 +725,7 @@ kamal-reindex:
 	@$(MAKE) kamal-clear-cache
 
 # Verify H3 pyramid fields on Kamal (single role run by default).
-kamal-verify-h3-index:
+kamal-verify-h3-index: ## Verify H3 index on Kamal
 	@echo "Verifying H3 pyramid fields on Kamal (role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -731,7 +739,7 @@ kamal-verify-h3-index:
 #   make kamal-clear-cache
 #   make kamal-clear-cache KAMAL_CACHE_TYPE=all
 #   make kamal-clear-cache KAMAL_CACHE_TYPE=suggest
-kamal-clear-cache:
+kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=...)
 	@echo "Clearing remote cache on Kamal (role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -749,7 +757,7 @@ kamal-clear-cache:
 #   source .kamal/secrets && make kamal-prime-thumbnail-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123"
 #   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_RETRY_FAILURES=1
 #   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_FORCE=1
-kamal-prime-thumbnail-cache:
+kamal-prime-thumbnail-cache: ## Prime thumbnail cache on Kamal
 	@echo "Priming thumbnail cache on Kamal (role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -769,14 +777,14 @@ kamal-prime-thumbnail-cache:
 
 # Frontend (Docker dev): clear Vite cache and restart dev server.
 # Use after changing optimizeDeps or when seeing "Failed to fetch dynamically imported module".
-frontend-reset:
+frontend-reset: ## Clear Vite cache and restart frontend-dev
 	@echo "Clearing Vite cache in frontend-dev and restarting..."
 	@docker compose exec -T frontend-dev rm -rf /app/node_modules/.vite 2>/dev/null || true
 	@docker compose restart frontend-dev
 	@echo "Frontend dev server restarted."
 
 # Cache management
-clear_cache:
+clear_cache: ## Flush Redis cache
 	@if [ -z "$(REDIS_PASSWORD)" ]; then \
 		echo "ERROR: REDIS_PASSWORD is not set. Populate it in your .env file."; \
 		exit 1; \

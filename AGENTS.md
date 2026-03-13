@@ -92,6 +92,7 @@ Run from the **project root**. Key targets:
 
 | Target                 | Description |
 |------------------------|-------------|
+| `make help`            | List all make targets with descriptions (like `rake -T`). |
 | `make lint`            | Backend: ruff check only. |
 | `make format`          | Backend: ruff format + fix. |
 | `make lint-check`      | Backend: CI-style lint/format check (no edits). |
