@@ -250,13 +250,17 @@ class StaticMapService:
             logger.error(f"Error extracting bbox from GeoJSON: {e}")
             return None
 
-    # Match show page (LocationMap) styling: #2563eb, fill 0.1, stroke 0.6, weight 2
-    _FILL_COLOR = staticmaps.Color(37, 99, 235, 26)  # 10% opacity
-    _STROKE_COLOR = staticmaps.Color(37, 99, 235, 153)  # 60% opacity
-    _LINE_WIDTH = 2
+    # Match show page (LocationMap) styling: #2563eb, fill ~3%, stroke 0.6, weight 2
+    _FILL_COLOR = staticmaps.Color(37, 99, 235, 13)  # ~3% opacity (lighter than original 10%)
+    _STROKE_COLOR = staticmaps.Color(37, 99, 235, 217)  # ~85% opacity
+    _STROKE_GLOW_COLOR = staticmaps.Color(
+        37, 99, 235, 51
+    )  # ~20% so inward bleed doesn't darken fill
+    _STROKE_GLOW_WIDTH = 5
+    _LINE_WIDTH = 3
     _TRANSPARENT_COLOR = staticmaps.Color(0, 0, 0, 0)
-    _MAP_VARIANT = "static_map_v4"
-    _BASEMAP_VARIANT = "static_basemap_v4"
+    _MAP_VARIANT = "static_map_v7"
+    _BASEMAP_VARIANT = "static_basemap_v5"
 
     def _ban_icon_image(self, size: int) -> Image.Image:
         """Render the provided ban SVG path exactly via Cairo."""
@@ -358,10 +362,12 @@ class StaticMapService:
         fill_color: Any | None = None,
         stroke_color: Any | None = None,
         width: int | None = None,
+        include_glow: bool = True,
     ) -> Optional[List[Any]]:
         """
         Convert GeoJSON geometry to py-staticmaps Area/Line objects (best geometry).
         Matches show page style: polygon fill + stroke, line stroke.
+        When include_glow=False (e.g. basemap variant), skip glow layers so no bbox/border is drawn.
         Returns None if geometry is not a supported GeoJSON type or parsing fails.
         """
         if not isinstance(geojson, dict):
@@ -390,6 +396,15 @@ class StaticMapService:
                     # Close ring (GeoJSON may list first point once at end; ensure closed)
                     if len(points) > 1:
                         points.append(points[0])
+                    # Glow layer first (when requested), then main area
+                    if include_glow:
+                        glow_area = staticmaps.Area(
+                            points,
+                            fill_color=self._TRANSPARENT_COLOR,
+                            color=self._STROKE_GLOW_COLOR,
+                            width=self._STROKE_GLOW_WIDTH,
+                        )
+                        objects.append(glow_area)
                     area = staticmaps.Area(
                         points,
                         fill_color=fill_color,
@@ -407,6 +422,14 @@ class StaticMapService:
                         points = coord_to_latlngs(ring)
                         if len(points) > 1:
                             points.append(points[0])
+                        if include_glow:
+                            glow_area = staticmaps.Area(
+                                points,
+                                fill_color=self._TRANSPARENT_COLOR,
+                                color=self._STROKE_GLOW_COLOR,
+                                width=self._STROKE_GLOW_WIDTH,
+                            )
+                            objects.append(glow_area)
                         area = staticmaps.Area(
                             points,
                             fill_color=fill_color,
@@ -426,6 +449,13 @@ class StaticMapService:
                         staticmaps.create_latlng(ymin, xmax),
                         staticmaps.create_latlng(ymin, xmin),
                     ]
+                    if include_glow:
+                        glow_line = staticmaps.Line(
+                            extent_points,
+                            color=self._STROKE_GLOW_COLOR,
+                            width=self._STROKE_GLOW_WIDTH,
+                        )
+                        objects.append(glow_line)
                     extent_line = staticmaps.Line(
                         extent_points,
                         color=stroke_color,
@@ -437,6 +467,13 @@ class StaticMapService:
                 if len(coordinates) < 2:
                     return None
                 points = coord_to_latlngs(coordinates)
+                if include_glow:
+                    glow_line = staticmaps.Line(
+                        points,
+                        color=self._STROKE_GLOW_COLOR,
+                        width=self._STROKE_GLOW_WIDTH,
+                    )
+                    objects.append(glow_line)
                 line = staticmaps.Line(
                     points,
                     color=stroke_color,
@@ -449,6 +486,13 @@ class StaticMapService:
                     if len(line_coords) < 2:
                         continue
                     points = coord_to_latlngs(line_coords)
+                    if include_glow:
+                        glow_line = staticmaps.Line(
+                            points,
+                            color=self._STROKE_GLOW_COLOR,
+                            width=self._STROKE_GLOW_WIDTH,
+                        )
+                        objects.append(glow_line)
                     line = staticmaps.Line(
                         points,
                         color=stroke_color,
@@ -624,12 +668,20 @@ class StaticMapService:
                     context.add_object(obj)
             else:
                 # Fallback: bbox rectangle only (e.g. ENVELOPE or dcat_bbox string)
+                # Glow layer first, then main rectangle
+                glow_rect = self._bbox_area(
+                    bbox_coords,
+                    fill_color=self._TRANSPARENT_COLOR,
+                    color=self._STROKE_GLOW_COLOR,
+                    width=self._STROKE_GLOW_WIDTH,
+                )
                 rectangle = self._bbox_area(
                     bbox_coords,
                     fill_color=self._FILL_COLOR,
                     color=self._STROKE_COLOR,
                     width=self._LINE_WIDTH,
                 )
+                context.add_object(glow_rect)
                 context.add_object(rectangle)
 
             # Render and cache (requires outbound HTTP for tiles)
@@ -675,6 +727,7 @@ class StaticMapService:
                     fill_color=self._TRANSPARENT_COLOR,
                     stroke_color=self._TRANSPARENT_COLOR,
                     width=self._LINE_WIDTH,
+                    include_glow=False,
                 )
                 if geojson_dict
                 else None

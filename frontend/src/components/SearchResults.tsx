@@ -111,6 +111,23 @@ export function SearchResults({
     }
   };
 
+  const getThumbnailUrlForView = (url: string): string => {
+    const base = toSsrThumbnailUrl(url);
+    // List view: use icon-on-gradient variant for resource thumbnail fallback
+    if (!isCompact) {
+      if (base.includes('/thumbnails/')) return base; // cached image, no variant
+      if (
+        base.includes('/resources/') &&
+        base.includes('/thumbnail') &&
+        !base.includes('/thumbnails/')
+      ) {
+        const sep = base.includes('?') ? '&' : '?';
+        return `${base}${sep}variant=icon-gradient`;
+      }
+    }
+    return base;
+  };
+
   // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
     return (currentPage - 1) * perPage + relativeIndex + 1;
@@ -302,7 +319,7 @@ export function SearchResults({
                       className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} rounded-l-lg`}
                     >
                       <img
-                        src={toSsrThumbnailUrl(fallbackThumbnailUrl)}
+                        src={getThumbnailUrlForView(fallbackThumbnailUrl)}
                         alt=""
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
@@ -311,7 +328,7 @@ export function SearchResults({
                             {
                               originalUrl: thumbnailUrl,
                               fallbackUrl: fallbackThumbnailUrl,
-                              transformedUrl: toSsrThumbnailUrl(fallbackThumbnailUrl),
+                              transformedUrl: getThumbnailUrlForView(fallbackThumbnailUrl),
                               error: e,
                               target: (e.target as HTMLImageElement)?.src,
                             }
@@ -326,7 +343,7 @@ export function SearchResults({
                             {
                               originalUrl: thumbnailUrl,
                               fallbackUrl: fallbackThumbnailUrl,
-                              transformedUrl: toSsrThumbnailUrl(fallbackThumbnailUrl),
+                              transformedUrl: getThumbnailUrlForView(fallbackThumbnailUrl),
                             }
                           );
                         }}

@@ -141,12 +141,27 @@ def _resource_class_label(resource_class_key: str) -> str:
     return labels.get(resource_class_key, "OTHER")
 
 
-def _svg_icon_shell(*, label: str, body: str, background_data_uri: str | None = None) -> str:
+def _svg_icon_shell(
+    *,
+    label: str,
+    body: str,
+    background_data_uri: str | None = None,
+    use_gradient: bool = False,
+) -> str:
     background = ""
     if background_data_uri:
         background = f"""
   <image href="{background_data_uri}" x="0" y="0" width="200" height="200" preserveAspectRatio="xMidYMid slice"/>
   <rect width="200" height="200" fill="#ffffff" opacity="0.28"/>"""
+    elif use_gradient:
+        background = """
+  <defs>
+    <linearGradient id="iconGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e2e8f0;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#cbd5e1;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" fill="url(#iconGrad)"/>"""
     return f"""<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="{label} thumbnail fallback">
   <title>{label} thumbnail fallback</title>
   {background}
@@ -155,7 +170,10 @@ def _svg_icon_shell(*, label: str, body: str, background_data_uri: str | None = 
 
 
 def _svg_resource_class_icon(
-    resource_class: str | None, background_data_uri: str | None = None
+    resource_class: str | None,
+    *,
+    background_data_uri: str | None = None,
+    use_gradient: bool = False,
 ) -> Response:
     """
     Return an SVG icon for the resource's first resource class.
@@ -206,6 +224,7 @@ def _svg_resource_class_icon(
         label=label,
         body=body.strip(),
         background_data_uri=background_data_uri,
+        use_gradient=use_gradient,
     )
     return Response(
         content=svg,
@@ -217,8 +236,22 @@ def _svg_resource_class_icon(
     )
 
 
-async def _svg_icon_for_resource(resource_dict: dict) -> Response:
-    """Return a resource-class icon, optionally layered over a basemap-only image."""
+async def _svg_icon_on_gradient(resource_dict: dict) -> Response:
+    """Return a resource-class icon on a gradient background (no map)."""
+    return _svg_resource_class_icon(
+        _get_first_resource_class(resource_dict),
+        use_gradient=True,
+    )
+
+
+async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-basemap") -> Response:
+    """
+    Return a resource-class icon, optionally layered over a basemap or gradient.
+    variant: 'icon-basemap' (default) = icon on basemap; 'icon-gradient' = icon on gradient.
+    """
+    if variant == "icon-gradient":
+        return await _svg_icon_on_gradient(resource_dict)
+
     background_data_uri = None
     resource_id = resource_dict.get("id")
     if resource_id:
@@ -261,9 +294,14 @@ def _svg_collection_icon() -> Response:
 async def get_resource_thumbnail(
     id: str,
     request: Request,
+    variant: str = "icon-basemap",
 ):
     """
     Get the thumbnail image for a resource.
+
+    Query params:
+        variant: 'icon-basemap' (default) = icon on map basemap; 'icon-gradient' = icon on gradient.
+        Only applies when serving the SVG fallback (no COG/PMTiles/etc).
 
     Follows the same pattern as static-maps:
     - Checks if thumbnail is cached
@@ -310,7 +348,7 @@ async def get_resource_thumbnail(
                     state_detail="No thumbnail source available; using placeholder",
                 )
             )
-            return await _svg_icon_for_resource(resource_dict)
+            return await _svg_icon_for_resource(resource_dict, variant=variant)
 
         # Check if we have a cached image
         image_hash = None
@@ -387,7 +425,7 @@ async def get_resource_thumbnail(
                         state_detail="PMTiles skip marker present; using placeholder",
                     )
                 )
-                return await _svg_icon_for_resource(resource_dict)
+                return await _svg_icon_for_resource(resource_dict, variant=variant)
 
         # For direct (non-manifest, non-COG, non-PMTiles) thumbnail URLs: probe once
         # so we don't stick on "Generating thumbnail" when source returns 404 or
@@ -417,7 +455,7 @@ async def get_resource_thumbnail(
                         state_detail="Thumbnail probe failed; using placeholder",
                     )
                 )
-                return await _svg_icon_for_resource(resource_dict)
+                return await _svg_icon_for_resource(resource_dict, variant=variant)
 
         # Image doesn't exist, trigger Celery task to fetch and cache it
         try:
@@ -511,6 +549,7 @@ async def get_resource_thumbnail(
 async def get_resource_thumbnail_no_cache(
     id: str,
     request: Request,
+    variant: str = "icon-basemap",
 ):
     """
     Regenerate and serve a thumbnail for a resource without relying on cached images.
@@ -538,7 +577,7 @@ async def get_resource_thumbnail_no_cache(
 
         source_url = image_service._get_thumbnail_source_url()
         if not source_url:
-            return await _svg_icon_for_resource(resource_dict)
+            return await _svg_icon_for_resource(resource_dict, variant=variant)
 
         # For COG: generate thumbnail synchronously
         if image_service._is_cog_url(source_url):
@@ -549,7 +588,7 @@ async def get_resource_thumbnail_no_cache(
                     media_type="image/png",
                     headers={"Cache-Control": "no-store"},
                 )
-            return await _svg_icon_for_resource(resource_dict)
+            return await _svg_icon_for_resource(resource_dict, variant=variant)
 
         # For PMTiles: generate thumbnail synchronously (raster tiles only; vector falls back)
         if image_service._is_pmtiles_url(source_url):
@@ -563,7 +602,7 @@ async def get_resource_thumbnail_no_cache(
                     media_type=content_type or "image/png",
                     headers={"Cache-Control": "no-store"},
                 )
-            return await _svg_icon_for_resource(resource_dict)
+            return await _svg_icon_for_resource(resource_dict, variant=variant)
 
         # Resolve manifests to actual image URLs when needed
         if image_service._is_manifest_url(source_url):

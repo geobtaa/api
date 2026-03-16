@@ -16,7 +16,9 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   if (!id) throw new Response("resource id is required", { status: 400 });
 
   const accept = request.headers.get("accept") || "image/*,*/*;q=0.8";
-  const upstream = await serverFetch(`/resources/${id}/thumbnail`, {
+  const url = new URL(request.url);
+  const query = url.search ? url.search : "";
+  const upstream = await serverFetch(`/resources/${id}/thumbnail${query}`, {
     headers: { Accept: accept },
   });
 
