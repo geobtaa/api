@@ -21,6 +21,10 @@ services:
       - CELERY_BROKER_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - CELERY_RESULT_BACKEND=redis://:${REDIS_PASSWORD}@redis:6379/1
       - LOG_LEVEL=DEBUG
+      - KITHE_BRIDGE_URL=${KITHE_BRIDGE_URL:-}
+      - KITHE_BRIDGE_TOKEN=${KITHE_BRIDGE_TOKEN:-}
+      - KITHE_BRIDGE_PAGE_SIZE=${KITHE_BRIDGE_PAGE_SIZE:-500}
+      - KITHE_BRIDGE_REQUEST_TIMEOUT=${KITHE_BRIDGE_REQUEST_TIMEOUT:-30}
       # Allow .env to control endpoint caching (default: true)
       - ENDPOINT_CACHE=${ENDPOINT_CACHE:-true}
       # Optional: emit X-Cache headers when caching is enabled
@@ -192,6 +196,10 @@ services:
       - IS_DOCKER=true
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - OPENAI_MODEL=${OPENAI_MODEL:-gpt-3.5-turbo}
+      - KITHE_BRIDGE_URL=${KITHE_BRIDGE_URL:-}
+      - KITHE_BRIDGE_TOKEN=${KITHE_BRIDGE_TOKEN:-}
+      - KITHE_BRIDGE_PAGE_SIZE=${KITHE_BRIDGE_PAGE_SIZE:-500}
+      - KITHE_BRIDGE_REQUEST_TIMEOUT=${KITHE_BRIDGE_REQUEST_TIMEOUT:-30}
     volumes:
       - ./logs:/app/logs
       - .:/app

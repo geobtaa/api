@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -74,6 +74,11 @@ KAMAL_API_URL ?=
 KAMAL_CACHE_TYPE ?= search
 OGM_API_URL ?= http://localhost:8000
 OGM_STATUS_POLL_SECONDS ?= 5
+BRIDGE_API_URL ?= http://localhost:8000
+BRIDGE_STATUS_POLL_SECONDS ?= 5
+BRIDGE_TRIGGER ?= manual
+BRIDGE_LIMIT ?=
+BLOG_API_URL ?= http://localhost:8000
 PRIME_LIMIT ?=
 PRIME_BATCH_SIZE ?= 100
 PRIME_THUMBNAIL_CONCURRENCY ?= 4
@@ -341,10 +346,29 @@ gbl-admin-db-download: ## Download latest GBL Admin production dump
 			exit 1; \
 		fi; \
 	done
-	@mkdir -p "$(GBL_ADMIN_LOCAL_DIR)"
-	@REMOTE_DUMP=$$(ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) "ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1"); \
+	@case "$(GBL_ADMIN_LOCAL_DIR)" in \
+		/Volumes/*) \
+			if [ ! -d "$(GBL_ADMIN_LOCAL_DIR)" ]; then \
+				echo "ERROR: GBL_ADMIN_LOCAL_DIR=$(GBL_ADMIN_LOCAL_DIR) does not exist."; \
+				echo "On macOS, /Volumes/* is a mount point; the directory is created by mounting a volume,"; \
+				echo "not by mkdir. Mount the drive (e.g. a volume named 'gbl_admin_restore') and retry."; \
+				echo "Alternatively, set GBL_ADMIN_LOCAL_DIR to a path on an existing mounted volume,"; \
+				echo "like /Volumes/<YourDrive>/gbl_admin_restore"; \
+				exit 1; \
+			fi ;; \
+		*) mkdir -p "$(GBL_ADMIN_LOCAL_DIR)" ;; \
+	esac
+	@REMOTE_DUMP=$$(ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) "ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB) | head -n 1"); \
+	SSH_STATUS=$$?; \
+	if [ $$SSH_STATUS -ne 0 ]; then \
+		echo "ERROR: ssh failed (host/auth/network)."; \
+		echo "Tried: ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) \"ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB)\""; \
+		exit $$SSH_STATUS; \
+	fi; \
 	if [ -z "$$REMOTE_DUMP" ]; then \
 		echo "ERROR: No remote dump matched $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB)."; \
+		echo "Tip: verify remote dir/glob via:"; \
+		echo "  ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) \"ls -1t $(GBL_ADMIN_REMOTE_DIR) | head\""; \
 		exit 1; \
 	fi; \
 	echo "Latest dump: $$REMOTE_DUMP"; \
@@ -663,6 +687,103 @@ ogm-failures: ## Show failed OGM harvest runs
 		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
 			"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs" \
 		| python -c "import json,sys; data=json.load(sys.stdin); failed=[r for r in data.get(\"runs\",[]) if r.get(\"ogm_status\")==\"failed\"]; print(\"No failed OGM runs found in current history window.\") if not failed else [print(\"ogm_id={0} repo={1} trigger={2} started_at={3}\\nerror={4}\\n\".format(r.get(\"ogm_id\"), r.get(\"ogm_repo_name\"), r.get(\"ogm_trigger\"), r.get(\"ogm_started_at\"), r.get(\"ogm_error\") or \"(none)\")) for r in failed]"'
+
+# Trigger a GIN blog sync via the admin endpoint.
+# Usage:
+#   make blog-sync              # queue via Celery (default)
+#   make blog-sync RUN_NOW=1    # run inline via FastAPI
+blog-sync: ## Trigger home page blog sync (RUN_NOW=1 for inline)
+	@echo "Triggering GIN blog sync via $(BLOG_API_URL)... (RUN_NOW=$(RUN_NOW))"
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		RUN_NOW_FLAG="$${RUN_NOW:-0}"; \
+		if [ "$$RUN_NOW_FLAG" = "1" ] || [ "$$RUN_NOW_FLAG" = "true" ] || [ "$$RUN_NOW_FLAG" = "TRUE" ]; then \
+			BODY='\''{"run_now": true}'\''; \
+		else \
+			BODY='\''{"run_now": false}'\''; \
+		fi; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BLOG_API_URL)/api/v1/admin/home/blog/sync" \
+			-H "Content-Type: application/json" \
+			-d "$$BODY"'
+	@echo
+	@echo "GIN blog sync request submitted."
+
+# Trigger a background crawl of the Geoportal bridge API.
+# Usage:
+#   make bridge-sync
+#   make bridge-sync BRIDGE_LIMIT=50
+#   make bridge-sync BRIDGE_TRIGGER=manual BRIDGE_LIMIT=25
+# Note: Each new sync cancels any running run and starts from page 1. Use
+#   make bridge-status  to check; only run bridge-sync again after the run has completed or failed.
+bridge-init: ## Ensure bridge sync tables exist
+	@echo "Ensuring bridge sync tables exist..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_bridge_sync_tables.py'
+
+bridge-sync: bridge-init ## Trigger background bridge sync
+	@echo "Triggering bridge sync via $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\"}"; \
+		if [ -n "$(BRIDGE_LIMIT)" ]; then BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\",\"limit\":$(BRIDGE_LIMIT)}"; fi; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync" \
+			-H "Content-Type: application/json" \
+			-d "$$BODY"'
+	@echo
+	@echo "Bridge sync request submitted."
+
+# Cancel all running bridge sync runs and revoke active/queued bridge_sync_all Celery tasks.
+bridge-cancel: bridge-init ## Cancel all bridge syncs and queued bridge sync tasks
+	@echo "Cancelling all bridge syncs via $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/cancel"'
+	@echo
+	@echo "Bridge sync cancel request completed."
+
+# Show bridge sync status snapshot.
+# Usage:
+#   make bridge-status
+#   make bridge-status BRIDGE_RUN_ID=<run_id>
+bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUN_ID=... for detail)
+	@echo "Fetching bridge sync status from $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)"; \
+		else \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs"; \
+		fi'
+	@echo
+
+# Continuously poll bridge sync status.
+# Usage:
+#   make bridge-status-watch
+#   make bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
+bridge-status-watch: bridge-init ## Poll bridge sync status continuously
+	@echo "Watching bridge sync status (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
+	@while true; do \
+		$(MAKE) --no-print-directory bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
+		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
+	done
+
+# Show only failed bridge sync runs with error details.
+bridge-failures: bridge-init ## Show failed bridge sync runs
+	@echo "Fetching failed bridge sync runs from $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs" \
+		| python -c "import json,sys; data=json.load(sys.stdin); failed=[r for r in data.get(\"runs\",[]) if r.get(\"bridge_status\")==\"failed\"]; print(\"No failed bridge sync runs found in current history window.\") if not failed else [print(\"bridge_id={0} trigger={1} started_at={2}\\nerror={3}\\n\".format(r.get(\"bridge_id\"), r.get(\"bridge_trigger\"), r.get(\"bridge_started_at\"), r.get(\"bridge_error\") or \"(none)\")) for r in failed]"'
 
 # Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
 # Backfill resource_distributions for resources with dct_references_s but no distributions

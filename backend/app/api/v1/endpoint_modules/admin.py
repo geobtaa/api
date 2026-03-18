@@ -22,9 +22,11 @@ from app.services.admin_service import (
     ResourceProcessingService,
 )
 from app.services.api_key_service import APIKeyService
+from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.services.cache_service import CacheService
 from app.services.gin_blog_service import GINBlogService
 from app.services.ogm_harvest.repository import OGMHarvestRepository
+from app.tasks.bridge_sync import bridge_sync_all
 from app.tasks.gin_blog_sync import gin_blog_sync
 from app.tasks.ogm_harvest import ogm_harvest_all, ogm_harvest_repo
 
@@ -64,6 +66,7 @@ _admin_service_dependency = Depends(get_admin_service)
 # API Key Service instance (handles its own async engine and session)
 api_key_service = APIKeyService()
 ogm_repo = OGMHarvestRepository()
+bridge_repo = BridgeSyncRepository()
 
 
 # Pydantic models for request/response
@@ -91,6 +94,11 @@ class TriggerOGMHarvestRequest(BaseModel):
     ogm_repo_name: Optional[str] = None
     ogm_all: bool = False
     ogm_trigger: str = "manual"
+
+
+class TriggerBridgeSyncRequest(BaseModel):
+    bridge_trigger: str = "manual"
+    limit: Optional[int] = None
 
 
 class TriggerGINBlogSyncRequest(BaseModel):
@@ -397,6 +405,71 @@ async def trigger_ogm_harvest(body: TriggerOGMHarvestRequest):
     return create_response({"queued": body.ogm_repo_name, "task_id": task.id})
 
 
+@router.post("/bridge/sync")
+async def trigger_bridge_sync(body: TriggerBridgeSyncRequest):
+    """Trigger a bridge sync crawl (enqueues Celery)."""
+    task = bridge_sync_all.delay(trigger=body.bridge_trigger, limit=body.limit)
+    return create_response(
+        {
+            "queued": "kithe_bridge",
+            "task_id": task.id,
+            "bridge_trigger": body.bridge_trigger,
+            "limit": body.limit,
+        }
+    )
+
+
+BRIDGE_SYNC_TASK_NAME = "bridge_sync_all"
+
+
+@router.post("/bridge/sync/cancel")
+async def cancel_bridge_sync():
+    """Cancel all running bridge sync runs and revoke active/reserved bridge_sync_all Celery tasks."""
+    import asyncio
+
+    runs_cancelled = await bridge_repo.cancel_all_running_runs(
+        reason="cancelled via admin (POST /bridge/sync/cancel)"
+    )
+
+    task_ids_revoked: List[str] = []
+    try:
+        from app.tasks.worker import celery_app
+
+        def _collect_and_revoke():
+            def task_ids_for_name(task_map: dict, name: str) -> List[str]:
+                ids = []
+                for _worker, tasks in task_map.items():
+                    for t in tasks or []:
+                        if t.get("name") == name and t.get("id"):
+                            ids.append(t["id"])
+                return ids
+
+            insp = celery_app.control.inspect(timeout=2.0)
+            active_map = insp.active() or {}
+            reserved_map = insp.reserved() or {}
+            active_ids = task_ids_for_name(active_map, BRIDGE_SYNC_TASK_NAME)
+            reserved_ids = [
+                tid for tid in task_ids_for_name(reserved_map, BRIDGE_SYNC_TASK_NAME)
+                if tid not in active_ids
+            ]
+            for tid in active_ids:
+                celery_app.control.revoke(tid, terminate=True)
+            for tid in reserved_ids:
+                celery_app.control.revoke(tid, terminate=False)
+            return active_ids + reserved_ids
+
+        task_ids_revoked = await asyncio.to_thread(_collect_and_revoke)
+    except Exception as e:
+        logger.warning("Celery revoke failed (runs still cancelled): %s", e)
+
+    return create_response(
+        {
+            "runs_cancelled": runs_cancelled,
+            "tasks_revoked": task_ids_revoked,
+        }
+    )
+
+
 @router.post("/home/blog/sync")
 async def trigger_home_blog_sync(body: TriggerGINBlogSyncRequest):
     """Trigger a GIN blog sync (enqueues Celery by default)."""
@@ -429,6 +502,57 @@ async def get_ogm_harvest_run(run_id: int):
     if not run:
         raise HTTPException(status_code=404, detail="Run not found")
     return create_response({"run": run})
+
+
+@router.get("/bridge/sync/runs")
+async def list_bridge_sync_runs(
+    status: Optional[str] = Query(None, description="Filter by bridge_status"),
+    limit: int = Query(50, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+):
+    runs = await bridge_repo.list_sync_runs(bridge_status=status, limit=limit, offset=offset)
+    return create_response({"runs": runs})
+
+
+@router.get("/bridge/sync/runs/{run_id}")
+async def get_bridge_sync_run(run_id: int):
+    run = await bridge_repo.get_sync_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return create_response({"run": run})
+
+
+@router.get("/bridge/sync/status")
+async def bridge_sync_status(
+    include_celery: bool = Query(False, description="Include Celery active tasks (best-effort)"),
+    runs_limit: int = Query(200, ge=1, le=1000, description="How many recent runs to summarize"),
+):
+    payload = await bridge_repo.list_status_counts(runs_limit=runs_limit)
+
+    if include_celery:
+        try:
+            import asyncio as _asyncio
+
+            from app.tasks.worker import celery_app
+
+            def _inspect_active():
+                insp = celery_app.control.inspect(timeout=1.0)
+                return insp.active() or {}
+
+            payload["celery_active"] = await _asyncio.to_thread(_inspect_active)
+        except Exception:
+            payload["celery_active"] = {"error": "celery inspect failed"}
+
+    return create_response(payload)
+
+
+@router.get("/bridge/missing")
+async def list_bridge_missing(
+    limit: int = Query(200, ge=1, le=2000),
+    offset: int = Query(0, ge=0),
+):
+    missing = await bridge_repo.list_missing(limit=limit, offset=offset)
+    return create_response({"missing": missing})
 
 
 @router.get("/ogm/harvest/status")

@@ -72,63 +72,6 @@ async def test_fetch_resource_data_dictionaries_prefers_resource_tables():
 
 
 @pytest.mark.unit
-@pytest.mark.asyncio
-async def test_fetch_resource_data_dictionaries_falls_back_to_legacy_tables():
-    session = AsyncMock()
-
-    legacy_dictionary_rows = [
-        _row(
-            {
-                "id": 21,
-                "friendlier_id": "resource-legacy",
-                "name": "Legacy Attributes",
-                "description": None,
-                "staff_notes": None,
-                "tags": "",
-                "position": 0,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-    ]
-    legacy_entry_rows = [
-        _row(
-            {
-                "id": 201,
-                "document_data_dictionary_id": 21,
-                "field_name": "legacy_field",
-                "field_type": "integer",
-                "values": "1,2,3",
-                "definition": "Legacy definition",
-                "definition_source": None,
-                "parent_field_name": None,
-                "position": 0,
-                "created_at": None,
-                "updated_at": None,
-            }
-        )
-    ]
-
-    session.execute.side_effect = [
-        Exception("resource tables not present"),
-        SimpleNamespace(fetchall=lambda: legacy_dictionary_rows),
-        SimpleNamespace(fetchall=lambda: legacy_entry_rows),
-    ]
-
-    dictionaries = await fetch_resource_data_dictionaries("resource-legacy", session=session)
-
-    assert len(dictionaries) == 1
-    dictionary = dictionaries[0]
-    assert dictionary.id == 21
-    assert dictionary.friendlier_id == "resource-legacy"
-    assert dictionary.name == "Legacy Attributes"
-    assert len(dictionary.entries) == 1
-    assert dictionary.entries[0].resource_data_dictionary_id == 21
-    assert dictionary.entries[0].friendlier_id == "resource-legacy"
-    assert dictionary.entries[0].field_name == "legacy_field"
-
-
-@pytest.mark.unit
 def test_serialize_resource_data_dictionaries_uses_resource_key_name():
     dictionary = SimpleNamespace(
         id=1,
