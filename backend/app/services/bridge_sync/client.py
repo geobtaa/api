@@ -51,11 +51,17 @@ class KitheBridgeClient:
             raise ValueError("KITHE_BRIDGE_TOKEN is required")
 
     def fetch_page(
-        self, *, cursor: Optional[str] = None, limit: Optional[int] = None
+        self,
+        *,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        changed_since: Optional[str] = None,
     ) -> BridgePage:
         params: Dict[str, Any] = {"limit": int(limit or self.page_size)}
         if cursor:
             params["cursor"] = cursor
+        if changed_since:
+            params["changed_since"] = changed_since
 
         for attempt in range(BRIDGE_FETCH_MAX_RETRIES):
             try:

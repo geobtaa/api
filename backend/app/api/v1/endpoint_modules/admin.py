@@ -99,6 +99,7 @@ class TriggerOGMHarvestRequest(BaseModel):
 class TriggerBridgeSyncRequest(BaseModel):
     bridge_trigger: str = "manual"
     limit: Optional[int] = None
+    changed_since: Optional[str] = None
 
 
 class TriggerGINBlogSyncRequest(BaseModel):
@@ -408,13 +409,21 @@ async def trigger_ogm_harvest(body: TriggerOGMHarvestRequest):
 @router.post("/bridge/sync")
 async def trigger_bridge_sync(body: TriggerBridgeSyncRequest):
     """Trigger a bridge sync crawl (enqueues Celery)."""
-    task = bridge_sync_all.delay(trigger=body.bridge_trigger, limit=body.limit)
+    if body.changed_since is not None:
+        task = bridge_sync_all.delay(
+            trigger=body.bridge_trigger,
+            limit=body.limit,
+            changed_since=body.changed_since,
+        )
+    else:
+        task = bridge_sync_all.delay(trigger=body.bridge_trigger, limit=body.limit)
     return create_response(
         {
             "queued": "kithe_bridge",
             "task_id": task.id,
             "bridge_trigger": body.bridge_trigger,
             "limit": body.limit,
+            "changed_since": body.changed_since,
         }
     )
 

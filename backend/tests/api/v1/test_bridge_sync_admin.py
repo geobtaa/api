@@ -30,6 +30,24 @@ async def test_trigger_bridge_sync_enqueues_task(mock_task):
 
 
 @pytest.mark.asyncio
+@patch("app.api.v1.endpoint_modules.admin.bridge_sync_all")
+async def test_trigger_bridge_sync_enqueues_task_with_changed_since(mock_task):
+    mock_task.delay.return_value = Mock(id="bridge-task-456")
+
+    cutoff = "2025-08-01T00:00:00Z"
+    response = await trigger_bridge_sync(
+        TriggerBridgeSyncRequest(bridge_trigger="manual", limit=25, changed_since=cutoff)
+    )
+
+    payload = json.loads(response.body)
+    assert payload["queued"] == "kithe_bridge"
+    assert payload["task_id"] == "bridge-task-456"
+    assert payload["limit"] == 25
+    assert payload["changed_since"] == cutoff
+    mock_task.delay.assert_called_once_with(trigger="manual", limit=25, changed_since=cutoff)
+
+
+@pytest.mark.asyncio
 @patch("app.api.v1.endpoint_modules.admin.bridge_repo")
 async def test_list_bridge_sync_runs_returns_runs(mock_repo):
     mock_repo.list_sync_runs = AsyncMock(

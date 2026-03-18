@@ -768,10 +768,39 @@ bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUN_ID=... for det
 # Usage:
 #   make bridge-status-watch
 #   make bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
-bridge-status-watch: bridge-init ## Poll bridge sync status continuously
+bridge-status-watch: bridge-init ## Poll bridge sync status continuously (current + last only)
 	@echo "Watching bridge sync status (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
 	@while true; do \
-		$(MAKE) --no-print-directory bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
+		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
+			$(MAKE) --no-print-directory bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
+		else \
+			docker compose exec -T api bash -lc '\
+				ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+				ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+				curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+					"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs?limit=10" \
+				| python -c '"'"'import json,sys; data=json.load(sys.stdin); runs=data.get("runs",[]) or []; \
+current=None; last=None; \
+def norm(s): return (s or "").lower(); \
+for r in runs: \
+    if norm(r.get("bridge_status"))=="running": current=r; break; \
+if current is None and runs: current=runs[0]; \
+for r in runs: \
+    if current is not None and r==current: continue; \
+    if last is None: last=r; break; \
+def summarize(r): \
+    if not r: return "(none)"; \
+    return "bridge_id={bridge_id} status={bridge_status} trigger={bridge_trigger} started_at={bridge_started_at} completed_at={bridge_completed_at} error={bridge_error}".format( \
+        bridge_id=r.get("bridge_id"), \
+        bridge_status=r.get("bridge_status"), \
+        bridge_trigger=r.get("bridge_trigger"), \
+        bridge_started_at=r.get("bridge_started_at"), \
+        bridge_completed_at=r.get("bridge_completed_at"), \
+        bridge_error=(r.get("bridge_error") or "").strip().replace("\\n"," ").replace("\\r"," ") \
+    ); \
+print("current: " + summarize(current)); \
+print("last:    " + summarize(last));'"'"''; \
+		fi; \
 		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
 	done
 

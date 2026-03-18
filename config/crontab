@@ -1,0 +1,15 @@
+# Cron job definitions for Kamal cron container.
+#
+# This file is copied into the Kamal image and loaded by:
+#   cat config/crontab | crontab -
+#
+# Notes:
+# - The cron schedule uses the cron container's local timezone.
+# - The bridge sync delta crawl uses `changed_since` for the previous UTC day at 00:00:00Z.
+
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Daily 2:00 AM: enqueue bridge sync delta crawl (yesterday 00:00:00Z).
+0 2 * * * python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+

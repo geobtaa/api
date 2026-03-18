@@ -29,12 +29,36 @@ def _run(coro: Coroutine[Any, Any, Any]) -> Any:
     soft_time_limit=60 * 60,
     time_limit=70 * 60,
 )
-def bridge_sync_all(self, trigger: str = "manual", limit: Optional[int] = None) -> Dict[str, Any]:
-    return _run(_bridge_sync_all_async(trigger=trigger, limit=limit))
+def bridge_sync_all(
+    self,
+    trigger: str = "manual",
+    limit: Optional[int] = None,
+    changed_since: Optional[str] = None,
+) -> Dict[str, Any]:
+    return _run(
+        _bridge_sync_all_async(
+            trigger=trigger,
+            limit=limit,
+            changed_since=changed_since,
+        )
+    )
 
 
-async def _bridge_sync_all_async(trigger: str, limit: Optional[int]) -> Dict[str, Any]:
+async def _bridge_sync_all_async(
+    trigger: str,
+    limit: Optional[int],
+    changed_since: Optional[str],
+) -> Dict[str, Any]:
     if not database.is_connected:
         await database.connect()
-    logger.info("Bridge sync starting: trigger=%s limit=%s", trigger, limit)
-    return await sync_bridge(trigger=trigger, limit=limit)
+    logger.info(
+        "Bridge sync starting: trigger=%s limit=%s changed_since=%s",
+        trigger,
+        limit,
+        changed_since,
+    )
+    return await sync_bridge(
+        trigger=trigger,
+        limit=limit,
+        changed_since=changed_since,
+    )

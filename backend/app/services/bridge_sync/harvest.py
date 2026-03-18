@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from app.services.bridge_sync.client import KitheBridgeClient
@@ -43,6 +43,7 @@ async def sync_bridge(
     *,
     trigger: str = "manual",
     limit: Optional[int] = None,
+    changed_since: Optional[str] = None,
     client: Optional[KitheBridgeClient] = None,
     importer: Optional[BridgeResourceImporter] = None,
     repo: Optional[BridgeSyncRepository] = None,
@@ -56,6 +57,23 @@ async def sync_bridge(
     client = client or KitheBridgeClient()
     importer = importer or BridgeResourceImporter(repo=repo)
 
+    changed_since_norm: Optional[str] = None
+    if changed_since:
+        # Normalize to UTC ISO-8601 with `Z` suffix, since the bridge expects that format.
+        try:
+            if changed_since.endswith("Z"):
+                dt = datetime.fromisoformat(changed_since[:-1] + "+00:00")
+            else:
+                dt = datetime.fromisoformat(changed_since)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            dt = dt.astimezone(timezone.utc)
+            changed_since_norm = dt.isoformat().replace("+00:00", "Z")
+        except Exception as exc:
+            raise ValueError(
+                f"changed_since must be an ISO-8601 datetime, got {changed_since!r}"
+            ) from exc
+
     run_id = await repo.create_sync_run(bridge_trigger=trigger)
     run_started_at = datetime.utcnow()
     await repo.cancel_other_running_runs(
@@ -66,10 +84,17 @@ async def sync_bridge(
     last_cursor: Optional[str] = None
     pages_processed = 0
     stats: Dict[str, Any] = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+    if changed_since_norm:
+        stats["changed_since"] = changed_since_norm
 
     try:
         while True:
-            page = await asyncio.to_thread(client.fetch_page, cursor=cursor, limit=limit)
+            page = await asyncio.to_thread(
+                client.fetch_page,
+                cursor=cursor,
+                limit=limit,
+                changed_since=changed_since_norm,
+            )
             pages_processed += 1
 
             page_stats = await importer.upsert_records(
@@ -99,10 +124,15 @@ async def sync_bridge(
                 raise RuntimeError("Bridge crawl did not receive next_cursor for the next page")
             cursor = page.next_cursor
 
-        missing_ids = await repo.mark_missing_stale(run_started_at=run_started_at)
-        retired_count = await repo.retire_missing_resources(
-            missing_ids, retired_at=datetime.utcnow()
-        )
+        missing_ids = []
+        retired_count = 0
+        # Delta crawl (`changed_since`) does not have a complete snapshot, so we
+        # must not retire "missing" resources that simply weren't returned.
+        if not changed_since_norm:
+            missing_ids = await repo.mark_missing_stale(run_started_at=run_started_at)
+            retired_count = await repo.retire_missing_resources(
+                missing_ids, retired_at=datetime.utcnow()
+            )
         stats.update(
             {
                 "stage": "complete",

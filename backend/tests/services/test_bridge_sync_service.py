@@ -24,8 +24,11 @@ class FakeBridgeClient:
         self.pages = pages
         self.calls = []
 
-    def fetch_page(self, *, cursor=None, limit=None):
-        self.calls.append({"cursor": cursor, "limit": limit})
+    def fetch_page(self, *, cursor=None, limit=None, changed_since=None):
+        call = {"cursor": cursor, "limit": limit}
+        if changed_since is not None:
+            call["changed_since"] = changed_since
+        self.calls.append(call)
         key = cursor or "__first__"
         return self.pages[key]
 
@@ -236,6 +239,130 @@ class TestBridgeSyncService:
             assert state_b is not None
             assert state_b["bridge_missing_since"] is not None
             assert state_b["bridge_retired_at"] is not None
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id.in_(
+                            ["bridge-sync-a", "bridge-sync-b"]
+                        )
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_downloads).where(
+                        resource_downloads.c.resource_id.in_(["bridge-sync-a", "bridge-sync-b"])
+                    )
+                )
+                await database.execute(
+                    delete(resource_licensed_accesses).where(
+                        resource_licensed_accesses.c.resource_id.in_(
+                            ["bridge-sync-a", "bridge-sync-b"]
+                        )
+                    )
+                )
+                await database.execute(
+                    delete(resource_assets).where(
+                        resource_assets.c.resource_id.in_(["bridge-sync-a", "bridge-sync-b"])
+                    )
+                )
+                await database.execute(
+                    delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
+                )
+            except Exception:
+                pass
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_delta_does_not_retire_missing_records(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        record_a = {
+            "id": "bridge-sync-a",
+            "import_id": "100",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync A",
+            "dct_description_sm": ["Record A"],
+            "dct_references_s": "[]",
+        }
+        record_b = {
+            "id": "bridge-sync-b",
+            "import_id": "101",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync B",
+            "dct_description_sm": ["Record B"],
+            "dct_references_s": "[]",
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            # Seed the DB with a full snapshot.
+            full_client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[record_a, record_b],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=full_client,
+                importer=importer,
+                repo=repo,
+            )
+
+            # Delta crawl returns only record_a since a cutoff date.
+            cutoff = "2025-08-01T00:00:00Z"
+            delta_client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[record_a],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            result = await sync_bridge(
+                trigger="manual",
+                limit=10,
+                changed_since=cutoff,
+                client=delta_client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["missing"] == 0
+            assert result["stats"]["retired"] == 0
+
+            # record_b should remain published (i.e., not retired just because it
+            # wasn't returned in the delta crawl).
+            row_b = await database.fetch_one(
+                select(
+                    resources.c.id,
+                    resources.c.publication_state,
+                    resources.c.b1g_publication_state_s,
+                    resources.c.b1g_dateRetired_s,
+                ).where(resources.c.id == "bridge-sync-b")
+            )
+            assert row_b is not None
+            assert row_b["publication_state"] == "published"
+            assert row_b["b1g_publication_state_s"] == "published"
+            assert row_b["b1g_dateRetired_s"] is None
+
+            state_b = await database.fetch_one(
+                select(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == "bridge-sync-b"
+                )
+            )
+            assert state_b is not None
+            assert state_b["bridge_missing_since"] is None
+            assert state_b["bridge_retired_at"] is None
+            assert delta_client.calls == [{"cursor": None, "limit": 10, "changed_since": cutoff}]
         finally:
             try:
                 await database.execute(
