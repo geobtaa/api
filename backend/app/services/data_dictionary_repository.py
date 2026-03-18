@@ -65,9 +65,7 @@ async def fetch_resource_data_dictionaries(
 
     entries_stmt = (
         select(resource_data_dictionary_entries)
-        .where(
-            resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(dictionary_ids)
-        )
+        .where(resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(dictionary_ids))
         .order_by(
             resource_data_dictionary_entries.c.resource_data_dictionary_id,
             resource_data_dictionary_entries.c.position,

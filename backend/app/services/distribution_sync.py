@@ -175,7 +175,7 @@ async def sync_distributions_for_batch(resource_rows: List[Dict[str, Any]]) -> T
 
 
 async def sync_document_distributions_for_batch(
-    nested_batch: List[Dict[str, Any]]
+    nested_batch: List[Dict[str, Any]],
 ) -> Tuple[int, int]:
     """
     Sync resource_distributions from bridge-provided document_distributions.

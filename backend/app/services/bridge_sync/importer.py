@@ -8,8 +8,8 @@ from typing import Any, Dict, List, Optional, Set
 from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.services.bridge_sync.nested_sync import sync_nested_for_batch
+from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.services.distribution_sync import (
     sync_distributions_for_batch,
     sync_document_distributions_for_batch,
@@ -220,7 +220,8 @@ class BridgeResourceImporter:
                         await sync_document_distributions_for_batch(nested)
                     except Exception as doc_dist_err:
                         logger.warning(
-                            "Document distribution sync failed for bridge batch; continuing. err=%s",
+                            "Document distribution sync failed for bridge batch; continuing. "
+                            "err=%s",
                             str(doc_dist_err),
                         )
                     try:
@@ -288,9 +289,7 @@ class BridgeResourceImporter:
                         "resource_id": str(rid),
                         "document_distributions": record.get("document_distributions") or [],
                         "document_downloads": record.get("document_downloads") or [],
-                        "document_licensed_accesses": record.get(
-                            "document_licensed_accesses"
-                        )
+                        "document_licensed_accesses": record.get("document_licensed_accesses")
                         or [],
                         "assets": record.get("assets") or [],
                     }

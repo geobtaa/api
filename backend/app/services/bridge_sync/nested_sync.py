@@ -90,9 +90,7 @@ async def _sync_licensed_accesses(grouped: Dict[str, List[Dict[str, Any]]]) -> N
 
 async def _sync_assets(grouped: Dict[str, List[Dict[str, Any]]]) -> None:
     for rid, assets in grouped.items():
-        await database.execute(
-            delete(resource_assets).where(resource_assets.c.resource_id == rid)
-        )
+        await database.execute(delete(resource_assets).where(resource_assets.c.resource_id == rid))
         if not assets:
             continue
 
@@ -149,4 +147,3 @@ async def sync_nested_for_batch(batch: List[Dict[str, Any]]) -> None:
         await _sync_licensed_accesses(by_licensed)
     if by_assets:
         await _sync_assets(by_assets)
-

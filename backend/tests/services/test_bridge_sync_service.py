@@ -116,9 +116,7 @@ class TestBridgeSyncService:
             )
             await database.execute(
                 delete(resource_licensed_accesses).where(
-                    resource_licensed_accesses.c.resource_id.in_(
-                        ["bridge-sync-a", "bridge-sync-b"]
-                    )
+                    resource_licensed_accesses.c.resource_id.in_(["bridge-sync-a", "bridge-sync-b"])
                 )
             )
             await database.execute(
@@ -181,7 +179,9 @@ class TestBridgeSyncService:
             assert second_result["stats"]["retired"] == 1
 
             downloads_a = await database.fetch_all(
-                select(resource_downloads).where(resource_downloads.c.resource_id == "bridge-sync-a")
+                select(resource_downloads).where(
+                    resource_downloads.c.resource_id == "bridge-sync-a"
+                )
             )
             assert len(downloads_a) == 1
             assert downloads_a[0]["label"] == "Download A"
@@ -248,9 +248,7 @@ class TestBridgeSyncService:
                 await database.execute(delete(bridge_sync_runs))
                 await database.execute(
                     delete(resource_downloads).where(
-                        resource_downloads.c.resource_id.in_(
-                            ["bridge-sync-a", "bridge-sync-b"]
-                        )
+                        resource_downloads.c.resource_id.in_(["bridge-sync-a", "bridge-sync-b"])
                     )
                 )
                 await database.execute(
@@ -262,9 +260,7 @@ class TestBridgeSyncService:
                 )
                 await database.execute(
                     delete(resource_assets).where(
-                        resource_assets.c.resource_id.in_(
-                            ["bridge-sync-a", "bridge-sync-b"]
-                        )
+                        resource_assets.c.resource_id.in_(["bridge-sync-a", "bridge-sync-b"])
                     )
                 )
                 await database.execute(

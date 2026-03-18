@@ -3,10 +3,14 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
+from sqlalchemy import select
+
 from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
 )
+from db.database import database
+from db.models import resource_assets
 
 logger = logging.getLogger(__name__)
 
@@ -273,3 +277,118 @@ class DownloadService:
             refs = raw
         self._legacy_refs_cache = refs
         return refs
+
+    def _format_file_size(self, file_size: Optional[int]) -> Optional[str]:
+        """Format file sizes for UI labels."""
+        if file_size is None:
+            return None
+        try:
+            size = int(file_size)
+        except (TypeError, ValueError):
+            return None
+
+        if size < 1024:
+            return f"{size} bytes"
+
+        units = ["KB", "MB", "GB", "TB", "PB"]
+        value = float(size)
+        unit_index = -1
+        while value >= 1024 and unit_index < len(units) - 1:
+            value /= 1024
+            unit_index += 1
+
+        # Keep it compact: 1 decimal place is usually enough.
+        unit = units[max(unit_index, 0)]
+        return f"{value:.1f} {unit}"
+
+    async def get_download_options_with_bridge_asset_downloads(
+        self,
+    ) -> List[Dict]:
+        """
+        Extend `get_download_options()` with downloads coming from `resource_assets`.
+
+        The bridge API stores these in:
+        - `resource_assets.dct_references_uri_key == "download"`
+        - `resource_assets.file_url` for the actual link
+        - `resource_assets.file_size` for UI label size hints
+        - `resource_assets.label` for the link text
+        """
+        base_downloads = self.get_download_options()
+
+        resource_id = self.document.get("id") or ""
+        if not resource_id:
+            return base_downloads
+
+        try:
+            if not database.is_connected:
+                await database.connect()
+
+            query = (
+                select(
+                    resource_assets.c.label,
+                    resource_assets.c.title,
+                    resource_assets.c.file_url,
+                    resource_assets.c.file_mime_type,
+                    resource_assets.c.file_size,
+                    resource_assets.c.position,
+                    resource_assets.c.id,
+                )
+                .where(
+                    resource_assets.c.resource_id == resource_id,
+                    resource_assets.c.dct_references_uri_key == "download",
+                    resource_assets.c.file_url.is_not(None),
+                )
+                .order_by(resource_assets.c.position.asc(), resource_assets.c.id.asc())
+            )
+
+            rows = await database.fetch_all(query)
+        except Exception:
+            logger.exception(
+                "Failed to fetch bridge asset downloads for resource %s",
+                resource_id,
+            )
+            return base_downloads
+
+        existing_by_url = {d.get("url"): d for d in base_downloads if d.get("url")}
+        downloads: List[Dict] = list(base_downloads)
+
+        for row in rows:
+            # `databases` Record behaves like a mapping; dict works too in tests.
+            try:
+                file_url = row["file_url"]
+                label = row["label"]
+                title = row["title"]
+                file_size = row["file_size"]
+                file_mime_type = row["file_mime_type"]
+            except Exception:
+                continue
+
+            if not isinstance(file_url, str):
+                continue
+            file_url = file_url.strip()
+            if not file_url:
+                continue
+
+            if not label:
+                label = title
+            if not label:
+                label = self._default_download_label(file_url)
+
+            formatted_size = self._format_file_size(file_size)
+            display_label = f"{label} ({formatted_size})" if formatted_size else str(label)
+
+            type_value = file_mime_type if isinstance(file_mime_type, str) else "unknown"
+
+            if file_url in existing_by_url:
+                continue
+
+            downloads.append(
+                {
+                    "label": display_label,
+                    "url": file_url,
+                    "type": type_value,
+                    "format": type_value,
+                }
+            )
+
+        return downloads

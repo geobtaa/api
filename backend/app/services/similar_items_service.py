@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.elasticsearch.search import find_similar_resources
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
-from db.models import resources
+from db.models import resource_assets, resources
 
 logger = logging.getLogger(__name__)
 
@@ -75,11 +75,36 @@ class SimilarItemsService:
                 # Get thumbnail URL using ImageService
                 thumbnail_url = None
                 try:
-                    distribution_context = await fetch_distribution_context(similar_id)
-                    image_service = ImageService(
-                        resource_dict, distribution_context=distribution_context
+                    # Prefer bridge-provided thumbnail-capable asset (same logic
+                    # as resource-view meta.ui.thumbnail_url).
+                    bridge_thumb_stmt = (
+                        select(resource_assets.c.file_url)
+                        .where(
+                            resource_assets.c.resource_id == similar_id,
+                            resource_assets.c.thumbnail.is_(True),
+                            resource_assets.c.file_url.is_not(None),
+                        )
+                        .order_by(
+                            resource_assets.c.position.asc(),
+                            resource_assets.c.id.asc(),
+                        )
+                        .limit(1)
                     )
-                    thumbnail_url = image_service.get_thumbnail_url()
+                    thumb_row = await session.execute(bridge_thumb_stmt)
+                    bridge_file_url = thumb_row.scalar_one_or_none()
+                    if isinstance(bridge_file_url, str):
+                        bridge_file_url = bridge_file_url.strip()
+                        if bridge_file_url:
+                            thumbnail_url = bridge_file_url
+
+                    # Fallback to existing endpoint-based thumbnail behavior.
+                    if not thumbnail_url:
+                        distribution_context = await fetch_distribution_context(similar_id)
+                        image_service = ImageService(
+                            resource_dict,
+                            distribution_context=distribution_context,
+                        )
+                        thumbnail_url = image_service.get_thumbnail_url()
                 except Exception as e:
                     logger.warning(
                         f"Error getting thumbnail for similar resource {similar_id}: {str(e)}"

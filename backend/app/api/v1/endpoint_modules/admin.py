@@ -424,7 +424,8 @@ BRIDGE_SYNC_TASK_NAME = "bridge_sync_all"
 
 @router.post("/bridge/sync/cancel")
 async def cancel_bridge_sync():
-    """Cancel all running bridge sync runs and revoke active/reserved bridge_sync_all Celery tasks."""
+    """Cancel all running bridge sync runs and revoke active/reserved
+    bridge_sync_all Celery tasks."""
     import asyncio
 
     runs_cancelled = await bridge_repo.cancel_all_running_runs(
@@ -449,7 +450,8 @@ async def cancel_bridge_sync():
             reserved_map = insp.reserved() or {}
             active_ids = task_ids_for_name(active_map, BRIDGE_SYNC_TASK_NAME)
             reserved_ids = [
-                tid for tid in task_ids_for_name(reserved_map, BRIDGE_SYNC_TASK_NAME)
+                tid
+                for tid in task_ids_for_name(reserved_map, BRIDGE_SYNC_TASK_NAME)
                 if tid not in active_ids
             ]
             for tid in active_ids:

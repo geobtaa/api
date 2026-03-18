@@ -594,7 +594,7 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
 
     # Use DownloadService to get download options
     download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    ui_downloads = download_service.get_download_options()
+    ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads()
 
     # Use LinkService to get links
     link_service = LinkService(resource_dict, distribution_context=distribution_context)
@@ -760,7 +760,7 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
 
     # Use DownloadService to get download options
     download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    ui_downloads = download_service.get_download_options()
+    ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads()
 
     # Use LinkService to get links
     link_service = LinkService(resource_dict, distribution_context=distribution_context)
