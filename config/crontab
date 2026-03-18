@@ -13,3 +13,6 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Daily 2:00 AM: enqueue bridge sync delta crawl (yesterday 00:00:00Z).
 0 2 * * * python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 
+# Daily 3:00 AM: enqueue blog sync (Celery)
+0 3 * * * python3 /app/scripts/trigger_blog_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+
