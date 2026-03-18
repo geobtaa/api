@@ -9,7 +9,7 @@ from fastapi import Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.sql import select
 
-from app.api.v1.utils import sanitize_for_json
+from app.api.v1.utils import _get_thumbnail_asset_url, sanitize_for_json
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
@@ -329,6 +329,20 @@ async def get_resource_thumbnail(
         # Check for restricted access rights
         if resource_dict.get("dct_accessrights_s") == "Restricted":
             return _svg_placeholder(title="Thumbnail unavailable", subtitle="Restricted resource")
+
+        # Prefer bridge-synced thumbnail assets (e.g., S3-backed thumbnails) when present.
+        # These are exposed in meta.ui.thumbnail_url for API clients, but we also want the
+        # legacy /resources/{id}/thumbnail endpoint to serve them directly.
+        asset_url = await _get_thumbnail_asset_url(id)
+        if asset_url:
+            return RedirectResponse(
+                url=asset_url,
+                status_code=302,
+                headers={
+                    # Allow browsers/CDNs to cache the concrete image URL aggressively.
+                    "Cache-Control": "public, max-age=31536000, immutable",
+                },
+            )
 
         # Get distribution context and image service
         distribution_context = await fetch_distribution_context(id)
