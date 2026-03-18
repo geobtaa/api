@@ -858,9 +858,12 @@ kamal-verify-h3-index: ## Verify H3 index on Kamal
 # Clear API cache on Kamal via admin endpoint (defaults to search cache).
 # Usage:
 #   make kamal-clear-cache
-#   make kamal-clear-cache KAMAL_CACHE_TYPE=all
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=resource
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=search
 #   make kamal-clear-cache KAMAL_CACHE_TYPE=suggest
-kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=...)
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=map
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=all
+kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=search|resource|suggest|map|all)
 	@echo "Clearing remote cache on Kamal (role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
