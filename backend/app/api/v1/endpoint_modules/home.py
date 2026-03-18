@@ -73,15 +73,9 @@ async def list_home_blog_posts(
         None, description="Optional tag filter (exact match, case-insensitive)"
     ),
 ):
-    pinned_from_query: List[str] = []
-    if request is not None:
-        pinned_from_query = [
-            slug
-            for slug in request.query_params.getlist("pinned_slugs")
-            if isinstance(slug, str) and slug.strip()
-        ]
-
-    resolved_pins = pinned_from_query if pinned_from_query else _pinned_slugs_for_theme(theme)
+    # Pinned entries are no longer configured via `theme.yaml`.
+    # Homepage blog cards should come purely from database ordering by `published_at`.
+    resolved_pins: List[str] = []
     try:
         payload = await gin_blog_service.list_home_posts(
             limit=limit,

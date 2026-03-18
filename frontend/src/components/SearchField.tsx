@@ -5,9 +5,10 @@ import { useNavigate, useSearchParams } from 'react-router';
 import type { GazetteerPlace } from '../types/api';
 
 function useMediaQuery(query: string): boolean {
-  const [matches, setMatches] = useState(() =>
-    typeof window !== 'undefined' ? window.matchMedia(query).matches : false
-  );
+  // SSR-safe: during the initial server render and the initial client hydration
+  // we must return the same value, otherwise React will warn about mismatched
+  // `className`/markup. We'll compute the real value after mount.
+  const [matches, setMatches] = useState(false);
   useEffect(() => {
     const m = window.matchMedia(query);
     const handler = (e: MediaQueryListEvent) => setMatches(e.matches);
