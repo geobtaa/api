@@ -82,6 +82,7 @@ env:
     GAZETTEER_CACHE_TTL:   "3600"
     APP_MODE:              production
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
+    KITHE_BRIDGE_URL:      https://geo.btaa.org/api/kithe_bridge
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
     # IMPORTANT: tells db/config.py not to rewrite Docker hostnames to localhost:2345
@@ -94,6 +95,7 @@ env:
     - REDIS_PASSWORD
     - POSTGRES_PASSWORD
     - DATABASE_URL
+    - KITHE_BRIDGE_TOKEN
     - OPENAI_API_KEY
     - OPENAI_MODEL
     - ADMIN_USERNAME

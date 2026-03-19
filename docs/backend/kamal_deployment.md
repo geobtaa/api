@@ -76,6 +76,9 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 # API key used by the SSR server for server-side loaders (server-only; not exposed to browser)
 BTAA_GEOSPATIAL_API_KEY=your_frontend_api_key_here
+
+# Geoportal bridge sync (worker crawls geo.btaa.org for resource metadata)
+KITHE_BRIDGE_TOKEN=your_bridge_api_token_here
 EOF
 
 # Secure the file
@@ -503,6 +506,7 @@ ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
 - **Worker can't reach Redis** – CELERY_BROKER_URL / REDIS_HOST; accessories must have `roles: [web, worker, flower]`
 - **Worker can't reach ParadeDB** – DATABASE_URL; same role check
 - **Task crashed before `create_sync_run`** – e.g. `database.connect()` failure; check worker logs for tracebacks
+- **`ValueError: KITHE_BRIDGE_URL is required`** or **`KITHE_BRIDGE_TOKEN is required`** – Add these to `config/deploy.yml` (URL in `env.clear`, token in `env.secret`) and ensure `KITHE_BRIDGE_TOKEN` is in `.kamal/secrets`; redeploy
 
 ### Image Build Failures
 
