@@ -378,48 +378,57 @@ resource_distributions = Table(
     Column("import_distribution_id", String(255), nullable=True),
 )
 
-# Read-only data dictionary tables imported from legacy Rails app.
-document_data_dictionaries = Table(
-    "document_data_dictionaries",
+# Resource downloads table
+resource_downloads = Table(
+    "resource_downloads",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("friendlier_id", String(255), nullable=False, index=True),
-    Column("name", String(255), nullable=True),
-    Column("description", Text, nullable=True),
-    Column("staff_notes", Text, nullable=True),
-    Column("tags", String(4096), nullable=False, server_default=""),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("label", String(255), nullable=True),
+    Column("value", Text, nullable=True),
     Column("position", Integer, nullable=False, server_default="0"),
+    Column("import_download_id", String(255), nullable=True, index=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
 
-document_data_dictionary_entries = Table(
-    "document_data_dictionary_entries",
+# Resource licensed accesses table
+resource_licensed_accesses = Table(
+    "resource_licensed_accesses",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column(
-        "document_data_dictionary_id",
-        Integer,
-        ForeignKey("document_data_dictionaries.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-    ),
-    Column("friendlier_id", String(255), nullable=False),
-    Column("field_name", String(255), nullable=False),
-    Column("field_type", String(255), nullable=True),
-    Column("values", Text, nullable=True),
-    Column("definition", Text, nullable=True),
-    Column("definition_source", Text, nullable=True),
-    Column("parent_field_name", String(255), nullable=True),
-    Column("position", Integer, nullable=False, server_default="0"),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("institution_code", String(255), nullable=False, index=True),
+    Column("access_url", Text, nullable=False),
+    Column("legacy_friendlier_id", String(255), nullable=True, index=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
-    UniqueConstraint(
-        "document_data_dictionary_id",
-        "friendlier_id",
-        "field_name",
-        name="uq_document_data_dictionary_entries_dict_friendlier_field",
-    ),
+)
+
+# Resource assets table
+resource_assets = Table(
+    "resource_assets",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("bridge_asset_id", String(255), nullable=True, index=True),
+    Column("bridge_parent_id", String(255), nullable=True, index=True),
+    Column("friendlier_id", String(255), nullable=True, index=True),
+    Column("title", String(500), nullable=True),
+    Column("label", String(255), nullable=True),
+    Column("thumbnail", Boolean, nullable=False, server_default="false", index=True),
+    Column("dct_references_uri_key", String(255), nullable=True),
+    Column("position", Integer, nullable=False, server_default="0"),
+    Column("file_url", Text, nullable=True),
+    Column("file_mime_type", String(255), nullable=True),
+    Column("file_size", Integer, nullable=True),
+    Column("file_width", Integer, nullable=True),
+    Column("file_height", Integer, nullable=True),
+    Column("file_md5", String(64), nullable=True),
+    Column("file_sha1", String(64), nullable=True),
+    Column("file_sha512", String(128), nullable=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
 
 # Resource-scoped data dictionary tables (new naming).
@@ -583,6 +592,33 @@ ogm_resource_state = Table(
     Column("ogm_source_commit_sha", String(64), nullable=True),
     Column("ogm_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("ogm_updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+bridge_sync_runs = Table(
+    "bridge_sync_runs",
+    metadata,
+    Column("bridge_id", Integer, primary_key=True, autoincrement=True),
+    Column("bridge_trigger", String(20), nullable=False),
+    Column("bridge_started_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("bridge_completed_at", TIMESTAMP, nullable=True),
+    Column("bridge_status", String(20), nullable=True, index=True),
+    Column("bridge_stats_json", JSON, nullable=True),
+    Column("bridge_last_cursor", String(255), nullable=True),
+    Column("bridge_error", Text, nullable=True),
+    Column("bridge_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+bridge_resource_state = Table(
+    "bridge_resource_state",
+    metadata,
+    Column("bridge_resource_id", String(255), primary_key=True, index=True),
+    Column("bridge_source_import_id", String(255), nullable=True, index=True),
+    Column("bridge_first_seen_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("bridge_last_seen_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("bridge_missing_since", TIMESTAMP, nullable=True, index=True),
+    Column("bridge_retired_at", TIMESTAMP, nullable=True, index=True),
+    Column("bridge_created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("bridge_updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
 
 # Homepage content ingest tables

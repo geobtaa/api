@@ -121,3 +121,111 @@ class TestSimilarItemsServicePayload:
 
         assert items == []
         mock_session.execute.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_similar_items_use_bridge_thumbnail_when_available(self):
+        """Bridge thumbnail-capable asset should be preferred over ImageService."""
+
+        def make_row(resource_id: str, title: str):
+            row = MagicMock()
+            row._mapping = {
+                "id": resource_id,
+                "dct_title_s": title,
+                "dct_temporal_sm": [],
+                "gbl_indexYear_im": [2025],
+                "gbl_resourceClass_sm": ["Datasets"],
+            }
+            return row
+
+        # 1) resource lookup query -> rows via fetchall()
+        resource_result = MagicMock()
+        resource_result.fetchall.return_value = [make_row("similar-1", "Map of Now")]
+
+        # 2) bridge thumbnail query -> scalar_one_or_none()
+        thumb_result = MagicMock()
+        thumb_result.scalar_one_or_none.return_value = (
+            "https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/thumb.png"
+        )
+
+        mock_session = MagicMock()
+        mock_session.execute = AsyncMock(side_effect=[resource_result, thumb_result])
+
+        with (
+            patch(
+                "app.services.similar_items_service.find_similar_resources",
+                new_callable=AsyncMock,
+                return_value=["similar-1"],
+            ),
+            patch(
+                "app.services.similar_items_service.fetch_distribution_context",
+                new_callable=AsyncMock,
+                return_value=None,
+            ) as mock_fetch_distribution_context,
+            patch("app.services.similar_items_service.ImageService") as mock_image_svc,
+        ):
+            items = await SimilarItemsService.get_similar_items(
+                "source-resource-id", mock_session, limit=12
+            )
+
+        assert len(items) == 1
+        assert items[0]["id"] == "similar-1"
+        assert "geobtaa-assets-prod.s3" in items[0]["thumbnail_url"]
+
+        # When bridge thumbnail exists, we should not fall back to ImageService.
+        mock_fetch_distribution_context.assert_not_called()
+        mock_image_svc.assert_not_called()
+
+    @pytest.mark.asyncio
+    @pytest.mark.unit
+    async def test_similar_items_falls_back_to_imageservice_when_bridge_thumbnail_missing(
+        self,
+    ):
+        """If no bridge thumbnail is available, use ImageService thumbnail_url."""
+
+        def make_row(resource_id: str, title: str):
+            row = MagicMock()
+            row._mapping = {
+                "id": resource_id,
+                "dct_title_s": title,
+                "dct_temporal_sm": [],
+                "gbl_indexYear_im": [2025],
+                "gbl_resourceClass_sm": ["Datasets"],
+            }
+            return row
+
+        resource_result = MagicMock()
+        resource_result.fetchall.return_value = [make_row("similar-1", "Map of Now")]
+
+        thumb_result = MagicMock()
+        thumb_result.scalar_one_or_none.return_value = None
+
+        mock_session = MagicMock()
+        mock_session.execute = AsyncMock(side_effect=[resource_result, thumb_result])
+
+        with (
+            patch(
+                "app.services.similar_items_service.find_similar_resources",
+                new_callable=AsyncMock,
+                return_value=["similar-1"],
+            ),
+            patch(
+                "app.services.similar_items_service.fetch_distribution_context",
+                new_callable=AsyncMock,
+                return_value=None,
+            ) as mock_fetch_distribution_context,
+            patch("app.services.similar_items_service.ImageService") as mock_image_svc,
+        ):
+            mock_image_svc.return_value.get_thumbnail_url.return_value = (
+                "https://example.com/thumb.jpg"
+            )
+
+            items = await SimilarItemsService.get_similar_items(
+                "source-resource-id", mock_session, limit=12
+            )
+
+        assert len(items) == 1
+        assert items[0]["id"] == "similar-1"
+        assert items[0]["thumbnail_url"] == "https://example.com/thumb.jpg"
+        assert mock_fetch_distribution_context.called
+        assert mock_image_svc.called

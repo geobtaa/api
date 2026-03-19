@@ -1,4 +1,5 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures
+.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -74,6 +75,11 @@ KAMAL_API_URL ?=
 KAMAL_CACHE_TYPE ?= search
 OGM_API_URL ?= http://localhost:8000
 OGM_STATUS_POLL_SECONDS ?= 5
+BRIDGE_API_URL ?= http://localhost:8000
+BRIDGE_STATUS_POLL_SECONDS ?= 5
+BRIDGE_TRIGGER ?= manual
+BRIDGE_LIMIT ?=
+BLOG_API_URL ?= http://localhost:8000
 PRIME_LIMIT ?=
 PRIME_BATCH_SIZE ?= 100
 PRIME_THUMBNAIL_CONCURRENCY ?= 4
@@ -341,10 +347,29 @@ gbl-admin-db-download: ## Download latest GBL Admin production dump
 			exit 1; \
 		fi; \
 	done
-	@mkdir -p "$(GBL_ADMIN_LOCAL_DIR)"
-	@REMOTE_DUMP=$$(ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) "ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1"); \
+	@case "$(GBL_ADMIN_LOCAL_DIR)" in \
+		/Volumes/*) \
+			if [ ! -d "$(GBL_ADMIN_LOCAL_DIR)" ]; then \
+				echo "ERROR: GBL_ADMIN_LOCAL_DIR=$(GBL_ADMIN_LOCAL_DIR) does not exist."; \
+				echo "On macOS, /Volumes/* is a mount point; the directory is created by mounting a volume,"; \
+				echo "not by mkdir. Mount the drive (e.g. a volume named 'gbl_admin_restore') and retry."; \
+				echo "Alternatively, set GBL_ADMIN_LOCAL_DIR to a path on an existing mounted volume,"; \
+				echo "like /Volumes/<YourDrive>/gbl_admin_restore"; \
+				exit 1; \
+			fi ;; \
+		*) mkdir -p "$(GBL_ADMIN_LOCAL_DIR)" ;; \
+	esac
+	@REMOTE_DUMP=$$(ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) "ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB) | head -n 1"); \
+	SSH_STATUS=$$?; \
+	if [ $$SSH_STATUS -ne 0 ]; then \
+		echo "ERROR: ssh failed (host/auth/network)."; \
+		echo "Tried: ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) \"ls -1t $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB)\""; \
+		exit $$SSH_STATUS; \
+	fi; \
 	if [ -z "$$REMOTE_DUMP" ]; then \
 		echo "ERROR: No remote dump matched $(GBL_ADMIN_REMOTE_DIR)/$(GBL_ADMIN_DUMP_GLOB)."; \
+		echo "Tip: verify remote dir/glob via:"; \
+		echo "  ssh $(GBL_ADMIN_SSH_USER)@$(GBL_ADMIN_SSH_HOST) \"ls -1t $(GBL_ADMIN_REMOTE_DIR) | head\""; \
 		exit 1; \
 	fi; \
 	echo "Latest dump: $$REMOTE_DUMP"; \
@@ -664,6 +689,175 @@ ogm-failures: ## Show failed OGM harvest runs
 			"$(OGM_API_URL)/api/v1/admin/ogm/harvest/runs" \
 		| python -c "import json,sys; data=json.load(sys.stdin); failed=[r for r in data.get(\"runs\",[]) if r.get(\"ogm_status\")==\"failed\"]; print(\"No failed OGM runs found in current history window.\") if not failed else [print(\"ogm_id={0} repo={1} trigger={2} started_at={3}\\nerror={4}\\n\".format(r.get(\"ogm_id\"), r.get(\"ogm_repo_name\"), r.get(\"ogm_trigger\"), r.get(\"ogm_started_at\"), r.get(\"ogm_error\") or \"(none)\")) for r in failed]"'
 
+# Trigger a GIN blog sync via the admin endpoint.
+# Usage:
+#   make blog-sync              # queue via Celery (default)
+#   make blog-sync RUN_NOW=1    # run inline via FastAPI
+blog-sync: ## Trigger home page blog sync (RUN_NOW=1 for inline)
+	@echo "Triggering GIN blog sync via $(BLOG_API_URL)... (RUN_NOW=$(RUN_NOW))"
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		RUN_NOW_FLAG="$${RUN_NOW:-0}"; \
+		if [ "$$RUN_NOW_FLAG" = "1" ] || [ "$$RUN_NOW_FLAG" = "true" ] || [ "$$RUN_NOW_FLAG" = "TRUE" ]; then \
+			BODY='\''{"run_now": true}'\''; \
+		else \
+			BODY='\''{"run_now": false}'\''; \
+		fi; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BLOG_API_URL)/api/v1/admin/home/blog/sync" \
+			-H "Content-Type: application/json" \
+			-d "$$BODY"'
+	@echo
+	@echo "GIN blog sync request submitted."
+
+# Trigger a background crawl of the Geoportal bridge API.
+# Usage:
+#   make bridge-sync
+#   make bridge-sync BRIDGE_LIMIT=50
+#   make bridge-sync BRIDGE_TRIGGER=manual BRIDGE_LIMIT=25
+# Note: Each new sync cancels any running run and starts from page 1. Use
+#   make bridge-status  to check; only run bridge-sync again after the run has completed or failed.
+bridge-init: ## Ensure bridge sync tables exist
+	@echo "Ensuring bridge sync tables exist..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_bridge_sync_tables.py'
+
+bridge-sync: bridge-init ## Trigger background bridge sync
+	@echo "Triggering bridge sync via $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\"}"; \
+		if [ -n "$(BRIDGE_LIMIT)" ]; then BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\",\"limit\":$(BRIDGE_LIMIT)}"; fi; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync" \
+			-H "Content-Type: application/json" \
+			-d "$$BODY"'
+	@echo
+	@echo "Bridge sync request submitted."
+
+# Cancel all running bridge sync runs and revoke active/queued bridge_sync_all Celery tasks.
+bridge-cancel: bridge-init ## Cancel all bridge syncs and queued bridge sync tasks
+	@echo "Cancelling all bridge syncs via $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/cancel"'
+	@echo
+	@echo "Bridge sync cancel request completed."
+
+# Show bridge sync status snapshot.
+# Usage:
+#   make bridge-status
+#   make bridge-status BRIDGE_RUN_ID=<run_id>
+bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUN_ID=... for detail)
+	@echo "Fetching bridge sync status from $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)"; \
+		else \
+			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs"; \
+		fi'
+	@echo
+
+# Continuously poll bridge sync status.
+# Usage:
+#   make bridge-status-watch
+#   make bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
+bridge-status-watch: bridge-init ## Poll bridge sync status continuously (current + last only)
+	@echo "Watching bridge sync status (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
+	@while true; do \
+		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
+			$(MAKE) --no-print-directory bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
+		else \
+			docker compose exec -T api bash -lc '\
+				ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+				ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+				curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+					"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs?limit=10" \
+				| python -c '"'"'import json,sys; data=json.load(sys.stdin); runs=data.get("runs",[]) or []; \
+current=None; last=None; \
+def norm(s): return (s or "").lower(); \
+for r in runs: \
+    if norm(r.get("bridge_status"))=="running": current=r; break; \
+if current is None and runs: current=runs[0]; \
+for r in runs: \
+    if current is not None and r==current: continue; \
+    if last is None: last=r; break; \
+def summarize(r): \
+    if not r: return "(none)"; \
+    return "bridge_id={bridge_id} status={bridge_status} trigger={bridge_trigger} started_at={bridge_started_at} completed_at={bridge_completed_at} error={bridge_error}".format( \
+        bridge_id=r.get("bridge_id"), \
+        bridge_status=r.get("bridge_status"), \
+        bridge_trigger=r.get("bridge_trigger"), \
+        bridge_started_at=r.get("bridge_started_at"), \
+        bridge_completed_at=r.get("bridge_completed_at"), \
+        bridge_error=(r.get("bridge_error") or "").strip().replace("\\n"," ").replace("\\r"," ") \
+    ); \
+print("current: " + summarize(current)); \
+print("last:    " + summarize(last));'"'"''; \
+		fi; \
+		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
+	done
+
+# Show bridge sync status on Kamal.
+# Usage:
+#   make kamal-bridge-status
+#   make kamal-bridge-status BRIDGE_RUN_ID=<run_id>
+kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUN_ID=... for detail)
+	@echo "Fetching bridge sync status from Kamal via $(KAMAL_API_URL)..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
+		API_BASE=\"$(KAMAL_API_URL)\"; \
+		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
+		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
+		API_BASE=\"\$${API_BASE%/}\"; \
+		if [ -n \"$(BRIDGE_RUN_ID)\" ]; then \
+			curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
+				\"\$$API_BASE/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)\"; \
+		else \
+			curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
+				\"\$$API_BASE/api/v1/admin/bridge/sync/runs\"; \
+		fi'"
+	@echo
+
+# Continuously poll bridge sync status on Kamal.
+# Usage:
+#   make kamal-bridge-status-watch
+#   make kamal-bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
+kamal-bridge-status-watch: ## Poll bridge sync status on Kamal continuously
+	@echo "Watching bridge sync status on Kamal (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@while true; do \
+		$(MAKE) --no-print-directory kamal-bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
+		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
+	done
+
+# Show only failed bridge sync runs with error details.
+bridge-failures: bridge-init ## Show failed bridge sync runs
+	@echo "Fetching failed bridge sync runs from $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs" \
+		| python -c "import json,sys; data=json.load(sys.stdin); failed=[r for r in data.get(\"runs\",[]) if r.get(\"bridge_status\")==\"failed\"]; print(\"No failed bridge sync runs found in current history window.\") if not failed else [print(\"bridge_id={0} trigger={1} started_at={2}\\nerror={3}\\n\".format(r.get(\"bridge_id\"), r.get(\"bridge_trigger\"), r.get(\"bridge_started_at\"), r.get(\"bridge_error\") or \"(none)\")) for r in failed]"'
+
 # Populate resource_relationships from resources table (dct_isPartOf_sm, pcdm_memberOf_sm, etc.).
 # Backfill resource_distributions for resources with dct_references_s but no distributions
 # (e.g. OGM-harvested resources). Run periodically or after bulk imports.
@@ -737,9 +931,12 @@ kamal-verify-h3-index: ## Verify H3 index on Kamal
 # Clear API cache on Kamal via admin endpoint (defaults to search cache).
 # Usage:
 #   make kamal-clear-cache
-#   make kamal-clear-cache KAMAL_CACHE_TYPE=all
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=resource
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=search
 #   make kamal-clear-cache KAMAL_CACHE_TYPE=suggest
-kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=...)
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=map
+#   make kamal-clear-cache KAMAL_CACHE_TYPE=all
+kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=search|resource|suggest|map|all)
 	@echo "Clearing remote cache on Kamal (role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -749,6 +946,98 @@ kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=...)
 	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
 	@echo
 	@echo "Remote cache clear request submitted."
+
+# Trigger a GIN blog sync on Kamal (syncs GitHub MDX -> DB).
+# Usage:
+#   make kamal-blog-sync              # queue via Celery (RUN_NOW defaults false)
+#   make kamal-blog-sync RUN_NOW=1   # run inline via FastAPI
+kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
+	@echo "Triggering GIN blog sync on Kamal via $(KAMAL_API_URL)... (RUN_NOW=$(RUN_NOW))"
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
+		API_BASE=\"$(KAMAL_API_URL)\"; \
+		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
+		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
+		API_BASE=\"\$${API_BASE%/}\"; \
+		RUN_NOW_FLAG=\"$(RUN_NOW)\"; \
+		if [ \"\$$RUN_NOW_FLAG\" = \"1\" ] || [ \"\$$RUN_NOW_FLAG\" = \"true\" ] || [ \"\$$RUN_NOW_FLAG\" = \"TRUE\" ]; then \
+			BODY='\''{\"run_now\": true}'\''; \
+		else \
+			BODY='\''{\"run_now\": false}'\''; \
+		fi; \
+		curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \
+			\"\$$API_BASE/api/v1/admin/home/blog/sync\" \
+			-H \"Content-Type: application/json\" \
+			-d \"\$$BODY\"'"
+	@echo
+	@echo "GIN blog sync request submitted (Kamal)."
+
+# Purge cached homepage blog response so UI picks up new slugs.
+kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
+	@echo "Purging homepage blog cache on Kamal via $(KAMAL_API_URL)..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
+		API_BASE=\"$(KAMAL_API_URL)\"; \
+		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
+		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
+		API_BASE=\"\$${API_BASE%/}\"; \
+		curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \
+			\"\$$API_BASE/api/v1/admin/cache/purge\" \
+			-H \"Content-Type: application/json\" \
+			-d '\'{"tags":["home_blog","home"]}'\''; \
+		' "
+	@echo
+
+# Debug Kamal cron container (bridge sync at 2 AM, blog sync at 3 AM).
+# Uses --reuse to exec into the running cron container (default spawns a new one with no crontab).
+# Usage: source .kamal/secrets && make kamal-cron-debug
+kamal-cron-debug: ## Debug cron container: crontab, timezone, env
+	@echo "=== Kamal cron container debug (source .kamal/secrets first) ==="
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "--- 1. Loaded crontab ---"
+	@kamal app exec --roles cron --reuse "crontab -l" 2>/dev/null || echo "(failed - is cron container running?)"
+	@echo ""
+	@echo "--- 2. Container timezone and time ---"
+	@kamal app exec --roles cron --reuse "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
+	@echo ""
+	@echo "--- 3. Env check (APPLICATION_URL set?) ---"
+	@kamal app exec --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
+	@echo ""
+	@echo "--- 4. Script + venv Python (requests) ---"
+	@kamal app exec --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
+
+# Manually run bridge sync trigger from cron container (same as 2 AM job).
+# Usage: source .kamal/secrets && make kamal-cron-test-bridge
+kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container (test cron job)
+	@echo "Running trigger_bridge_sync_cron.py inside Kamal cron container..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
+		exit 1; \
+	fi
+	@kamal app exec --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
+	@echo "Check bridge status: make kamal-bridge-status"
+
+# Tail Celery worker logs (bridge sync, OGM, etc. run in worker).
+# Usage: source .kamal/secrets && make kamal-worker-logs [KAMAL_LOG_LINES=500]
+kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running tasks)
+	@echo "Tailing worker logs (Ctrl+C to stop)..."
+	@kamal app logs --roles worker --lines $(or $(KAMAL_LOG_LINES),200) -f
 
 # Prime thumbnail cache on remote Kamal app container.
 # Usage examples:

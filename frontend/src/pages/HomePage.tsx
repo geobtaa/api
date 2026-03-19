@@ -74,10 +74,6 @@ export function HomePage() {
   useEffect(() => setMounted(true), []);
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
-  const blogPinnedSlugs = useMemo(
-    () => blogCfg?.pinned_slugs ?? [],
-    [blogCfg?.pinned_slugs]
-  );
   const blogLimit = 3;
 
   function parseFacetItems(rawItems: unknown): FacetItem[] {
@@ -207,7 +203,6 @@ export function HomePage() {
         const response = await fetchHomeBlogPosts({
           limit: blogLimit,
           theme: getActiveThemeId(),
-          pinnedSlugs: blogPinnedSlugs,
         });
         setBlogPosts(response.data || []);
       } catch (error) {
@@ -220,7 +215,7 @@ export function HomePage() {
     };
 
     fetchBlogPosts();
-  }, [blogEnabled, blogLimit, blogPinnedSlugs]);
+  }, [blogEnabled, blogLimit]);
 
   const handleResourceTypeClick = (value: string) => {
     navigate(

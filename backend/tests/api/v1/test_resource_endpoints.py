@@ -632,7 +632,9 @@ class TestResourceEndpointsEnhanced:
         new_callable=AsyncMock,
     )
     @patch("app.services.link_service.LinkService.get_links")
-    @patch("app.services.download_service.DownloadService.get_download_options")
+    @patch(
+        "app.services.download_service.DownloadService.get_download_options_with_bridge_asset_downloads"
+    )
     @patch("app.services.viewer_service.ViewerService.get_viewer_attributes")
     @patch("app.services.citation_service.CitationService.get_all_citations")
     @patch("app.api.v1.utils.fetch_distribution_context", new_callable=AsyncMock)

@@ -161,3 +161,93 @@ The number of facet values returned can be configured via environment variables:
 | `DEFAULT_FACET_SIZE` | 10 | Default size for all other facet types |
 
 These limits help control response size and performance while ensuring relevant geographic diversity is available for filtering.
+
+## Geospatial BBox Relevance Ranking (Within vs Overlap)
+
+The UI offers a bbox location filter with two modes:
+
+- `Within`: show resources whose stored bbox is fully contained by the query bbox.
+- `Overlap`: show resources whose stored bbox intersects (overlaps) the query bbox.
+
+### How the UI options map to Elasticsearch
+
+When the bbox filter is active, the frontend sends `include_filters[geo]` with:
+
+- `type=bbox`
+- `field=dcat_bbox`
+- `top_left` / `bottom_right`
+- `relation=within` for `Within` mode and `relation=intersects` for `Overlap` mode.
+
+On the backend, `relation` is applied to the Elasticsearch `geo_shape` query (using an `envelope` representation of `dcat_bbox`).
+
+### Candidate selection: `within` vs `intersects`
+
+The `relation` setting affects *which documents are eligible*:
+
+For `relation=within`, Elasticsearch geo-shape semantics require the document envelope to be spatially *within* the query envelope. For `relation=intersects`, Elasticsearch geo-shape semantics require the document envelope to *intersect* the query envelope.
+
+Important: relation controls eligibility, but the *relevance score* for bbox queries is computed separately (see below).
+
+### BBox relevance score: IoU + (optional) text relevance multiplier
+
+Whenever the bbox filter is present (`type=bbox` with `top_left`/`bottom_right`), the search query is wrapped in an Elasticsearch `script_score`.
+
+For each candidate resource, the script computes:
+
+- `intersection_area`: area of overlap between the query bbox and the document bbox (both treated as axis-aligned rectangles)
+- `doc_area`: area of the document bbox
+- `query_area`: area of the query bbox
+- `union_area = doc_area + query_area - intersection_area`
+- `overlapRatio = intersection_area / union_area` (this is an IoU-style overlap)
+
+Then it combines this overlap ratio with Elasticsearch’s *base* score (`_score`) using:
+
+`final_score = baseScore * (0.1 + 0.9 * overlapRatio)`
+
+Where `baseScore` comes from the rest of the query:
+
+- If you are doing a bbox-only search (no `q` and no `adv_q`), the query effectively becomes `match_all`, so `baseScore` is ~constant. In that case, ranking is driven mostly by `overlapRatio` (higher IoU comes first).
+- If you also provide a text query (`q`) and/or advanced query (`adv_q`), then `baseScore` varies by document. In that case, bbox “fit” is a multiplier, not the only signal.
+
+### Overlap “threshold”: preventing near-zero matches
+
+In addition to the `relation`-based geo-shape filter, bbox searches also apply a hard filter that rejects documents with extremely small IoU:
+
+- `overlapRatio >= MIN_BBOX_IOU_OVERLAP_RATIO`
+- Default: `MIN_BBOX_IOU_OVERLAP_RATIO = 0.001` (0.1%)
+
+This threshold affects eligibility (removes “barely touching” results). It does *not* control ordering beyond the fact that low-overlap results get excluded.
+
+### Why `Overlap` may not look like “Best Fit” / “Closest Fit”
+
+If you expect “Best Fit” ordering (highest overlap first), there are a few reasons it may not be obvious:
+
+1. **Text relevance can dominate when `q` is present**
+   - Because `final_score` multiplies by `(0.1 + 0.9 * overlapRatio)`, overlap ratio differences are bounded between 0.1 and 1.0.
+   - If `baseScore` differs significantly across documents, those differences can reorder results even when some documents overlap the query bbox better.
+
+2. **`Overlap` is not centroid-distance scoring**
+   - The bbox scoring uses bbox rectangle IoU computed from numeric `bbox_*` extents, not centroid distance and not polygon geometry overlap.
+   - If stakeholders expect “closest” by distance-to-center (or similar), this implementation will not match that intuition.
+
+3. **`Within` changes the meaning of IoU**
+   - For documents that are truly `within` the query envelope, the intersection area is effectively the document bbox area, so IoU becomes driven mainly by the *size* of the document bbox relative to the query bbox (not by exact placement within the query).
+
+4. **Sort can override relevance**
+   - If the UI/API uses a sort other than `relevance`, the ES bbox score ordering won’t be used.
+
+### Checking what the backend thinks the “fit” is
+
+The API attaches the computed `bbox_overlap_ratio` into per-resource metadata when a bbox filter is active.
+
+To verify “Best Fit” ordering in practice:
+
+- Request `sort=relevance`
+- Use an empty `q` (bbox-only) so `baseScore` is constant
+- Compare `bbox_overlap_ratio` across results: higher values should correspond to higher `final_score` for bbox-only searches.
+
+### Environment variables
+
+You can tune how aggressively near-zero bbox overlaps are filtered via:
+
+- `MIN_BBOX_IOU_OVERLAP_RATIO` (default `0.001`, meaning 0.1% IoU)

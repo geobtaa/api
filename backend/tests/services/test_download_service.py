@@ -2,7 +2,12 @@ import json
 
 import pytest
 
-from app.services.download_service import DownloadOption, DownloadService, IIIFDownloadService
+import app.services.download_service as download_module
+from app.services.download_service import (
+    DownloadOption,
+    DownloadService,
+    IIIFDownloadService,
+)
 
 
 @pytest.fixture
@@ -294,3 +299,37 @@ class TestDownloadService:
         # This should return None because _get_service_url returns None for nonexistent_service
         result = service._build_download_url(option)
         assert result is None
+
+
+class TestBridgeAssetDownloads:
+    @pytest.mark.asyncio
+    async def test_bridge_asset_downloads_are_added_with_size_and_url(self, monkeypatch):
+        # Prevent real DB access by stubbing the `databases` client.
+        class FakeDB:
+            is_connected = True
+
+            async def fetch_all(self, _query):
+                return [
+                    {
+                        "label": "Shapefile (original)",
+                        "title": "Street_Centerline.zip",
+                        "file_url": "https://example.com/asset/a.zip",
+                        "file_mime_type": "application/zip",
+                        "file_size": 3836704,
+                        "position": 1,
+                        "id": 1,
+                    }
+                ]
+
+        monkeypatch.setattr(download_module, "database", FakeDB())
+
+        service = DownloadService({"id": "b1g_test_resource"})
+        downloads = await service.get_download_options_with_bridge_asset_downloads()
+
+        assert downloads, "Expected at least one bridge asset download"
+        assert any(
+            d["url"] == "https://example.com/asset/a.zip"
+            and "Shapefile (original)" in d["label"]
+            and "MB" in d["label"]
+            for d in downloads
+        )

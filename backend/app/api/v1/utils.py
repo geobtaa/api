@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any, Dict, Optional
 
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 
 from app.api.v1.jsonp import JSONPResponse
 from app.services.data_dictionary_repository import (
@@ -18,6 +19,8 @@ from app.services.distribution_repository import (
     fetch_distribution_context,
 )
 from app.services.ogm_field_mapper import OGMFieldMapper
+from db.database import database
+from db.models import resource_assets
 
 logger = logging.getLogger(__name__)
 
@@ -166,6 +169,44 @@ def add_ui_attributes(
     item["ui_downloads"] = download_service.get_download_options()
 
     return item
+
+
+async def _get_thumbnail_asset_url(resource_id: str) -> Optional[str]:
+    """
+    Return the first thumbnail-capable asset URL for a resource, if any.
+
+    We look for resource_assets rows where:
+    - resource_id matches
+    - thumbnail is true
+    - file_url is not null/empty
+    and prefer the lowest position/id for stable ordering.
+    """
+    try:
+        if not database.is_connected:
+            await database.connect()
+        query = (
+            select(resource_assets.c.file_url)
+            .where(
+                resource_assets.c.resource_id == resource_id,
+                resource_assets.c.thumbnail.is_(True),
+                resource_assets.c.file_url.is_not(None),
+            )
+            .order_by(resource_assets.c.position.asc(), resource_assets.c.id.asc())
+            .limit(1)
+        )
+        row = await database.fetch_one(query)
+        if not row:
+            return None
+        # databases.Record supports dict-style access, not .get()
+        raw_url = row["file_url"]
+        if not isinstance(raw_url, str):
+            return None
+        url = raw_url.strip()
+        return url or None
+    except Exception:
+        # Never fail the request because of asset lookup issues
+        logger.exception("Failed to resolve thumbnail asset for resource %s", resource_id)
+        return None
 
 
 def create_jsonapi_response(data, request_url=None, callback=None):
@@ -553,7 +594,7 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
 
     # Use DownloadService to get download options
     download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    ui_downloads = download_service.get_download_options()
+    ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads()
 
     # Use LinkService to get links
     link_service = LinkService(resource_dict, distribution_context=distribution_context)
@@ -612,6 +653,15 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
 
     # Create JSON:API compliant resource first
     resource = create_jsonapi_resource(attributes)
+
+    # If a bridge-synced thumbnail asset exists, expose its URL in meta.ui.thumbnail_url.
+    # This gives the frontend a direct thumbnail source while keeping the existing
+    # /thumbnail endpoint behavior available via image_service.
+    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
+    if thumb_asset_url:
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["thumbnail_url"] = thumb_asset_url
 
     # Add Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:
@@ -710,7 +760,7 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
 
     # Use DownloadService to get download options
     download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    ui_downloads = download_service.get_download_options()
+    ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads()
 
     # Use LinkService to get links
     link_service = LinkService(resource_dict, distribution_context=distribution_context)
@@ -751,6 +801,13 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
 
     # Create JSON:API compliant resource first
     resource = create_jsonapi_resource(attributes)
+
+    # Prefer bridge-synced thumbnail assets when present.
+    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
+    if thumb_asset_url:
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["thumbnail_url"] = thumb_asset_url
 
     # Add pre-fetched Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:

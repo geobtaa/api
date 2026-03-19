@@ -228,7 +228,9 @@ class SearchService:
             # Add UI attributes in the same order as the original code
             source_data["ui_thumbnail_url"] = source_data.get("thumbnail_url")
             source_data["ui_citation"] = citation_service.get_citation()
-            source_data["ui_downloads"] = download_service.get_download_options()
+            source_data[
+                "ui_downloads"
+            ] = await download_service.get_download_options_with_bridge_asset_downloads()
 
             # Add viewer attributes
             viewer_attributes = viewer_service.get_viewer_attributes()

@@ -34,7 +34,7 @@ async def get_resource_downloads(
         # Generate download options using DownloadService
         distribution_context = await fetch_distribution_context(id)
         download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-        downloads = download_service.get_download_options()
+        downloads = await download_service.get_download_options_with_bridge_asset_downloads()
 
         response_payload = {
             "id": id,

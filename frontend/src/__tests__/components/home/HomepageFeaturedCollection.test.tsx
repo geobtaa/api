@@ -34,7 +34,7 @@ describe('HomepageFeaturedCollection', () => {
       screen.getByRole('link', { name: /browse historical maps/i })
     ).toHaveAttribute(
       'href',
-      '/search?include_filters[pcdm_memberOf_sm][]=64bd8c4c-8e60-4956-b43d-bdc3f93db4883&view=gallery&per_page=20'
+      '/search?include_filters[pcdm_memberOf_sm][]=64bd8c4c-8e60-4956-b43d-bdc3f93db488&view=gallery&per_page=20'
     );
     expect(
       screen.getByRole('link', { name: /browse urban base layers/i })

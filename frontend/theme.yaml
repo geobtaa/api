@@ -56,9 +56,6 @@ themes:
         limit: 6
         cta_label: "View all stories"
         cta_url: "https://gin.btaa.org/blog/"
-        pinned_slugs:
-          - "2026-02-02-january-2026-program-update"
-          - "2026-01-29-collaborative-storytelling-about-important-farmlands-maps-collection"
 
   uwmadison:
     label: "University of Wisconsin–Madison"

@@ -76,6 +76,9 @@ OPENAI_MODEL=gpt-3.5-turbo
 
 # API key used by the SSR server for server-side loaders (server-only; not exposed to browser)
 BTAA_GEOSPATIAL_API_KEY=your_frontend_api_key_here
+
+# Geoportal bridge sync (worker crawls geo.btaa.org for resource metadata)
+KITHE_BRIDGE_TOKEN=your_bridge_api_token_here
 EOF
 
 # Secure the file
@@ -451,6 +454,59 @@ kamal accessory logs elasticsearch
 # Restart if needed
 kamal accessory restart elasticsearch
 ```
+
+### Cron container (bridge sync, blog sync)
+
+The cron container runs daily at 2 AM (bridge sync) and 3 AM (blog sync) in the container's local timezone. If jobs aren't running:
+
+```bash
+# 1. Run diagnostics (crontab, timezone, env)
+source .kamal/secrets
+make kamal-cron-debug
+
+# 2. Manually test the bridge sync trigger (same as 2 AM job)
+make kamal-cron-test-bridge
+
+# 3. Check bridge status after a run
+make kamal-bridge-status
+```
+
+**Common causes:**
+
+- **Python path**: Crontab must use `/opt/venv/bin/python3` (cron has minimal PATH; system `python3` lacks `requests`). See `config/crontab`.
+- **Timezone**: Cron uses container TZ. 2 AM Central = bridge sync; confirm with `date` in `kamal-cron-debug`.
+- **APPLICATION_URL**: Must be set so the trigger script can POST to the API. Check env in `kamal-cron-debug`.
+- **First run**: If deployed mid-day, the first 2 AM run is the next calendar day.
+
+### Bridge sync queued but run never appears
+
+The API returns `task_id` immediately when it enqueues a Celery task. The run record in `bridge_sync_runs` is created by the **Celery worker** when the task starts. If no run appears, the task never ran.
+
+**Check worker status and logs:**
+
+```bash
+# Worker logs (look for bridge_sync_all, errors, Redis/DB connection)
+source .kamal/secrets
+kamal app logs --roles worker --tail 200
+
+# Verify worker container is running
+kamal app details
+```
+
+**Check task in Flower** (if accessible via SSH tunnel):
+
+```bash
+ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
+# Open http://localhost:5555, search for task_id (e.g. ae46105d-281d-4434-a37c-efbaaa76dc38)
+```
+
+**Common causes:**
+
+- **Worker not running** – restart: `kamal app boot` or redeploy
+- **Worker can't reach Redis** – CELERY_BROKER_URL / REDIS_HOST; accessories must have `roles: [web, worker, flower]`
+- **Worker can't reach ParadeDB** – DATABASE_URL; same role check
+- **Task crashed before `create_sync_run`** – e.g. `database.connect()` failure; check worker logs for tracebacks
+- **`ValueError: KITHE_BRIDGE_URL is required`** or **`KITHE_BRIDGE_TOKEN is required`** – Add these to `config/deploy.yml` (URL in `env.clear`, token in `env.secret`) and ensure `KITHE_BRIDGE_TOKEN` is in `.kamal/secrets`; redeploy
 
 ### Image Build Failures
 

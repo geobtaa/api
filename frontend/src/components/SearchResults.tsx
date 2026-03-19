@@ -113,18 +113,6 @@ export function SearchResults({
 
   const getThumbnailUrlForView = (url: string): string => {
     const base = toSsrThumbnailUrl(url);
-    // List view: use icon-on-gradient variant for resource thumbnail fallback
-    if (!isCompact) {
-      if (base.includes('/thumbnails/')) return base; // cached image, no variant
-      if (
-        base.includes('/resources/') &&
-        base.includes('/thumbnail') &&
-        !base.includes('/thumbnails/')
-      ) {
-        const sep = base.includes('?') ? '&' : '?';
-        return `${base}${sep}variant=icon-gradient`;
-      }
-    }
     return base;
   };
 

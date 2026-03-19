@@ -8,8 +8,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.models import (
-    document_data_dictionaries,
-    document_data_dictionary_entries,
     resource_data_dictionaries,
     resource_data_dictionary_entries,
 )
@@ -49,61 +47,31 @@ async def fetch_resource_data_dictionaries(
     resource_id: str, *, session: AsyncSession
 ) -> List[ResourceDataDictionaryRecord]:
     """Fetch dictionaries and entries for a resource, ordered by position."""
-    use_resource_tables = True
-    try:
-        dictionaries_stmt = (
-            select(resource_data_dictionaries)
-            .where(resource_data_dictionaries.c.resource_id == resource_id)
-            .order_by(
-                resource_data_dictionaries.c.position,
-                resource_data_dictionaries.c.id,
-            )
+    dictionaries_stmt = (
+        select(resource_data_dictionaries)
+        .where(resource_data_dictionaries.c.resource_id == resource_id)
+        .order_by(
+            resource_data_dictionaries.c.position,
+            resource_data_dictionaries.c.id,
         )
-        dictionaries_result = await session.execute(dictionaries_stmt)
-        dictionary_rows = dictionaries_result.fetchall()
-    except Exception:
-        # Backward compatibility for environments that still only have legacy tables.
-        use_resource_tables = False
-        dictionaries_stmt = (
-            select(document_data_dictionaries)
-            .where(document_data_dictionaries.c.friendlier_id == resource_id)
-            .order_by(
-                document_data_dictionaries.c.position,
-                document_data_dictionaries.c.id,
-            )
-        )
-        dictionaries_result = await session.execute(dictionaries_stmt)
-        dictionary_rows = dictionaries_result.fetchall()
+    )
+    dictionaries_result = await session.execute(dictionaries_stmt)
+    dictionary_rows = dictionaries_result.fetchall()
 
     if not dictionary_rows:
         return []
 
     dictionary_ids = [row._mapping["id"] for row in dictionary_rows]
 
-    if use_resource_tables:
-        entries_stmt = (
-            select(resource_data_dictionary_entries)
-            .where(
-                resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(dictionary_ids)
-            )
-            .order_by(
-                resource_data_dictionary_entries.c.resource_data_dictionary_id,
-                resource_data_dictionary_entries.c.position,
-                resource_data_dictionary_entries.c.id,
-            )
+    entries_stmt = (
+        select(resource_data_dictionary_entries)
+        .where(resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(dictionary_ids))
+        .order_by(
+            resource_data_dictionary_entries.c.resource_data_dictionary_id,
+            resource_data_dictionary_entries.c.position,
+            resource_data_dictionary_entries.c.id,
         )
-    else:
-        entries_stmt = (
-            select(document_data_dictionary_entries)
-            .where(
-                document_data_dictionary_entries.c.document_data_dictionary_id.in_(dictionary_ids)
-            )
-            .order_by(
-                document_data_dictionary_entries.c.document_data_dictionary_id,
-                document_data_dictionary_entries.c.position,
-                document_data_dictionary_entries.c.id,
-            )
-        )
+    )
     entries_result = await session.execute(entries_stmt)
     entries_rows = entries_result.fetchall()
 
@@ -112,11 +80,7 @@ async def fetch_resource_data_dictionaries(
         mapping = row._mapping
         record = ResourceDataDictionaryEntryRecord(
             id=mapping["id"],
-            resource_data_dictionary_id=(
-                mapping["resource_data_dictionary_id"]
-                if use_resource_tables
-                else mapping["document_data_dictionary_id"]
-            ),
+            resource_data_dictionary_id=mapping["resource_data_dictionary_id"],
             friendlier_id=resource_id,
             field_name=mapping["field_name"],
             field_type=mapping["field_type"],
@@ -137,9 +101,7 @@ async def fetch_resource_data_dictionaries(
         dictionaries.append(
             ResourceDataDictionaryRecord(
                 id=dictionary_id,
-                friendlier_id=(
-                    mapping["resource_id"] if use_resource_tables else mapping["friendlier_id"]
-                ),
+                friendlier_id=mapping["resource_id"],
                 name=mapping["name"],
                 description=mapping["description"],
                 staff_notes=mapping["staff_notes"],

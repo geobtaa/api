@@ -28,6 +28,17 @@ servers:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
 
+  cron:
+    hosts:
+      - <%= ENV['KAMAL_HOST'] %>
+    # Load `config/crontab` and inject required env vars so cron jobs can
+    # use secret-backed values like ADMIN_USERNAME/ADMIN_PASSWORD.
+    #
+    # Kamal runs each "server" as its own container; `cron -f` keeps it alive.
+    cmd: bash -lc '(printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-manual}"; cat config/crontab) | crontab - && cron -f'
+    options:
+      user: root
+
   flower:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
@@ -71,6 +82,7 @@ env:
     GAZETTEER_CACHE_TTL:   "3600"
     APP_MODE:              production
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
+    KITHE_BRIDGE_URL:      https://geo.btaa.org/api/kithe_bridge
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
     # IMPORTANT: tells db/config.py not to rewrite Docker hostnames to localhost:2345
@@ -83,6 +95,7 @@ env:
     - REDIS_PASSWORD
     - POSTGRES_PASSWORD
     - DATABASE_URL
+    - KITHE_BRIDGE_TOKEN
     - OPENAI_API_KEY
     - OPENAI_MODEL
     - ADMIN_USERNAME
