@@ -1034,6 +1034,7 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 	@echo
 
 # Debug Kamal cron container (bridge sync at 2 AM, blog sync at 3 AM).
+# Uses --reuse to exec into the running cron container (default spawns a new one with no crontab).
 # Usage: source .kamal/secrets && make kamal-cron-debug
 kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@echo "=== Kamal cron container debug (source .kamal/secrets first) ==="
@@ -1043,16 +1044,16 @@ kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	fi
 	@echo ""
 	@echo "--- 1. Loaded crontab ---"
-	@kamal app exec --roles cron "crontab -l" 2>/dev/null || echo "(failed to read crontab)"
+	@kamal app exec --roles cron --reuse "crontab -l" 2>/dev/null || echo "(failed - is cron container running?)"
 	@echo ""
 	@echo "--- 2. Container timezone and time ---"
-	@kamal app exec --roles cron "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
+	@kamal app exec --roles cron --reuse "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
 	@echo ""
 	@echo "--- 3. Env check (APPLICATION_URL set?) ---"
-	@kamal app exec --roles cron "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
+	@kamal app exec --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
 	@echo ""
-	@echo "--- 4. Script exists and venv Python ---"
-	@kamal app exec --roles cron "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests; print(\"requests OK\")' 2>/dev/null || echo \"(venv/requests check failed)\""
+	@echo "--- 4. Script + venv Python (requests) ---"
+	@kamal app exec --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
 
 # Manually run bridge sync trigger from cron container (same as 2 AM job).
 # Usage: source .kamal/secrets && make kamal-cron-test-bridge
@@ -1062,9 +1063,8 @@ kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container 
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
 		exit 1; \
 	fi
-	@kamal app exec --roles cron "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
+	@kamal app exec --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
 	@echo "Check bridge status: make kamal-bridge-status"
-	@echo "Homepage blog cache purge requested (Kamal)."
 
 # Prime thumbnail cache on remote Kamal app container.
 # Usage examples:
