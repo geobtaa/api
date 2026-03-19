@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -805,6 +805,82 @@ print("last:    " + summarize(last));'"'"''; \
 		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
 	done
 
+# Show bridge sync status on Kamal.
+# Usage:
+#   make kamal-bridge-status
+#   make kamal-bridge-status BRIDGE_RUN_ID=<run_id>
+kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUN_ID=... for detail)
+	@echo "Fetching bridge sync status from Kamal via $(KAMAL_API_URL)..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
+		API_BASE=\"$(KAMAL_API_URL)\"; \
+		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
+		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
+		API_BASE=\"\$${API_BASE%/}\"; \
+		if [ -n \"$(BRIDGE_RUN_ID)\" ]; then \
+			curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
+				\"\$$API_BASE/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)\"; \
+		else \
+			curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
+				\"\$$API_BASE/api/v1/admin/bridge/sync/runs\"; \
+		fi'"
+	@echo
+
+# Continuously poll bridge sync status on Kamal.
+# Usage:
+#   make kamal-bridge-status-watch
+#   make kamal-bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
+kamal-bridge-status-watch: ## Poll bridge sync status on Kamal continuously (current + last only)
+	@echo "Watching bridge sync status on Kamal (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Please source .kamal/secrets first."; \
+		exit 1; \
+	fi
+	@while true; do \
+		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
+			$(MAKE) --no-print-directory kamal-bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
+		else \
+			kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+				ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
+				ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
+				API_BASE=\"$(KAMAL_API_URL)\"; \
+				if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
+				if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
+				API_BASE=\"\$${API_BASE%/}\"; \
+				curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
+					\"\$$API_BASE/api/v1/admin/bridge/sync/runs?limit=10\" \
+				| python -c '"'"'import json,sys; data=json.load(sys.stdin); runs=data.get("runs",[]) or []; \
+current=None; last=None; \
+def norm(s): return (s or "").lower(); \
+for r in runs: \
+    if norm(r.get("bridge_status"))=="running": current=r; break; \
+if current is None and runs: current=runs[0]; \
+for r in runs: \
+    if current is not None and r==current: continue; \
+    if last is None: last=r; break; \
+def summarize(r): \
+    if not r: return "(none)"; \
+    return "bridge_id={bridge_id} status={bridge_status} trigger={bridge_trigger} started_at={bridge_started_at} completed_at={bridge_completed_at} error={bridge_error}".format( \
+        bridge_id=r.get("bridge_id"), \
+        bridge_status=r.get("bridge_status"), \
+        bridge_trigger=r.get("bridge_trigger"), \
+        bridge_started_at=r.get("bridge_started_at"), \
+        bridge_completed_at=r.get("bridge_completed_at"), \
+        bridge_error=(r.get("bridge_error") or "").strip().replace("\\n"," ").replace("\\r"," ") \
+    ); \
+print("current: " + summarize(current)); \
+print("last:    " + summarize(last));'"'"''; \
+		fi; \
+		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
+	done
+
 # Show only failed bridge sync runs with error details.
 bridge-failures: bridge-init ## Show failed bridge sync runs
 	@echo "Fetching failed bridge sync runs from $(BRIDGE_API_URL)..."
@@ -956,6 +1032,38 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 			-d '\'{"tags":["home_blog","home"]}'\''; \
 		' "
 	@echo
+
+# Debug Kamal cron container (bridge sync at 2 AM, blog sync at 3 AM).
+# Usage: source .kamal/secrets && make kamal-cron-debug
+kamal-cron-debug: ## Debug cron container: crontab, timezone, env
+	@echo "=== Kamal cron container debug (source .kamal/secrets first) ==="
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
+		exit 1; \
+	fi
+	@echo ""
+	@echo "--- 1. Loaded crontab ---"
+	@kamal app exec --roles cron "crontab -l" 2>/dev/null || echo "(failed to read crontab)"
+	@echo ""
+	@echo "--- 2. Container timezone and time ---"
+	@kamal app exec --roles cron "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
+	@echo ""
+	@echo "--- 3. Env check (APPLICATION_URL set?) ---"
+	@kamal app exec --roles cron "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
+	@echo ""
+	@echo "--- 4. Script exists and venv Python ---"
+	@kamal app exec --roles cron "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests; print(\"requests OK\")' 2>/dev/null || echo \"(venv/requests check failed)\""
+
+# Manually run bridge sync trigger from cron container (same as 2 AM job).
+# Usage: source .kamal/secrets && make kamal-cron-test-bridge
+kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container (test cron job)
+	@echo "Running trigger_bridge_sync_cron.py inside Kamal cron container..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
+		exit 1; \
+	fi
+	@kamal app exec --roles cron "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
+	@echo "Check bridge status: make kamal-bridge-status"
 	@echo "Homepage blog cache purge requested (Kamal)."
 
 # Prime thumbnail cache on remote Kamal app container.

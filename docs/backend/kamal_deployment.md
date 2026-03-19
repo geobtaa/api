@@ -452,6 +452,29 @@ kamal accessory logs elasticsearch
 kamal accessory restart elasticsearch
 ```
 
+### Cron container (bridge sync, blog sync)
+
+The cron container runs daily at 2 AM (bridge sync) and 3 AM (blog sync) in the container's local timezone. If jobs aren't running:
+
+```bash
+# 1. Run diagnostics (crontab, timezone, env)
+source .kamal/secrets
+make kamal-cron-debug
+
+# 2. Manually test the bridge sync trigger (same as 2 AM job)
+make kamal-cron-test-bridge
+
+# 3. Check bridge status after a run
+make kamal-bridge-status
+```
+
+**Common causes:**
+
+- **Python path**: Crontab must use `/opt/venv/bin/python3` (cron has minimal PATH; system `python3` lacks `requests`). See `config/crontab`.
+- **Timezone**: Cron uses container TZ. 2 AM Central = bridge sync; confirm with `date` in `kamal-cron-debug`.
+- **APPLICATION_URL**: Must be set so the trigger script can POST to the API. Check env in `kamal-cron-debug`.
+- **First run**: If deployed mid-day, the first 2 AM run is the next calendar day.
+
 ### Image Build Failures
 
 ```bash
