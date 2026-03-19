@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -1032,6 +1032,12 @@ kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container 
 	fi
 	@kamal app exec --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
 	@echo "Check bridge status: make kamal-bridge-status"
+
+# Tail Celery worker logs (bridge sync, OGM, etc. run in worker).
+# Usage: source .kamal/secrets && make kamal-worker-logs [KAMAL_LOG_LINES=500]
+kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running tasks)
+	@echo "Tailing worker logs (Ctrl+C to stop)..."
+	@kamal app logs --roles worker --lines $(or $(KAMAL_LOG_LINES),200) -f
 
 # Prime thumbnail cache on remote Kamal app container.
 # Usage examples:

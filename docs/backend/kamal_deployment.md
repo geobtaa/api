@@ -475,6 +475,35 @@ make kamal-bridge-status
 - **APPLICATION_URL**: Must be set so the trigger script can POST to the API. Check env in `kamal-cron-debug`.
 - **First run**: If deployed mid-day, the first 2 AM run is the next calendar day.
 
+### Bridge sync queued but run never appears
+
+The API returns `task_id` immediately when it enqueues a Celery task. The run record in `bridge_sync_runs` is created by the **Celery worker** when the task starts. If no run appears, the task never ran.
+
+**Check worker status and logs:**
+
+```bash
+# Worker logs (look for bridge_sync_all, errors, Redis/DB connection)
+source .kamal/secrets
+kamal app logs --roles worker --tail 200
+
+# Verify worker container is running
+kamal app details
+```
+
+**Check task in Flower** (if accessible via SSH tunnel):
+
+```bash
+ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
+# Open http://localhost:5555, search for task_id (e.g. ae46105d-281d-4434-a37c-efbaaa76dc38)
+```
+
+**Common causes:**
+
+- **Worker not running** – restart: `kamal app boot` or redeploy
+- **Worker can't reach Redis** – CELERY_BROKER_URL / REDIS_HOST; accessories must have `roles: [web, worker, flower]`
+- **Worker can't reach ParadeDB** – DATABASE_URL; same role check
+- **Task crashed before `create_sync_run`** – e.g. `database.connect()` failure; check worker logs for tracebacks
+
 ### Image Build Failures
 
 ```bash
