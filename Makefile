@@ -836,7 +836,7 @@ kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUN_ID=... for 
 # Usage:
 #   make kamal-bridge-status-watch
 #   make kamal-bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
-kamal-bridge-status-watch: ## Poll bridge sync status on Kamal continuously (current + last only)
+kamal-bridge-status-watch: ## Poll bridge sync status on Kamal continuously
 	@echo "Watching bridge sync status on Kamal (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -844,40 +844,7 @@ kamal-bridge-status-watch: ## Poll bridge sync status on Kamal continuously (cur
 		exit 1; \
 	fi
 	@while true; do \
-		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
-			$(MAKE) --no-print-directory kamal-bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
-		else \
-			kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
-				ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
-				ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
-				API_BASE=\"$(KAMAL_API_URL)\"; \
-				if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
-				if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
-				API_BASE=\"\$${API_BASE%/}\"; \
-				curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
-					\"\$$API_BASE/api/v1/admin/bridge/sync/runs?limit=10\" \
-				| python -c '"'"'import json,sys; data=json.load(sys.stdin); runs=data.get("runs",[]) or []; \
-current=None; last=None; \
-def norm(s): return (s or "").lower(); \
-for r in runs: \
-    if norm(r.get("bridge_status"))=="running": current=r; break; \
-if current is None and runs: current=runs[0]; \
-for r in runs: \
-    if current is not None and r==current: continue; \
-    if last is None: last=r; break; \
-def summarize(r): \
-    if not r: return "(none)"; \
-    return "bridge_id={bridge_id} status={bridge_status} trigger={bridge_trigger} started_at={bridge_started_at} completed_at={bridge_completed_at} error={bridge_error}".format( \
-        bridge_id=r.get("bridge_id"), \
-        bridge_status=r.get("bridge_status"), \
-        bridge_trigger=r.get("bridge_trigger"), \
-        bridge_started_at=r.get("bridge_started_at"), \
-        bridge_completed_at=r.get("bridge_completed_at"), \
-        bridge_error=(r.get("bridge_error") or "").strip().replace("\\n"," ").replace("\\r"," ") \
-    ); \
-print("current: " + summarize(current)); \
-print("last:    " + summarize(last));'"'"''; \
-		fi; \
+		$(MAKE) --no-print-directory kamal-bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
 		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
 	done
 
