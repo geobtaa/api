@@ -22,7 +22,7 @@ const HomePageHexMapBackground = lazy(() =>
   }))
 );
 import { ArrowRight, X } from 'lucide-react';
-import { fetchHomeBlogPosts, fetchSearchResults } from '../services/api';
+import { fetchFacetValues, fetchHomeBlogPosts } from '../services/api';
 import { formatCount } from '../utils/formatNumber';
 import {
   BTAA_PARTNER_INSTITUTIONS,
@@ -35,7 +35,6 @@ import { normalizeFacetValueForUrl } from '../utils/searchParams';
 import { primaryCtaClass, secondaryCtaClass } from '../styles/cta';
 
 type FacetItem = { value: string; label: string; count: number };
-type FacetLike = { attributes?: { items?: unknown } };
 const BTAA_VIDEO_MODAL_ID = 'btaa-video-modal';
 const BTAA_VIDEO_MODAL_TITLE_ID = 'btaa-video-modal-title';
 const BTAA_VIDEO_EMBED_URL =
@@ -76,30 +75,23 @@ export function HomePage() {
   const blogEnabled = blogCfg?.enabled === true;
   const blogLimit = 3;
 
-  function parseFacetItems(rawItems: unknown): FacetItem[] {
+  function facetValuesToItems(
+    data: Array<{ attributes?: { value?: unknown; label?: unknown; hits?: number } }>
+  ): FacetItem[] {
     const items: FacetItem[] = [];
-    if (!Array.isArray(rawItems)) return items;
-    if (rawItems.length > 0 && Array.isArray(rawItems[0])) {
-      (rawItems as Array<[string | number, number]>).forEach(
-        ([value, hits]) => {
-          const v = String(value);
-          items.push({ value: v, label: v, count: Number(hits) || 0 });
-        }
-      );
-    } else {
-      (rawItems as Array<{ attributes?: { value?: unknown; hits?: unknown; label?: unknown } }>).forEach((item) => {
-        const value = item?.attributes?.value;
-        const hits = item?.attributes?.hits;
-        const label = item?.attributes?.label ?? value;
-        if (value !== undefined) {
-          items.push({
-            value: String(value),
-            label: String(label ?? value),
-            count: Number(hits) || 0,
-          });
-        }
-      });
-    }
+    if (!Array.isArray(data)) return items;
+    data.forEach((item) => {
+      const value = item?.attributes?.value;
+      const hits = item?.attributes?.hits;
+      const label = item?.attributes?.label ?? value;
+      if (value !== undefined) {
+        items.push({
+          value: String(value),
+          label: String(label ?? value),
+          count: Number(hits) || 0,
+        });
+      }
+    });
     return items;
   }
 
@@ -113,47 +105,37 @@ export function HomePage() {
 
   useEffect(() => {
     const fetchFacets = async () => {
+      const searchParams = new URLSearchParams();
+      searchParams.set('q', '');
+      const facetIds = [
+        'gbl_resourceType_sm',
+        'dct_spatial_sm',
+        'dct_creator_sm',
+        'dct_publisher_sm',
+      ] as const;
       try {
-        const results = await fetchSearchResults('', 1, 1);
-        const resourceTypeFacet = results.included?.find(
-          (item) =>
-            item.type === 'facet' &&
-            (item.id === 'gbl_resourceType_sm' ||
-              item.id === 'resource_type_agg')
-        );
-        const placeFacet = results.included?.find(
-          (item) =>
-            item.type === 'facet' &&
-            (item.id === 'dct_spatial_sm' || item.id === 'spatial_agg')
-        );
-        const creatorFacet = results.included?.find(
-          (item) =>
-            item.type === 'facet' &&
-            (item.id === 'dct_creator_sm' || item.id === 'creator_agg')
-        );
-        const publisherFacet = results.included?.find(
-          (item) =>
-            item.type === 'facet' &&
-            (item.id === 'dct_publisher_sm' || item.id === 'publisher_agg')
-        );
+        const [resourceTypeRes, placeRes, creatorRes, publisherRes] =
+          await Promise.all(
+            facetIds.map((facetName) =>
+              fetchFacetValues({
+                facetName,
+                searchParams,
+                page: 1,
+                perPage: 5,
+                sort: 'count_desc',
+              })
+            )
+          );
 
-        const resourceTypeItems = parseFacetItems(
-          (resourceTypeFacet as FacetLike | undefined)?.attributes?.items
-        );
-        const placeItems = parseFacetItems(
-          (placeFacet as FacetLike | undefined)?.attributes?.items
-        );
-        const creatorItems = parseFacetItems(
-          (creatorFacet as FacetLike | undefined)?.attributes?.items
-        );
-        const publisherItems = parseFacetItems(
-          (publisherFacet as FacetLike | undefined)?.attributes?.items
-        );
+        const resourceTypeItems = facetValuesToItems(resourceTypeRes.data ?? []);
+        const placeItems = facetValuesToItems(placeRes.data ?? []);
+        const creatorItems = facetValuesToItems(creatorRes.data ?? []);
+        const publisherItems = facetValuesToItems(publisherRes.data ?? []);
 
-        if (resourceTypeFacet?.id) setResourceTypeFacetId(resourceTypeFacet.id);
-        if (placeFacet?.id) setPlaceFacetId(placeFacet.id);
-        if (creatorFacet?.id) setCreatorFacetId(creatorFacet.id);
-        if (publisherFacet?.id) setPublisherFacetId(publisherFacet.id);
+        setResourceTypeFacetId('gbl_resourceType_sm');
+        setPlaceFacetId('dct_spatial_sm');
+        setCreatorFacetId('dct_creator_sm');
+        setPublisherFacetId('dct_publisher_sm');
 
         setResourceTypeList(topItems(resourceTypeItems, 5));
         setPlaceList(topItems(placeItems, 5));

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import { cellArea, cellToBoundary, UNITS } from 'h3-js';
@@ -181,11 +181,16 @@ export function MapUpdaterHex({
     zoomend: updateBbox,
   });
 
+  // Set bbox immediately on mount so first fetch uses viewport (avoids global request cached empty)
+  useLayoutEffect(() => {
+    const b = map.getBounds();
+    if (b && typeof b.isValid === 'function' && b.isValid()) {
+      setBbox(clampBbox(b.getWest(), b.getSouth(), b.getEast(), b.getNorth()));
+    }
+  }, [map]);
+
   useEffect(() => {
-    const ready = new Promise<void>((resolve) => {
-      map.whenReady(resolve);
-    });
-    ready.then(() => updateBbox());
+    map.whenReady(() => updateBbox());
   }, [map, updateBbox]);
 
   const zoom = map.getZoom();
