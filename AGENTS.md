@@ -103,13 +103,13 @@ Run from the **project root**. Key targets:
 | `make lint-test`       | `lint-check` then `test`. |
 | `make reindex`         | Atomic local reindex using versioned index + alias swap, then clear local search cache. |
 | `make reindex-benchmark` | Run atomic local reindex with benchmark timing output enabled. |
-| `make kamal-reindex`   | Atomic reindex on Kamal with versioned index + alias swap; auto-runs `kamal-clear-cache`. |
+| `make kamal-reindex`   | Atomic reindex on Kamal with versioned index + alias swap; auto-runs `kamal-clear-cache`. Use `KAMAL_DEST=dev1` or `dev2` (default dev1). |
 | `make verify-h3-index` | Verify H3 pyramid fields in Elasticsearch. |
-| `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). |
+| `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). Use `KAMAL_DEST=dev1` or `dev2`. |
 | `make clear_cache`     | Flush Redis cache (needs `REDIS_PASSWORD` in `.env`). |
 | `make frontend-reset`  | Clear Vite cache and restart frontend-dev. |
 | `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz`. |
-| `make db-import`       | Import that dump to remote (Kamal); destructive. |
+| `make db-import`       | Import that dump to remote (Kamal); destructive. Use `KAMAL_DEST=dev1` or `dev2` to target server. |
 | `make db-sync`         | `db-export` then `db-import`. |
 | `make backfill-distributions` | Backfill resource_distributions for resources with dct_references_s but no distribution rows (e.g. OGM-harvested). |
 
@@ -180,5 +180,5 @@ Full flow (migrations, reindex, webhook, dumps): `docs/backend/ogm_harvesting.md
 - **Run frontend lint/format/test from `frontend/`** (or via npm there).
 - **Prefer the Makefile** for backend lint, format, test, reindex, cache, and DB export/import so behavior and env are consistent.
 - **Don’t duplicate long docs here** — link to `docs/` (e.g. `docs/backend/ogm_harvesting.md`, `docs/frontend/testing.md`, `docs/make_tasks.md`) for procedures and rationale.
-- **Secrets and env**: `.env` is not committed; use `.env.example` as a template. Kamal secrets live in `.kamal/secrets` (not committed).
+- **Secrets and env**: `.env` is not committed; use `.env.example` as a template. Kamal uses `.kamal/secrets-common` + `.kamal/secrets.<dest>` (e.g. `secrets.dev1`, `secrets.dev2`); all are gitignored.
 - **When changing frontend deps or Vite config**: run `make frontend-reset` and have the user hard-refresh (or use an incognito window) to avoid 504s on old chunk URLs.

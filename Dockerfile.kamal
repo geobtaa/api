@@ -106,6 +106,10 @@ ENV PORT="3000"
 
 EXPOSE 8000
 
+# HEALTHCHECK so Kamal sees container health (avoids null State.Health -> "unhealthy")
+HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=3 \
+  CMD curl -f http://127.0.0.1:8000/api/docs -o /dev/null || exit 1
+
 # Kamal will override this via servers.web.cmd, but keep a sensible default.
 CMD ["bash", "-lc", "/app/scripts/start_web_singlehost.sh"]
 

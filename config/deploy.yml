@@ -4,6 +4,9 @@ service: btaa-geospatial-api
 # Name of the container image (WITHOUT registry host; Kamal adds registry.server).
 image: ewlarson/btaa-geospatial-api
 
+# Require -d <destination> so we never deploy without specifying dev1/dev2/etc.
+require_destination: true
+
 builder:
   arch: amd64
   dockerfile: Dockerfile.kamal

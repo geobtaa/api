@@ -5,9 +5,23 @@
 -include .env
 export
 
-# Load Kamal configuration if it exists
-ifneq (,$(wildcard .kamal/secrets))
-    include .kamal/secrets
+# Kamal destination (dev1, dev2, etc.). Use: make kamal-reindex KAMAL_DEST=dev2
+KAMAL_DEST ?= dev1
+
+# Load Kamal secrets: destination-based (secrets-common + secrets.<dest>) or legacy .kamal/secrets
+ifneq (,$(wildcard .kamal/secrets-common))
+    ifneq (,$(wildcard .kamal/secrets.$(KAMAL_DEST)))
+        include .kamal/secrets-common
+        include .kamal/secrets.$(KAMAL_DEST)
+    else
+        ifneq (,$(wildcard .kamal/secrets))
+            include .kamal/secrets
+        endif
+    endif
+else
+    ifneq (,$(wildcard .kamal/secrets))
+        include .kamal/secrets
+    endif
 endif
 
 # Coverage threshold - tests will fail if coverage drops below this percentage
@@ -313,7 +327,7 @@ db-import: ## Import dump to remote (Kamal); destructive
 	fi
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source your .kamal/secrets file or set these variables."; \
+		echo "Use KAMAL_DEST=dev1 or dev2 (e.g. make db-import KAMAL_DEST=dev2). Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
 	@echo "Checking remote container status..."
@@ -813,10 +827,10 @@ kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUN_ID=... for 
 	@echo "Fetching bridge sync status from Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
 		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
 		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
 		API_BASE=\"$(KAMAL_API_URL)\"; \
@@ -898,13 +912,13 @@ verify-h3-index: ## Verify H3 pyramid fields in Elasticsearch
 
 # Reindex all resources into Elasticsearch on Kamal (single role run by default).
 kamal-reindex: ## Atomic reindex on Kamal
-	@echo "Atomic reindex on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@echo "Atomic reindex on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && \
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && \
 		REINDEX_ATOMIC_CHUNK_SIZE=$(KAMAL_REINDEX_CHUNK_SIZE) \
 		REINDEX_ATOMIC_BULK_SIZE=$(KAMAL_REINDEX_BULK_SIZE) \
 		REINDEX_ATOMIC_BULK_MAX_RETRIES=$(KAMAL_REINDEX_BULK_MAX_RETRIES) \
@@ -920,13 +934,13 @@ kamal-reindex: ## Atomic reindex on Kamal
 
 # Verify H3 pyramid fields on Kamal (single role run by default).
 kamal-verify-h3-index: ## Verify H3 index on Kamal
-	@echo "Verifying H3 pyramid fields on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@echo "Verifying H3 pyramid fields on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/verify_h3_index.py'"
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/verify_h3_index.py'"
 
 # Clear API cache on Kamal via admin endpoint (defaults to search cache).
 # Usage:
@@ -937,13 +951,13 @@ kamal-verify-h3-index: ## Verify H3 index on Kamal
 #   make kamal-clear-cache KAMAL_CACHE_TYPE=map
 #   make kamal-clear-cache KAMAL_CACHE_TYPE=all
 kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=search|resource|suggest|map|all)
-	@echo "Clearing remote cache on Kamal (role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
+	@echo "Clearing remote cache on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
 	@echo
 	@echo "Remote cache clear request submitted."
 
@@ -955,10 +969,10 @@ kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
 	@echo "Triggering GIN blog sync on Kamal via $(KAMAL_API_URL)... (RUN_NOW=$(RUN_NOW))"
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
 		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
 		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
 		API_BASE=\"$(KAMAL_API_URL)\"; \
@@ -983,10 +997,10 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 	@echo "Purging homepage blog cache on Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles $(KAMAL_APP_ROLE) "bash -lc '\
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
 		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
 		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
 		API_BASE=\"$(KAMAL_API_URL)\"; \
@@ -1004,40 +1018,40 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 # Uses --reuse to exec into the running cron container (default spawns a new one with no crontab).
 # Usage: source .kamal/secrets && make kamal-cron-debug
 kamal-cron-debug: ## Debug cron container: crontab, timezone, env
-	@echo "=== Kamal cron container debug (source .kamal/secrets first) ==="
+	@echo "=== Kamal cron container debug (KAMAL_DEST=$(KAMAL_DEST)) ==="
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
-		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Use KAMAL_DEST=dev1 or dev2."; \
 		exit 1; \
 	fi
 	@echo ""
 	@echo "--- 1. Loaded crontab ---"
-	@kamal app exec --roles cron --reuse "crontab -l" 2>/dev/null || echo "(failed - is cron container running?)"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "crontab -l" 2>/dev/null || echo "(failed - is cron container running?)"
 	@echo ""
 	@echo "--- 2. Container timezone and time ---"
-	@kamal app exec --roles cron --reuse "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
 	@echo ""
 	@echo "--- 3. Env check (APPLICATION_URL set?) ---"
-	@kamal app exec --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
 	@echo ""
 	@echo "--- 4. Script + venv Python (requests) ---"
-	@kamal app exec --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
 
 # Manually run bridge sync trigger from cron container (same as 2 AM job).
 # Usage: source .kamal/secrets && make kamal-cron-test-bridge
 kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container (test cron job)
 	@echo "Running trigger_bridge_sync_cron.py inside Kamal cron container..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
-		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Run: source .kamal/secrets"; \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Use KAMAL_DEST=dev1 or dev2."; \
 		exit 1; \
 	fi
-	@kamal app exec --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
 	@echo "Check bridge status: make kamal-bridge-status"
 
 # Tail Celery worker logs (bridge sync, OGM, etc. run in worker).
 # Usage: source .kamal/secrets && make kamal-worker-logs [KAMAL_LOG_LINES=500]
 kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running tasks)
 	@echo "Tailing worker logs (Ctrl+C to stop)..."
-	@kamal app logs --roles worker --lines $(or $(KAMAL_LOG_LINES),200) -f
+	@kamal app logs -d $(KAMAL_DEST) --roles worker --lines $(or $(KAMAL_LOG_LINES),200) -f
 
 # Prime thumbnail cache on remote Kamal app container.
 # Usage examples:
@@ -1047,10 +1061,10 @@ kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running t
 #   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_RETRY_FAILURES=1
 #   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_FORCE=1
 kamal-prime-thumbnail-cache: ## Prime thumbnail cache on Kamal
-	@echo "Priming thumbnail cache on Kamal (role: $(KAMAL_APP_ROLE))..."
+	@echo "Priming thumbnail cache on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
 	@ARGS=""; \
@@ -1060,7 +1074,7 @@ kamal-prime-thumbnail-cache: ## Prime thumbnail cache on Kamal
 	case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
 	case "$(PRIME_RETRY_FAILURES)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --retry-failures" ;; esac; \
 	case "$(PRIME_RETRY_PLACEHELD)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --retry-placeheld" ;; esac; \
-	kamal app exec -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_thumbnail_cache.py $$ARGS $(RESOURCE_IDS)'"
+	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_thumbnail_cache.py $$ARGS $(RESOURCE_IDS)'"
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 
