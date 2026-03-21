@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import { cellArea, cellToBoundary, UNITS } from 'h3-js';
@@ -181,29 +181,22 @@ export function MapUpdaterHex({
     zoomend: updateBbox,
   });
 
-  // Set bbox immediately on mount so first fetch uses viewport (avoids global request cached empty)
-  useLayoutEffect(() => {
-    const b = map.getBounds();
-    if (b && typeof b.isValid === 'function' && b.isValid()) {
-      setBbox(clampBbox(b.getWest(), b.getSouth(), b.getEast(), b.getNorth()));
-    }
-  }, [map]);
-
   useEffect(() => {
     map.whenReady(() => updateBbox());
   }, [map, updateBbox]);
 
   const zoom = map.getZoom();
   const resolution = zoomToResolution(zoom);
-  // Prefer viewport bbox when available so we get hexes for the visible area and they always render.
-  // Only use global (null bbox) when zoomed out and bbox not yet set (e.g. before whenReady).
+  // Skip global (null bbox) request at low zoom: it can be cached empty. Wait for moveend to set bbox.
   const useGlobalRequest = zoom <= ZOOM_GLOBAL_THRESHOLD && bbox === null;
   const bboxForApi = useGlobalRequest ? null : bbox;
+  const fetchEnabled = !useGlobalRequest;
   const { hexes, hexCount, totalInView, loading, error } = useMapH3(
     searchQuery,
     bboxForApi,
     resolution,
-    queryString
+    queryString,
+    { enabled: fetchEnabled }
   );
 
   useEffect(() => {
