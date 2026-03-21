@@ -957,9 +957,9 @@ kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=search|resou
 		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
-	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc 'ADMIN_USER=\$${ADMIN_USERNAME:-admin}; ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; API_BASE=\"$(KAMAL_API_URL)\"; if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; API_BASE=\"\$${API_BASE%/}\"; curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \"\$$API_BASE/api/v1/admin/cache/clear?cache_type=$(KAMAL_CACHE_TYPE)\"'"
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/clear_cache_by_type.py $(KAMAL_CACHE_TYPE)'"
 	@echo
-	@echo "Remote cache clear request submitted."
+	@echo "Remote cache cleared."
 
 # Trigger a GIN blog sync on Kamal (syncs GitHub MDX -> DB).
 # Usage:
