@@ -54,7 +54,8 @@ async def map_h3(
         return JSONResponse(content=result)
     except Exception as e:
         logger.exception("map/h3 failed: %s", e)
+        # Return 5xx so cached_endpoint does not cache error responses
         return JSONResponse(
             content={"resolution": resolution, "hexes": [], "globalCount": 0},
-            status_code=200,
+            status_code=500,
         )

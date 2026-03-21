@@ -8,13 +8,16 @@ export function useMapH3(
   query: string,
   bbox: string | null,
   resolution: number,
-  queryString?: string
+  queryString?: string,
+  options?: { enabled?: boolean }
 ) {
   const [data, setData] = useState<MapH3Response | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const enabled = options?.enabled !== false;
 
   useEffect(() => {
+    if (!enabled) return;
     // bbox === null is valid: request global hexes (no bbox param)
     let mounted = true;
     setLoading(true);
@@ -38,7 +41,7 @@ export function useMapH3(
     return () => {
       mounted = false;
     };
-  }, [query, bbox, resolution, queryString]);
+  }, [enabled, query, bbox, resolution, queryString]);
 
   const hexCount = data?.hexes.length ?? 0;
   const totalInView = data?.hexes.reduce((s, h) => s + h.count, 0) ?? 0;
@@ -47,7 +50,7 @@ export function useMapH3(
     globalCount: data?.globalCount ?? 0,
     hexCount,
     totalInView,
-    loading,
+    loading: !enabled ? true : loading,
     error,
   };
 }

@@ -123,7 +123,23 @@ python scripts/import_fast.py
 python scripts/clear_cache.py
 ```
 
-### 7. `test_gazetteer_api.py`
+### 7. `clear_cache_by_type.py`
+
+**Purpose**: Clears cache by type using tag-based invalidation. Used by `make kamal-clear-cache` when the exec container cannot reach the public API URL (avoids curl/HTTP).
+
+**Key Features**:
+- Tag-based invalidation (search, resource, suggest, map, all)
+- Connects directly to Redis; no HTTP required
+- Same behavior as the admin cache-clear endpoint
+
+**Usage**:
+```bash
+python scripts/clear_cache_by_type.py [search|resource|suggest|map|all]
+python scripts/clear_cache_by_type.py search   # default
+python scripts/clear_cache_by_type.py all
+```
+
+### 8. `test_gazetteer_api.py`
 
 **Purpose**: Tests the functionality of gazetteer API endpoints.
 

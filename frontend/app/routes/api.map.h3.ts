@@ -51,7 +51,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
       pathAndQuery
     );
 
-    const cacheControl = `public, max-age=${MAP_H3_MAX_AGE}, s-maxage=${MAP_H3_S_MAXAGE}, stale-while-revalidate=${MAP_H3_STALE_WHILE_REVALIDATE}`;
+    // Do not cache empty hex responses (may be transient or error-derived)
+    const cacheControl =
+      !data.hexes || data.hexes.length === 0
+        ? "no-store"
+        : `public, max-age=${MAP_H3_MAX_AGE}, s-maxage=${MAP_H3_S_MAXAGE}, stale-while-revalidate=${MAP_H3_STALE_WHILE_REVALIDATE}`;
     const acceptEncoding = request.headers.get("Accept-Encoding") ?? "";
     const wantsGzip = /gzip/i.test(acceptEncoding);
 

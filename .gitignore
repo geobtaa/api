@@ -204,8 +204,11 @@ backend/data/harvest_dumps/*
 # Static maps
 backend/static/maps/*
 
-# Kamal secrets
+# Kamal secrets (base, common, and destination-specific)
 .kamal/secrets
+.kamal/secrets-common
+.kamal/secrets.dev1
+.kamal/secrets.dev2
 
 # Temp files
 tmp/

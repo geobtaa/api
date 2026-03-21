@@ -36,10 +36,10 @@ Overrides:
 - `make ogm-failures`: show only failed OGM harvest runs with `ogm_error` details.
 - These OGM make tasks run `curl` from inside the `api` container and use that container's `ADMIN_USERNAME` / `ADMIN_PASSWORD`, so they stay aligned with the live API auth config.
 - `make verify-h3-index`: query Elasticsearch to verify H3 pyramid fields (`h3_res2`–`h3_res8`, `geo_or_near_global`) are present (run after reindex)
-- `make kamal-reindex`: atomic remote reindex on Kamal using a versioned index + alias swap (runs once by default with `--roles web`; source `.kamal/secrets` first). On success, this now also runs `make kamal-clear-cache`.
+- `make kamal-reindex`: atomic remote reindex on Kamal using a versioned index + alias swap (runs once by default with `--roles web`). Uses `KAMAL_DEST=dev1` (default) or `dev2`; secrets from `.kamal/secrets-common` + `.kamal/secrets.<dest>`. On success, runs `make kamal-clear-cache`.
   - Useful overrides: `KAMAL_REINDEX_RETAIN_PREVIOUS=1` (default), `KAMAL_REINDEX_PRUNE_OLD=true` (default), `KAMAL_REINDEX_ALLOW_PARTIAL=false` (default; blocks swap on indexing/count mismatch), `KAMAL_REINDEX_REMOVE_LEGACY_INDEX=true` (default; one-time migration from legacy non-alias index name).
-- `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers (runs once by default with `--roles web`; source `.kamal/secrets` first)
-- `make kamal-clear-cache`: clear remote API cache on Kamal (defaults to `KAMAL_CACHE_TYPE=search`). Uses `KAMAL_API_URL` if set, otherwise falls back to `APPLICATION_URL` from Kamal env. Override with `make kamal-clear-cache KAMAL_CACHE_TYPE=all` (or `suggest`/`item`).
+- `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers. Use `KAMAL_DEST=dev1` or `dev2`.
+- `make kamal-clear-cache`: clear remote API cache on Kamal (defaults to `KAMAL_CACHE_TYPE=search`). Use `KAMAL_DEST=dev1` or `dev2`. Override with `KAMAL_CACHE_TYPE=all` (or `suggest`/`item`).
 - `make ingest`: ingest BTAA fixture JSON files into the DB (runs inside the `api` Docker container). Default: `data/fixtures/btaa_fixtures_data`. Override with `make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources`. After ingest, run `make reindex` to index into Elasticsearch.
 - `make ingest-featured`: ingest `data/fixtures/btaa_featured_resources` into the DB and then reindex into Elasticsearch (one-step for featured resources).
 - `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
@@ -48,7 +48,7 @@ Overrides:
 
 - `make frontend-reset`: clear Vite cache in `frontend-dev` and restart the dev server. Use after changing `optimizeDeps` or when seeing "Failed to fetch dynamically imported module" or 504 "Outdated Optimize Dep". **After running it, do a hard refresh** (Ctrl+Shift+R or Cmd+Shift+R) or open the app in an incognito window—otherwise the browser may keep requesting old chunk URLs and still get 504s.
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`
-- `make db-import`: import dump to remote via Kamal (destructive)
+- `make db-import`: import dump to remote via Kamal (destructive). Use `KAMAL_DEST=dev1` or `dev2` to target server.
 - `make db-sync`: `db-export` + `db-import`
 - **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores it into local ParadeDB. It streams from the compressed file (no decompression to disk), so you only need space for the `.gz`. The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
 - **GBL Admin add latest BTAA fields**: `make gbl-admin-db-add-latest-btaa-fields` adds latest BTAA compatibility columns to `resources`.
