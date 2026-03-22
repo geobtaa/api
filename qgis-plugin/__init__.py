@@ -1,3 +1,7 @@
 def classFactory(iface):
-    from .plugin import GeodataSearchPlugin
+    try:
+        from .plugin import GeodataSearchPlugin
+    except ImportError:
+        from plugin import GeodataSearchPlugin
+
     return GeodataSearchPlugin(iface)
