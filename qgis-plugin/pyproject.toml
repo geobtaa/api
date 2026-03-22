@@ -1,0 +1,72 @@
+[project]
+name = "btaa-qgis-plugin"
+version = "0.1.0"
+description = "BTAA QGIS Plugin"
+requires-python = ">=3.9"
+
+[tool.setuptools]
+py-modules = ["downloader", "plugin", "ui_dialog", "settings_dialog", "api_client"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-cov==4.1.0",
+    "pytest-mock>=3.14.0",
+    "ruff>=0.11.6",
+    "requests",
+    "certifi",
+    "urllib3"
+]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+exclude = [
+    ".git",
+    ".github",
+    ".pytest_cache",
+    "__pycache__",
+    "build",
+    "dist",
+    "venv",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "I"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+"ui_dialog.py" = ["E501", "E722"]
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "venv/*", ".venv/*", "docs/*", "*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+    "except ImportError:",
+    "if TYPE_CHECKING:",
+]
+
+[tool.coverage.html]
+directory = "coverage_html_report"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::urllib3.exceptions.InsecureRequestWarning"
+]
