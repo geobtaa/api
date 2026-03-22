@@ -27,6 +27,7 @@ except ImportError:
     FastAPIInstrumentor = None  # Optional: requires appsignal/otel stack
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.ogc import router as ogc_router
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
@@ -216,6 +217,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
+app.include_router(ogc_router, prefix="/ogc")
 
 
 @app.get("/api/v1", include_in_schema=False)
