@@ -12,6 +12,7 @@ You do **not** need to know Python, databases, or Docker internals to use it.
 
 - **The website (frontend)**: where you browse and search (runs at `http://localhost:3000`)
 - **The API (backend)**: the "data service" the website talks to (runs at `http://localhost:8000`)
+- **The QGIS plugin**: a desktop tool to search the catalog and load spatial datasets directly within QGIS
 
 ## Quick start (Docker - recommended)
 
@@ -121,6 +122,13 @@ docker compose down
 docker compose up -d
 ```
 
+## QGIS Plugin
+
+In addition to the website and API, this repository contains a **QGIS Plugin** that connects to the Geoportal API. It allows users to search the catalog and load spatial data directly into their map canvas.
+
+- **Source code**: Located in the `qgis-plugin/` directory.
+- **Testing & Development**: See `qgis-plugin/docs/testing.md` for instructions on running tests and linting.
+
 ## Documentation (for staff who want details)
 
 All documentation is now in the top-level `docs/` folder:
@@ -130,5 +138,6 @@ All documentation is now in the top-level `docs/` folder:
 - **Service tiers / API keys / rate limiting**: `docs/backend/service_tiers_runbook.md`
 - **Scripts (Python utilities)**: `docs/backend/scripts.md`
 - **Frontend docs**: `docs/frontend/`
+- **QGIS plugin docs**: `qgis-plugin/docs/`
 - **Developer Make tasks**: `docs/make_tasks.md`
 - **Old prod migration runbook (GBL Admin -> API -> reindex)**: `docs/make_tasks.md` (section: "GBL Admin migration runbook (old prod -> reindex)")
