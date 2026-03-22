@@ -1,0 +1,19 @@
+[general]
+name=BTAA Geoportal Search
+qgisMinimumVersion=3.0
+description=Search for resources, add spatial data to maps, and open IIIF resources from the BTAA Geoportal API
+version=0.2
+author=Eric Larson
+email=ewlarson@gmail.com
+
+about=Allows searching and loading of geodata from a JSON:API
+
+tracker=http://github.com/your/repo/issues
+repository=http://github.com/your/repo
+
+tags=web,search,data
+
+homepage=http://github.com/your/repo
+category=Web
+icon=icon.png
+experimental=True 
