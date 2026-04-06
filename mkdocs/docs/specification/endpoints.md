@@ -18,6 +18,85 @@ packages = ["requests", "pyodide-http"]
 ### Development Server
 https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/docs
 
+## Complete Endpoint Index (Non-Admin)
+
+The tables below enumerate all current non-admin endpoints exposed by the API.
+
+### Root and Discovery
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/` | API root |
+| GET | `/api/v1/home/blog-posts` | Recent blog posts for home page |
+| GET | `/api/v1/mcp` | Model Context Protocol endpoint |
+
+### Search
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/search` | Search resources (query params) |
+| POST | `/api/v1/search` | Search resources (JSON body) |
+| GET | `/api/v1/search/facets/{facet_name}` | Paginated facet values |
+| GET | `/api/v1/suggest` | Autosuggestions |
+
+### Resources
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/resources/` | List resources |
+| GET | `/api/v1/resources/{id}` | Get one resource |
+| GET | `/api/v1/resources/{id}/citation` | Citation payload |
+| GET | `/api/v1/resources/{id}/citation/json-ld` | Citation as JSON-LD |
+| GET | `/api/v1/resources/{id}/citation/ris` | Citation in RIS format |
+| GET | `/api/v1/resources/{id}/citation/bibtex` | Citation in BibTeX format |
+| GET | `/api/v1/resources/{id}/data-dictionaries` | Resource data dictionary entries |
+| GET | `/api/v1/resources/{id}/distributions` | Resource distributions |
+| GET | `/api/v1/resources/{id}/downloads` | Download links and metadata |
+| GET | `/api/v1/resources/{id}/links` | Resource links |
+| GET | `/api/v1/resources/{id}/metadata` | Combined metadata |
+| GET | `/api/v1/resources/{id}/metadata/ogm` | OGM-transformed metadata |
+| GET | `/api/v1/resources/{id}/metadata/b1g` | B1G metadata format |
+| GET | `/api/v1/resources/{id}/metadata/display` | HTML metadata display |
+| GET | `/api/v1/resources/{id}/ogm-viewer` | OGM viewer payload |
+| GET | `/api/v1/resources/{id}/relationships` | Related resources |
+| GET | `/api/v1/resources/{id}/similar-items` | Similar resources |
+| GET | `/api/v1/resources/{id}/spatial-facets` | Spatial facet values |
+| GET | `/api/v1/resources/{id}/static-map` | Cached static map image |
+| GET | `/api/v1/resources/{id}/static-map/no-cache` | Uncached static map image |
+| GET | `/api/v1/resources/{id}/thumbnail` | Cached thumbnail image |
+| GET | `/api/v1/resources/{id}/thumbnail/no-cache` | Uncached thumbnail image |
+| GET | `/api/v1/resources/{id}/viewer` | Viewer configuration payload |
+
+### Maps and Thumbnails
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/map/h3` | H3 map tile/geometry data |
+| GET | `/api/v1/static-maps/institutions/{map_id}` | Institution static map |
+| GET | `/api/v1/static-maps/{resource_id}` | Resource static map |
+| GET | `/api/v1/thumbnails/placeholder` | Placeholder thumbnail |
+| GET | `/api/v1/thumbnails/{image_hash}` | Thumbnail by hash |
+
+### OGM and Harvest Status
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/ogm/repos` | Enabled/known OGM repositories |
+| GET | `/api/v1/ogm/harvest/failures` | OGM harvest failure summary |
+
+### OGC API
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/ogc/` | OGC API landing page |
+| GET | `/ogc/conformance` | OGC conformance classes |
+| GET | `/ogc/collections` | Collections listing |
+| GET | `/ogc/collections/btaa-records` | BTAA records collection |
+| GET | `/ogc/collections/btaa-records/queryables` | Queryable fields |
+| GET | `/ogc/collections/btaa-records/sortables` | Sortable fields |
+| GET | `/ogc/collections/btaa-records/items` | Collection items |
+| GET | `/ogc/collections/btaa-records/items/{recordId}` | Single OGC record |
+
 ## Search Endpoint
 
 Supports both GET (simple) and POST (complex) forms.
