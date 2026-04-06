@@ -34,7 +34,9 @@ jobs:
 
       - run: pip install -r mkdocs/requirements-docs.txt
 
-      - run: mkdocs build --config-file mkdocs/mkdocs.yml --site-dir mkdocs/site
+      - name: Build MkDocs site
+        working-directory: mkdocs
+        run: mkdocs build --config-file mkdocs.yml --site-dir site
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
