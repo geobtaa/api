@@ -1,24 +1,26 @@
-name: Deploy Documentation
+name: Deploy MkDocs to GitHub Pages
 on:
   push:
-    branches: [main]
+    branches: [develop]
     paths:
-      - 'mkdocs/**'
+      - "mkdocs/**"
+      - ".github/workflows/docs.yml"
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Configure Git Credentials
-        run: |
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
 
       - uses: actions/setup-python@v5
         with:
@@ -32,4 +34,19 @@ jobs:
 
       - run: pip install -r mkdocs/requirements-docs.txt
 
-      - run: mkdocs gh-deploy --force --config-file mkdocs/mkdocs.yml
+      - run: mkdocs build --config-file mkdocs/mkdocs.yml --site-dir mkdocs/site
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: mkdocs/site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
