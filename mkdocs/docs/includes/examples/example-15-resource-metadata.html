@@ -28,8 +28,10 @@ response = requests.get(f"{BASE_URL}/resources/{resource_id}/metadata")
 data = response.json()
 
 print(f"Raw metadata for resource: {resource_id}")
-print(f"Title: {data.get('dct_title_s', 'N/A')}")
-print(f"Description: {data.get('dct_description_sm', ['N/A'])[0] if isinstance(data.get('dct_description_sm'), list) else 'N/A'}")</code></pre>
+ogm = data.get('ogm', {})
+print(f"Title: {ogm.get('dct_title_s', 'N/A')}")
+desc = ogm.get('dct_description_sm', [])
+print(f"Description: {desc[0] if isinstance(desc, list) and desc else 'N/A'}")</code></pre>
     </div>
 
     <div id="tab-response-15" class="tab-content" style="position: relative;">
@@ -131,8 +133,9 @@ async def example_15(event):
             
             print_to_output(output_id, f"✅ Status: {response.status_code}")
             print_to_output(output_id, f"Raw metadata for resource: {resource_id}")
-            print_to_output(output_id, f"Title: {data.get('dct_title_s', 'N/A')}")
-            desc = data.get('dct_description_sm', [])
+            ogm = data.get('ogm', {})
+            print_to_output(output_id, f"Title: {ogm.get('dct_title_s', 'N/A')}")
+            desc = ogm.get('dct_description_sm', [])
             if isinstance(desc, list) and desc:
                 print_to_output(output_id, f"Description: {desc[0]}")
             else:

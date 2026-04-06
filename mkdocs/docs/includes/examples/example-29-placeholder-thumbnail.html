@@ -1,0 +1,140 @@
+<div class="example-block">
+    <div class="example-header">
+        <h3>Placeholder Thumbnail</h3>
+        <span class="badge">Maps/Thumbs</span>
+    </div>
+    <p><strong>Goal:</strong> Retrieve the placeholder thumbnail metadata.</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/thumbnails/placeholder</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-29" class="tab-btn active" onclick="openTab(event, 'tab-python-29')">Python</button>
+        <button id="btn-tab-response-29" class="tab-btn" onclick="openTab(event, 'tab-response-29')">API Response</button>
+        <button id="btn-tab-output-29" class="tab-btn" onclick="openTab(event, 'tab-output-29')">Output</button>
+    </div>
+
+    <div id="tab-python-29" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-29')">Copy</button>
+        <pre><code id="code-29" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+response = requests.get(f"{BASE_URL}/thumbnails/placeholder")
+print(f"Status: {response.status_code}")
+print("Content-Type:", response.headers.get("Content-Type"))
+
+if "application/json" in (response.headers.get("Content-Type") or ""):
+    print(json.dumps(response.json(), indent=2))
+else:
+    print("Binary/image response received.")</code></pre>
+    </div>
+
+    <div id="tab-response-29" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-29')">Copy</button>
+        <pre><code id="json-29" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-29" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-29')">Copy</button>
+        <div class="output-area" id="output-29">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-29">Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=2)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def set_text_content(element_id, text):
+    el = document.getElementById(element_id)
+    el.textContent = text
+
+def mark_tab_complete(tab_btn_id):
+    btn = document.getElementById(tab_btn_id)
+    if btn and "OK" not in btn.innerText:
+        btn.innerText = "OK " + btn.innerText
+
+def reset_tab_marks(example_num):
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = new_text
+    await asyncio.sleep(delay)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    document.getElementById(output_id).classList.add("visible")
+
+async def example_29(event):
+    output_id = "output-29"
+    btn_id = "run-btn-29"
+    btn = document.getElementById(btn_id)
+    original_text = "Run Example"
+
+    try:
+        btn.disabled = True
+        reset_tab_marks(29)
+        btn.innerText = "Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "Requesting /thumbnails/placeholder ...")
+
+        response = requests.get(f"{BASE_URL}/thumbnails/placeholder")
+        content_type = response.headers.get("Content-Type", "")
+        print_to_output(output_id, f"Status: {response.status_code}")
+        print_to_output(output_id, f"Content-Type: {content_type}")
+
+        if "application/json" in content_type:
+            data = response.json()
+            set_json_content("json-29", data)
+        else:
+            set_text_content("json-29", "Binary response received (image or other non-JSON content).")
+        mark_tab_complete("btn-tab-response-29")
+        mark_tab_complete("btn-tab-output-29")
+        btn.innerText = "Complete"
+    except Exception as e:
+        print_to_output(output_id, f"Error: {str(e)}")
+        btn.innerText = "Error"
+    finally:
+        btn.disabled = False
+        asyncio.create_task(reset_button(btn_id, "Complete", original_text))
+
+document.getElementById("run-btn-29").onclick = example_29
+</script>

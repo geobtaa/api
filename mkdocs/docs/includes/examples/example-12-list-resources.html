@@ -26,15 +26,16 @@ BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
 response = requests.get(f"{BASE_URL}/resources/")
 data = response.json()
 
-print(f"Total resources: {data.get('meta', {}).get('total', 0)}")
-print(f"Page: {data.get('meta', {}).get('page', 1)}")
-print(f"Per page: {data.get('meta', {}).get('per_page', 10)}")
+print(f"Total resources: {data.get('meta', {}).get('totalCount', 0)}")
+print(f"Page: {data.get('meta', {}).get('currentPage', 1)}")
+print(f"Per page: {data.get('meta', {}).get('perPage', 10)}")
 
 # Show first few resources
 for item in data.get('data', [])[:5]:
     attrs = item.get('attributes', {})
+    ogm = attrs.get('ogm', {})
     print(f"\nID: {item.get('id')}")
-    print(f"Title: {attrs.get('dct_title_s', 'N/A')}")</code></pre>
+    print(f"Title: {ogm.get('dct_title_s', attrs.get('dct_title_s', 'N/A'))}")</code></pre>
     </div>
 
     <div id="tab-response-12" class="tab-content" style="position: relative;">
@@ -144,17 +145,21 @@ async def example_12(event):
             
             meta = data.get('meta', {})
             print_to_output(output_id, f"✅ Status: {response.status_code}")
-            print_to_output(output_id, f"Total resources: {meta.get('total', 0)}")
-            print_to_output(output_id, f"Page: {meta.get('page', 1)}")
-            print_to_output(output_id, f"Per page: {meta.get('per_page', 10)}")
+            print_to_output(output_id, f"Total resources: {meta.get('totalCount', 0)}")
+            print_to_output(output_id, f"Page: {meta.get('currentPage', 1)}")
+            print_to_output(output_id, f"Per page: {meta.get('perPage', 10)}")
             
             # Show first few resources
             resources = data.get('data', [])
             print_to_output(output_id, f"\nShowing first {min(5, len(resources))} resources:")
             for item in resources[:5]:
                 attrs = item.get('attributes', {})
+                ogm = attrs.get('ogm', {})
                 print_to_output(output_id, f"\nID: {item.get('id')}")
-                print_to_output(output_id, f"Title: {attrs.get('dct_title_s', 'N/A')}")
+                print_to_output(
+                    output_id,
+                    f"Title: {ogm.get('dct_title_s', attrs.get('dct_title_s', 'N/A'))}",
+                )
             
             mark_tab_complete("btn-tab-output-12")
             btn.innerText = "✅ Complete!"

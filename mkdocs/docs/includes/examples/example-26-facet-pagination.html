@@ -34,12 +34,14 @@ response = requests.get(f"{BASE_URL}/search/facets/{facet_name}", params=params)
 data = response.json()
 
 print(f"Facet: {facet_name}")
-print(f"Total values: {data.get('meta', {}).get('total', 0)}")
-print(f"Page: {data.get('meta', {}).get('page', 1)}")
+print(f"Total values: {data.get('meta', {}).get('totalCount', 0)}")
+print(f"Page: {data.get('meta', {}).get('currentPage', 1)}")
+print(f"Per page: {data.get('meta', {}).get('perPage', 10)}")
 
 for item in data.get('data', []):
-    value = item.get('value', 'N/A')
-    count = item.get('count', 0)
+    attrs = item.get('attributes', {})
+    value = attrs.get('value', 'N/A')
+    count = attrs.get('hits', 0)
     print(f"  {value}: {count}")</code></pre>
     </div>
 
@@ -149,9 +151,9 @@ async def example_26(event):
             print_to_output(output_id, f"Facet: {facet_name}")
             
             meta = data.get('meta', {})
-            total = meta.get('total', 0)
-            page = meta.get('page', 1)
-            per_page = meta.get('per_page', 10)
+            total = meta.get('totalCount', 0)
+            page = meta.get('currentPage', 1)
+            per_page = meta.get('perPage', 10)
             
             print_to_output(output_id, f"Total values: {total}")
             print_to_output(output_id, f"Page: {page}")
@@ -162,8 +164,9 @@ async def example_26(event):
                 print_to_output(output_id, f"\nFacet values (showing {len(items)} of {total}):")
                 for item in items:
                     if isinstance(item, dict):
-                        value = item.get('value', 'N/A')
-                        count = item.get('count', 0)
+                        attrs = item.get('attributes', {})
+                        value = attrs.get('value', item.get('id', 'N/A'))
+                        count = attrs.get('hits', 0)
                         print_to_output(output_id, f"  {value}: {count}")
                     else:
                         print_to_output(output_id, f"  {item}")

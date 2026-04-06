@@ -128,7 +128,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="BTAA Geospatial API",
-    version="0.2.0-pre-release",
+    version="0.6.0",
     lifespan=lifespan,
     docs_url=None,
     redoc_url="/api/redoc",
@@ -217,7 +217,7 @@ app.add_middleware(RateLimitMiddleware)
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
-app.include_router(ogc_router, prefix="/ogc")
+app.include_router(ogc_router, prefix="/api/v1/ogc")
 
 
 @app.get("/api/v1", include_in_schema=False)

@@ -1,0 +1,129 @@
+<div class="example-block">
+    <div class="example-header">
+        <h3>OGC Collections</h3>
+        <span class="badge">OGC</span>
+    </div>
+    <p><strong>Goal:</strong> Retrieve OGC collection metadata.</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/ogc/collections</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-31" class="tab-btn active" onclick="openTab(event, 'tab-python-31')">Python</button>
+        <button id="btn-tab-response-31" class="tab-btn" onclick="openTab(event, 'tab-response-31')">API Response</button>
+        <button id="btn-tab-output-31" class="tab-btn" onclick="openTab(event, 'tab-output-31')">Output</button>
+    </div>
+
+    <div id="tab-python-31" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-31')">Copy</button>
+        <pre><code id="code-31" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu"
+
+response = requests.get(f"{BASE_URL}/api/v1/ogc/collections")
+data = response.json()
+
+print(f"Status: {response.status_code}")
+print("Collections:", len(data.get("collections", [])))</code></pre>
+    </div>
+
+    <div id="tab-response-31" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-31')">Copy</button>
+        <pre><code id="json-31" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-31" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-31')">Copy</button>
+        <div class="output-area" id="output-31">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-31">Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu"
+
+def print_to_output(output_id, text, is_html=False):
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=2)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    btn = document.getElementById(tab_btn_id)
+    if btn and "OK" not in btn.innerText:
+        btn.innerText = "OK " + btn.innerText
+
+def reset_tab_marks(example_num):
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = new_text
+    await asyncio.sleep(delay)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    document.getElementById(output_id).classList.add("visible")
+
+async def example_31(event):
+    output_id = "output-31"
+    btn_id = "run-btn-31"
+    btn = document.getElementById(btn_id)
+    original_text = "Run Example"
+
+    try:
+        btn.disabled = True
+        reset_tab_marks(31)
+        btn.innerText = "Running..."
+        await asyncio.sleep(0.1)
+
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, "Requesting /api/v1/ogc/collections ...")
+
+        response = requests.get(f"{BASE_URL}/api/v1/ogc/collections")
+        data = response.json()
+        set_json_content("json-31", data)
+        mark_tab_complete("btn-tab-response-31")
+
+        print_to_output(output_id, f"Status: {response.status_code}")
+        print_to_output(output_id, f"Collections: {len(data.get('collections', []))}")
+        mark_tab_complete("btn-tab-output-31")
+        btn.innerText = "Complete"
+    except Exception as e:
+        print_to_output(output_id, f"Error: {str(e)}")
+        btn.innerText = "Error"
+    finally:
+        btn.disabled = False
+        asyncio.create_task(reset_button(btn_id, "Complete", original_text))
+
+document.getElementById("run-btn-31").onclick = example_31
+</script>

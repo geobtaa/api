@@ -11,24 +11,82 @@
 packages = ["requests", "pyodide-http"]
 </py-config>
 
+<script type="py">
+# Normalize requests defaults for browser/Pyodide runtime.
+# Browsers reject some transport headers (e.g., Accept-Encoding, Connection),
+# which otherwise creates noisy console warnings when requests is patched to fetch.
+try:
+    import requests
+
+    def _safe_default_headers():
+        return {
+            "User-Agent": "python-requests/pyodide",
+            "Accept": "*/*",
+        }
+
+    requests.utils.default_headers = _safe_default_headers
+    requests.sessions.default_headers = _safe_default_headers
+except Exception:
+    # Keep docs functional even if requests import/patching changes.
+    pass
+</script>
+
 {% include-markdown "includes/wip.md" %}
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement ? codeElement.textContent : "";
+    if (!text) return;
+
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event && event.target ? event.target : null;
+        if (!btn) return;
+        const originalText = btn.textContent;
+        btn.textContent = 'Copied';
+        btn.style.background = '#48bb78';
+
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 1500);
+    });
+}
+
+function openTab(evt, tabId) {
+    const btn = evt.currentTarget;
+    const container = btn.closest('.example-block');
+    if (!container) return;
+
+    const tabContents = container.getElementsByClassName("tab-content");
+    for (let i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+
+    const tabBtns = container.getElementsByClassName("tab-btn");
+    for (let i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
 
 ## API Swagger Documentation
 
 ### Development Server
 https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/docs
 
-## Complete Endpoint Index (Non-Admin)
+## Endpoint Index
 
 The tables below enumerate all current non-admin endpoints exposed by the API.
 
-### Root and Discovery
+### Root
 
 | Method | Path | Notes |
 | :---- | :---- | :---- |
 | GET | `/api/v1/` | API root |
-| GET | `/api/v1/home/blog-posts` | Recent blog posts for home page |
-| GET | `/api/v1/mcp` | Model Context Protocol endpoint |
 
 ### Search
 
@@ -88,14 +146,37 @@ The tables below enumerate all current non-admin endpoints exposed by the API.
 
 | Method | Path | Notes |
 | :---- | :---- | :---- |
-| GET | `/ogc/` | OGC API landing page |
-| GET | `/ogc/conformance` | OGC conformance classes |
-| GET | `/ogc/collections` | Collections listing |
-| GET | `/ogc/collections/btaa-records` | BTAA records collection |
-| GET | `/ogc/collections/btaa-records/queryables` | Queryable fields |
-| GET | `/ogc/collections/btaa-records/sortables` | Sortable fields |
-| GET | `/ogc/collections/btaa-records/items` | Collection items |
-| GET | `/ogc/collections/btaa-records/items/{recordId}` | Single OGC record |
+| GET | `/api/v1/ogc/` | OGC API landing page |
+| GET | `/api/v1/ogc/conformance` | OGC conformance classes |
+| GET | `/api/v1/ogc/collections` | Collections listing |
+| GET | `/api/v1/ogc/collections/btaa-records` | BTAA records collection |
+| GET | `/api/v1/ogc/collections/btaa-records/queryables` | Queryable fields |
+| GET | `/api/v1/ogc/collections/btaa-records/sortables` | Sortable fields |
+| GET | `/api/v1/ogc/collections/btaa-records/items` | Collection items |
+| GET | `/api/v1/ogc/collections/btaa-records/items/{recordId}` | Single OGC record |
+
+### Model Context Protocol (MCP)
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/mcp` | Model Context Protocol endpoint |
+
+## Root Endpoint
+
+Provides a basic service-level entrypoint for API discovery.
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/` | API root response |
+
+#### Interactive Example: API Root
+
+{% include "includes/examples/example-28-api-root.html" %}
+
+**Response notes**
+
+- Returns a lightweight JSON payload suitable for liveness and API entrypoint checks.
+- Useful for quickly validating API availability before issuing search/resource requests.
 
 ## Search Endpoint
 
@@ -415,3 +496,87 @@ Supports both GET (simple) and POST (complex) forms.
 {% include "includes/examples/example-25-resource-viewer.html" %}
 
 </details>
+
+## Maps and Thumbnails Endpoints
+
+Supports map geometry helpers and image retrieval endpoints used by frontend map and card UIs.
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/map/h3` | H3 map tile/geometry data |
+| GET | `/api/v1/static-maps/institutions/{map_id}` | Institution static map |
+| GET | `/api/v1/static-maps/{resource_id}` | Resource static map |
+| GET | `/api/v1/thumbnails/placeholder` | Placeholder thumbnail |
+| GET | `/api/v1/thumbnails/{image_hash}` | Thumbnail by hash |
+
+#### Interactive Example: Placeholder Thumbnail
+
+{% include "includes/examples/example-29-placeholder-thumbnail.html" %}
+
+**Parameters**
+
+| Name | Type | Req? | Description |
+| :---- | :---- | :---- | :---- |
+| `map_id` | string | endpoint-specific | Institution map identifier for `/static-maps/institutions/{map_id}` |
+| `resource_id` | string | endpoint-specific | Resource identifier for `/static-maps/{resource_id}` |
+| `image_hash` | string | endpoint-specific | Cache key/hash for `/thumbnails/{image_hash}` |
+
+## OGM and Harvest Status Endpoints
+
+Read-only endpoints for OpenGeoMetadata repository listing and harvest failure visibility.
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/ogm/repos` | Enabled/known OGM repositories |
+| GET | `/api/v1/ogm/harvest/failures` | OGM harvest failure summary |
+
+#### Interactive Example: OGM Repositories
+
+{% include "includes/examples/example-30-ogm-repos.html" %}
+
+**Response notes**
+
+- `/ogm/repos` returns repository-level records used to track OGM ingestion sources.
+- `/ogm/harvest/failures` returns recent failures for monitoring and debugging harvest issues.
+
+## OGC API Endpoints
+
+The OGC API surface exposes standards-aligned discovery and records access endpoints.
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/ogc/` | OGC API landing page |
+| GET | `/api/v1/ogc/conformance` | OGC conformance classes |
+| GET | `/api/v1/ogc/collections` | Collections listing |
+| GET | `/api/v1/ogc/collections/btaa-records` | BTAA records collection |
+| GET | `/api/v1/ogc/collections/btaa-records/queryables` | Queryable fields |
+| GET | `/api/v1/ogc/collections/btaa-records/sortables` | Sortable fields |
+| GET | `/api/v1/ogc/collections/btaa-records/items` | Collection items |
+| GET | `/api/v1/ogc/collections/btaa-records/items/{recordId}` | Single OGC record |
+
+#### Interactive Example: OGC Collections
+
+{% include "includes/examples/example-31-ogc-collections.html" %}
+
+**Parameters**
+
+| Name | Type | Req? | Description |
+| :---- | :---- | :---- | :---- |
+| `recordId` | string | endpoint-specific | Resource ID for `/api/v1/ogc/collections/btaa-records/items/{recordId}` |
+
+## Model Context Protocol (MCP) Endpoint
+
+Provides an MCP-compatible response for clients integrating the API through MCP conventions.
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/mcp` | Model Context Protocol endpoint |
+
+#### Interactive Example: MCP Endpoint
+
+{% include "includes/examples/example-32-mcp-endpoint.html" %}
+
+**Response notes**
+
+- Intended for machine clients and tooling that expect MCP-compatible endpoint behavior.
+- Keep response handling tolerant to additive fields as MCP support evolves.

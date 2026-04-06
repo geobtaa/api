@@ -3,7 +3,7 @@
 This document outlines the implementation approach for adding OGC API - Records compatibility to the existing BTAA Geospatial API.
 
 ## Goal
-The goal of this implementation is to provide a read-only OGC API facade (`/ogc/*`) that sits alongside the existing BTAA native API (`/api/v1/*`), without breaking any internal behavior or rebuilding the core search logic.
+The goal of this implementation is to provide a read-only OGC API facade (`/api/v1/ogc/*`) aligned with BTAA API versioning, without breaking internal behavior or rebuilding the core search logic.
 
 ## Architecture
 
@@ -14,7 +14,7 @@ We achieved modularity and separation of concerns by employing:
 3. **OGC Routers (`app.api.ogc.endpoints`)**: These endpoints handle parsing OGC standardized query parameters (e.g. `sortby`, `bbox`) and converting them to kwargs consumed by `SearchService`.
 
 ## What Was Implemented
-The following paths are fully available under the `/ogc` prefix:
+The following paths are fully available under the `/api/v1/ogc` prefix:
 - `GET /` - OGC Landing Page.
 - `GET /conformance` - Conformance declaration.
 - `GET /collections` and `/collections/btaa-records` - Collection declaration. 

@@ -15,9 +15,9 @@ The BTAA Geospatial API platform consists of two primary components: 1) the [**B
 Review a slide deck from the original presentation. [Google Slides - BTAA Geospatial API](https://docs.google.com/presentation/d/12hdRyqzwQKk2WJXBXg8soNNSMSWIYH3rSlx52X5XMro/edit?usp=sharing)
 
 ### **BTAA Geospatial API**
-A read-only, OpenGeoMetadata API-compliant web service for programmatically accessing, searching, and retrieving metadata records that conform to the BTAA GIN's extended-OGM Aardvark schema.
+A read-only, OpenGeoMetadata and OGC Records API-compliant web service for programmatically accessing, searching, and retrieving metadata records that conform to the BTAA GIN's extended-OGM Aardvark schema.
 
-[BTAA Geospatial API Specification :octicons-arrow-right-24:](specification/){ .md-button .md-button--primary }
+[BTAA Geospatial API Specification :octicons-arrow-right-24:](specification/index.md){ .md-button .md-button--primary }
 
 #### Key Features
 
@@ -30,7 +30,7 @@ A read-only, OpenGeoMetadata API-compliant web service for programmatically acce
 ### **Linked Data Assets**
 A collection of semantic web resources that provide standardized data models and schemas for BTAA geospatial metadata.
 
-[Linked Data Asset Documentation :octicons-arrow-right-24:](linked-data/){ .md-button .md-button--primary }
+[Linked Data Asset Documentation :octicons-arrow-right-24:](linked-data/index.md){ .md-button .md-button--primary }
 
 **Available Assets:**
 
@@ -44,14 +44,14 @@ A collection of semantic web resources that provide standardized data models and
 
 1. **Read the [API Documentation](specification/index.md)** - Complete specification and examples
 2. **Check [Authentication](specification/authentication.md)** - API key requirements
-3. **Explore [Endpoints](specification/requests.md)** - Available API operations
+3. **Explore [Endpoints](specification/endpoints.md)** - Available API operations
 4. **Review [Rate Limits](specification/rate_limiting.md)** - Usage guidelines
 
 ### For Linked Data Developers
 
-1. **Browse [Linked Data Assets](linked-data/)** - Contexts, profiles, and schemas
+1. **Browse [Linked Data Assets](linked-data/index.md)** - Contexts, profiles, and schemas
 2. **Check [Schemas](linked-data/schemas.md)** - JSON Schema validation
-3. **Review [API Reference](linked-data/reference.md)** - Technical specifications
+3. **Review [Linked Data Contexts](linked-data/contexts.md)** - Technical specifications
 4. **Explore [Standards](specification/standards.md)** - Compliance and interoperability
 
 ## Use Cases
@@ -120,7 +120,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 - **Contact Us**: [Feedback](https://geo.btaa.org/feedback)
 - **Issues**: [GitHub Issues](https://github.com/geobtaa/ld/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/geobtaa/ld/discussions)
-- **Documentation**: [API Reference](api/index.md)
+- **Documentation**: [API Reference](specification/index.md)
 
 ---
 

@@ -24,11 +24,13 @@ BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
 
 # Get thumbnail for a resource
 resource_id = "ark28722-s7vs38"
-response = requests.get(f"{BASE_URL}/resources/{resource_id}/thumbnail")
-data = response.json()
+response = requests.get(f"{BASE_URL}/resources/{resource_id}/thumbnail", allow_redirects=False)
 
 print(f"Thumbnail for resource: {resource_id}")
-print(f"Thumbnail URL: {data.get('thumbnail_url', 'N/A')}")</code></pre>
+print(f"Status: {response.status_code}")
+print(f"Content-Type: {response.headers.get('Content-Type', 'N/A')}")
+print(f"Final URL: {response.url}")
+print(f"Redirect location: {response.headers.get('Location', 'N/A')}")</code></pre>
     </div>
 
     <div id="tab-response-24" class="tab-content" style="position: relative;">
@@ -121,17 +123,44 @@ async def example_24(event):
         resource_id = "ark28722-s7vs38"
         print_to_output(output_id, f"🔄 Running Example: Fetching thumbnail for {resource_id}...")
         
-        response = requests.get(f"{BASE_URL}/resources/{resource_id}/thumbnail")
+        # Thumbnail endpoint returns a redirect to a hashed thumbnail URL.
+        # Use allow_redirects=False so we can display the redirect target directly.
+        response = requests.get(f"{BASE_URL}/resources/{resource_id}/thumbnail", allow_redirects=False)
         
-        if response.status_code == 200:
-            data = response.json()
-            set_json_content("json-24", data)
+        if response.status_code in (200, 302, 307, 308):
+            # Try to show JSON when available; otherwise show key headers.
+            try:
+                data = response.json()
+                set_json_content("json-24", data)
+            except Exception:
+                set_json_content(
+                    "json-24",
+                    {
+                        "status_code": response.status_code,
+                        "content_type": response.headers.get("Content-Type"),
+                        "location": response.headers.get("Location"),
+                    },
+                )
             mark_tab_complete("btn-tab-response-24")
             
             print_to_output(output_id, f"✅ Status: {response.status_code}")
             print_to_output(output_id, f"Thumbnail for resource: {resource_id}")
-            thumbnail_url = data.get('thumbnail_url', 'N/A')
-            print_to_output(output_id, f"Thumbnail URL: {thumbnail_url}")
+            print_to_output(output_id, f"Content-Type: {response.headers.get('Content-Type', 'N/A')}")
+            print_to_output(output_id, f"Final URL: {response.url}")
+            redirect_location = response.headers.get("Location")
+            if redirect_location:
+                print_to_output(output_id, f"Redirect location: {redirect_location}")
+            else:
+                # In browser/pyodide mode, redirects are often auto-followed and
+                # Location headers may not be exposed for security reasons.
+                content_type = (response.headers.get("Content-Type") or "").lower()
+                if content_type.startswith("image/"):
+                    print_to_output(
+                        output_id,
+                        "Redirect was likely auto-followed by the browser; image response received.",
+                    )
+                else:
+                    print_to_output(output_id, "No redirect location header returned.")
             
             mark_tab_complete("btn-tab-output-24")
             btn.innerText = "✅ Complete!"

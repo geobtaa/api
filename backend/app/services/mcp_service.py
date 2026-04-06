@@ -1,9 +1,11 @@
 import asyncio
 import json
 import logging
+import os
 import sys
 from typing import Any, Dict
 
+import aiohttp
 from mcp.server import Server
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
@@ -24,6 +26,10 @@ from db.config import DATABASE_URL
 from db.models import resources
 
 logger = logging.getLogger(__name__)
+
+MCP_SERVICE_NAME = "btaa-geospatial-api"
+MCP_SERVICE_VERSION = "0.6.0"
+MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
 # Lazy initialization of database engine and session
 _engine = None
@@ -48,9 +54,282 @@ class OGMMCPService:
 
     def __init__(self):
         logger.info("Initializing GeoBTAA MCP Service")
-        self.server = Server("geo-btaa-api")
+        self.server = Server(MCP_SERVICE_NAME)
+        self.tool_specs = self._build_tool_specs()
+        self.tool_handlers = self._build_tool_handlers()
         self._register_tools()
         logger.info("GeoBTAA MCP Service initialized successfully")
+
+    def _build_tool_specs(self) -> list[dict[str, Any]]:
+        """Single source of truth for MCP tool metadata."""
+        return [
+            {
+                "name": "search_resources",
+                "description": (
+                    "Search for geospatial resources using text queries, filters, "
+                    "and sorting options"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "Search query string"},
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number (default: 1)",
+                            "default": 1,
+                        },
+                        "per_page": {
+                            "type": "integer",
+                            "description": "Resources per page (max 100, default: 10)",
+                            "default": 10,
+                        },
+                        "sort": {
+                            "type": "string",
+                            "description": "Sort option",
+                            "enum": [
+                                "relevance",
+                                "year_desc",
+                                "year_asc",
+                                "title_asc",
+                                "title_desc",
+                            ],
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_resource",
+                "description": (
+                    "Get a single geospatial resource by ID with full metadata and UI enhancements"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_metadata",
+                "description": "Get the OGM Aardvark record for a resource by ID",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "list_resources",
+                "description": "List geospatial resources with pagination",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "page": {"type": "integer", "description": "Page number", "default": 1},
+                        "per_page": {
+                            "type": "integer",
+                            "description": "Resources per page (max 100)",
+                            "default": 10,
+                        },
+                    },
+                },
+            },
+            {
+                "name": "get_suggestions",
+                "description": "Get search suggestions for autocomplete",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string", "description": "Search query"}},
+                    "required": ["query"],
+                },
+            },
+            {
+                "name": "get_resource_viewer",
+                "description": "Get an HTML page with the embedded OGM viewer for a resource",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "Resource ID"},
+                        "embed": {
+                            "type": "boolean",
+                            "description": "Embedded mode for iframe usage",
+                            "default": False,
+                        },
+                    },
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_thumbnail",
+                "description": (
+                    "Get thumbnail endpoint result metadata (redirect, content type, URL)"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "Resource ID"},
+                        "no_cache": {
+                            "type": "boolean",
+                            "description": "Bypass cache and regenerate thumbnail",
+                            "default": False,
+                        },
+                    },
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_distributions",
+                "description": "Get structured resource distributions and protocol details",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_links",
+                "description": "Get all links associated with a resource",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_downloads",
+                "description": "Get resource download options",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_citation",
+                "description": "Get resource citation in default, JSON-LD, RIS, or BibTeX format",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "Resource ID"},
+                        "format": {
+                            "type": "string",
+                            "description": "Citation format",
+                            "enum": ["default", "json-ld", "ris", "bibtex"],
+                            "default": "default",
+                        },
+                    },
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_search_facet_values",
+                "description": (
+                    "Get paginated facet values for a facet field in current search context"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "facet_name": {"type": "string", "description": "Facet field name"},
+                        "q": {"type": "string", "description": "Search query"},
+                        "page": {"type": "integer", "description": "Page number", "default": 1},
+                        "per_page": {
+                            "type": "integer",
+                            "description": "Values per page",
+                            "default": 10,
+                        },
+                        "sort": {
+                            "type": "string",
+                            "description": "Sort option",
+                            "enum": ["count_desc", "count_asc", "alpha_asc", "alpha_desc"],
+                            "default": "count_desc",
+                        },
+                        "q_facet": {"type": "string", "description": "Filter facet values by term"},
+                        "adv_q": {"type": "string", "description": "Advanced query JSON string"},
+                    },
+                    "required": ["facet_name"],
+                },
+            },
+            {
+                "name": "get_resource_relationships",
+                "description": "Get relationships for a resource",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_similar_items",
+                "description": "Get similar items for a resource",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_resource_static_map",
+                "description": (
+                    "Get static map endpoint result metadata (redirect/content type/URL)"
+                ),
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "id": {"type": "string", "description": "Resource ID"},
+                        "no_cache": {
+                            "type": "boolean",
+                            "description": "Bypass cache and regenerate static map",
+                            "default": False,
+                        },
+                    },
+                    "required": ["id"],
+                },
+            },
+            {
+                "name": "get_ogm_repos",
+                "description": "List OGM repositories exposed by the public API",
+                "inputSchema": {"type": "object", "properties": {}},
+            },
+            {
+                "name": "get_ogm_harvest_failures",
+                "description": "Get OGM harvest failures from the public API",
+                "inputSchema": {"type": "object", "properties": {}},
+            },
+            {
+                "name": "validate_aardvark_record",
+                "description": "Validate a single Aardvark JSON record against schema requirements",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "record": {
+                            "type": "object",
+                            "description": "Aardvark JSON record to validate",
+                        }
+                    },
+                    "required": ["record"],
+                },
+            },
+        ]
+
+    def _build_tool_handlers(self) -> dict[str, Any]:
+        return {
+            "search_resources": self._search_resources,
+            "get_resource": self._get_resource,
+            "get_resource_metadata": self._get_resource_metadata,
+            "list_resources": self._list_resources,
+            "get_suggestions": self._get_suggestions,
+            "get_resource_viewer": self._get_resource_viewer,
+            "get_resource_thumbnail": self._get_resource_thumbnail,
+            "get_resource_distributions": self._get_resource_distributions,
+            "get_resource_links": self._get_resource_links,
+            "get_resource_downloads": self._get_resource_downloads,
+            "get_resource_citation": self._get_resource_citation,
+            "get_search_facet_values": self._get_search_facet_values,
+            "get_resource_relationships": self._get_resource_relationships,
+            "get_resource_similar_items": self._get_resource_similar_items,
+            "get_resource_static_map": self._get_resource_static_map,
+            "get_ogm_repos": self._get_ogm_repos,
+            "get_ogm_harvest_failures": self._get_ogm_harvest_failures,
+            "validate_aardvark_record": self._validate_aardvark_record,
+        }
 
     def _register_tools(self):
         """Register all API endpoints as MCP tools."""
@@ -60,157 +339,17 @@ class OGMMCPService:
         async def handle_list_tools() -> ListToolsResult:
             """List all available tools."""
             logger.debug("Handling list_tools request")
-            return ListToolsResult(
-                tools=[
-                    Tool(
-                        name="search_resources",
-                        description=(
-                            "Search for geospatial resources using text queries, "
-                            "filters, and sorting options"
-                        ),
-                        inputSchema={
-                            "type": "object",
-                            "properties": {
-                                "query": {"type": "string", "description": "Search query string"},
-                                "page": {
-                                    "type": "integer",
-                                    "description": "Page number (default: 1)",
-                                    "default": 1,
-                                },
-                                "per_page": {
-                                    "type": "integer",
-                                    "description": "Resources per page (max 100, default: 10)",
-                                    "default": 10,
-                                },
-                                "sort": {
-                                    "type": "string",
-                                    "description": (
-                                        "Sort option (relevance, year_desc, year_asc, "
-                                        "title_asc, title_desc)"
-                                    ),
-                                    "enum": [
-                                        "relevance",
-                                        "year_desc",
-                                        "year_asc",
-                                        "title_asc",
-                                        "title_desc",
-                                    ],
-                                },
-                            },
-                        },
-                    ),
-                    Tool(
-                        name="get_resource",
-                        description=(
-                            "Get a single geospatial resource by ID with full "
-                            "metadata and UI enhancements"
-                        ),
-                        inputSchema={
-                            "type": "object",
-                            "properties": {"id": {"type": "string", "description": "Resource ID"}},
-                            "required": ["id"],
-                        },
-                    ),
-                    Tool(
-                        name="get_resource_metadata",
-                        description=("Get just the GeoBTAA Aardvark record for a resource by ID"),
-                        inputSchema={
-                            "type": "object",
-                            "properties": {"id": {"type": "string", "description": "Resource ID"}},
-                            "required": ["id"],
-                        },
-                    ),
-                    Tool(
-                        name="list_resources",
-                        description="List all GeoBTAA resources with pagination",
-                        inputSchema={
-                            "type": "object",
-                            "properties": {
-                                "page": {
-                                    "type": "integer",
-                                    "description": "Page number (default: 1)",
-                                    "default": 1,
-                                },
-                                "per_page": {
-                                    "type": "integer",
-                                    "description": "Resources per page (max 100, default: 10)",
-                                    "default": 10,
-                                },
-                            },
-                        },
-                    ),
-                    Tool(
-                        name="get_suggestions",
-                        description="Get search suggestions for GeoBTAA autocomplete",
-                        inputSchema={
-                            "type": "object",
-                            "properties": {
-                                "query": {
-                                    "type": "string",
-                                    "description": "Search query for GeoBTAA suggestions",
-                                }
-                            },
-                            "required": ["query"],
-                        },
-                    ),
-                    Tool(
-                        name="get_resource_viewer",
-                        description=(
-                            "Get an HTML page with the embedded OGM viewer for a specific resource"
-                        ),
-                        inputSchema={
-                            "type": "object",
-                            "properties": {
-                                "id": {"type": "string", "description": "Resource ID"},
-                                "embed": {
-                                    "type": "boolean",
-                                    "description": "Embedded mode for iframe usage",
-                                    "default": False,
-                                },
-                            },
-                            "required": ["id"],
-                        },
-                    ),
-                    Tool(
-                        name="validate_aardvark_record",
-                        description=(
-                            "Validate a single Aardvark JSON record against the GeoBTAA schema"
-                        ),
-                        inputSchema={
-                            "type": "object",
-                            "properties": {
-                                "record": {
-                                    "type": "object",
-                                    "description": "The GeoBTAA Aardvark JSON record to validate",
-                                }
-                            },
-                            "required": ["record"],
-                        },
-                    ),
-                ]
-            )
+            return ListToolsResult(tools=[Tool(**spec) for spec in self.tool_specs])
 
         @self.server.call_tool()
         async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> CallToolResult:
             """Handle tool calls."""
             logger.debug(f"Handling tool call: {name} with arguments: {arguments}")
             try:
-                if name == "search_resources":
-                    return await self._search_resources(arguments)
-                elif name == "get_resource":
-                    return await self._get_resource(arguments)
-                elif name == "get_resource_metadata":
-                    return await self._get_resource_metadata(arguments)
-                elif name == "list_resources":
-                    return await self._list_resources(arguments)
-                elif name == "get_suggestions":
-                    return await self._get_suggestions(arguments)
-                elif name == "get_resource_viewer":
-                    return await self._get_resource_viewer(arguments)
-                elif name == "validate_aardvark_record":
-                    return await self._validate_aardvark_record(arguments)
-                else:
+                handler = self.tool_handlers.get(name)
+                if not handler:
                     raise ValueError(f"Unknown tool: {name}")
+                return await handler(arguments)
             except Exception as e:
                 logger.error(f"Error in tool {name}: {str(e)}", exc_info=True)
                 return CallToolResult(
@@ -528,6 +667,151 @@ class OGMMCPService:
                 isError=True,
             )
 
+    def _public_api_base(self) -> str:
+        """Resolve base URL for calling this API over HTTP."""
+        base = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+        if base.endswith("/api/v1"):
+            base = base[: -len("/api/v1")]
+        return base
+
+    async def _api_request(
+        self,
+        path: str,
+        params: dict[str, Any] | None = None,
+        allow_redirects: bool = True,
+    ) -> dict[str, Any]:
+        """Call the public API and return a structured response."""
+        url = f"{self._public_api_base()}/api/v1{path}"
+        timeout = aiohttp.ClientTimeout(total=30)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.get(url, params=params, allow_redirects=allow_redirects) as response:
+                result: dict[str, Any] = {
+                    "status_code": response.status,
+                    "url": str(response.url),
+                    "content_type": response.headers.get("Content-Type"),
+                    "location": response.headers.get("Location"),
+                }
+                try:
+                    result["data"] = await response.json()
+                except Exception:
+                    result["text"] = await response.text()
+                return result
+
+    async def _tool_result_json(
+        self, payload: dict[str, Any], is_error: bool = False
+    ) -> CallToolResult:
+        return CallToolResult(
+            content=[TextContent(type="text", text=json.dumps(payload, indent=2))], isError=is_error
+        )
+
+    async def _get_resource_thumbnail(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        no_cache = bool(arguments.get("no_cache", False))
+        suffix = "/thumbnail/no-cache" if no_cache else "/thumbnail"
+        payload = await self._api_request(
+            f"/resources/{resource_id}{suffix}", allow_redirects=False
+        )
+        payload["resource_id"] = resource_id
+        payload["no_cache"] = no_cache
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_distributions(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        payload = await self._api_request(f"/resources/{resource_id}/distributions")
+        payload["resource_id"] = resource_id
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_links(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        payload = await self._api_request(f"/resources/{resource_id}/links")
+        payload["resource_id"] = resource_id
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_downloads(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        payload = await self._api_request(f"/resources/{resource_id}/downloads")
+        payload["resource_id"] = resource_id
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_citation(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        citation_format = (arguments.get("format") or "default").lower()
+        path = f"/resources/{resource_id}/citation"
+        if citation_format == "json-ld":
+            path = f"/resources/{resource_id}/citation/json-ld"
+        elif citation_format == "ris":
+            path = f"/resources/{resource_id}/citation/ris"
+        elif citation_format == "bibtex":
+            path = f"/resources/{resource_id}/citation/bibtex"
+        payload = await self._api_request(path)
+        payload["resource_id"] = resource_id
+        payload["format"] = citation_format
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_search_facet_values(self, arguments: Dict[str, Any]) -> CallToolResult:
+        facet_name = arguments.get("facet_name")
+        if not facet_name:
+            return await self._tool_result_json({"error": "Missing 'facet_name'"}, is_error=True)
+        params = {
+            "q": arguments.get("q"),
+            "page": arguments.get("page", 1),
+            "per_page": arguments.get("per_page", 10),
+            "sort": arguments.get("sort", "count_desc"),
+            "q_facet": arguments.get("q_facet"),
+            "adv_q": arguments.get("adv_q"),
+        }
+        params = {k: v for k, v in params.items() if v is not None}
+        payload = await self._api_request(f"/search/facets/{facet_name}", params=params)
+        payload["facet_name"] = facet_name
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_relationships(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        payload = await self._api_request(f"/resources/{resource_id}/relationships")
+        payload["resource_id"] = resource_id
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_similar_items(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        payload = await self._api_request(f"/resources/{resource_id}/similar-items")
+        payload["resource_id"] = resource_id
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_resource_static_map(self, arguments: Dict[str, Any]) -> CallToolResult:
+        resource_id = arguments.get("id")
+        if not resource_id:
+            return await self._tool_result_json({"error": "Missing 'id'"}, is_error=True)
+        no_cache = bool(arguments.get("no_cache", False))
+        suffix = "/static-map/no-cache" if no_cache else "/static-map"
+        payload = await self._api_request(
+            f"/resources/{resource_id}{suffix}", allow_redirects=False
+        )
+        payload["resource_id"] = resource_id
+        payload["no_cache"] = no_cache
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_ogm_repos(self, arguments: Dict[str, Any]) -> CallToolResult:
+        payload = await self._api_request("/ogm/repos")
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
+    async def _get_ogm_harvest_failures(self, arguments: Dict[str, Any]) -> CallToolResult:
+        payload = await self._api_request("/ogm/harvest/failures")
+        return await self._tool_result_json(payload, is_error=payload["status_code"] >= 400)
+
     async def _validate_aardvark_record(self, arguments: Dict[str, Any]) -> CallToolResult:
         """Validate an Aardvark JSON record."""
         try:
@@ -648,8 +932,8 @@ async def run_mcp_server():
                     read_stream,
                     write_stream,
                     InitializationOptions(
-                        server_name="ogm-api",
-                        server_version="0.1.0",
+                        server_name=MCP_SERVICE_NAME,
+                        server_version=MCP_SERVICE_VERSION,
                         capabilities=ServerCapabilities(tools=ToolsCapability()),
                     ),
                 ),
@@ -708,159 +992,26 @@ async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any]:
             "result": {
                 "protocolVersion": "2024-11-05",
                 "capabilities": {"tools": {}},
-                "serverInfo": {"name": "ogm-api", "version": "0.1.0"},
+                "serverInfo": {"name": MCP_SERVICE_NAME, "version": MCP_SERVICE_VERSION},
             },
         }
 
     elif method == "tools/list":
-        tools = [
-            {
-                "name": "search_resources",
-                "description": (
-                    "Search for geospatial resources using text queries, "
-                    "filters, and sorting options"
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query string"},
-                        "page": {
-                            "type": "integer",
-                            "description": "Page number (default: 1)",
-                            "default": 1,
-                        },
-                        "per_page": {
-                            "type": "integer",
-                            "description": "Resources per page (max 100, default: 10)",
-                            "default": 10,
-                        },
-                        "sort": {
-                            "type": "string",
-                            "description": "Sort option",
-                            "enum": [
-                                "relevance",
-                                "year_desc",
-                                "year_asc",
-                                "title_asc",
-                                "title_desc",
-                            ],
-                        },
-                    },
-                },
-            },
-            {
-                "name": "get_resource",
-                "description": (
-                    "Get a single geospatial resource by ID with full metadata and UI enhancements"
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
-                    "required": ["id"],
-                },
-            },
-            {
-                "name": "get_resource_metadata",
-                "description": "Get just the OpenGeoMetadata Aardvark record for a resource by ID",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {"id": {"type": "string", "description": "Resource ID"}},
-                    "required": ["id"],
-                },
-            },
-            {
-                "name": "list_resources",
-                "description": "List all geospatial resources with pagination",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "page": {
-                            "type": "integer",
-                            "description": "Page number (default: 1)",
-                            "default": 1,
-                        },
-                        "per_page": {
-                            "type": "integer",
-                            "description": "Resources per page (max 100, default: 10)",
-                            "default": 10,
-                        },
-                    },
-                },
-            },
-            {
-                "name": "get_suggestions",
-                "description": "Get search suggestions for autocomplete",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Search query for suggestions"}
-                    },
-                    "required": ["query"],
-                },
-            },
-            {
-                "name": "get_resource_viewer",
-                "description": (
-                    "Get an HTML page with the embedded OGM viewer for a specific resource"
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "id": {"type": "string", "description": "Resource ID"},
-                        "embed": {
-                            "type": "boolean",
-                            "description": "Embedded mode for iframe usage",
-                            "default": False,
-                        },
-                    },
-                    "required": ["id"],
-                },
-            },
-            {
-                "name": "validate_aardvark_record",
-                "description": (
-                    "Validate a single Aardvark JSON record against the OpenGeoMetadata schema"
-                ),
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "record": {
-                            "type": "object",
-                            "description": "The Aardvark JSON record to validate",
-                        }
-                    },
-                    "required": ["record"],
-                },
-            },
-        ]
-
-        return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": tools}}
+        return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": mcp_service.tool_specs}}
 
     elif method == "tools/call":
         tool_name = params.get("name")
         arguments = params.get("arguments", {})
 
         try:
-            if tool_name == "search_resources":
-                result = await mcp_service._search_resources(arguments)
-            elif tool_name == "get_resource":
-                result = await mcp_service._get_resource(arguments)
-            elif tool_name == "get_resource_metadata":
-                result = await mcp_service._get_resource_metadata(arguments)
-            elif tool_name == "list_resources":
-                result = await mcp_service._list_resources(arguments)
-            elif tool_name == "get_suggestions":
-                result = await mcp_service._get_suggestions(arguments)
-            elif tool_name == "get_resource_viewer":
-                result = await mcp_service._get_resource_viewer(arguments)
-            elif tool_name == "validate_aardvark_record":
-                result = await mcp_service._validate_aardvark_record(arguments)
-            else:
+            handler = mcp_service.tool_handlers.get(tool_name)
+            if not handler:
                 return {
                     "jsonrpc": "2.0",
                     "id": msg_id,
                     "error": {"code": -32601, "message": f"Method not found: {tool_name}"},
                 }
+            result = await handler(arguments)
 
             # Convert CallToolResult to JSON-RPC response
             # Handle the case where we have a single JSON response
@@ -910,6 +1061,29 @@ async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any]:
             "id": msg_id,
             "error": {"code": -32601, "message": f"Method not found: {method}"},
         }
+
+
+def get_mcp_service_info() -> dict[str, Any]:
+    """Build MCP service metadata for the /api/v1/mcp endpoint."""
+    tool_names = [tool["name"] for tool in mcp_service.tool_specs]
+    tool_docs = {tool["name"]: tool["description"] for tool in mcp_service.tool_specs}
+    return {
+        "name": MCP_SERVICE_NAME,
+        "version": MCP_SERVICE_VERSION,
+        "description": MCP_SERVICE_DESCRIPTION,
+        "protocol": "mcp",
+        "transports": ["stdio", "websocket"],
+        "capabilities": {"tools": tool_names},
+        "connections": {
+            "stdio": {
+                "type": "stdio",
+                "command": "python",
+                "args": ["-m", "app.services.mcp_service"],
+            },
+            "websocket": {"type": "websocket", "url": "/api/v1/mcp/ws"},
+        },
+        "documentation": {"tools": tool_docs},
+    }
 
 
 if __name__ == "__main__":

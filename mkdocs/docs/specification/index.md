@@ -2,14 +2,21 @@
 
 {% include-markdown "includes/wip.md" %}
 
-**Version:** 0.3.0-pre-alpha   **Status:** *DRAFT*   **Release Date:** 2025‑12‑09
+**Version:** 0.6.0   **Status:** *DRAFT*   **Release Date:** 2026-04-06
 
 ## Editors
 
-* Eric Larson, Big Ten Academic Alliance  
-* Karen Majewicz, Big Ten Academic Alliance  
+* [Eric Larson](mailto:ewlarson@gmail.com), Big Ten Academic Alliance  
+* [Karen Majewicz](mailto:majew030@umn.edu), Big Ten Academic Alliance
 
-Copyright © 2025 Editors and Contributors. Published by BTAA GIN under the [CC-BY license](https://creativecommons.org/licenses/by/4.0/), see disclaimer.
+### Advisory Committee
+
+
+* [Hayden Elza](mailto:elza@wisc.edu), University of Wisconsin-Madison
+* [Eliot Jordan](mailto:eliotj@princeton.edu), Princeton University
+* [Alexander Marden](mailto:alex.marden@austin.utexas.edu), University of Texas at Austin
+
+Copyright © 2025-2026 Editors and Contributors. Published by BTAA GIN under the [CC-BY license](https://creativecommons.org/licenses/by/4.0/), see disclaimer.
 
 ---
 
@@ -42,8 +49,9 @@ The goal of this specification is to enable consistent client and server impleme
 
 | Version | Date | Notes |
 | :---- | :---- | :---- |
+| 0.6.0 | 2026-04-06 | Major API and documentation refresh, including expanded endpoint documentation, versioned publishing updates, and introduction of the OGC Records API facade under `/api/v1/ogc`. |
 | 0.3.0-pre-alpha | 2025-12-09 | Endpoints added for facet pagination, search supporting adv_q param for advanced search, lots of polish and refinement. |
-| 0.2.0-pre-alpha | 2025-10-23 | Search endpoint enchancements. Support for additional parameters: search_field, fields, facets, include and exclude filters, and meta |
+| 0.2.0-pre-alpha | 2025-10-23 | Search endpoint enhancements. Support for additional parameters: search_field, fields, facets, include and exclude filters, and meta |
 | 0.1.1-pre-alpha | 2025‑08‑22 | Broad revisions. |
 | 0.1.0-pre-alpha | 2025‑07‑22 | Initial draft. |
 

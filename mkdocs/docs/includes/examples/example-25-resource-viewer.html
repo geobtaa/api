@@ -28,8 +28,9 @@ response = requests.get(f"{BASE_URL}/resources/{resource_id}/viewer")
 data = response.json()
 
 print(f"Viewer data for resource: {resource_id}")
-print(f"Viewer type: {data.get('viewer_type', 'N/A')}")
-print(f"Viewer URL: {data.get('viewer_url', 'N/A')}")</code></pre>
+viewer = data.get('viewer', {})
+print(f"Viewer type: {viewer.get('protocol', 'N/A')}")
+print(f"Viewer URL: {viewer.get('endpoint', 'N/A')}")</code></pre>
     </div>
 
     <div id="tab-response-25" class="tab-content" style="position: relative;">
@@ -131,8 +132,9 @@ async def example_25(event):
             
             print_to_output(output_id, f"✅ Status: {response.status_code}")
             print_to_output(output_id, f"Viewer data for resource: {resource_id}")
-            viewer_type = data.get('viewer_type', 'N/A')
-            viewer_url = data.get('viewer_url', 'N/A')
+            viewer = data.get('viewer', {})
+            viewer_type = viewer.get('protocol', 'N/A')
+            viewer_url = viewer.get('endpoint', 'N/A')
             print_to_output(output_id, f"Viewer type: {viewer_type}")
             print_to_output(output_id, f"Viewer URL: {viewer_url}")
             

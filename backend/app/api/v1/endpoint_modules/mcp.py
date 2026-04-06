@@ -3,6 +3,8 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
 
+from app.services.mcp_service import get_mcp_service_info
+
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
@@ -10,57 +12,7 @@ router = APIRouter()
 @router.get("/mcp")
 async def mcp_endpoint():
     """Return MCP service information and connection details."""
-    return JSONResponse(
-        content={
-            "name": "geo-btaa-api",
-            "version": "0.1.0",
-            "description": "GeoBTAA API MCP Service",
-            "protocol": "mcp",
-            "transports": ["stdio", "websocket"],
-            "capabilities": {
-                "tools": [
-                    "search_resources",
-                    "get_resource",
-                    "get_resource_metadata",
-                    "list_resources",
-                    "get_suggestions",
-                    "get_resource_viewer",
-                    "validate_aardvark_record",
-                ]
-            },
-            "connections": {
-                "stdio": {
-                    "type": "stdio",
-                    "command": "python",
-                    "args": ["-m", "app.services.mcp_service"],
-                },
-                "websocket": {"type": "websocket", "url": "/api/v1/mcp/ws"},
-            },
-            "documentation": {
-                "tools": {
-                    "search_resources": (
-                        "Search for GeoBTAA geospatial resources using text queries, "
-                        "filters, and sorting options"
-                    ),
-                    "get_resource": (
-                        "Get a single GeoBTAA geospatial resource by ID with full "
-                        "metadata and UI enhancements"
-                    ),
-                    "get_resource_metadata": (
-                        "Get just the GeoBTAA Aardvark record for a resource by ID"
-                    ),
-                    "list_resources": ("List all GeoBTAA geospatial resources with pagination"),
-                    "get_suggestions": ("Get search suggestions for GeoBTAA autocomplete"),
-                    "get_resource_viewer": (
-                        "Get an HTML page with the embedded OGM viewer for a specific resource"
-                    ),
-                    "validate_aardvark_record": (
-                        "Validate a single GeoBTAA Aardvark JSON record against the GeoBTAA schema"
-                    ),
-                }
-            },
-        }
-    )
+    return JSONResponse(content=get_mcp_service_info())
 
 
 @router.websocket("/mcp/ws")

@@ -33,9 +33,9 @@ class TestMCPEndpoints:
         data = response.json()
 
         # Check basic service information
-        assert data["name"] == "geo-btaa-api"
-        assert data["version"] == "0.1.0"
-        assert data["description"] == "GeoBTAA API MCP Service"
+        assert data["name"] == "btaa-geospatial-api"
+        assert data["version"] == "0.6.0"
+        assert data["description"] == "BTAA Geospatial API MCP Service"
         assert data["protocol"] == "mcp"
         assert "stdio" in data["transports"]
         assert "websocket" in data["transports"]
@@ -45,10 +45,21 @@ class TestMCPEndpoints:
         expected_tools = [
             "search_resources",
             "get_resource",
-            "get_resource_metadata",  # Renamed from get_resource_ogm
+            "get_resource_metadata",
             "list_resources",
             "get_suggestions",
             "get_resource_viewer",
+            "get_resource_thumbnail",
+            "get_resource_distributions",
+            "get_resource_links",
+            "get_resource_downloads",
+            "get_resource_citation",
+            "get_search_facet_values",
+            "get_resource_relationships",
+            "get_resource_similar_items",
+            "get_resource_static_map",
+            "get_ogm_repos",
+            "get_ogm_harvest_failures",
             "validate_aardvark_record",
         ]
         for tool in expected_tools:

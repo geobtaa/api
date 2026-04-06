@@ -4,7 +4,7 @@ Tests for the MCP service.
 
 import pytest
 
-from app.services.mcp_service import OGMMCPService, mcp_service
+from app.services.mcp_service import MCP_SERVICE_NAME, OGMMCPService, mcp_service
 
 
 class TestOGMMCPService:
@@ -205,7 +205,7 @@ class TestOGMMCPService:
         assert response["jsonrpc"] == "2.0"
         assert response["id"] == 1
         assert "result" in response
-        assert response["result"]["serverInfo"]["name"] == "ogm-api"
+        assert response["result"]["serverInfo"]["name"] == MCP_SERVICE_NAME
 
         # Test tools/list message
         list_message = {"method": "tools/list", "id": 2, "params": {}}

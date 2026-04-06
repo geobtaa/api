@@ -28,10 +28,9 @@ response = requests.get(f"{BASE_URL}/resources/{resource_id}/distributions")
 data = response.json()
 
 print(f"Distributions for resource: {resource_id}")
-for dist in data.get('data', []):
-    attrs = dist.get('attributes', {})
-    print(f"Type: {attrs.get('dcat_distribution_type_s', 'N/A')}")
-    print(f"URL: {attrs.get('dcat_access_url_s', 'N/A')}")</code></pre>
+for dist in data.get('distributions', []):
+    print(f"Type: {dist.get('distribution_type', dist.get('distribution_type_name', 'N/A'))}")
+    print(f"URL: {dist.get('url', 'N/A')}")</code></pre>
     </div>
 
     <div id="tab-response-13" class="tab-content" style="position: relative;">
@@ -134,25 +133,37 @@ async def example_13(event):
             print_to_output(output_id, f"✅ Status: {response.status_code}")
             print_to_output(output_id, f"Distributions for resource: {resource_id}")
             
-            # Handle different response structures
+            # Handle current and legacy response structures
             distributions = []
             if isinstance(data, dict):
-                distributions = data.get('data', [])
+                # Current response shape: {"id": "...", "distributions": [...]}
+                if isinstance(data.get('distributions'), list):
+                    distributions = data.get('distributions', [])
+                # Legacy JSON:API shape
+                elif isinstance(data.get('data'), list):
+                    distributions = data.get('data', [])
             elif isinstance(data, list):
                 distributions = data
             
             if distributions:
                 for dist in distributions:
                     if isinstance(dist, dict):
-                        # Handle JSON:API format
+                        # Legacy JSON:API format
                         if 'attributes' in dist:
                             attrs = dist.get('attributes', {})
-                            print_to_output(output_id, f"\nType: {attrs.get('dcat_distribution_type_s', 'N/A')}")
-                            print_to_output(output_id, f"URL: {attrs.get('dcat_access_url_s', 'N/A')}")
+                            print_to_output(
+                                output_id,
+                                f"\nType: {attrs.get('distribution_type', attrs.get('dcat_distribution_type_s', 'N/A'))}",
+                            )
+                            print_to_output(
+                                output_id,
+                                f"URL: {attrs.get('url', attrs.get('dcat_access_url_s', 'N/A'))}",
+                            )
                         else:
-                            # Handle direct attribute format
-                            print_to_output(output_id, f"\nType: {dist.get('dcat_distribution_type_s', 'N/A')}")
-                            print_to_output(output_id, f"URL: {dist.get('dcat_access_url_s', 'N/A')}")
+                            # Current direct distribution format
+                            dtype = dist.get('distribution_type', dist.get('distribution_type_name', 'N/A'))
+                            print_to_output(output_id, f"\nType: {dtype}")
+                            print_to_output(output_id, f"URL: {dist.get('url', 'N/A')}")
                     else:
                         print_to_output(output_id, f"\nDistribution: {dist}")
             else:

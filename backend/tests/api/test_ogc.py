@@ -8,7 +8,7 @@ client = TestClient(app)
 
 
 def test_ogc_landing_page():
-    response = client.get("/ogc/")
+    response = client.get("/api/v1/ogc/")
     assert response.status_code == 200
     data = response.json()
     assert "links" in data
@@ -16,7 +16,7 @@ def test_ogc_landing_page():
 
 
 def test_ogc_conformance():
-    response = client.get("/ogc/conformance")
+    response = client.get("/api/v1/ogc/conformance")
     assert response.status_code == 200
     data = response.json()
     assert "conformsTo" in data
@@ -24,7 +24,7 @@ def test_ogc_conformance():
 
 
 def test_ogc_collections():
-    response = client.get("/ogc/collections")
+    response = client.get("/api/v1/ogc/collections")
     assert response.status_code == 200
     data = response.json()
     assert "collections" in data
@@ -32,14 +32,14 @@ def test_ogc_collections():
 
 
 def test_ogc_collection():
-    response = client.get("/ogc/collections/btaa-records")
+    response = client.get("/api/v1/ogc/collections/btaa-records")
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == "btaa-records"
 
 
 def test_ogc_queryables():
-    response = client.get("/ogc/collections/btaa-records/queryables")
+    response = client.get("/api/v1/ogc/collections/btaa-records/queryables")
     assert response.status_code == 200
     data = response.json()
     assert data["$schema"] == "https://json-schema.org/draft/2019-09/schema"
@@ -47,7 +47,7 @@ def test_ogc_queryables():
 
 
 def test_ogc_sortables():
-    response = client.get("/ogc/collections/btaa-records/sortables")
+    response = client.get("/api/v1/ogc/collections/btaa-records/sortables")
     assert response.status_code == 200
     data = response.json()
     assert "properties" in data
@@ -72,7 +72,7 @@ def test_ogc_items(mock_search_service_class):
         ],
     }
 
-    response = client.get("/ogc/collections/btaa-records/items?q=test&limit=10&sortby=title")
+    response = client.get("/api/v1/ogc/collections/btaa-records/items?q=test&limit=10&sortby=title")
     assert response.status_code == 200
     data = response.json()
 
@@ -100,7 +100,7 @@ def test_ogc_item(mock_search_service_class):
         }
     }
 
-    response = client.get("/ogc/collections/btaa-records/items/test-123")
+    response = client.get("/api/v1/ogc/collections/btaa-records/items/test-123")
     assert response.status_code == 200
     data = response.json()
 
