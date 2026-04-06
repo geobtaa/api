@@ -1,0 +1,204 @@
+<div class="example-block">
+    <div class="example-header">
+        <h3>Resource Similar Items</h3>
+        <span class="badge">Resource</span>
+    </div>
+    <p><strong>Goal:</strong> Get similar items for a resource.</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/resources/{id}/similar-items</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-21" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-21')">Python</button>
+        <button id="btn-tab-response-21" class="tab-btn" onclick="openTab(event, 'tab-response-21')">API
+            Response</button>
+        <button id="btn-tab-output-21" class="tab-btn"
+            onclick="openTab(event, 'tab-output-21')">Output</button>
+    </div>
+
+    <div id="tab-python-21" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-21')">📋 Copy</button>
+        <pre><code id="code-21" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Get similar items for a resource
+resource_id = "ark28722-s7vs38"
+response = requests.get(f"{BASE_URL}/resources/{resource_id}/similar-items")
+data = response.json()
+
+print(f"Similar items for resource: {resource_id}")
+for item in data.get('similar_items', [])[:5]:
+    print(f"ID: {item.get('id', 'N/A')}")
+    print(f"Title: {item.get('title', 'N/A')}")
+    temporal = item.get('temporal_coverage', [])
+    if temporal:
+        print(f"Temporal Coverage: {', '.join(temporal)}")</code></pre>
+    </div>
+
+    <div id="tab-response-21" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-21')">📋 Copy</button>
+        <pre><code id="json-21" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-21" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-21')">📋 Copy</button>
+        <div class="output-area" id="output-21">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-21">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_21(event):
+    """Example: Resource Similar Items"""
+    output_id = "output-21"
+    btn_id = "run-btn-21"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+    
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(21)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+        
+        clear_output(output_id)
+        show_output(output_id)
+        resource_id = "ark28722-s7vs38"
+        print_to_output(output_id, f"🔄 Running Example: Fetching similar items for {resource_id}...")
+        
+        response = requests.get(f"{BASE_URL}/resources/{resource_id}/similar-items")
+        
+        if response.status_code == 200:
+            data = response.json()
+            set_json_content("json-21", data)
+            mark_tab_complete("btn-tab-response-21")
+            
+            print_to_output(output_id, f"✅ Status: {response.status_code}")
+            print_to_output(output_id, f"Similar items for resource: {resource_id}")
+            
+            items = data.get('similar_items', [])
+            if items:
+                print_to_output(output_id, f"\nFound {len(items)} similar items. Showing first {min(5, len(items))}:")
+                for item in items[:5]:
+                    if isinstance(item, dict):
+                        item_id = item.get('id', 'N/A')
+                        title = item.get('title', 'N/A')
+                        temporal = item.get('temporal_coverage', [])
+                        print_to_output(output_id, f"\nID: {item_id}")
+                        print_to_output(output_id, f"Title: {title}")
+                        if temporal:
+                            print_to_output(output_id, f"Temporal Coverage: {', '.join(temporal)}")
+                    else:
+                        print_to_output(output_id, f"\nItem: {item}")
+            else:
+                print_to_output(output_id, "No similar items found.")
+            
+            mark_tab_complete("btn-tab-output-21")
+            btn.innerText = "✅ Complete!"
+        else:
+            print_to_output(output_id, f"❌ Error: {response.status_code}")
+            print_to_output(output_id, response.text)
+            btn.innerText = "❌ Error"
+            
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+document.getElementById("run-btn-21").onclick = example_21
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+function openTab(evt, tabId) {
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>

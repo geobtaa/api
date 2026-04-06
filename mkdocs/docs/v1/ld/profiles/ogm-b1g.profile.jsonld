@@ -1,0 +1,106 @@
+{
+  "id": "https://gin.btaa.org/ld/profiles/ogm-aardvark-btaa.profile.jsonld",
+  "title": "OpenGeoMetadata Aardvark Profile (BTAA-enhanced)",
+  "description": "Profile describing OGM Aardvark-shaped metadata embedded in JSON:API Resource attributes, with BTAA extensions.",
+  "version": "1.1.1",
+  "status": "stable",
+  "updated": "2025-08-22",
+  "appliesTo": {
+      "jsonapiType": "resource",
+      "resourceKinds": [
+          "map",
+          "dataset",
+          "imagery",
+          "collection"
+      ],
+      "notes": "Applies to the JSON:API `data.attributes` object. Implementations SHOULD keep `data.id` and `attributes.id` consistent."
+  },
+  "artifacts": {
+      "jsonldContext": [
+          "https://opengeometadata.org/context/v1/ogm-aardvark-btaa.context.jsonld"
+      ],
+      "jsonSchemas": [
+          "https://opengeometadata.org/schema/v1/resource-envelope.schema.json",
+          "https://opengeometadata.org/schema/v1/resource-aardvark-attributes.schema.json",
+          "https://opengeometadata.org/schema/v1/resource-aardvark-b1g-overlay.schema.json"
+      ],
+      "shacl": [],
+      "examples": [
+          "https://ogm.geo4lib.app/api/v1/resources/msn-id-1897"
+      ]
+  },
+  "constraints": {
+      "required": [
+          "id",
+          "dct_title_s",
+          "gbl_resourceClass_sm",
+          "dct_accessRights_s",
+          "gbl_mdVersion_s",
+          "b1g_dct_accrualMethod_s",
+          "b1g_dateAccessioned_s",
+          "b1g_publication_state_s",
+          "b1g_language_sm"
+      ],
+      "recommended": [
+          "dct_description_sm",
+          "dct_language_sm",
+          "dct_subject_sm",
+          "dcat_keyword_sm",
+          "schema_provider_s",
+          "dct_spatial_sm",
+          "dct_references_s",
+          "dct_format_s",
+          "dcat_bbox",
+          "locn_geometry",
+          "b1g_dct_conformsTo_sm",
+          "b1g_geonames_sm",
+          "b1g_image_ss",
+          "b1g_dct_accrualPeriodicity_s",
+          "b1g_dcat_spatialResolutionInMeters_sm",
+          "b1g_dct_provenanceStatement_sm"
+      ],
+      "either": {
+          "temporal": [
+              [
+                  "dct_temporal_sm"
+              ],
+              [
+                  "gbl_indexYear_im"
+              ],
+              [
+                  "gbl_dateRange_drsim"
+              ]
+          ]
+      },
+      "cardinality": {
+          "id": "1",
+          "dct_title_s": "1",
+          "gbl_resourceClass_sm": "1..n",
+          "dct_accessRights_s": "1",
+          "gbl_mdVersion_s": "1",
+          "b1g_dct_accrualMethod_s": "1",
+          "b1g_dateAccessioned_s": "1",
+          "b1g_publication_state_s": "1",
+          "b1g_language_sm": "1..n"
+      },
+      "patterns": {
+          "dcat_centroid": "^-?\\d+(\\.\\d+)?,\\s*-?\\d+(\\.\\d+)?$"
+      },
+      "stringifiedJson": [
+          "dct_references_s",
+          "b1g_access_s"
+      ]
+  },
+  "compatibility": {
+      "conformsTo": [
+          "https://www.w3.org/TR/vocab-dcat-3/",
+          "http://purl.org/dc/terms/"
+      ],
+      "notes": "Term-level mappings live in the referenced JSON-LD context."
+  },
+  "license": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "maintainers": [
+      "OpenGeoMetadata community",
+      "Big Ten Academic Alliance GIN"
+  ]
+}

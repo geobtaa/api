@@ -1,0 +1,209 @@
+{
+  "@context": {
+      "@version": 1.1,
+      "id": "@id",
+      "type": "@type",
+      "xsd": "http://www.w3.org/2001/XMLSchema#",
+      "dct": "http://purl.org/dc/terms/",
+      "dcat": "http://www.w3.org/ns/dcat#",
+      "schema": "https://schema.org/",
+      "gsp": "http://www.opengis.net/ont/geosparql#",
+      "gbl": "https://geo.blacklight.org/terms#",
+      "pcdm": "http://pcdm.org/models#",
+      "geodcat": "http://data.europa.eu/930/",
+      "b1g": "https://gin.btaa.org/terms/b1g#",
+      "ogm": "https://opengeometadata.org/ogm/terms#",
+      "id_": "dct:identifier",
+      "dct_title_s": "dct:title",
+      "dct_alternative_sm": {
+          "@id": "dct:alternative",
+          "@container": "@set"
+      },
+      "dct_description_sm": {
+          "@id": "dct:description",
+          "@container": "@set"
+      },
+      "dct_subject_sm": {
+          "@id": "dct:subject",
+          "@container": "@set"
+      },
+      "dct_publisher_sm": {
+          "@id": "dct:publisher",
+          "@container": "@set"
+      },
+      "dct_creator_sm": {
+          "@id": "dct:creator",
+          "@container": "@set"
+      },
+      "dct_language_sm": {
+          "@id": "dct:language",
+          "@container": "@set"
+      },
+      "schema_provider_s": "schema:provider",
+      "gbl_resourceClass_sm": {
+          "@id": "gbl:resourceClass",
+          "@container": "@set"
+      },
+      "gbl_resourceType_sm": {
+          "@id": "gbl:resourceType",
+          "@container": "@set"
+      },
+      "dcat_keyword_sm": {
+          "@id": "dcat:keyword",
+          "@container": "@set"
+      },
+      "dct_temporal_sm": {
+          "@id": "dct:temporal",
+          "@container": "@set"
+      },
+      "gbl_indexYear_im": {
+          "@id": "gbl:indexYear",
+          "@container": "@set"
+      },
+      "gbl_dateRange_drsim": {
+          "@id": "gbl:dateRange",
+          "@container": "@set"
+      },
+      "dct_spatial_sm": {
+          "@id": "dct:spatial",
+          "@container": "@set"
+      },
+      "locn_geometry": {
+          "@id": "gsp:asWKT",
+          "@type": "gsp:wktLiteral"
+      },
+      "dcat_bbox": "dcat:bbox",
+      "dcat_centroid": "ogm:centroid",
+      "pcdm_memberOf_sm": {
+          "@id": "pcdm:memberOf",
+          "@container": "@set"
+      },
+      "dct_ispartof_sm": {
+          "@id": "dct:isPartOf",
+          "@container": "@set"
+      },
+      "dct_relation_sm": {
+          "@id": "dct:relation",
+          "@container": "@set"
+      },
+      "dct_replaces_sm": {
+          "@id": "dct:replaces",
+          "@container": "@set"
+      },
+      "dct_isReplacedBy_sm": {
+          "@id": "dct:isReplacedBy",
+          "@container": "@set"
+      },
+      "dct_isVersionOf_sm": {
+          "@id": "dct:isVersionOf",
+          "@container": "@set"
+      },
+      "dct_source_sm": {
+          "@id": "dct:source",
+          "@container": "@set"
+      },
+      "dct_accessRights_s": "dct:accessRights",
+      "dct_rights_sm": {
+          "@id": "dct:rights",
+          "@container": "@set"
+      },
+      "dct_license_sm": {
+          "@id": "dct:license",
+          "@container": "@set"
+      },
+      "dct_rightsHolder_sm": {
+          "@id": "dct:rightsHolder",
+          "@container": "@set"
+      },
+      "dct_format_s": "dct:format",
+      "dcat_theme_sm": {
+          "@id": "dcat:theme",
+          "@container": "@set"
+      },
+      "dct_references_s": {
+          "@id": "ogm:referencesMap",
+          "@type": "@json"
+      },
+      "gbl_mdVersion_s": "gbl:mdVersion",
+      "gbl_mdModified_dt": {
+          "@id": "gbl:mdModified",
+          "@type": "xsd:dateTime"
+      },
+      "gbl_fileSize_s": "gbl:fileSize",
+      "gbl_georeferenced_b": {
+          "@id": "gbl:georeferenced",
+          "@type": "xsd:boolean"
+      },
+      "gbl_wxsIdentifier_s": "gbl:wxsIdentifier",
+      "gbl_suppressed_b": {
+          "@id": "gbl:suppressed",
+          "@type": "xsd:boolean"
+      },
+      "b1g_code_s": "b1g:code",
+      "b1g_status_s": "b1g:status",
+      "b1g_dct_accrualMethod_s": "dct:accrualMethod",
+      "b1g_dct_accrualPeriodicity_s": "dct:accrualPeriodicity",
+      "b1g_dateAccessioned_s": {
+          "@id": "b1g:dateAccessioned",
+          "@type": "xsd:date"
+      },
+      "b1g_dateRetired_s": {
+          "@id": "b1g:dateRetired",
+          "@type": "xsd:date"
+      },
+      "b1g_child_record_b": {
+          "@id": "b1g:childRecord",
+          "@type": "xsd:boolean"
+      },
+      "b1g_dct_mediator_sm": {
+          "@id": "dct:mediator",
+          "@container": "@set"
+      },
+      "b1g_access_s": {
+          "@id": "b1g:accessMap",
+          "@type": "@json"
+      },
+      "b1g_image_ss": {
+          "@id": "schema:thumbnailUrl",
+          "@container": "@set",
+          "@type": "@id"
+      },
+      "b1g_geonames_sm": {
+          "@id": "b1g:geonames",
+          "@container": "@set",
+          "@type": "@id"
+      },
+      "b1g_publication_state_s": "b1g:publicationState",
+      "b1g_language_sm": {
+          "@id": "b1g:languageString",
+          "@container": "@set"
+      },
+      "b1g_creatorID_sm": {
+          "@id": "b1g:creatorID",
+          "@container": "@set",
+          "@type": "@id"
+      },
+      "b1g_dct_conformsTo_sm": {
+          "@id": "dct:conformsTo",
+          "@container": "@set",
+          "@type": "@id"
+      },
+      "b1g_dcat_spatialResolutionInMeters_sm": {
+          "@id": "dcat:spatialResolutionInMeters",
+          "@container": "@set",
+          "@type": "xsd:decimal"
+      },
+      "b1g_geodcat_spatialResolutionAsText_sm": {
+          "@id": "geodcat:spatialResolutionAsText",
+          "@container": "@set"
+      },
+      "b1g_dct_provenanceStatement_sm": {
+          "@id": "dct:provenance",
+          "@container": "@set"
+      },
+      "b1g_adminTags_sm": {
+          "@id": "b1g:adminTags",
+          "@container": "@set"
+      }
+  }
+}

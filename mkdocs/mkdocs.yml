@@ -1,0 +1,115 @@
+site_name: BTAA Geospatial API & Linked Data
+site_url: https://geobtaa.github.io/data-api/
+site_description: "BTAA Geospatial API and linked data assets: contexts, profiles, schemas, etc."
+copyright: "&copy; 2026 BTAA GIN"
+repo_url: https://github.com/geobtaa/data-api
+
+theme:
+  name: material
+  font:
+    text: helvetica neue
+    code: "Roboto Mono"
+  features:
+    - navigation.sections
+    - content.tooltips
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - content.code.copy
+  logo: images/btaa-logo-white.png
+  highlightjs: true
+
+plugins:
+  - search
+  - table-reader
+  - include-markdown
+
+extra_css:
+  - stylesheets/extra.css
+
+markdown_extensions:
+      - abbr
+      - def_list
+      - footnotes
+      - tables
+      - attr_list
+      - md_in_html
+      - admonition
+      - pymdownx.critic
+      - pymdownx.caret
+      - pymdownx.keys
+      - pymdownx.mark
+      - pymdownx.tilde
+      - pymdownx.details
+      - pymdownx.superfences
+      - pymdownx.snippets
+      - pymdownx.emoji:
+            emoji_index: !!python/name:material.extensions.emoji.twemoji
+            emoji_generator: !!python/name:material.extensions.emoji.to_svg
+            options:
+                  custom_icons:
+                        - overrides/.icons
+      - pymdownx.tabbed:
+            alternate_style: true
+            slugify: !!python/object/apply:pymdownx.slugs.slugify
+                  kwds:
+                        case: lower
+      - toc:
+            toc_depth: 2
+            permalink: true
+      - def_list
+      - pymdownx.tasklist:
+            custom_checkbox: true
+      - pymdownx.snippets:
+            auto_append:
+              - includes/abbreviations.md
+      - admonition
+      - pymdownx.details
+      - pymdownx.magiclink
+      - pymdownx.superfences:
+            custom_fences:
+                  - name: mermaid
+                    class: mermaid
+                    format: !!python/name:pymdownx.superfences.fence_code_format
+                    showSequenceNumbers: true
+                    noteFontWeight: "10px"
+                    actorFontSize: "10px"
+                    messageFontSize: "10px"
+      - pymdownx.tabbed:
+            alternate_style: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/geobtaa/data-api
+
+nav:
+- 'Home':
+  - 'Overview': index.md
+  - 'BTAA Geospatial API': specification/index.md
+  - 'Linked Data': linked-data/index.md
+
+- 'API':
+  - 'Specification': 'specification/index.md'
+  - 'Endpoints': 'specification/endpoints.md'
+  - 'Standards': 'specification/standards.md'
+  - 'Metadata': 'specification/metadata.md'
+  - 'Protocol': 'specification/protocol.md'
+  - 'Authentication': 'specification/authentication.md'
+  - 'Rate Limiting': 'specification/rate_limiting.md'
+  - 'Response Objects': 'specification/response_objects.md'
+  - 'Parameters': 'specification/parameters.md'
+  - 'Model Context Protocol': 'specification/model_context_protocol.md'
+  - 'Error Handling': 'specification/error_handling.md'
+  - 'Security': 'specification/security.md'
+
+- 'Linked Data':
+  - 'Overview': 'linked-data/index.md'
+  - 'Contexts': 'linked-data/contexts.md'
+  - 'Profiles': 'linked-data/profiles.md'
+  - 'Schemas': 'linked-data/schemas.md'
+
+- 'Tutorial':
+  - 'Overview': 'specification/tutorial/index.md'
+  - 'Presentation': 'specification/tutorial/presentation.md'
+  - 'Code Examples': 'specification/tutorial/examples.md'

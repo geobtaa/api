@@ -112,6 +112,8 @@ Run from the **project root**. Key targets:
 | `make db-import`       | Import that dump to remote (Kamal); destructive. Use `KAMAL_DEST=dev1` or `dev2` to target server. |
 | `make db-sync`         | `db-export` then `db-import`. |
 | `make backfill-distributions` | Backfill resource_distributions for resources with dct_references_s but no distribution rows (e.g. OGM-harvested). |
+| `make docs-serve`    | Serve public MkDocs site locally at `http://localhost:8001`. |
+| `make docs-build`    | Build public MkDocs site to `mkdocs/site/`. |
 
 See `docs/make_tasks.md` for overrides (e.g. `COVERAGE_THRESHOLD`, `PARALLEL_WORKERS`).
 
@@ -179,6 +181,7 @@ Full flow (migrations, reindex, webhook, dumps): `docs/backend/ogm_harvesting.md
 - **Run backend tests and Makefile targets from the project root**; ensure Docker is up so the test DB exists (`make test` clones from `btaa_geospatial_api` if needed).
 - **Run frontend lint/format/test from `frontend/`** (or via npm there).
 - **Prefer the Makefile** for backend lint, format, test, reindex, cache, and DB export/import so behavior and env are consistent.
-- **Don’t duplicate long docs here** — link to `docs/` (e.g. `docs/backend/ogm_harvesting.md`, `docs/frontend/testing.md`, `docs/make_tasks.md`) for procedures and rationale.
+- **Don't duplicate long docs here** — link to `docs/` (e.g. `docs/backend/ogm_harvesting.md`, `docs/frontend/testing.md`, `docs/make_tasks.md`) for procedures and rationale.
+- **Public documentation site**: The `mkdocs/` directory contains the public-facing MkDocs Material site (API spec, linked data, tutorials). Use `make docs-serve` to preview locally. Internal dev docs remain in `docs/`.
 - **Secrets and env**: `.env` is not committed; use `.env.example` as a template. Kamal uses `.kamal/secrets-common` + `.kamal/secrets.<dest>` (e.g. `secrets.dev1`, `secrets.dev2`); all are gitignored.
 - **When changing frontend deps or Vite config**: run `make frontend-reset` and have the user hard-refresh (or use an incognito window) to avoid 504s on old chunk URLs.

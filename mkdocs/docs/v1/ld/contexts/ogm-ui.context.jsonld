@@ -1,0 +1,12 @@
+{
+  "@context": {
+    "@version": 1.1,
+    "ogm-ui": "https://opengeometadata.org/ogm/ui#",
+    "ui": "ogm-ui:ui",
+    "citation": "ogm-ui:citation",
+    "viewer": "ogm-ui:viewer",
+    "protocol": "ogm-ui:protocol",
+    "endpoint": { "@id": "ogm-ui:endpoint", "@type": "@id" },
+    "geometry": { "@id": "ogm-ui:geometry", "@type": "@json" }
+  }
+}

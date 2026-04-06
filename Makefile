@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs docs-serve docs-build
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -1094,3 +1094,19 @@ clear_cache: ## Flush Redis cache
 	fi
 	@echo "Flushing Redis cache (database $(if $(REDIS_DB),$(REDIS_DB),0))..."
 	@docker compose exec -T redis redis-cli -a "$(REDIS_PASSWORD)" -n $(if $(REDIS_DB),$(REDIS_DB),0) FLUSHDB
+
+# Documentation (MkDocs public site)
+# ─────────────────────────────────────────────────────────────────────────
+
+docs-serve: ## Serve public docs locally (http://localhost:8001)
+	@echo "Installing MkDocs dependencies..."
+	@pip install -r mkdocs/requirements-docs.txt -q
+	@echo "Starting MkDocs dev server on http://127.0.0.1:8001/"
+	@cd mkdocs && mkdocs serve --dev-addr 127.0.0.1:8001
+
+docs-build: ## Build public docs site to mkdocs/site/
+	@echo "Installing MkDocs dependencies..."
+	@pip install -r mkdocs/requirements-docs.txt -q
+	@echo "Building MkDocs site..."
+	@cd mkdocs && mkdocs build
+	@echo "Site built to mkdocs/site/"

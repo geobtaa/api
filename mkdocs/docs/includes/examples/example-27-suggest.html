@@ -1,0 +1,212 @@
+<div class="example-block">
+    <div class="example-header">
+        <h3>Search Autosuggestions</h3>
+        <span class="badge">Search</span>
+    </div>
+    <p><strong>Goal:</strong> Get search suggestions for "Minn".</p>
+    <p><strong>Request:</strong> <code>GET /api/v1/suggest?q=Minn</code></p>
+
+    <div class="tabs">
+        <button id="btn-tab-python-27" class="tab-btn active"
+            onclick="openTab(event, 'tab-python-27')">Python</button>
+        <button id="btn-tab-response-27" class="tab-btn" onclick="openTab(event, 'tab-response-27')">API
+            Response</button>
+        <button id="btn-tab-output-27" class="tab-btn"
+            onclick="openTab(event, 'tab-output-27')">Output</button>
+    </div>
+
+    <div id="tab-python-27" class="tab-content active" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('code-27')">📋 Copy</button>
+        <pre><code id="code-27" class="language-python">import requests
+import json
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+# Get search suggestions
+params = {
+    'q': 'Minn'
+}
+
+response = requests.get(f"{BASE_URL}/suggest", params=params)
+data = response.json()
+
+print(f"Suggestions for 'Minn':")
+for suggestion in data.get('suggestions', []):
+    print(f"  - {suggestion}")</code></pre>
+    </div>
+
+    <div id="tab-response-27" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('json-27')">📋 Copy</button>
+        <pre><code id="json-27" class="json-area language-json">Click "Run" to see the API response...</code></pre>
+    </div>
+
+    <div id="tab-output-27" class="tab-content" style="position: relative;">
+        <button class="copy-btn" onclick="copyCode('output-27')">📋 Copy</button>
+        <div class="output-area" id="output-27">Click "Run" to see the output...</div>
+    </div>
+
+    <button class="run-btn" id="run-btn-27">▶ Run Example</button>
+</div>
+
+<script type="py">
+import json
+import asyncio
+from js import document, window, Prism
+import pyodide_http
+pyodide_http.patch_all()
+import requests
+
+BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+
+def print_to_output(output_id, text, is_html=False):
+    output = document.getElementById(output_id)
+    new_el = document.createElement("div")
+    if is_html:
+        new_el.innerHTML = text
+    else:
+        new_el.innerText = text
+    output.appendChild(new_el)
+
+def set_json_content(element_id, data):
+    el = document.getElementById(element_id)
+    el.textContent = json.dumps(data, indent=4)
+    try:
+        Prism.highlightElement(el)
+    except Exception:
+        pass
+
+def mark_tab_complete(tab_btn_id):
+    btn = document.getElementById(tab_btn_id)
+    if btn and "✅" not in btn.innerText:
+        btn.innerText = "✅ " + btn.innerText
+
+def reset_tab_marks(example_num):
+    resp_btn = document.getElementById(f"btn-tab-response-{example_num}")
+    if resp_btn:
+        resp_btn.innerText = "API Response"
+    out_btn = document.getElementById(f"btn-tab-output-{example_num}")
+    if out_btn:
+        out_btn.innerText = "Output"
+
+async def reset_button(btn_id, new_text, original_text, delay=2):
+    await asyncio.sleep(delay)
+    btn = document.getElementById(btn_id)
+    if btn:
+        btn.innerText = original_text
+
+def clear_output(output_id):
+    document.getElementById(output_id).innerHTML = ""
+
+def show_output(output_id):
+    document.getElementById(output_id).classList.add("visible")
+
+def disable_button(btn_id):
+    document.getElementById(btn_id).disabled = True
+
+def enable_button(btn_id):
+    document.getElementById(btn_id).disabled = False
+
+
+async def example_27(event):
+    """Example: Search Autosuggestions"""
+    output_id = "output-27"
+    btn_id = "run-btn-27"
+    btn = document.getElementById(btn_id)
+    original_text = "▶ Run Example"
+    
+    try:
+        disable_button(btn_id)
+        reset_tab_marks(27)
+        btn.innerText = "⏳ Running..."
+        await asyncio.sleep(0.1)
+        
+        clear_output(output_id)
+        show_output(output_id)
+        print_to_output(output_id, f"🔄 Running Example: Getting search suggestions for 'Minn'...")
+        
+        params = {
+            'q': 'Minn'
+        }
+        response = requests.get(f"{BASE_URL}/suggest", params=params)
+        
+        if response.status_code == 200:
+            data = response.json()
+            set_json_content("json-27", data)
+            mark_tab_complete("btn-tab-response-27")
+            
+            print_to_output(output_id, f"✅ Status: {response.status_code}")
+            print_to_output(output_id, f"Query: Minn")
+            
+            # Handle different possible response formats
+            suggestions = []
+            if isinstance(data, dict):
+                suggestions = data.get('suggestions', [])
+                if not suggestions and 'data' in data:
+                    # Maybe it's in a data array
+                    suggestions = data.get('data', [])
+            elif isinstance(data, list):
+                suggestions = data
+            
+            if suggestions:
+                print_to_output(output_id, f"\nFound {len(suggestions)} suggestions:")
+                for suggestion in suggestions:
+                    if isinstance(suggestion, dict):
+                        # If suggestion is a dict, try to get a text value
+                        text = suggestion.get('text', suggestion.get('value', suggestion.get('suggestion', str(suggestion))))
+                        print_to_output(output_id, f"  - {text}")
+                    else:
+                        print_to_output(output_id, f"  - {suggestion}")
+            else:
+                print_to_output(output_id, "No suggestions found.")
+                print_to_output(output_id, f"Response structure: {type(data).__name__}")
+            
+            mark_tab_complete("btn-tab-output-27")
+            btn.innerText = "✅ Complete!"
+        else:
+            print_to_output(output_id, f"❌ Error: {response.status_code}")
+            print_to_output(output_id, response.text)
+            btn.innerText = "❌ Error"
+            
+    except Exception as e:
+        print_to_output(output_id, f"❌ Error: {str(e)}")
+        btn.innerText = "❌ Error"
+    finally:
+        enable_button(btn_id)
+        asyncio.create_task(reset_button(btn_id, "✅ Complete!", original_text))
+
+
+document.getElementById("run-btn-27").onclick = example_27
+</script>
+
+<script>
+function copyCode(codeId) {
+    const codeElement = document.getElementById(codeId);
+    const text = codeElement.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        btn.style.background = '#48bb78';
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = '#2d3748';
+        }, 2000);
+    });
+}
+
+function openTab(evt, tabId) {
+    var btn = evt.currentTarget;
+    var container = btn.closest('.example-block');
+    var tabContents = container.getElementsByClassName("tab-content");
+    for (var i = 0; i < tabContents.length; i++) {
+        tabContents[i].classList.remove("active");
+    }
+    var tabBtns = container.getElementsByClassName("tab-btn");
+    for (var i = 0; i < tabBtns.length; i++) {
+        tabBtns[i].classList.remove("active");
+    }
+    document.getElementById(tabId).classList.add("active");
+    btn.classList.add("active");
+}
+</script>
+

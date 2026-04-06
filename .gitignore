@@ -147,6 +147,7 @@ venv.bak/
 
 # mkdocs documentation
 /site
+mkdocs/site/
 
 # mypy
 .mypy_cache/
