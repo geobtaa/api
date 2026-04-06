@@ -19,7 +19,7 @@ This file gives agents a single reference for how to lint, format, test, run Doc
   - `make lint-test` — `lint-check` then `test`.
   - `make test-pmtiles-network` — PMTiles raster thumbnail integration test (proves harvest works; requires network). The fixture `b1g_PJxxfKgpqpUT` uses MVT PMTiles which may fail; this test uses a known-good raster URL.
 
-Test env vars (optional): `PARALLEL_WORKERS` (default 4), `WALLCLOCK_TIMEOUT_SECONDS` (default 60), `TIMEOUT_GRACE_SECONDS`, `TIMEOUT_DUMP_STACKS`. See `Makefile` for details.
+Test env vars (optional): `PARALLEL_WORKERS` (default 4), `WALLCLOCK_TIMEOUT_SECONDS` (default 180), `TIMEOUT_GRACE_SECONDS`, `TIMEOUT_DUMP_STACKS`. See `Makefile` for details.
 
 ### Frontend (TypeScript/React)
 

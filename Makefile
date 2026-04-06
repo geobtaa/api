@@ -36,11 +36,11 @@ COVERAGE_THRESHOLD ?= 50
 PARALLEL_WORKERS ?= 4
 
 # Hard stop for a "hung" test run (seconds). 0 disables.
-# CI expectation: the *entire* suite should return quickly; keep this tight by default.
+# Default must exceed a healthy full-suite run (parallel + coverage is often >60s).
 # Override examples:
 #   - WALLCLOCK_TIMEOUT_SECONDS=0 make test        # no timeout (debug only)
 #   - WALLCLOCK_TIMEOUT_SECONDS=900 make test      # 15 minutes
-WALLCLOCK_TIMEOUT_SECONDS ?= 60
+WALLCLOCK_TIMEOUT_SECONDS ?= 180
 
 # On timeout, we send SIGINT first so pytest can print its normal summary.
 # If it doesn't exit within the grace period, we escalate to SIGTERM/SIGKILL.
