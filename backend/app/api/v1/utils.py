@@ -674,15 +674,11 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         resource["meta"]["ui"]["allmaps"] = allmaps_attributes
 
     # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox).
-    #
-    # Note: we intentionally do NOT check whether the static map already exists in Redis.
-    # The `/api/v1/resources/{id}/static-map` endpoint handles:
-    # - 302 redirect to `/api/v1/static-maps/{id}` when cached
-    # - 202 + kicks off background generation when missing
+    # This points directly at the geometry-overlay asset variant.
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
     if geometry:
         application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-        static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+        static_map_url = f"{application_url}/api/v1/static-maps/{resource_dict['id']}/geometry"
 
         if "meta" not in resource:
             resource["meta"] = {}
@@ -824,7 +820,7 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
     if geometry:
         application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-        static_map_url = f"{application_url}/api/v1/resources/{resource_dict['id']}/static-map"
+        static_map_url = f"{application_url}/api/v1/static-maps/{resource_dict['id']}/geometry"
 
         if "meta" not in resource:
             resource["meta"] = {}

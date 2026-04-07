@@ -3,7 +3,6 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.sql import select
 
 from app.services.static_map_service import StaticMapService
-from app.tasks.static_maps import generate_static_map
 from db.models import resources
 
 from . import async_session, logger, router
@@ -35,57 +34,23 @@ async def get_resource_static_map(
     id: str,
     request: Request,
 ):
-    """Get a static map image for a resource based on its locn_geometry or dcat_bbox."""
+    """Compatibility route for the geometry-overlay static map asset."""
     try:
-        # First check if the resource exists and has geometry
         async with async_session() as session:
-            query = select(resources.c.id, resources.c.locn_geometry, resources.c.dcat_bbox).where(
-                resources.c.id == id
-            )
+            query = select(resources.c.id).where(resources.c.id == id)
             result = await session.execute(query)
             row = result.fetchone()
 
             if not row:
                 return _svg_placeholder(title="Map unavailable", subtitle="Resource not found")
 
-            resource_dict = dict(row._mapping)
-            # Prefer locn_geometry over dcat_bbox
-            geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
-
-        # Check if map already exists in Redis
-        map_service = StaticMapService()
-
-        if map_service.map_exists(id):
-            # Map exists, redirect to the serving endpoint
-            return RedirectResponse(
-                url=f"/api/v1/static-maps/{id}",
-                status_code=302,
-                headers={
-                    # Don't let caches pin the redirect response itself.
-                    "Cache-Control": "no-store",
-                },
-            )
-
-        if not geometry:
-            # No geometry: serve a global map (no bbox) instead of a text placeholder
-            map_bytes = map_service.generate_global_map(id)
-            if map_bytes:
-                return RedirectResponse(
-                    url=f"/api/v1/static-maps/{id}",
-                    status_code=302,
-                    headers={"Cache-Control": "no-store"},
-                )
-            return _svg_placeholder(title="Map unavailable", subtitle="Error generating map")
-
-        # Map doesn't exist, trigger Celery task to generate it
-        try:
-            generate_static_map.delay(id)
-            logger.info(f"Triggered static map generation for resource {id}")
-        except Exception as e:
-            logger.error(f"Error triggering static map generation for resource {id}: {e}")
-
-        # Return a placeholder image while the map is being generated (never JSON to <img>).
-        return _svg_placeholder(title="Generating map", subtitle="Please try again shortly")
+        return RedirectResponse(
+            url=f"/api/v1/static-maps/{id}/geometry",
+            status_code=302,
+            headers={
+                "Cache-Control": "no-store",
+            },
+        )
 
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
@@ -134,7 +99,9 @@ async def get_resource_static_map_no_cache(
         if not geometry:
             map_bytes = map_service.generate_global_map(id)
         else:
-            map_bytes = map_service.generate_map(id, geometry)
+            map_bytes = map_service.generate_map(id, geometry) or map_service.generate_global_map(
+                id
+            )
         if not map_bytes:
             return _svg_placeholder(title="Map unavailable", subtitle="Error generating map")
 

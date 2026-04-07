@@ -52,17 +52,37 @@
   z-index: 7 !important;
 }
 
+:root {
+  --map-control-icon-size: 17px;
+  --map-control-icon-color: #374151;
+}
+
 /* Keep basemap switcher button aligned with zoom control sizing. */
 .leaflet-control-layers-toggle {
   width: 26px !important;
   height: 26px !important;
-  background-size: 16px 16px !important;
+  background-image: none !important;
+  background-size: 0 0 !important;
+  position: relative;
 }
 
 .leaflet-touch .leaflet-control-layers-toggle {
   width: 30px !important;
   height: 30px !important;
-  background-size: 18px 18px !important;
+  background-size: 0 0 !important;
+}
+
+.leaflet-control-layers-toggle::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: var(--map-control-icon-size);
+  height: var(--map-control-icon-size);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23374151' stroke-width='1.85' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12.83 2.18 7 3.11a1 1 0 0 1 0 1.82l-7 3.11a2 2 0 0 1-1.62 0l-7-3.11a1 1 0 0 1 0-1.82l7-3.11a2 2 0 0 1 1.62 0Z'/%3E%3Cpath d='m2 12 9.17 4.08a2 2 0 0 0 1.63 0L22 12'/%3E%3Cpath d='m2 17 9.17 4.08a2 2 0 0 0 1.63 0L22 17'/%3E%3C/svg%3E");
 }
 
 /* Shared button style for custom controls that must match Leaflet zoom/layers sizing. */

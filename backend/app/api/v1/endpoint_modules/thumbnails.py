@@ -119,7 +119,7 @@ async def get_placeholder_thumbnail():
 
 @router.get("/thumbnails/{image_hash}")
 async def get_thumbnail(image_hash: str, request: Request):
-    """Serve a cached thumbnail image."""
+    """Serve a cached thumbnail image hash or a resource thumbnail asset."""
     try:
         # Create service without resource (we only need cache access)
         image_service = ImageService({})
@@ -129,7 +129,22 @@ async def get_thumbnail(image_hash: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not image_data:
-        raise HTTPException(status_code=404, detail="Image not found")
+        from app.api.v1.endpoint_modules.resources.thumbnail import (
+            _get_resource_thumbnail_response,
+        )
+
+        try:
+            return await _get_resource_thumbnail_response(
+                image_hash,
+                request,
+                variant="icon-gradient",
+                not_found_placeholder=False,
+            )
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error retrieving resource thumbnail asset {image_hash}: {e}")
+            raise HTTPException(status_code=500, detail=str(e)) from e
 
     # Validate that the cached content is actually an image
     try:

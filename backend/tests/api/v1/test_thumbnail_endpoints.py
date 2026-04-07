@@ -5,10 +5,11 @@ These endpoints handle serving placeholder thumbnails and cached thumbnail image
 """
 
 import io
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import Response
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -113,7 +114,15 @@ class TestThumbnailEndpoints:
         """Test thumbnail retrieval when image is not found."""
         test_image_hash = "nonexistent_hash"
 
-        with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
+        with (
+            patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
+                new=AsyncMock(
+                    side_effect=HTTPException(status_code=404, detail="Resource not found")
+                ),
+            ),
+        ):
             mock_service = MagicMock()
             mock_service.get_cached_image = AsyncMock(return_value=None)
             mock_service_class.return_value = mock_service
@@ -121,7 +130,97 @@ class TestThumbnailEndpoints:
             response = client.get(f"/thumbnails/{test_image_hash}")
 
             assert response.status_code == 404
-            assert "Image not found" in response.json()["detail"]
+            assert "Resource not found" in response.json()["detail"]
+
+    def test_get_thumbnail_resource_asset_fallback(self, client):
+        """Test resource asset fallback when the path is a resource id, not a cached hash."""
+        resource_id = "nyu-2451-34564"
+        fallback_response = Response(
+            content="<svg></svg>",
+            media_type="image/svg+xml",
+            headers={"Cache-Control": "no-store"},
+        )
+
+        with (
+            patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
+                new=AsyncMock(return_value=fallback_response),
+            ) as mock_resource_response,
+        ):
+            mock_service = MagicMock()
+            mock_service.get_cached_image = AsyncMock(return_value=None)
+            mock_service_class.return_value = mock_service
+
+            response = client.get(f"/thumbnails/{resource_id}")
+
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "image/svg+xml"
+            assert response.text == "<svg></svg>"
+            mock_resource_response.assert_awaited_once_with(
+                resource_id,
+                ANY,
+                variant="icon-gradient",
+                not_found_placeholder=False,
+            )
+
+    def test_get_thumbnail_invalid_bridge_asset_falls_back_to_icon_variant(self, client):
+        """Dead bridge thumbnail URLs should fall back to the generated icon asset."""
+        resource_id = "stanford-fc944xn1421"
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.ImageService"
+            ) as mock_cache_service_class,
+            patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session") as mock_session,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context",
+                new=AsyncMock(return_value=MagicMock(by_uri={}, legacy_reference_payload={})),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_thumbnail_asset_url",
+                new=AsyncMock(return_value="https://example.com/missing-thumbnail.jpg"),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._probe_thumbnail_url",
+                new=AsyncMock(return_value=False),
+            ) as mock_probe,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.safe_record_thumbnail_state",
+                new=AsyncMock(),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
+            ) as mock_resource_service_class,
+        ):
+            mock_cache_service = MagicMock()
+            mock_cache_service.get_cached_image = AsyncMock(return_value=None)
+            mock_cache_service_class.return_value = mock_cache_service
+
+            mock_session_instance = AsyncMock()
+            mock_session.return_value.__aenter__.return_value = mock_session_instance
+            mock_row = MagicMock()
+            mock_row._mapping = {
+                "id": resource_id,
+                "dct_accessrights_s": "Public",
+                "gbl_resourceClass_sm": ["Datasets"],
+                "locn_geometry": None,
+                "dcat_bbox": None,
+            }
+            mock_result = MagicMock()
+            mock_result.fetchone.return_value = mock_row
+            mock_session_instance.execute = AsyncMock(return_value=mock_result)
+
+            mock_resource_service = MagicMock()
+            mock_resource_service._get_thumbnail_source_url.return_value = None
+            mock_resource_service_class.return_value = mock_resource_service
+
+            response = client.get(f"/thumbnails/{resource_id}")
+
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "image/svg+xml"
+            assert "<svg" in response.text
+            mock_probe.assert_awaited_once_with("https://example.com/missing-thumbnail.jpg")
 
     def test_get_thumbnail_service_error(self, client):
         """Test thumbnail retrieval with service error."""

@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { GeoDocument } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
+import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
 import { ResultCardPill } from '../search/ResultCardPill';
 
 interface SimilarItemsCarouselProps {
@@ -22,45 +23,7 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
     (item as unknown as { title?: string })?.title ||
     'Untitled';
 
-  // Try multiple possible paths for thumbnail URL
-  const thumbnailUrl =
-    item?.meta?.ui?.thumbnail_url ||
-    (item as unknown as { thumbnail_url?: string })?.thumbnail_url ||
-    (item as unknown as { meta?: { thumbnail_url?: string } })?.meta
-      ?.thumbnail_url;
-
-  const toSsrThumbnailUrl = (url: string): string => {
-    // Route API thumbnail URLs through SSR to avoid browser/IP rate limiting.
-    // Example: /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
-    //          /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
-    try {
-      const u = new URL(
-        url,
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'http://localhost'
-      );
-      // Handle /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
-      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-        return (
-          u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search
-        );
-      }
-      // Handle /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
-      if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
-        return u.pathname.replace('/api/v1', '') + u.search;
-      }
-      return url;
-    } catch {
-      if (url.startsWith('/api/v1/thumbnails/')) {
-        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
-      }
-      if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail')) {
-        return url.replace('/api/v1', '');
-      }
-      return url;
-    }
-  };
+  const primaryImageUrl = getResultPrimaryImageUrl(item, 'list');
 
   // Similar items from API can be full GeoDocument (attributes.ogm) or flat shape from similar_items endpoint
   const ogm = item?.attributes?.ogm;
@@ -78,12 +41,12 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
     if (item?.id) {
       console.log(`SimilarItemCard [${item.id}] thumbnail check:`, {
         'item.meta?.ui?.thumbnail_url': item.meta?.ui?.thumbnail_url,
-        'final thumbnailUrl': thumbnailUrl,
+        primaryImageUrl,
         imageError: imageError,
         'full item structure': item,
       });
     }
-  }, [item, thumbnailUrl, imageError]);
+  }, [item, primaryImageUrl, imageError]);
 
   // Safety checks - after hooks
   if (!item || !item.id) {
@@ -98,18 +61,15 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
       >
         {/* Image Container */}
         <div className="aspect-video w-full bg-gray-50 relative overflow-hidden">
-          {thumbnailUrl &&
-          typeof thumbnailUrl === 'string' &&
-          thumbnailUrl.trim() !== '' &&
-          !imageError ? (
+          {primaryImageUrl && !imageError ? (
             <img
-              src={toSsrThumbnailUrl(thumbnailUrl)}
+              src={primaryImageUrl}
               alt={title}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               onError={(e) => {
                 console.error(
                   `Failed to load thumbnail for ${item.id}:`,
-                  thumbnailUrl,
+                  primaryImageUrl,
                   e
                 );
                 setImageError(true);
@@ -117,7 +77,7 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
               onLoad={() => {
                 console.log(
                   `Successfully loaded thumbnail for ${item.id}:`,
-                  thumbnailUrl
+                  primaryImageUrl
                 );
               }}
             />

@@ -5,15 +5,30 @@ import os
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from PIL import Image
+from sqlalchemy.sql import select
 
 from app.services.cache_service import cache_control_header, weak_etag_from_body
 from app.services.static_map_service import StaticMapService
+from db.models import resources
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
+
+
+async def _fetch_resource_dict(resource_id: str) -> dict | None:
+    """Load a resource row for static map asset generation."""
+    from app.api.v1.endpoint_modules.resources.static_map import async_session
+
+    async with async_session() as session:
+        query = select(resources).where(resources.c.id == resource_id)
+        result = await session.execute(query)
+        row = result.fetchone()
+        if not row:
+            return None
+        return dict(row._mapping)
 
 
 def _validated_png_response(map_data: bytes, request: Request) -> Response:
@@ -23,7 +38,7 @@ def _validated_png_response(map_data: bytes, request: Request) -> Response:
         img.verify()
     except Exception as e:
         logger.error(
-            f"❌ Cached content is not a valid image: {e}. First 200 bytes: {map_data[:200]!r}"
+            f"Cached content is not a valid image: {e}. First 200 bytes: {map_data[:200]!r}"
         )
         raise HTTPException(
             status_code=404,
@@ -43,6 +58,46 @@ def _validated_png_response(map_data: bytes, request: Request) -> Response:
         return Response(status_code=304, headers=headers)
 
     return Response(content=map_data, media_type="image/png", headers=headers)
+
+
+async def _get_or_generate_map_data(resource_id: str, *, variant: str) -> bytes:
+    """Return the requested static map variant, generating it synchronously when needed."""
+    resource_dict = await _fetch_resource_dict(resource_id)
+    if not resource_dict:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    map_service = StaticMapService()
+
+    if variant == "geometry":
+        map_data = await map_service.get_cached_map(resource_id)
+        if not map_data:
+            map_data = (
+                map_service.generate_map(resource_id, geometry)
+                if geometry
+                else map_service.generate_global_map(resource_id)
+            )
+        if not map_data:
+            map_data = map_service.generate_global_map(resource_id)
+        if not map_data:
+            raise HTTPException(status_code=404, detail="Static map not found")
+        return map_data
+
+    if variant == "basemap":
+        map_data = await map_service.get_cached_basemap(resource_id)
+        if not map_data:
+            map_data = (
+                map_service.generate_basemap(resource_id, geometry)
+                if geometry
+                else map_service.generate_global_basemap(resource_id)
+            )
+        if not map_data:
+            map_data = map_service.generate_global_basemap(resource_id)
+        if not map_data:
+            raise HTTPException(status_code=404, detail="Static map not found")
+        return map_data
+
+    raise HTTPException(status_code=400, detail="Unsupported static map variant")
 
 
 @router.get("/static-maps/institutions/{map_id}")
@@ -75,17 +130,47 @@ async def get_institution_static_map(
     return _validated_png_response(map_data, request)
 
 
-@router.get("/static-maps/{resource_id}")
-async def get_static_map(resource_id: str, request: Request):
-    """Serve a cached static map image from Redis."""
+@router.get("/static-maps/{resource_id}/geometry")
+async def get_static_map_geometry(resource_id: str, request: Request):
+    """Serve or generate the static map with geometry overlay for a resource."""
     try:
-        map_service = StaticMapService()
-        map_data = await map_service.get_cached_map(resource_id)
+        map_data = await _get_or_generate_map_data(resource_id, variant="geometry")
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error retrieving cached static map {resource_id}: {e}")
+        logger.error(f"Error retrieving static map geometry {resource_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
-    if not map_data:
-        raise HTTPException(status_code=404, detail="Static map not found")
+    return _validated_png_response(map_data, request)
+
+
+@router.get("/static-maps/{resource_id}/resource-class-icon")
+async def get_static_map_resource_class_icon(resource_id: str):
+    """Serve the resource-class icon over the basemap background."""
+    resource_dict = await _fetch_resource_dict(resource_id)
+    if not resource_dict:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    try:
+        from app.api.v1.endpoint_modules.resources.thumbnail import _svg_icon_for_resource
+
+        return await _svg_icon_for_resource(resource_dict, variant="icon-basemap")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving static map icon asset {resource_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.get("/static-maps/{resource_id}")
+async def get_static_map(resource_id: str, request: Request):
+    """Serve or generate the basemap-only static map asset for a resource."""
+    try:
+        map_data = await _get_or_generate_map_data(resource_id, variant="basemap")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving basemap static map {resource_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e)) from e
 
     return _validated_png_response(map_data, request)

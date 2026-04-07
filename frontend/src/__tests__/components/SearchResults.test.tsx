@@ -502,10 +502,44 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/resources/nyu-2451-34564/thumbnail"]'
+        'img[src="/thumbnails/nyu-2451-34564"]'
       );
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
+    });
+
+    it('uses the list fallback asset when thumbnail_url is the generic resource thumbnail endpoint', () => {
+      const genericThumbnailResult: GeoDocument = {
+        ...mockFixtureData[1],
+        meta: {
+          ui: {
+            thumbnail_url:
+              'http://localhost:8000/api/v1/resources/nyu-2451-34564/thumbnail',
+            viewer: {
+              geometry: {
+                type: 'Point',
+                coordinates: [-74.006, 40.7128],
+              },
+            },
+          },
+        },
+      };
+
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={[genericThumbnailResult]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const thumbnail = container.querySelector(
+        'img[src="/thumbnails/nyu-2451-34564"]'
+      );
+      expect(thumbnail).toBeInTheDocument();
     });
   });
 
@@ -773,9 +807,9 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/resources/missing-thumb-test/thumbnail"]'
+        'img[src="/thumbnails/missing-thumb-test"]'
       );
-      expect(thumbnail).toHaveAttribute('src', '/resources/missing-thumb-test/thumbnail');
+      expect(thumbnail).toHaveAttribute('src', '/thumbnails/missing-thumb-test');
       expect(thumbnail).toHaveAttribute('alt', '');
     });
 

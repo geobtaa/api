@@ -66,6 +66,40 @@ describe('GalleryView', () => {
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
   });
 
+  it('uses the grid fallback asset when a result has no real thumbnail', () => {
+    const { container } = renderGallery({
+      results: [mockResults[0]],
+      totalResults: 1,
+    });
+
+    const thumbnail = container.querySelector(
+      'img[src="/static-maps/result-1/resource-class-icon"]'
+    );
+    expect(thumbnail).toBeInTheDocument();
+  });
+
+  it('ignores the generic resource thumbnail endpoint and still uses the grid fallback asset', () => {
+    const resultWithGenericThumbnail: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          thumbnail_url:
+            'http://localhost:8000/api/v1/resources/result-1/thumbnail',
+        },
+      },
+    };
+
+    const { container } = renderGallery({
+      results: [resultWithGenericThumbnail],
+      totalResults: 1,
+    });
+
+    const thumbnail = container.querySelector(
+      'img[src="/static-maps/result-1/resource-class-icon"]'
+    );
+    expect(thumbnail).toBeInTheDocument();
+  });
+
   it('passes correct state to Link', () => {
     renderGallery({ startPage: 1, perPage: 20 });
     const link = screen.getAllByRole('link')[11]; // 12th item (index 11)

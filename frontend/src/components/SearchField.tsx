@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Settings, X, MapPin } from 'lucide-react';
+import { Search, Settings, X, MapPin, ChevronDown } from 'lucide-react';
 import { fetchNominatimSearch } from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { GazetteerPlace } from '../types/api';
@@ -22,6 +22,7 @@ function useMediaQuery(query: string): boolean {
 interface SearchFieldProps {
   onSearch?: (query: string) => void;
   placeholder?: string;
+  initialQuery?: string;
   autoFocus?: boolean;
   showAdvancedButton?: boolean;
   onAdvancedSearchClick?: () => void;
@@ -39,7 +40,7 @@ type SearchSuggestion = { text: string };
 type ScopeSuggestion = {
   kind: 'scope';
   id: string;
-  searchField: 'dct_title_s' | 'dct_spatial_sm';
+  searchField: 'dct_title_s' | 'dct_subject_sm';
   label: string;
 };
 
@@ -57,9 +58,9 @@ const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
   },
   {
     kind: 'scope',
-    id: 'scope-place',
-    searchField: 'dct_spatial_sm',
-    label: 'Place / Country',
+    id: 'scope-subject',
+    searchField: 'dct_subject_sm',
+    label: 'Subject',
   },
 ];
 
@@ -80,11 +81,12 @@ function setGeoBBoxParams(
 export function SearchField({
   onSearch: _onSearch, // eslint-disable-line @typescript-eslint/no-unused-vars
   placeholder = 'Search...',
+  initialQuery = '',
   autoFocus,
   showAdvancedButton = false,
   onAdvancedSearchClick,
 }: SearchFieldProps) {
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery);
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -109,14 +111,13 @@ export function SearchField({
   const [isPlaceInputFocused, setIsPlaceInputFocused] = useState(false);
   const [isKeywordInputFocused, setIsKeywordInputFocused] = useState(false);
 
-  const isSmOrLarger = useMediaQuery('(min-width: 640px)');
   const isXlOrLarger = useMediaQuery('(min-width: 1280px)');
 
   // Full placeholder at xl+ (1280px); short "Search…" below. Guard: if placeholder was customized (not default), prefer full at lg+.
-  const fullPlaceholderPreferred =
-    placeholder !== 'Search...' || isXlOrLarger;
-  const responsivePlaceholder =
-    fullPlaceholderPreferred ? placeholder : 'Search…';
+  const fullPlaceholderPreferred = placeholder !== 'Search...' || isXlOrLarger;
+  const responsivePlaceholder = fullPlaceholderPreferred
+    ? placeholder
+    : 'Search…';
 
   const getGeoRelationFromParams = () => {
     const relation = searchParams.get('include_filters[geo][relation]');
@@ -128,7 +129,9 @@ export function SearchField({
 
   // Sync query with URL params (e.g., when Clear All is clicked)
   useEffect(() => {
-    const urlQuery = searchParams.get('q') || '';
+    const urlQuery = searchParams.has('q')
+      ? searchParams.get('q') || ''
+      : initialQuery;
     // Only update if the URL value is different from current state
     // This handles cases where Clear All removes the 'q' param
     // Note: We don't include 'query' in deps to avoid resetting while user types
@@ -136,7 +139,7 @@ export function SearchField({
       setQuery(urlQuery);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]); // Watch for URL param changes only
+  }, [initialQuery, searchParams]); // Watch for URL param changes only
 
   // Sync place selection with URL params (clear if geo filters removed)
   useEffect(() => {
@@ -204,14 +207,14 @@ export function SearchField({
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-      if (
-        suggestionsRef.current &&
-        !suggestionsRef.current.contains(target) &&
-        !inputRef.current?.contains(target) &&
-        placeSuggestionsRef.current &&
-        !placeSuggestionsRef.current.contains(target) &&
-        !placeInputRef.current?.contains(target)
-      ) {
+      const clickedKeywordField =
+        suggestionsRef.current?.contains(target) ||
+        inputRef.current?.contains(target);
+      const clickedPlaceField =
+        placeSuggestionsRef.current?.contains(target) ||
+        placeInputRef.current?.contains(target);
+
+      if (!clickedKeywordField && !clickedPlaceField) {
         setShowSuggestions(false);
         setShowPlaceSuggestions(false);
       }
@@ -548,19 +551,22 @@ export function SearchField({
     }
   };
 
-  const rightPadding = showAdvancedButton
-    ? 'pr-12 sm:pr-32'
-    : 'pr-12 sm:pr-24';
-
-  // Determine place name to display
+  const isAdvancedSearchOpen = searchParams.get('showAdvanced') === 'true';
   const hasGeoFilter =
     searchParams.get('include_filters[geo][type]') === 'bbox';
-  const placeDisplayValue =
-    selectedPlace
-      ? selectedPlace.attributes.name || selectedPlace.attributes.display_name
-      : hasGeoFilter
-        ? 'Location filtered'
-        : 'Everywhere';
+  const placeDisplayValue = selectedPlace
+    ? selectedPlace.attributes.name || selectedPlace.attributes.display_name
+    : hasGeoFilter
+      ? 'Custom area'
+      : 'Add a place';
+  const canClearPlace = selectedPlace || hasGeoFilter;
+  const activeSearchField = getActiveSearchField();
+  const activeSearchFieldLabel =
+    activeSearchField === 'dct_title_s'
+      ? 'Title only'
+      : activeSearchField === 'dct_subject_sm'
+        ? 'Subject only'
+        : null;
 
   const trimmedQuery = query.trim();
   const keywordMenuItems: KeywordSuggestionItem[] = trimmedQuery
@@ -575,9 +581,6 @@ export function SearchField({
       ]
     : [];
 
-  // Check if either input is focused
-  const isAnyInputFocused = isPlaceInputFocused || isKeywordInputFocused;
-
   return (
     <div className="relative">
       <form
@@ -586,16 +589,19 @@ export function SearchField({
         role="search"
         aria-label="Search"
       >
-        <div
-          className={`flex flex-col gap-2 sm:flex-row sm:gap-0 sm:items-center rounded-lg transition-all ${
-            isAnyInputFocused ? 'ring-2 ring-blue-500 ring-offset-0' : ''
-          }`}
-        >
-          {/* Place input (top on mobile, left on sm+) */}
-          <div className="relative w-full sm:w-auto sm:shrink-0">
+        <div className="flex w-full items-stretch rounded-lg border border-gray-300 bg-white shadow-sm">
+          <div className="relative min-w-0 w-[11.5rem] shrink-0 border-r border-gray-300 sm:w-[13.5rem] md:w-[15rem] xl:w-[16rem]">
             {isPlaceInputFocused ? (
-              <>
+              <div className="flex h-full items-center gap-2 rounded-l-lg px-3 py-2.5 ring-2 ring-blue-500 ring-inset">
+                <MapPin
+                  className="h-4 w-4 shrink-0 text-gray-400"
+                  aria-hidden="true"
+                />
+                <span className="shrink-0 text-sm font-medium text-gray-500">
+                  Location
+                </span>
                 <input
+                  id="search-field-place"
                   ref={placeInputRef}
                   type="text"
                   value={placeQuery}
@@ -612,7 +618,6 @@ export function SearchField({
                     }
                   }}
                   onBlur={() => {
-                    // Delay to allow click events on suggestions
                     setTimeout(() => {
                       if (
                         !placeSuggestionsRef.current?.contains(
@@ -628,25 +633,13 @@ export function SearchField({
                     }, 200);
                   }}
                   onKeyDown={handlePlaceKeyDown}
-                  placeholder="Place — Search for a location..."
-                  aria-label="Place: search for a location to limit your search"
-                  className="w-full min-w-0 sm:min-w-[12.5rem] sm:w-56 md:w-60 lg:w-64 xl:w-72 pl-8 pr-3 py-2 text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg sm:rounded-r-none sm:rounded-l-lg sm:border-r-0 focus:outline-none focus:z-10"
+                  placeholder="Add a place"
+                  aria-label="Location: search for a place to limit your search"
+                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none"
                 />
-                <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-                  <MapPin
-                    className="w-4 h-4 text-gray-400"
-                    aria-hidden="true"
-                  />
-                </div>
-              </>
+              </div>
             ) : (
-              <div
-                className={`relative w-full min-w-0 sm:shrink-0 sm:min-w-[12.5rem] ${
-                  isSmOrLarger
-                    ? 'sm:w-56 md:w-60 lg:w-64 xl:w-72'
-                    : 'sm:w-[12.5rem]'
-                }`}
-              >
+              <div className="relative h-full">
                 <button
                   type="button"
                   onClick={() => {
@@ -661,228 +654,277 @@ export function SearchField({
                     setShowPlaceSuggestions(false);
                     setTimeout(() => placeInputRef.current?.focus(), 0);
                   }}
-                  className="w-full py-2 px-3 pl-8 pr-8 font-medium text-left border border-gray-300 rounded-lg sm:rounded-r-none sm:rounded-l-lg sm:border-r-0 bg-white hover:bg-gray-50 focus:outline-none focus:z-10 transition-colors flex items-center"
+                  className="flex h-full w-full items-center gap-2 rounded-l-lg px-3 py-2.5 text-left hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
                   aria-label={`Place (location filter): ${placeDisplayValue}. Click to search by location.`}
-                  title={`Place: ${placeDisplayValue}. Click to limit search to a location.`}
+                  title={`Location: ${placeDisplayValue}. Click to limit search to a location.`}
                 >
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none">
-                    <MapPin
-                      className="w-4 h-4 text-gray-400 shrink-0"
-                      aria-hidden="true"
-                    />
-                  </div>
+                  <MapPin
+                    className="h-4 w-4 shrink-0 text-gray-400"
+                    aria-hidden="true"
+                  />
+                  <span className="shrink-0 text-sm font-medium text-gray-500">
+                    Location
+                  </span>
                   <span
-                    className={`block pl-1 ${
-                      placeDisplayValue === 'Everywhere'
-                        ? 'whitespace-nowrap'
-                        : 'truncate'
+                    className={`min-w-0 flex-1 truncate text-sm ${
+                      canClearPlace
+                        ? 'font-medium text-gray-900'
+                        : 'text-gray-400'
                     }`}
                   >
-                    <span className="text-gray-500 font-normal">Place: </span>
-                    <span className="text-gray-900">
-                      {placeDisplayValue}
-                    </span>
+                    {placeDisplayValue}
                   </span>
+                  {!canClearPlace && (
+                    <ChevronDown
+                      className="h-4 w-4 shrink-0 text-gray-400"
+                      aria-hidden="true"
+                    />
+                  )}
                 </button>
-                {selectedPlace && (
+                {canClearPlace && (
                   <button
                     type="button"
                     onClick={handleClearPlace}
-                    className="absolute inset-y-0 right-0 flex items-center pr-2 text-gray-400 hover:text-gray-600 focus:outline-none z-10"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                     aria-label="Clear location"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
             )}
+
+            {showPlaceSuggestions &&
+              (placeSuggestions.length > 0 || isLoadingPlaces) &&
+              isPlaceInputFocused && (
+                <div
+                  ref={placeSuggestionsRef}
+                  className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-20 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+                >
+                  {isLoadingPlaces ? (
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      Searching...
+                    </div>
+                  ) : placeSuggestions.length === 0 ? (
+                    <div className="px-4 py-2 text-sm text-gray-500">
+                      No places found
+                    </div>
+                  ) : (
+                    placeSuggestions.map((place, index) => (
+                      <button
+                        key={place.id}
+                        type="button"
+                        className={`w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
+                          index === placeSelectedIndex ? 'bg-gray-50' : ''
+                        }`}
+                        onClick={() => handleSelectPlace(place)}
+                        onMouseEnter={() => setPlaceSelectedIndex(index)}
+                      >
+                        <div className="text-sm font-medium text-gray-900">
+                          {place.attributes.name}{' '}
+                          {place.attributes.placetype &&
+                            `(${place.attributes.placetype})`}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {place.attributes.display_name ||
+                            place.attributes.name}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
           </div>
 
-          {/* Keyword search input (right side) — flex-1 so it grows; always larger than place */}
-          <div className="relative flex-1 min-w-0">
-            <input
-              ref={inputRef}
-              type="search"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                setShowSuggestions(true);
-                setSelectedIndex(-1);
-              }}
-              onFocus={() => {
-                setIsPlaceInputFocused(false);
-                setIsKeywordInputFocused(true);
-                if (query.trim() || suggestions.length > 0) {
+          <div className="relative min-w-0 flex-1">
+            <div
+              className={`flex h-full items-center gap-2 px-3 py-2.5 ${
+                isKeywordInputFocused ? 'ring-2 ring-blue-500 ring-inset' : ''
+              }`}
+            >
+              <Search
+                className="h-4 w-4 shrink-0 text-gray-400"
+                aria-hidden="true"
+              />
+              <span className="hidden shrink-0 text-sm font-medium text-gray-500 sm:inline">
+                Keywords
+              </span>
+              <input
+                ref={inputRef}
+                type="search"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
                   setShowSuggestions(true);
-                }
-              }}
-              onBlur={() => {
-                setIsKeywordInputFocused(false);
-                // Close suggestions when focus leaves the input
-                // Delay to allow click events on suggestions
-                setTimeout(() => {
-                  if (
-                    !suggestionsRef.current?.contains(document.activeElement)
-                  ) {
-                    setShowSuggestions(false);
+                  setSelectedIndex(-1);
+                }}
+                onFocus={() => {
+                  setIsPlaceInputFocused(false);
+                  setIsKeywordInputFocused(true);
+                  if (query.trim() || suggestions.length > 0) {
+                    setShowSuggestions(true);
                   }
-                }, 200);
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder={responsivePlaceholder}
-              autoFocus={autoFocus}
-              aria-label="Search input"
-              aria-describedby="search-description"
-              className={`w-full px-4 py-2 pl-10 ${rightPadding} text-gray-900 placeholder-gray-500 border border-gray-300 rounded-lg sm:rounded-l-none sm:rounded-r-lg focus:outline-none`}
-            />
-            <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
-              <Search className="w-5 h-5 text-gray-400" aria-hidden="true" />
+                }}
+                onBlur={() => {
+                  setIsKeywordInputFocused(false);
+                  setTimeout(() => {
+                    if (
+                      !suggestionsRef.current?.contains(document.activeElement)
+                    ) {
+                      setShowSuggestions(false);
+                    }
+                  }, 200);
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder={responsivePlaceholder}
+                autoFocus={autoFocus}
+                aria-label="Search input"
+                aria-describedby="search-description"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none"
+              />
+              {activeSearchFieldLabel && (
+                <span className="hidden shrink-0 text-xs text-gray-500 lg:inline">
+                  {activeSearchFieldLabel}
+                </span>
+              )}
+            </div>
+
+            {showSuggestions &&
+              keywordMenuItems.length > 0 &&
+              !isPlaceInputFocused && (
+                <div
+                  ref={suggestionsRef}
+                  className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-10 max-h-96 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+                >
+                  <div className="py-1">
+                    {keywordMenuItems.map((item, index) => {
+                      const isSelected = index === selectedIndex;
+                      const baseClass = `w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
+                        isSelected ? 'bg-gray-50' : ''
+                      }`;
+
+                      if (item.kind === 'scope') {
+                        return (
+                          <div key={item.id}>
+                            {index === 0 && (
+                              <div className="px-4 pb-1 pt-1 text-xs font-medium uppercase tracking-wide text-gray-500">
+                                Search only in
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              className={baseClass}
+                              onClick={() =>
+                                runKeywordSearch(trimmedQuery, {
+                                  searchField: item.searchField,
+                                })
+                              }
+                              onMouseEnter={() => setSelectedIndex(index)}
+                            >
+                              <div className="text-sm text-gray-700">
+                                <span>{trimmedQuery}</span>{' '}
+                                <span className="text-gray-500">in</span>{' '}
+                                <span className="font-medium text-gray-900">
+                                  {item.label}
+                                </span>
+                              </div>
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      if (item.kind === 'see_all') {
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            className={`${baseClass} mt-1 border-t border-gray-200 pt-3`}
+                            onClick={() =>
+                              runKeywordSearch(trimmedQuery, {
+                                searchField: 'all_fields',
+                              })
+                            }
+                            onMouseEnter={() => setSelectedIndex(index)}
+                          >
+                            <div className="text-sm font-medium text-gray-800">
+                              See all results for{' '}
+                              <span className="text-blue-700 underline underline-offset-2">
+                                {trimmedQuery}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div key={item.id}>
+                          {index === SCOPED_SEARCH_OPTIONS.length && (
+                            <div className="px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                              Suggestions
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            className={baseClass}
+                            onClick={() =>
+                              runKeywordSearch(item.suggestion.text)
+                            }
+                            onMouseEnter={() => setSelectedIndex(index)}
+                          >
+                            <div className="text-sm text-gray-900">
+                              {renderSuggestionText(item.suggestion.text)}
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+          </div>
+
+          <div className="flex shrink-0 items-center border-l border-gray-300 px-1">
+            <div className="inline-flex overflow-hidden rounded-md bg-brand text-white">
+              <button
+                type="submit"
+                className="inline-flex items-center px-3 py-3 text-sm font-medium transition-colors hover:bg-brand/90 focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-inset sm:px-4"
+                aria-label="Submit search"
+              >
+                <span>Search</span>
+              </button>
+
+              {showAdvancedButton && (
+                <button
+                  type="button"
+                  onClick={handleAdvancedSearchClick}
+                  className={`inline-flex items-center border-l border-white/20 px-3 py-3 transition-colors focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-inset ${
+                    isAdvancedSearchOpen
+                      ? 'bg-brand/80 hover:bg-brand/75'
+                      : 'hover:bg-brand/90'
+                  }`}
+                  aria-label={
+                    isAdvancedSearchOpen
+                      ? 'Hide advanced search'
+                      : 'Advanced search'
+                  }
+                  title="Advanced search"
+                >
+                  <Settings className="h-4 w-4" aria-hidden="true" />
+                  <span className="sr-only">
+                    {isAdvancedSearchOpen
+                      ? 'Hide advanced search'
+                      : 'Advanced search'}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
         </div>
 
-        {showAdvancedButton && (
-          <button
-            type="button"
-            onClick={handleAdvancedSearchClick}
-            className="absolute inset-y-0 right-12 sm:right-24 flex items-center pr-3 text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-            aria-label="Advanced search"
-            title="Advanced search"
-          >
-            <Settings className="w-5 h-5" aria-hidden="true" />
-          </button>
-        )}
-        <button
-          type="submit"
-          className={`absolute inset-y-1 right-1 flex items-center px-2 sm:px-4 py-1.5 text-sm font-medium text-white bg-brand hover:bg-brand/90 rounded-md focus:outline-none focus:ring-2 focus:ring-white/70 focus:ring-offset-2 transition-colors`}
-          aria-label="Submit search"
-        >
-          <Search className="w-4 h-4 sm:hidden" aria-hidden />
-          <span className="hidden sm:inline">Search</span>
-        </button>
         <span id="search-description" className="sr-only">
           Press Enter or click the search button to submit your search
         </span>
       </form>
-
-      {/* Place suggestions dropdown */}
-      {showPlaceSuggestions &&
-        (placeSuggestions.length > 0 || isLoadingPlaces) &&
-        isPlaceInputFocused && (
-          <div
-            ref={placeSuggestionsRef}
-            className="absolute z-20 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-64 overflow-auto"
-          >
-            {isLoadingPlaces ? (
-              <div className="px-4 py-2 text-sm text-gray-500">
-                Searching...
-              </div>
-            ) : placeSuggestions.length === 0 ? (
-              <div className="px-4 py-2 text-sm text-gray-500">
-                No places found
-              </div>
-            ) : (
-              placeSuggestions.map((place, index) => (
-                <button
-                  key={place.id}
-                  className={`w-full text-left px-4 py-2 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
-                    index === placeSelectedIndex ? 'bg-gray-50' : ''
-                  }`}
-                  onClick={() => handleSelectPlace(place)}
-                  onMouseEnter={() => setPlaceSelectedIndex(index)}
-                >
-                  <div className="text-sm text-gray-900 font-medium">
-                    {place.attributes.name}{' '}
-                    {place.attributes.placetype &&
-                      `(${place.attributes.placetype})`}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {place.attributes.display_name || place.attributes.name}
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        )}
-
-      {/* Keyword suggestions dropdown */}
-      {showSuggestions && keywordMenuItems.length > 0 && !isPlaceInputFocused && (
-        <div
-          ref={suggestionsRef}
-          className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-auto"
-        >
-          <div className="py-1">
-            {keywordMenuItems.map((item, index) => {
-              const isSelected = index === selectedIndex;
-              const baseClass = `w-full text-left px-4 py-2 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
-                isSelected ? 'bg-gray-50' : ''
-              }`;
-
-              if (item.kind === 'scope') {
-                return (
-                  <button
-                    key={item.id}
-                    className={baseClass}
-                    onClick={() =>
-                      runKeywordSearch(trimmedQuery, {
-                        searchField: item.searchField,
-                      })
-                    }
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    <div className="text-sm text-gray-700">
-                      <span>{trimmedQuery}</span>{' '}
-                      <span className="text-gray-500">in</span>{' '}
-                      <span className="font-medium text-gray-900">
-                        {item.label}
-                      </span>
-                    </div>
-                  </button>
-                );
-              }
-
-              if (item.kind === 'see_all') {
-                return (
-                  <button
-                    key={item.id}
-                    className={`${baseClass} border-t border-gray-200 mt-1 pt-3`}
-                    onClick={() =>
-                      runKeywordSearch(trimmedQuery, {
-                        searchField: 'all_fields',
-                      })
-                    }
-                    onMouseEnter={() => setSelectedIndex(index)}
-                  >
-                    <div className="text-sm font-medium text-gray-800">
-                      See all results for{' '}
-                      <span className="text-blue-700 underline underline-offset-2">
-                        {trimmedQuery}
-                      </span>
-                    </div>
-                  </button>
-                );
-              }
-
-              return (
-                <button
-                  key={item.id}
-                  className={`${baseClass}${
-                    index === SCOPED_SEARCH_OPTIONS.length
-                      ? ' border-t border-gray-200 mt-1 pt-3'
-                      : ''
-                  }`}
-                  onClick={() => runKeywordSearch(item.suggestion.text)}
-                  onMouseEnter={() => setSelectedIndex(index)}
-                >
-                  <div className="text-sm text-gray-900">
-                    {renderSuggestionText(item.suggestion.text)}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

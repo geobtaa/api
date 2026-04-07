@@ -6,7 +6,8 @@ import { SearchField } from '../../components/SearchField';
 const fetchNominatimSearchMock = vi.fn();
 
 vi.mock('../../services/api', () => ({
-  fetchNominatimSearch: (...args: unknown[]) => fetchNominatimSearchMock(...args),
+  fetchNominatimSearch: (...args: unknown[]) =>
+    fetchNominatimSearchMock(...args),
 }));
 
 function LocationProbe() {
@@ -97,13 +98,13 @@ describe('SearchField', () => {
 
     fireEvent.click(
       screen.getByRole('button', {
-        name: /Place \(location filter\): Everywhere/i,
+        name: /Place \(location filter\): Add a place/i,
       })
     );
 
     fireEvent.change(
       screen.getByRole('textbox', {
-        name: 'Place: search for a location to limit your search',
+        name: 'Location: search for a place to limit your search',
       }),
       {
         target: { value: 'Illinois' },
@@ -124,7 +125,9 @@ describe('SearchField', () => {
       const probe = screen.getByTestId('location-probe');
       expect(probe).toHaveAttribute('data-pathname', '/search');
 
-      const params = new URLSearchParams(probe.getAttribute('data-search') ?? '');
+      const params = new URLSearchParams(
+        probe.getAttribute('data-search') ?? ''
+      );
       expect(params.get('include_filters[geo][type]')).toBe('bbox');
       expect(params.get('include_filters[geo][field]')).toBe('dcat_bbox');
       expect(params.get('include_filters[geo][relation]')).toBe('within');
@@ -178,17 +181,31 @@ describe('SearchField', () => {
       { timeout: 1500 }
     );
 
-    fireEvent.click(
-      screen.getByRole('button', { name: /chicago in title/i })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /chicago in title/i }));
 
     await waitFor(() => {
       const probe = screen.getByTestId('location-probe');
       expect(probe).toHaveAttribute('data-pathname', '/search');
 
-      const params = new URLSearchParams(probe.getAttribute('data-search') ?? '');
+      const params = new URLSearchParams(
+        probe.getAttribute('data-search') ?? ''
+      );
       expect(params.get('q')).toBe('chicago');
       expect(params.get('search_field')).toBe('dct_title_s');
     });
+  });
+
+  it('renders an explicit advanced search button label', () => {
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route path="*" element={<SearchField showAdvancedButton />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByRole('button', { name: /advanced search/i })
+    ).toBeInTheDocument();
   });
 });

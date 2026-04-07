@@ -5,6 +5,12 @@ import { Hexagon, Table } from 'lucide-react';
 import { LeafletContext } from '@react-leaflet/core';
 import { HexTableModal } from './HexTableModal';
 
+const MAP_CONTROL_ICON_PROPS = {
+  size: 17,
+  strokeWidth: 1.85,
+  absoluteStrokeWidth: true as const,
+};
+
 interface HexLayerToggleControlProps {
   enabled: boolean;
   onToggle: (enabled: boolean) => void;
@@ -94,13 +100,14 @@ export function HexLayerToggleControl({
           }}
           aria-label={enabled ? 'Hide hex map layer' : 'Show hex map layer'}
           title={enabled ? 'Hide hex map layer' : 'Show hex map layer'}
-          className="leaflet-control-custom-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors"
+          className={`leaflet-control-custom-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors ${
+            enabled ? 'bg-blue-50 hover:bg-blue-100' : ''
+          }`}
         >
           <Hexagon
-            size={16}
+            {...MAP_CONTROL_ICON_PROPS}
             className={enabled ? 'text-blue-600 fill-current' : 'text-gray-500'}
             fill={enabled ? 'currentColor' : 'none'}
-            strokeWidth={2}
           />
         </button>
         <button
@@ -109,11 +116,13 @@ export function HexLayerToggleControl({
           disabled={!enabled}
           aria-haspopup="dialog"
           aria-expanded={isTableOpen}
-          aria-label={isTableOpen ? 'Close hex data table' : 'View hex data as table'}
+          aria-label={
+            isTableOpen ? 'Close hex data table' : 'View hex data as table'
+          }
           title={isTableOpen ? 'Close hex data table' : 'View hex table'}
           className="leaflet-control-custom-button focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 transition-colors disabled:cursor-not-allowed disabled:text-gray-300"
         >
-          <Table size={16} className="text-gray-700" strokeWidth={2} />
+          <Table {...MAP_CONTROL_ICON_PROPS} className="text-gray-700" />
         </button>
       </div>
     </>,

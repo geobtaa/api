@@ -2,10 +2,10 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useSearchParams } from 'react-router';
-import { Search } from 'lucide-react';
 import { cellToBoundary } from 'h3-js';
 import { fetchMapH3 } from '../../services/api';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
+import { MapGeosearchControl } from '../map/MapGeosearchControl';
 import { attachBasemapSwitcher } from '../../config/basemaps';
 import {
   getSavedHexLayerEnabled,
@@ -718,13 +718,13 @@ export function GeospatialFilterMap({
             ref={mapContainerRef}
             className="aspect-square w-full rounded-lg border border-gray-200"
           />
+          <MapGeosearchControl mapInstance={mapInstance} />
           {showSearchButton && (
             <button
               onClick={handleSearchHere}
-              className="absolute top-2 right-2 z-[1000] flex items-center gap-2 px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+              className="absolute top-2 right-2 z-[1000] flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
               aria-label="Search in this area"
             >
-              <Search className="w-4 h-4" />
               <span>Search here</span>
             </button>
           )}

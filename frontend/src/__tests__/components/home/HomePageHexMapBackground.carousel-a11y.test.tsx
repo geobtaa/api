@@ -15,6 +15,10 @@ vi.mock('../../../components/map/BasemapSwitcherControl', () => ({
   BasemapSwitcherControl: () => null,
 }));
 
+vi.mock('../../../components/map/MapGeosearchControl', () => ({
+  MapGeosearchControl: () => <div data-testid="homepage-map-geosearch" />,
+}));
+
 const mockPane = document.createElement('div');
 vi.mock('react-leaflet', () => ({
   MapContainer: ({ children }: { children: React.ReactNode }) => (

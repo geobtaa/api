@@ -78,6 +78,10 @@ vi.mock('../../components/map/HexLayerToggleControl', () => ({
   ),
 }));
 
+vi.mock('../../components/map/MapGeosearchControl', () => ({
+  MapGeosearchControl: () => <div data-testid="map-geosearch-control" />,
+}));
+
 function SearchLocationProbe() {
   const location = useLocation();
   return <div data-testid="location-search">{location.search}</div>;

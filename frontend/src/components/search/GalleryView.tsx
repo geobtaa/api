@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import type { GeoDocument } from '../../types/api';
 import { Link, useLocation } from 'react-router';
 import { getResourceIcon } from '../../utils/resourceIcons';
+import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
 import { ResultCardPill } from './ResultCardPill';
 import { BookmarkButton } from '../BookmarkButton';
 import { useBookmarks } from '../../context/BookmarkContext';
@@ -60,101 +61,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
     };
   }, [hasMore, onLoadMore, isLoading]);
 
-  // Helper to get thumbnail URL consistent with SearchResults
-  const getThumbnailUrl = (result: GeoDocument) => {
-    const metaUi = result.meta?.ui;
-
-    // First try direct access
-    let thumbnailUrl = metaUi?.thumbnail_url || metaUi?.['thumbnail_url'];
-
-    // If not found, try to extract from stringified JSON (workaround for serialization issues)
-    if (!thumbnailUrl && metaUi) {
-      try {
-        const metaUiString = JSON.stringify(metaUi);
-        const parsed = JSON.parse(metaUiString);
-        thumbnailUrl = parsed.thumbnail_url;
-      } catch (e) {
-        // Ignore parsing errors
-      }
-    }
-
-    // If still not found, try Object.getOwnPropertyDescriptor (for non-enumerable properties)
-    if (!thumbnailUrl && metaUi) {
-      const descriptor = Object.getOwnPropertyDescriptor(
-        metaUi,
-        'thumbnail_url'
-      );
-      if (descriptor) {
-        thumbnailUrl = descriptor.value;
-      }
-    }
-
-    // Last resort: check if property exists via 'in' operator
-    if (!thumbnailUrl && metaUi && 'thumbnail_url' in metaUi) {
-      thumbnailUrl = (metaUi as any).thumbnail_url;
-    }
-
-    return thumbnailUrl;
-  };
-
-  const toSsrThumbnailUrl = (url: string | undefined): string | undefined => {
-    if (!url || typeof url !== 'string') return undefined;
-
-    try {
-      // Handle absolute URLs (with protocol)
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        const u = new URL(url);
-        // Handle /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
-        if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-          const transformed =
-            u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') +
-            u.search;
-          return transformed;
-        }
-        // Handle /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
-        if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
-          const transformed = u.pathname.replace('/api/v1', '') + u.search;
-          return transformed;
-        }
-        return url;
-      }
-
-      // Handle relative URLs
-      // /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
-      if (url.startsWith('/api/v1/thumbnails/')) {
-        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
-      }
-
-      // /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
-      const resourceThumbnailMatch = url.match(
-        /^\/api\/v1(\/resources\/[^\/]+\/thumbnail)/
-      );
-      if (resourceThumbnailMatch) {
-        return resourceThumbnailMatch[1];
-      }
-
-      // Try parsing as URL with base (for relative URLs that might need a base)
-      const base =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'http://localhost';
-      const u = new URL(url, base);
-      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-        return (
-          u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search
-        );
-      }
-      if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
-        return u.pathname.replace('/api/v1', '') + u.search;
-      }
-
-      return url;
-    } catch (error) {
-      console.warn('toSsrThumbnailUrl: Error parsing URL', { url, error });
-      return url;
-    }
-  };
-
   if (isLoading && results.length === 0) {
     return (
       <div className="flex justify-center items-center py-20">
@@ -178,8 +84,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           const ogm = r.attributes.ogm;
           const title = ogm?.dct_title_s || '(Untitled)';
           const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
-          const thumbnailUrl = getThumbnailUrl(r);
-          const ssrThumbnailUrl = toSsrThumbnailUrl(thumbnailUrl);
+          const imageUrl = getResultPrimaryImageUrl(r, 'gallery');
           const absIndex = getAbsoluteIndex(index);
           const bookmarked = isBookmarked(r.id);
 
@@ -202,9 +107,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                 className="flex flex-col flex-1"
               >
                 <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden relative">
-                  {ssrThumbnailUrl ? (
+                  {imageUrl ? (
                     <img
-                      src={ssrThumbnailUrl}
+                      src={imageUrl}
                       alt=""
                       className="w-full h-full object-cover"
                       onError={(e) => {

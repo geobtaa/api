@@ -27,8 +27,8 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
   }, [result.id]);
 
   // Build static map URL
-  // Always serve through SSR so the server can include the API key and avoid
-  // client-side rate limiting (static-map generation/cached serving can be chatty).
+  // Use the compatibility route so cards still get an image placeholder while
+  // the geometry map asset is being generated server-side.
   const getStaticMapUrl = (): string => {
     return `/resources/${result.id}/static-map`;
   };

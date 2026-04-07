@@ -1,19 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
-import {
-  ChevronLeft,
-  ChevronRight,
-  Home,
-  Pause,
-  Play,
-  Search,
-} from 'lucide-react';
-import {
-  MapContainer,
-  Rectangle,
-  useMap,
-  ZoomControl,
-} from 'react-leaflet';
+import { ChevronLeft, ChevronRight, Home, Pause, Play } from 'lucide-react';
+import { MapContainer, Rectangle, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
 import { GestureHandling } from 'leaflet-gesture-handling';
 import 'leaflet/dist/leaflet.css';
@@ -39,6 +27,7 @@ import {
 import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
+import { MapGeosearchControl } from '../map/MapGeosearchControl';
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 function toSsrThumbnailUrl(url: string | undefined): string {
@@ -158,11 +147,7 @@ function formatAreaKm2(km2: number): string {
   });
 }
 
-function HexHoverCard({
-  hoveredHex,
-}: {
-  hoveredHex: HexHoverData;
-}) {
+function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
   let areaKm2: number | null = null;
   try {
     areaKm2 = cellArea(hoveredHex.h3, UNITS.km2);
@@ -272,10 +257,9 @@ function SearchHereControl() {
       <button
         type="button"
         onClick={handleSearchHere}
-        className="flex items-center gap-2 rounded-lg border border-brand bg-brand px-3 py-2 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#002f49] focus:outline-none focus:ring-2 focus:ring-brand-active focus:ring-offset-2"
+        className="flex items-center rounded-lg border border-brand bg-brand px-3 py-2 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#002f49] focus:outline-none focus:ring-2 focus:ring-brand-active focus:ring-offset-2"
         aria-label="Search in this area"
       >
-        <Search className="w-4 h-4" />
         <span>Search here</span>
       </button>
     </div>
@@ -404,7 +388,9 @@ export function HomePageHexMapBackground() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.allSettled(FEATURED_ITEMS.map((item) => fetchResourceDetails(item.id))).then((results) => {
+    Promise.allSettled(
+      FEATURED_ITEMS.map((item) => fetchResourceDetails(item.id))
+    ).then((results) => {
       if (cancelled) return;
       setFeaturedDetails(
         results.map((r) => (r.status === 'fulfilled' ? r.value : null))
@@ -485,6 +471,7 @@ export function HomePageHexMapBackground() {
           gestureHandling={true}
         >
           <ZoomControl position="topleft" />
+          <MapGeosearchControl />
           <BasemapSwitcherControl />
           <HexLayerToggleControl
             enabled={hexLayerEnabled}
@@ -518,9 +505,7 @@ export function HomePageHexMapBackground() {
           <SearchHereControl />
           {hexLayerEnabled && (
             <>
-              {hoveredHex && (
-                <HexHoverCard hoveredHex={hoveredHex} />
-              )}
+              {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
               <MapUpdaterHex
                 searchQuery=""
                 onFeatureClick={() => {}}
@@ -898,8 +883,7 @@ export function HomePageHexMapBackground() {
               onClick={() => {
                 setActiveIndex(
                   (prev) =>
-                    (prev - 1 + FEATURED_ITEMS.length) %
-                    FEATURED_ITEMS.length
+                    (prev - 1 + FEATURED_ITEMS.length) % FEATURED_ITEMS.length
                 );
                 featuredStartTimeRef.current = Date.now();
                 featuredTotalPausedRef.current = 0;
@@ -914,9 +898,7 @@ export function HomePageHexMapBackground() {
             <button
               type="button"
               onClick={() => {
-                setActiveIndex(
-                  (prev) => (prev + 1) % FEATURED_ITEMS.length
-                );
+                setActiveIndex((prev) => (prev + 1) % FEATURED_ITEMS.length);
                 featuredStartTimeRef.current = Date.now();
                 featuredTotalPausedRef.current = 0;
                 setFeaturedProgress(1);

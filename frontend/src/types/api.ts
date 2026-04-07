@@ -84,7 +84,7 @@ export interface GeoDocument {
   };
   meta?: {
     ui?: {
-      thumbnail_url?: string;
+      thumbnail_url?: string | null;
       citation?: string;
       /** Citation formats: apa, mla, chicago */
       citations?: Record<string, string>;
@@ -111,7 +111,7 @@ export interface GeoDocument {
         allmaps_annotation_url?: string;
       };
       /** URL for static map image when resource has geometry (used e.g. for og:image fallback) */
-      static_map?: string;
+      static_map?: string | null;
     };
   };
 }

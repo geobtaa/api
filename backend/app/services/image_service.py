@@ -326,8 +326,8 @@ class ImageService:
     def get_thumbnail_url(self) -> Optional[str]:
         """
         Get the thumbnail URL for a resource.
-        ALWAYS returns /resources/{id}/thumbnail URL if a thumbnail source exists.
-        The actual image endpoint handles checking cache and returning placeholder/actual image.
+        Returns the resource thumbnail endpoint only when the resource has a real
+        thumbnail source.
 
         Returns:
             /resources/{id}/thumbnail URL if thumbnail source exists, None otherwise
@@ -347,10 +347,6 @@ class ImageService:
 
             if source_url:
                 # Always return the resource-specific thumbnail endpoint
-                return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
-
-            # No thumbnail source: use static map as fallback when resource has geometry
-            if self.metadata.get("locn_geometry") or self.metadata.get("dcat_bbox"):
                 return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
 
             return None

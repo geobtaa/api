@@ -8,6 +8,7 @@ import { BookmarkButton } from './BookmarkButton';
 import { useBookmarks } from '../context/BookmarkContext';
 import { getResourceIcon } from '../utils/resourceIcons';
 import { getHoverGeometryForResult } from '../utils/geometryUtils';
+import { getResultPrimaryImageUrl } from '../utils/resourceAssets';
 import { fetchResourceDetails } from '../services/api';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
@@ -36,85 +37,6 @@ export function SearchResults({
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
   const isCompact = variant === 'compact';
-
-  // ... (keeping existing functions hidden for brevity in this replace call if possible, but replace_file_content needs contiguity. I'll target the top of component to add hook, and then separate calls for the loop content)
-
-  const toSsrThumbnailUrl = (url: string): string => {
-    // If backend gives us an API URL, route through SSR so requests use the server-held API key.
-    // Example: https://host/api/v1/thumbnails/<hash>  ->  /thumbnails/<hash>
-    //          /api/v1/thumbnails/placeholder        ->  /thumbnails/placeholder
-    //          /api/v1/resources/{id}/thumbnail     ->  /resources/{id}/thumbnail
-    if (!url || typeof url !== 'string') {
-      console.warn('toSsrThumbnailUrl: Invalid URL', url);
-      return url;
-    }
-
-    try {
-      // Handle absolute URLs (with protocol)
-      if (url.startsWith('http://') || url.startsWith('https://')) {
-        const u = new URL(url);
-        // Handle /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
-        if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-          const transformed =
-            u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') +
-            u.search;
-          return transformed;
-        }
-        // Handle /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
-        if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
-          const transformed = u.pathname.replace('/api/v1', '') + u.search;
-          return transformed;
-        }
-        return url;
-      }
-
-      // Handle relative URLs
-      // /api/v1/thumbnails/{hash} -> /thumbnails/{hash}
-      if (url.startsWith('/api/v1/thumbnails/')) {
-        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
-      }
-
-      // /api/v1/resources/{id}/thumbnail -> /resources/{id}/thumbnail
-      const resourceThumbnailMatch = url.match(
-        /^\/api\/v1(\/resources\/[^\/]+\/thumbnail)/
-      );
-      if (resourceThumbnailMatch) {
-        return resourceThumbnailMatch[1];
-      }
-
-      // Try parsing as URL with base (for relative URLs that might need a base)
-      const base =
-        typeof window !== 'undefined'
-          ? window.location.origin
-          : 'http://localhost';
-      const u = new URL(url, base);
-      if (u.pathname.startsWith('/api/v1/thumbnails/')) {
-        return (
-          u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search
-        );
-      }
-      if (u.pathname.match(/^\/api\/v1\/resources\/[^\/]+\/thumbnail$/)) {
-        return u.pathname.replace('/api/v1', '') + u.search;
-      }
-
-      return url;
-    } catch (error) {
-      console.warn('toSsrThumbnailUrl: Error parsing URL', { url, error });
-      // Fallback: simple string replacement
-      if (url.includes('/api/v1/thumbnails/')) {
-        return url.replace('/api/v1/thumbnails/', '/thumbnails/');
-      }
-      if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail')) {
-        return url.replace('/api/v1', '');
-      }
-      return url;
-    }
-  };
-
-  const getThumbnailUrlForView = (url: string): string => {
-    const base = toSsrThumbnailUrl(url);
-    return base;
-  };
 
   // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
@@ -238,66 +160,24 @@ export function SearchResults({
                 className={`${isCompact ? 'w-24' : 'w-48'} flex-shrink-0 relative group/thumb`}
               >
                 {(() => {
-                  // Try multiple ways to access thumbnail_url
-                  const metaUi = result.meta?.ui;
-
-                  // First try direct access
-                  let thumbnailUrl =
-                    metaUi?.thumbnail_url || metaUi?.['thumbnail_url'];
-
-                  // If not found, try to extract from stringified JSON (workaround for serialization issues)
-                  if (!thumbnailUrl && metaUi) {
-                    try {
-                      const metaUiString = JSON.stringify(metaUi);
-                      const parsed = JSON.parse(metaUiString);
-                      thumbnailUrl = parsed.thumbnail_url;
-                    } catch (e) {
-                      // Ignore parsing errors
-                    }
-                  }
-
-                  // If still not found, try Object.getOwnPropertyDescriptor (for non-enumerable properties)
-                  if (!thumbnailUrl && metaUi) {
-                    const descriptor = Object.getOwnPropertyDescriptor(
-                      metaUi,
-                      'thumbnail_url'
-                    );
-                    if (descriptor) {
-                      thumbnailUrl = descriptor.value;
-                    }
-                  }
-
-                  // Last resort: check if property exists via 'in' operator
-                  if (!thumbnailUrl && metaUi && 'thumbnail_url' in metaUi) {
-                    thumbnailUrl = (metaUi as any).thumbnail_url;
-                  }
-
-                  const fallbackThumbnailUrl = thumbnailUrl || `/resources/${result.id}/thumbnail`;
-                  const hasThumbnail =
-                    typeof fallbackThumbnailUrl === 'string' &&
-                    fallbackThumbnailUrl.trim() !== '' &&
-                    !imageErrors.has(result.id);
+                  const primaryImageUrl = getResultPrimaryImageUrl(
+                    result,
+                    'list'
+                  );
+                  const hasThumbnail = !imageErrors.has(result.id);
 
                   // Debug logging for thumbnail rendering decision
                   if (!hasThumbnail) {
                     console.log(`Thumbnail check for ${result.id}:`, {
                       hasMeta: !!result.meta,
                       hasMetaUi: !!result.meta?.ui,
-                      thumbnailUrl: thumbnailUrl,
-                      fallbackThumbnailUrl,
-                      thumbnailUrlType: typeof thumbnailUrl,
-                      thumbnailUrlTrimmed:
-                        typeof thumbnailUrl === 'string'
-                          ? thumbnailUrl.trim()
-                          : 'N/A',
+                      primaryImageUrl,
                       isInImageErrors: imageErrors.has(result.id),
-                      metaUiKeys: metaUi ? Object.keys(metaUi) : [],
-                      metaUiHasOwnProperty: metaUi
-                        ? metaUi.hasOwnProperty('thumbnail_url')
-                        : false,
-                      metaUiIn: metaUi ? 'thumbnail_url' in metaUi : false,
-                      metaUiStringified: metaUi
-                        ? JSON.stringify(metaUi)
+                      metaUiKeys: result.meta?.ui
+                        ? Object.keys(result.meta.ui)
+                        : [],
+                      metaUiStringified: result.meta?.ui
+                        ? JSON.stringify(result.meta.ui)
                         : 'no ui',
                     });
                   }
@@ -307,16 +187,14 @@ export function SearchResults({
                       className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} rounded-l-lg`}
                     >
                       <img
-                        src={getThumbnailUrlForView(fallbackThumbnailUrl)}
+                        src={primaryImageUrl}
                         alt=""
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
                           console.error(
                             `Error loading thumbnail for ${result.id}:`,
                             {
-                              originalUrl: thumbnailUrl,
-                              fallbackUrl: fallbackThumbnailUrl,
-                              transformedUrl: getThumbnailUrlForView(fallbackThumbnailUrl),
+                              primaryImageUrl,
                               error: e,
                               target: (e.target as HTMLImageElement)?.src,
                             }
@@ -329,9 +207,7 @@ export function SearchResults({
                           console.log(
                             `Successfully loaded thumbnail for ${result.id}:`,
                             {
-                              originalUrl: thumbnailUrl,
-                              fallbackUrl: fallbackThumbnailUrl,
-                              transformedUrl: getThumbnailUrlForView(fallbackThumbnailUrl),
+                              primaryImageUrl,
                             }
                           );
                         }}
