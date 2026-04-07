@@ -27,16 +27,24 @@ describe('Home Page', () => {
     );
   };
 
-  it('renders the search input', () => {
+  it('renders the search input', async () => {
     const { container } = renderHome();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: /partner institutions/i })
+      ).toBeInTheDocument();
+    });
     expect(screen.getByText(/new from btaa:/i)).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /read gin news & stories/i })
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: /partner institutions/i })
+      screen.getByRole('heading', { name: /theme/i })
     ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: /creator/i })
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: /sanborn fire insurance maps/i })
     ).toBeInTheDocument();

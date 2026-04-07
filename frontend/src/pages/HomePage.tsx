@@ -52,12 +52,12 @@ export function HomePage() {
     !!announcement.link_url;
   const [resourceTypeList, setResourceTypeList] = useState<FacetItem[]>([]);
   const [placeList, setPlaceList] = useState<FacetItem[]>([]);
-  const [creatorList, setCreatorList] = useState<FacetItem[]>([]);
+  const [themeList, setThemeList] = useState<FacetItem[]>([]);
   const [publisherList, setPublisherList] = useState<FacetItem[]>([]);
   const [resourceTypeFacetId, setResourceTypeFacetId] =
     useState('gbl_resourceType_sm');
   const [placeFacetId, setPlaceFacetId] = useState('dct_spatial_sm');
-  const [creatorFacetId, setCreatorFacetId] = useState('dct_creator_sm');
+  const [themeFacetId, setThemeFacetId] = useState('dcat_theme_sm');
   const [publisherFacetId, setPublisherFacetId] = useState('dct_publisher_sm');
   const [activeFacetModal, setActiveFacetModal] = useState<{
     id: string;
@@ -110,11 +110,11 @@ export function HomePage() {
       const facetIds = [
         'gbl_resourceType_sm',
         'dct_spatial_sm',
-        'dct_creator_sm',
+        'dcat_theme_sm',
         'dct_publisher_sm',
       ] as const;
       try {
-        const [resourceTypeRes, placeRes, creatorRes, publisherRes] =
+        const [resourceTypeRes, placeRes, themeRes, publisherRes] =
           await Promise.all(
             facetIds.map((facetName) =>
               fetchFacetValues({
@@ -129,17 +129,17 @@ export function HomePage() {
 
         const resourceTypeItems = facetValuesToItems(resourceTypeRes.data ?? []);
         const placeItems = facetValuesToItems(placeRes.data ?? []);
-        const creatorItems = facetValuesToItems(creatorRes.data ?? []);
+        const themeItems = facetValuesToItems(themeRes.data ?? []);
         const publisherItems = facetValuesToItems(publisherRes.data ?? []);
 
         setResourceTypeFacetId('gbl_resourceType_sm');
         setPlaceFacetId('dct_spatial_sm');
-        setCreatorFacetId('dct_creator_sm');
+        setThemeFacetId('dcat_theme_sm');
         setPublisherFacetId('dct_publisher_sm');
 
         setResourceTypeList(topItems(resourceTypeItems, 5));
         setPlaceList(topItems(placeItems, 5));
-        setCreatorList(topItems(creatorItems, 5));
+        setThemeList(topItems(themeItems, 5));
         setPublisherList(topItems(publisherItems, 5));
       } catch (error) {
         console.error('Error fetching facets:', error);
@@ -211,9 +211,9 @@ export function HomePage() {
     );
   };
 
-  const handleCreatorClick = (value: string) => {
+  const handleThemeClick = (value: string) => {
     navigate(
-      `/search?q=&include_filters[dct_creator_sm][]=${encodeURIComponent(value)}`
+      `/search?q=&include_filters[dcat_theme_sm][]=${encodeURIComponent(value)}`
     );
   };
 
@@ -396,10 +396,10 @@ export function HomePage() {
                 handlePlaceClick
               )}
               {renderFacetColumn(
-                'Creator',
-                creatorFacetId,
-                creatorList,
-                handleCreatorClick
+                'Theme',
+                themeFacetId,
+                themeList,
+                handleThemeClick
               )}
               {renderFacetColumn(
                 'Publisher',

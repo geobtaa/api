@@ -25,6 +25,17 @@ vi.mock('./services/api', () => ({
     data: [],
     included: [],
   }),
+  fetchFacetValues: vi.fn().mockResolvedValue({
+    data: [],
+    meta: {
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: 1,
+      perPage: 10,
+      facetName: 'dct_spatial_sm',
+      sort: 'count_desc',
+    },
+  }),
   fetchResourceDetails: vi.fn().mockResolvedValue({
     id: 'test-id',
     type: 'resource',
