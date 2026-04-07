@@ -54,6 +54,6 @@ async def get_resource(
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
         raise
-    except Exception as e:
-        logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get resource"}, status_code=500)

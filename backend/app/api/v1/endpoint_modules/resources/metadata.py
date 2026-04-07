@@ -149,9 +149,9 @@ async def get_resource_metadata(
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
         raise
-    except Exception as e:
-        logger.error(f"Error getting metadata for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting metadata for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get metadata"}, status_code=500)
 
 
 @router.get("/resources/{id}/metadata/ogm")
@@ -194,9 +194,9 @@ async def get_resource_metadata_ogm(
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
         raise
-    except Exception as e:
-        logger.error(f"Error getting OGM metadata for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting OGM metadata for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get OGM metadata"}, status_code=500)
 
 
 @router.get("/resources/{id}/metadata/b1g")
@@ -230,9 +230,9 @@ async def get_resource_metadata_b1g(
     except HTTPException:
         # Re-raise HTTP exceptions to maintain their status code
         raise
-    except Exception as e:
-        logger.error(f"Error getting B1G metadata for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting B1G metadata for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get B1G metadata"}, status_code=500)
 
 
 def _get_metadata_url_for_format(

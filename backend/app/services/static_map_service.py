@@ -783,10 +783,8 @@ class StaticMapService:
         try:
             if not (-90 <= latitude <= 90) or not (-180 <= longitude <= 180):
                 logger.warning(
-                    "Invalid campus basemap coordinates for %s: lat=%s lon=%s",
+                    "Invalid campus basemap coordinates for %s",
                     resource_id,
-                    latitude,
-                    longitude,
                 )
                 return None
 

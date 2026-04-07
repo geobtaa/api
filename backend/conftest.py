@@ -1,19 +1,18 @@
-import os
-import pytest
-import pytest_asyncio
-import warnings
-from sqlalchemy import create_engine, text
-from sqlalchemy.exc import ProgrammingError, OperationalError
-import psycopg2
-from dotenv import load_dotenv
-from urllib.parse import urlparse
 import asyncio
 import atexit
 import faulthandler
+import os
 import signal
 import threading
 import time
+import warnings
 from pathlib import Path
+from urllib.parse import urlparse
+
+import psycopg2
+import pytest_asyncio
+from dotenv import load_dotenv
+from sqlalchemy import create_engine
 
 # Find repo root so `pytest` works whether run from repo root or from `backend/`
 _HERE = Path(__file__).resolve()
@@ -29,6 +28,7 @@ for env_path in env_paths:
         continue
     try:
         import re
+
         content = env_path.read_text(encoding="utf-8", errors="replace")
         match = re.search(r'POSTGRES_PASSWORD=["\']?([^"\'\n]+)["\']?', content)
         if match:
@@ -79,8 +79,7 @@ DB_PORT = os.getenv("DB_PORT", "2345")
 
 # Build canonical URLs; allow override via env
 DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{TEST_DB_NAME}"
+    "DATABASE_URL", f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{TEST_DB_NAME}"
 )
 
 # Convert Docker hostnames to localhost when running tests outside Docker
@@ -88,7 +87,11 @@ DATABASE_URL = os.getenv(
 is_docker = os.getenv("IS_DOCKER") == "true"
 if not is_docker and DATABASE_URL:
     parsed = urlparse(DATABASE_URL)
-    docker_hostnames = ["paradedb", "btaa-geospatial-api-paradedb", "btaa-geospatial-api-paradedb-1"]
+    docker_hostnames = [
+        "paradedb",
+        "btaa-geospatial-api-paradedb",
+        "btaa-geospatial-api-paradedb-1",
+    ]
     if parsed.hostname in docker_hostnames:
         # Replace Docker hostname with localhost and use port 2345 (Docker mapped port)
         new_netloc = f"{parsed.username}:{parsed.password}@localhost:2345"
@@ -111,7 +114,11 @@ SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://
 engine = create_engine(SYNC_DATABASE_URL)
 
 # Ensure async database URL is set for the tests
-ASYNC_DATABASE_URL = DATABASE_URL if "postgresql+asyncpg://" in DATABASE_URL else DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+ASYNC_DATABASE_URL = (
+    DATABASE_URL
+    if "postgresql+asyncpg://" in DATABASE_URL
+    else DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+)
 
 _HB_CURRENT_NODEID: str | None = None
 _HB_CURRENT_WHEN: str | None = None
@@ -149,7 +156,10 @@ def _hb_loop(interval_seconds: float) -> None:
     while not _HB_STOP.is_set():
         nodeid = _HB_CURRENT_NODEID or "(idle)"
         when = _HB_CURRENT_WHEN or ""
-        _hb_write(f"[heartbeat] {time.strftime('%Y-%m-%d %H:%M:%S')} worker={worker} when={when} nodeid={nodeid}")
+        _hb_write(
+            f"[heartbeat] {time.strftime('%Y-%m-%d %H:%M:%S')} "
+            f"worker={worker} when={when} nodeid={nodeid}"
+        )
         _HB_STOP.wait(interval_seconds)
 
 
@@ -231,7 +241,7 @@ def pytest_configure(config):
     os.environ["ENDPOINT_CACHE"] = os.getenv("ENDPOINT_CACHE", "false")
 
     os.environ["LOG_PATH"] = "./test_logs"
-    
+
     # Set admin credentials for tests
     os.environ["ADMIN_USERNAME"] = "admin"
     os.environ["ADMIN_PASSWORD"] = "changeme"
@@ -241,7 +251,7 @@ def pytest_configure(config):
         "ignore",
         category=DeprecationWarning,
         message=".*pkgutil.find_loader.*",
-        module="pytesseract.*"
+        module="pytesseract.*",
     )
 
 
@@ -250,13 +260,19 @@ def pytest_runtest_logstart(nodeid, location):
     global _HB_CURRENT_NODEID, _HB_CURRENT_WHEN
     _HB_CURRENT_NODEID = nodeid
     _HB_CURRENT_WHEN = "start"
-    _hb_write(f"[test] start {time.strftime('%Y-%m-%d %H:%M:%S')} worker={_hb_worker_id()} nodeid={nodeid}")
+    _hb_write(
+        f"[test] start {time.strftime('%Y-%m-%d %H:%M:%S')} "
+        f"worker={_hb_worker_id()} nodeid={nodeid}"
+    )
 
 
 def pytest_runtest_logfinish(nodeid, location):
     global _HB_CURRENT_WHEN
     _HB_CURRENT_WHEN = "finish"
-    _hb_write(f"[test] finish {time.strftime('%Y-%m-%d %H:%M:%S')} worker={_hb_worker_id()} nodeid={nodeid}")
+    _hb_write(
+        f"[test] finish {time.strftime('%Y-%m-%d %H:%M:%S')} "
+        f"worker={_hb_worker_id()} nodeid={nodeid}"
+    )
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
@@ -272,16 +288,16 @@ async def setup_test_database():
                 exists = cur.fetchone() is not None
                 if not exists:
                     cur.execute(f"CREATE DATABASE {db_name}")
-                    print(f"Created test database {db_name}")
+                    print("Created test database")
     except Exception as e:
-        print(f"Warning: could not ensure test database exists: {e}")
+        print(f"Warning: could not ensure test database exists: {type(e).__name__}")
 
     # Run minimal migrations required by tests (idempotent)
+    from db.migrations.add_enrichment_type import add_enrichment_type_column
+    from db.migrations.api_rate_limiting import init_api_rate_limiting
     from db.migrations.create_ai_enrichments import create_ai_enrichments_table
     from db.migrations.create_gazetteer_tables import create_gazetteer_tables
     from db.migrations.create_resource_relationships import create_relationships_table
-    from db.migrations.add_enrichment_type import add_enrichment_type_column
-    from db.migrations.api_rate_limiting import init_api_rate_limiting
 
     # Temporarily set the environment to use synchronous URL for migrations
     original_database_url = os.environ.get("DATABASE_URL")
@@ -306,11 +322,12 @@ async def setup_test_database():
 
     yield
 
+
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def db_connection():
     """Session-scoped database connection that stays open for all tests."""
     from db.database import database
-    
+
     # Connect once for the entire test session
     await database.connect()
     global _DB_LOOP_ID
@@ -328,18 +345,19 @@ async def db_transaction(db_connection):
     """
     Function-scoped transaction that automatically rolls back after each test.
     This ensures test isolation and allows parallel execution.
-    
+
     Uses PostgreSQL savepoints to create nested transactions that can be rolled back
     without affecting other tests running in parallel.
-    
+
     Note: This fixture assumes the database connection is in autocommit mode or
     can handle savepoints. If savepoints don't work, tests will still be isolated
     by running in separate database transactions when using pytest-xdist with
     separate database connections per worker.
     """
-    from db.database import database
     import uuid
-    
+
+    from db.database import database
+
     # Ensure the database pool is bound to the currently running event loop.
     # If not, asyncpg will raise "Future attached to a different loop" and can leave
     # the connection in a broken state.
@@ -363,7 +381,7 @@ async def db_transaction(db_connection):
 
     # Generate a unique savepoint name
     savepoint_name = f"sp_{uuid.uuid4().hex[:12]}"
-    
+
     try:
         # Try to create a savepoint for this test
         # This will work if we're already in a transaction
@@ -374,9 +392,9 @@ async def db_transaction(db_connection):
             # If savepoints don't work, we'll rely on transaction isolation
             # when running in parallel (each worker gets its own connection)
             using_savepoint = False
-        
+
         yield database
-        
+
         # Rollback to savepoint if we created one
         if using_savepoint:
             try:

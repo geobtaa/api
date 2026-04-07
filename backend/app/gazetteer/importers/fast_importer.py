@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import Any, Dict, List
 from urllib.request import urlretrieve
 
+from app.security_utils import safe_extract_zip
 from db.models import gazetteer_fast
 
 from .base_importer import BaseImporter
@@ -201,7 +202,7 @@ class FastImporter(BaseImporter):
                     # Extract the first MARCXML file
                     marcxml_filename = marcxml_files[0]
                     self.logger.info(f"Extracting {marcxml_filename} from ZIP")
-                    zip_ref.extract(marcxml_filename, temp_dir)
+                    safe_extract_zip(zip_ref, temp_dir, members=[marcxml_filename])
 
                     # Move the extracted file to the data directory
                     extracted_path = os.path.join(temp_dir, marcxml_filename)

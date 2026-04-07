@@ -24,6 +24,6 @@ async def get_resource_links(
         }
 
         return create_response(response_payload, callback)
-    except Exception as e:
-        logger.error(f"Error getting links for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting links for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get links"}, status_code=500)

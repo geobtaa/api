@@ -33,11 +33,14 @@ import requests
 # Fix imports to work both as a module and as a direct script
 try:
     # When run as a module
+    from app.security_utils import quote_sql_identifier
+
     from .base_downloader import BaseDownloader
 except ImportError:
     # When run directly
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
     from app.gazetteer.downloaders.base_downloader import BaseDownloader
+    from app.security_utils import quote_sql_identifier
 
 # Setup logging
 logger = logging.getLogger("wof_downloader")
@@ -135,15 +138,16 @@ class WofDownloader(BaseDownloader):
 
             for table in tables:
                 csv_file = self.csv_dir / f"{table}.csv"
+                quoted_table = quote_sql_identifier(table, kind="SQLite table name")
 
                 logger.info(f"Exporting table {table} to {csv_file}...")
 
                 # Get column names
-                cursor.execute(f"PRAGMA table_info({table});")
+                cursor.execute(f"PRAGMA table_info({quoted_table});")
                 columns = [row[1] for row in cursor.fetchall()]
 
                 # Get all rows from the table
-                cursor.execute(f"SELECT * FROM {table};")
+                cursor.execute(f"SELECT * FROM {quoted_table};")
                 rows = cursor.fetchall()
 
                 # Write to CSV

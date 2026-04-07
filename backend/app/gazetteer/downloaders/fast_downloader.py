@@ -4,6 +4,8 @@ import tempfile
 import zipfile
 from urllib.request import urlretrieve
 
+from app.security_utils import safe_extract_zip
+
 from .base_downloader import BaseDownloader
 
 logger = logging.getLogger(__name__)
@@ -73,7 +75,7 @@ class FastDownloader(BaseDownloader):
                     # Extract the first MARCXML file
                     marcxml_filename = marcxml_files[0]
                     logger.info(f"Extracting {marcxml_filename} from ZIP")
-                    zip_ref.extract(marcxml_filename, temp_dir)
+                    safe_extract_zip(zip_ref, temp_dir, members=[marcxml_filename])
 
                     # Move the extracted file to the data directory
                     extracted_path = os.path.join(temp_dir, marcxml_filename)

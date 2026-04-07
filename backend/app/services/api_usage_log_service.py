@@ -146,7 +146,13 @@ class APIUsageLogService:
                 except Exception as e:
                     await session.rollback()
                     logger.error(f"Error logging API usage for {endpoint}: {e}", exc_info=True)
-                    logger.error(f"Log entry data: {log_entry}")
+                    logger.error(
+                        "API usage log write failed for %s %s (tier_id=%s, api_key_id=%s)",
+                        method,
+                        endpoint,
+                        tier_id,
+                        api_key_id,
+                    )
 
         except Exception as e:
             # Log but don't fail the request

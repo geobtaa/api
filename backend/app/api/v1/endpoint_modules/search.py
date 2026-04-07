@@ -275,9 +275,9 @@ async def search(
         if adv_q:
             try:
                 parsed_adv_q = json.loads(adv_q)
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 return JSONResponse(
-                    content={"error": f"Invalid JSON in adv_q parameter: {str(e)}"},
+                    content={"error": "Invalid JSON in adv_q parameter"},
                     status_code=400,
                 )
 
@@ -323,12 +323,16 @@ async def search(
                 "exclude_filters": exclude_filters,
             },
         )
-    except Exception as e:
+    except HTTPException:
+        raise
+    except Exception:
         total_duration = time.time() - start_time
         logger.error(
-            f"💥 Search request failed after {total_duration:.3f}s: {str(e)}", exc_info=True
+            "Search request failed after %.3fs",
+            total_duration,
+            exc_info=True,
         )
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return JSONResponse(content={"error": "Search request failed"}, status_code=500)
 
 
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
@@ -403,8 +407,9 @@ async def search_post(
         )
     except HTTPException:
         raise
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Search POST request failed", exc_info=True)
+        return JSONResponse(content={"error": "Search request failed"}, status_code=500)
 
 
 @router.get("/search/facets/{facet_name}")
@@ -460,9 +465,9 @@ async def get_facet(
         if adv_q:
             try:
                 parsed_adv_q = json.loads(adv_q)
-            except json.JSONDecodeError as e:
+            except json.JSONDecodeError:
                 return JSONResponse(
-                    content={"error": f"Invalid JSON in adv_q parameter: {str(e)}"},
+                    content={"error": "Invalid JSON in adv_q parameter"},
                     status_code=400,
                 )
 
@@ -540,11 +545,11 @@ async def get_facet(
 
     except HTTPException:
         raise
-    except ValueError as e:
-        return JSONResponse(content={"error": str(e)}, status_code=400)
-    except Exception as e:
-        logger.error(f"Error getting facet values: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except ValueError:
+        return JSONResponse(content={"error": "Invalid facet request"}, status_code=400)
+    except Exception:
+        logger.error("Error getting facet values", exc_info=True)
+        return JSONResponse(content={"error": "Failed to get facet values"}, status_code=500)
 
 
 @router.get("/suggest")
@@ -566,5 +571,8 @@ async def suggest(
         )
 
         return JSONResponse(content=jsonapi_response)
-    except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except HTTPException:
+        raise
+    except Exception:
+        logger.error("Error getting suggestions", exc_info=True)
+        return JSONResponse(content={"error": "Failed to get suggestions"}, status_code=500)

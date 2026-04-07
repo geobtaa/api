@@ -42,6 +42,6 @@ async def get_resource_downloads(
         }
 
         return create_response(response_payload, callback)
-    except Exception as e:
-        logger.error(f"Error getting downloads for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting downloads for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get downloads"}, status_code=500)

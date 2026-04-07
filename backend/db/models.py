@@ -503,7 +503,7 @@ api_keys = Table(
     "api_keys",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("key_hash", String(64), nullable=False, unique=True, index=True),  # SHA-256 hash
+    Column("key_hash", String(64), nullable=False, unique=True, index=True),  # Deterministic API key hash
     Column("tier_id", Integer, nullable=False, index=True),
     Column("name", String(255), nullable=True),
     Column("is_active", Boolean, nullable=False, server_default="true"),

@@ -46,12 +46,12 @@ async def clear_cache(
     try:
         result = await service.clear_cache(cache_type)
         return create_response(result)
-    except CacheManagementError as e:
-        logger.error(f"Cache management error: {str(e)}")
-        return create_response({"error": str(e)}, status_code=500)
-    except Exception as e:
-        logger.error(f"Unexpected error clearing cache: {str(e)}")
-        return create_response({"error": f"Failed to clear cache: {str(e)}"}, status_code=500)
+    except CacheManagementError:
+        logger.error("Cache management error while clearing cache", exc_info=True)
+        return create_response({"error": "Failed to clear cache"}, status_code=500)
+    except Exception:
+        logger.error("Unexpected error clearing cache", exc_info=True)
+        return create_response({"error": "Failed to clear cache"}, status_code=500)
 
 
 @router.post("/reindex")
@@ -64,15 +64,11 @@ async def reindex(
         result = await service.reindex_resources()
         return create_response(result, callback)
     except ReindexingError as e:
-        logger.error(f"Reindexing error: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
-        ) from e
+        logger.error("Reindexing error", exc_info=True)
+        raise HTTPException(status_code=500, detail={"message": "Reindexing failed"}) from e
     except Exception as e:
-        logger.error(f"Unexpected error during reindexing: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
-        ) from e
+        logger.error("Unexpected error during reindexing", exc_info=True)
+        raise HTTPException(status_code=500, detail={"message": "Reindexing failed"}) from e
 
 
 @router.post("/resources/{id}/summarize")
@@ -97,14 +93,18 @@ async def summarize_resource(
         sanitized_response = sanitize_for_json(result)
         return create_response(sanitized_response, callback)
     except ResourceNotFoundError as e:
-        logger.error(f"Resource not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.error("Resource not found while summarizing %s", id, exc_info=True)
+        raise HTTPException(status_code=404, detail="Resource not found") from e
     except ResourceProcessingError as e:
-        logger.error(f"Resource processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Resource processing error while summarizing %s", id, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to start summary generation") from e
     except Exception as e:
-        logger.error(f"Unexpected error triggering summary generation for resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error(
+            "Unexpected error triggering summary generation for resource %s",
+            id,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Failed to start summary generation") from e
 
 
 @router.post("/resources/{id}/identify-geo-entities")
@@ -125,14 +125,27 @@ async def identify_geo_entities(
         result = await service.identify_geo_entities(id)
         return create_response(result, callback)
     except ResourceNotFoundError as e:
-        logger.error(f"Resource not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.error(
+            "Resource not found while identifying geographic entities for %s",
+            id,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=404, detail="Resource not found") from e
     except ResourceProcessingError as e:
-        logger.error(f"Resource processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error(
+            "Resource processing error while identifying geographic entities for %s",
+            id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to start geographic entity identification"
+        ) from e
     except Exception as e:
         logger.error(
-            f"Unexpected error triggering geographic entity identification "
-            f"for resource {id}: {str(e)}"
+            "Unexpected error triggering geographic entity identification for resource %s",
+            id,
+            exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(
+            status_code=500, detail="Failed to start geographic entity identification"
+        ) from e

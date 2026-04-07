@@ -41,5 +41,5 @@ async def get_resource_similar_items(
             return create_response(response_payload, callback)
 
     except Exception as e:
-        logger.error(f"Error getting similar items for resource {id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error getting similar items for resource %s", id, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to get similar items") from e

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from app.api.v1.auth import verify_credentials
 from app.api.v1.utils import create_response, sanitize_for_json
+from app.security_utils import require_safe_filename
 from app.services.admin_service import (
     AdminService,
     CacheManagementError,
@@ -116,12 +117,12 @@ async def clear_cache(
     try:
         result = await service.clear_cache(cache_type)
         return create_response(result)
-    except CacheManagementError as e:
-        logger.error(f"Cache management error: {str(e)}")
-        return create_response({"error": str(e)}, status_code=500)
-    except Exception as e:
-        logger.error(f"Unexpected error clearing cache: {str(e)}")
-        return create_response({"error": f"Failed to clear cache: {str(e)}"}, status_code=500)
+    except CacheManagementError:
+        logger.error("Cache management error while clearing cache", exc_info=True)
+        return create_response({"error": "Failed to clear cache"}, status_code=500)
+    except Exception:
+        logger.error("Unexpected error clearing cache", exc_info=True)
+        return create_response({"error": "Failed to clear cache"}, status_code=500)
 
 
 class CachePurgeRequest(BaseModel):
@@ -162,8 +163,8 @@ async def purge_cache(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Unexpected error purging cache: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Unexpected error purging cache", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to purge cache") from e
 
 
 @router.post("/reindex")
@@ -176,15 +177,11 @@ async def reindex(
         result = await service.reindex_resources()
         return create_response(result, callback)
     except ReindexingError as e:
-        logger.error(f"Reindexing error: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
-        ) from e
+        logger.error("Reindexing error", exc_info=True)
+        raise HTTPException(status_code=500, detail={"message": "Reindexing failed"}) from e
     except Exception as e:
-        logger.error(f"Unexpected error during reindexing: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail={"message": "Reindexing failed", "error": str(e)}
-        ) from e
+        logger.error("Unexpected error during reindexing", exc_info=True)
+        raise HTTPException(status_code=500, detail={"message": "Reindexing failed"}) from e
 
 
 @router.post("/resources/{id}/summarize")
@@ -209,14 +206,18 @@ async def summarize_resource(
         sanitized_response = sanitize_for_json(result)
         return create_response(sanitized_response, callback)
     except ResourceNotFoundError as e:
-        logger.error(f"Resource not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.error("Resource not found while summarizing %s", id, exc_info=True)
+        raise HTTPException(status_code=404, detail="Resource not found") from e
     except ResourceProcessingError as e:
-        logger.error(f"Resource processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Resource processing error while summarizing %s", id, exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to start summary generation") from e
     except Exception as e:
-        logger.error(f"Unexpected error triggering summary generation for resource {id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error(
+            "Unexpected error triggering summary generation for resource %s",
+            id,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=500, detail="Failed to start summary generation") from e
 
 
 @router.post("/resources/{id}/identify-geo-entities")
@@ -237,17 +238,30 @@ async def identify_geo_entities(
         result = await service.identify_geo_entities(id)
         return create_response(result, callback)
     except ResourceNotFoundError as e:
-        logger.error(f"Resource not found: {str(e)}")
-        raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.error(
+            "Resource not found while identifying geographic entities for %s",
+            id,
+            exc_info=True,
+        )
+        raise HTTPException(status_code=404, detail="Resource not found") from e
     except ResourceProcessingError as e:
-        logger.error(f"Resource processing error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error(
+            "Resource processing error while identifying geographic entities for %s",
+            id,
+            exc_info=True,
+        )
+        raise HTTPException(
+            status_code=500, detail="Failed to start geographic entity identification"
+        ) from e
     except Exception as e:
         logger.error(
-            f"Unexpected error triggering geographic entity identification "
-            f"for resource {id}: {str(e)}"
+            "Unexpected error triggering geographic entity identification for resource %s",
+            id,
+            exc_info=True,
         )
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(
+            status_code=500, detail="Failed to start geographic entity identification"
+        ) from e
 
 
 # API Key Management Endpoints
@@ -279,8 +293,8 @@ async def create_api_key(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error creating API key: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error creating API key", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to create API key") from e
 
 
 @router.get("/api-keys")
@@ -290,8 +304,8 @@ async def list_api_keys():
         keys = await api_key_service.list_api_keys()
         return create_response({"keys": keys})
     except Exception as e:
-        logger.error(f"Error listing API keys: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error listing API keys", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list API keys") from e
 
 
 @router.patch("/api-keys/{key_id}")
@@ -329,8 +343,8 @@ async def update_api_key(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error updating API key: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error updating API key", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to update API key") from e
 
 
 @router.delete("/api-keys/{key_id}")
@@ -348,8 +362,8 @@ async def revoke_api_key(key_id: int):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error revoking API key: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error revoking API key", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to revoke API key") from e
 
 
 @router.get("/api-tiers")
@@ -359,8 +373,8 @@ async def list_api_tiers():
         tiers = await api_key_service.list_tiers()
         return create_response({"tiers": tiers})
     except Exception as e:
-        logger.error(f"Error listing API tiers: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error listing API tiers", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list API tiers") from e
 
 
 # --- OpenGeoMetadata (OGM) admin endpoints ---
@@ -818,10 +832,16 @@ async def download_ogm_dump_file(run_id: int, filename: str):
     if not run or not run.get("ogm_dump_dir"):
         raise HTTPException(status_code=404, detail="Dump not found for run")
 
+    try:
+        safe_filename = require_safe_filename(filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid filename") from exc
+
     dump_dir = Path(run["ogm_dump_dir"])
+    resolved_dump_dir = dump_dir.resolve()
     # Prevent path traversal
-    candidate = (dump_dir / filename).resolve()
-    if dump_dir.resolve() not in candidate.parents and candidate != dump_dir.resolve():
+    candidate = (resolved_dump_dir / safe_filename).resolve()
+    if resolved_dump_dir not in candidate.parents:
         raise HTTPException(status_code=400, detail="Invalid filename")
 
     if not candidate.exists() or not candidate.is_file():
@@ -829,9 +849,9 @@ async def download_ogm_dump_file(run_id: int, filename: str):
 
     # Basic content type mapping
     media_type = "application/octet-stream"
-    if filename.endswith(".json") or filename.endswith(".ndjson"):
+    if safe_filename.endswith(".json") or safe_filename.endswith(".ndjson"):
         media_type = "application/json"
-    elif filename.endswith(".parquet"):
+    elif safe_filename.endswith(".parquet"):
         media_type = "application/octet-stream"
 
-    return FileResponse(str(candidate), media_type=media_type, filename=filename)
+    return FileResponse(str(candidate), media_type=media_type, filename=safe_filename)

@@ -20,12 +20,11 @@ export function EnvironmentNavButtons({
   }
 
   // Detect current environment
-  const currentHost = window.location.hostname;
+  const currentHost = window.location.hostname.toLowerCase();
   const isLocalhost =
     currentHost === 'localhost' || currentHost === '127.0.0.1';
-  const isDevServer = currentHost.includes(
-    'lib-btaageoapi-dev-app-01.oit.umn.edu'
-  );
+  const isDevServer =
+    currentHost === 'lib-btaageoapi-dev-app-01.oit.umn.edu';
 
   // Don't show buttons on production
   if (!isLocalhost && !isDevServer) {

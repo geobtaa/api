@@ -20,8 +20,6 @@ async def get_resource_data_dictionaries(id: str):
             return JSONResponse(content=sanitize_for_json(payload))
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(
-            "Error getting data dictionaries for resource %s: %s", id, str(e), exc_info=True
-        )
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting data dictionaries for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get data dictionaries"}, status_code=500)

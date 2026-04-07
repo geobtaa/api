@@ -9,6 +9,7 @@ import redis
 import requests
 from dotenv import load_dotenv
 
+from app.security_utils import url_hostname_matches
 from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
@@ -309,7 +310,9 @@ class ImageService:
                 return url[:-10] + "/full/400,/0/default.jpg"
 
             # Preserve Stanford IIIF URLs that already include sizing or '!'
-            if "stacks.stanford.edu" in url and ("/full/!" in url or "/full/400," in url):
+            if url_hostname_matches(url, "stacks.stanford.edu") and (
+                "/full/!" in url or "/full/400," in url
+            ):
                 return url
 
             # If URL already contains /full/, replace everything after it with our standard path
@@ -362,14 +365,16 @@ class ImageService:
             return None
         bbox_raw = bbox_raw.strip()
         # ENVELOPE(xmin, xmax, ymax, ymin)
-        env_match = re.match(
-            r"ENVELOPE\s*\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)",
-            bbox_raw,
-            re.IGNORECASE,
-        )
-        if env_match:
-            xmin, xmax, ymax, ymin = (float(x.strip()) for x in env_match.groups())
-            return f"{xmin},{ymin},{xmax},{ymax}"
+        if bbox_raw.upper().startswith("ENVELOPE"):
+            envelope_body = bbox_raw[len("ENVELOPE") :].strip()
+            if envelope_body.startswith("(") and envelope_body.endswith(")"):
+                envelope_parts = [part.strip() for part in envelope_body[1:-1].split(",")]
+                if len(envelope_parts) == 4:
+                    try:
+                        xmin, xmax, ymax, ymin = (float(x) for x in envelope_parts)
+                        return f"{xmin},{ymin},{xmax},{ymax}"
+                    except (ValueError, TypeError):
+                        pass
         # Comma-separated: assume minx,miny,maxx,maxy or minx,maxx,maxy,miny
         parts = [p.strip() for p in bbox_raw.split(",")]
         if len(parts) == 4:
@@ -457,7 +462,7 @@ class ImageService:
                 continue
 
             # Transform ContentDM IIIF URLs
-            if "contentdm.oclc.org" in iiif_url:
+            if url_hostname_matches(iiif_url, "contentdm.oclc.org"):
                 # Handle both /digital/iiif/ and /iiif/ patterns
                 # Pattern 1: /digital/iiif/collection/id
                 match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
@@ -495,7 +500,10 @@ class ImageService:
         if manifest_url:
             # Special case: ContentDM manifest URLs can be directly converted to image URLs
             # without fetching the manifest, since we know the pattern
-            if "contentdm.oclc.org" in manifest_url and "/iiif/" in manifest_url:
+            if (
+                url_hostname_matches(manifest_url, "contentdm.oclc.org")
+                and "/iiif/" in manifest_url
+            ):
                 # Extract collection:item from ContentDM manifest URL
                 # Pattern: https://cdm16022.contentdm.oclc.org/iiif/p16022coll55:1755/manifest.json
                 match = re.search(r"/iiif/([^/]+)/", manifest_url)

@@ -1,3 +1,5 @@
+from urllib.parse import quote
+
 from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.sql import select
@@ -44,8 +46,11 @@ async def get_resource_static_map(
             if not row:
                 return _svg_placeholder(title="Map unavailable", subtitle="Resource not found")
 
+        resolved_id = str(row._mapping["id"])
+        relative_target = f"/api/v1/static-maps/{quote(resolved_id, safe='')}/geometry"
+
         return RedirectResponse(
-            url=f"/api/v1/static-maps/{id}/geometry",
+            url=relative_target,
             status_code=302,
             headers={
                 "Cache-Control": "no-store",

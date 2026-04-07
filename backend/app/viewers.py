@@ -1,6 +1,5 @@
 import json
 import logging
-import re
 from typing import Dict, List, Optional, TypedDict, Union
 
 logger = logging.getLogger(__name__)
@@ -102,17 +101,50 @@ class ItemViewer:
             return None
         return {"type": "Polygon", "coordinates": [coordinates]}
 
+    @staticmethod
+    def _unwrap_wkt(geometry: str, prefix: str, layers: int = 1) -> Optional[str]:
+        stripped = geometry.strip()
+        if not stripped[: len(prefix)].upper() == prefix.upper():
+            return None
+
+        remainder = stripped[len(prefix) :].strip()
+        for _ in range(layers):
+            if not remainder.startswith("(") or not remainder.endswith(")"):
+                return None
+            remainder = remainder[1:-1].strip()
+        return remainder
+
+    @staticmethod
+    def _extract_double_parenthesized_segments(value: str) -> List[str]:
+        segments: List[str] = []
+        depth = 0
+        segment_start: Optional[int] = None
+
+        for index, char in enumerate(value):
+            if char == "(":
+                depth += 1
+                if depth == 2:
+                    segment_start = index + 1
+            elif char == ")":
+                if depth == 2 and segment_start is not None:
+                    segments.append(value[segment_start:index].strip())
+                    segment_start = None
+                depth -= 1
+                if depth < 0:
+                    return []
+
+        return segments if depth == 0 else []
+
     def _parse_multipolygon_wkt(self, geometry: str) -> Optional[Dict[str, Union[str, List]]]:
         """Parse MultiPolygon WKT to GeoJSON MultiPolygon, preserving all polygons."""
-        # Extract content inside MultiPolygon(...)
-        match = re.match(r"MULTIPOLYGON\s*\(\s*(.+)\s*\)\s*$", geometry, re.IGNORECASE | re.DOTALL)
-        if not match:
+        inner = self._unwrap_wkt(geometry, "MULTIPOLYGON")
+        if inner is None:
             return None
-        inner = match.group(1)
-        # Find all polygon rings: ((x y, x y, ...))
-        ring_matches = self._multipolygon_ring_pattern.findall(inner)
+
+        ring_matches = self._extract_double_parenthesized_segments(inner)
         if not ring_matches:
             return None
+
         polygons = []
         from app.elasticsearch.index import _is_valid_single_polygon
 
@@ -159,23 +191,17 @@ class ItemViewer:
         if not isinstance(geometry, str):
             return None
 
-        # LIGHTNING SPEED OPTIMIZATION: Pre-compile regex patterns for reuse
-        # This eliminates the overhead of recompiling patterns on every call
-        if not hasattr(self, "_envelope_pattern"):
-            self._envelope_pattern = re.compile(
-                r"ENVELOPE\(([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\)"
-            )
-            self._polygon_pattern = re.compile(r"POLYGON\s*\(\s*\(\s*([-\d.\s,]+)\s*\)\s*\)")
-            # Match each polygon in MultiPolygon: ((ring)) or (((ring)))
-            self._multipolygon_ring_pattern = re.compile(
-                r"\(\s*\(\s*([-\d.\s,]+)\s*\)\s*\)", re.IGNORECASE
-            )
+        envelope_inner = self._unwrap_wkt(geometry, "ENVELOPE")
+        if envelope_inner is not None:
+            parts = [part.strip() for part in envelope_inner.split(",")]
+            if len(parts) != 4:
+                return None
 
-        # Check if it's an ENVELOPE format using pre-compiled pattern
-        envelope_match = self._envelope_pattern.match(geometry)
-        if envelope_match:
             # Extract coordinates from ENVELOPE(minx,maxx,maxy,miny)
-            minx, maxx, maxy, miny = map(float, envelope_match.groups())
+            try:
+                minx, maxx, maxy, miny = map(float, parts)
+            except ValueError:
+                return None
 
             # Import normalization function from elasticsearch module
             from app.elasticsearch.index import _normalize_envelope
@@ -212,10 +238,9 @@ class ItemViewer:
             self._geometry_cache[geometry] = result
             return result
 
-        # Check if it's a POLYGON format using pre-compiled pattern
-        polygon_match = self._polygon_pattern.match(geometry)
-        if polygon_match:
-            result = self._parse_polygon_coords(polygon_match.group(1), geometry)
+        polygon_inner = self._unwrap_wkt(geometry, "POLYGON", layers=2)
+        if polygon_inner is not None:
+            result = self._parse_polygon_coords(polygon_inner, geometry)
             if result:
                 self._geometry_cache[geometry] = result
             return result

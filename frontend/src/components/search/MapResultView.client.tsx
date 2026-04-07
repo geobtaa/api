@@ -247,12 +247,25 @@ const SpiderfiedMarkers: React.FC<{
       });
       const container = document.createElement('div');
       container.className = 'text-xs min-w-[200px]';
-      container.innerHTML = `
-        <span class="text-slate-500 text-xs block mb-1">Result ${p.resultNumber}</span>
-        <strong class="block mb-1 text-sm">${escapeHtml(p.resource.attributes.ogm.dct_title_s || '(Untitled)')}</strong>
-        <span class="text-slate-500 block mb-2">${escapeHtml(p.resource.id)}</span>
-        <a href="/resources/${escapeHtml(p.resource.id)}" class="text-indigo-600 hover:text-indigo-800 font-medium hover:underline">View Details</a>
-      `;
+      const resultLabel = document.createElement('span');
+      resultLabel.className = 'text-slate-500 text-xs block mb-1';
+      resultLabel.textContent = `Result ${p.resultNumber}`;
+
+      const title = document.createElement('strong');
+      title.className = 'block mb-1 text-sm';
+      title.textContent = p.resource.attributes.ogm.dct_title_s || '(Untitled)';
+
+      const idLabel = document.createElement('span');
+      idLabel.className = 'text-slate-500 block mb-2';
+      idLabel.textContent = p.resource.id;
+
+      const detailsLink = document.createElement('a');
+      detailsLink.href = `/resources/${encodeURIComponent(p.resource.id)}`;
+      detailsLink.className =
+        'text-indigo-600 hover:text-indigo-800 font-medium hover:underline';
+      detailsLink.textContent = 'View Details';
+
+      container.append(resultLabel, title, idLabel, detailsLink);
       (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent = container;
       marker.addTo(map);
       oms.addMarker(marker);
@@ -287,12 +300,6 @@ const SpiderfiedMarkers: React.FC<{
 
   return null;
 };
-
-function escapeHtml(s: string): string {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
-}
 
 export const MapResultView: React.FC<MapResultViewProps> = ({
   results,

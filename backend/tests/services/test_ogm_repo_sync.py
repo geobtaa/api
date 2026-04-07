@@ -9,7 +9,7 @@ def test_ensure_repo_reclones_when_directory_is_not_git_repo(tmp_path, monkeypat
     repo_dir.mkdir(parents=True)
     (repo_dir / "not_git.txt").write_text("broken checkout", encoding="utf-8")
 
-    def fake_clone(self, _repo_name, _repo_dir):
+    def fake_clone(self, _repo_name, _repo_dir, _git_executable):
         _repo_dir.mkdir(parents=True, exist_ok=True)
         (_repo_dir / ".git").mkdir(parents=True, exist_ok=True)
         return RepoSyncResult(_repo_name, _repo_dir, "reclone-sha", "clone")
@@ -37,11 +37,11 @@ def test_pull_reclones_when_ff_only_pull_fails(tmp_path, monkeypatch):
 
     def fake_run(cmd, check, capture_output, text):
         calls.append(cmd)
-        if cmd[:4] == ["git", "-C", str(repo_dir), "pull"]:
+        if cmd[:4] == ["/usr/bin/git", "-C", str(repo_dir), "pull"]:
             raise subprocess.CalledProcessError(returncode=1, cmd=cmd)
         return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
-    def fake_clone(self, _repo_name, _repo_dir):
+    def fake_clone(self, _repo_name, _repo_dir, _git_executable):
         _repo_dir.mkdir(parents=True, exist_ok=True)
         (_repo_dir / ".git").mkdir(parents=True, exist_ok=True)
         return RepoSyncResult(_repo_name, _repo_dir, "new-sha", "clone")
@@ -57,4 +57,4 @@ def test_pull_reclones_when_ff_only_pull_fails(tmp_path, monkeypatch):
 
     assert result.action == "reclone"
     assert result.head_sha == "new-sha"
-    assert any(cmd[:4] == ["git", "-C", str(repo_dir), "pull"] for cmd in calls)
+    assert any(cmd[:4] == ["/usr/bin/git", "-C", str(repo_dir), "pull"] for cmd in calls)

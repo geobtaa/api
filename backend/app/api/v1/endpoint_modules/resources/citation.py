@@ -57,9 +57,9 @@ async def get_resource_citation(
         }
 
         return create_response(response_payload, callback)
-    except Exception as e:
-        logger.error(f"Error getting citation for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting citation for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get citation"}, status_code=500)
 
 
 @router.get("/resources/{id}/citation/json-ld")
@@ -81,9 +81,9 @@ async def get_resource_citation_json_ld(id: str):
         )
         ld = service.to_json_ld(id)
         return JSONResponse(content=ld, media_type="application/ld+json")
-    except Exception as e:
-        logger.error(f"Error getting JSON-LD for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting JSON-LD for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get citation metadata"}, status_code=500)
 
 
 @router.get("/resources/{id}/citation/ris")
@@ -109,9 +109,9 @@ async def get_resource_citation_ris(id: str):
             media_type="application/x-research-info-systems",
             headers={"Content-Disposition": f'attachment; filename="{id}.ris"'},
         )
-    except Exception as e:
-        logger.error(f"Error getting RIS for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting RIS for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get RIS citation"}, status_code=500)
 
 
 @router.get("/resources/{id}/citation/bibtex")
@@ -137,6 +137,6 @@ async def get_resource_citation_bibtex(id: str):
             media_type="application/x-bibtex",
             headers={"Content-Disposition": f'attachment; filename="{id}.bib"'},
         )
-    except Exception as e:
-        logger.error(f"Error getting BibTeX for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+    except Exception:
+        logger.error("Error getting BibTeX for resource %s", id, exc_info=True)
+        return JSONResponse(content={"error": "Failed to get BibTeX citation"}, status_code=500)

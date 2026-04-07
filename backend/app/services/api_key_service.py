@@ -1,5 +1,6 @@
 import hashlib
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
@@ -13,6 +14,8 @@ from db.config import DATABASE_URL
 from db.models import api_keys, api_service_tiers
 
 logger = logging.getLogger(__name__)
+API_KEY_HASH_ITERATIONS = 600_000
+DEFAULT_API_KEY_HASH_SECRET = "btaa-api-key-hash-v2"
 
 # Dedicated async engine/session for API key operations.
 # Use NullPool to avoid sharing connections across event loops
@@ -33,8 +36,24 @@ class APIKeyService:
 
     @staticmethod
     def hash_api_key(key: str) -> str:
-        """Hash an API key using SHA-256."""
-        return hashlib.sha256(key.encode()).hexdigest()
+        """Hash an API key using PBKDF2-HMAC-SHA256."""
+        salt = (
+            os.getenv("API_KEY_HASH_SECRET")
+            or os.getenv("SECRET_KEY")
+            or DEFAULT_API_KEY_HASH_SECRET
+        ).encode("utf-8")
+        return hashlib.pbkdf2_hmac(
+            "sha256",
+            key.encode("utf-8"),
+            salt,
+            API_KEY_HASH_ITERATIONS,
+            dklen=32,
+        ).hex()
+
+    @staticmethod
+    def legacy_hash_api_key(key: str) -> str:
+        """Legacy SHA-256 hash for backward compatibility with stored keys."""
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()
 
     async def validate_api_key(
         self, key: str, request_ip: Optional[str] = None
@@ -50,13 +69,17 @@ class APIKeyService:
             Returns None if key is invalid, inactive, or if IP restriction fails.
         """
         key_hash = self.hash_api_key(key)
+        legacy_key_hash = self.legacy_hash_api_key(key)
+        candidate_hashes = [key_hash]
+        if legacy_key_hash != key_hash:
+            candidate_hashes.append(legacy_key_hash)
 
         async with async_session() as session:
             try:
                 stmt = (
                     select(api_keys, api_service_tiers)
                     .join(api_service_tiers, api_keys.c.tier_id == api_service_tiers.c.id)
-                    .where(api_keys.c.key_hash == key_hash)
+                    .where(api_keys.c.key_hash.in_(candidate_hashes))
                     .where(api_keys.c.is_active)
                 )
                 result = await session.execute(stmt)
@@ -68,6 +91,7 @@ class APIKeyService:
                 m = row._mapping
                 api_key_id = m[api_keys.c.id]
                 allowed_ips = m[api_keys.c.allowed_ips]
+                stored_key_hash = m[api_keys.c.key_hash]
 
                 # Check IP whitelist if configured
                 if allowed_ips and request_ip:
@@ -75,16 +99,15 @@ class APIKeyService:
                     if isinstance(allowed_ips, list):
                         if request_ip not in allowed_ips:
                             logger.warning(
-                                f"API key {api_key_id} rejected: IP {request_ip} not in whitelist. "
-                                f"Allowed IPs: {allowed_ips}"
+                                "API key %s rejected: request IP is not in the configured "
+                                "whitelist (%s allowed entries)",
+                                api_key_id,
+                                len(allowed_ips),
                             )
                             return None
                     else:
                         # Handle case where it might be stored as a different format
-                        logger.warning(
-                            f"API key {api_key_id} has invalid allowed_ips format: "
-                            f"{type(allowed_ips)}"
-                        )
+                        logger.warning("API key %s has an invalid allowed_ips format", api_key_id)
 
                 tier_info = {
                     "tier_id": m[api_service_tiers.c.id],
@@ -95,11 +118,12 @@ class APIKeyService:
                     "key_hash": key_hash,
                 }
 
-                # Update last_used_at
+                update_values = {"last_used_at": datetime.utcnow()}
+                if stored_key_hash == legacy_key_hash and stored_key_hash != key_hash:
+                    update_values["key_hash"] = key_hash
+
                 await session.execute(
-                    api_keys.update()
-                    .where(api_keys.c.id == api_key_id)
-                    .values(last_used_at=datetime.utcnow())
+                    api_keys.update().where(api_keys.c.id == api_key_id).values(**update_values)
                 )
                 await session.commit()
 

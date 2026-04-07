@@ -6,7 +6,6 @@ checking Allmaps annotations, and populating the resource_allmaps table.
 """
 
 import asyncio
-import hashlib
 import json
 import logging
 from datetime import datetime
@@ -18,6 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 
+from app.security_utils import stable_hex_digest
 from db.config import DATABASE_URL
 from db.models import distribution_types, resource_allmaps, resource_distributions, resources
 
@@ -35,7 +35,7 @@ def generate_allmaps_id(manifest: str) -> Optional[str]:
         manifest: The IIIF manifest JSON as a string
 
     Returns:
-        str: The generated Allmaps ID (first 16 chars of SHA-1 hash)
+        str: The generated Allmaps ID (first 16 chars of a stable secure digest)
     """
     try:
         manifest_json = json.loads(manifest)
@@ -47,9 +47,7 @@ def generate_allmaps_id(manifest: str) -> Optional[str]:
             logger.error("No manifest ID found in IIIF manifest")
             return None
 
-        # Use SHA-1 and take first 16 characters
-        hash_object = hashlib.sha1(manifest_id.encode("utf-8"))
-        return hash_object.hexdigest()[:16]
+        return stable_hex_digest(manifest_id, digest_size=8)
 
     except json.JSONDecodeError:
         logger.error("Invalid JSON in IIIF manifest")

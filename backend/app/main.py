@@ -2,7 +2,6 @@ import logging
 import os
 import sys
 from contextlib import asynccontextmanager
-from urllib.parse import urlparse
 
 try:
     import appsignal
@@ -31,7 +30,6 @@ from app.api.ogc import router as ogc_router
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
-from db.config import DATABASE_URL
 from db.database import database
 
 # Load environment variables from .env file
@@ -86,20 +84,7 @@ async def lifespan(app: FastAPI):
         logger.info("Connected to database")
     except Exception as e:
         # Log a safe, redacted view of the database URL for easier diagnosis
-        try:
-            parsed = urlparse(DATABASE_URL) if DATABASE_URL else None
-            if parsed:
-                safe_location = f"{parsed.hostname or ''}{parsed.path or ''}"
-            else:
-                safe_location = "<unknown>"
-        except Exception:
-            safe_location = "<unparseable>"
-
-        logger.error(
-            "Failed to connect to database at %s: %s",
-            safe_location,
-            str(e),
-        )
+        logger.error("Failed to connect to database: %s", str(e))
         raise
 
     try:

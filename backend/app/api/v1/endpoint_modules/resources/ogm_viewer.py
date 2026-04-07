@@ -1,4 +1,6 @@
+import html
 import os
+from urllib.parse import quote
 
 from fastapi import HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -27,7 +29,9 @@ async def get_resource_viewer(
 
         # Build the record URL for the viewer
         base_url = os.getenv("APPLICATION_URL", "http://localhost:8000")
-        record_url = f"{base_url}/api/v1/resources/{id}/metadata/ogm"
+        record_url = f"{base_url}/api/v1/resources/{quote(id, safe='')}/metadata/ogm"
+        escaped_record_url = html.escape(record_url, quote=True)
+        escaped_id = html.escape(id)
 
         # Create the HTML content
         html_content = f"""
@@ -36,7 +40,7 @@ async def get_resource_viewer(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OGM Viewer - Resource {id}</title>
+    <title>OGM Viewer - Resource {escaped_id}</title>
     <style>
         body {{
             margin: 0;
@@ -53,7 +57,7 @@ async def get_resource_viewer(
 <body>
     <div class="viewer-container">
         <ogm-viewer 
-            record-url="{record_url}"
+            record-url="{escaped_record_url}"
             >
         </ogm-viewer>
     </div>
@@ -81,4 +85,4 @@ async def get_resource_viewer(
         raise
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return JSONResponse(content={"error": "Failed to create viewer page"}, status_code=500)

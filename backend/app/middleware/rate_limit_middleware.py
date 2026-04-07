@@ -149,8 +149,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
                 if tier_id is None:
                     logger.warning(
-                        f"No tier_id found in tier_info for {request.url.path}. "
-                        f"Tier info: {tier_info}"
+                        "No tier_id found while logging API usage for %s", request.url.path
                     )
                 else:
                     logger.info(

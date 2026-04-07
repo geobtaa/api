@@ -964,12 +964,9 @@ class SpatialFacetService:
             if not resource_ids:
                 return {}
 
-            # Fetch all resources
-            placeholders = ",".join([f":id_{i}" for i in range(len(resource_ids))])
-            params = {f"id_{i}": resource_id for i, resource_id in enumerate(resource_ids)}
-
             resources = await database.fetch_all(
-                f"SELECT id, dcat_bbox FROM resources WHERE id IN ({placeholders})", params
+                text("SELECT id, dcat_bbox FROM resources WHERE id = ANY(:resource_ids)"),
+                {"resource_ids": resource_ids},
             )
 
             # Process each resource

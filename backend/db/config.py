@@ -1,6 +1,7 @@
 import os
-from dotenv import load_dotenv
 from urllib.parse import urlparse, urlunparse
+
+from dotenv import load_dotenv
 
 # Load environment variables from .env file
 try:
@@ -31,7 +32,11 @@ else:
     is_docker = os.getenv("IS_DOCKER") == "true"
     if not is_docker and DATABASE_URL:
         parsed = urlparse(DATABASE_URL)
-        docker_hostnames = ["paradedb", "btaa-geospatial-api-paradedb", "btaa-geospatial-api-paradedb-1"]
+        docker_hostnames = [
+            "paradedb",
+            "btaa-geospatial-api-paradedb",
+            "btaa-geospatial-api-paradedb-1",
+        ]
         if parsed.hostname in docker_hostnames:
             # Replace Docker hostname with localhost and use port 2345 (Docker mapped port)
             new_netloc = f"{parsed.username}:{parsed.password}@localhost:2345"
@@ -54,4 +59,4 @@ def _mask_database_url(url: str | None) -> str:
     return urlunparse(parsed._replace(netloc=netloc))
 
 
-print(f"Using database URL: {_mask_database_url(DATABASE_URL)}")
+print("Using configured database connection")

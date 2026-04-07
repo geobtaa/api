@@ -29,11 +29,14 @@ import requests
 # Fix imports to work both as a module and as a direct script
 try:
     # When run as a module
+    from app.security_utils import safe_extract_zip
+
     from .base_downloader import BaseDownloader
 except ImportError:
     # When run directly
     sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..")))
     from app.gazetteer.downloaders.base_downloader import BaseDownloader
+    from app.security_utils import safe_extract_zip
 
 # Setup logging
 logger = logging.getLogger("geonames_downloader")
@@ -76,7 +79,7 @@ class GeoNamesDownloader(BaseDownloader):
         # Extract the ZIP file
         logger.info(f"Extracting {zip_path} to {self.data_dir}")
         with zipfile.ZipFile(zip_path, "r") as zip_ref:
-            zip_ref.extractall(self.data_dir)
+            safe_extract_zip(zip_ref, self.data_dir)
 
         logger.info("Extraction complete")
 

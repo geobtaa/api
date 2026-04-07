@@ -3,6 +3,7 @@ import os
 import tempfile
 import zipfile
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 try:
     import duckdb  # type: ignore
@@ -12,18 +13,15 @@ except Exception:  # ModuleNotFoundError or other import-time errors
     HAS_DUCKDB = False
 import pandas as pd
 import requests
-import urllib3
 from dotenv import load_dotenv
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 
 from app.api.v1.utils import create_response, sanitize_for_json
+from app.security_utils import quote_sql_identifier, safe_extract_zip, stable_hex_digest
 
 # Load environment variables
 load_dotenv()
-
-# Suppress SSL warnings when verification is disabled
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -35,14 +33,12 @@ DUCKDB_DATABASE_PATH = os.getenv("DUCKDB_DATABASE_PATH", "data/duckdb/btaa_ogm_a
 os.makedirs(os.path.dirname(DUCKDB_DATABASE_PATH), exist_ok=True)
 
 
-# Initialize DuckDB connection
 def get_duckdb_connection():
     """Get a DuckDB connection with spatial extension loaded."""
     if not HAS_DUCKDB:
         raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
 
     con = duckdb.connect(DUCKDB_DATABASE_PATH)
-    # Load the spatial extension for shapefile support
     con.execute("INSTALL spatial")
     con.execute("LOAD spatial")
     return con
@@ -54,29 +50,61 @@ class Page(BaseModel):
     rows: list[dict[str, Any]]
 
 
+def _validate_remote_shapefile_uri(uri: str) -> str:
+    parsed = urlparse(uri)
+    if parsed.scheme not in {"http", "https", "s3"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Only http, https, and s3 shapefile URIs are supported",
+        )
+
+    if parsed.scheme in {"http", "https"} and not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Invalid shapefile URL")
+
+    if parsed.scheme == "s3" and not parsed.netloc:
+        raise HTTPException(status_code=400, detail="Invalid S3 shapefile URI")
+
+    return uri
+
+
+def _table_name_for_uri(uri: str) -> str:
+    return f"shapefile_{stable_hex_digest(uri, digest_size=8)}"
+
+
+def _quote_table_name(table_name: str) -> str:
+    return quote_sql_identifier(table_name, kind="table name")
+
+
+def _fetch_table_metadata(con: Any, table_name: str):
+    return con.execute(
+        """
+        SELECT column_name AS name, data_type AS type
+        FROM information_schema.columns
+        WHERE table_name = ?
+        ORDER BY ordinal_position
+        """,
+        [table_name],
+    ).df()
+
+
 def ensure_table(con: Any, s3_uri: str) -> str:
     """
-    Ensure a table exists for the given S3 URI.
-    Creates a table name based on the URI and loads the shapefile if needed.
+    Ensure a table exists for the given remote shapefile URI.
+    Creates a stable table name based on the URI and loads the shapefile if needed.
     """
-    # Create a table name from the S3 URI
-    table_name = f"shapefile_{hash(s3_uri) % 1000000}"
+    s3_uri = _validate_remote_shapefile_uri(s3_uri)
+    table_name = _table_name_for_uri(s3_uri)
+    quoted_table_name = _quote_table_name(table_name)
 
-    # Check if table exists
     result = con.execute(
-        f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+        "SELECT name FROM sqlite_master WHERE type='table' AND name = ?", [table_name]
     ).fetchone()
 
     if result is None:
         logger.info(f"Creating table {table_name} for S3 URI: {s3_uri}")
 
-        # Load the shapefile into DuckDB
         try:
-            # For URLs, download the file first
             if s3_uri.startswith("http"):
-                logger.info(f"Downloading file from URL: {s3_uri}")
-
-                # Download the file with SSL verification disabled for problematic servers
                 headers = {
                     "User-Agent": (
                         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -85,38 +113,22 @@ def ensure_table(con: Any, s3_uri: str) -> str:
                     )
                 }
 
-                try:
-                    # First try with SSL verification
-                    response = requests.get(s3_uri, stream=True, headers=headers, timeout=30)
+                with requests.get(s3_uri, stream=True, headers=headers, timeout=30) as response:
                     response.raise_for_status()
-                except requests.exceptions.SSLError:
-                    logger.warning(
-                        f"SSL verification failed for {s3_uri}, retrying without verification"
-                    )
-                    # Retry without SSL verification
-                    response = requests.get(
-                        s3_uri, stream=True, headers=headers, verify=False, timeout=30
-                    )
-                    response.raise_for_status()
-
-                # Create a temporary file
-                with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        temp_file.write(chunk)
-                    temp_file_path = temp_file.name
+                    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as temp_file:
+                        for chunk in response.iter_content(chunk_size=8192):
+                            temp_file.write(chunk)
+                        temp_file_path = temp_file.name
 
                 try:
-                    # Check if it's a ZIP file and extract if needed
                     if zipfile.is_zipfile(temp_file_path):
                         logger.info("File is a ZIP archive, extracting...")
 
-                        # Create a temporary directory for extraction
                         with tempfile.TemporaryDirectory() as extract_dir:
                             with zipfile.ZipFile(temp_file_path, "r") as zip_ref:
-                                zip_ref.extractall(extract_dir)
+                                safe_extract_zip(zip_ref, extract_dir)
 
-                            # Look for .shp files in the extracted directory
-                            shp_files = []
+                            shp_files: list[str] = []
                             for root, _dirs, files in os.walk(extract_dir):
                                 for file in files:
                                     if file.lower().endswith(".shp"):
@@ -128,41 +140,30 @@ def ensure_table(con: Any, s3_uri: str) -> str:
                                     detail="No shapefile (.shp) found in ZIP archive",
                                 )
 
-                            # Use the first shapefile found
                             shapefile_path = shp_files[0]
                             logger.info(f"Found shapefile: {shapefile_path}")
-
-                            # Read the extracted shapefile with DuckDB
-                            con.execute(f"""
-                                CREATE TABLE {table_name} AS 
-                                SELECT * FROM st_read('{shapefile_path}')
-                            """)
+                            con.execute(
+                                f"CREATE TABLE {quoted_table_name} AS SELECT * FROM st_read(?)",
+                                [shapefile_path],
+                            )
                     else:
-                        # Try to read the file directly (might be a direct shapefile)
-                        con.execute(f"""
-                            CREATE TABLE {table_name} AS 
-                            SELECT * FROM st_read('{temp_file_path}')
-                        """)
+                        con.execute(
+                            f"CREATE TABLE {quoted_table_name} AS SELECT * FROM st_read(?)",
+                            [temp_file_path],
+                        )
 
                     logger.info(
                         f"Successfully loaded shapefile from {s3_uri} into table {table_name}"
                     )
                 finally:
-                    # Clean up the temporary file
                     os.unlink(temp_file_path)
 
-            # For S3 URIs, use st_read with S3 configuration
             elif s3_uri.startswith("s3://"):
-                con.execute(f"""
-                    CREATE TABLE {table_name} AS 
-                    SELECT * FROM st_read('{s3_uri}')
-                """)
+                con.execute(
+                    f"CREATE TABLE {quoted_table_name} AS SELECT * FROM st_read(?)", [s3_uri]
+                )
             else:
-                # For local files
-                con.execute(f"""
-                    CREATE TABLE {table_name} AS 
-                    SELECT * FROM st_read('{s3_uri}')
-                """)
+                raise HTTPException(status_code=400, detail="Unsupported shapefile URI")
 
         except Exception as e:
             logger.error(f"Error loading shapefile from {s3_uri}: {str(e)}")
@@ -181,35 +182,18 @@ async def shapefile_table(
     q: Optional[str] = Query(None, description="Free-text search"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
-    """
-    Get shapefile data from S3, paginated and searchable.
-
-    Args:
-        s3_uri: Full S3 URI to the shapefile (.shp or .zip)
-        page: Page number (1-based)
-        size: Number of items per page (max 1000)
-        sort: Column name to sort by
-        dir: Sort direction (asc or desc)
-        q: Free-text search query
-        callback: JSONP callback name (optional)
-
-    Returns:
-        Paginated shapefile data with metadata
-    """
+    """Get shapefile data from S3, paginated and searchable."""
     try:
+        s3_uri = _validate_remote_shapefile_uri(s3_uri)
         if not HAS_DUCKDB:
             raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
         con = get_duckdb_connection()
 
-        # Ensure the table exists and is loaded
         table_name = ensure_table(con, s3_uri)
-
-        # Discover columns
-        meta = con.execute(f"PRAGMA table_info('{table_name}')").df()
+        quoted_table_name = _quote_table_name(table_name)
+        meta = _fetch_table_metadata(con, table_name)
         cols = meta["name"].tolist()
 
-        # Identify geometry columns (spatial extension uses different types)
-        # Look for geometry columns by name and type
         geom_cols = []
         text_cols = []
 
@@ -217,7 +201,6 @@ async def shapefile_table(
             col_name = row["name"]
             col_type = row["type"]
 
-            # Geometry columns are typically named 'geometry' or have spatial types
             if (
                 col_name.lower() in ["geometry", "geom", "shape", "wkb_geometry"]
                 or col_type.upper() in ["BLOB", "STRUCT", "VARCHAR"]
@@ -227,47 +210,45 @@ async def shapefile_table(
             else:
                 text_cols.append(col_name)
 
-        # Default sort: first non-geometry column
         if sort is None:
             sort = text_cols[0] if text_cols else cols[0]
 
         if sort not in cols:
             raise HTTPException(status_code=400, detail=f"Unknown sort column: {sort}")
 
-        # Build WHERE clause for search
         where = "TRUE"
+        query_params: list[Any] = []
         if q:
-            # Build ILIKE search for all textual columns using proper DuckDB syntax
-            ors = [f"{c}::TEXT ILIKE '%{q}%'" for c in text_cols]
+            ors = [
+                f"{quote_sql_identifier(column_name, kind='column name')}::TEXT ILIKE ?"
+                for column_name in text_cols
+            ]
             where = " OR ".join(ors) if ors else "TRUE"
+            query_params = [f"%{q}%"] * len(text_cols)
 
-        # Pagination
         limit = size
         offset = (page - 1) * size
 
-        # Get total count
-        total = con.execute(f"SELECT COUNT(*) FROM {table_name} WHERE {where}").fetchone()[0]
+        total = con.execute(
+            f"SELECT COUNT(*) FROM {quoted_table_name} WHERE {where}", query_params
+        ).fetchone()[0]
 
-        # Build and execute the main query
         sql = f"""
             SELECT *
-            FROM {table_name}
+            FROM {quoted_table_name}
             WHERE {where}
-            ORDER BY "{sort}" {dir.upper()}
-            LIMIT {limit} OFFSET {offset}
+            ORDER BY {quote_sql_identifier(sort, kind="column name")} {dir.upper()}
+            LIMIT ? OFFSET ?
         """
 
         logger.info(f"Executing SQL: {sql}")
-        df = con.execute(sql).fetch_df()
+        df = con.execute(sql, [*query_params, limit, offset]).fetch_df()
 
-        # Remove geometry columns and convert to records
         if geom_cols:
             df = df.drop(columns=geom_cols)
 
-        # Convert to records and handle null values
         rows = df.astype(object).where(pd.notnull(df), None).to_dict(orient="records")
 
-        # Create response data
         response_data = {
             "total_rows": total,
             "columns": [c for c in cols if c not in geom_cols],
@@ -279,13 +260,9 @@ async def shapefile_table(
             "table_name": table_name,
         }
 
-        # Sanitize for JSON serialization
-        response_data = sanitize_for_json(response_data)
-
-        return create_response(response_data, callback)
+        return create_response(sanitize_for_json(response_data), callback)
 
     except HTTPException:
-        # Re-raise HTTP exceptions
         raise
     except Exception as e:
         logger.error(f"Error processing shapefile request: {str(e)}", exc_info=True)
@@ -300,39 +277,24 @@ async def shapefile_info(
     table_name: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
-    """
-    Get metadata about a specific shapefile table.
-
-    Args:
-        table_name: The table name to get info for
-        callback: JSONP callback name (optional)
-
-    Returns:
-        Table metadata including columns, row count, and sample data
-    """
+    """Get metadata about a specific shapefile table."""
     try:
         if not HAS_DUCKDB:
             raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
         con = get_duckdb_connection()
+        quoted_table_name = _quote_table_name(table_name)
 
-        # Check if table exists
         result = con.execute(
-            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?", [table_name]
         ).fetchone()
         if result is None:
             raise HTTPException(status_code=404, detail=f"Table {table_name} not found")
 
-        # Get table info
-        meta = con.execute(f"PRAGMA table_info('{table_name}')").df()
+        meta = _fetch_table_metadata(con, table_name)
         cols = meta["name"].tolist()
+        count = con.execute(f"SELECT COUNT(*) FROM {quoted_table_name}").fetchone()[0]
+        sample = con.execute(f"SELECT * FROM {quoted_table_name} LIMIT 5").fetch_df()
 
-        # Get row count
-        count = con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
-
-        # Get sample data (first 5 rows)
-        sample = con.execute(f"SELECT * FROM {table_name} LIMIT 5").fetch_df()
-
-        # Create response
         response_data = {
             "table_name": table_name,
             "columns": cols,
@@ -340,10 +302,7 @@ async def shapefile_info(
             "sample_data": sample.to_dict(orient="records"),
         }
 
-        # Sanitize for JSON serialization
-        response_data = sanitize_for_json(response_data)
-
-        return create_response(response_data, callback)
+        return create_response(sanitize_for_json(response_data), callback)
 
     except HTTPException:
         raise
@@ -359,37 +318,25 @@ async def shapefile_info(
 async def list_shapefile_tables(
     callback: Optional[str] = Query(None, description="JSONP callback name"),
 ):
-    """
-    List all available shapefile tables.
-
-    Args:
-        callback: JSONP callback name (optional)
-
-    Returns:
-        List of all shapefile tables with their metadata
-    """
+    """List all available shapefile tables."""
     try:
         if not HAS_DUCKDB:
             raise HTTPException(status_code=503, detail="DuckDB is not available on this server")
         con = get_duckdb_connection()
 
-        # Get all tables that start with 'shapefile_'
         tables = con.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'shapefile_%'"
         ).fetchall()
 
         table_info = []
         for (table_name,) in tables:
-            # Get row count for each table
-            count = con.execute(f"SELECT COUNT(*) FROM {table_name}").fetchone()[0]
+            count = con.execute(f"SELECT COUNT(*) FROM {_quote_table_name(table_name)}").fetchone()[
+                0
+            ]
             table_info.append({"table_name": table_name, "row_count": count})
 
         response_data = {"tables": table_info, "total_tables": len(table_info)}
-
-        # Sanitize for JSON serialization
-        response_data = sanitize_for_json(response_data)
-
-        return create_response(response_data, callback)
+        return create_response(sanitize_for_json(response_data), callback)
 
     except Exception as e:
         logger.error(f"Error listing shapefile tables: {str(e)}", exc_info=True)

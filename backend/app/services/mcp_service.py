@@ -596,7 +596,15 @@ class OGMMCPService:
 
             content = [TextContent(type="text", text=f"Suggestions for '{query}':")]
 
-            for suggestion in suggestions.get("suggestions", []):
+            suggestion_items = suggestions.get("suggestions", [])
+            if not suggestion_items:
+                suggestion_items = [
+                    item.get("attributes", {}).get("text")
+                    for item in suggestions.get("data", [])
+                    if item.get("attributes", {}).get("text")
+                ]
+
+            for suggestion in suggestion_items:
                 content.append(TextContent(type="text", text=f"- {suggestion}"))
 
             return CallToolResult(content=content)

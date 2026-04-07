@@ -15,6 +15,8 @@ from dotenv import load_dotenv
 from starlette.datastructures import Headers
 from starlette.responses import Response
 
+from app.security_utils import stable_hex_digest
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -327,7 +329,7 @@ class CacheService:
 
     @staticmethod
     def _keytags_key(cache_key: str) -> str:
-        digest = hashlib.md5(cache_key.encode()).hexdigest()
+        digest = stable_hex_digest(cache_key, digest_size=16)
         return f"{CACHE_ROOT}:keytags:{digest}"
 
     async def tag_cache_key(self, cache_key: str, tags: Iterable[str], ttl_seconds: int) -> None:
@@ -400,7 +402,7 @@ class CacheService:
         """Generate a deterministic, versioned cache key from arguments.
 
         Keys are structured to support prefix invalidation:
-          {CACHE_ROOT}:{namespace}:{md5(args/kwargs)}
+          {CACHE_ROOT}:{namespace}:{digest(args/kwargs)}
         """
         safe_namespace = str(namespace).replace(" ", "_")
         key_parts = [safe_namespace]
@@ -432,7 +434,7 @@ class CacheService:
 
         # Join all parts and hash them
         key_string = ":".join(key_parts)
-        digest = hashlib.md5(key_string.encode()).hexdigest()
+        digest = stable_hex_digest(key_string, digest_size=16)
         return f"{CACHE_ROOT}:{safe_namespace}:{digest}"
 
 

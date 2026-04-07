@@ -1,3 +1,5 @@
+import inspect
+import json
 import logging
 import os
 import time
@@ -8,7 +10,7 @@ from elasticsearch.exceptions import NotFoundError
 from fastapi import HTTPException
 
 from app.api.v1.shared import SORT_MAPPINGS
-from app.api.v1.utils import sanitize_for_json
+from app.api.v1.utils import create_jsonapi_resource, sanitize_for_json
 from app.elasticsearch import search_resources
 from app.elasticsearch.client import es
 from app.elasticsearch.search import _normalize_geo_params
@@ -126,7 +128,6 @@ class SearchService:
             distribution_contexts = await fetch_distribution_context_map(resource_ids)
 
             for resource in results.get("data", []):
-                doc_start = time.time()
                 resource_id = resource.get("id")
                 distribution_context = distribution_contexts.get(
                     resource_id, build_distribution_context(resource_id or "", [])
@@ -187,14 +188,13 @@ class SearchService:
 
         except Exception as e:
             logger.error("Search service error", exc_info=True)
-            error_response = {
+            return {
                 "message": "Search operation failed",
                 "error": str(e),
                 "query": q,
                 "filters": filter_query if "filter_query" in locals() else None,
                 "sort": sort,
             }
-            return error_response
 
     async def get_resource(
         self,
@@ -207,14 +207,22 @@ class SearchService:
         try:
             # Get the resource from Elasticsearch
             try:
-                result = await self.es.get(index=self.index_name, id=id)
+                result = es.get(index=self.index_name, id=id)
+                if inspect.isawaitable(result):
+                    result = await result
             except NotFoundError:
                 raise HTTPException(status_code=404, detail="Resource not found") from None
             except Exception as e:
-                logger.error(f"Elasticsearch error getting resource {id}: {str(e)}", exc_info=True)
+                logger.error("Elasticsearch error getting resource %s", id, exc_info=True)
                 raise HTTPException(status_code=500, detail=str(e)) from e
 
             source_data = result["_source"]
+            references = source_data.get("dct_references_s")
+            if isinstance(references, str):
+                try:
+                    source_data["dct_references_s"] = json.loads(references)
+                except json.JSONDecodeError:
+                    pass
 
             # Create services
             distribution_context = await fetch_distribution_context(id)
@@ -229,9 +237,10 @@ class SearchService:
             # Add UI attributes in the same order as the original code
             source_data["ui_thumbnail_url"] = source_data.get("thumbnail_url")
             source_data["ui_citation"] = citation_service.get_citation()
-            source_data[
-                "ui_downloads"
-            ] = await download_service.get_download_options_with_bridge_asset_downloads()
+            ui_downloads = download_service.get_download_options_with_bridge_asset_downloads()
+            if inspect.isawaitable(ui_downloads):
+                ui_downloads = await ui_downloads
+            source_data["ui_downloads"] = ui_downloads
 
             # Add viewer attributes
             viewer_attributes = viewer_service.get_viewer_attributes()
@@ -241,7 +250,9 @@ class SearchService:
             if include_relationships:
                 try:
                     relationship_service = RelationshipService()
-                    relationships = await relationship_service.get_resource_relationships(id)
+                    relationships = relationship_service.get_resource_relationships(id)
+                    if inspect.isawaitable(relationships):
+                        relationships = await relationships
                     source_data["ui_relationships"] = relationships
                 except Exception as e:
                     logger.error(f"Error getting relationships: {e}", exc_info=True)
@@ -255,7 +266,9 @@ class SearchService:
                         WHERE resource_id = :resource_id 
                         ORDER BY created_at DESC
                     """
-                    summaries = await database.fetch_all(summaries_query, {"resource_id": id})
+                    summaries = database.fetch_all(summaries_query, {"resource_id": id})
+                    if inspect.isawaitable(summaries):
+                        summaries = await summaries
                     source_data["ui_summaries"] = [
                         sanitize_for_json(dict(summary)) for summary in summaries
                     ]
@@ -263,21 +276,14 @@ class SearchService:
                     logger.error(f"Error getting summaries: {e}", exc_info=True)
                     source_data["ui_summaries"] = []
 
-            # Create the response structure
-            response = {
-                "data": {
-                    "type": "resource",
-                    "id": id,
-                    "attributes": source_data,
-                }
-            }
+            response = {"data": create_jsonapi_resource(source_data)}
 
             return response
 
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error getting resource {id}: {str(e)}", exc_info=True)
+            logger.error("Error getting resource %s", id, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e)) from e
 
     async def suggest(self, q: str, resource_class: Optional[str] = None, size: int = 5) -> Dict:
@@ -297,7 +303,9 @@ class SearchService:
                     }
                 },
             }
-            response = await es.search(index=self.index_name, body=suggest_query)
+            response = es.search(index=self.index_name, body=suggest_query)
+            if inspect.isawaitable(response):
+                response = await response
             response_dict = response.body
             suggestions_by_id = {}
             suggestions_by_text = {}
@@ -363,7 +371,7 @@ class SearchService:
                 },
             }
         except Exception as e:
-            logger.error(f"Error getting suggestions: {str(e)}", exc_info=True)
+            logger.error("Error getting suggestions", exc_info=True)
             return {"data": [], "meta": {"error": str(e)}}
 
     def extract_filter_queries(self, params: str) -> Dict:

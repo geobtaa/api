@@ -46,8 +46,8 @@ async def list_resources(
                     jsonapi_resource = await process_resource(resource_dict, session)
                     processed_resources.append(jsonapi_resource)
                     logger.info(f"Successfully processed resource {resource_dict['id']}")
-                except Exception as e:
-                    logger.error(f"Error processing resource: {str(e)}", exc_info=True)
+                except Exception:
+                    logger.error("Error processing resource in list_resources", exc_info=True)
                     continue
 
             logger.info(f"Returning {len(processed_resources)} processed resources")
@@ -60,5 +60,5 @@ async def list_resources(
 
         return JSONResponse(content=jsonapi_response)
     except Exception as e:
-        logger.error(f"Error in list_resources: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.error("Error in list_resources", exc_info=True)
+        raise HTTPException(status_code=500, detail="Failed to list resources") from e

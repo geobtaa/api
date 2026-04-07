@@ -135,7 +135,9 @@ async def get_item(
 
     try:
         resource_response = await search_service.get_resource(recordId)
-    except HTTPException:
+    except HTTPException as e:
+        if e.status_code >= 500:
+            raise HTTPException(status_code=500, detail="Internal server error") from e
         raise
     except Exception as e:
         logger.error(f"Error fetching resource {recordId} for OGC endpoint", exc_info=True)

@@ -7,21 +7,20 @@ import logging
 import tempfile
 from abc import ABC, abstractmethod
 from typing import Any, Optional, Protocol
+from urllib.parse import urlparse
 
 import requests
-import urllib3
 from pydantic import BaseModel
 
-logger = logging.getLogger(__name__)
+from app.security_utils import quote_sql_identifier, stable_hex_digest
 
-# Suppress SSL warnings when verification is disabled
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+logger = logging.getLogger(__name__)
 
 
 class DuckDBConnection(Protocol):
     """Protocol for DuckDB connection interface."""
 
-    def execute(self, query: str) -> Any:
+    def execute(self, query: str, parameters: Optional[list[Any]] = None) -> Any:
         """Execute a SQL query."""
         ...
 
@@ -115,14 +114,14 @@ class DefaultDownloadService(DownloadService):
     async def download_shapefile(self, url: str) -> str:
         """Download shapefile and return local file path."""
         try:
-            # Create temporary directory for downloads
-            temp_dir = tempfile.mkdtemp()
+            parsed = urlparse(url)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ShapefileDownloadError("Only http and https shapefile URLs are supported")
 
-            # Download the shapefile
-            response = requests.get(url, verify=False, timeout=30)
+            temp_dir = tempfile.mkdtemp()
+            response = requests.get(url, timeout=30)
             response.raise_for_status()
 
-            # Save to temporary file
             temp_file = tempfile.NamedTemporaryFile(suffix=".shp", dir=temp_dir, delete=False)
             temp_file.write(response.content)
             temp_file.close()
@@ -152,7 +151,6 @@ class DefaultDuckDBService(DuckDBService):
 
         try:
             con = self.duckdb_module.connect(self.database_path)
-            # Load the spatial extension for shapefile support
             con.execute("INSTALL spatial")
             con.execute("LOAD spatial")
             return con
@@ -164,25 +162,23 @@ class DefaultDuckDBService(DuckDBService):
         Ensure a table exists for the given S3 URI.
         Creates a table name based on the URI and loads the shapefile if needed.
         """
-        # Create a table name from the S3 URI
-        table_name = f"shapefile_{hash(s3_uri) % 1000000}"
+        table_name = f"shapefile_{stable_hex_digest(s3_uri, digest_size=8)}"
+        quoted_table_name = quote_sql_identifier(table_name, kind="table name")
 
-        # Check if table exists
         result = con.execute(
-            f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = ?", [table_name]
         ).fetchone()
 
         if result is None:
-            # Table doesn't exist, create it
-            # For now, we'll create an empty table
-            # In a real implementation, this would load the shapefile
-            con.execute(f"""
-                CREATE TABLE {table_name} (
+            con.execute(
+                f"""
+                CREATE TABLE {quoted_table_name} (
                     id INTEGER PRIMARY KEY,
                     geometry GEOMETRY,
                     properties JSON
                 )
-            """)
+                """
+            )
             logger.info(f"Created table: {table_name}")
         else:
             logger.info(f"Table already exists: {table_name}")
@@ -194,40 +190,46 @@ class DefaultDuckDBService(DuckDBService):
     ) -> Page:
         """Execute a query on the specified table."""
         try:
-            # Build the full query
-            full_query = f"SELECT * FROM {table_name}"
             if sql.strip():
-                full_query += f" WHERE {sql}"
+                raise ShapefileProcessingError(
+                    "Arbitrary SQL filters are disabled until the shapefile query API is hardened"
+                )
 
-            # Add pagination
+            quoted_table_name = quote_sql_identifier(table_name, kind="table name")
+            full_query = f"SELECT * FROM {quoted_table_name}"
+            params: list[Any] = []
             if limit:
-                full_query += f" LIMIT {limit} OFFSET {offset}"
+                full_query += " LIMIT ? OFFSET ?"
+                params.extend([limit, offset])
 
-            # Execute query
-            result = con.execute(full_query)
-
-            # Get column names
+            result = con.execute(full_query, params)
             columns = [desc[0] for desc in result.description]
-
-            # Get rows
             rows = [dict(zip(columns, row)) for row in result.fetchall()]
-
-            # Get total count
-            count_query = f"SELECT COUNT(*) FROM {table_name}"
-            if sql.strip():
-                count_query += f" WHERE {sql}"
-
-            total_rows = con.execute(count_query).fetchone()[0]
+            total_rows = con.execute(f"SELECT COUNT(*) FROM {quoted_table_name}").fetchone()[0]
 
             return Page(total_rows=total_rows, columns=columns, rows=rows)
 
+        except ShapefileProcessingError:
+            raise
         except Exception as e:
             raise ShapefileProcessingError(f"Failed to execute query: {str(e)}") from e
 
     def get_table_schema(self, con: Any, table_name: str) -> list[dict[str, Any]]:
         """Get schema information for a table."""
         try:
-            result = con.execute(f"DESCRIBE {table_name}")
+            result = con.execute(
+                """
+                SELECT
+                    column_name,
+                    data_type,
+                    is_nullable,
+                    column_default
+                FROM information_schema.columns
+                WHERE table_name = ?
+                ORDER BY ordinal_position
+                """,
+                [table_name],
+            )
             schema = []
             for row in result.fetchall():
                 schema.append(
@@ -235,9 +237,9 @@ class DefaultDuckDBService(DuckDBService):
                         "column_name": row[0],
                         "column_type": row[1],
                         "null": row[2],
-                        "key": row[3],
-                        "default": row[4],
-                        "extra": row[5],
+                        "key": "",
+                        "default": row[3],
+                        "extra": "",
                     }
                 )
             return schema
@@ -257,18 +259,10 @@ class ShapefileService:
     ) -> Page:
         """Query a shapefile using SQL."""
         try:
-            # Get DuckDB connection
             con = self.duckdb_service.get_connection()
-
-            # Ensure table exists
             table_name = self.duckdb_service.ensure_table(con, s3_uri)
-
-            # Execute query
             result = self.duckdb_service.execute_query(con, table_name, sql, limit, offset)
-
-            # Close connection
             con.close()
-
             return result
 
         except (DuckDBConnectionError, ShapefileProcessingError) as e:
@@ -279,18 +273,10 @@ class ShapefileService:
     async def get_shapefile_schema(self, s3_uri: str) -> list[dict[str, Any]]:
         """Get schema information for a shapefile."""
         try:
-            # Get DuckDB connection
             con = self.duckdb_service.get_connection()
-
-            # Ensure table exists
             table_name = self.duckdb_service.ensure_table(con, s3_uri)
-
-            # Get schema
             schema = self.duckdb_service.get_table_schema(con, table_name)
-
-            # Close connection
             con.close()
-
             return schema
 
         except (DuckDBConnectionError, ShapefileProcessingError) as e:
