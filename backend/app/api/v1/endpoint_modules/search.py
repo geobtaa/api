@@ -87,6 +87,9 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         fq_direct=fq,
         adv_q=adv_q,
     )
+    if isinstance(results, dict) and "error" in results:
+        logger.error("Search service returned an internal error", exc_info=False)
+        return JSONResponse(content={"error": "Elasticsearch search failed"}, status_code=500)
 
     # Step 2: Extract resource IDs and scores
     sanitized_results = sanitize_for_json(results)

@@ -152,11 +152,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                         "No tier_id found while logging API usage for %s", request.url.path
                     )
                 else:
-                    logger.info(
-                        f"Attempting to log request to {request.url.path} "
-                        f"with tier_id={tier_id}, api_key_id={api_key_id}, "
-                        f"status={response.status_code}"
-                    )
+                    logger.info("Attempting to log API usage for a completed request")
                     await self.usage_log_service.log_request(
                         request=request,
                         tier_id=tier_id,

@@ -120,7 +120,8 @@ async def get_items(
     )
 
     if isinstance(results, dict) and "error" in results:
-        raise HTTPException(status_code=400, detail=results["error"])
+        logger.error("OGC search request failed in search service")
+        raise HTTPException(status_code=503, detail="Elasticsearch search failed")
 
     return OGCResponseProjector.build_items_response(url, results, page, limit, "btaa-records")
 

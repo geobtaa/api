@@ -99,15 +99,13 @@ class APIKeyService:
                     if isinstance(allowed_ips, list):
                         if request_ip not in allowed_ips:
                             logger.warning(
-                                "API key %s rejected: request IP is not in the configured "
-                                "whitelist (%s allowed entries)",
-                                api_key_id,
-                                len(allowed_ips),
+                                "API key rejected because the request IP is not in the "
+                                "configured whitelist"
                             )
                             return None
                     else:
                         # Handle case where it might be stored as a different format
-                        logger.warning("API key %s has an invalid allowed_ips format", api_key_id)
+                        logger.warning("API key has an invalid allowed_ips format")
 
                 tier_info = {
                     "tier_id": m[api_service_tiers.c.id],
