@@ -24,10 +24,9 @@ from app.services.admin_service import (
 from app.services.api_key_service import APIKeyService
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.services.cache_service import CacheService
-from app.services.gin_blog_service import GINBlogService
 from app.services.ogm_harvest.repository import OGMHarvestRepository
 from app.tasks.bridge_sync import bridge_sync_all
-from app.tasks.gin_blog_sync import gin_blog_sync
+from app.tasks.gin_blog_sync import gin_blog_sync, run_gin_blog_sync
 from app.tasks.ogm_harvest import ogm_harvest_all, ogm_harvest_repo
 
 logger = logging.getLogger(__name__)
@@ -485,7 +484,7 @@ async def cancel_bridge_sync():
 async def trigger_home_blog_sync(body: TriggerGINBlogSyncRequest):
     """Trigger a GIN blog sync (enqueues Celery by default)."""
     if body.run_now:
-        service_result = await GINBlogService().sync_posts_from_github()
+        service_result = await run_gin_blog_sync()
         return create_response({"queued": "inline", "result": service_result})
     task = gin_blog_sync.delay()
     return create_response({"queued": "gin_blog_sync", "task_id": task.id})

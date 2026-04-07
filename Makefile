@@ -996,7 +996,7 @@ kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
 	@echo
 	@echo "GIN blog sync request submitted (Kamal)."
 
-# Purge cached homepage blog response so UI picks up new slugs.
+# Purge cached homepage blog response after a blog sync or other content change.
 kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 	@echo "Purging homepage blog cache on Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
@@ -1011,10 +1011,11 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
 		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
 		API_BASE=\"\$${API_BASE%/}\"; \
+		BODY='\''{\"tags\":[\"home_blog\",\"home\"]}'\''; \
 		curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \
 			\"\$$API_BASE/api/v1/admin/cache/purge\" \
 			-H \"Content-Type: application/json\" \
-			-d '\'{"tags":["home_blog","home"]}'\''; \
+			-d \"\$$BODY\"; \
 		' "
 	@echo
 

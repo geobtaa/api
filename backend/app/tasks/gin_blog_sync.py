@@ -2,6 +2,7 @@ import asyncio
 import logging
 from typing import Any, Dict, Optional
 
+from app.services.cache_service import CacheService
 from app.services.gin_blog_service import GINBlogService
 from app.tasks.worker import celery_app
 from db.database import database
@@ -9,6 +10,7 @@ from db.database import database
 logger = logging.getLogger(__name__)
 
 _loop: Optional[asyncio.AbstractEventLoop] = None
+HOME_BLOG_CACHE_TAGS = ["home", "home_blog"]
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
@@ -30,14 +32,23 @@ def _run(coro):
     time_limit=15 * 60,
 )
 def gin_blog_sync(self) -> Dict[str, Any]:
-    return _run(_gin_blog_sync_async())
+    return _run(run_gin_blog_sync())
 
 
-async def _gin_blog_sync_async() -> Dict[str, Any]:
+async def run_gin_blog_sync() -> Dict[str, Any]:
     if not database.is_connected:
         await database.connect()
     logger.info("GIN blog sync starting")
     service = GINBlogService()
     result = await service.sync_posts_from_github()
+    try:
+        deleted = await CacheService().invalidate_tags(HOME_BLOG_CACHE_TAGS)
+        logger.info(
+            "GIN blog sync invalidated cache tags %s (deleted=%s)",
+            HOME_BLOG_CACHE_TAGS,
+            deleted,
+        )
+    except Exception as exc:
+        logger.warning("GIN blog sync completed but cache invalidation failed: %s", exc)
     logger.info("GIN blog sync completed: %s", result)
     return result
