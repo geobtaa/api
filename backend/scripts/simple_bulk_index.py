@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
 from elasticsearch.helpers import async_bulk
 
+from app.elasticsearch.suggest import build_suggest_inputs
 from db.database import database
 from db.models import resources
 
@@ -106,65 +107,7 @@ async def get_spatial_facets(resource_id):
 
 def build_suggest_field(doc):
     """Build the suggest field for autocomplete."""
-    suggestion_inputs = []
-
-    # Add title if it exists
-    if title := doc.get("dct_title_s"):
-        suggestion_inputs.append(title)
-
-    # Add creators
-    if creators := doc.get("dct_creator_sm"):
-        if isinstance(creators, list):
-            suggestion_inputs.extend(creators)
-        else:
-            suggestion_inputs.append(creators)
-
-    # Add publishers
-    if publishers := doc.get("dct_publisher_sm"):
-        if isinstance(publishers, list):
-            suggestion_inputs.extend(publishers)
-        else:
-            suggestion_inputs.append(publishers)
-
-    # Add provider
-    if provider := doc.get("schema_provider_s"):
-        suggestion_inputs.append(provider)
-
-    # Add subjects
-    if subjects := doc.get("dct_subject_sm"):
-        if isinstance(subjects, list):
-            suggestion_inputs.extend(subjects)
-        else:
-            suggestion_inputs.append(subjects)
-
-    # Add spatial
-    if spatial := doc.get("dct_spatial_sm"):
-        if isinstance(spatial, list):
-            suggestion_inputs.extend(spatial)
-        else:
-            suggestion_inputs.append(spatial)
-
-    # Add keywords
-    if keywords := doc.get("dcat_keyword_sm"):
-        if isinstance(keywords, list):
-            suggestion_inputs.extend(keywords)
-        else:
-            suggestion_inputs.append(keywords)
-
-    # Filter out None values and empty strings
-    suggestion_inputs = [s for s in suggestion_inputs if s and str(s).strip()]
-    # Coerce to strings and truncate to match completion max_input_length (50)
-    suggestion_inputs = [str(s).strip()[:50] for s in suggestion_inputs]
-    # Remove empties after truncation and de-duplicate while preserving order
-    seen = set()
-    deduped = []
-    for s in suggestion_inputs:
-        if s and s not in seen:
-            seen.add(s)
-            deduped.append(s)
-    suggestion_inputs = deduped
-
-    return {"input": suggestion_inputs}
+    return {"input": build_suggest_inputs(doc)}
 
 
 async def main():

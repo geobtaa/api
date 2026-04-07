@@ -664,7 +664,6 @@ interface Suggestion {
   id: string;
   attributes: {
     text: string;
-    title: string;
     score: number;
   };
 }
@@ -775,13 +774,11 @@ export async function fetchSuggestions(
 
   try {
     const data = await unifiedFetch<SuggestResponse>(url.toString(), options);
-    // Only return the text field from each suggestion
     return data.data.map((suggestion) => ({
       ...suggestion,
       attributes: {
-        ...suggestion.attributes,
-        // Remove the title from the display
-        title: '',
+        text: suggestion.attributes.text,
+        score: suggestion.attributes.score,
       },
     }));
   } catch (error) {

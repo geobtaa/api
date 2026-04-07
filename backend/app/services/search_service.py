@@ -12,6 +12,7 @@ from app.api.v1.utils import sanitize_for_json
 from app.elasticsearch import search_resources
 from app.elasticsearch.client import es
 from app.elasticsearch.search import _normalize_geo_params
+from app.elasticsearch.suggest import normalize_suggestion_text, suggestion_sort_key
 from app.services.citation_service import CitationService
 from app.services.distribution_repository import (
     build_distribution_context,
@@ -282,21 +283,14 @@ class SearchService:
     async def suggest(self, q: str, resource_class: Optional[str] = None, size: int = 5) -> Dict:
         """Get search suggestions."""
         try:
+            raw_size = max(size * 4, 10)
             suggest_query = {
-                "_source": [
-                    "dct_title_s",
-                    "dct_creator_sm",
-                    "dct_publisher_sm",
-                    "schema_provider_s",
-                    "dct_subject_sm",
-                    "dct_spatial_sm",
-                ],
                 "suggest": {
                     "my-suggestion": {
                         "prefix": q,
                         "completion": {
                             "field": "suggest",
-                            "size": size,
+                            "size": raw_size,
                             "skip_duplicates": True,
                             "fuzzy": {"fuzziness": "AUTO"},
                         },
@@ -305,29 +299,60 @@ class SearchService:
             }
             response = await es.search(index=self.index_name, body=suggest_query)
             response_dict = response.body
-            suggestions = []
-            seen_ids = set()
+            suggestions_by_id = {}
+            suggestions_by_text = {}
 
             if response_dict.get("suggest", {}).get("my-suggestion"):
                 for suggestion in response_dict["suggest"]["my-suggestion"]:
                     if options := suggestion.get("options", []):
                         for option in options:
-                            suggestion_id = option["_id"]
-                            if suggestion_id not in seen_ids:
-                                seen_ids.add(suggestion_id)
-                                suggestions.append(
-                                    {
-                                        "type": "suggestion",
-                                        "id": suggestion_id,
-                                        "attributes": {
-                                            "text": option.get("text", ""),
-                                            "title": option.get("_source", {}).get(
-                                                "dct_title_s", ""
-                                            ),
-                                            "score": option.get("_score", 0),
-                                        },
-                                    }
-                                )
+                            normalized_text = normalize_suggestion_text(option.get("text", ""))
+                            if not normalized_text:
+                                continue
+
+                            suggestion_score = option.get("_score", 0)
+                            suggestion_candidate = {
+                                "type": "suggestion",
+                                "id": option["_id"],
+                                "attributes": {
+                                    "text": normalized_text,
+                                    "score": suggestion_score,
+                                },
+                            }
+                            existing_by_id = suggestions_by_id.get(option["_id"])
+                            if existing_by_id and suggestion_sort_key(
+                                existing_by_id["attributes"]["text"],
+                                q,
+                                existing_by_id["attributes"]["score"],
+                            ) <= suggestion_sort_key(normalized_text, q, suggestion_score):
+                                continue
+
+                            suggestions_by_id[option["_id"]] = suggestion_candidate
+
+            for suggestion_candidate in suggestions_by_id.values():
+                normalized_text = suggestion_candidate["attributes"]["text"]
+                existing_by_text = suggestions_by_text.get(normalized_text)
+                if existing_by_text and suggestion_sort_key(
+                    existing_by_text["attributes"]["text"],
+                    q,
+                    existing_by_text["attributes"]["score"],
+                ) <= suggestion_sort_key(
+                    normalized_text,
+                    q,
+                    suggestion_candidate["attributes"]["score"],
+                ):
+                    continue
+
+                suggestions_by_text[normalized_text] = suggestion_candidate
+
+            suggestions = sorted(
+                suggestions_by_text.values(),
+                key=lambda item: suggestion_sort_key(
+                    item["attributes"]["text"],
+                    q,
+                    item["attributes"]["score"],
+                ),
+            )[:size]
             return {
                 "data": suggestions,
                 "meta": {

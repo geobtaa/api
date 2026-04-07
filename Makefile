@@ -90,6 +90,8 @@ KAMAL_CACHE_TYPE ?= search
 OGM_API_URL ?= http://localhost:8000
 OGM_STATUS_POLL_SECONDS ?= 5
 BRIDGE_API_URL ?= http://localhost:8000
+# List endpoints return newest first; API allows 1–500 (see list_bridge_sync_runs).
+BRIDGE_RUNS_LIMIT ?= 1
 BRIDGE_STATUS_POLL_SECONDS ?= 5
 BRIDGE_TRIGGER ?= manual
 BRIDGE_LIMIT ?=
@@ -764,8 +766,9 @@ bridge-cancel: bridge-init ## Cancel all bridge syncs and queued bridge sync tas
 # Show bridge sync status snapshot.
 # Usage:
 #   make bridge-status
+#   make bridge-status BRIDGE_RUNS_LIMIT=20
 #   make bridge-status BRIDGE_RUN_ID=<run_id>
-bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUN_ID=... for detail)
+bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUNS_LIMIT=N recent runs; BRIDGE_RUN_ID=... for one run)
 	@echo "Fetching bridge sync status from $(BRIDGE_API_URL)..."
 	@docker compose exec -T api bash -lc '\
 		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
@@ -775,7 +778,7 @@ bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUN_ID=... for det
 				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)"; \
 		else \
 			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
-				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs"; \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs?limit=$(BRIDGE_RUNS_LIMIT)"; \
 		fi'
 	@echo
 
@@ -822,8 +825,9 @@ print("last:    " + summarize(last));'"'"''; \
 # Show bridge sync status on Kamal.
 # Usage:
 #   make kamal-bridge-status
+#   make kamal-bridge-status BRIDGE_RUNS_LIMIT=20
 #   make kamal-bridge-status BRIDGE_RUN_ID=<run_id>
-kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUN_ID=... for detail)
+kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUNS_LIMIT=N recent runs; BRIDGE_RUN_ID=... for one run)
 	@echo "Fetching bridge sync status from Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
@@ -842,7 +846,7 @@ kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUN_ID=... for 
 				\"\$$API_BASE/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)\"; \
 		else \
 			curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" \
-				\"\$$API_BASE/api/v1/admin/bridge/sync/runs\"; \
+				\"\$$API_BASE/api/v1/admin/bridge/sync/runs?limit=$(BRIDGE_RUNS_LIMIT)\"; \
 		fi'"
 	@echo
 

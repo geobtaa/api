@@ -34,6 +34,35 @@ interface GeoBBoxParams {
   bottomRightLon: string;
 }
 
+type SearchSuggestion = { text: string };
+
+type ScopeSuggestion = {
+  kind: 'scope';
+  id: string;
+  searchField: 'dct_title_s' | 'dct_spatial_sm';
+  label: string;
+};
+
+type KeywordSuggestionItem =
+  | ScopeSuggestion
+  | { kind: 'suggestion'; id: string; suggestion: SearchSuggestion }
+  | { kind: 'see_all'; id: string };
+
+const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
+  {
+    kind: 'scope',
+    id: 'scope-title',
+    searchField: 'dct_title_s',
+    label: 'Title',
+  },
+  {
+    kind: 'scope',
+    id: 'scope-place',
+    searchField: 'dct_spatial_sm',
+    label: 'Place / Country',
+  },
+];
+
 function setGeoBBoxParams(
   params: URLSearchParams,
   bbox: GeoBBoxParams,
@@ -56,9 +85,7 @@ export function SearchField({
   onAdvancedSearchClick,
 }: SearchFieldProps) {
   const [query, setQuery] = useState('');
-  const [suggestions, setSuggestions] = useState<
-    Array<{ text: string; title: string }>
-  >([]);
+  const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +122,9 @@ export function SearchField({
     const relation = searchParams.get('include_filters[geo][relation]');
     return relation === 'intersects' ? 'intersects' : 'within';
   };
+
+  const getActiveSearchField = () =>
+    searchParams.get('search_field') || 'all_fields';
 
   // Sync query with URL params (e.g., when Clear All is clicked)
   useEffect(() => {
@@ -135,7 +165,6 @@ export function SearchField({
           setSuggestions(
             data.map((r: any) => ({
               text: r?.attributes?.text ?? '',
-              title: r?.attributes?.title ?? '',
             }))
           );
         } catch (error) {
@@ -306,10 +335,25 @@ export function SearchField({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const newParams = buildSearchNavigationParams(query.trim());
+    navigate(`/search?${newParams.toString()}`);
+    setShowSuggestions(false);
+    setShowPlaceSuggestions(false);
+  };
+
+  const buildSearchNavigationParams = (
+    nextQuery: string,
+    options?: { searchField?: string }
+  ) => {
     const newParams = new URLSearchParams();
 
     // Always set q so the search page runs (useSearch requires hasQueryParam = searchParams.has('q'))
-    newParams.set('q', query.trim());
+    newParams.set('q', nextQuery);
+
+    const nextSearchField = options?.searchField ?? getActiveSearchField();
+    if (nextSearchField && nextSearchField !== 'all_fields') {
+      newParams.set('search_field', nextSearchField);
+    }
 
     // ALWAYS check URL params first for geo filters (source of truth)
     // This ensures geo filters are preserved even if component state is out of sync
@@ -369,10 +413,35 @@ export function SearchField({
       });
     }
 
-    // Always navigate to search results when user submits (even with no query)
+    return newParams;
+  };
+
+  const runKeywordSearch = (
+    nextQuery: string,
+    options?: { searchField?: string }
+  ) => {
+    const newParams = buildSearchNavigationParams(nextQuery, options);
     navigate(`/search?${newParams.toString()}`);
     setShowSuggestions(false);
-    setShowPlaceSuggestions(false);
+  };
+
+  const renderSuggestionText = (text: string) => {
+    const trimmedQuery = query.trim().toLowerCase();
+    if (!trimmedQuery || !text.startsWith(trimmedQuery)) {
+      return <span>{text}</span>;
+    }
+
+    const suffix = text.slice(trimmedQuery.length);
+    if (!suffix) {
+      return <span>{text}</span>;
+    }
+
+    return (
+      <>
+        <span>{text.slice(0, trimmedQuery.length)}</span>
+        <span className="font-semibold">{suffix}</span>
+      </>
+    );
   };
 
   const handlePlaceKeyDown = (e: React.KeyboardEvent) => {
@@ -411,7 +480,7 @@ export function SearchField({
     if (e.key === 'ArrowDown') {
       e.preventDefault();
       setSelectedIndex((prev) =>
-        prev < suggestions.length - 1 ? prev + 1 : prev
+        prev < keywordMenuItems.length - 1 ? prev + 1 : prev
       );
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
@@ -431,71 +500,16 @@ export function SearchField({
       // suggestion navigation or trigger our submit handler via requestSubmit().
       if (selectedIndex >= 0) {
         e.preventDefault();
-        const suggestion = suggestions[selectedIndex];
-        const newParams = new URLSearchParams();
-        newParams.set('q', suggestion.text);
-
-        // Preserve geo filters if place is selected
-        if (selectedPlace) {
-          const attrs = selectedPlace.attributes;
-          setGeoBBoxParams(newParams, {
-            topLeftLat: attrs.max_latitude.toString(),
-            topLeftLon: attrs.min_longitude.toString(),
-            bottomRightLat: attrs.min_latitude.toString(),
-            bottomRightLon: attrs.max_longitude.toString(),
+        const selectedItem = keywordMenuItems[selectedIndex];
+        if (selectedItem.kind === 'scope') {
+          runKeywordSearch(query.trim(), {
+            searchField: selectedItem.searchField,
           });
+        } else if (selectedItem.kind === 'suggestion') {
+          runKeywordSearch(selectedItem.suggestion.text);
         } else {
-          // Also check URL params for geo filters (in case place was set but component state wasn't updated)
-          const geoType = searchParams.get('include_filters[geo][type]');
-          if (geoType === 'bbox') {
-            const topLeftLat = searchParams.get(
-              'include_filters[geo][top_left][lat]'
-            );
-            const topLeftLon = searchParams.get(
-              'include_filters[geo][top_left][lon]'
-            );
-            const bottomRightLat = searchParams.get(
-              'include_filters[geo][bottom_right][lat]'
-            );
-            const bottomRightLon = searchParams.get(
-              'include_filters[geo][bottom_right][lon]'
-            );
-
-            if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
-              setGeoBBoxParams(
-                newParams,
-                {
-                  topLeftLat,
-                  topLeftLon,
-                  bottomRightLat,
-                  bottomRightLon,
-                },
-                getGeoRelationFromParams()
-              );
-            }
-          }
+          runKeywordSearch(query.trim(), { searchField: 'all_fields' });
         }
-
-        // Preserve category filters from current URL
-        const categoryFilters = searchParams.getAll(
-          'include_filters[gbl_resourceClass_sm][]'
-        );
-        const legacyCategoryFilters = searchParams.getAll(
-          'fq[gbl_resourceClass_sm][]'
-        );
-
-        if (categoryFilters.length > 0) {
-          categoryFilters.forEach((value) => {
-            newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-          });
-        } else if (legacyCategoryFilters.length > 0) {
-          legacyCategoryFilters.forEach((value) => {
-            newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-          });
-        }
-
-        navigate(`/search?${newParams.toString()}`);
-        setShowSuggestions(false);
       } else {
         e.preventDefault();
         inputRef.current?.form?.requestSubmit();
@@ -547,6 +561,19 @@ export function SearchField({
       : hasGeoFilter
         ? 'Location filtered'
         : 'Everywhere';
+
+  const trimmedQuery = query.trim();
+  const keywordMenuItems: KeywordSuggestionItem[] = trimmedQuery
+    ? [
+        ...SCOPED_SEARCH_OPTIONS,
+        ...suggestions.map((suggestion) => ({
+          kind: 'suggestion' as const,
+          id: `suggestion-${suggestion.text}`,
+          suggestion,
+        })),
+        { kind: 'see_all' as const, id: 'see-all' },
+      ]
+    : [];
 
   // Check if either input is focused
   const isAnyInputFocused = isPlaceInputFocused || isKeywordInputFocused;
@@ -685,7 +712,7 @@ export function SearchField({
               onFocus={() => {
                 setIsPlaceInputFocused(false);
                 setIsKeywordInputFocused(true);
-                if (suggestions.length > 0) {
+                if (query.trim() || suggestions.length > 0) {
                   setShowSuggestions(true);
                 }
               }}
@@ -779,106 +806,81 @@ export function SearchField({
         )}
 
       {/* Keyword suggestions dropdown */}
-      {showSuggestions && suggestions.length > 0 && !isPlaceInputFocused && (
+      {showSuggestions && keywordMenuItems.length > 0 && !isPlaceInputFocused && (
         <div
           ref={suggestionsRef}
           className="absolute z-10 w-full mt-1 bg-white rounded-lg shadow-lg border border-gray-200 max-h-96 overflow-auto"
         >
-          {suggestions.map((suggestion, index) => (
-            <button
-              key={index}
-              className={`w-full text-left px-4 py-2 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
-                index === selectedIndex ? 'bg-gray-50' : ''
-              }`}
-              onClick={() => {
-                const newParams = new URLSearchParams();
-                newParams.set('q', suggestion.text);
+          <div className="py-1">
+            {keywordMenuItems.map((item, index) => {
+              const isSelected = index === selectedIndex;
+              const baseClass = `w-full text-left px-4 py-2 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
+                isSelected ? 'bg-gray-50' : ''
+              }`;
 
-                // Preserve geo filters if place is selected
-                if (selectedPlace) {
-                  const attrs = selectedPlace.attributes;
-                  setGeoBBoxParams(newParams, {
-                    topLeftLat: attrs.max_latitude.toString(),
-                    topLeftLon: attrs.min_longitude.toString(),
-                    bottomRightLat: attrs.min_latitude.toString(),
-                    bottomRightLon: attrs.max_longitude.toString(),
-                  });
-                } else {
-                  // Also check URL params for geo filters (in case place was set but component state wasn't updated)
-                  const geoType = searchParams.get(
-                    'include_filters[geo][type]'
-                  );
-                  if (geoType === 'bbox') {
-                    const topLeftLat = searchParams.get(
-                      'include_filters[geo][top_left][lat]'
-                    );
-                    const topLeftLon = searchParams.get(
-                      'include_filters[geo][top_left][lon]'
-                    );
-                    const bottomRightLat = searchParams.get(
-                      'include_filters[geo][bottom_right][lat]'
-                    );
-                    const bottomRightLon = searchParams.get(
-                      'include_filters[geo][bottom_right][lon]'
-                    );
-
-                    if (
-                      topLeftLat &&
-                      topLeftLon &&
-                      bottomRightLat &&
-                      bottomRightLon
-                    ) {
-                      setGeoBBoxParams(
-                        newParams,
-                        {
-                          topLeftLat,
-                          topLeftLon,
-                          bottomRightLat,
-                          bottomRightLon,
-                        },
-                        getGeoRelationFromParams()
-                      );
+              if (item.kind === 'scope') {
+                return (
+                  <button
+                    key={item.id}
+                    className={baseClass}
+                    onClick={() =>
+                      runKeywordSearch(trimmedQuery, {
+                        searchField: item.searchField,
+                      })
                     }
-                  }
-                }
-
-                // Preserve category filters from current URL
-                const categoryFilters = searchParams.getAll(
-                  'include_filters[gbl_resourceClass_sm][]'
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    <div className="text-sm text-gray-700">
+                      <span>{trimmedQuery}</span>{' '}
+                      <span className="text-gray-500">in</span>{' '}
+                      <span className="font-medium text-gray-900">
+                        {item.label}
+                      </span>
+                    </div>
+                  </button>
                 );
-                const legacyCategoryFilters = searchParams.getAll(
-                  'fq[gbl_resourceClass_sm][]'
+              }
+
+              if (item.kind === 'see_all') {
+                return (
+                  <button
+                    key={item.id}
+                    className={`${baseClass} border-t border-gray-200 mt-1 pt-3`}
+                    onClick={() =>
+                      runKeywordSearch(trimmedQuery, {
+                        searchField: 'all_fields',
+                      })
+                    }
+                    onMouseEnter={() => setSelectedIndex(index)}
+                  >
+                    <div className="text-sm font-medium text-gray-800">
+                      See all results for{' '}
+                      <span className="text-blue-700 underline underline-offset-2">
+                        {trimmedQuery}
+                      </span>
+                    </div>
+                  </button>
                 );
+              }
 
-                if (categoryFilters.length > 0) {
-                  categoryFilters.forEach((value) => {
-                    newParams.append(
-                      'include_filters[gbl_resourceClass_sm][]',
-                      value
-                    );
-                  });
-                } else if (legacyCategoryFilters.length > 0) {
-                  legacyCategoryFilters.forEach((value) => {
-                    newParams.append(
-                      'include_filters[gbl_resourceClass_sm][]',
-                      value
-                    );
-                  });
-                }
-
-                navigate(`/search?${newParams.toString()}`);
-                setShowSuggestions(false);
-              }}
-              onMouseEnter={() => setSelectedIndex(index)}
-            >
-              <div className="text-sm text-gray-900">{suggestion.text}</div>
-              {suggestion.text !== suggestion.title && (
-                <div className="text-xs text-gray-500 truncate">
-                  {suggestion.title}
-                </div>
-              )}
-            </button>
-          ))}
+              return (
+                <button
+                  key={item.id}
+                  className={`${baseClass}${
+                    index === SCOPED_SEARCH_OPTIONS.length
+                      ? ' border-t border-gray-200 mt-1 pt-3'
+                      : ''
+                  }`}
+                  onClick={() => runKeywordSearch(item.suggestion.text)}
+                  onMouseEnter={() => setSelectedIndex(index)}
+                >
+                  <div className="text-sm text-gray-900">
+                    {renderSuggestionText(item.suggestion.text)}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

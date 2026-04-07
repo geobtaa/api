@@ -23,6 +23,9 @@ function LocationProbe() {
 describe('SearchField', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    global.fetch = vi.fn().mockResolvedValue({
+      json: async () => ({ data: [] }),
+    }) as unknown as typeof fetch;
 
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
@@ -125,6 +128,67 @@ describe('SearchField', () => {
       expect(params.get('include_filters[geo][type]')).toBe('bbox');
       expect(params.get('include_filters[geo][field]')).toBe('dcat_bbox');
       expect(params.get('include_filters[geo][relation]')).toBe('within');
+    });
+  });
+
+  it('shows grouped autosuggest actions and supports scoped title search', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      json: async () => ({
+        data: [
+          {
+            id: 'suggestion-1',
+            type: 'suggestion',
+            attributes: { text: 'chicago manual of style', score: 6 },
+          },
+        ],
+      }),
+    }) as unknown as typeof fetch;
+
+    render(
+      <MemoryRouter initialEntries={['/']}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <SearchField />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search input' }), {
+      target: { value: 'chicago' },
+    });
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByRole('button', { name: /chicago in title/i })
+        ).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', {
+            name: /see all results for chicago/i,
+          })
+        ).toBeInTheDocument();
+      },
+      { timeout: 1500 }
+    );
+
+    fireEvent.click(
+      screen.getByRole('button', { name: /chicago in title/i })
+    );
+
+    await waitFor(() => {
+      const probe = screen.getByTestId('location-probe');
+      expect(probe).toHaveAttribute('data-pathname', '/search');
+
+      const params = new URLSearchParams(probe.getAttribute('data-search') ?? '');
+      expect(params.get('q')).toBe('chicago');
+      expect(params.get('search_field')).toBe('dct_title_s');
     });
   });
 });

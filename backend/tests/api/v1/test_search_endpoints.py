@@ -518,6 +518,27 @@ class TestSearchEndpointsEnhanced:
                     assert "type" in suggestion
                     assert "attributes" in suggestion
 
+    def test_suggest_endpoint_omits_title_attribute(self):
+        """Test that suggest endpoint omits the secondary title field."""
+        with patch(
+            "app.api.v1.endpoint_modules.search.SearchService.suggest",
+            new=AsyncMock(
+                return_value={
+                    "data": [
+                        {
+                            "type": "suggestion",
+                            "id": "doc-1",
+                            "attributes": {"text": "Chicago", "score": 6},
+                        }
+                    ]
+                }
+            ),
+        ):
+            response = client.get("/api/v1/suggest?q=chicago")
+
+        assert response.status_code == 200
+        assert response.json()["data"][0]["attributes"] == {"text": "Chicago", "score": 6}
+
     def test_search_with_unicode_characters(self):
         """Test search with Unicode characters."""
         unicode_queries = ["café", "naïve", "résumé", "北京", "Москва", "São Paulo"]

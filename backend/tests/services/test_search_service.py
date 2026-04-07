@@ -405,41 +405,42 @@ class TestSearchService:
         """Test the suggest method."""
         service = SearchService()
 
-        try:
-            result = await service.suggest("map", size=3)
+        result = await service.suggest("map", size=3)
 
-            # Verify structure
-            assert "data" in result
-            assert "meta" in result
-            assert isinstance(result["data"], list)
-            assert "query" in result["meta"]
-            assert result["meta"]["query"] == "map"
-            assert "es_query" in result["meta"]
-            assert "es_response" in result["meta"]
+        # Verify structure
+        assert "data" in result
+        assert "meta" in result
+        assert isinstance(result["data"], list)
 
-        except Exception as e:
-            error_msg = str(e).lower()
-            assert any(term in error_msg for term in ["connection", "event loop", "nodename"])
+        if "error" in result["meta"]:
+            error_msg = result["meta"]["error"].lower()
+            assert any(
+                term in error_msg
+                for term in ["connection", "event loop", "nodename", "notfound", "no such index"]
+            )
+            return
+
+        assert result["meta"]["query"] == "map"
+        assert "es_query" in result["meta"]
+        assert "es_response" in result["meta"]
 
     @pytest.mark.asyncio
     async def test_suggest_with_resource_class(self):
         """Test suggest with resource_class parameter."""
         service = SearchService()
 
-        try:
-            result = await service.suggest("map", resource_class="Dataset", size=5)
+        result = await service.suggest("map", resource_class="Dataset", size=5)
 
-            assert "meta" in result
-            assert result["meta"]["resource_class"] == "Dataset"
+        assert "meta" in result
+        if "error" in result["meta"]:
+            error_msg = result["meta"]["error"].lower()
+            assert any(
+                term in error_msg
+                for term in ["connection", "event loop", "nodename", "notfound", "no such index"]
+            )
+            return
 
-        except Exception as e:
-            error_msg = str(e).lower()
-            # The suggest method catches all exceptions and returns empty data with error in meta
-            if "resource_class" not in str(e):
-                assert any(term in error_msg for term in ["connection", "event loop", "nodename"])
-            else:
-                # Handle the KeyError case where resource_class is missing from meta
-                assert True
+        assert result["meta"]["resource_class"] == "Dataset"
 
     @pytest.mark.asyncio
     async def test_suggest_error_handling(self):
@@ -505,9 +506,65 @@ class TestSearchService:
             suggestion1 = result["data"][0]
             assert suggestion1["type"] == "suggestion"
             assert suggestion1["id"] == "doc1"
-            assert suggestion1["attributes"]["text"] == "test map"
-            assert suggestion1["attributes"]["title"] == "Test Map"
-            assert suggestion1["attributes"]["score"] == 1.0
+            assert suggestion1["attributes"] == {"text": "test map", "score": 1.0}
+
+    @pytest.mark.asyncio
+    async def test_suggest_normalizes_and_deduplicates_dirty_text(self):
+        """Test suggest cleans noisy text and deduplicates equivalent variants."""
+        service = SearchService()
+
+        with patch("app.services.search_service.es") as mock_es:
+
+            async def mock_search(*args, **kwargs):
+                return type(
+                    "MockResponse",
+                    (),
+                    {
+                        "body": {
+                            "suggest": {
+                                "my-suggestion": [
+                                    {
+                                        "options": [
+                                            {"_id": "doc1", "text": "(Chicago)", "_score": 6.0},
+                                            {"_id": "doc2", "text": "(Chicago, )", "_score": 6.0},
+                                            {
+                                                "_id": "doc3",
+                                                "text": "Chicago (Ill.)",
+                                                "_score": 6.0,
+                                            },
+                                            {
+                                                "_id": "doc4",
+                                                "text": (
+                                                    "Chicago : Department of City Planning, 1961."
+                                                ),
+                                                "_score": 6.0,
+                                            },
+                                            {
+                                                "_id": "doc5",
+                                                "text": "Chicago Metropolitan Agency for Planning",
+                                                "_score": 6.0,
+                                            },
+                                        ]
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                )()
+
+            mock_es.search = mock_search
+
+            result = await service.suggest("chicago", size=5)
+
+            assert [item["attributes"]["text"] for item in result["data"]] == [
+                "chicago",
+                "chicago ill",
+                "chicago department of city planning",
+                "chicago metropolitan agency for planning",
+            ]
+            assert (
+                result["meta"]["es_query"]["suggest"]["my-suggestion"]["completion"]["size"] == 20
+            )
 
     @pytest.mark.asyncio
     async def test_search_resource_processing_timing(self):

@@ -56,7 +56,7 @@ vi.mock('./services/api', () => ({
       type: 'suggestion',
       attributes: {
         text: 'minnesota',
-        title: 'Minnesota',
+        score: 1,
       },
     },
   ]),

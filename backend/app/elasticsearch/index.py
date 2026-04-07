@@ -20,6 +20,7 @@ from db.database import database
 from db.models import resources
 
 from .client import es
+from .suggest import build_suggest_inputs
 
 # Load environment variables from .env file
 try:
@@ -336,65 +337,6 @@ async def process_resource(resource_dict):
 
     _compute_h3_cells(processed_dict)
 
-    # Clean and prepare suggestion inputs
-    suggestion_inputs = []
-
-    # Add title if it exists
-    if title := processed_dict.get("dct_title_s"):
-        suggestion_inputs.append(title)
-
-    # Add creators
-    if creators := processed_dict.get("dct_creator_sm"):
-        if isinstance(creators, list):
-            suggestion_inputs.extend(creators)
-        else:
-            suggestion_inputs.append(creators)
-
-    # Add publishers
-    if publishers := processed_dict.get("dct_publisher_sm"):
-        if isinstance(publishers, list):
-            suggestion_inputs.extend(publishers)
-        else:
-            suggestion_inputs.append(publishers)
-
-    # Add provider
-    if provider := processed_dict.get("schema_provider_s"):
-        suggestion_inputs.append(provider)
-
-    # Add subjects
-    if subjects := processed_dict.get("dct_subject_sm"):
-        if isinstance(subjects, list):
-            suggestion_inputs.extend(subjects)
-        else:
-            suggestion_inputs.append(subjects)
-
-    # Add spatial
-    if spatial := processed_dict.get("dct_spatial_sm"):
-        if isinstance(spatial, list):
-            suggestion_inputs.extend(spatial)
-        else:
-            suggestion_inputs.append(spatial)
-
-    # Add keywords
-    if keywords := processed_dict.get("dcat_keyword_sm"):
-        if isinstance(keywords, list):
-            suggestion_inputs.extend(keywords)
-        else:
-            suggestion_inputs.append(keywords)
-
-    # Filter out None values and empty strings
-    suggestion_inputs = [s for s in suggestion_inputs if s and str(s).strip()]
-    # Coerce to strings and truncate to match completion max_input_length (50)
-    suggestion_inputs = [str(s).strip()[:50] for s in suggestion_inputs]
-    # Remove empties after truncation and de-duplicate while preserving order
-    seen = set()
-    deduped = []
-    for s in suggestion_inputs:
-        if s and s not in seen:
-            seen.add(s)
-            deduped.append(s)
-    suggestion_inputs = deduped
-
     # Get resource classes, ensuring it's a list and has at least one value
     resource_classes = processed_dict.get("gbl_resourceClass_sm", [])
     if isinstance(resource_classes, str):
@@ -403,7 +345,7 @@ async def process_resource(resource_dict):
         resource_classes = ["none"]
 
     # Add suggestion field with cleaned data - removed contexts
-    processed_dict["suggest"] = {"input": suggestion_inputs}
+    processed_dict["suggest"] = {"input": build_suggest_inputs(processed_dict)}
 
     return processed_dict
 
