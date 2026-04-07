@@ -681,11 +681,13 @@ export async function fetchHomeBlogPosts(params?: {
   const apiBase = `${getApiBasePath().replace(/\/$/, '')}/home/blog-posts`;
   const candidates: string[] =
     typeof window !== 'undefined'
-      ? [
-          '/home/blog-posts', // SSR proxy route (frontend-dev :3000)
-          '/api/v1/home/blog-posts', // Same-origin API path when app served from API host
-          apiBase, // Absolute/configured API base fallback (e.g. localhost:8000)
-        ]
+      ? Array.from(
+          new Set([
+            '/api/v1/home/blog-posts', // Same-origin API path when app served from API host
+            '/home/blog-posts', // SSR proxy route fallback (frontend-dev :3000)
+            apiBase, // Absolute/configured API base fallback (e.g. localhost:8000)
+          ])
+        )
       : [apiBase];
 
   let lastError: ApiError | null = null;

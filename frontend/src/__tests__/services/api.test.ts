@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchBookmarkedResources,
   fetchFacetValues,
+  fetchHomeBlogPosts,
   fetchSearchResults,
 } from '../../services/api';
 import type { FacetValuesResponse } from '../../types/api';
@@ -326,6 +327,67 @@ describe('fetchFacetValues', () => {
       const url = new URL(callUrl);
       expect(url.searchParams.get('sort')).toBe(sort);
     }
+  });
+});
+
+describe('fetchHomeBlogPosts', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('prefers the same-origin API route before the SSR proxy on deployed hosts', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        hostname: 'example.com',
+      },
+      writable: true,
+    });
+
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      text: async () => JSON.stringify({ data: [], meta: {} }),
+    });
+
+    await fetchHomeBlogPosts({ limit: 3, theme: 'btaa' });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const url = new URL((global.fetch as any).mock.calls[0][0]);
+    expect(url.pathname).toBe('/api/v1/home/blog-posts');
+    expect(url.searchParams.get('limit')).toBe('3');
+    expect(url.searchParams.get('theme')).toBe('btaa');
+  });
+
+  it('falls back to the SSR proxy when the same-origin API path is not available', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'http://localhost:3000',
+        hostname: 'localhost',
+      },
+      writable: true,
+    });
+
+    (global.fetch as any)
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => 'text/html' },
+        text: async () => '<!doctype html><html></html>',
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        headers: { get: () => 'application/json' },
+        text: async () => JSON.stringify({ data: [{ slug: 'latest-post' }], meta: {} }),
+      });
+
+    const response = await fetchHomeBlogPosts({ limit: 3, theme: 'btaa' });
+
+    expect((global.fetch as any).mock.calls).toHaveLength(2);
+    const firstUrl = new URL((global.fetch as any).mock.calls[0][0]);
+    const secondUrl = new URL((global.fetch as any).mock.calls[1][0]);
+    expect(firstUrl.pathname).toBe('/api/v1/home/blog-posts');
+    expect(secondUrl.pathname).toBe('/home/blog-posts');
+    expect(response.data).toEqual([{ slug: 'latest-post' }]);
   });
 });
 
