@@ -40,6 +40,7 @@ Overrides:
   - Useful overrides: `KAMAL_REINDEX_RETAIN_PREVIOUS=1` (default), `KAMAL_REINDEX_PRUNE_OLD=true` (default), `KAMAL_REINDEX_ALLOW_PARTIAL=false` (default; blocks swap on indexing/count mismatch), `KAMAL_REINDEX_REMOVE_LEGACY_INDEX=true` (default; one-time migration from legacy non-alias index name).
 - `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers. Use `KAMAL_DEST=dev1` or `dev2`.
 - `make kamal-clear-cache`: clear remote API cache on Kamal (defaults to `KAMAL_CACHE_TYPE=search`). Use `KAMAL_DEST=dev1` or `dev2`. Override with `KAMAL_CACHE_TYPE=all` (or `suggest`/`item`).
+- `make kamal-network-sanity`: compare host-shell and app-container connectivity on a Kamal destination. It probes a few external URLs plus the server's own public hostname and exits nonzero if the container cannot reach something the host can. Defaults to `KAMAL_DEST=dev1`, role `web`, self URL `https://$(KAMAL_HOST)`, and external URLs `https://api.github.com https://raw.githubusercontent.com https://gin.btaa.org http://example.com`. Override with `KAMAL_APP_ROLE=cron`, `KAMAL_NETWORK_SELF_URL=...`, or `KAMAL_NETWORK_EXTERNAL_URLS="..."`.
 - `make ingest`: ingest BTAA fixture JSON files into the DB (runs inside the `api` Docker container). Default: `data/fixtures/btaa_fixtures_data`. Override with `make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources`. After ingest, run `make reindex` to index into Elasticsearch.
 - `make ingest-featured`: ingest `data/fixtures/btaa_featured_resources` into the DB and then reindex into Elasticsearch (one-step for featured resources).
 - `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
@@ -108,4 +109,3 @@ Elasticsearch blocks writes when the disk passes the flood-stage watermark (e.g.
 3. **Relax watermarks for local dev only**: In `docker-compose.yml`, under the `elasticsearch` service env, you can temporarily set e.g. `cluster.routing.allocation.disk.watermark.flood_stage=99.9%` (or disable with `cluster.routing.allocation.disk.threshold_enabled=false`). Only do this on a dev machine with enough free space; otherwise you risk filling the disk.
 
 4. **Use a remote Elasticsearch** with more space: Point the app at another ES (e.g. via `ELASTICSEARCH_URL` and run reindex there).
-

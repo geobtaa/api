@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs docs-serve docs-build
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -87,6 +87,10 @@ KAMAL_REINDEX_REMOVE_LEGACY_INDEX ?= true
 # If unset, the target falls back to APPLICATION_URL from Kamal env.
 KAMAL_API_URL ?=
 KAMAL_CACHE_TYPE ?= search
+KAMAL_NETWORK_SELF_URL ?=
+KAMAL_NETWORK_EXTERNAL_URLS ?= https://api.github.com https://raw.githubusercontent.com https://gin.btaa.org http://example.com
+KAMAL_NETWORK_CONNECT_TIMEOUT ?= 5
+KAMAL_NETWORK_MAX_TIME ?= 12
 OGM_API_URL ?= http://localhost:8000
 OGM_STATUS_POLL_SECONDS ?= 5
 BRIDGE_API_URL ?= http://localhost:8000
@@ -1043,6 +1047,30 @@ kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container 
 kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running tasks)
 	@echo "Tailing worker logs (Ctrl+C to stop)..."
 	@kamal app logs -d $(KAMAL_DEST) --roles worker --lines $(or $(KAMAL_LOG_LINES),200) -f
+
+# Compare host-shell and app-container networking on a Kamal destination.
+# This catches "host works, container cannot reach self public FQDN" problems.
+# Usage:
+#   make kamal-network-sanity
+#   make kamal-network-sanity KAMAL_DEST=dev2
+#   make kamal-network-sanity KAMAL_APP_ROLE=cron
+#   make kamal-network-sanity KAMAL_NETWORK_EXTERNAL_URLS="https://api.github.com https://geo.btaa.org"
+kamal-network-sanity: ## Check host/container outbound + self-FQDN networking on Kamal
+	@echo "Checking Kamal networking sanity (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		exit 1; \
+	fi
+	@KAMAL_DEST="$(KAMAL_DEST)" \
+	KAMAL_HOST="$(KAMAL_HOST)" \
+	KAMAL_SSH_USER="$(KAMAL_SSH_USER)" \
+	KAMAL_APP_ROLE="$(KAMAL_APP_ROLE)" \
+	KAMAL_NETWORK_SELF_URL="$(KAMAL_NETWORK_SELF_URL)" \
+	KAMAL_NETWORK_EXTERNAL_URLS='$(KAMAL_NETWORK_EXTERNAL_URLS)' \
+	KAMAL_NETWORK_CONNECT_TIMEOUT="$(KAMAL_NETWORK_CONNECT_TIMEOUT)" \
+	KAMAL_NETWORK_MAX_TIME="$(KAMAL_NETWORK_MAX_TIME)" \
+	python3 backend/scripts/check_kamal_network_sanity.py
 
 # Prime thumbnail cache on remote Kamal app container.
 # Usage examples:
