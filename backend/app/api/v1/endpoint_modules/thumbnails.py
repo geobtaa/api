@@ -117,15 +117,15 @@ async def get_placeholder_thumbnail():
     )
 
 
-@router.get("/thumbnails/{image_hash}")
-async def get_thumbnail(image_hash: str, request: Request):
-    """Serve a cached thumbnail image hash or a resource thumbnail asset."""
+@router.get("/thumbnails/{resource_id}")
+async def get_thumbnail(resource_id: str, request: Request):
+    """Serve a resource thumbnail asset with a guaranteed image fallback."""
     try:
         # Create service without resource (we only need cache access)
         image_service = ImageService({})
-        image_data = await image_service.get_cached_image(image_hash)
+        image_data = await image_service.get_cached_image(resource_id)
     except Exception as e:
-        logger.error(f"Error retrieving cached image {image_hash}: {e}")
+        logger.error(f"Error retrieving cached image {resource_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not image_data:
@@ -135,7 +135,7 @@ async def get_thumbnail(image_hash: str, request: Request):
 
         try:
             return await _get_resource_thumbnail_response(
-                image_hash,
+                resource_id,
                 request,
                 variant="icon-gradient",
                 not_found_placeholder=False,
@@ -143,7 +143,7 @@ async def get_thumbnail(image_hash: str, request: Request):
         except HTTPException:
             raise
         except Exception as e:
-            logger.error(f"Error retrieving resource thumbnail asset {image_hash}: {e}")
+            logger.error(f"Error retrieving resource thumbnail asset {resource_id}: {e}")
             raise HTTPException(status_code=500, detail=str(e)) from e
 
     # Validate that the cached content is actually an image
@@ -153,7 +153,7 @@ async def get_thumbnail(image_hash: str, request: Request):
         img.verify()
     except Exception as e:
         logger.error(
-            f"❌ Cached content for {image_hash} is not a valid image: {e}. "
+            f"❌ Cached content for {resource_id} is not a valid image: {e}. "
             f"First 200 bytes: {image_data[:200]!r}"
         )
         # Return 404 for invalid cached content (should have been caught during caching)
