@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 import os
 from datetime import datetime, timedelta, timezone
 
-import requests
+from app.tasks.bridge_sync import bridge_sync_all
 
 
 def _previous_utc_day_start_iso_z() -> str:
@@ -28,25 +29,28 @@ def _previous_utc_day_start_iso_z() -> str:
 
 
 def main() -> None:
-    admin_username = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "changeme")
-    application_url = os.getenv("APPLICATION_URL", "").rstrip("/")
     bridge_trigger = os.getenv("BRIDGE_TRIGGER", "manual")
-
-    if not application_url:
-        raise RuntimeError("APPLICATION_URL is required")
-
     changed_since = os.getenv("CHANGED_SINCE") or _previous_utc_day_start_iso_z()
+    limit_raw = os.getenv("BRIDGE_LIMIT", "").strip()
+    limit = int(limit_raw) if limit_raw else None
 
-    url = f"{application_url}/api/v1/admin/bridge/sync"
-    payload: dict[str, object] = {"bridge_trigger": bridge_trigger, "changed_since": changed_since}
-
-    # Basic Auth via (user, pass) tuple (FastAPI/HTTPBasic).
-    resp = requests.post(url, json=payload, auth=(admin_username, admin_password), timeout=60)
-    resp.raise_for_status()
-
-    # Cron logs should be readable from `docker logs`; print response body.
-    print(resp.text)
+    # Avoid public self-HTTP calls from Kamal containers; enqueue the worker task directly.
+    task = bridge_sync_all.delay(
+        trigger=bridge_trigger,
+        limit=limit,
+        changed_since=changed_since,
+    )
+    print(
+        json.dumps(
+            {
+                "queued": "kithe_bridge",
+                "task_id": task.id,
+                "bridge_trigger": bridge_trigger,
+                "limit": limit,
+                "changed_since": changed_since,
+            }
+        )
+    )
 
 
 if __name__ == "__main__":

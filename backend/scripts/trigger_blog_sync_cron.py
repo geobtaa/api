@@ -1,28 +1,29 @@
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 
-import requests
+from app.tasks.gin_blog_sync import gin_blog_sync, run_gin_blog_sync
+
+
+def _env_truthy(name: str) -> bool:
+    value = os.getenv(name, "")
+    return value.lower() in {"1", "true", "yes", "on"}
 
 
 def main() -> None:
-    admin_username = os.getenv("ADMIN_USERNAME", "admin")
-    admin_password = os.getenv("ADMIN_PASSWORD", "changeme")
-    application_url = os.getenv("APPLICATION_URL", "").rstrip("/")
+    run_now = _env_truthy("RUN_NOW")
 
-    if not application_url:
-        raise RuntimeError("APPLICATION_URL is required")
+    # Avoid public self-HTTP calls from Kamal containers. Enqueue via Celery directly,
+    # or run the sync inline when RUN_NOW is requested by the Make target.
+    if run_now:
+        result = asyncio.run(run_gin_blog_sync())
+        print(json.dumps({"queued": "inline", "result": result}, default=str))
+        return
 
-    # Enqueue the Celery job (equivalent to make blog-sync with RUN_NOW omitted/false).
-    url = f"{application_url}/api/v1/admin/home/blog/sync"
-    resp = requests.post(
-        url,
-        json={"run_now": False},
-        auth=(admin_username, admin_password),
-        timeout=60,
-    )
-    resp.raise_for_status()
-    print(resp.text)
+    task = gin_blog_sync.delay()
+    print(json.dumps({"queued": "gin_blog_sync", "task_id": task.id}))
 
 
 if __name__ == "__main__":

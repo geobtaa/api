@@ -970,29 +970,15 @@ kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=search|resou
 #   make kamal-blog-sync              # queue via Celery (RUN_NOW defaults false)
 #   make kamal-blog-sync RUN_NOW=1   # run inline via FastAPI
 kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
-	@echo "Triggering GIN blog sync on Kamal via $(KAMAL_API_URL)... (RUN_NOW=$(RUN_NOW))"
+	@echo "Triggering GIN blog sync on Kamal... (RUN_NOW=$(RUN_NOW))"
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
 		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
-		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
-		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
-		API_BASE=\"$(KAMAL_API_URL)\"; \
-		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
-		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
-		API_BASE=\"\$${API_BASE%/}\"; \
-		RUN_NOW_FLAG=\"$(RUN_NOW)\"; \
-		if [ \"\$$RUN_NOW_FLAG\" = \"1\" ] || [ \"\$$RUN_NOW_FLAG\" = \"true\" ] || [ \"\$$RUN_NOW_FLAG\" = \"TRUE\" ]; then \
-			BODY='\''{\"run_now\": true}'\''; \
-		else \
-			BODY='\''{\"run_now\": false}'\''; \
-		fi; \
-		curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \
-			\"\$$API_BASE/api/v1/admin/home/blog/sync\" \
-			-H \"Content-Type: application/json\" \
-			-d \"\$$BODY\"'"
+		export RUN_NOW=\"$(RUN_NOW)\"; \
+		/opt/venv/bin/python3 /app/scripts/trigger_blog_sync_cron.py'"
 	@echo
 	@echo "GIN blog sync request submitted (Kamal)."
 
