@@ -88,6 +88,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     'dct_rights_sm',
     'dct_license_sm',
     'b1g_dct_provenance_sm',
+    'b1g_dateAccessioned_dt',
   ];
 
   // Define the fields for the Metadata Facets table - BTAA schema only
@@ -132,6 +133,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     dct_license_sm: 'License',
     b1g_code_s: 'BTAA Code',
     b1g_dct_accrualMethod_s: 'Accrual Method',
+    b1g_dateAccessioned_dt: 'Date Accessioned',
     b1g_publication_state_s: 'Publication State',
     b1g_language_sm: 'BTAA Language',
 
@@ -340,7 +342,8 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
     // Format date fields to be more readable
     if (
-      (key === 'b1g_dateRetired_s' ||
+      (key === 'b1g_dateAccessioned_dt' ||
+        key === 'b1g_dateRetired_s' ||
         key === 'gbl_mdModified_dt' ||
         key === 'dct_issued_s') &&
       value
