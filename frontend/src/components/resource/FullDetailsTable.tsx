@@ -61,6 +61,12 @@ const relationshipLabels: { [key: string]: string } = {
 export function FullDetailsTable({ data }: FullDetailsTableProps) {
   const b1gAttributes = { ...((data?.attributes?.b1g || {}) as Attributes) };
   delete b1gAttributes.data_dictionaries;
+  if (
+    b1gAttributes.b1g_dateAccessioned_s === undefined &&
+    b1gAttributes.b1g_dateAccessioned_dt !== undefined
+  ) {
+    b1gAttributes.b1g_dateAccessioned_s = b1gAttributes.b1g_dateAccessioned_dt;
+  }
   // Merge ogm and b1g attributes for display
   const attributes = {
     ...(data?.attributes?.ogm || {}),
@@ -76,54 +82,19 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
   // Define the fields for the Document Metadata table - BTAA schema only
   const documentMetadataFields = [
-    // Core fields (Required by BTAA)
-    'gbl_mdVersion_s',
     'dct_title_s',
     'dct_description_sm',
-    'dct_language_sm',
-    'dct_accessRights_s',
-    'dct_license_sm',
-    'b1g_code_s',
-    'b1g_dct_accrualMethod_s',
-    'b1g_dateAccessioned_s',
-    'b1g_publication_state_s',
-    'b1g_language_sm',
-
-    // Additional BTAA fields
-    'gbl_mdModified_dt',
-    'dct_alternative_sm',
-    'dct_subject_sm',
     'dct_creator_sm',
-    'dct_publisher_sm',
-    'dct_source_sm',
-    'dct_isPartOf_sm',
-    'pcdm_memberOf_sm',
-    'dct_replaces_sm',
-    'dct_isReplacedBy_sm',
-    'dct_isVersionOf_sm',
-    'dct_relation_sm',
     'dct_issued_s',
     'dct_temporal_sm',
-    'solr_year_i',
-    'layer_id_s',
-    'suppressed_b',
-    'dct_references_s',
-
-    // BTAA custom fields
-    'b1g_status_s',
-    'b1g_dct_accrualPeriodicity_s',
-    'b1g_dateRetired_s',
-    'b1g_child_record_b',
-    'b1g_dct_mediator_sm',
-    'b1g_access_s',
-    'b1g_image_ss',
-    'b1g_geonames_sm',
-    'b1g_creatorID_sm',
+    'dct_language_sm',
     'b1g_dct_conformsTo_sm',
     'b1g_dcat_spatialResolutionInMeters_sm',
     'b1g_geodcat_spatialResolutionAsText_sm',
-    'b1g_dct_provenanceStatement_sm',
-    'b1g_adminTags_sm',
+    'dct_rights_sm',
+    'dct_license_sm',
+    'b1g_dct_provenance_sm',
+    'b1g_dateAccessioned_s',
   ];
 
   // Define the fields for the Metadata Facets table - BTAA schema only
@@ -131,6 +102,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     'gbl_resourceClass_sm',
     'gbl_resourceType_sm',
     'dcat_theme_sm',
+    'dct_subject_sm',
     'dct_spatial_sm',
     'dct_publisher_sm',
     'schema_provider_s',
@@ -175,6 +147,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     gbl_mdModified_dt: 'Metadata Modified',
     dct_alternative_sm: 'Alternative Title',
     dct_subject_sm: 'Subject',
+    dcat_theme_sm: 'Topic Category',
     dct_creator_sm: 'Creator',
     dct_publisher_sm: 'Publisher',
     gbl_resourceClass_sm: 'Resource Class',
@@ -208,10 +181,10 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     b1g_image_ss: 'Image',
     b1g_geonames_sm: 'Geonames',
     b1g_creatorID_sm: 'Creator ID',
-    b1g_dct_conformsTo_sm: 'Conforms To',
-    b1g_dcat_spatialResolutionInMeters_sm: 'Spatial Resolution (Meters)',
-    b1g_geodcat_spatialResolutionAsText_sm: 'Spatial Resolution (Text)',
-    b1g_dct_provenanceStatement_sm: 'Provenance Statement',
+    b1g_dct_conformsTo_sm: 'Spatial Reference System',
+    b1g_dcat_spatialResolutionInMeters_sm: 'Spatial Resolution',
+    b1g_geodcat_spatialResolutionAsText_sm: 'Scale',
+    b1g_dct_provenance_sm: 'Provenance Statement',
     b1g_adminTags_sm: 'Admin Tags',
     b1g_localCollectionLabel_sm: 'Local collection',
   };
@@ -230,9 +203,13 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
 
     // Separate fields into:
     // Document Metadata, Metadata Facets, and Relationship Facets
-    const documentMetadata = entries.filter(([key]) =>
-      documentMetadataFields.includes(key)
-    );
+    const documentMetadata = entries
+      .filter(([key]) => documentMetadataFields.includes(key))
+      .sort(([a], [b]) => {
+        const indexA = documentMetadataFields.indexOf(a);
+        const indexB = documentMetadataFields.indexOf(b);
+        return indexA - indexB;
+      });
     const metadataFacets = entries
       .filter(([key]) => metadataFacetsFields.includes(key))
       .sort(([a], [b]) => {
