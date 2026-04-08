@@ -390,6 +390,7 @@ class SearchService:
             "creator_agg": "dct_creator_sm",
             "publisher_agg": "dct_publisher_sm",
             "provider_agg": "schema_provider_s",
+            "b1g_code_agg": "b1g_code_s",
             "access_rights_agg": "dct_accessRights_s",
             "georeferenced_agg": "gbl_georeferenced_b",
             # Spatial facet fields

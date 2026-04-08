@@ -77,9 +77,16 @@ KEYWORD_FILTER_FIELDS = {
     "b1g_localCollectionLabel_sm",  # Local collection facet
 }
 
+DIRECT_FILTER_FIELDS = {
+    # BTAA code is mapped as a keyword already, so filters should target the field directly.
+    "b1g_code_s",
+}
+
 
 def _resolve_filter_field(field: str) -> str:
     """Return the appropriate ES field for filtering."""
+    if field in DIRECT_FILTER_FIELDS:
+        return field
     if field in KEYWORD_FILTER_FIELDS:
         return f"{field}.keyword"
     return field
@@ -158,6 +165,10 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
         },
         "dcat_keyword_sm": {
             "field": "dcat_keyword_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "b1g_code_s": {
+            "field": "b1g_code_s",
             "size": DEFAULT_FACET_SIZE,
         },
         "geo_country": {
@@ -831,6 +842,7 @@ async def search_resources(
             "schema_provider_s": {
                 "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
             },
+            "b1g_code_s": {"terms": {"field": "b1g_code_s", "size": DEFAULT_FACET_SIZE}},
             "ogm_repo": {"terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}},
             "dct_accessRights_s": {
                 "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
@@ -1833,6 +1845,7 @@ def process_aggregations(aggregations, search_context: dict):
         "creator_agg": "Creator",
         "dct_publisher_sm": "Publisher",
         "provider_agg": "Provider",
+        "b1g_code_s": "B1G Code",
         "ogm_repo": "OGM Repo",
         "access_rights_agg": "Access Rights",
         "georeferenced_agg": "Georeferenced",

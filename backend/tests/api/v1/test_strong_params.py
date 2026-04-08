@@ -40,6 +40,7 @@ class TestStrongParams:
         assert "fq[dct_creator_sm][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[dct_publisher_sm][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[schema_provider_s][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[b1g_code_s][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[dct_accessRights_s][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[gbl_georeferenced_b][]" in SEARCH_ALLOWED_PARAMS
 

@@ -33,6 +33,7 @@ class TestGetFacetAggregationConfig:
             "dct_creator_sm",
             "dct_publisher_sm",
             "schema_provider_s",
+            "b1g_code_s",
             "dct_accessRights_s",
             "gbl_georeferenced_b",
             "geo_country",
@@ -68,6 +69,12 @@ class TestGetFacetAggregationConfig:
 
         config = get_facet_aggregation_config("gbl_georeferenced_b")
         assert config["field"] == "gbl_georeferenced_b"
+        assert ".keyword" not in config["field"]
+
+    def test_direct_keyword_field(self):
+        """Test that keyword-mapped fields can facet without a .keyword suffix."""
+        config = get_facet_aggregation_config("b1g_code_s")
+        assert config["field"] == "b1g_code_s"
         assert ".keyword" not in config["field"]
 
 

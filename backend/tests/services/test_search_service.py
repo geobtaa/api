@@ -608,6 +608,7 @@ class TestSearchService:
             "fq[language_agg][]=English&"
             "fq[creator_agg][]=Test Creator&"
             "fq[provider_agg][]=Test Provider&"
+            "fq[b1g_code_s][]=BTAA&"
             "fq[access_rights_agg][]=Public&"
             "fq[georeferenced_agg][]=true&"
             "fq[geo_country_agg][]=USA&"
@@ -626,6 +627,7 @@ class TestSearchService:
         assert result["dct_language_sm"] == ["English"]
         assert result["dct_creator_sm"] == ["Test Creator"]
         assert result["schema_provider_s"] == ["Test Provider"]
+        assert result["b1g_code_s"] == ["BTAA"]
         assert result["dct_accessRights_s"] == ["Public"]
         assert result["gbl_georeferenced_b"] == ["true"]
         assert result["geo_country"] == ["USA"]
