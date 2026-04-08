@@ -35,6 +35,9 @@ DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 NEAR_GLOBAL_DIAGONAL_KM = 15_000
 MIN_BBOX_IOU_OVERLAP_RATIO = float(os.getenv("MIN_BBOX_IOU_OVERLAP_RATIO", "0.001"))
 ALLOWED_GEO_RELATIONS = {"intersects", "within", "contains", "disjoint"}
+BBOX_CONTAINMENT_WEIGHT = float(os.getenv("BBOX_CONTAINMENT_WEIGHT", "0.7"))
+BBOX_IOU_WEIGHT = float(os.getenv("BBOX_IOU_WEIGHT", "0.3"))
+BBOX_SPATIAL_BOOST_WEIGHT = float(os.getenv("BBOX_SPATIAL_BOOST_WEIGHT", "0.8"))
 
 
 def _escape_query_string_brackets(query_text: str) -> str:
@@ -344,6 +347,61 @@ def _normalize_min_overlap_ratio(raw: object) -> float:
     if value < 0.0 or value > 1.0:
         return MIN_BBOX_IOU_OVERLAP_RATIO
     return value
+
+
+def _normalized_spatial_weights() -> tuple[float, float]:
+    containment_weight = max(0.0, BBOX_CONTAINMENT_WEIGHT)
+    overlap_weight = max(0.0, BBOX_IOU_WEIGHT)
+    total = containment_weight + overlap_weight
+    if total <= 0.0:
+        return 0.7, 0.3
+    return containment_weight / total, overlap_weight / total
+
+
+def _compute_bbox_spatial_metrics(
+    *,
+    d_minx: float,
+    d_maxx: float,
+    d_miny: float,
+    d_maxy: float,
+    q_minx: float,
+    q_maxx: float,
+    q_miny: float,
+    q_maxy: float,
+) -> dict[str, float]:
+    ix1 = max(d_minx, q_minx)
+    iy1 = max(d_miny, q_miny)
+    ix2 = min(d_maxx, q_maxx)
+    iy2 = min(d_maxy, q_maxy)
+
+    iw = max(0.0, ix2 - ix1)
+    ih = max(0.0, iy2 - iy1)
+    intersection = iw * ih
+    doc_area = max(0.0, (d_maxx - d_minx) * (d_maxy - d_miny))
+    query_area = max(0.0, (q_maxx - q_minx) * (q_maxy - q_miny))
+
+    if intersection <= 0.0 or doc_area <= 0.0 or query_area <= 0.0:
+        return {
+            "overlap_ratio": 0.0,
+            "containment_ratio": 0.0,
+            "spatial_score": 0.0,
+        }
+
+    union_area = doc_area + query_area - intersection
+    overlap_ratio = 0.0 if union_area <= 0.0 else intersection / union_area
+    containment_ratio = intersection / doc_area
+
+    overlap_ratio = min(max(overlap_ratio, 0.0), 1.0)
+    containment_ratio = min(max(containment_ratio, 0.0), 1.0)
+
+    containment_weight, overlap_weight = _normalized_spatial_weights()
+    spatial_score = containment_weight * containment_ratio + overlap_weight * overlap_ratio
+
+    return {
+        "overlap_ratio": overlap_ratio,
+        "containment_ratio": containment_ratio,
+        "spatial_score": min(max(spatial_score, 0.0), 1.0),
+    }
 
 
 def _build_bbox_overlap_filter(
@@ -973,14 +1031,14 @@ async def search_resources(
             bool_query_dict["must_not"] = combined_must_not
 
         # Base query is a plain bool; we will wrap it in script_score when we have
-        # bbox info for overlap-based relevance.
+        # bbox info for spatial reranking.
         base_query = {"query": {"bool": bool_query_dict}}
         overlap_context = None
 
-        # Add bbox overlap-based scoring when bbox filter is present.
-        # This uses an approximate IoU between the document's bbox and the query bbox,
-        # computed from numeric bbox_* fields and the query bbox bounds, and does NOT
-        # use centroids at all.
+        # Add bbox spatial scoring when bbox filter is present.
+        # This combines document containment within the query bbox and IoU
+        # extent similarity using numeric bbox_* fields, and does NOT use
+        # centroids at all.
         if bbox_filter_info:
             top_left = bbox_filter_info["top_left"]
             bottom_right = bbox_filter_info["bottom_right"]
@@ -991,8 +1049,10 @@ async def search_resources(
             q_miny = min(float(bottom_right["lat"]), float(top_left["lat"]))
             q_maxy = max(float(bottom_right["lat"]), float(top_left["lat"]))
 
-            # Persist query bbox bounds so we can later compute a concrete
-            # bbox_overlap_ratio per hit in Python for the API meta block.
+            containment_weight, overlap_weight = _normalized_spatial_weights()
+
+            # Persist query bbox bounds so we can later compute concrete bbox
+            # spatial metrics per hit in Python for the API meta block.
             overlap_context = {
                 "qMinX": q_minx,
                 "qMaxX": q_maxx,
@@ -1068,6 +1128,15 @@ async def search_resources(
                                     return 0.0;
                                 }
 
+                                // Prefer records whose mapped extent is mostly inside
+                                // the user's view, while still rewarding similar extent.
+                                double containmentRatio = intersection / docArea;
+                                if (containmentRatio < 0.0) {
+                                    containmentRatio = 0.0;
+                                } else if (containmentRatio > 1.0) {
+                                    containmentRatio = 1.0;
+                                }
+
                                 // Overlap similarity: IoU between document bbox and query bbox.
                                 // This is high (near 1.0) only when the two extents are similar
                                 // in both size and location.
@@ -1078,16 +1147,30 @@ async def search_resources(
                                     overlapRatio = 1.0;
                                 }
 
-                                // Combine base score (text relevance when present) with IoU.
+                                double spatialScore =
+                                    (params.containmentWeight * containmentRatio) +
+                                    (params.overlapWeight * overlapRatio);
+
+                                if (spatialScore < 0.0) {
+                                    spatialScore = 0.0;
+                                } else if (spatialScore > 1.0) {
+                                    spatialScore = 1.0;
+                                }
+
+                                // Combine base text relevance with a spatial boost.
                                 double baseScore = _score;
-                                // Keep scores positive and emphasize high-overlap maps.
-                                return baseScore * (0.1 + 0.9 * overlapRatio);
+                                return baseScore * (
+                                    1.0 + (params.spatialBoostWeight * spatialScore)
+                                );
                             """,
                             "params": {
                                 "qMinX": q_minx,
                                 "qMaxX": q_maxx,
                                 "qMinY": q_miny,
                                 "qMaxY": q_maxy,
+                                "containmentWeight": containment_weight,
+                                "overlapWeight": overlap_weight,
+                                "spatialBoostWeight": max(0.0, BBOX_SPATIAL_BOOST_WEIGHT),
                             },
                         },
                     }
@@ -1388,14 +1471,14 @@ async def process_search_response(
             [resource["id"] for resource in resource_rows]
         )
 
-        # Precompute lookups from id -> score and id -> bbox_overlap_ratio so we can
-        # expose them in the API layer meta block. The ratio is computed as the
-        # fraction of the document bbox area that lies inside the query bbox,
-        # mirroring the Painless scoring script semantics.
+        # Precompute lookups from id -> score and bbox spatial metrics so we can
+        # expose them in the API layer meta block.
         id_to_score: dict[str, float] = {}
         id_to_overlap: dict[str, float] = {}
+        id_to_containment: dict[str, float] = {}
+        id_to_spatial_score: dict[str, float] = {}
 
-        def _compute_overlap_ratio(hit_dict: dict, ctx: dict) -> float | None:
+        def _compute_spatial_metrics(hit_dict: dict, ctx: dict) -> dict[str, float] | None:
             try:
                 src = hit_dict.get("_source", {})
                 d_minx = float(src["bbox_minx"])
@@ -1410,43 +1493,34 @@ async def process_search_response(
             q_miny = float(ctx["qMinY"])
             q_maxy = float(ctx["qMaxY"])
 
-            ix1 = max(d_minx, q_minx)
-            iy1 = max(d_miny, q_miny)
-            ix2 = min(d_maxx, q_maxx)
-            iy2 = min(d_maxy, q_maxy)
-
-            iw = max(0.0, ix2 - ix1)
-            ih = max(0.0, iy2 - iy1)
-            intersection = iw * ih
-            doc_area = max(0.0, (d_maxx - d_minx) * (d_maxy - d_miny))
-            query_area = max(0.0, (q_maxx - q_minx) * (q_maxy - q_miny))
-            if intersection <= 0.0 or doc_area <= 0.0 or query_area <= 0.0:
-                return 0.0
-
-            union_area = doc_area + query_area - intersection
-            if union_area <= 0.0:
-                return 0.0
-
-            ratio = intersection / union_area
-            if ratio < 0.0:
-                ratio = 0.0
-            elif ratio > 1.0:
-                ratio = 1.0
-            return ratio
+            return _compute_bbox_spatial_metrics(
+                d_minx=d_minx,
+                d_maxx=d_maxx,
+                d_miny=d_miny,
+                d_maxy=d_maxy,
+                q_minx=q_minx,
+                q_maxx=q_maxx,
+                q_miny=q_miny,
+                q_maxy=q_maxy,
+            )
 
         for hit in hits:
             rid = hit["_source"]["id"]
             id_to_score[rid] = hit.get("_score", 0.0)
             if overlap_context:
-                ratio = _compute_overlap_ratio(hit, overlap_context)
-                if ratio is not None:
-                    id_to_overlap[rid] = ratio
+                metrics = _compute_spatial_metrics(hit, overlap_context)
+                if metrics is not None:
+                    id_to_overlap[rid] = metrics["overlap_ratio"]
+                    id_to_containment[rid] = metrics["containment_ratio"]
+                    id_to_spatial_score[rid] = metrics["spatial_score"]
 
         for resource in resource_rows:
             rid = resource["id"]
             distribution_context = distribution_contexts.get(rid)
             score = id_to_score.get(rid, 0.0)
             overlap_ratio = id_to_overlap.get(rid)
+            containment_ratio = id_to_containment.get(rid)
+            spatial_score = id_to_spatial_score.get(rid)
 
             doc: dict = {
                 "type": "document",
@@ -1459,6 +1533,10 @@ async def process_search_response(
             }
             if overlap_ratio is not None:
                 doc["bbox_overlap_ratio"] = overlap_ratio
+            if containment_ratio is not None:
+                doc["bbox_containment_ratio"] = containment_ratio
+            if spatial_score is not None:
+                doc["bbox_spatial_score"] = spatial_score
 
             processed_resources.append(doc)
 

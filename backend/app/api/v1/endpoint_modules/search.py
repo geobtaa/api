@@ -99,6 +99,8 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         rid = None
         score = None
         overlap = None
+        containment = None
+        spatial_score = None
         if isinstance(item, dict):
             rid = (
                 item.get("id")
@@ -113,8 +115,22 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             overlap = item.get("bbox_overlap_ratio")
             if overlap is None:
                 overlap = item.get("attributes", {}).get("bbox_overlap_ratio")
+            containment = item.get("bbox_containment_ratio")
+            if containment is None:
+                containment = item.get("attributes", {}).get("bbox_containment_ratio")
+            spatial_score = item.get("bbox_spatial_score")
+            if spatial_score is None:
+                spatial_score = item.get("attributes", {}).get("bbox_spatial_score")
         if rid:
-            resource_data.append({"id": rid, "score": score, "bbox_overlap_ratio": overlap})
+            resource_data.append(
+                {
+                    "id": rid,
+                    "score": score,
+                    "bbox_overlap_ratio": overlap,
+                    "bbox_containment_ratio": containment,
+                    "bbox_spatial_score": spatial_score,
+                }
+            )
 
     # Step 3: Batch fetch resource data
     lookup = {}
@@ -161,13 +177,19 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             # from create_jsonapi_resource
             attrs = obj.get("attributes", {})
 
-            # Attach ES scoring and overlap ratio info into per-resource meta for debugging
+            # Attach ES scoring and bbox spatial metrics into per-resource meta for debugging
             if rd.get("score") is not None:
                 obj.setdefault("meta", {})
                 obj["meta"]["score"] = rd["score"]
             if rd.get("bbox_overlap_ratio") is not None:
                 obj.setdefault("meta", {})
                 obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
+            if rd.get("bbox_containment_ratio") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_containment_ratio"] = rd["bbox_containment_ratio"]
+            if rd.get("bbox_spatial_score") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_spatial_score"] = rd["bbox_spatial_score"]
 
             if isinstance(fields, str) and fields.strip():
                 # Handle field filtering for nested attributes structure
