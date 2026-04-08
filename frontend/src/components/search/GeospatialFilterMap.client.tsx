@@ -112,8 +112,8 @@ export function GeospatialFilterMap({
 
   const getRelationFromParams = useCallback((): BBoxRelationMode => {
     const relation = searchParams.get('include_filters[geo][relation]');
-    if (relation === 'intersects') return 'intersects';
-    return 'within';
+    if (relation === 'within') return 'within';
+    return 'intersects';
   }, [searchParams]);
 
   // Parse bbox from URL params

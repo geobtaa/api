@@ -7,7 +7,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.elasticsearch.search import (
+    BBOX_SPATIAL_BOOST_WEIGHT,
     MIN_BBOX_IOU_OVERLAP_RATIO,
+    _compute_bbox_spatial_metrics,
     _escape_query_string_brackets,
     get_search_criteria,
     search_resources,
@@ -48,6 +50,42 @@ class TestElasticsearchSearch:
         assert criteria["query"] == "test query"
         assert criteria["filters"] == {"dct_spatial_sm": ["Minnesota"]}
         assert criteria["sort"] == [{"_score": "desc"}]
+
+    def test_compute_bbox_spatial_metrics_rewards_containment(self):
+        """Contained extents should still score well even when query bbox is larger."""
+        metrics = _compute_bbox_spatial_metrics(
+            d_minx=-93.4,
+            d_maxx=-93.1,
+            d_miny=44.9,
+            d_maxy=45.1,
+            q_minx=-93.5,
+            q_maxx=-92.9,
+            q_miny=44.8,
+            q_maxy=45.2,
+        )
+
+        assert metrics["containment_ratio"] == pytest.approx(1.0)
+        assert metrics["overlap_ratio"] < metrics["containment_ratio"]
+        assert metrics["spatial_score"] > metrics["overlap_ratio"]
+
+    def test_compute_bbox_spatial_metrics_returns_zero_for_no_overlap(self):
+        """Non-overlapping extents should not receive a spatial boost."""
+        metrics = _compute_bbox_spatial_metrics(
+            d_minx=-100.0,
+            d_maxx=-99.0,
+            d_miny=40.0,
+            d_maxy=41.0,
+            q_minx=-93.5,
+            q_maxx=-92.9,
+            q_miny=44.8,
+            q_maxy=45.2,
+        )
+
+        assert metrics == {
+            "overlap_ratio": 0.0,
+            "containment_ratio": 0.0,
+            "spatial_score": 0.0,
+        }
 
     @pytest.mark.asyncio
     async def test_search_resources_with_id_field_in_query_string(self):
@@ -356,6 +394,13 @@ class TestElasticsearchSearch:
                 assert script_filter is not None
                 params = script_filter["script"]["script"]["params"]
                 assert params["minOverlapRatio"] == MIN_BBOX_IOU_OVERLAP_RATIO
+
+                script_score = search_query["script_score"]["script"]
+                assert "containmentRatio" in script_score["source"]
+                assert "spatialScore" in script_score["source"]
+                assert script_score["params"]["spatialBoostWeight"] == pytest.approx(
+                    BBOX_SPATIAL_BOOST_WEIGHT
+                )
 
     @pytest.mark.asyncio
     async def test_search_resources_with_geospatial_bbox_relation(self):
