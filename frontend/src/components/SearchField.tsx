@@ -67,7 +67,7 @@ const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
 function setGeoBBoxParams(
   params: URLSearchParams,
   bbox: GeoBBoxParams,
-  relation: 'within' | 'intersects' = 'within'
+  relation: 'within' | 'intersects' = 'intersects'
 ) {
   params.set('include_filters[geo][type]', 'bbox');
   params.set('include_filters[geo][field]', 'dcat_bbox');
@@ -121,7 +121,7 @@ export function SearchField({
 
   const getGeoRelationFromParams = () => {
     const relation = searchParams.get('include_filters[geo][relation]');
-    return relation === 'intersects' ? 'intersects' : 'within';
+    return relation === 'within' ? 'within' : 'intersects';
   };
 
   const getActiveSearchField = () =>

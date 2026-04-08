@@ -5,7 +5,7 @@ import { useMap } from 'react-leaflet';
 
 const BBOX_RECTANGLE_PANE = 'bboxRectangleSelectorPane';
 
-function buildBboxSearchUrl(bounds: L.LatLngBounds, relation = 'within') {
+function buildBboxSearchUrl(bounds: L.LatLngBounds, relation = 'intersects') {
   const ne = bounds.getNorthEast();
   const sw = bounds.getSouthWest();
   const params = new URLSearchParams();

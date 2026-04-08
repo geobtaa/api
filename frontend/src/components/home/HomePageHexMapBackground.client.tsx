@@ -243,7 +243,7 @@ function SearchHereControl() {
     const params = new URLSearchParams();
     params.set('include_filters[geo][type]', 'bbox');
     params.set('include_filters[geo][field]', 'dcat_bbox');
-    params.set('include_filters[geo][relation]', 'within');
+    params.set('include_filters[geo][relation]', 'intersects');
     params.set('include_filters[geo][top_left][lat]', ne.lat.toString());
     params.set('include_filters[geo][top_left][lon]', sw.lng.toString());
     params.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());

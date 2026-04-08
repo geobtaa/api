@@ -44,7 +44,7 @@ describe('SearchField', () => {
     });
   });
 
-  it('defaults header place bbox searches to within', async () => {
+  it('defaults header place bbox searches to overlap', async () => {
     fetchNominatimSearchMock.mockResolvedValue({
       data: [
         {
@@ -130,7 +130,7 @@ describe('SearchField', () => {
       );
       expect(params.get('include_filters[geo][type]')).toBe('bbox');
       expect(params.get('include_filters[geo][field]')).toBe('dcat_bbox');
-      expect(params.get('include_filters[geo][relation]')).toBe('within');
+      expect(params.get('include_filters[geo][relation]')).toBe('intersects');
     });
   });
 
