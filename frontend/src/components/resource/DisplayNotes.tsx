@@ -14,6 +14,8 @@ interface NoteConfig {
   classes: string;
 }
 
+const TIP_PREFIX = 'Tip: ';
+
 const NOTE_PREFIXES: Array<{
   prefix: string;
   variant: Exclude<NoteVariant, 'default'>;
@@ -76,6 +78,17 @@ function classifyNote(note: string): NoteConfig {
   };
 }
 
+function getRenderedNoteText(note: string) {
+  if (note.startsWith(TIP_PREFIX)) {
+    return {
+      text: note.slice(TIP_PREFIX.length).trimStart(),
+      ariaLabel: note,
+    };
+  }
+
+  return { text: note };
+}
+
 export function DisplayNotes({ notes }: DisplayNotesProps) {
   if (!notes || notes.length === 0) return null;
 
@@ -88,15 +101,17 @@ export function DisplayNotes({ notes }: DisplayNotesProps) {
         if (!note || typeof note !== 'string') return null;
 
         const { icon, classes } = classifyNote(note);
+        const { text, ariaLabel } = getRenderedNoteText(note);
 
         return (
           <div
             key={`${index}-${note.slice(0, 24)}`}
             className={`gbl-display-note flex items-start gap-2 rounded-md border px-3 py-2 text-sm ${classes}`}
             role="status"
+            aria-label={ariaLabel}
           >
             {icon && <div className="mt-0.5 shrink-0">{icon}</div>}
-            <p className="leading-snug">{linkifyText(note)}</p>
+            <p className="leading-snug">{linkifyText(text)}</p>
           </div>
         );
       })}

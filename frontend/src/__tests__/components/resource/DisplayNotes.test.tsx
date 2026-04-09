@@ -54,9 +54,14 @@ describe('DisplayNotes', () => {
 
     it('renders Tip note with tip styling', () => {
       render(<DisplayNotes notes={['Tip: Be sure to look in the mailbox.']} />);
-      const note = screen.getByText(/Tip: Be sure to look/);
+      const note = screen.getByText(/Be sure to look in the mailbox/);
       const wrapper = note.closest('.gbl-display-note');
       expect(wrapper).toHaveClass('border-emerald-200', 'bg-emerald-50');
+      expect(wrapper).toHaveAttribute(
+        'aria-label',
+        'Tip: Be sure to look in the mailbox.'
+      );
+      expect(screen.queryByText(/Tip: Be sure to look/)).not.toBeInTheDocument();
     });
 
     it('renders Warning note with warning styling', () => {
