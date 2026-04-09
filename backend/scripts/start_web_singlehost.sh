@@ -7,7 +7,7 @@ export PATH="/opt/venv/bin:$PATH"
 
 echo "[start_web_singlehost] starting FastAPI (uvicorn) on 127.0.0.1:8001"
 cd /app/backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 &
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --ws websockets &
 UVICORN_PID=$!
 
 echo "[start_web_singlehost] starting SSR (react-router-serve) on 0.0.0.0:3000"
@@ -30,4 +30,3 @@ trap cleanup EXIT INT TERM
 
 echo "[start_web_singlehost] starting nginx (public) on 0.0.0.0:8000"
 exec nginx -g 'daemon off;'
-

@@ -31,6 +31,7 @@ dependencies = [
     "tomli==2.2.1",
     "typing_extensions>=4.14.1",
     "uvicorn==0.32.1",
+    "websockets==15.0.1",
     "requests==2.33.0",
     "docker==7.1.0",
     "elasticsearch>=9.0.0",
@@ -130,4 +131,3 @@ directory = "coverage_html_report"
 pythonpath = ["."]
 testpaths = ["tests"]
 python_files = ["test_*.py"]
-
