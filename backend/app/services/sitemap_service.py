@@ -261,9 +261,7 @@ def build_x_robots_tag(indexing_enabled: bool | None = None) -> str | None:
     return NOINDEX_ROBOTS_TAG
 
 
-def build_robots_txt(
-    base_url: str | None = None, indexing_enabled: bool | None = None
-) -> str:
+def build_robots_txt(base_url: str | None = None, indexing_enabled: bool | None = None) -> str:
     if not search_engine_indexing_enabled(indexing_enabled=indexing_enabled):
         return "\n".join(
             [
