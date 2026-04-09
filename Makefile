@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -633,6 +633,11 @@ reindex-benchmark: ## Reindex with benchmark timing
 # Clear local API search cache via admin endpoint.
 local-clear-search-cache: ## Clear local search cache
 	@docker compose exec -T api bash -lc 'ADMIN_USER=$${ADMIN_USERNAME:-admin}; ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST "http://localhost:8000/api/v1/admin/cache/clear?cache_type=search"'
+
+# Generate and cache sitemap XML + robots rules for crawler-facing routes.
+sitemap-generate: ## Generate and cache sitemap XML for /sitemap.xml
+	@echo "Generating sitemap XML and crawler metadata..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/generate_sitemap.py'
 
 # Refresh OpenGeoMetadata (OGM) harvest for all enabled weekly repos.
 # Uses ADMIN_USERNAME/ADMIN_PASSWORD from env or .env (defaults to admin/changeme).

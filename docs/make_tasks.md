@@ -28,6 +28,8 @@ Overrides:
 - `make reindex`: atomic local reindex using a versioned index + alias swap (non-destructive build + atomic cutover). Defaults favor safety: swap is blocked on indexing errors/count mismatch, and one previous versioned index is retained. After a successful swap, it automatically clears local `search` cache.
   - Useful local tuning overrides: `REINDEX_CHUNK_SIZE`, `REINDEX_BULK_SIZE`, `REINDEX_BULK_MAX_RETRIES`, `REINDEX_FAST_SETTINGS`, `REINDEX_FORCE_REPLICAS_ZERO`, `REINDEX_RETAIN_PREVIOUS`.
   - Benchmark mode: `make reindex-benchmark` (or `REINDEX_BENCHMARK=true make reindex`) prints per-chunk timings and a final phase summary.
+- `make sitemap-generate`: generate and cache the crawler-facing sitemap payload served at `/sitemap.xml` (and supporting `/sitemaps/*.xml` parts when the URL count exceeds sitemap protocol limits).
+  - `robots.txt` only advertises that sitemap when `SEARCH_ENGINE_INDEXING_ENABLED=true`; the default remains block-all for local/dev safety.
 - `make ogm-refresh`: trigger OpenGeoMetadata harvest for all enabled weekly repos (`POST /api/v1/admin/ogm/harvest` with `{"ogm_all":true,"ogm_trigger":"weekly"}`).
 - `make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl`: trigger OpenGeoMetadata harvest for one repo (`{"ogm_repo_name":"...","ogm_trigger":"manual"}`).
 - `make ogm-status`: show current OGM harvest runs (`GET /api/v1/admin/ogm/harvest/runs`).

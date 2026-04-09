@@ -17,3 +17,5 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # Daily 3:00 AM: enqueue blog sync (Celery)
 0 3 * * * /opt/venv/bin/python3 /app/scripts/trigger_blog_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 
+# Daily 4:15 AM: regenerate sitemap XML after overnight content refresh jobs.
+15 4 * * * /opt/venv/bin/python3 /app/scripts/generate_sitemap.py >> /proc/1/fd/1 2>> /proc/1/fd/2

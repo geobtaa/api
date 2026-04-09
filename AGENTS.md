@@ -103,6 +103,7 @@ Run from the **project root**. Key targets:
 | `make lint-test`       | `lint-check` then `test`. |
 | `make reindex`         | Atomic local reindex using versioned index + alias swap, then clear local search cache. |
 | `make reindex-benchmark` | Run atomic local reindex with benchmark timing output enabled. |
+| `make sitemap-generate` | Generate and cache sitemap XML for `/sitemap.xml` (used by cron in production). |
 | `make kamal-reindex`   | Atomic reindex on Kamal with versioned index + alias swap; auto-runs `kamal-clear-cache`. Use `KAMAL_DEST=dev1` or `dev2` (default dev1). |
 | `make verify-h3-index` | Verify H3 pyramid fields in Elasticsearch. |
 | `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). Use `KAMAL_DEST=dev1` or `dev2`. |

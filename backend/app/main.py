@@ -16,7 +16,13 @@ from fastapi.openapi.docs import (
     get_swagger_ui_html,
     get_swagger_ui_oauth2_redirect_html,
 )
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    Response,
+)
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -30,6 +36,15 @@ from app.api.ogc import router as ogc_router
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
+from app.services.sitemap_service import (
+    SITEMAP_ROOT_NAME,
+    build_robots_txt,
+    build_x_robots_tag,
+    close_store,
+    generate_and_store,
+    get_sitemap_document,
+    is_valid_sitemap_part_name,
+)
 from db.database import database
 
 # Load environment variables from .env file
@@ -109,6 +124,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"Error disconnecting from Elasticsearch: {str(e)}")
 
+    try:
+        await close_store()
+    except Exception as e:
+        logger.error(f"Error disconnecting from sitemap store: {str(e)}")
+
 
 # Create FastAPI application
 app = FastAPI(
@@ -162,8 +182,9 @@ class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
         if "Cross-Origin-Opener-Policy" not in response.headers:
             response.headers["Cross-Origin-Opener-Policy"] = "unsafe-none"
 
-        # Prevent search engine indexing - app is in development
-        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, nosnippet"
+        robots_tag = build_x_robots_tag()
+        if robots_tag:
+            response.headers["X-Robots-Tag"] = robots_tag
 
         return response
 
@@ -209,6 +230,43 @@ app.include_router(ogc_router, prefix="/api/v1/ogc")
 async def api_v1_no_slash_redirect():
     # Ensure /api/v1 (no trailing slash) works by redirecting to the canonical /api/v1/
     return RedirectResponse(url="/api/v1/")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml() -> Response:
+    xml_content = await get_sitemap_document(SITEMAP_ROOT_NAME)
+    if xml_content is None:
+        result, _stored = await generate_and_store()
+        xml_content = result.documents[SITEMAP_ROOT_NAME]
+
+    response = Response(content=xml_content, media_type="application/xml")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@app.get("/sitemaps/{filename}.xml", include_in_schema=False)
+async def sitemap_part_xml(filename: str) -> Response:
+    part_name = f"{filename}.xml"
+    if not is_valid_sitemap_part_name(part_name):
+        raise HTTPException(status_code=404, detail="Sitemap part not found")
+
+    xml_content = await get_sitemap_document(part_name)
+    if xml_content is None:
+        result, _stored = await generate_and_store()
+        xml_content = result.documents.get(part_name)
+        if xml_content is None:
+            raise HTTPException(status_code=404, detail="Sitemap part not found")
+
+    response = Response(content=xml_content, media_type="application/xml")
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt() -> PlainTextResponse:
+    response = PlainTextResponse(build_robots_txt())
+    response.headers["Cache-Control"] = "public, max-age=3600"
+    return response
 
 
 @app.exception_handler(Exception)

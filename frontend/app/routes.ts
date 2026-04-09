@@ -29,6 +29,7 @@ export default [
   route("thumbnails/placeholder", "routes/thumbnails.placeholder.ts"),
   route("thumbnails/:image_hash", "routes/thumbnails.$image_hash.ts"),
   route("iiif/manifest", "routes/iiif.manifest.ts"),
+  route("robots.txt", "routes/robots-txt.ts"),
   route("suggest", "routes/suggest.ts"),
   route("search/facets/:facetName", "routes/api.search.facets.ts"),
   route("map/h3", "routes/api.map.h3.ts"),

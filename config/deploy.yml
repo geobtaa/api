@@ -85,6 +85,7 @@ env:
     GAZETTEER_CACHE_TTL:   "3600"
     APP_MODE:              production
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
+    SEARCH_ENGINE_INDEXING_ENABLED: "<%= ENV.fetch('SEARCH_ENGINE_INDEXING_ENABLED', 'false') %>"
     KITHE_BRIDGE_URL:      https://geo.btaa.org/api/kithe_bridge
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app

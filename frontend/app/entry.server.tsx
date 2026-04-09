@@ -7,6 +7,7 @@ import { isbot } from "isbot";
 import type { RenderToPipeableStreamOptions } from "react-dom/server";
 import { renderToPipeableStream } from "react-dom/server";
 import { HelmetProvider } from 'react-helmet-async';
+import { buildXRobotsTag } from "./lib/search-engine-indexing.server";
 
 export const streamTimeout = 5_000;
 
@@ -162,6 +163,12 @@ export default function handleRequest(
           const stream = createReadableStreamFromReadable(helmetInjector);
 
           responseHeaders.set("Content-Type", "text/html");
+          const robotsTag = buildXRobotsTag();
+          if (robotsTag) {
+            responseHeaders.set("X-Robots-Tag", robotsTag);
+          } else {
+            responseHeaders.delete("X-Robots-Tag");
+          }
 
           pipe(body);
 
