@@ -322,6 +322,7 @@ Endpoint for MCP service information and connection details.
 | Method | Path | Description |
 | :---- | :---- | :---- |
 | GET | `/mcp` | MCP service information and connection details. |
+| POST | `/mcp` | JSON-RPC compatibility transport used by local MCP bridge clients. |
 
 ## Validation Endpoint
 

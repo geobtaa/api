@@ -360,64 +360,62 @@ class OGMMCPService:
 
     async def _search_resources(self, arguments: Dict[str, Any]) -> CallToolResult:
         """Search for resources."""
+        query = arguments.get("query")
+        page = arguments.get("page", 1)
+        per_page = arguments.get("per_page", 10)
         try:
-            query = arguments.get("query")
-            page = arguments.get("page", 1)
-            per_page = arguments.get("per_page", 10)
             sort = arguments.get("sort")
-
-            search_service = SearchService()
-            results = await search_service.search(
-                q=query,
-                page=page,
-                limit=per_page,
-                sort=sort,
-                request_query_params="",
-                callback=None,
+            params = {
+                "q": query,
+                "page": page,
+                "per_page": per_page,
+                "sort": sort,
+            }
+            payload = await self._api_request(
+                "/search", params={key: value for key, value in params.items() if value is not None}
             )
+            response_data = payload.get("data")
+            response_meta = response_data.get("meta", {}) if isinstance(response_data, dict) else {}
+            resources = response_data.get("data", []) if isinstance(response_data, dict) else []
 
-            # Process each resource to get full details
-            processed_resources = []
-            async with get_async_session()() as session:
-                for item in results.get("data", []):
-                    try:
-                        # Extract the resource data from the search result
-                        resource_dict = item.get("attributes", {})
-                        if not resource_dict:
-                            continue
+            if payload["status_code"] >= 400:
+                payload["query"] = query
+                return await self._tool_result_json(payload, is_error=True)
 
-                        # Process the resource using the same logic as API endpoints
-                        from app.api.v1.utils import process_resource
-
-                        resource_object = await process_resource(resource_dict, session)
-                        processed_resources.append(resource_object)
-                    except Exception as e:
-                        logger.error(f"Error processing search result: {str(e)}", exc_info=True)
-                        continue
-
-            # Return the full resource objects as JSON
-            return CallToolResult(
-                content=[
-                    TextContent(
-                        type="text",
-                        text=json.dumps(
-                            {
-                                "query": query,
-                                "total_results": len(results.get("data", [])),
-                                "page": page,
-                                "per_page": per_page,
-                                "resources": processed_resources,
-                            },
-                            indent=2,
-                        ),
-                    )
-                ]
+            return await self._tool_result_json(
+                {
+                    "query": query,
+                    "total_results": response_meta.get("totalCount", len(resources)),
+                    "total_pages": response_meta.get("totalPages"),
+                    "page": response_meta.get("currentPage", page),
+                    "per_page": response_meta.get("perPage", per_page),
+                    "spelling_suggestions": response_meta.get("spellingSuggestions", []),
+                    "resources": resources,
+                    "links": (
+                        response_data.get("links", {}) if isinstance(response_data, dict) else {}
+                    ),
+                    "source": {
+                        "transport": "http",
+                        "url": payload.get("url"),
+                        "status_code": payload.get("status_code"),
+                    },
+                }
             )
         except Exception as e:
             logger.error(f"Error in _search_resources: {e}", exc_info=True)
-            return CallToolResult(
-                content=[TextContent(type="text", text=f"Error searching resources: {str(e)}")],
-                isError=True,
+            return await self._tool_result_json(
+                {
+                    "error": "Search request failed",
+                    "detail": str(e),
+                    "query": query,
+                    "page": page,
+                    "per_page": per_page,
+                    "source": {
+                        "transport": "http",
+                        "url": f"{self._public_api_base()}/api/v1/search",
+                    },
+                },
+                is_error=True,
             )
 
     async def _get_resource(self, arguments: Dict[str, Any]) -> CallToolResult:
@@ -622,7 +620,7 @@ class OGMMCPService:
             embed = arguments.get("embed", False)
 
             # Build the record URL for the viewer
-            base_url = "http://localhost:8000"
+            base_url = self._public_api_base()
             record_url = f"{base_url}/api/v1/resources/{resource_id}/metadata"
 
             # Create the HTML content
@@ -677,7 +675,10 @@ class OGMMCPService:
 
     def _public_api_base(self) -> str:
         """Resolve base URL for calling this API over HTTP."""
-        base = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+        base = os.getenv("BTAA_GEOSPATIAL_API_BASE_URL") or os.getenv(
+            "APPLICATION_URL", "http://localhost:8000"
+        )
+        base = base.rstrip("/")
         if base.endswith("/api/v1"):
             base = base[: -len("/api/v1")]
         return base
@@ -967,7 +968,8 @@ async def run_mcp_websocket_server(websocket):
             try:
                 data = json.loads(message)
                 response = await handle_mcp_message(data)
-                await websocket.send_text(json.dumps(response))
+                if response is not None:
+                    await websocket.send_text(json.dumps(response))
             except json.JSONDecodeError:
                 await websocket.send_text(
                     json.dumps(
@@ -987,11 +989,29 @@ async def run_mcp_websocket_server(websocket):
         logging.error(f"WebSocket error: {e}")
 
 
-async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any]:
+async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any] | None:
     """Handle MCP protocol messages."""
+    if not isinstance(data, dict):
+        return {
+            "jsonrpc": "2.0",
+            "id": None,
+            "error": {"code": -32600, "message": "Invalid request"},
+        }
+
     method = data.get("method")
     msg_id = data.get("id")
     params = data.get("params", {})
+
+    if not method or not isinstance(method, str):
+        return {
+            "jsonrpc": "2.0",
+            "id": msg_id,
+            "error": {"code": -32600, "message": "Invalid request"},
+        }
+
+    # Ignore notifications that do not expect a reply.
+    if method in {"notifications/initialized", "$/cancelRequest"} and msg_id is None:
+        return None
 
     if method == "initialize":
         return {
@@ -1003,6 +1023,9 @@ async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any]:
                 "serverInfo": {"name": MCP_SERVICE_NAME, "version": MCP_SERVICE_VERSION},
             },
         }
+
+    elif method == "ping":
+        return {"jsonrpc": "2.0", "id": msg_id, "result": {}}
 
     elif method == "tools/list":
         return {"jsonrpc": "2.0", "id": msg_id, "result": {"tools": mcp_service.tool_specs}}
@@ -1085,8 +1108,8 @@ def get_mcp_service_info() -> dict[str, Any]:
         "connections": {
             "stdio": {
                 "type": "stdio",
-                "command": "python",
-                "args": ["-m", "app.services.mcp_service"],
+                "command": "python3",
+                "args": ["mcp/run_mcp_service.py"],
             },
             "websocket": {"type": "websocket", "url": "/api/v1/mcp/ws"},
         },

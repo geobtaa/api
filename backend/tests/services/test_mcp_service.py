@@ -2,6 +2,9 @@
 Tests for the MCP service.
 """
 
+import json
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from app.services.mcp_service import MCP_SERVICE_NAME, OGMMCPService, mcp_service
@@ -37,12 +40,102 @@ class TestOGMMCPService:
             error_text = result.content[0].text.lower()
             assert any(
                 term in error_text
-                for term in ["database", "connection", "nodename", "servname", "not found"]
+                for term in [
+                    "database",
+                    "connection",
+                    "nodename",
+                    "servname",
+                    "not found",
+                    "elasticsearch",
+                    "search failed",
+                ]
             )
         else:
             # If it's successful, verify the content
             assert len(result.content) == 1
             assert "minneapolis" in result.content[0].text.lower()
+
+    @pytest.mark.asyncio
+    async def test_search_resources_tool_uses_api_search_response(self):
+        """Test that search_resources relays the public search API response."""
+        service = OGMMCPService()
+        api_payload = {
+            "status_code": 200,
+            "url": "http://localhost:8000/api/v1/search?q=minneapolis&page=2&per_page=1",
+            "content_type": "application/json",
+            "location": None,
+            "data": {
+                "links": {"self": "http://localhost:8000/api/v1/search?q=minneapolis"},
+                "meta": {
+                    "totalCount": 42,
+                    "totalPages": 42,
+                    "currentPage": 2,
+                    "perPage": 1,
+                    "spellingSuggestions": ["minneapolis maps"],
+                },
+                "data": [{"id": "stanford-abc123", "type": "resource", "attributes": {}}],
+            },
+        }
+
+        with patch.object(service, "_api_request", AsyncMock(return_value=api_payload)) as mock_api:
+            result = await service._search_resources(
+                {"query": "minneapolis", "page": 2, "per_page": 1}
+            )
+
+        assert not result.isError
+        mock_api.assert_awaited_once_with(
+            "/search", params={"q": "minneapolis", "page": 2, "per_page": 1}
+        )
+
+        payload = json.loads(result.content[0].text)
+        assert payload["query"] == "minneapolis"
+        assert payload["total_results"] == 42
+        assert payload["total_pages"] == 42
+        assert payload["page"] == 2
+        assert payload["per_page"] == 1
+        assert payload["spelling_suggestions"] == ["minneapolis maps"]
+        assert payload["resources"][0]["id"] == "stanford-abc123"
+        assert payload["links"]["self"] == "http://localhost:8000/api/v1/search?q=minneapolis"
+        assert payload["source"]["transport"] == "http"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_tool_surfaces_api_errors(self):
+        """Test that search_resources returns API errors instead of fake empty results."""
+        service = OGMMCPService()
+        api_payload = {
+            "status_code": 500,
+            "url": "http://localhost:8000/api/v1/search?q=palestine",
+            "content_type": "application/json",
+            "location": None,
+            "data": {"error": "Elasticsearch search failed"},
+        }
+
+        with patch.object(service, "_api_request", AsyncMock(return_value=api_payload)):
+            result = await service._search_resources({"query": "palestine"})
+
+        assert result.isError
+        payload = json.loads(result.content[0].text)
+        assert payload["status_code"] == 500
+        assert payload["query"] == "palestine"
+        assert payload["data"]["error"] == "Elasticsearch search failed"
+
+    @pytest.mark.asyncio
+    async def test_search_resources_tool_surfaces_connection_errors(self):
+        """Test that search_resources returns structured errors when the API is unreachable."""
+        service = OGMMCPService()
+
+        with patch.object(
+            service, "_api_request", AsyncMock(side_effect=RuntimeError("connection refused"))
+        ):
+            result = await service._search_resources({"query": "palestine", "page": 3})
+
+        assert result.isError
+        payload = json.loads(result.content[0].text)
+        assert payload["error"] == "Search request failed"
+        assert payload["detail"] == "connection refused"
+        assert payload["query"] == "palestine"
+        assert payload["page"] == 3
+        assert payload["source"]["transport"] == "http"
 
     @pytest.mark.slow
     @pytest.mark.asyncio
@@ -225,3 +318,17 @@ class TestOGMMCPService:
         assert response["id"] == 3
         assert "error" in response
         assert response["error"]["code"] == -32601
+
+        # Test ping
+        ping_message = {"method": "ping", "id": 4, "params": {}}
+
+        response = await handle_mcp_message(ping_message)
+        assert response["jsonrpc"] == "2.0"
+        assert response["id"] == 4
+        assert response["result"] == {}
+
+        # Test initialized notification
+        notification_message = {"method": "notifications/initialized", "params": {}}
+
+        response = await handle_mcp_message(notification_message)
+        assert response is None

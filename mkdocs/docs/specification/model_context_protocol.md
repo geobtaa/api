@@ -11,7 +11,7 @@ The BTAA Geospatial API supports [Model Context Protocol (MCP)](https://modelcon
 ```
 {
   "name": "btaa-geospatial-api",
-  "version": "0.1.1",
+  "version": "0.6.0",
   "description": "BTAA Geospatial API MCP Service",
   "protocol": "mcp",
   "transports": [
@@ -22,19 +22,19 @@ The BTAA Geospatial API supports [Model Context Protocol (MCP)](https://modelcon
     "tools": [
       "search_resources",
       "get_resource",
-      "get_resource_ogm",
+      "get_resource_metadata",
       "list_resources",
       "get_suggestions",
-      "get_resource_viewer"
+      "get_resource_viewer",
+      "validate_aardvark_record"
     ]
   },
   "connections": {
     "stdio": {
       "type": "stdio",
-      "command": "python",
+      "command": "python3",
       "args": [
-        "-m",
-        "app.services.mcp_service"
+        "mcp/run_mcp_service.py"
       ]
     },
     "websocket": {
@@ -46,10 +46,11 @@ The BTAA Geospatial API supports [Model Context Protocol (MCP)](https://modelcon
     "tools": {
       "search_resources": "Search for geospatial resources using text queries, filters, and sorting options",
       "get_resource": "Get a single geospatial resource by ID with full metadata and UI enhancements",
-      "get_resource_ogm": "Get just the OpenGeoMetadata Aardvark record for a resource by ID",
+      "get_resource_metadata": "Get the OGM Aardvark record for a resource by ID",
       "list_resources": "List all geospatial resources with pagination",
       "get_suggestions": "Get search suggestions for autocomplete",
-      "get_resource_viewer": "Get an HTML page with the embedded OGM viewer for a specific resource"
+      "get_resource_viewer": "Get an HTML page with the embedded OGM viewer for a specific resource",
+      "validate_aardvark_record": "Validate a single Aardvark JSON record against schema requirements"
     }
   }
 }

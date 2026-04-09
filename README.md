@@ -129,6 +129,18 @@ In addition to the website and API, this repository contains a **QGIS Plugin** t
 - **Source code**: Located in the `qgis-plugin/` directory.
 - **Testing & Development**: See `qgis-plugin/docs/testing.md` for instructions on running tests and linting.
 
+## Claude Desktop / MCP
+
+This repository now includes the same MCP bridge layer that existed in the older `ogm-api` project:
+
+- `mcp/run_mcp_service.py` runs the stdio MCP server from the repo root
+- `mcp/mcp_http_bridge.js` forwards stdio MCP traffic to `POST /api/v1/mcp`
+- `mcp/mcp_websocket_bridge.js` forwards stdio MCP traffic to `/api/v1/mcp/ws`
+- `mcp/run_mcp_websocket_bridge.py` launches the WebSocket bridge with Node 18+ automatically
+- `mcp/claude_mcp_config.json` is a Claude Desktop template (`cwd` = your clone root; see `docs/backend/mcp_integration.md`)
+
+More detail is in `docs/backend/mcp_integration.md`.
+
 ## Documentation (for staff who want details)
 
 All documentation is now in the top-level `docs/` folder:

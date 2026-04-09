@@ -160,14 +160,50 @@ class TestMCPEndpoints:
         assert stdio_conn["type"] == "stdio"
         assert "command" in stdio_conn
         assert "args" in stdio_conn
-        assert stdio_conn["command"] == "python"
-        assert stdio_conn["args"] == ["-m", "app.services.mcp_service"]
+        assert stdio_conn["command"] == "python3"
+        assert stdio_conn["args"] == ["mcp/run_mcp_service.py"]
 
         # Check websocket connection
         ws_conn = data["connections"]["websocket"]
         assert ws_conn["type"] == "websocket"
         assert "url" in ws_conn
         assert ws_conn["url"] == "/api/v1/mcp/ws"
+
+    def test_mcp_http_transport_initialize(self):
+        """Test JSON-RPC initialize over HTTP POST."""
+        response = client.post(
+            "/api/v1/mcp",
+            json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {}},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 1
+        assert data["result"]["serverInfo"]["name"] == "btaa-geospatial-api"
+
+    def test_mcp_http_transport_tools_list(self):
+        """Test JSON-RPC tools/list over HTTP POST."""
+        response = client.post(
+            "/api/v1/mcp",
+            json={"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["jsonrpc"] == "2.0"
+        assert data["id"] == 2
+        assert "tools" in data["result"]
+        assert len(data["result"]["tools"]) > 0
+
+    def test_mcp_http_transport_initialized_notification(self):
+        """Test that initialized notifications do not generate a JSON-RPC reply."""
+        response = client.post(
+            "/api/v1/mcp",
+            json={"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}},
+        )
+
+        assert response.status_code == 204
 
     def test_mcp_endpoint_version_consistency(self):
         """Test that version information is consistent across the response."""
