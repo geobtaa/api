@@ -137,9 +137,9 @@ This repository now includes the same MCP bridge layer that existed in the older
 - `mcp/mcp_http_bridge.js` forwards stdio MCP traffic to `POST /api/v1/mcp`
 - `mcp/mcp_websocket_bridge.js` forwards stdio MCP traffic to `/api/v1/mcp/ws`
 - `mcp/run_mcp_websocket_bridge.py` launches the WebSocket bridge with Node 18+ automatically
-- `mcp/claude_mcp_config.json` is a Claude Desktop template (`cwd` = your clone root; see `docs/backend/mcp_integration.md`)
+- `mcp/claude_mcp_config.json` is a Claude Desktop template (`cwd` = your clone root; see `docs/mcp/`)
 
-More detail is in `docs/backend/mcp_integration.md`.
+More detail is in `docs/mcp/README.md` and `docs/mcp/claude_desktop.md`.
 
 ## Documentation (for staff who want details)
 
@@ -149,6 +149,7 @@ All documentation is now in the top-level `docs/` folder:
 - **Search**: `docs/backend/search.md`
 - **Service tiers / API keys / rate limiting**: `docs/backend/service_tiers_runbook.md`
 - **Scripts (Python utilities)**: `docs/backend/scripts.md`
+- **MCP / Claude Desktop**: `docs/mcp/`
 - **Frontend docs**: `docs/frontend/`
 - **QGIS plugin docs**: `qgis-plugin/docs/`
 - **Developer Make tasks**: `docs/make_tasks.md`
