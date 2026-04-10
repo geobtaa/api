@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "btaa-geospatial-api-local": {
+      "command": "python3",
+      "args": ["mcp/run_mcp_websocket_bridge.py"],
+      "cwd": "/path/to/data-api",
+      "env": {
+        "BTAA_GEOSPATIAL_API_BASE_URL": "http://127.0.0.1:8000"
+      }
+    }
+  }
+}
