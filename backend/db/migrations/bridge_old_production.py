@@ -132,6 +132,28 @@ def get_old_db_connection():
     return engine
 
 
+def _safe_temporal_cast_sql(json_key: str, cast_type: str) -> str:
+    """
+    Build SQL that safely casts temporal text values and nulls out invalid years.
+
+    PostgreSQL can represent years > 9999, but Python's datetime cannot; those
+    values crash SQLAlchemy row parsing during import.
+    """
+    if cast_type not in {"date", "timestamp"}:
+        raise ValueError("cast_type must be 'date' or 'timestamp'")
+
+    raw_value = f"NULLIF(NULLIF(json_attributes->>'{json_key}', ''), 'null')"
+    return (
+        "CASE "
+        f"WHEN {raw_value} IS NULL THEN NULL "
+        f"WHEN {raw_value} ~ '^[0-9]{{4,}}-' "
+        f"AND split_part({raw_value}, '-', 1)::integer BETWEEN 1 AND 9999 "
+        f"THEN {raw_value}::{cast_type} "
+        "ELSE NULL "
+        "END"
+    )
+
+
 def generate_field_mapping_sql():
     """
     Generate the SQL SELECT clause for mapping json_attributes fields to resource table fields.
@@ -173,17 +195,21 @@ def generate_field_mapping_sql():
                 ") as \"b1g_dcat_spatialResolutionInMeters_s\""
             )
         elif field == "b1g_dateAccessioned_dt":
+            safe_accessioned_ts = _safe_temporal_cast_sql("b1g_dateAccessioned_dt", "timestamp")
+            safe_accessioned_date = _safe_temporal_cast_sql("b1g_dateAccessioned_s", "date")
             mapping = (
                 "    COALESCE("
-                "NULLIF(NULLIF(json_attributes->>'b1g_dateAccessioned_dt', ''), 'null')::timestamp, "
-                "NULLIF(NULLIF(json_attributes->>'b1g_dateAccessioned_s', ''), 'null')::date::timestamp"
+                f"{safe_accessioned_ts}, "
+                f"({safe_accessioned_date})::timestamp"
                 ") as \"b1g_dateAccessioned_dt\""
             )
         elif field == "b1g_dateRetired_dt":
+            safe_retired_ts = _safe_temporal_cast_sql("b1g_dateRetired_dt", "timestamp")
+            safe_retired_date = _safe_temporal_cast_sql("b1g_dateRetired_s", "date")
             mapping = (
                 "    COALESCE("
-                "NULLIF(NULLIF(json_attributes->>'b1g_dateRetired_dt', ''), 'null')::timestamp, "
-                "NULLIF(NULLIF(json_attributes->>'b1g_dateRetired_s', ''), 'null')::date::timestamp"
+                f"{safe_retired_ts}, "
+                f"({safe_retired_date})::timestamp"
                 ") as \"b1g_dateRetired_dt\""
             )
         # Determine JSON extraction operator and cast type based on field type
@@ -214,11 +240,11 @@ def generate_field_mapping_sql():
             # Scalar fields, use ->> to get text value
             json_op = "->>"
             if field in DATE_FIELDS:
-                cast_type = "::date"
-                mapping = f"    NULLIF(NULLIF(json_attributes{json_op}'{json_key}', ''), 'null'){cast_type} as \"{field}\""
+                safe_date = _safe_temporal_cast_sql(json_key, "date")
+                mapping = f"    {safe_date} as \"{field}\""
             elif field in TIMESTAMP_FIELDS:
-                cast_type = "::timestamp"
-                mapping = f"    NULLIF(NULLIF(json_attributes{json_op}'{json_key}', ''), 'null'){cast_type} as \"{field}\""
+                safe_timestamp = _safe_temporal_cast_sql(json_key, "timestamp")
+                mapping = f"    {safe_timestamp} as \"{field}\""
             elif field in BOOLEAN_FIELDS:
                 cast_type = "::boolean"
                 mapping = f"    NULLIF(NULLIF(json_attributes{json_op}'{json_key}', ''), 'null'){cast_type} as \"{field}\""

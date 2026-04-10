@@ -4,7 +4,7 @@ Zero-downtime, alias-based reindex for local Docker and Kamal.
 
 Flow:
 1) Build a new versioned index: <ELASTICSEARCH_INDEX>_YYYYmmddHHMMSS
-2) Index all DB resources into the new index
+2) Index matching DB resources into the new index
 3) Verify expected counts before cutover
 4) Atomically swap alias ELASTICSEARCH_INDEX -> new versioned index
 5) Keep one previous versioned index (configurable) and prune older ones
@@ -86,14 +86,29 @@ async def _create_versioned_index(index_name: str) -> None:
     )
 
 
-async def _db_id_batch(last_id: str | None, chunk_size: int) -> list[str]:
+def _published_where_clause(published_only: bool, use_b1g_pub_state: bool) -> str:
+    if not published_only:
+        return "TRUE"
+    if use_b1g_pub_state:
+        return "coalesce(b1g_publication_state_s, '') = 'published'"
+    return "publication_state = 'published'"
+
+
+async def _db_id_batch(
+    last_id: str | None,
+    chunk_size: int,
+    published_only: bool,
+    use_b1g_pub_state: bool,
+) -> list[str]:
+    clause = _published_where_clause(published_only, use_b1g_pub_state)
     if last_id is None:
         rows = await database.fetch_all(
-            "SELECT id FROM resources ORDER BY id LIMIT :limit", {"limit": chunk_size}
+            f"SELECT id FROM resources WHERE {clause} ORDER BY id LIMIT :limit",
+            {"limit": chunk_size},
         )
     else:
         rows = await database.fetch_all(
-            "SELECT id FROM resources WHERE id > :last_id ORDER BY id LIMIT :limit",
+            f"SELECT id FROM resources WHERE {clause} AND id > :last_id ORDER BY id LIMIT :limit",
             {"last_id": last_id, "limit": chunk_size},
         )
     return [str(row["id"]) for row in rows]
@@ -381,6 +396,8 @@ async def _index_all_resources(
     bulk_max_retries: int,
     use_fast_settings: bool,
     force_replicas_zero: bool,
+    published_only: bool,
+    use_b1g_pub_state: bool,
     benchmark: bool,
 ) -> dict[str, int]:
     last_id = None
@@ -390,7 +407,14 @@ async def _index_all_resources(
     updated = 0
     errors = 0
 
-    db_total = int((await database.fetch_one("SELECT COUNT(*) FROM resources"))[0])
+    db_total = int(
+        (
+            await database.fetch_one(
+                f"SELECT COUNT(*) FROM resources "
+                f"WHERE {_published_where_clause(published_only, use_b1g_pub_state)}"
+            )
+        )[0]
+    )
     logger.info("Starting index build for %s resources into %s", db_total, index_name)
 
     previous_settings: dict[str, str] | None = None
@@ -400,7 +424,12 @@ async def _index_all_resources(
 
         while True:
             chunk_start = perf_counter()
-            ids = await _db_id_batch(last_id=last_id, chunk_size=chunk_size)
+            ids = await _db_id_batch(
+                last_id=last_id,
+                chunk_size=chunk_size,
+                published_only=published_only,
+                use_b1g_pub_state=use_b1g_pub_state,
+            )
             if not ids:
                 break
             last_id = ids[-1]
@@ -528,6 +557,8 @@ async def _prune_old_versioned_indices(
 
 async def main() -> None:
     base_alias = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+    published_only = _env_bool("PUBLISHED_ONLY", True)
+    use_b1g_pub_state = _env_bool("USE_B1G_PUBLICATION_STATE", False)
     chunk_size = _env_int("REINDEX_ATOMIC_CHUNK_SIZE", 2000)
     bulk_size = _env_int("REINDEX_ATOMIC_BULK_SIZE", 2000)
     bulk_max_retries = _env_int("REINDEX_ATOMIC_BULK_MAX_RETRIES", 2)
@@ -565,6 +596,8 @@ async def main() -> None:
             bulk_max_retries=bulk_max_retries,
             use_fast_settings=use_fast_settings,
             force_replicas_zero=force_replicas_zero,
+            published_only=published_only,
+            use_b1g_pub_state=use_b1g_pub_state,
             benchmark=benchmark,
         )
         index_seconds = perf_counter() - index_start
@@ -609,7 +642,7 @@ async def main() -> None:
 
         logger.info(
             "Atomic reindex complete: alias=%s new_index=%s db_total=%s es_count=%s "
-            "indexed=%s errors=%s pruned=%s",
+            "indexed=%s errors=%s pruned=%s published_only=%s use_b1g_pub_state=%s",
             base_alias,
             new_index,
             stats["db_total"],
@@ -617,6 +650,8 @@ async def main() -> None:
             stats["indexed"],
             stats["errors"],
             len(deleted_indices),
+            published_only,
+            use_b1g_pub_state,
         )
         if benchmark:
             logger.info(
