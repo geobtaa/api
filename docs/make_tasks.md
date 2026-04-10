@@ -32,6 +32,7 @@ Overrides:
   - `robots.txt` only advertises that sitemap when `SEARCH_ENGINE_INDEXING_ENABLED=true`; the default remains block-all for local/dev safety.
 - `make ogm-refresh`: trigger OpenGeoMetadata harvest for all enabled weekly repos (`POST /api/v1/admin/ogm/harvest` with `{"ogm_all":true,"ogm_trigger":"weekly"}`).
 - `make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl`: trigger OpenGeoMetadata harvest for one repo (`{"ogm_repo_name":"...","ogm_trigger":"manual"}`).
+- OGM harvests update local Postgres records, `resource_distributions`, and `resource_relationships` automatically. Run `make reindex` if you need local Elasticsearch/search results updated immediately after the harvest.
 - `make ogm-status`: show current OGM harvest runs (`GET /api/v1/admin/ogm/harvest/runs`).
 - `make ogm-status OGM_RUN_ID=<run_id>`: show detail for one run (`GET /api/v1/admin/ogm/harvest/runs/{run_id}`).
 - `make ogm-status-watch [OGM_RUN_ID=<run_id>] [OGM_STATUS_POLL_SECONDS=5]`: poll OGM status until you stop it (`Ctrl+C`).
@@ -53,12 +54,12 @@ Overrides:
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`
 - `make db-import`: import dump to remote via Kamal (destructive). Use `KAMAL_DEST=dev1` or `dev2` to target server.
 - `make db-sync`: `db-export` + `db-import`
-- **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores it into local ParadeDB. It streams from the compressed file (no decompression to disk), so you only need space for the `.gz`. The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
+- **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores the newest local matching dump into local ParadeDB, whether that file is compressed (`.sql.gz`) or already decompressed (`.sql`). It streams from the compressed file when using `.gz`, so you only need space for the `.gz`. After restore, it keeps the newly restored database plus the newest previously restored `geoportal_production_*` database, pruning older ones by default (`GBL_ADMIN_RETAIN_DBS=2`). The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
 - **GBL Admin add latest BTAA fields**: `make gbl-admin-db-add-latest-btaa-fields` adds latest BTAA compatibility columns to `resources`.
-- **GBL Admin import resources**: `make gbl-admin-db-import-resources` imports from `kithe_to_resources_bridge` into `btaa_geospatial_api` (`OLD_DB_NAME` auto-detected unless provided).
+- **GBL Admin import resources**: `make gbl-admin-db-import-resources` imports from `kithe_to_resources_bridge` into `btaa_geospatial_api` (`OLD_DB_NAME` auto-detected unless provided). To soft-retire local resources that are missing from the current old-prod snapshot, run `make gbl-admin-db-import-resources GBL_ADMIN_RETIRE_MISSING=true`.
 - **GBL Admin populate distributions**: `make populate-distributions` migrates legacy `document_distributions` into `resource_distributions` (`OLD_DB_NAME` auto-detected unless provided).
 - **GBL Admin populate data dictionaries**: `make populate-data-dictionaries` migrates legacy `document_data_dictionaries` and `document_data_dictionary_entries` into `resource_data_dictionaries` and `resource_data_dictionary_entries`.
-- **GBL Admin full import pipeline**: `make gbl-admin-db-import-all` runs latest-field migration, resource import, distribution migration, data-dictionary migration, relationship population, and reindex.
+- **GBL Admin full import pipeline**: `make gbl-admin-db-import-all` runs latest-field migration, resource import, soft-retires local resources missing from the current old-prod snapshot, migrates distributions and data dictionaries, repopulates relationships, and reindexes published resources.
 - `make populate-relationships`: populate `resource_relationships` from `resources` (run after ingest or when relationship columns change). See `docs/backend/relationships.md`.
 
 ## GBL Admin migration runbook (old prod -> reindex)
@@ -85,7 +86,7 @@ Equivalent explicit step-by-step (instead of the all-in-one target):
 
 ```bash
 make gbl-admin-db-add-latest-btaa-fields
-make gbl-admin-db-import-resources
+make gbl-admin-db-import-resources GBL_ADMIN_RETIRE_MISSING=true
 make populate-distributions
 make populate-data-dictionaries
 make populate-relationships

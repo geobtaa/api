@@ -58,7 +58,9 @@ GBL_ADMIN_REMOTE_DIR ?= /opt/data/pgdump
 GBL_ADMIN_DUMP_GLOB ?= pgdump-geoportal_production-*.sql.gz
 GBL_ADMIN_LOCAL_DIR ?= tmp
 GBL_ADMIN_SQL_GLOB ?= pgdump-geoportal_production-*.sql
+GBL_ADMIN_RETAIN_DBS ?= 2
 GBL_ADMIN_IMPORT_CONFLICT ?= update
+GBL_ADMIN_RETIRE_MISSING ?= false
 GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
@@ -415,7 +417,7 @@ gbl-admin-db-unzip: ## Decompress latest GBL Admin dump
 	gunzip -c "$$LOCAL_GZ" > "$$LOCAL_SQL" || { echo "ERROR: gunzip failed (check disk space)."; exit 1; }; \
 	echo "Decompressed SQL: $$LOCAL_SQL"
 
-# Restore production GBL Admin dump to local ParadeDB. Uses .sql if present, otherwise streams from .gz (no extra disk).
+# Restore production GBL Admin dump to local ParadeDB. Uses the newest local .sql or .sql.gz dump.
 gbl-admin-db-restore: ## Restore GBL Admin dump to local ParadeDB
 	@echo "Restoring production GBL Admin SQL into local ParadeDB..."
 	@if ! command -v docker >/dev/null 2>&1; then \
@@ -427,19 +429,30 @@ gbl-admin-db-restore: ## Restore GBL Admin dump to local ParadeDB
 		echo "Start it with: docker compose up -d paradedb"; \
 		exit 1; \
 	fi
-	@LOCAL_SQL=$$(ls -1t "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_SQL_GLOB) 2>/dev/null | head -n 1); \
-	LOCAL_GZ=$$(ls -1t "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_DUMP_GLOB) 2>/dev/null | head -n 1); \
-	if [ -n "$$LOCAL_SQL" ]; then \
-		SOURCE="$$LOCAL_SQL"; \
-		DUMP_DATE=$$(basename "$$LOCAL_SQL" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql$$/\1/'); \
-	elif [ -n "$$LOCAL_GZ" ]; then \
-		SOURCE="$$LOCAL_GZ"; \
-		DUMP_DATE=$$(basename "$$LOCAL_GZ" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql\.gz$$/\1/'); \
-	else \
+	@SOURCE=$$( \
+		for file in "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_SQL_GLOB) "$(GBL_ADMIN_LOCAL_DIR)"/$(GBL_ADMIN_DUMP_GLOB); do \
+			[ -f "$$file" ] || continue; \
+			MTIME=$$(stat -f %m "$$file" 2>/dev/null || stat -c %Y "$$file" 2>/dev/null); \
+			[ -n "$$MTIME" ] || continue; \
+			printf "%s\t%s\n" "$$MTIME" "$$file"; \
+		done | sort -nr | head -n 1 | cut -f2- \
+	); \
+	if [ -z "$$SOURCE" ]; then \
 		echo "ERROR: No dump found in $(GBL_ADMIN_LOCAL_DIR) (need $(GBL_ADMIN_SQL_GLOB) or $(GBL_ADMIN_DUMP_GLOB))."; \
 		echo "Run 'make gbl-admin-db-download' first."; \
 		exit 1; \
 	fi; \
+	case "$$SOURCE" in \
+		*.sql) \
+			RESTORE_MODE="sql"; \
+			DUMP_DATE=$$(basename "$$SOURCE" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql$$/\1/') ;; \
+		*.sql.gz) \
+			RESTORE_MODE="gz"; \
+			DUMP_DATE=$$(basename "$$SOURCE" | sed -E 's/^pgdump-geoportal_production-([0-9]{8})\.sql\.gz$$/\1/') ;; \
+		*) \
+			echo "ERROR: Unrecognized dump filename: $$SOURCE"; \
+			exit 1 ;; \
+	esac; \
 	if ! echo "$$DUMP_DATE" | grep -Eq '^[0-9]{8}$$'; then \
 		echo "ERROR: Could not parse dump date from $$SOURCE."; \
 		exit 1; \
@@ -450,12 +463,13 @@ gbl-admin-db-restore: ## Restore GBL Admin dump to local ParadeDB
 	docker compose exec -T paradedb psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$$DB_NAME' AND pid <> pg_backend_pid();" || true; \
 	docker compose exec -T paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$$DB_NAME\";"; \
 	docker compose exec -T paradedb psql -U postgres -d postgres -c "CREATE DATABASE \"$$DB_NAME\" OWNER postgres;"; \
-	if [ -n "$$LOCAL_SQL" ]; then \
-		echo "Restoring from decompressed SQL: $$LOCAL_SQL"; \
-		cat "$$LOCAL_SQL" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
+	echo "Selected newest local dump: $$SOURCE"; \
+	if [ "$$RESTORE_MODE" = "sql" ]; then \
+		echo "Restoring from decompressed SQL: $$SOURCE"; \
+		cat "$$SOURCE" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
 	else \
-		echo "Streaming from compressed dump: $$LOCAL_GZ (no extra disk used)"; \
-		gunzip -c "$$LOCAL_GZ" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
+		echo "Streaming from compressed dump: $$SOURCE (no extra disk used)"; \
+		gunzip -c "$$SOURCE" | docker compose exec -T paradedb psql -U postgres -d "$$DB_NAME"; \
 	fi; \
 	echo "Restore complete."; \
 	echo "Dump used: $$SOURCE"; \
@@ -475,7 +489,22 @@ gbl-admin-db-restore: ## Restore GBL Admin dump to local ParadeDB
 		-e DB_PORT="5432" \
 		-e DB_USER="postgres" \
 		-e DB_PASSWORD="$$DB_PASSWORD" \
-		api bash -lc 'cd /app/backend && python db/migrations/bridge_old_production.py --create-view'
+		api bash -lc 'cd /app/backend && python db/migrations/bridge_old_production.py --create-view'; \
+	if [ "$(GBL_ADMIN_RETAIN_DBS)" -lt 1 ]; then \
+		echo "ERROR: GBL_ADMIN_RETAIN_DBS must be at least 1."; \
+		exit 1; \
+	fi; \
+	PRUNE_DBS=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "WITH ranked AS ( SELECT datname, ROW_NUMBER() OVER ( ORDER BY CASE WHEN datname = '$$DB_NAME' THEN 0 ELSE 1 END, datname DESC ) AS rn FROM pg_database WHERE datname LIKE 'geoportal_production_%' ) SELECT datname FROM ranked WHERE rn > $(GBL_ADMIN_RETAIN_DBS);"); \
+	if [ -n "$$PRUNE_DBS" ]; then \
+		echo "Pruning older restored GBL Admin databases (retaining $(GBL_ADMIN_RETAIN_DBS))..."; \
+		for PRUNE_DB in $$PRUNE_DBS; do \
+			echo "Dropping old restored DB: $$PRUNE_DB"; \
+			docker compose exec -T paradedb psql -U postgres -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$$PRUNE_DB' AND pid <> pg_backend_pid();" || true; \
+			docker compose exec -T paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS \"$$PRUNE_DB\";"; \
+		done; \
+	else \
+		echo "No older restored GBL Admin databases to prune."; \
+	fi
 
 # End-to-end: download latest dump and restore (streams from .gz; no decompression to disk)
 gbl-admin-db-sync: gbl-admin-db-download gbl-admin-db-restore ## Download + restore GBL Admin dump
@@ -510,6 +539,12 @@ gbl-admin-db-import-resources: ## Import resources from GBL Admin bridge
 		echo "ERROR: Could not read POSTGRES_PASSWORD from paradedb container."; \
 		exit 1; \
 	fi; \
+	IMPORT_FLAGS="--conflict $(GBL_ADMIN_IMPORT_CONFLICT) --verify"; \
+	case "$(GBL_ADMIN_RETIRE_MISSING)" in \
+		1|true|TRUE|yes|YES) \
+			IMPORT_FLAGS="$$IMPORT_FLAGS --retire-missing"; \
+			echo "Missing resources will be marked retired after import." ;; \
+	esac; \
 	echo "OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME"; \
 	docker compose exec -T \
 		-e OLD_DB_NAME="$$RESOLVED_OLD_DB_NAME" \
@@ -518,7 +553,7 @@ gbl-admin-db-import-resources: ## Import resources from GBL Admin bridge
 		-e DB_PORT="5432" \
 		-e DB_USER="postgres" \
 		-e DB_PASSWORD="$$DB_PASSWORD" \
-		api bash -lc 'cd /app/backend && python db/migrations/import_from_old_production.py --conflict $(GBL_ADMIN_IMPORT_CONFLICT) --verify'
+		api bash -lc "cd /app/backend && python db/migrations/import_from_old_production.py $$IMPORT_FLAGS"
 
 # Populate resource_distributions from legacy document_distributions.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
@@ -589,7 +624,13 @@ populate-data-dictionaries: ## Populate data dictionaries from legacy tables
 		api bash -lc 'cd /app/backend && python db/migrations/migrate_resource_data_dictionaries.py'
 
 # Full GBL Admin import pipeline after restore.
-gbl-admin-db-import-all: gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions populate-data-dictionaries populate-relationships reindex ## Full GBL Admin import pipeline
+gbl-admin-db-import-all: ## Full GBL Admin import pipeline
+	@$(MAKE) gbl-admin-db-add-latest-btaa-fields
+	@$(MAKE) gbl-admin-db-import-resources GBL_ADMIN_RETIRE_MISSING=true
+	@$(MAKE) populate-distributions
+	@$(MAKE) populate-data-dictionaries
+	@$(MAKE) populate-relationships
+	@$(MAKE) reindex
 	@echo "GBL Admin full import pipeline complete!"
 
 # Search indexing tasks

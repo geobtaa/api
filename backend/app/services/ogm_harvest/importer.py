@@ -15,6 +15,10 @@ from app.services.distribution_sync import (
 )
 from app.services.ogm_harvest.aardvark_reader import extract_record_id
 from app.services.ogm_harvest.repository import OGMHarvestRepository
+from app.services.relationship_sync import (
+    sync_relationships_for_batch,
+    sync_relationships_for_resource_ids,
+)
 from db.database import database
 from db.models import resources
 
@@ -73,6 +77,16 @@ def _parse_iso_date(value: str) -> Optional[date]:
         return date.fromisoformat(s)
     except Exception:
         return None
+
+
+def _normalize_scalar_string(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    if isinstance(value, list):
+        values = [str(v).strip() for v in value if str(v).strip()]
+        return values[0] if values else None
+    normalized = str(value).strip()
+    return normalized or None
 
 
 class OGMResourceImporter:
@@ -179,6 +193,12 @@ class OGMResourceImporter:
         if "b1g_harvestWorkflow_s" in out and isinstance(out["b1g_harvestWorkflow_s"], list):
             workflow_list = [str(v).strip() for v in out["b1g_harvestWorkflow_s"] if str(v).strip()]
             out["b1g_harvestWorkflow_s"] = workflow_list[0] if workflow_list else None
+
+        publication_state = _normalize_scalar_string(out.get("publication_state"))
+        b1g_publication_state = _normalize_scalar_string(out.get("b1g_publication_state_s"))
+        effective_publication_state = publication_state or b1g_publication_state or "published"
+        out["publication_state"] = effective_publication_state
+        out["b1g_publication_state_s"] = effective_publication_state
 
         # Tag injection
         tags: List[str] = []
@@ -299,6 +319,15 @@ class OGMResourceImporter:
                             "Distribution sync failed for %s; continuing. err=%s",
                             rid,
                             str(dist_err),
+                        )
+
+                    try:
+                        await sync_relationships_for_resource_ids([str(rid)])
+                    except Exception as rel_err:
+                        logger.warning(
+                            "Relationship sync failed for %s; continuing. err=%s",
+                            rid,
+                            str(rel_err),
                         )
 
                     # Mark seen for missing tracking
@@ -432,6 +461,13 @@ class OGMResourceImporter:
                         logger.warning(
                             "Distribution sync failed for batch; continuing. err=%s",
                             str(dist_err),
+                        )
+                    try:
+                        await sync_relationships_for_batch(rows)
+                    except Exception as rel_err:
+                        logger.warning(
+                            "Relationship sync failed for batch; continuing. err=%s",
+                            str(rel_err),
                         )
                     await self.repo.upsert_resources_seen_batch(repo_name, seen)
                 return len(rows)

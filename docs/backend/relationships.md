@@ -9,11 +9,12 @@ The field `dct_isPartOf_sm` is defined in the index mapping (text + keyword subf
 ## Building relationships
 
 - **DB table**: `resource_relationships` (subject_id, predicate, object_id). Populated from the `resources` table columns (e.g. `dct_isPartOf_sm`, `pcdm_memberOf_sm`).
+- **OGM harvest behavior**: OpenGeoMetadata harvests now sync `resource_relationships` automatically for the harvested records and any unchanged resources that point at them.
 - **Make task** (from project root):
   ```bash
   make populate-relationships
   ```
-  Runs `scripts/populate_relationships.py` inside the API container. Run after ingest or when relationship columns change.
+  Runs `scripts/populate_relationships.py` inside the API container. Use this after bulk imports that do not already sync relationships incrementally, or when relationship-sync code changes and you want a full rebuild.
 - **Search filter**: "Browse all X records..." uses:
   - **Has part**: `include_filters[dct_isPartOf_sm][]=<parent_id>` — children must have the parent ID in `resources.dct_isPartOf_sm`.
   - **Collection records**: `include_filters[pcdm_memberOf_sm][]=<collection_id>` — member resources must have the collection ID in `resources.pcdm_memberOf_sm`.

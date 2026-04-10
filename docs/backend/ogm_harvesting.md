@@ -2,6 +2,12 @@
 
 This document describes how to ingest OpenGeoMetadata GitHub repos (e.g. `OpenGeoMetadata/edu.stanford.purl`) into the BTAA API, keep them refreshed, and expose them via `ogm_repo[]` filtering and faceting.
 
+During harvest, imported records now update three local DB surfaces automatically:
+
+- `resources`
+- `resource_distributions` (from `dct_references_s`)
+- `resource_relationships` (from fields like `dct_isPartOf_sm`, `pcdm_memberOf_sm`, etc.)
+
 ## What was added
 
 - **DB tables** (all columns prefixed `ogm_`):
@@ -112,6 +118,9 @@ curl -u admin:changeme -X POST \
   -d '{"ogm_repo_name":"edu.stanford.purl","ogm_trigger":"manual"}'
 ```
 
+This updates Postgres immediately, including distributions and relationship rows for the touched records.
+If you need local Elasticsearch/search results to reflect the new or changed records right away, run `make reindex` after the harvest completes.
+
 All enabled weekly repos:
 
 ```bash
@@ -153,4 +162,3 @@ Configure a GitHub webhook on the repo(s) you care about:
 - Events: `push` (and `ping` for validation)
 
 Only repos with `ogm_watch_mode` of `webhook` or `both` will enqueue harvest jobs on push.
-
