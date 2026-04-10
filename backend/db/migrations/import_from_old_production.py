@@ -246,10 +246,14 @@ def import_data(dry_run: bool = False, batch_size: int = 1000, conflict_action: 
 
             with old_engine.connect() as old_conn:
                 result = old_conn.execute(
-                    text(f"""
+                    text(
+                        """
                     SELECT * FROM kithe_to_resources_bridge
-                    LIMIT {batch_size} OFFSET {offset};
-                """)
+                    ORDER BY id
+                    LIMIT :limit OFFSET :offset;
+                """
+                    ),
+                    {"limit": batch_size, "offset": offset},
                 )
 
                 batch_records = []
