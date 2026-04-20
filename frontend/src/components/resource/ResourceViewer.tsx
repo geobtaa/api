@@ -385,24 +385,25 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
 
                             map.updateSize?.();
                             const size = map.getSize();
+                            const fitOptions: {
+                              size?: [number, number];
+                              padding: [number, number, number, number];
+                              maxZoom: number;
+                              duration: number;
+                            } = {
+                              padding: [16, 16, 16, 16],
+                              maxZoom: 19,
+                              duration: 0,
+                            };
                             if (
                               size &&
                               size.length === 2 &&
                               size[0] > 0 &&
                               size[1] > 0
                             ) {
-                              view.fit(extentInViewProj, {
-                                size,
-                                padding: [16, 16, 16, 16] as [
-                                  number,
-                                  number,
-                                  number,
-                                  number,
-                                ],
-                                maxZoom: 19,
-                                duration: 0,
-                              });
+                              fitOptions.size = [size[0], size[1]];
                             }
+                            view.fit(extentInViewProj, fitOptions);
                           }
                         }
                       }
