@@ -369,12 +369,18 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             const projectionCode =
                               view.getProjection?.()?.getCode?.() ||
                               'EPSG:3857';
+                            const isPmtilesProtocol =
+                              protocol.toLowerCase() === 'pmtiles';
                             const extentInViewProj: [
                               number,
                               number,
                               number,
                               number,
                             ] =
+                              // PMTiles in GeoBlacklight enables useGeographic(), so OL API
+                              // methods like view.fit() expect lon/lat inputs regardless of
+                              // internal map projection.
+                              isPmtilesProtocol ||
                               projectionCode === 'EPSG:4326'
                                 ? wgs84Extent
                                 : (transformExtent(
@@ -539,8 +545,6 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             }
 
                             // Check if PMTiles layer is present
-                            const isPmtilesProtocol =
-                              protocol.toLowerCase() === 'pmtiles';
                             const pmtilesLayer = layers.find((l) => {
                               const className = l?.getClassName?.() || '';
                               const source = l?.getSource?.();
