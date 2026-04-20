@@ -24,6 +24,7 @@ type BuilderRow = AdvancedClause & { id: string };
 const OPERATORS: AdvancedOperator[] = ['AND', 'OR', 'NOT'];
 
 const ADVANCED_SEARCH_FIELD_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'all_fields', label: 'All Fields' },
   { value: 'dct_title_s', label: 'Title' },
   { value: 'dct_accessRights_s', label: 'Access Rights' },
   { value: 'dct_creator_sm', label: 'Creator' },
