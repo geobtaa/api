@@ -378,45 +378,72 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             const currentCenter =
                               (view.getCenter?.() as [number, number] | null) ||
                               null;
-                            const extentInViewProj: [
-                              number,
-                              number,
-                              number,
-                              number,
-                            ] = resolveUseWgs84ExtentForFit({
-                              protocol,
-                              projectionCode,
-                              userProjectionCode,
-                              currentCenter,
-                            })
-                              ? wgs84Extent
-                              : (transformExtent(
-                                  wgs84Extent,
-                                  'EPSG:4326',
-                                  projectionCode
-                                ) as [number, number, number, number]);
+                            const useWgs84Primary = resolveUseWgs84ExtentForFit(
+                              {
+                                protocol,
+                                projectionCode,
+                                userProjectionCode,
+                                currentCenter,
+                              }
+                            );
 
-                            map.updateSize?.();
-                            const size = map.getSize();
-                            const fitOptions: {
-                              size?: [number, number];
-                              padding: [number, number, number, number];
-                              maxZoom: number;
-                              duration: number;
-                            } = {
-                              padding: [16, 16, 16, 16],
-                              maxZoom: 19,
-                              duration: 0,
+                            const toFitExtent = (
+                              useWgs84: boolean
+                            ): [number, number, number, number] =>
+                              useWgs84
+                                ? wgs84Extent
+                                : (transformExtent(
+                                    wgs84Extent,
+                                    'EPSG:4326',
+                                    projectionCode
+                                  ) as [number, number, number, number]);
+
+                            const applyFit = (useWgs84: boolean) => {
+                              const extentInViewProj = toFitExtent(useWgs84);
+                              if (
+                                !extentInViewProj.every((n) =>
+                                  Number.isFinite(n)
+                                )
+                              ) {
+                                return;
+                              }
+
+                              map.updateSize?.();
+                              const size = map.getSize();
+                              const fitOptions: {
+                                size?: [number, number];
+                                padding: [number, number, number, number];
+                                maxZoom: number;
+                                duration: number;
+                              } = {
+                                padding: [16, 16, 16, 16],
+                                maxZoom: 19,
+                                duration: 0,
+                              };
+                              if (
+                                size &&
+                                size.length === 2 &&
+                                size[0] > 0 &&
+                                size[1] > 0
+                              ) {
+                                fitOptions.size = [size[0], size[1]];
+                              }
+                              view.fit(extentInViewProj, fitOptions);
                             };
-                            if (
-                              size &&
-                              size.length === 2 &&
-                              size[0] > 0 &&
-                              size[1] > 0
-                            ) {
-                              fitOptions.size = [size[0], size[1]];
+
+                            applyFit(useWgs84Primary);
+                            const centerAfterPrimary =
+                              (view.getCenter?.() as
+                                | [number, number]
+                                | null
+                                | undefined) ?? null;
+                            const invalidCenterAfterPrimary =
+                              !centerAfterPrimary ||
+                              !Number.isFinite(centerAfterPrimary[0]) ||
+                              !Number.isFinite(centerAfterPrimary[1]);
+                            if (invalidCenterAfterPrimary) {
+                              applyFit(!useWgs84Primary);
                             }
-                            view.fit(extentInViewProj, fitOptions);
                           }
                         }
                       }

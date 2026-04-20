@@ -27,6 +27,17 @@ describe('openlayersViewFit', () => {
   });
 
   describe('isSuspiciousViewState', () => {
+    it('flags non-finite centers as suspicious', () => {
+      expect(
+        isSuspiciousViewState({
+          protocol: 'pmtiles',
+          projectionCode: 'EPSG:3857',
+          center: [Number.NaN, Number.NaN],
+          zoom: 11.14,
+        })
+      ).toBe(true);
+    });
+
     it('flags PMTiles lon/lat-looking center in a 3857 view as suspicious', () => {
       expect(
         isSuspiciousViewState({

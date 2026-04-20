@@ -54,6 +54,9 @@ export function isSuspiciousViewState(params: {
   zoom: number | null | undefined;
 }): boolean {
   const { protocol, projectionCode, userProjectionCode, center, zoom } = params;
+  if (center && (!Number.isFinite(center[0]) || !Number.isFinite(center[1]))) {
+    return true;
+  }
   const centerShouldLookWgs84 = resolveUseWgs84ExtentForFit({
     protocol,
     projectionCode,
