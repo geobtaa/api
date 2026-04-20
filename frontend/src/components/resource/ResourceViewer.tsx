@@ -343,22 +343,38 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                       if (map) {
                         const view = map.getView?.();
                         if (view) {
-                          const extent = preCalculatedExtent || controller.extent;
+                          const extent =
+                            preCalculatedExtent || controller.extent;
                           const useExtent =
                             preCalculatedExtent ||
                             (extent && looksLikeWgs84Extent(extent)
                               ? extent
                               : null);
-                          if (useExtent && useExtent.length === 4 && useExtent.every((n: number) => isFinite(n))) {
-                            const wgs84Extent: [number, number, number, number] = [
+                          if (
+                            useExtent &&
+                            useExtent.length === 4 &&
+                            useExtent.every((n: number) => isFinite(n))
+                          ) {
+                            const wgs84Extent: [
+                              number,
+                              number,
+                              number,
+                              number,
+                            ] = [
                               useExtent[0],
                               useExtent[1],
                               useExtent[2],
                               useExtent[3],
                             ];
                             const projectionCode =
-                              view.getProjection?.()?.getCode?.() || 'EPSG:3857';
-                            const extentInViewProj: [number, number, number, number] =
+                              view.getProjection?.()?.getCode?.() ||
+                              'EPSG:3857';
+                            const extentInViewProj: [
+                              number,
+                              number,
+                              number,
+                              number,
+                            ] =
                               projectionCode === 'EPSG:4326'
                                 ? wgs84Extent
                                 : (transformExtent(
@@ -406,7 +422,10 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                         fitToGeometryExtent('delayed-init');
                       }, 50);
                     }
-                    setTimeout(() => fitToGeometryExtent('post-init-timeout'), 250);
+                    setTimeout(
+                      () => fitToGeometryExtent('post-init-timeout'),
+                      250
+                    );
                     // One final guarded refit: only if still at obvious world-view zoom.
                     setTimeout(() => {
                       const map = controller.map;
@@ -471,18 +490,102 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             // PMTiles layer/source registration happens after initial connect.
                             fitToGeometryExtent('post-map-state-check');
 
+                            // Keep this refit guard independent of PMTiles layer discovery.
+                            // Production builds can minify class names, so layer-name checks
+                            // are not reliable enough to gate geometry-based fit behavior.
+                            if (view && typeof view.getZoom === 'function') {
+                              const currentZoom = view.getZoom();
+                              const currentCenter = view.getCenter?.();
+
+                              const isWrongLocation =
+                                currentCenter &&
+                                (Math.abs(currentCenter[0]) < 1000000 ||
+                                  Math.abs(currentCenter[1]) < 1000000 ||
+                                  currentZoom > 15);
+
+                              if (
+                                isWrongLocation ||
+                                (currentZoom && currentZoom > 15)
+                              ) {
+                                console.log(
+                                  `Map still incorrect. Center: ${currentCenter}, Zoom: ${currentZoom}. Refitting...`
+                                );
+                                try {
+                                  const extent =
+                                    preCalculatedExtent || controller.extent;
+                                  if (extent && extent.length === 4) {
+                                    const [minX, minY, maxX, maxY] = extent;
+                                    const wgs84Extent = [
+                                      minX,
+                                      minY,
+                                      maxX,
+                                      maxY,
+                                    ];
+                                    const webMercatorExtent = transformExtent(
+                                      wgs84Extent,
+                                      'EPSG:4326',
+                                      'EPSG:3857'
+                                    );
+
+                                    const size = map.getSize();
+                                    if (size && size.length === 2) {
+                                      view.fit(webMercatorExtent, {
+                                        size: size,
+                                        padding: [50, 50, 50, 50],
+                                        maxZoom: 14,
+                                        duration: 0, // Instant
+                                      });
+                                      console.log(
+                                        'Map view refitted (backup fix)'
+                                      );
+                                    }
+                                  }
+                                } catch (e) {
+                                  console.warn(
+                                    'Could not adjust zoom/center:',
+                                    e
+                                  );
+                                }
+                              } else {
+                                console.log(
+                                  `Zoom level ${currentZoom} and center ${currentCenter} are correct`
+                                );
+                              }
+                            }
+
                             // Check if PMTiles layer is present
+                            const isPmtilesProtocol =
+                              protocol.toLowerCase() === 'pmtiles';
                             const pmtilesLayer = layers.find((l) => {
                               const className = l?.getClassName?.() || '';
                               const source = l?.getSource?.();
                               const sourceClass =
                                 source?.constructor?.name || '';
+                              const sourceUrlCandidates = [
+                                source?.getUrl?.(),
+                                (source as any)?.url,
+                                (source as any)?.url_,
+                                (source as any)?.tileUrl,
+                                (source as any)?.options?.url,
+                              ].filter(
+                                (candidate): candidate is string =>
+                                  typeof candidate === 'string' &&
+                                  candidate.length > 0
+                              );
+                              const matchesByUrl = sourceUrlCandidates.some(
+                                (candidate) =>
+                                  candidate.toLowerCase().includes('.pmtiles')
+                              );
                               return (
                                 className.includes('PMTiles') ||
-                                sourceClass.includes('PMTiles')
+                                sourceClass.includes('PMTiles') ||
+                                matchesByUrl
                               );
                             });
-                            console.log('PMTiles layer found:', !!pmtilesLayer);
+                            console.log(
+                              'PMTiles layer found:',
+                              isPmtilesProtocol ? !!pmtilesLayer : 'n/a'
+                            );
                             if (pmtilesLayer) {
                               const source = pmtilesLayer.getSource?.();
                               // PMTiles source might store URL differently - check various properties
@@ -621,70 +724,6 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                               console.log(
                                 '💡 SUGGESTION: Try using the zoom controls (-) to zoom out and see if PMTiles appear at lower zoom levels'
                               );
-
-                              // Double-check view is correct (backup fix if immediate fix didn't work)
-                              if (view && typeof view.getZoom === 'function') {
-                                const currentZoom = view.getZoom();
-                                const currentCenter = view.getCenter?.();
-
-                                // Check if we're in the wrong location (off the coast of Africa would be around 0,0 or negative coords)
-                                // Web Mercator coordinates for Philadelphia should be around [-8.4M, 4.8M]
-                                const isWrongLocation =
-                                  currentCenter &&
-                                  (Math.abs(currentCenter[0]) < 1000000 ||
-                                    Math.abs(currentCenter[1]) < 1000000 ||
-                                    currentZoom > 15);
-
-                                if (
-                                  isWrongLocation ||
-                                  (currentZoom && currentZoom > 15)
-                                ) {
-                                  console.log(
-                                    `Map still incorrect. Center: ${currentCenter}, Zoom: ${currentZoom}. Refitting...`
-                                  );
-                                  try {
-                                    // Use pre-calculated extent or controller's extent
-                                    const extent =
-                                      preCalculatedExtent || controller.extent;
-                                    if (extent && extent.length === 4) {
-                                      const [minX, minY, maxX, maxY] = extent;
-                                      const wgs84Extent = [
-                                        minX,
-                                        minY,
-                                        maxX,
-                                        maxY,
-                                      ];
-                                      const webMercatorExtent = transformExtent(
-                                        wgs84Extent,
-                                        'EPSG:4326',
-                                        'EPSG:3857'
-                                      );
-
-                                      const size = map.getSize();
-                                      if (size && size.length === 2) {
-                                        view.fit(webMercatorExtent, {
-                                          size: size,
-                                          padding: [50, 50, 50, 50],
-                                          maxZoom: 14,
-                                          duration: 0, // Instant
-                                        });
-                                        console.log(
-                                          'Map view refitted (backup fix)'
-                                        );
-                                      }
-                                    }
-                                  } catch (e) {
-                                    console.warn(
-                                      'Could not adjust zoom/center:',
-                                      e
-                                    );
-                                  }
-                                } else {
-                                  console.log(
-                                    `Zoom level ${currentZoom} and center ${currentCenter} are correct`
-                                  );
-                                }
-                              }
 
                               // Check if view has proper extent
                               if (view) {
