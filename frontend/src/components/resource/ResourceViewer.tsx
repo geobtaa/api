@@ -5,7 +5,11 @@ import {
   getWgs84ExtentFromViewerGeometry,
   looksLikeWgs84Extent,
 } from '../../utils/geometryUtils';
-import { transformExtent } from 'ol/proj';
+import {
+  isSuspiciousViewState,
+  resolveUseWgs84ExtentForFit,
+} from '../../utils/openlayersViewFit';
+import { getUserProjection, transformExtent } from 'ol/proj';
 
 interface ResourceViewerProps {
   data: {
@@ -369,25 +373,28 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             const projectionCode =
                               view.getProjection?.()?.getCode?.() ||
                               'EPSG:3857';
-                            const isPmtilesProtocol =
-                              protocol.toLowerCase() === 'pmtiles';
+                            const userProjectionCode =
+                              getUserProjection?.()?.getCode?.() || null;
+                            const currentCenter =
+                              (view.getCenter?.() as [number, number] | null) ||
+                              null;
                             const extentInViewProj: [
                               number,
                               number,
                               number,
                               number,
-                            ] =
-                              // PMTiles in GeoBlacklight enables useGeographic(), so OL API
-                              // methods like view.fit() expect lon/lat inputs regardless of
-                              // internal map projection.
-                              isPmtilesProtocol ||
-                              projectionCode === 'EPSG:4326'
-                                ? wgs84Extent
-                                : (transformExtent(
-                                    wgs84Extent,
-                                    'EPSG:4326',
-                                    projectionCode
-                                  ) as [number, number, number, number]);
+                            ] = resolveUseWgs84ExtentForFit({
+                              protocol,
+                              projectionCode,
+                              userProjectionCode,
+                              currentCenter,
+                            })
+                              ? wgs84Extent
+                              : (transformExtent(
+                                  wgs84Extent,
+                                  'EPSG:4326',
+                                  projectionCode
+                                ) as [number, number, number, number]);
 
                             map.updateSize?.();
                             const size = map.getSize();
@@ -454,6 +461,8 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             const view = map.getView?.();
                             const layers =
                               map.getLayers?.()?.getArray?.() || [];
+                            const isPmtilesProtocol =
+                              protocol.toLowerCase() === 'pmtiles';
                             console.log('Map state:', {
                               layersCount: layers.length,
                               layerTypes: layers.map(
@@ -506,22 +515,19 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                               const projectionCode =
                                 view.getProjection?.()?.getCode?.() ||
                                 'EPSG:3857';
-
-                              const suspiciousByCenter =
-                                projectionCode === 'EPSG:3857'
-                                  ? !!currentCenter &&
-                                    (Math.abs(currentCenter[0]) < 1000000 ||
-                                      Math.abs(currentCenter[1]) < 1000000)
-                                  : projectionCode === 'EPSG:4326'
-                                    ? !!currentCenter &&
-                                      (Math.abs(currentCenter[0]) > 180 ||
-                                        Math.abs(currentCenter[1]) > 90)
-                                    : false;
-                              const suspiciousByZoom =
-                                (currentZoom ?? 0) <= 3.5 ||
-                                (currentZoom ?? 0) > 15;
-
-                              if (suspiciousByCenter || suspiciousByZoom) {
+                              const userProjectionCode =
+                                getUserProjection?.()?.getCode?.() || null;
+                              if (
+                                isSuspiciousViewState({
+                                  protocol,
+                                  projectionCode,
+                                  userProjectionCode,
+                                  center: currentCenter as
+                                    | [number, number]
+                                    | null,
+                                  zoom: currentZoom,
+                                })
+                              ) {
                                 console.log(
                                   `Map still incorrect. Center: ${currentCenter}, Zoom: ${currentZoom}. Refitting...`
                                 );
