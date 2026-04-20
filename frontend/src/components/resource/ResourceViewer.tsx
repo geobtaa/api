@@ -410,6 +410,22 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
 
                               map.updateSize?.();
                               const size = map.getSize();
+                              const rect = el.getBoundingClientRect();
+                              const fitSize =
+                                size &&
+                                size.length === 2 &&
+                                size[0] > 0 &&
+                                size[1] > 0
+                                  ? ([size[0], size[1]] as [number, number])
+                                  : rect.width > 0 && rect.height > 0
+                                    ? ([
+                                        Math.round(rect.width),
+                                        Math.round(rect.height),
+                                      ] as [number, number])
+                                    : undefined;
+                              if (!fitSize) {
+                                return;
+                              }
                               const fitOptions: {
                                 size?: [number, number];
                                 padding: [number, number, number, number];
@@ -420,14 +436,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                                 maxZoom: 19,
                                 duration: 0,
                               };
-                              if (
-                                size &&
-                                size.length === 2 &&
-                                size[0] > 0 &&
-                                size[1] > 0
-                              ) {
-                                fitOptions.size = [size[0], size[1]];
-                              }
+                              fitOptions.size = fitSize;
                               view.fit(extentInViewProj, fitOptions);
                             };
 
@@ -578,32 +587,36 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             }
 
                             // Check if PMTiles layer is present
-                            const pmtilesLayer = layers.find((l) => {
-                              const className = l?.getClassName?.() || '';
-                              const source = l?.getSource?.();
-                              const sourceClass =
-                                source?.constructor?.name || '';
-                              const sourceUrlCandidates = [
-                                source?.getUrl?.(),
-                                (source as any)?.url,
-                                (source as any)?.url_,
-                                (source as any)?.tileUrl,
-                                (source as any)?.options?.url,
-                              ].filter(
-                                (candidate): candidate is string =>
-                                  typeof candidate === 'string' &&
-                                  candidate.length > 0
-                              );
-                              const matchesByUrl = sourceUrlCandidates.some(
-                                (candidate) =>
-                                  candidate.toLowerCase().includes('.pmtiles')
-                              );
-                              return (
-                                className.includes('PMTiles') ||
-                                sourceClass.includes('PMTiles') ||
-                                matchesByUrl
-                              );
-                            });
+                            const pmtilesLayer =
+                              layers.find((l) => {
+                                const className = l?.getClassName?.() || '';
+                                const source = l?.getSource?.();
+                                const sourceClass =
+                                  source?.constructor?.name || '';
+                                const sourceUrlCandidates = [
+                                  source?.getUrl?.(),
+                                  (source as any)?.url,
+                                  (source as any)?.url_,
+                                  (source as any)?.tileUrl,
+                                  (source as any)?.options?.url,
+                                ].filter(
+                                  (candidate): candidate is string =>
+                                    typeof candidate === 'string' &&
+                                    candidate.length > 0
+                                );
+                                const matchesByUrl = sourceUrlCandidates.some(
+                                  (candidate) =>
+                                    candidate.toLowerCase().includes('.pmtiles')
+                                );
+                                return (
+                                  className.includes('PMTiles') ||
+                                  sourceClass.includes('PMTiles') ||
+                                  matchesByUrl
+                                );
+                              }) ||
+                              (isPmtilesProtocol
+                                ? controller.overlay || layers[1]
+                                : undefined);
                             console.log(
                               'PMTiles layer found:',
                               isPmtilesProtocol ? !!pmtilesLayer : 'n/a'
