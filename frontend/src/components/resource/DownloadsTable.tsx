@@ -1,11 +1,16 @@
 import React from 'react';
 import { Download, Image } from 'lucide-react';
+import { useState } from 'react';
+import { getApiBasePath } from '../../services/api';
 
 interface DownloadItem {
   label: string;
   url: string;
   type?: string;
   format?: string;
+  generated?: boolean;
+  generation_path?: string;
+  download_type?: string;
 }
 
 interface DownloadsTableProps {
@@ -13,6 +18,9 @@ interface DownloadsTableProps {
 }
 
 export function DownloadsTable({ downloads }: DownloadsTableProps) {
+  const [preparing, setPreparing] = useState<Record<string, boolean>>({});
+  const [failed, setFailed] = useState<Record<string, boolean>>({});
+
   if (!downloads || downloads.length === 0) return null;
 
   // Separate IIIF image downloads from other downloads
@@ -22,6 +30,73 @@ export function DownloadsTable({ downloads }: DownloadsTableProps) {
   const otherDownloads = downloads.filter(
     (d) => !(d.type === 'image/jpeg' && d.label.includes('Image'))
   );
+
+  const resolveDownloadLabel = (download: DownloadItem): string => {
+    if (!download.generated) return download.label;
+
+    const key = download.generation_path || download.url;
+    if (preparing[key]) return `Preparing download (${download.label})...`;
+    if (failed[key]) return `Download failed (${download.label}) - retry`;
+    return download.label;
+  };
+
+  const handleGeneratedDownload = async (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    download: DownloadItem
+  ) => {
+    if (!download.generated) return;
+    event.preventDefault();
+
+    const key = download.generation_path || download.url;
+    const apiBasePath = getApiBasePath().replace(/\/$/, '');
+    const toApiUrl = (rawPath: string): string => {
+      if (rawPath.startsWith('http')) return rawPath;
+
+      const normalizedPath = rawPath.startsWith('/') ? rawPath : `/${rawPath}`;
+      // Avoid /api/v1/api/v1/... when payload paths are already API-rooted.
+      const pathWithoutApiPrefix = normalizedPath.startsWith('/api/v1/')
+        ? normalizedPath.slice('/api/v1'.length)
+        : normalizedPath;
+
+      return `${apiBasePath}${pathWithoutApiPrefix}`;
+    };
+
+    const prepareUrl = toApiUrl(key);
+    if (preparing[key]) return;
+
+    setPreparing((prev) => ({ ...prev, [key]: true }));
+    setFailed((prev) => ({ ...prev, [key]: false }));
+
+    try {
+      const response = await fetch(prepareUrl, {
+        headers: { Accept: 'application/json' },
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(
+          `Failed to prepare generated download (${response.status}): ${errText.slice(0, 200)}`
+        );
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      if (!contentType.toLowerCase().includes('application/json')) {
+        const body = await response.text();
+        throw new Error(
+          `Prepare endpoint returned non-JSON response: ${body.slice(0, 200)}`
+        );
+      }
+
+      const payload = (await response.json()) as { download_url?: string };
+      const rawDownloadUrl = payload.download_url || `${key}/file`;
+      const downloadUrl = toApiUrl(rawDownloadUrl);
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Failed to prepare generated download:', error);
+      setFailed((prev) => ({ ...prev, [key]: true }));
+    } finally {
+      setPreparing((prev) => ({ ...prev, [key]: false }));
+    }
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden">
@@ -62,12 +137,13 @@ export function DownloadsTable({ downloads }: DownloadsTableProps) {
               className="flex items-center justify-between group"
               target="_blank"
               rel="noopener noreferrer"
+              onClick={(event) => handleGeneratedDownload(event, download)}
             >
               <div className="flex items-center gap-3">
                 <Download className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
                 <div>
                   <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                    {download.label}
+                    {resolveDownloadLabel(download)}
                   </div>
                 </div>
               </div>

@@ -774,3 +774,101 @@ class TestResourceEndpointsEnhanced:
         assert data["id"] == "test-resource-id"
         assert "relationships" in data
         assert isinstance(data["relationships"], dict)
+
+
+class TestGeneratedDownloadEndpoints:
+    @patch("app.api.v1.endpoint_modules.resources.downloads.fetch_distribution_context")
+    @patch(
+        "app.api.v1.endpoint_modules.resources.downloads.DownloadService.ensure_generated_download",
+        new_callable=AsyncMock,
+    )
+    @patch("app.api.v1.endpoint_modules.resources.downloads.async_session")
+    def test_prepare_generated_download_returns_download_url(
+        self,
+        mock_async_session,
+        mock_ensure_generated_download,
+        mock_fetch_distribution_context,
+    ):
+        """Prepare endpoint returns JSON payload with generated file URL."""
+        mock_session_instance = AsyncMock()
+        mock_async_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_row = MagicMock()
+        mock_row._mapping = {
+            "id": "stanford-bs024ty5255",
+            "dct_title_s": "Stanford record",
+        }
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute.return_value = mock_result
+
+        mock_fetch_distribution_context.return_value = SimpleNamespace(by_uri={})
+        mock_ensure_generated_download.return_value = {
+            "download_type": "geojson",
+            "file_name": "stanford-bs024ty5255-geojson.geojson",
+            "file_path": "/tmp/cache/downloads/stanford-bs024ty5255-geojson.geojson",
+            "content_type": "application/json",
+            "download_url": (
+                "/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson/file"
+            ),
+        }
+
+        response = client.get("/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert (
+            payload["download_url"]
+            == "/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson/file"
+        )
+        assert payload["download_type"] == "geojson"
+
+    @patch("app.api.v1.endpoint_modules.resources.downloads.fetch_distribution_context")
+    @patch(
+        "app.api.v1.endpoint_modules.resources.downloads.DownloadService.ensure_generated_download",
+        new_callable=AsyncMock,
+    )
+    @patch("app.api.v1.endpoint_modules.resources.downloads.async_session")
+    def test_fetch_generated_download_file_serves_attachment(
+        self,
+        mock_async_session,
+        mock_ensure_generated_download,
+        mock_fetch_distribution_context,
+        tmp_path,
+    ):
+        """File endpoint serves generated artifact as downloadable attachment."""
+        mock_session_instance = AsyncMock()
+        mock_async_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_row = MagicMock()
+        mock_row._mapping = {
+            "id": "stanford-bs024ty5255",
+            "dct_title_s": "Stanford record",
+        }
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute.return_value = mock_result
+
+        artifact = tmp_path / "stanford-bs024ty5255-geotiff.tif"
+        artifact.write_bytes(b"fake-geotiff-bytes")
+
+        mock_fetch_distribution_context.return_value = SimpleNamespace(by_uri={})
+        mock_ensure_generated_download.return_value = {
+            "download_type": "geotiff",
+            "file_name": artifact.name,
+            "file_path": str(artifact),
+            "content_type": "image/geotiff",
+            "download_url": (
+                "/api/v1/resources/stanford-bs024ty5255/downloads/generated/geotiff/file"
+            ),
+        }
+
+        response = client.get(
+            "/api/v1/resources/stanford-bs024ty5255/downloads/generated/geotiff/file"
+        )
+
+        assert response.status_code == 200
+        assert response.content == b"fake-geotiff-bytes"
+        assert response.headers["content-type"] == "image/geotiff"
+        assert "attachment" in response.headers.get("content-disposition", "")
+        assert artifact.name in response.headers.get("content-disposition", "")

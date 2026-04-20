@@ -300,6 +300,179 @@ class TestDownloadService:
         result = service._build_download_url(option)
         assert result is None
 
+    def test_get_generated_download_options(self):
+        """Generated links are added when WFS/WMS and layer metadata are present."""
+        service = DownloadService(
+            {
+                "id": "stanford-bs024ty5255",
+                "gbl_wxsIdentifier_s": "druid:bs024ty5255",
+                "dcat_bbox": "ENVELOPE(-123.0,-122.0,38.0,37.0)",
+                "dct_references_s": json.dumps(
+                    {
+                        "http://www.opengis.net/def/serviceType/ogc/wfs": (
+                            "https://example.com/geoserver/wfs"
+                        ),
+                        "http://www.opengis.net/def/serviceType/ogc/wms": (
+                            "https://example.com/geoserver/wms"
+                        ),
+                    }
+                ),
+            }
+        )
+
+        options = service.get_generated_download_options()
+        labels = {item["label"] for item in options}
+
+        assert "EPSG:4326 Shapefile" in labels
+        assert "KMZ" in labels
+        assert "GeoJSON" in labels
+        assert "CSV" in labels
+        assert "GeoTIFF" in labels
+        assert all(item.get("generated") is True for item in options)
+
+    @pytest.mark.asyncio
+    async def test_ensure_generated_download_creates_file(self, monkeypatch, tmp_path):
+        """Generated downloads are fetched, validated, and written to cache path."""
+
+        class FakeResponse:
+            status_code = 200
+            headers = {"Content-Type": "application/zip"}
+            content = b"zip-bytes"
+
+            def raise_for_status(self):
+                return None
+
+        def fake_get(url, params=None, timeout=30):
+            assert url == "https://example.com/geoserver/wfs"
+            assert params is not None
+            assert params["typeName"] == "druid:bs024ty5255"
+            return FakeResponse()
+
+        monkeypatch.setattr(download_module.requests, "get", fake_get)
+        monkeypatch.setenv("DOWNLOAD_PATH", str(tmp_path))
+
+        service = DownloadService(
+            {
+                "id": "stanford-bs024ty5255",
+                "gbl_wxsIdentifier_s": "druid:bs024ty5255",
+                "dct_references_s": json.dumps(
+                    {
+                        "http://www.opengis.net/def/serviceType/ogc/wfs": (
+                            "https://example.com/geoserver/wfs"
+                        )
+                    }
+                ),
+            }
+        )
+
+        payload = await service.ensure_generated_download("shapefile")
+        file_path = tmp_path / payload["file_name"]
+
+        assert payload["download_type"] == "shapefile"
+        assert payload["content_type"] == "application/zip"
+        assert file_path.exists()
+        assert file_path.read_bytes() == b"zip-bytes"
+
+    @pytest.mark.asyncio
+    async def test_ensure_generated_geotiff_uses_reflect_endpoint(self, monkeypatch, tmp_path):
+        """GeoTIFF generation should call the WMS reflect endpoint."""
+
+        class FakeResponse:
+            status_code = 200
+            headers = {"Content-Type": "image/tiff"}
+            content = b"tiff-bytes"
+
+            def raise_for_status(self):
+                return None
+
+        def fake_get(url, params=None, timeout=30):
+            assert url == "https://example.com/geoserver/wms/reflect"
+            assert params is not None
+            assert params["layers"] == "druid:bs024ty5255"
+            assert params["format"] == "image/geotiff"
+            return FakeResponse()
+
+        monkeypatch.setattr(download_module.requests, "get", fake_get)
+        monkeypatch.setenv("DOWNLOAD_PATH", str(tmp_path))
+
+        service = DownloadService(
+            {
+                "id": "stanford-bs024ty5255",
+                "gbl_wxsIdentifier_s": "druid:bs024ty5255",
+                "dct_references_s": json.dumps(
+                    {
+                        "http://www.opengis.net/def/serviceType/ogc/wms": (
+                            "https://example.com/geoserver/wms"
+                        )
+                    }
+                ),
+            }
+        )
+
+        payload = await service.ensure_generated_download("geotiff")
+        file_path = tmp_path / payload["file_name"]
+        assert payload["content_type"] == "image/geotiff"
+        assert file_path.exists()
+        assert file_path.read_bytes() == b"tiff-bytes"
+
+    @pytest.mark.asyncio
+    async def test_stanford_fallback_uses_geoblacklight_download(self, monkeypatch, tmp_path):
+        """When WFS fails, Stanford records can fall back to EarthWorks download flow."""
+
+        class FakeResponse:
+            def __init__(self, status_code=200, headers=None, content=b"", text=""):
+                self.status_code = status_code
+                self.headers = headers or {}
+                self.content = content
+                self.text = text
+
+            def raise_for_status(self):
+                if self.status_code >= 400:
+                    error = download_module.requests.HTTPError("bad response")
+                    error.response = self
+                    raise error
+                return None
+
+        def fake_get(url, params=None, timeout=30, headers=None):
+            if "geowebservices.stanford.edu/geoserver/wfs" in url:
+                return FakeResponse(status_code=400, headers={"Content-Type": "application/xml"})
+            if "earthworks.stanford.edu/download/stanford-bs024ty5255" in url:
+                return FakeResponse(
+                    status_code=200,
+                    headers={"Content-Type": "application/json"},
+                    text='[[["success","ready"]],"/download/file/stanford-bs024ty5255-shapefile.zip"]',
+                )
+            if "earthworks.stanford.edu/download/file/stanford-bs024ty5255-shapefile.zip" in url:
+                return FakeResponse(
+                    status_code=200,
+                    headers={"Content-Type": "application/zip"},
+                    content=b"zip-from-earthworks",
+                )
+            raise AssertionError(f"Unexpected URL called: {url}")
+
+        monkeypatch.setattr(download_module.requests, "get", fake_get)
+        monkeypatch.setenv("DOWNLOAD_PATH", str(tmp_path))
+
+        service = DownloadService(
+            {
+                "id": "stanford-bs024ty5255",
+                "schema_provider_s": "Stanford",
+                "gbl_wxsIdentifier_s": "druid:bs024ty5255",
+                "dct_references_s": json.dumps(
+                    {
+                        "http://www.opengis.net/def/serviceType/ogc/wfs": (
+                            "https://geowebservices.stanford.edu/geoserver/wfs"
+                        )
+                    }
+                ),
+            }
+        )
+
+        payload = await service.ensure_generated_download("shapefile")
+        file_path = tmp_path / payload["file_name"]
+        assert file_path.exists()
+        assert file_path.read_bytes() == b"zip-from-earthworks"
+
 
 class TestBridgeAssetDownloads:
     @pytest.mark.asyncio
