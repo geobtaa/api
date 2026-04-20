@@ -108,6 +108,9 @@ Run from the **project root**. Key targets:
 | `make verify-h3-index` | Verify H3 pyramid fields in Elasticsearch. |
 | `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). Use `KAMAL_DEST=dev1` or `dev2`. |
 | `make clear_cache`     | Flush Redis cache (needs `REDIS_PASSWORD` in `.env`). |
+| `make resource-aux-init` | Ensure `resource_downloads`, `resource_licensed_accesses`, and `resource_assets` tables exist. |
+| `make bridge-sync`     | Trigger bridge sync; supports `RESOURCE_ID=...` / `BRIDGE_RESOURCE_ID=...` for one-record syncs. |
+| `make populate-distributions` | Rebuild legacy references, distributions, downloads, and assets; supports `RESOURCE_ID=...` / `GBL_ADMIN_RESOURCE_ID=...`. |
 | `make frontend-reset`  | Clear Vite cache and restart frontend-dev. |
 | `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz`. |
 | `make db-import`       | Import that dump to remote (Kamal); destructive. Use `KAMAL_DEST=dev1` or `dev2` to target server. |
@@ -183,6 +186,7 @@ Full flow (migrations, reindex, webhook, dumps): `docs/backend/ogm_harvesting.md
 - **Run frontend lint/format/test from `frontend/`** (or via npm there).
 - **Prefer the Makefile** for backend lint, format, test, reindex, cache, and DB export/import so behavior and env are consistent.
 - **Don't duplicate long docs here** — link to `docs/` (e.g. `docs/backend/ogm_harvesting.md`, `docs/frontend/testing.md`, `docs/make_tasks.md`) for procedures and rationale.
+- **When adding or changing Makefile targets, operational workflows, or other developer-facing features**, update the relevant `docs/*` files in the same change. At minimum, keep `docs/make_tasks.md` aligned with new task names, flags, and common examples.
 - **Public documentation site**: The `mkdocs/` directory contains the public-facing MkDocs Material site (API spec, linked data, tutorials). Use `make docs-serve` to preview locally. Internal dev docs remain in `docs/`.
 - **Secrets and env**: `.env` is not committed; use `.env.example` as a template. Kamal uses `.kamal/secrets-common` + `.kamal/secrets.<dest>` (e.g. `secrets.dev1`, `secrets.dev2`); all are gitignored.
 - **When changing frontend deps or Vite config**: run `make frontend-reset` and have the user hard-refresh (or use an incognito window) to avoid 504s on old chunk URLs.

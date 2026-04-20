@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -62,6 +62,8 @@ GBL_ADMIN_RETAIN_DBS ?= 2
 GBL_ADMIN_IMPORT_CONFLICT ?= update
 GBL_ADMIN_RETIRE_MISSING ?= false
 GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE ?= 2000
+RESOURCE_ID ?=
+GBL_ADMIN_RESOURCE_ID ?= $(RESOURCE_ID)
 KAMAL_APP_ROLE ?= web
 KAMAL_PYTHON ?= /opt/venv/bin/python
 # Local atomic reindex tuning.
@@ -101,6 +103,10 @@ BRIDGE_RUNS_LIMIT ?= 1
 BRIDGE_STATUS_POLL_SECONDS ?= 5
 BRIDGE_TRIGGER ?= manual
 BRIDGE_LIMIT ?=
+BRIDGE_CHANGED_SINCE ?=
+BRIDGE_RESOURCE_ID ?= $(RESOURCE_ID)
+BRIDGE_STATUS_RAW ?=
+BRIDGE_STATUS_SHOW_LAST ?= 0
 BLOG_API_URL ?= http://localhost:8000
 PRIME_LIMIT ?=
 PRIME_BATCH_SIZE ?= 100
@@ -555,10 +561,15 @@ gbl-admin-db-import-resources: ## Import resources from GBL Admin bridge
 		-e DB_PASSWORD="$$DB_PASSWORD" \
 		api bash -lc "cd /app/backend && python db/migrations/import_from_old_production.py $$IMPORT_FLAGS"
 
-# Populate resource_distributions from legacy document_distributions.
+# Ensure resource_downloads/resource_assets/resource_licensed_accesses exist.
+resource-aux-init: ## Ensure resource auxiliary tables exist
+	@echo "Ensuring resource auxiliary tables exist..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_resource_aux_tables.py'
+
+# Populate dct_references_s/resource_distributions/resource_downloads/resource_assets from legacy GBL Admin data.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
-populate-distributions: ## Populate distributions from legacy document_distributions
-	@echo "Populating resource_distributions from legacy document_distributions..."
+populate-distributions: resource-aux-init ## Rebuild legacy references, distributions, downloads, and assets
+	@echo "Rebuilding references, distributions, downloads, and assets from legacy GBL Admin data..."
 	@RESOLVED_OLD_DB_NAME="$$OLD_DB_NAME"; \
 	if [ -n "$$RESOLVED_OLD_DB_NAME" ]; then \
 		FOUND_DB=$$(docker compose exec -T paradedb psql -U postgres -d postgres -Atc "SELECT 1 FROM pg_database WHERE datname = '$$RESOLVED_OLD_DB_NAME';"); \
@@ -579,6 +590,10 @@ populate-distributions: ## Populate distributions from legacy document_distribut
 		echo "ERROR: Could not read POSTGRES_PASSWORD from paradedb container."; \
 		exit 1; \
 	fi; \
+	SYNC_FLAGS="--batch-size $(GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE)"; \
+	if [ -n "$(GBL_ADMIN_RESOURCE_ID)" ]; then \
+		SYNC_FLAGS="$$SYNC_FLAGS --resource-id $(GBL_ADMIN_RESOURCE_ID)"; \
+	fi; \
 	echo "OLD_DB_NAME=$$RESOLVED_OLD_DB_NAME"; \
 	docker compose exec -T \
 		-e OLD_DB_NAME="$$RESOLVED_OLD_DB_NAME" \
@@ -587,7 +602,7 @@ populate-distributions: ## Populate distributions from legacy document_distribut
 		-e DB_PORT="5432" \
 		-e DB_USER="postgres" \
 		-e DB_PASSWORD="$$DB_PASSWORD" \
-		api bash -lc 'cd /app/backend && python db/migrations/migrate_document_distributions.py --batch-size $(GBL_ADMIN_DISTRIBUTIONS_BATCH_SIZE)'
+		api bash -lc "cd /app/backend && python db/migrations/sync_old_production_references.py $$SYNC_FLAGS"
 
 # Populate resource_data_dictionaries and resource_data_dictionary_entries from legacy tables.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
@@ -781,10 +796,12 @@ blog-sync: ## Trigger home page blog sync (RUN_NOW=1 for inline)
 # Usage:
 #   make bridge-sync
 #   make bridge-sync BRIDGE_LIMIT=50
+#   make bridge-sync RESOURCE_ID=b1g_PJxxfKgpqpUT
 #   make bridge-sync BRIDGE_TRIGGER=manual BRIDGE_LIMIT=25
+#   make bridge-sync RESOURCE_ID=b1g_PJxxfKgpqpUT BRIDGE_CHANGED_SINCE=2026-04-01T00:00:00Z
 # Note: Each new sync cancels any running run and starts from page 1. Use
 #   make bridge-status  to check; only run bridge-sync again after the run has completed or failed.
-bridge-init: ## Ensure bridge sync tables exist
+bridge-init: resource-aux-init ## Ensure bridge sync tables exist
 	@echo "Ensuring bridge sync tables exist..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_bridge_sync_tables.py'
 
@@ -793,8 +810,11 @@ bridge-sync: bridge-init ## Trigger background bridge sync
 	@docker compose exec -T api bash -lc '\
 		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
 		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
-		BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\"}"; \
-		if [ -n "$(BRIDGE_LIMIT)" ]; then BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\",\"limit\":$(BRIDGE_LIMIT)}"; fi; \
+		BODY="{\"bridge_trigger\":\"$(BRIDGE_TRIGGER)\""; \
+		if [ -n "$(BRIDGE_LIMIT)" ]; then BODY="$$BODY,\"limit\":$(BRIDGE_LIMIT)"; fi; \
+		if [ -n "$(BRIDGE_CHANGED_SINCE)" ]; then BODY="$$BODY,\"changed_since\":\"$(BRIDGE_CHANGED_SINCE)\""; fi; \
+		if [ -n "$(BRIDGE_RESOURCE_ID)" ]; then BODY="$$BODY,\"resource_id\":\"$(BRIDGE_RESOURCE_ID)\""; fi; \
+		BODY="$$BODY}"; \
 		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
 			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync" \
 			-H "Content-Type: application/json" \
@@ -823,12 +843,16 @@ bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUNS_LIMIT=N recen
 	@docker compose exec -T api bash -lc '\
 		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
 		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		FORMATTER="cat"; \
+		if [ "$(BRIDGE_STATUS_RAW)" != "1" ]; then FORMATTER="python /app/backend/scripts/bridge_status_summary.py"; fi; \
 		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
 			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
-				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)"; \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)" \
+			| eval "$$FORMATTER"; \
 		else \
 			curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
-				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs?limit=$(BRIDGE_RUNS_LIMIT)"; \
+				"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs?limit=$(BRIDGE_RUNS_LIMIT)" \
+			| eval "$$FORMATTER"; \
 		fi'
 	@echo
 
@@ -836,38 +860,26 @@ bridge-status: bridge-init ## Show bridge sync status (BRIDGE_RUNS_LIMIT=N recen
 # Usage:
 #   make bridge-status-watch
 #   make bridge-status-watch BRIDGE_RUN_ID=<run_id> BRIDGE_STATUS_POLL_SECONDS=3
-bridge-status-watch: bridge-init ## Poll bridge sync status continuously (current + last only)
+#   make bridge-status-watch BRIDGE_STATUS_SHOW_LAST=1
+bridge-status-watch: bridge-init ## Poll bridge sync status continuously (current only by default)
 	@echo "Watching bridge sync status (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
 	@while true; do \
 		if [ -n "$(BRIDGE_RUN_ID)" ]; then \
-			$(MAKE) --no-print-directory bridge-status BRIDGE_RUN_ID="$(BRIDGE_RUN_ID)"; \
-		else \
 			docker compose exec -T api bash -lc '\
 				ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
 				ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
 				curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
+					"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs/$(BRIDGE_RUN_ID)" \
+					| python /app/backend/scripts/bridge_status_summary.py'; \
+		else \
+			docker compose exec -T api bash -lc '\
+				ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+				ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+				SUMMARY_ARGS="--current-only"; \
+				if [ "$(BRIDGE_STATUS_SHOW_LAST)" = "1" ]; then SUMMARY_ARGS="--current-last"; fi; \
+				curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" \
 					"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync/runs?limit=10" \
-				| python -c '"'"'import json,sys; data=json.load(sys.stdin); runs=data.get("runs",[]) or []; \
-current=None; last=None; \
-def norm(s): return (s or "").lower(); \
-for r in runs: \
-    if norm(r.get("bridge_status"))=="running": current=r; break; \
-if current is None and runs: current=runs[0]; \
-for r in runs: \
-    if current is not None and r==current: continue; \
-    if last is None: last=r; break; \
-def summarize(r): \
-    if not r: return "(none)"; \
-    return "bridge_id={bridge_id} status={bridge_status} trigger={bridge_trigger} started_at={bridge_started_at} completed_at={bridge_completed_at} error={bridge_error}".format( \
-        bridge_id=r.get("bridge_id"), \
-        bridge_status=r.get("bridge_status"), \
-        bridge_trigger=r.get("bridge_trigger"), \
-        bridge_started_at=r.get("bridge_started_at"), \
-        bridge_completed_at=r.get("bridge_completed_at"), \
-        bridge_error=(r.get("bridge_error") or "").strip().replace("\\n"," ").replace("\\r"," ") \
-    ); \
-print("current: " + summarize(current)); \
-print("last:    " + summarize(last));'"'"''; \
+						| python /app/backend/scripts/bridge_status_summary.py $$SUMMARY_ARGS'; \
 		fi; \
 		sleep $(BRIDGE_STATUS_POLL_SECONDS); \
 	done

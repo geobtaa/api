@@ -34,12 +34,14 @@ def bridge_sync_all(
     trigger: str = "manual",
     limit: Optional[int] = None,
     changed_since: Optional[str] = None,
+    resource_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     return _run(
         _bridge_sync_all_async(
             trigger=trigger,
             limit=limit,
             changed_since=changed_since,
+            resource_id=resource_id,
         )
     )
 
@@ -48,17 +50,20 @@ async def _bridge_sync_all_async(
     trigger: str,
     limit: Optional[int],
     changed_since: Optional[str],
+    resource_id: Optional[str],
 ) -> Dict[str, Any]:
     if not database.is_connected:
         await database.connect()
     logger.info(
-        "Bridge sync starting: trigger=%s limit=%s changed_since=%s",
+        "Bridge sync starting: trigger=%s limit=%s changed_since=%s resource_id=%s",
         trigger,
         limit,
         changed_since,
+        resource_id,
     )
     return await sync_bridge(
         trigger=trigger,
         limit=limit,
         changed_since=changed_since,
+        resource_id=resource_id,
     )

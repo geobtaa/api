@@ -44,6 +44,7 @@ async def sync_bridge(
     trigger: str = "manual",
     limit: Optional[int] = None,
     changed_since: Optional[str] = None,
+    resource_id: Optional[str] = None,
     client: Optional[KitheBridgeClient] = None,
     importer: Optional[BridgeResourceImporter] = None,
     repo: Optional[BridgeSyncRepository] = None,
@@ -56,6 +57,7 @@ async def sync_bridge(
     repo = repo or BridgeSyncRepository()
     client = client or KitheBridgeClient()
     importer = importer or BridgeResourceImporter(repo=repo)
+    resource_id_norm = (resource_id or "").strip() or None
 
     changed_since_norm: Optional[str] = None
     if changed_since:
@@ -84,26 +86,47 @@ async def sync_bridge(
     last_cursor: Optional[str] = None
     pages_processed = 0
     stats: Dict[str, Any] = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+    if resource_id_norm:
+        stats["scope"] = "single"
+        stats["estimated_total"] = 1
+        stats["estimated_total_source"] = "requested_resource"
+    elif changed_since_norm:
+        stats["scope"] = "delta"
+    else:
+        stats["scope"] = "full"
     if changed_since_norm:
         stats["changed_since"] = changed_since_norm
+    if resource_id_norm:
+        stats["resource_id"] = resource_id_norm
 
     try:
-        while True:
-            page = await asyncio.to_thread(
-                client.fetch_page,
-                cursor=cursor,
-                limit=limit,
-                changed_since=changed_since_norm,
-            )
-            pages_processed += 1
+        if not changed_since_norm and not resource_id_norm:
+            estimated_total, estimated_total_source = await repo.estimate_full_sync_total()
+            if estimated_total and estimated_total > 0:
+                stats["estimated_total"] = estimated_total
+                stats["estimated_total_source"] = estimated_total_source
 
+        await repo.update_sync_run(
+            bridge_id=run_id,
+            bridge_stats_json={
+                "stage": "starting",
+                "updated_at": datetime.utcnow().isoformat() + "Z",
+                **stats,
+            },
+        )
+
+        found_resource = False
+        if resource_id_norm:
+            record = await asyncio.to_thread(client.fetch_record, resource_id_norm)
+            pages_processed = 1
+            found_resource = bool(record)
+            page_records = [record] if record else []
             page_stats = await importer.upsert_records(
-                page.data,
+                page_records,
                 run_started_at=run_started_at,
-                batch_size=max(1, min(int(limit or getattr(client, "page_size", 500)), 500)),
+                batch_size=1,
             )
             _merge_stats(stats, page_stats)
-            last_cursor = page.next_cursor
 
             await repo.update_sync_run(
                 bridge_id=run_id,
@@ -111,24 +134,60 @@ async def sync_bridge(
                     "stage": "import",
                     "updated_at": datetime.utcnow().isoformat() + "Z",
                     "pages_processed": pages_processed,
-                    "last_page_size": len(page.data),
-                    "has_more": page.has_more,
+                    "last_page_size": len(page_records),
+                    "matched_page_size": len(page_records),
+                    "has_more": False,
                     **stats,
                 },
                 bridge_last_cursor=last_cursor,
             )
+        else:
+            while True:
+                page = await asyncio.to_thread(
+                    client.fetch_page,
+                    cursor=cursor,
+                    limit=limit,
+                    changed_since=changed_since_norm,
+                )
+                pages_processed += 1
 
-            if not page.has_more:
-                break
-            if not page.next_cursor:
-                raise RuntimeError("Bridge crawl did not receive next_cursor for the next page")
-            cursor = page.next_cursor
+                page_records = page.data
+                page_stats = await importer.upsert_records(
+                    page_records,
+                    run_started_at=run_started_at,
+                    batch_size=max(1, min(int(limit or getattr(client, "page_size", 500)), 500)),
+                )
+                _merge_stats(stats, page_stats)
+                last_cursor = page.next_cursor
+
+                await repo.update_sync_run(
+                    bridge_id=run_id,
+                    bridge_stats_json={
+                        "stage": "import",
+                        "updated_at": datetime.utcnow().isoformat() + "Z",
+                        "pages_processed": pages_processed,
+                        "last_page_size": len(page.data),
+                        "matched_page_size": len(page_records),
+                        "has_more": page.has_more,
+                        **stats,
+                    },
+                    bridge_last_cursor=last_cursor,
+                )
+
+                if not page.has_more:
+                    break
+                if not page.next_cursor:
+                    raise RuntimeError("Bridge crawl did not receive next_cursor for the next page")
+                cursor = page.next_cursor
 
         missing_ids = []
         retired_count = 0
         # Delta crawl (`changed_since`) does not have a complete snapshot, so we
         # must not retire "missing" resources that simply weren't returned.
-        if not changed_since_norm:
+        if resource_id_norm:
+            if not found_resource:
+                raise RuntimeError(f"Bridge resource {resource_id_norm} was not found")
+        elif not changed_since_norm:
             missing_ids = await repo.mark_missing_stale(run_started_at=run_started_at)
             retired_count = await repo.retire_missing_resources(
                 missing_ids, retired_at=datetime.utcnow()
@@ -142,6 +201,8 @@ async def sync_bridge(
                 "updated_at": datetime.utcnow().isoformat() + "Z",
             }
         )
+        if resource_id_norm:
+            stats["found"] = found_resource
 
         await repo.finalize_sync_run(
             bridge_id=run_id,

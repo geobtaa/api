@@ -11,11 +11,16 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from app.services.bridge_sync.nested_sync import sync_nested_for_batch
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.services.distribution_sync import (
+    get_distribution_type_id_to_uri,
     sync_distributions_for_batch,
     sync_document_distributions_for_batch,
 )
 from app.services.ogm_harvest.aardvark_reader import extract_record_id
 from app.services.ogm_harvest.importer import _parse_iso_date, _parse_iso_datetime
+from app.services.reference_reconstruction import (
+    build_effective_reference_payload,
+    serialize_reference_payload,
+)
 from db.database import database
 from db.models import resources
 
@@ -181,6 +186,7 @@ class BridgeResourceImporter:
 
         db_columns = await self._resource_columns_in_db()
         upsert_columns = [c for c in resources.c if c.name in db_columns]
+        reference_type_id_to_uri = await get_distribution_type_id_to_uri()
 
         param_limit = 32767
         headroom = 256
@@ -274,6 +280,15 @@ class BridgeResourceImporter:
                 if not rid:
                     stats["skipped"] += 1
                     continue
+
+                effective_references = build_effective_reference_payload(
+                    normalized.get("dct_references_s"),
+                    document_distributions=record.get("document_distributions") or [],
+                    document_downloads=record.get("document_downloads") or [],
+                    assets=record.get("assets") or [],
+                    reference_type_id_to_uri=reference_type_id_to_uri,
+                )
+                normalized["dct_references_s"] = serialize_reference_payload(effective_references)
 
                 row = {c.name: normalized.get(c.name) for c in upsert_columns}
                 batch_rows.append(row)
