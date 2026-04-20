@@ -496,50 +496,34 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                             if (view && typeof view.getZoom === 'function') {
                               const currentZoom = view.getZoom();
                               const currentCenter = view.getCenter?.();
+                              const projectionCode =
+                                view.getProjection?.()?.getCode?.() ||
+                                'EPSG:3857';
 
-                              const isWrongLocation =
-                                currentCenter &&
-                                (Math.abs(currentCenter[0]) < 1000000 ||
-                                  Math.abs(currentCenter[1]) < 1000000 ||
-                                  currentZoom > 15);
+                              const suspiciousByCenter =
+                                projectionCode === 'EPSG:3857'
+                                  ? !!currentCenter &&
+                                    (Math.abs(currentCenter[0]) < 1000000 ||
+                                      Math.abs(currentCenter[1]) < 1000000)
+                                  : projectionCode === 'EPSG:4326'
+                                    ? !!currentCenter &&
+                                      (Math.abs(currentCenter[0]) > 180 ||
+                                        Math.abs(currentCenter[1]) > 90)
+                                    : false;
+                              const suspiciousByZoom =
+                                (currentZoom ?? 0) <= 3.5 ||
+                                (currentZoom ?? 0) > 15;
 
-                              if (
-                                isWrongLocation ||
-                                (currentZoom && currentZoom > 15)
-                              ) {
+                              if (suspiciousByCenter || suspiciousByZoom) {
                                 console.log(
                                   `Map still incorrect. Center: ${currentCenter}, Zoom: ${currentZoom}. Refitting...`
                                 );
                                 try {
-                                  const extent =
-                                    preCalculatedExtent || controller.extent;
-                                  if (extent && extent.length === 4) {
-                                    const [minX, minY, maxX, maxY] = extent;
-                                    const wgs84Extent = [
-                                      minX,
-                                      minY,
-                                      maxX,
-                                      maxY,
-                                    ];
-                                    const webMercatorExtent = transformExtent(
-                                      wgs84Extent,
-                                      'EPSG:4326',
-                                      'EPSG:3857'
-                                    );
-
-                                    const size = map.getSize();
-                                    if (size && size.length === 2) {
-                                      view.fit(webMercatorExtent, {
-                                        size: size,
-                                        padding: [50, 50, 50, 50],
-                                        maxZoom: 14,
-                                        duration: 0, // Instant
-                                      });
-                                      console.log(
-                                        'Map view refitted (backup fix)'
-                                      );
-                                    }
-                                  }
+                                  // Reuse projection-aware fit helper to avoid EPSG:4326/3857 mismatches.
+                                  fitToGeometryExtent(
+                                    'post-map-state-backup-check'
+                                  );
+                                  console.log('Map view refitted (backup fix)');
                                 } catch (e) {
                                   console.warn(
                                     'Could not adjust zoom/center:',
