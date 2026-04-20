@@ -52,6 +52,34 @@ describe('AdvancedSearchBuilder', () => {
     expect(operatorSelects).toHaveLength(2);
   });
 
+  it('renders the curated advanced search field list', () => {
+    renderBuilder();
+
+    const fieldSelect = screen.getByLabelText('Field') as HTMLSelectElement;
+    const options = Array.from(fieldSelect.options).map((option) => ({
+      value: option.value,
+      label: option.text,
+    }));
+
+    expect(options).toEqual([
+      { value: 'dct_title_s', label: 'Title' },
+      { value: 'dct_accessRights_s', label: 'Access Rights' },
+      { value: 'dct_creator_sm', label: 'Creator' },
+      { value: 'dct_description_sm', label: 'Description' },
+      {
+        value: 'b1g_localCollectionLabel_sm',
+        label: 'Local Collection',
+      },
+      { value: 'dct_spatial_sm', label: 'Place' },
+      { value: 'schema_provider_s', label: 'Provider' },
+      { value: 'dct_publisher_sm', label: 'Publisher' },
+      { value: 'gbl_resourceClass_sm', label: 'Resource Class' },
+      { value: 'gbl_resourceType_sm', label: 'Resource Type' },
+      { value: 'dct_subject_sm', label: 'Subject' },
+      { value: 'dcat_theme_sm', label: 'Theme' },
+    ]);
+  });
+
   it('calls onApply with sanitized clauses', async () => {
     const user = userEvent.setup();
     const { onApply } = renderBuilder({

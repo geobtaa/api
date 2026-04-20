@@ -34,6 +34,7 @@ class TestGetFacetAggregationConfig:
             "dct_publisher_sm",
             "schema_provider_s",
             "b1g_code_s",
+            "b1g_localCollectionLabel_sm",
             "dct_accessRights_s",
             "gbl_georeferenced_b",
             "geo_country",
@@ -60,6 +61,9 @@ class TestGetFacetAggregationConfig:
 
         config = get_facet_aggregation_config("schema_provider_s")
         assert config["field"] == "schema_provider_s.keyword"
+
+        config = get_facet_aggregation_config("b1g_localCollectionLabel_sm")
+        assert config["field"] == "b1g_localCollectionLabel_sm.keyword"
 
     def test_non_keyword_fields(self):
         """Test that non-keyword fields are correctly configured."""

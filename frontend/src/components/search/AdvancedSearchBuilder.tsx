@@ -23,16 +23,22 @@ type BuilderRow = AdvancedClause & { id: string };
 
 const OPERATORS: AdvancedOperator[] = ['AND', 'OR', 'NOT'];
 
-const COMMON_FIELD_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: 'all_fields', label: 'All Text' },
+const ADVANCED_SEARCH_FIELD_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'dct_title_s', label: 'Title' },
+  { value: 'dct_accessRights_s', label: 'Access Rights' },
+  { value: 'dct_creator_sm', label: 'Creator' },
   { value: 'dct_description_sm', label: 'Description' },
-  { value: 'dct_spatial_sm', label: 'Place / Country' },
+  { value: 'b1g_localCollectionLabel_sm', label: 'Local Collection' },
+  { value: 'dct_spatial_sm', label: 'Place' },
+  { value: 'schema_provider_s', label: 'Provider' },
+  { value: 'dct_publisher_sm', label: 'Publisher' },
   { value: 'gbl_resourceClass_sm', label: 'Resource Class' },
   { value: 'gbl_resourceType_sm', label: 'Resource Type' },
   { value: 'dct_subject_sm', label: 'Subject' },
-  { value: 'schema_provider_s', label: 'Provider' },
+  { value: 'dcat_theme_sm', label: 'Theme' },
 ];
+
+const DEFAULT_FIELD = ADVANCED_SEARCH_FIELD_OPTIONS[0]?.value || 'dct_title_s';
 
 const generateRowId = () => {
   const globalCrypto =
@@ -49,7 +55,7 @@ function createRow(partial?: Partial<AdvancedClause>): BuilderRow {
   return {
     id: generateRowId(),
     op: partial?.op || 'AND',
-    field: partial?.field || 'all_fields',
+    field: partial?.field || DEFAULT_FIELD,
     q: partial?.q || '',
   };
 }
@@ -434,38 +440,22 @@ export function AdvancedSearchBuilder({
   };
 
   const fieldOptions = useMemo(() => {
-    const seen = new Set(COMMON_FIELD_OPTIONS.map((option) => option.value));
-
-    // Fields to exclude from the dropdown
-    const excludedFields = new Set([
-      'layer_modified_dt', // Last Modified
-      'gbl_mdversion_s', // Metadata Version
-      'layer_slug_s', // Layer ID
-      'layer_id_s', // Layer Identifier
-      'gbl_wxsidentifier_s', // WXS Identifier
-      'dct_references_s', // References
-      'dcat_bbox', // Bounding Box
-      'dcat_bbox_original', // Bounding Box
-      'dcat_centroid', // Centroid
-      'dcat_centroid_original', // Centroid
-      'locn_geometry', // Geometry
-      'locn_geometry_original', // Geometry
-      'solr_geom', // Geometry
-      'dc_publisher_sm', // Duplicate Publisher (prefer dct_publisher_sm)
-      'dc_type_sm', // Duplicate Type (prefer dct_type_sm)
-      'dc_subject_sm', // Duplicate Subject (prefer dct_subject_sm)
-    ]);
-
-    const remaining = Object.entries(FIELD_LABELS)
-      .filter(([field]) => !seen.has(field) && !excludedFields.has(field))
-      .map(([field, config]) => ({
+    const seen = new Set(
+      ADVANCED_SEARCH_FIELD_OPTIONS.map((option) => option.value)
+    );
+    const legacySelections = Array.from(new Set(rows.map((row) => row.field)))
+      .filter((field) => !seen.has(field))
+      .map((field) => ({
         value: field,
-        label: config.label || field,
-      }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+        label:
+          field === 'all_fields'
+            ? 'All Text'
+            : FIELD_LABELS[field]?.label || field,
+      }));
 
-    return [...COMMON_FIELD_OPTIONS, ...remaining];
-  }, []);
+    // Preserve any existing field selections from older URLs so they still render/edit cleanly.
+    return [...ADVANCED_SEARCH_FIELD_OPTIONS, ...legacySelections];
+  }, [rows]);
 
   const updateRow = (id: string, key: keyof AdvancedClause, value: string) => {
     setRows((prev) =>
