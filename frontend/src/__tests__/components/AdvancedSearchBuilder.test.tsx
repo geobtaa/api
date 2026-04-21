@@ -62,6 +62,7 @@ describe('AdvancedSearchBuilder', () => {
     }));
 
     expect(options).toEqual([
+      { value: 'all_fields', label: 'All Fields' },
       { value: 'dct_title_s', label: 'Title' },
       { value: 'dct_accessRights_s', label: 'Access Rights' },
       { value: 'dct_creator_sm', label: 'Creator' },
