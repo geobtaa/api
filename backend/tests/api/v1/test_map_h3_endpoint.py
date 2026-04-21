@@ -52,3 +52,21 @@ def test_map_h3_empty_hexes(mock_agg):
     assert data["resolution"] == 4
     assert data["hexes"] == []
     assert data["globalCount"] == 0
+
+
+@patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)
+def test_map_h3_forwards_adv_q(mock_agg):
+    mock_agg.return_value = {"resolution": 5, "hexes": [], "globalCount": 118}
+    adv_q = (
+        '[{"op":"AND","f":"dct_title_s","q":"water"},'
+        '{"op":"AND","f":"dct_spatial_sm","q":"Pennsylvania"}]'
+    )
+
+    resp = client.get("/api/v1/map/h3", params={"q": "", "adv_q": adv_q, "resolution": 5})
+
+    assert resp.status_code == 200
+    call_kw = mock_agg.call_args[1]
+    assert call_kw["adv_q"] == [
+        {"op": "AND", "f": "dct_title_s", "q": "water"},
+        {"op": "AND", "f": "dct_spatial_sm", "q": "Pennsylvania"},
+    ]

@@ -1,9 +1,11 @@
+import json
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.v1.advanced_search_utils import validate_adv_q
 from app.elasticsearch.search import map_h3_aggregation
 from app.services.cache_service import cached_endpoint
 from app.services.search_service import SearchService
@@ -21,6 +23,13 @@ MAP_H3_CACHE_TTL = 7200  # 2 hours
 async def map_h3(
     request: Request,
     q: Optional[str] = Query(None, description="Search query"),
+    adv_q: Optional[str] = Query(
+        None,
+        description=(
+            "JSON array of advanced query clauses. "
+            "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
+        ),
+    ),
     bbox: Optional[str] = Query(
         None,
         description="Viewport bbox as west,south,east,north",
@@ -32,6 +41,18 @@ async def map_h3(
     Uses the request query string for include_filters / exclude_filters (same as
     search) so filters stay in sync. bbox and resolution are map-specific.
     """
+    parsed_adv_q = None
+    if adv_q:
+        try:
+            parsed_adv_q = validate_adv_q(json.loads(adv_q))
+        except json.JSONDecodeError:
+            return JSONResponse(
+                content={"error": "Invalid JSON in adv_q parameter"},
+                status_code=400,
+            )
+        except HTTPException as exc:
+            return JSONResponse(content={"error": exc.detail}, status_code=exc.status_code)
+
     try:
         raw = (
             request.scope.get("query_string", b"").decode("utf-8")
@@ -48,6 +69,7 @@ async def map_h3(
             fq=fq or None,
             include_filters=include_filters or None,
             exclude_filters=exclude_filters or None,
+            adv_q=parsed_adv_q,
             bbox=bbox,
             resolution=resolution,
         )

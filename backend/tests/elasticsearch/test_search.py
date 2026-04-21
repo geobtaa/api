@@ -12,6 +12,7 @@ from app.elasticsearch.search import (
     _compute_bbox_spatial_metrics,
     _escape_query_string_brackets,
     get_search_criteria,
+    map_h3_aggregation,
     search_resources,
 )
 
@@ -231,6 +232,38 @@ class TestElasticsearchSearch:
                     "Minnesota",
                     "Wisconsin",
                 ]
+
+    @pytest.mark.asyncio
+    async def test_map_h3_aggregation_applies_adv_q_to_hexes_and_global_count(self):
+        """Advanced clauses should constrain both map hexes and the map global count."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "aggregations": {
+                "h3_terms": {"buckets": []},
+                "global_bucket_agg": {"doc_count": 0},
+            }
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.es", mock_es):
+            await map_h3_aggregation(
+                q="",
+                adv_q=[{"op": "OR", "f": "dct_title_s", "q": "water"}],
+                bbox="-80,40,-74,43",
+                resolution=5,
+            )
+
+        assert mock_es.search.await_count == 2
+
+        first_query = mock_es.search.await_args_list[0].kwargs["query"]["bool"]
+        second_query = mock_es.search.await_args_list[1].kwargs["query"]["bool"]
+
+        for bool_query in (first_query, second_query):
+            assert bool_query["should"] == [
+                {"match": {"dct_title_s": {"query": "water", "operator": "and"}}}
+            ]
+            assert bool_query["minimum_should_match"] == 1
 
     @pytest.mark.asyncio
     async def test_search_resources_relationship_filters_use_keyword_subfield(self):

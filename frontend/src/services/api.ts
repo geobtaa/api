@@ -895,6 +895,8 @@ export interface MapH3Response {
   globalCount: number;
 }
 
+const MAP_H3_REQUEST_VERSION = '2';
+
 function normalizeMapH3Response(raw: MapH3ResponseRaw): MapH3Response {
   return {
     resolution: raw.resolution,
@@ -924,6 +926,9 @@ export async function fetchMapH3(
     url.searchParams.set('bbox', bbox);
   }
   url.searchParams.set('resolution', String(resolution));
+  // Bump the request URL when client-side hex semantics change so stale browser cache
+  // entries from previous builds do not override the latest search constraints.
+  url.searchParams.set('_v', MAP_H3_REQUEST_VERSION);
   if (queryString) {
     const params = new URLSearchParams(queryString);
     for (const [k, v] of params) {

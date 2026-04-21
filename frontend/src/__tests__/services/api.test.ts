@@ -3,6 +3,7 @@ import {
   fetchBookmarkedResources,
   fetchFacetValues,
   fetchHomeBlogPosts,
+  fetchMapH3,
   fetchSearchResults,
 } from '../../services/api';
 import type { FacetValuesResponse } from '../../types/api';
@@ -327,6 +328,44 @@ describe('fetchFacetValues', () => {
       const url = new URL(callUrl);
       expect(url.searchParams.get('sort')).toBe(sort);
     }
+  });
+});
+
+describe('fetchMapH3', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        hostname: 'example.com',
+      },
+      writable: true,
+    });
+  });
+
+  it('adds a cache-busting version while preserving advanced search params', async () => {
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        resolution: 2,
+        hexes: [['822aa7fffffffff', 99]],
+        globalCount: 3,
+      }),
+    });
+    global.fetch = mockFetch;
+
+    const advQuery = JSON.stringify([
+      { op: 'AND', f: 'dct_title_s', q: 'water' },
+      { op: 'AND', f: 'dct_spatial_sm', q: 'Pennsylvania' },
+    ]);
+
+    await fetchMapH3('', undefined, 2, `adv_q=${encodeURIComponent(advQuery)}`);
+
+    const callUrl = mockFetch.mock.calls[0][0];
+    const url = new URL(callUrl);
+    expect(url.pathname).toBe('/map/h3');
+    expect(url.searchParams.get('_v')).toBe('2');
+    expect(url.searchParams.get('adv_q')).toBe(advQuery);
   });
 });
 

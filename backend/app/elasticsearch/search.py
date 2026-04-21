@@ -1608,6 +1608,7 @@ async def map_h3_aggregation(
     fq: Optional[dict] = None,
     include_filters: Optional[dict] = None,
     exclude_filters: Optional[dict] = None,
+    adv_q: Optional[list] = None,
     bbox: Optional[str] = None,
     resolution: int = 5,
 ) -> dict:
@@ -1699,10 +1700,13 @@ async def map_h3_aggregation(
             }
         )
 
-    must = [{"match_all": {}}]
+    must_clauses = []
+    should_clauses = []
+    combined_must_not = list(must_not_clauses)
+
     if q and str(q).strip():
         escaped_q = _escape_query_string_brackets(str(q).strip())
-        must = [
+        must_clauses.append(
             {
                 "query_string": {
                     "query": escaped_q,
@@ -1724,13 +1728,35 @@ async def map_h3_aggregation(
                     "allow_leading_wildcard": True,
                 }
             }
-        ]
+        )
 
-    bool_query = {"must": must}
-    if filter_clauses:
-        bool_query["filter"] = filter_clauses
-    if must_not_clauses:
-        bool_query["must_not"] = must_not_clauses
+    if adv_q:
+        advanced_query_structure = _build_advanced_query(adv_q)
+        must_clauses.extend(advanced_query_structure["must"])
+        should_clauses.extend(advanced_query_structure["should"])
+        combined_must_not.extend(advanced_query_structure["must_not"])
+
+    def build_bool_query(active_filters: list[dict]) -> dict:
+        bool_query: dict = {}
+
+        if must_clauses:
+            bool_query["must"] = must_clauses
+        elif not should_clauses:
+            bool_query["must"] = [{"match_all": {}}]
+
+        if should_clauses:
+            bool_query["should"] = should_clauses
+            bool_query["minimum_should_match"] = 1
+
+        if active_filters:
+            bool_query["filter"] = active_filters
+
+        if combined_must_not:
+            bool_query["must_not"] = combined_must_not
+
+        return bool_query
+
+    bool_query = build_bool_query(filter_clauses)
 
     # Larger bucket size for global requests (no bbox) so more hexes are returned.
     h3_terms_size = 10000 if bbox is None else 5000
@@ -1781,11 +1807,7 @@ async def map_h3_aggregation(
         has_bbox = any("geo_bounding_box" in c for c in filter_clauses)
         if has_bbox:
             rest = [c for c in filter_clauses if "geo_bounding_box" not in c]
-            bool_no_bbox = {"must": must}
-            if rest:
-                bool_no_bbox["filter"] = rest
-            if must_not_clauses:
-                bool_no_bbox["must_not"] = must_not_clauses
+            bool_no_bbox = build_bool_query(rest)
             try:
                 g_resp = await es.search(
                     index=index_name,

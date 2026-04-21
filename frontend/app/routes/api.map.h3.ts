@@ -5,14 +5,15 @@ import type { MapH3ResponseRaw } from "../../src/services/api";
 /**
  * SSR-served map H3 hex aggregation (resource route).
  *
- * The browser requests: /map/h3?q=...&bbox=...&resolution=...&include_filters[...]=...
+ * The browser requests:
+ * /map/h3?q=...&bbox=...&resolution=...&adv_q=...&include_filters[...]=...
  * The SSR server fetches from the upstream API using the server-only API key and returns JSON.
  * This ensures the client does not hit rate limits for hex map requests.
  *
  * Aggressive caching: hex data changes only on reindex. Long TTL reduces load.
  * Responses are gzip'd when the client sends Accept-Encoding: gzip and payload is large enough.
  */
-const MAP_H3_MAX_AGE = 3600; // 1 hour browser cache
+const MAP_H3_BROWSER_MAX_AGE = 0; // Revalidate in browsers so stale local hexes don't linger
 const MAP_H3_S_MAXAGE = 86400; // 24 hours CDN/shared cache
 const MAP_H3_STALE_WHILE_REVALIDATE = 86400; // Serve stale up to 24h while revalidating
 const MAP_H3_GZIP_MIN_BYTES = 1024; // Only gzip if uncompressed body >= this (avoid overhead for tiny responses)
@@ -30,13 +31,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   if (bbox) upstreamUrl.searchParams.set("bbox", bbox);
   upstreamUrl.searchParams.set("resolution", resolution);
 
-  // Forward filter params (include_filters, exclude_filters, fq)
+  // Forward advanced query and filter params so the map stays aligned with search results.
   url.searchParams.forEach((value, key) => {
     if (
       key !== "q" &&
       key !== "bbox" &&
       key !== "resolution" &&
-      (key.startsWith("include_filters[") ||
+      (key === "adv_q" ||
+        key.startsWith("include_filters[") ||
         key.startsWith("exclude_filters[") ||
         key.startsWith("fq["))
     ) {
@@ -55,7 +57,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     const cacheControl =
       !data.hexes || data.hexes.length === 0
         ? "no-store"
-        : `public, max-age=${MAP_H3_MAX_AGE}, s-maxage=${MAP_H3_S_MAXAGE}, stale-while-revalidate=${MAP_H3_STALE_WHILE_REVALIDATE}`;
+        : `public, max-age=${MAP_H3_BROWSER_MAX_AGE}, s-maxage=${MAP_H3_S_MAXAGE}, stale-while-revalidate=${MAP_H3_STALE_WHILE_REVALIDATE}`;
     const acceptEncoding = request.headers.get("Accept-Encoding") ?? "";
     const wantsGzip = /gzip/i.test(acceptEncoding);
 
