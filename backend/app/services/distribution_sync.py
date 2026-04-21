@@ -24,6 +24,8 @@ logger = logging.getLogger(__name__)
 _uri_to_type_id: Optional[Dict[str, int]] = None
 # Cache of valid distribution_type ids (for bridge document_distributions mapping)
 _valid_type_ids: Optional[set[int]] = None
+# Cache of distribution_type id -> distribution_uri for legacy bridge mappings
+_type_id_to_uri: Optional[Dict[int, str]] = None
 
 
 async def _get_uri_to_type_id() -> Dict[str, int]:
@@ -46,6 +48,18 @@ async def _get_valid_type_ids() -> set[int]:
     rows = await database.fetch_all(select(distribution_types.c.id))
     _valid_type_ids = {int(r["id"]) for r in rows}
     return _valid_type_ids
+
+
+async def get_distribution_type_id_to_uri() -> Dict[int, str]:
+    """Load distribution_type primary key -> distribution URI mapping."""
+    global _type_id_to_uri
+    if _type_id_to_uri is not None:
+        return _type_id_to_uri
+    rows = await database.fetch_all(
+        select(distribution_types.c.id, distribution_types.c.distribution_uri)
+    )
+    _type_id_to_uri = {int(r["id"]): str(r["distribution_uri"]) for r in rows}
+    return _type_id_to_uri
 
 
 def _parse_references(dct_references_s: Any) -> Optional[Dict[str, Any]]:
@@ -272,6 +286,7 @@ async def sync_document_distributions_for_batch(
 
 def clear_uri_cache() -> None:
     """Clear cached mappings (e.g. after distribution_types changes)."""
-    global _uri_to_type_id, _valid_type_ids
+    global _uri_to_type_id, _valid_type_ids, _type_id_to_uri
     _uri_to_type_id = None
     _valid_type_ids = None
+    _type_id_to_uri = None

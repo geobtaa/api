@@ -92,6 +92,10 @@ export interface GeoDocument {
         label: string;
         url: string;
         type: string;
+        format?: string;
+        generated?: boolean;
+        generation_path?: string;
+        download_type?: string;
       }>;
       relationships?: Record<string, unknown>;
       summaries?: unknown[];

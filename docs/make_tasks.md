@@ -25,6 +25,7 @@ Overrides:
 
 ## Data + ops
 
+- `make resource-aux-init`: ensure `resource_downloads`, `resource_licensed_accesses`, and `resource_assets` tables exist before bridge/legacy sync work.
 - `make reindex`: atomic local reindex using a versioned index + alias swap (non-destructive build + atomic cutover). Defaults favor safety: swap is blocked on indexing errors/count mismatch, and one previous versioned index is retained. After a successful swap, it automatically clears local `search` cache.
   - Useful local tuning overrides: `REINDEX_CHUNK_SIZE`, `REINDEX_BULK_SIZE`, `REINDEX_BULK_MAX_RETRIES`, `REINDEX_FAST_SETTINGS`, `REINDEX_FORCE_REPLICAS_ZERO`, `REINDEX_RETAIN_PREVIOUS`.
   - Benchmark mode: `make reindex-benchmark` (or `REINDEX_BENCHMARK=true make reindex`) prints per-chunk timings and a final phase summary.
@@ -39,6 +40,17 @@ Overrides:
 - `make ogm-failures`: show only failed OGM harvest runs with `ogm_error` details.
 - These OGM make tasks run `curl` from inside the `api` container and use that container's `ADMIN_USERNAME` / `ADMIN_PASSWORD`, so they stay aligned with the live API auth config.
 - `make verify-h3-index`: query Elasticsearch to verify H3 pyramid fields (`h3_res2`–`h3_res8`, `geo_or_near_global`) are present (run after reindex)
+- `make bridge-sync`: trigger a background bridge crawl through the admin API.
+  - Full crawl example: `make bridge-sync`
+  - Single-record example: `make bridge-sync RESOURCE_ID=b1g_PJxxfKgpqpUT`
+  - Optional filters: `BRIDGE_LIMIT=50`, `BRIDGE_CHANGED_SINCE=2026-04-01T00:00:00Z`, `BRIDGE_TRIGGER=manual`
+  - `RESOURCE_ID` is aliased to `BRIDGE_RESOURCE_ID`, so either variable works.
+- `make bridge-status`: show a readable bridge sync summary instead of raw JSON by default.
+  - It now includes processed/imported counts, pages, elapsed time, throughput, and an estimated total/ETA for full crawls when a prior successful full run exists.
+  - Use `make bridge-status BRIDGE_STATUS_RAW=1` if you need the raw API JSON payload.
+- `make bridge-status-watch`: poll the current bridge run with the same readable summary.
+  - By default it shows only the current run, with processed/imported counts, pages, throughput, and estimated remaining time for full crawls.
+  - Use `make bridge-status-watch BRIDGE_STATUS_SHOW_LAST=1` if you also want the last completed run for comparison.
 - `make kamal-reindex`: atomic remote reindex on Kamal using a versioned index + alias swap (runs once by default with `--roles web`). Uses `KAMAL_DEST=dev1` (default) or `dev2`; secrets from `.kamal/secrets-common` + `.kamal/secrets.<dest>`. On success, runs `make kamal-clear-cache`.
   - Useful overrides: `KAMAL_REINDEX_RETAIN_PREVIOUS=1` (default), `KAMAL_REINDEX_PRUNE_OLD=true` (default), `KAMAL_REINDEX_ALLOW_PARTIAL=false` (default; blocks swap on indexing/count mismatch), `KAMAL_REINDEX_REMOVE_LEGACY_INDEX=true` (default; one-time migration from legacy non-alias index name).
 - `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers. Use `KAMAL_DEST=dev1` or `dev2`.
@@ -57,7 +69,10 @@ Overrides:
 - **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores the newest local matching dump into local ParadeDB, whether that file is compressed (`.sql.gz`) or already decompressed (`.sql`). It streams from the compressed file when using `.gz`, so you only need space for the `.gz`. After restore, it keeps the newly restored database plus the newest previously restored `geoportal_production_*` database, pruning older ones by default (`GBL_ADMIN_RETAIN_DBS=2`). The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
 - **GBL Admin add latest BTAA fields**: `make gbl-admin-db-add-latest-btaa-fields` adds latest BTAA compatibility columns to `resources`.
 - **GBL Admin import resources**: `make gbl-admin-db-import-resources` imports from `kithe_to_resources_bridge` into `btaa_geospatial_api` (`OLD_DB_NAME` auto-detected unless provided). To soft-retire local resources that are missing from the current old-prod snapshot, run `make gbl-admin-db-import-resources GBL_ADMIN_RETIRE_MISSING=true`.
-- **GBL Admin populate distributions**: `make populate-distributions` migrates legacy `document_distributions` into `resource_distributions` (`OLD_DB_NAME` auto-detected unless provided).
+- **GBL Admin populate distributions**: `make populate-distributions` rebuilds `resources.dct_references_s`, `resource_distributions`, `resource_downloads`, and `resource_assets` from legacy old-production data (`OLD_DB_NAME` auto-detected unless provided).
+  - This now includes child Kithe asset rows, so PMTiles/download URLs that never lived on the parent record are preserved.
+  - Single-record example: `make populate-distributions RESOURCE_ID=b1g_PJxxfKgpqpUT`
+  - `RESOURCE_ID` is aliased to `GBL_ADMIN_RESOURCE_ID`, so either variable works.
 - **GBL Admin populate data dictionaries**: `make populate-data-dictionaries` migrates legacy `document_data_dictionaries` and `document_data_dictionary_entries` into `resource_data_dictionaries` and `resource_data_dictionary_entries`.
 - **GBL Admin full import pipeline**: `make gbl-admin-db-import-all` runs latest-field migration, resource import, soft-retires local resources missing from the current old-prod snapshot, migrates distributions and data dictionaries, repopulates relationships, and reindexes published resources.
 - `make populate-relationships`: populate `resource_relationships` from `resources` (run after ingest or when relationship columns change). See `docs/backend/relationships.md`.
@@ -91,6 +106,13 @@ make populate-distributions
 make populate-data-dictionaries
 make populate-relationships
 make reindex
+```
+
+Targeted recovery examples:
+
+```bash
+make bridge-sync RESOURCE_ID=b1g_PJxxfKgpqpUT
+make populate-distributions RESOURCE_ID=b1g_PJxxfKgpqpUT
 ```
 
 ## Troubleshooting

@@ -5,6 +5,7 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 import requests
 from urllib3.exceptions import ProtocolError
@@ -50,29 +51,18 @@ class KitheBridgeClient:
         if not self.token:
             raise ValueError("KITHE_BRIDGE_TOKEN is required")
 
-    def fetch_page(
-        self,
-        *,
-        cursor: Optional[str] = None,
-        limit: Optional[int] = None,
-        changed_since: Optional[str] = None,
-    ) -> BridgePage:
-        params: Dict[str, Any] = {"limit": int(limit or self.page_size)}
-        if cursor:
-            params["cursor"] = cursor
-        if changed_since:
-            params["changed_since"] = changed_since
-
+    def _request_json(
+        self, *, url: str, params: Optional[Dict[str, Any]] = None
+    ) -> requests.Response:
         for attempt in range(BRIDGE_FETCH_MAX_RETRIES):
             try:
                 response = self.session.get(
-                    self.base_url,
+                    url,
                     params=params,
                     headers={"X-Bridge-Token": self.token},
                     timeout=self.request_timeout,
                 )
-                response.raise_for_status()
-                break
+                return response
             except (
                 requests.exceptions.ConnectionError,
                 requests.exceptions.Timeout,
@@ -91,6 +81,22 @@ class KitheBridgeClient:
                 )
                 time.sleep(delay)
 
+    def fetch_page(
+        self,
+        *,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        changed_since: Optional[str] = None,
+    ) -> BridgePage:
+        params: Dict[str, Any] = {"limit": int(limit or self.page_size)}
+        if cursor:
+            params["cursor"] = cursor
+        if changed_since:
+            params["changed_since"] = changed_since
+
+        response = self._request_json(url=self.base_url, params=params)
+        response.raise_for_status()
+
         payload = response.json()
         data = payload.get("data") or []
         if not isinstance(data, list):
@@ -102,3 +108,18 @@ class KitheBridgeClient:
             raise ValueError("Bridge response indicated more pages but did not return next_cursor")
 
         return BridgePage(data=data, next_cursor=next_cursor, has_more=has_more)
+
+    def fetch_record(self, resource_id: str) -> Optional[Dict[str, Any]]:
+        resource_id_norm = str(resource_id or "").strip()
+        if not resource_id_norm:
+            raise ValueError("resource_id is required")
+
+        record_url = f"{self.base_url.rstrip('/')}/{quote(resource_id_norm, safe='')}"
+        response = self._request_json(url=record_url)
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("Bridge record response must be an object")
+        return payload

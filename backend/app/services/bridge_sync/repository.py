@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import func, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -190,6 +190,46 @@ class BridgeSyncRepository:
                 r for r in runs if (r.get("bridge_status") or "").lower() == "running"
             ],
         }
+
+    @staticmethod
+    def _stats_processed_total(run: Dict[str, Any]) -> Optional[int]:
+        stats = run.get("bridge_stats_json") or {}
+        if not isinstance(stats, dict):
+            return None
+        value = stats.get("processed")
+        try:
+            return int(value) if value is not None else None
+        except (TypeError, ValueError):
+            return None
+
+    @staticmethod
+    def _is_full_sync_run(run: Dict[str, Any]) -> bool:
+        stats = run.get("bridge_stats_json") or {}
+        if not isinstance(stats, dict):
+            return True
+        return not stats.get("resource_id") and not stats.get("changed_since")
+
+    async def estimate_full_sync_total(
+        self, recent_limit: int = 100
+    ) -> Tuple[Optional[int], Optional[str]]:
+        runs = await self.list_sync_runs(limit=recent_limit, offset=0)
+        for run in runs:
+            if (run.get("bridge_status") or "").lower() != "success":
+                continue
+            if not self._is_full_sync_run(run):
+                continue
+            processed = self._stats_processed_total(run)
+            if processed and processed > 0:
+                return processed, "last_successful_full_run"
+
+        active_count = await database.fetch_val(
+            select(func.count())
+            .select_from(bridge_resource_state)
+            .where(bridge_resource_state.c.bridge_retired_at.is_(None))
+        )
+        if active_count:
+            return int(active_count), "active_bridge_resource_state"
+        return None, None
 
     async def upsert_resources_seen_batch(self, items: List[Dict[str, Any]]) -> int:
         if not items:

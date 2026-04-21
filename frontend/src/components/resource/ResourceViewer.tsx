@@ -1,11 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import OlMap from 'ol/Map';
+import View from 'ol/View';
+import { FullScreen, defaults as defaultControls } from 'ol/control';
+import VectorTileLayer from 'ol/layer/VectorTile.js';
 import { leafletViewerOptions } from '../../config/leafletConfig';
 import { MetadataTable } from './MetadataTable';
-import {
-  getWgs84ExtentFromViewerGeometry,
-  looksLikeWgs84Extent,
-} from '../../utils/geometryUtils';
-import { transformExtent } from 'ol/proj';
+import { getWgs84ExtentFromViewerGeometry } from '../../utils/geometryUtils';
+import { fromExtent as polygonFromExtent } from 'ol/geom/Polygon';
+import { transformExtent, useGeographic } from 'ol/proj';
+import TileLayer from 'ol/layer/Tile';
+import WebGLTileLayer from 'ol/layer/WebGLTile.js';
+import XYZ from 'ol/source/XYZ';
+import GeoTIFF from 'ol/source/GeoTIFF.js';
+import { PMTilesVectorSource } from 'ol-pmtiles';
+import { Circle as CircleStyle, Fill, Stroke, Style } from 'ol/style.js';
 
 interface ResourceViewerProps {
   data: {
@@ -27,6 +35,324 @@ interface ResourceViewerProps {
   totalResults?: number;
   searchUrl?: string;
   currentPage?: number;
+}
+
+type ViewerExtent = [number, number, number, number];
+
+const OPENLAYERS_BASEMAP = {
+  url: 'https://{a-d}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+  attributions:
+    '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://carto.com/attributionss">Carto</a>',
+  maxZoom: 18,
+};
+
+function isFiniteExtent(
+  extent: number[] | null | undefined
+): extent is ViewerExtent {
+  return !!extent && extent.length === 4 && extent.every(Number.isFinite);
+}
+
+function getFitSize(
+  map: OlMap,
+  element: HTMLDivElement
+): [number, number] | null {
+  const mapSize = map.getSize();
+  if (
+    mapSize &&
+    mapSize.length === 2 &&
+    mapSize[0] > 0 &&
+    mapSize[1] > 0 &&
+    Number.isFinite(mapSize[0]) &&
+    Number.isFinite(mapSize[1])
+  ) {
+    return [mapSize[0], mapSize[1]];
+  }
+
+  const rect = element.getBoundingClientRect();
+  if (rect.width > 0 && rect.height > 0) {
+    return [Math.round(rect.width), Math.round(rect.height)];
+  }
+
+  return null;
+}
+
+function fitViewToWgs84Extent(params: {
+  map: OlMap;
+  view: View;
+  element: HTMLDivElement;
+  wgs84Extent: ViewerExtent;
+}) {
+  const { map, view, element, wgs84Extent } = params;
+  map.updateSize();
+
+  const fitSize = getFitSize(map, element);
+  if (!fitSize) return;
+
+  view.setViewportSize?.(fitSize);
+
+  const projectionCode = view.getProjection()?.getCode?.() || 'EPSG:3857';
+  const extentInViewProjection =
+    projectionCode === 'EPSG:4326'
+      ? wgs84Extent
+      : (transformExtent(
+          wgs84Extent,
+          'EPSG:4326',
+          projectionCode
+        ) as ViewerExtent);
+
+  if (!extentInViewProjection.every(Number.isFinite)) {
+    return;
+  }
+
+  const fitOptions = {
+    size: fitSize,
+    padding: [16, 16, 16, 16] as [number, number, number, number],
+    maxZoom: 19,
+    duration: 0,
+  };
+
+  if (typeof (view as any).fitInternal === 'function') {
+    (view as any).fitInternal(
+      polygonFromExtent(extentInViewProjection),
+      fitOptions
+    );
+  } else {
+    view.fit(extentInViewProjection, fitOptions);
+  }
+
+  const center = view.getCenterInternal?.() ?? view.getCenter?.();
+  if (center && Number.isFinite(center[0]) && Number.isFinite(center[1])) {
+    return;
+  }
+
+  const fallbackCenter: [number, number] = [
+    (extentInViewProjection[0] + extentInViewProjection[2]) / 2,
+    (extentInViewProjection[1] + extentInViewProjection[3]) / 2,
+  ];
+  view.setCenter(fallbackCenter);
+
+  if (typeof (view as any).getResolutionForExtentInternal === 'function') {
+    const paddedSize: [number, number] = [
+      Math.max(fitSize[0] - 32, 1),
+      Math.max(fitSize[1] - 32, 1),
+    ];
+    const resolution = (view as any).getResolutionForExtentInternal(
+      extentInViewProjection,
+      paddedSize
+    );
+    if (Number.isFinite(resolution) && resolution > 0) {
+      view.setResolution(resolution);
+    }
+  }
+}
+
+function createPmTilesLayer(url: string) {
+  useGeographic();
+
+  return new VectorTileLayer({
+    declutter: true,
+    source: new PMTilesVectorSource({ url }),
+    style: new Style({
+      stroke: new Stroke({
+        color: '#7070B3',
+        width: 1,
+      }),
+      fill: new Fill({
+        color: '#FFFFFF',
+      }),
+      image: new CircleStyle({
+        radius: 7,
+        fill: new Fill({
+          color: '#7070B3',
+        }),
+        stroke: new Stroke({
+          color: '#FFFFFF',
+          width: 2,
+        }),
+      }),
+    }),
+  });
+}
+
+function createCogLayer(url: string) {
+  return new WebGLTileLayer({
+    source: new GeoTIFF({
+      sources: [{ url }],
+      convertToRGB: true,
+    }),
+  });
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function formatInspectionValue(value: unknown) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    if (/^https?:\/\//i.test(trimmed)) {
+      const safeUrl = escapeHtml(trimmed);
+      return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a>`;
+    }
+    return escapeHtml(trimmed);
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  try {
+    return escapeHtml(JSON.stringify(value));
+  } catch {
+    return escapeHtml(String(value));
+  }
+}
+
+function enablePmTilesInspection(map: OlMap) {
+  map.on('pointermove', (event: any) => {
+    const pixel = map.getEventPixel(event.originalEvent);
+    const hit = map.hasFeatureAtPixel(pixel);
+    map.getViewport().style.cursor = hit ? 'crosshair' : '';
+  });
+
+  map.on('click', (event: any) => {
+    const tableBody = document.querySelector('.attribute-table-body');
+    if (!tableBody) return;
+
+    const features = map.getFeaturesAtPixel(event.pixel);
+    if (!features.length) {
+      tableBody.innerHTML =
+        '<tr><td colspan="2">Could not find that feature</td></tr>';
+      return;
+    }
+
+    const properties = features[0].getProperties();
+    let html = '<tbody class="attribute-table-body">';
+    Object.entries(properties).forEach(([property, value]) => {
+      html += `<tr><td>${escapeHtml(property)}</td><td>${formatInspectionValue(value)}</td></tr>`;
+    });
+    html += '</tbody>';
+    tableBody.outerHTML = html;
+  });
+}
+
+function OpenLayersPreviewMap({
+  protocol,
+  endpoint,
+  geometryForViewer,
+  preCalculatedExtent,
+}: {
+  protocol: string;
+  endpoint: string;
+  geometryForViewer: string;
+  preCalculatedExtent: number[] | null;
+}) {
+  const elementRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element) return;
+
+    const wgs84Extent =
+      (isFiniteExtent(preCalculatedExtent) && preCalculatedExtent) ||
+      getWgs84ExtentFromViewerGeometry(geometryForViewer);
+
+    if (!isFiniteExtent(wgs84Extent)) {
+      return;
+    }
+
+    const isPmtilesProtocol = protocol.toLowerCase() === 'pmtiles';
+    const basemap = new TileLayer({
+      source: new XYZ(OPENLAYERS_BASEMAP),
+    });
+    const overlay = isPmtilesProtocol
+      ? createPmTilesLayer(endpoint)
+      : createCogLayer(endpoint);
+    const view = new View({
+      projection: 'EPSG:3857',
+      center: [0, 0],
+      zoom: 2,
+    });
+    const map = new OlMap({
+      target: element,
+      controls: defaultControls().extend([new FullScreen()]),
+      layers: [basemap, overlay],
+      view,
+    });
+
+    if (isPmtilesProtocol) {
+      try {
+        enablePmTilesInspection(map);
+      } catch (error) {
+        console.warn('PMTiles inspection setup failed:', error);
+      }
+    }
+
+    const refit = () => {
+      fitViewToWgs84Extent({
+        map,
+        view,
+        element,
+        wgs84Extent,
+      });
+      map.renderSync?.();
+    };
+
+    let disposed = false;
+    const timeoutIds = [0, 100, 300].map((delay) =>
+      window.setTimeout(() => {
+        if (!disposed) refit();
+      }, delay)
+    );
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      refit();
+      secondFrame = window.requestAnimationFrame(() => {
+        if (!disposed) refit();
+      });
+    });
+
+    const resizeObserver =
+      typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(() => {
+            if (!disposed) refit();
+          })
+        : null;
+    resizeObserver?.observe(element);
+
+    const source = overlay.getSource?.();
+    const onSourceChange = () => {
+      const state = source?.getState?.();
+      if (state === 'ready') {
+        refit();
+      }
+    };
+
+    if (source && typeof (source as any).on === 'function') {
+      (source as any).on('change', onSourceChange);
+    }
+
+    refit();
+
+    return () => {
+      disposed = true;
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+      timeoutIds.forEach((id) => window.clearTimeout(id));
+      resizeObserver?.disconnect();
+      if (source && typeof (source as any).un === 'function') {
+        (source as any).un('change', onSourceChange);
+      }
+      map.setTarget(undefined);
+    };
+  }, [endpoint, geometryForViewer, preCalculatedExtent, protocol]);
+
+  return <div ref={elementRef} className="viewer h-[600px]" />;
 }
 
 export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
@@ -237,11 +563,6 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                 properties: {},
               };
               geometryForViewer = JSON.stringify(feature);
-              console.log('Wrapped geometry in Feature:', {
-                originalType: geomObj.type,
-                hasCoordinates: !!geomObj.coordinates,
-                featureType: feature.type,
-              });
             } else {
               console.warn('Geometry object missing type or coordinates:', {
                 hasType: !!geomObj.type,
@@ -273,534 +594,17 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
         );
       }
 
-      const openlayersProps: Record<string, string> = {
-        'data-controller': 'openlayers-viewer',
-        'data-openlayers-viewer-protocol-value': titleize(protocol),
-        'data-openlayers-viewer-url-value': endpoint,
-        'data-openlayers-viewer-map-geom-value': geometryForViewer,
-      };
-
       // Pre-calculate the correct extent from geometry (WGS84) to avoid wrong initial render.
       // For COG, the GeoBlacklight controller gets extent from the GeoTIFF which may be in a
       // projected CRS or wrong; we always prefer our geometry-based extent for reliable pan/zoom.
       const preCalculatedExtent =
         getWgs84ExtentFromViewerGeometry(geometryForViewer);
-
-      // Debug: Log what we're passing to the controller
-      console.log('OpenLayers viewer props:', {
-        protocol: titleize(protocol),
-        endpoint: endpoint?.substring(0, 50) + '...',
-        geometryLength: geometryForViewer?.length,
-        geometryPreview: geometryForViewer?.substring(0, 100) + '...',
-        preCalculatedExtent,
-      });
-
       return (
-        <div
-          className="viewer h-[600px]"
-          {...openlayersProps}
-          ref={(el) => {
-            if (el) {
-              // GeoBlacklight controllers register asynchronously, so we need to wait
-              // Check multiple times with increasing delays
-              const checkController = (attempt = 1) => {
-                const maxAttempts = 10;
-                const delay = attempt * 200; // 200ms, 400ms, 600ms, etc.
-
-                setTimeout(() => {
-                  // Try both window.Stimulus and window.application
-                  const stimulus =
-                    (window as any).Stimulus || (window as any).application;
-                  const controller =
-                    stimulus?.getControllerForElementAndIdentifier?.(
-                      el,
-                      'openlayers-viewer'
-                    );
-
-                  if (controller) {
-                    console.log(
-                      `OpenLayers controller connected (attempt ${attempt}):`,
-                      {
-                        protocol: controller.protocolValue,
-                        url: controller.urlValue?.substring(0, 50),
-                        mapGeomLength: controller.mapGeomValue?.length,
-                        element: el,
-                        hasMap: !!controller.map,
-                        elementId: el.id,
-                        elementClasses: el.className,
-                        hasExtent: !!controller.extent,
-                        extent: controller.extent,
-                      }
-                    );
-
-                    // Fit to known geometry extent, retrying after render when size is stable.
-                    // Our preCalculatedExtent is always WGS84 (lon/lat). The map view may be
-                    // EPSG:4326 (PMTiles uses useGeographic) or EPSG:3857 (COG default). We must
-                    // pass extent in the view's projection to fit() — passing WGS84 to a 3857
-                    // view would wrongly interpret lon/lat as meters (e.g. map off Africa).
-                    const fitToGeometryExtent = (_reason: string) => {
-                      const map = controller.map;
-                      if (map) {
-                        const view = map.getView?.();
-                        if (view) {
-                          const extent = preCalculatedExtent || controller.extent;
-                          const useExtent =
-                            preCalculatedExtent ||
-                            (extent && looksLikeWgs84Extent(extent)
-                              ? extent
-                              : null);
-                          if (useExtent && useExtent.length === 4 && useExtent.every((n: number) => isFinite(n))) {
-                            const wgs84Extent: [number, number, number, number] = [
-                              useExtent[0],
-                              useExtent[1],
-                              useExtent[2],
-                              useExtent[3],
-                            ];
-                            const projectionCode =
-                              view.getProjection?.()?.getCode?.() || 'EPSG:3857';
-                            const extentInViewProj: [number, number, number, number] =
-                              projectionCode === 'EPSG:4326'
-                                ? wgs84Extent
-                                : (transformExtent(
-                                    wgs84Extent,
-                                    'EPSG:4326',
-                                    projectionCode
-                                  ) as [number, number, number, number]);
-
-                            map.updateSize?.();
-                            const size = map.getSize();
-                            if (
-                              size &&
-                              size.length === 2 &&
-                              size[0] > 0 &&
-                              size[1] > 0
-                            ) {
-                              view.fit(extentInViewProj, {
-                                size,
-                                padding: [16, 16, 16, 16] as [
-                                  number,
-                                  number,
-                                  number,
-                                  number,
-                                ],
-                                maxZoom: 19,
-                                duration: 0,
-                              });
-                            }
-                          }
-                        }
-                      }
-                    };
-
-                    // Try immediately, then after map render settles.
-                    if (controller.map) {
-                      requestAnimationFrame(() => {
-                        fitToGeometryExtent('raf');
-                      });
-                      controller.map.once?.('rendercomplete', () => {
-                        fitToGeometryExtent('rendercomplete');
-                      });
-                    } else {
-                      // Map not ready yet, wait a bit
-                      setTimeout(() => {
-                        fitToGeometryExtent('delayed-init');
-                      }, 50);
-                    }
-                    setTimeout(() => fitToGeometryExtent('post-init-timeout'), 250);
-                    // One final guarded refit: only if still at obvious world-view zoom.
-                    setTimeout(() => {
-                      const map = controller.map;
-                      const view = map?.getView?.();
-                      const zoom = view?.getZoom?.() ?? 0;
-                      if (zoom <= 3.5) {
-                        fitToGeometryExtent('world-view-guard');
-                      }
-                    }, 900);
-
-                    // Check if the map was created and inspect its state
-                    setTimeout(() => {
-                      const mapElement = el.querySelector('.ol-viewport');
-                      console.log('Map element found:', !!mapElement);
-                      if (mapElement) {
-                        const map = controller.map;
-                        if (map) {
-                          try {
-                            const view = map.getView?.();
-                            const layers =
-                              map.getLayers?.()?.getArray?.() || [];
-                            console.log('Map state:', {
-                              layersCount: layers.length,
-                              layerTypes: layers.map(
-                                (l) => l?.constructor?.name || typeof l
-                              ),
-                              hasView: !!view,
-                              viewType: view?.constructor?.name,
-                            });
-
-                            // Check layer order and visibility
-                            layers.forEach((layer, index) => {
-                              const layerInfo: any = {
-                                index,
-                                type: layer?.constructor?.name,
-                                visible: layer?.getVisible?.(),
-                                opacity: layer?.getOpacity?.(),
-                                zIndex: layer?.getZIndex?.(),
-                              };
-
-                              const source = layer?.getSource?.();
-                              if (source) {
-                                layerInfo.sourceType =
-                                  source?.constructor?.name;
-                                layerInfo.sourceState = source?.getState?.();
-                              }
-
-                              console.log(`Layer ${index}:`, layerInfo);
-                            });
-
-                            if (view && typeof view.getExtent === 'function') {
-                              const extent = view.getExtent();
-                              console.log('View state:', {
-                                center: view.getCenter?.(),
-                                zoom: view.getZoom?.(),
-                                extent: extent,
-                                resolution: view.getResolution?.(),
-                              });
-                            }
-
-                            // Ensure final map position is based on record geometry even if
-                            // PMTiles layer/source registration happens after initial connect.
-                            fitToGeometryExtent('post-map-state-check');
-
-                            // Check if PMTiles layer is present
-                            const pmtilesLayer = layers.find((l) => {
-                              const className = l?.getClassName?.() || '';
-                              const source = l?.getSource?.();
-                              const sourceClass =
-                                source?.constructor?.name || '';
-                              return (
-                                className.includes('PMTiles') ||
-                                sourceClass.includes('PMTiles')
-                              );
-                            });
-                            console.log('PMTiles layer found:', !!pmtilesLayer);
-                            if (pmtilesLayer) {
-                              const source = pmtilesLayer.getSource?.();
-                              // PMTiles source might store URL differently - check various properties
-                              const sourceInfo: any = {
-                                state: source?.getState?.(),
-                                sourceType: source?.constructor?.name,
-                                url: source?.getUrl?.(),
-                              };
-
-                              // Check for URL in various possible properties
-                              if (source) {
-                                sourceInfo.urlProperty = source.url;
-                                sourceInfo.urlGetter = source.getUrl?.();
-                                sourceInfo.tileUrl = source.tileUrl;
-                                sourceInfo.url_ = source.url_;
-                                // Check if it's in the options
-                                if (source.options) {
-                                  sourceInfo.optionsUrl = source.options.url;
-                                }
-                                // Check all enumerable properties
-                                const props = Object.keys(source).filter((k) =>
-                                  k.toLowerCase().includes('url')
-                                );
-                                if (props.length > 0) {
-                                  sourceInfo.urlProperties = props.reduce(
-                                    (acc, key) => {
-                                      acc[key] = (source as any)[key];
-                                      return acc;
-                                    },
-                                    {} as Record<string, any>
-                                  );
-                                }
-                              }
-
-                              console.log('PMTiles source state:', sourceInfo);
-
-                              // Check if PMTiles layer is visible and has features
-                              console.log('PMTiles layer visibility:', {
-                                visible: pmtilesLayer.getVisible?.(),
-                                opacity: pmtilesLayer.getOpacity?.(),
-                                zIndex: pmtilesLayer.getZIndex?.(),
-                                minZoom: pmtilesLayer.getMinZoom?.(),
-                                maxZoom: pmtilesLayer.getMaxZoom?.(),
-                              });
-
-                              // Check if source has loaded features
-                              if (
-                                source &&
-                                typeof source.getFeatures === 'function'
-                              ) {
-                                try {
-                                  const features = source.getFeatures();
-                                  console.log(
-                                    'PMTiles source features count:',
-                                    features?.length || 0
-                                  );
-                                } catch (e) {
-                                  // getFeatures might not be available for PMTiles
-                                }
-                              }
-
-                              // Check the layer's style function - PMTiles might need styling to be visible
-                              const style = pmtilesLayer.getStyle?.();
-                              const styleFunction =
-                                pmtilesLayer.getStyleFunction?.();
-                              console.log('PMTiles layer style:', {
-                                hasStyle: !!style,
-                                hasStyleFunction: !!styleFunction,
-                                styleType: style?.constructor?.name,
-                              });
-
-                              // Check if we can see rendered tiles in the DOM
-                              const canvas = el.querySelector('canvas');
-                              console.log('Map canvas found:', !!canvas);
-                              if (canvas) {
-                                console.log('Canvas dimensions:', {
-                                  width: canvas.width,
-                                  height: canvas.height,
-                                  clientWidth: canvas.clientWidth,
-                                  clientHeight: canvas.clientHeight,
-                                });
-                              }
-
-                              // Try zooming out to see if tiles appear at lower zoom
-                              console.log(
-                                'Current zoom is 28 - this might be too high. Try zooming out manually to see if tiles appear.'
-                              );
-
-                              // Check if map container has proper dimensions
-                              const containerRect = el.getBoundingClientRect();
-                              console.log('Map container dimensions:', {
-                                width: containerRect.width,
-                                height: containerRect.height,
-                                visible:
-                                  containerRect.width > 0 &&
-                                  containerRect.height > 0,
-                              });
-
-                              // Check controller's extent property
-                              if (controller.extent) {
-                                console.log(
-                                  'Controller extent:',
-                                  controller.extent
-                                );
-                              } else {
-                                console.warn(
-                                  'Controller extent is not set - this might be the issue!'
-                                );
-                              }
-
-                              // Try to manually trigger a map update
-                              if (map && typeof map.updateSize === 'function') {
-                                console.log('Attempting to update map size...');
-                                try {
-                                  map.updateSize();
-                                  console.log('Map size updated');
-                                } catch (e) {
-                                  console.warn('Failed to update map size:', e);
-                                }
-                              }
-
-                              // Check if we can see tile loading
-                              if (source && source.tileCache) {
-                                const cacheSize =
-                                  source.tileCache?.getCount?.() || 0;
-                                console.log(
-                                  'PMTiles tile cache size:',
-                                  cacheSize
-                                );
-                              }
-
-                              // Canvas exists and has proper dimensions - tiles should be rendering
-                              console.log('Canvas ready for rendering');
-
-                              // Suggestion: Try manually zooming out using map controls
-                              console.log(
-                                '💡 SUGGESTION: Try using the zoom controls (-) to zoom out and see if PMTiles appear at lower zoom levels'
-                              );
-
-                              // Double-check view is correct (backup fix if immediate fix didn't work)
-                              if (view && typeof view.getZoom === 'function') {
-                                const currentZoom = view.getZoom();
-                                const currentCenter = view.getCenter?.();
-
-                                // Check if we're in the wrong location (off the coast of Africa would be around 0,0 or negative coords)
-                                // Web Mercator coordinates for Philadelphia should be around [-8.4M, 4.8M]
-                                const isWrongLocation =
-                                  currentCenter &&
-                                  (Math.abs(currentCenter[0]) < 1000000 ||
-                                    Math.abs(currentCenter[1]) < 1000000 ||
-                                    currentZoom > 15);
-
-                                if (
-                                  isWrongLocation ||
-                                  (currentZoom && currentZoom > 15)
-                                ) {
-                                  console.log(
-                                    `Map still incorrect. Center: ${currentCenter}, Zoom: ${currentZoom}. Refitting...`
-                                  );
-                                  try {
-                                    // Use pre-calculated extent or controller's extent
-                                    const extent =
-                                      preCalculatedExtent || controller.extent;
-                                    if (extent && extent.length === 4) {
-                                      const [minX, minY, maxX, maxY] = extent;
-                                      const wgs84Extent = [
-                                        minX,
-                                        minY,
-                                        maxX,
-                                        maxY,
-                                      ];
-                                      const webMercatorExtent = transformExtent(
-                                        wgs84Extent,
-                                        'EPSG:4326',
-                                        'EPSG:3857'
-                                      );
-
-                                      const size = map.getSize();
-                                      if (size && size.length === 2) {
-                                        view.fit(webMercatorExtent, {
-                                          size: size,
-                                          padding: [50, 50, 50, 50],
-                                          maxZoom: 14,
-                                          duration: 0, // Instant
-                                        });
-                                        console.log(
-                                          'Map view refitted (backup fix)'
-                                        );
-                                      }
-                                    }
-                                  } catch (e) {
-                                    console.warn(
-                                      'Could not adjust zoom/center:',
-                                      e
-                                    );
-                                  }
-                                } else {
-                                  console.log(
-                                    `Zoom level ${currentZoom} and center ${currentCenter} are correct`
-                                  );
-                                }
-                              }
-
-                              // Check if view has proper extent
-                              if (view) {
-                                try {
-                                  // Try different ways to get extent
-                                  let extent: number[] | undefined;
-                                  if (typeof view.getExtent === 'function') {
-                                    extent = view.getExtent();
-                                  } else if (
-                                    typeof (view as any).calculateExtent ===
-                                    'function'
-                                  ) {
-                                    extent = (view as any).calculateExtent(
-                                      map.getSize()
-                                    );
-                                  }
-
-                                  if (extent && extent.length === 4) {
-                                    const [minX, minY, maxX, maxY] = extent;
-                                    const width = maxX - minX;
-                                    const height = maxY - minY;
-                                    console.log('View extent:', {
-                                      minX,
-                                      minY,
-                                      maxX,
-                                      maxY,
-                                      width,
-                                      height,
-                                    });
-
-                                    // Expected extent for Philadelphia (from the geometry)
-                                    // Should be around: -75.28 to -74.96 (lon), 39.87 to 40.14 (lat)
-                                    if (
-                                      width === 0 ||
-                                      height === 0 ||
-                                      !isFinite(width) ||
-                                      !isFinite(height)
-                                    ) {
-                                      console.warn(
-                                        'Invalid extent - map might not be zoomed to data'
-                                      );
-                                    } else if (
-                                      Math.abs(minX) < 1 ||
-                                      Math.abs(minY) < 1
-                                    ) {
-                                      console.warn(
-                                        'Extent looks like it might be in wrong projection or zoomed to origin'
-                                      );
-                                    }
-                                  } else {
-                                    console.warn(
-                                      'Could not get valid extent from view'
-                                    );
-                                  }
-
-                                  // Also check center and zoom
-                                  const center = view.getCenter?.();
-                                  const zoom = view.getZoom?.();
-                                  console.log('View center and zoom:', {
-                                    center,
-                                    zoom,
-                                  });
-                                } catch (e) {
-                                  console.warn('Could not inspect view:', e);
-                                }
-                              }
-
-                              // Check network requests for PMTiles
-                              console.log(
-                                'Check Network tab for requests to geobtaa-assets-prod.s3.us-east-2.amazonaws.com'
-                              );
-                            }
-                          } catch (e) {
-                            console.error('Error inspecting map state:', e);
-                          }
-                        }
-                      } else {
-                        console.warn(
-                          'OpenLayers map not initialized. Checking for errors...'
-                        );
-                        // Check if there are any error messages in the console or DOM
-                        const errorElements = el.querySelectorAll(
-                          '[class*="error"], [class*="Error"]'
-                        );
-                        console.log(
-                          'Error elements in viewer:',
-                          errorElements.length
-                        );
-                      }
-                    }, 1000);
-                  } else if (attempt < maxAttempts) {
-                    checkController(attempt + 1);
-                  } else {
-                    console.warn(
-                      'OpenLayers controller never connected after',
-                      maxAttempts,
-                      'attempts'
-                    );
-                    console.warn('Stimulus available:', !!stimulus);
-                    console.warn('Element:', el);
-                    console.warn('Data attributes:', {
-                      controller: el.getAttribute('data-controller'),
-                      protocol: el.getAttribute(
-                        'data-openlayers-viewer-protocol-value'
-                      ),
-                      url: el
-                        .getAttribute('data-openlayers-viewer-url-value')
-                        ?.substring(0, 50),
-                    });
-                  }
-                }, delay);
-              };
-
-              checkController(1);
-            }
-          }}
+        <OpenLayersPreviewMap
+          protocol={protocol}
+          endpoint={endpoint}
+          geometryForViewer={geometryForViewer}
+          preCalculatedExtent={preCalculatedExtent}
         />
       );
     case 'oembed-viewer':

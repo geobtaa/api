@@ -110,6 +110,8 @@ The tables below enumerate all current non-admin endpoints exposed by the API.
 | GET | `/api/v1/resources/{id}/data-dictionaries` | Resource data dictionary entries |
 | GET | `/api/v1/resources/{id}/distributions` | Resource distributions |
 | GET | `/api/v1/resources/{id}/downloads` | Download links and metadata |
+| GET | `/api/v1/resources/{id}/downloads/generated/{download_type}` | Prepare generated download and return file URL |
+| GET | `/api/v1/resources/{id}/downloads/generated/{download_type}/file` | Download generated file attachment |
 | GET | `/api/v1/resources/{id}/links` | Resource links |
 | GET | `/api/v1/resources/{id}/metadata` | Combined metadata |
 | GET | `/api/v1/resources/{id}/metadata/ogm` | OGM-transformed metadata |
@@ -433,6 +435,56 @@ Supports both GET (simple) and POST (complex) forms.
 {% include "includes/examples/example-20-resource-downloads.html" %}
 
 </details>
+
+### Generated Download Workflow
+
+The `downloads` payload may include generated exports with:
+
+- `generated: true`
+- `download_type` (for example: `shapefile`, `geojson`, `csv`, `kmz`, `geotiff`)
+- `generation_path` (API path for preparing the file)
+
+Generated downloads use a two-step flow:
+
+1. Call `GET /api/v1/resources/{id}/downloads/generated/{download_type}` to prepare (or reuse) the generated artifact.
+2. Use the returned `download_url` (or call `/file` directly) to download the attachment.
+
+| Method | Path | Notes |
+| :---- | :---- | :---- |
+| GET | `/api/v1/resources/{id}/downloads/generated/{download_type}` | Prepares and returns JSON metadata for the generated artifact |
+| GET | `/api/v1/resources/{id}/downloads/generated/{download_type}/file` | Returns file attachment bytes (`Content-Disposition: attachment`) |
+
+**Supported `download_type` values**
+
+- `shapefile` (EPSG:4326 Shapefile)
+- `geojson`
+- `csv`
+- `kmz`
+- `geotiff`
+
+**Prepare example**
+
+```bash
+curl "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson"
+```
+
+Example response:
+
+```json
+{
+  "download_type": "geojson",
+  "file_name": "stanford-bs024ty5255-geojson.geojson",
+  "file_path": "/app/tmp/cache/downloads/stanford-bs024ty5255-geojson.geojson",
+  "content_type": "application/json",
+  "download_url": "/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson/file"
+}
+```
+
+**File download example**
+
+```bash
+curl -L -OJ "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/resources/stanford-bs024ty5255/downloads/generated/geojson/file"
+```
 
 <details id="example-resource-links" class="example-collapsible">
 <summary><strong>Resource — Links</strong></summary>

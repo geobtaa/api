@@ -1,8 +1,13 @@
+import asyncio
+import json
 import logging
+import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, List, Optional
 from urllib.parse import urlencode
 
+import requests
 from sqlalchemy import select
 
 from app.services.distribution_repository import (
@@ -94,6 +99,84 @@ class IIIFDownloadService:
 
 class DownloadService:
     """Service for generating download options for documents."""
+
+    GENERATED_DOWNLOAD_OPTIONS = {
+        "shapefile": {
+            "label": "EPSG:4326 Shapefile",
+            "extension": "zip",
+            "content_type": "application/zip",
+            "service_type": "wfs",
+            "reflect": False,
+            "request_params": {
+                "service": "wfs",
+                "version": "2.0.0",
+                "request": "GetFeature",
+                "srsName": "EPSG:4326",
+                "outputformat": "SHAPE-ZIP",
+            },
+        },
+        "geojson": {
+            "label": "GeoJSON",
+            "extension": "geojson",
+            "content_type": "application/json",
+            "service_type": "wfs",
+            "reflect": False,
+            "request_params": {
+                "service": "wfs",
+                "version": "2.0.0",
+                "request": "GetFeature",
+                "srsName": "EPSG:4326",
+                "outputformat": "application/json",
+            },
+        },
+        "csv": {
+            "label": "CSV",
+            "extension": "csv",
+            "content_type": "text/csv",
+            "service_type": "wfs",
+            "reflect": False,
+            "request_params": {
+                "service": "wfs",
+                "version": "2.0.0",
+                "request": "GetFeature",
+                "srsName": "EPSG:4326",
+                "outputformat": "csv",
+            },
+        },
+        "kmz": {
+            "label": "KMZ",
+            "extension": "kmz",
+            "content_type": "application/vnd.google-earth.kmz",
+            "service_type": "wms",
+            "reflect": False,
+            "request_params": {
+                "service": "wms",
+                "version": "1.1.0",
+                "request": "GetMap",
+                "srsName": "EPSG:3857",
+                "format": "application/vnd.google-earth.kmz",
+                "width": 2000,
+                "height": 2000,
+            },
+        },
+        "geotiff": {
+            "label": "GeoTIFF",
+            "extension": "tif",
+            "content_type": "image/geotiff",
+            "service_type": "wms",
+            "reflect": True,
+            "request_params": {
+                "format": "image/geotiff",
+                "width": 4096,
+            },
+        },
+    }
+    GENERATED_CONTENT_TYPE_FALLBACKS = {
+        "application/zip": {"application/octet-stream"},
+        "application/vnd.google-earth.kmz": {"application/octet-stream"},
+        "text/csv": {"application/csv", "application/vnd.ms-excel", "application/octet-stream"},
+        "image/geotiff": {"image/tiff", "application/octet-stream"},
+    }
 
     def __init__(
         self,
@@ -232,8 +315,266 @@ class DownloadService:
 
         # Add direct download URLs (handles dict/list/string)
         downloads.extend(self._get_direct_downloads())
+        downloads.extend(self.get_generated_download_options())
 
         return downloads
+
+    def get_generated_download_options(self) -> List[Dict]:
+        """
+        Return generated download links that mirror GeoBlacklight behavior.
+
+        These links are not direct files; they point to an API route that prepares
+        and caches the derived file on demand.
+        """
+        resource_id = self.document.get("id")
+        if not isinstance(resource_id, str) or not resource_id.strip():
+            return []
+
+        options: List[Dict] = []
+        for download_type in ("shapefile", "kmz", "geojson", "csv", "geotiff"):
+            try:
+                spec = self._build_generated_download_spec(download_type)
+            except ValueError:
+                continue
+
+            prepare_path = f"/api/v1/resources/{resource_id}/downloads/generated/{download_type}"
+            options.append(
+                {
+                    "label": spec.label,
+                    "url": prepare_path,
+                    "type": spec.content_type,
+                    "format": download_type,
+                    "generated": True,
+                    "download_type": download_type,
+                    "generation_path": prepare_path,
+                }
+            )
+
+        return options
+
+    @staticmethod
+    def generated_download_directory() -> Path:
+        configured = os.getenv("DOWNLOAD_PATH", "").strip()
+        if configured:
+            return Path(configured)
+
+        # data-api/backend/app/services/download_service.py -> data-api/
+        project_root = Path(__file__).resolve().parents[3]
+        return project_root / "tmp" / "cache" / "downloads"
+
+    async def ensure_generated_download(self, download_type: str) -> Dict[str, str]:
+        """Create a generated file (if needed) and return file metadata."""
+        spec = self._build_generated_download_spec(download_type)
+
+        file_path = self.generated_download_directory() / spec.file_name
+        if not file_path.exists():
+            await asyncio.to_thread(self._create_generated_download_file, spec, file_path)
+
+        resource_id = self.document.get("id")
+        return {
+            "download_type": spec.download_type,
+            "file_name": spec.file_name,
+            "file_path": str(file_path),
+            "content_type": spec.content_type,
+            "download_url": (
+                f"/api/v1/resources/{resource_id}/downloads/generated/{spec.download_type}/file"
+            ),
+        }
+
+    def generated_download_file_path(self, download_type: str) -> Optional[Path]:
+        """Return generated file path if it exists."""
+        try:
+            spec = self._build_generated_download_spec(download_type)
+        except ValueError:
+            return None
+        path = self.generated_download_directory() / spec.file_name
+        return path if path.exists() else None
+
+    def _build_generated_download_spec(self, download_type: str) -> "GeneratedDownloadSpec":
+        config = self.GENERATED_DOWNLOAD_OPTIONS.get(download_type)
+        if not config:
+            raise ValueError(f"Unsupported generated download type '{download_type}'")
+
+        layer_name = self._wxs_identifier()
+        if not layer_name:
+            raise ValueError(
+                f"Generated download '{download_type}' unavailable: missing gbl_wxsIdentifier_s"
+            )
+
+        service_url = self._get_service_url(config["service_type"])
+        if not service_url:
+            raise ValueError(
+                f"Generated download '{download_type}' unavailable: missing "
+                f"{config['service_type'].upper()} distribution URL"
+            )
+
+        params = dict(config["request_params"])
+        if config["service_type"] == "wfs":
+            params["typeName"] = layer_name
+        elif download_type == "kmz":
+            bbox_wsen = self._bbox_wsen()
+            if not bbox_wsen:
+                raise ValueError("Generated download 'kmz' unavailable: missing/invalid dcat_bbox")
+            params["layers"] = layer_name
+            params["bbox"] = bbox_wsen
+        elif download_type == "geotiff":
+            params["layers"] = layer_name
+
+        return GeneratedDownloadSpec(
+            download_type=download_type,
+            label=config["label"],
+            extension=config["extension"],
+            content_type=config["content_type"],
+            service_url=service_url,
+            reflect=bool(config.get("reflect")),
+            request_params=params,
+            file_name=self._generated_file_name(download_type, config["extension"]),
+        )
+
+    def _generated_file_name(self, download_type: str, extension: str) -> str:
+        resource_id = str(self.document.get("id", "resource")).replace("/", "_")
+        return f"{resource_id}-{download_type}.{extension}"
+
+    def _wxs_identifier(self) -> Optional[str]:
+        for key in ("gbl_wxsIdentifier_s", "gbl_wxsidentifier_s"):
+            value = self.document.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+
+    def _bbox_wsen(self) -> Optional[str]:
+        raw = self.document.get("dcat_bbox")
+        if not isinstance(raw, str):
+            return None
+
+        bbox = raw.strip()
+        try:
+            if bbox.startswith("ENVELOPE(") and bbox.endswith(")"):
+                # ENVELOPE(west,east,north,south) -> west,south,east,north
+                content = bbox[len("ENVELOPE(") : -1]
+                west, east, north, south = [float(part.strip()) for part in content.split(",")]
+                return f"{west},{south},{east},{north}"
+
+            # Also support plain bbox form: minx,miny,maxx,maxy
+            west, south, east, north = [float(part.strip()) for part in bbox.split(",")]
+            return f"{west},{south},{east},{north}"
+        except Exception:
+            return None
+
+    def _create_generated_download_file(
+        self, spec: "GeneratedDownloadSpec", output_path: Path
+    ) -> None:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = output_path.with_suffix(output_path.suffix + ".tmp")
+
+        service_url = f"{spec.service_url}/reflect" if spec.reflect else spec.service_url
+        try:
+            response = requests.get(service_url, params=spec.request_params, timeout=30)
+            response.raise_for_status()
+        except requests.HTTPError as upstream_error:
+            fallback_response = self._try_geoblacklight_download_fallback(spec)
+            if fallback_response is None:
+                raise upstream_error
+            response = fallback_response
+
+        self._assert_content_type_matches(spec, response.headers.get("Content-Type", ""))
+
+        with open(tmp_path, "wb") as file_handle:
+            file_handle.write(response.content)
+
+        tmp_path.replace(output_path)
+
+    def _try_geoblacklight_download_fallback(
+        self, spec: "GeneratedDownloadSpec"
+    ) -> Optional[requests.Response]:
+        """
+        Stanford-specific fallback:
+        GeoBlacklight can sometimes generate derivatives even when direct WFS/WMS
+        requests fail due to provider layer naming differences.
+        """
+        if not self._is_stanford_resource():
+            return None
+
+        resource_id = self.document.get("id")
+        if not isinstance(resource_id, str) or not resource_id:
+            return None
+
+        trigger_url = f"https://earthworks.stanford.edu/download/{resource_id}"
+        try:
+            trigger_response = requests.get(
+                trigger_url,
+                params={"type": spec.download_type},
+                timeout=30,
+                headers={"Accept": "application/json"},
+            )
+            trigger_response.raise_for_status()
+            download_path = self._extract_geoblacklight_download_path(trigger_response.text)
+            if not download_path:
+                return None
+
+            download_url = (
+                download_path
+                if download_path.startswith("http")
+                else f"https://earthworks.stanford.edu{download_path}"
+            )
+            file_response = requests.get(download_url, timeout=60)
+            file_response.raise_for_status()
+            return file_response
+        except Exception:
+            logger.exception(
+                "GeoBlacklight fallback download failed for resource %s (%s)",
+                resource_id,
+                spec.download_type,
+            )
+            return None
+
+    def _extract_geoblacklight_download_path(self, body: str) -> Optional[str]:
+        """
+        GeoBlacklight returns payloads like:
+        [[["success","..."]],"/download/file/stanford-...-shapefile.zip"]
+        """
+        try:
+            payload = json.loads(body)
+        except Exception:
+            return None
+
+        if isinstance(payload, list) and len(payload) >= 2 and isinstance(payload[1], str):
+            return payload[1]
+
+        if isinstance(payload, dict):
+            for key in ("download_url", "url", "path"):
+                value = payload.get(key)
+                if isinstance(value, str):
+                    return value
+
+        return None
+
+    def _is_stanford_resource(self) -> bool:
+        provider = self.document.get("schema_provider_s")
+        resource_id = self.document.get("id")
+        if isinstance(provider, str) and "stanford" in provider.lower():
+            return True
+        if isinstance(resource_id, str) and resource_id.startswith("stanford-"):
+            return True
+        return False
+
+    def _assert_content_type_matches(
+        self, spec: "GeneratedDownloadSpec", actual_header: str
+    ) -> None:
+        if not actual_header:
+            return
+
+        actual = actual_header.split(";")[0].strip().lower()
+        expected = spec.content_type.lower()
+        fallback = self.GENERATED_CONTENT_TYPE_FALLBACKS.get(expected, set())
+
+        if actual == expected or actual in fallback:
+            return
+
+        raise ValueError(
+            f"Unexpected content type for generated {spec.download_type}: "
+            f"expected {spec.content_type}, got {actual_header}"
+        )
 
     def _first_url(self, uri: str) -> Optional[str]:
         records = self.by_uri.get(uri, [])
@@ -392,3 +733,15 @@ class DownloadService:
             )
 
         return downloads
+
+
+@dataclass
+class GeneratedDownloadSpec:
+    download_type: str
+    label: str
+    extension: str
+    content_type: str
+    service_url: str
+    reflect: bool
+    request_params: Dict[str, object]
+    file_name: str
