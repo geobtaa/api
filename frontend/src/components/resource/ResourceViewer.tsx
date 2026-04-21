@@ -19,6 +19,11 @@ interface ResourceViewerProps {
   data: {
     attributes: {
       dct_references_s?: string | Record<string, string>;
+      ogm?: {
+        id?: string;
+        gbl_wxsIdentifier_s?: string;
+        gbl_wxsidentifier_s?: string;
+      };
       [key: string]: unknown;
     };
     meta?: {
@@ -361,6 +366,18 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
   const endpoint = data.meta?.ui?.viewer?.endpoint || '';
   const geometry = data.meta?.ui?.viewer?.geometry;
   const available = !!protocol && !!endpoint && !!geometry;
+  const layerIdentifier =
+    data.attributes.ogm?.gbl_wxsIdentifier_s ||
+    data.attributes.ogm?.gbl_wxsidentifier_s ||
+    '';
+  const resourceIdentifier = data.attributes.ogm?.id || '';
+  const viewerInstanceKey = [
+    protocol,
+    endpoint,
+    layerIdentifier,
+    resourceIdentifier,
+    pageValue,
+  ].join('|');
 
   // Helper function to titleize a string
   const titleize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1);
@@ -504,6 +521,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
 
       return (
         <iframe
+          key={viewerInstanceKey}
           title="Mirador viewer"
           className="viewer h-[600px] w-full border-0"
           // Allow scripts so Mirador can run. Keep it isolated from the parent page.
@@ -601,6 +619,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
         getWgs84ExtentFromViewerGeometry(geometryForViewer);
       return (
         <OpenLayersPreviewMap
+          key={viewerInstanceKey}
           protocol={protocol}
           endpoint={endpoint}
           geometryForViewer={geometryForViewer}
@@ -615,6 +634,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
       }
       return (
         <div
+          key={viewerInstanceKey}
           className="viewer h-[600px]"
           data-controller="oembed-viewer"
           data-oembed-viewer-url-value={endpoint}
@@ -633,7 +653,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
         );
       }
       return (
-        <div className="sticky top-[88px]">
+        <div key={viewerInstanceKey} className="sticky top-[88px]">
           <div
             id="leaflet-viewer"
             className="viewer h-[500px]"

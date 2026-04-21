@@ -193,6 +193,68 @@ const pmtilesDataWithGeometry = {
   },
 } as Parameters<typeof ResourceViewer>[0]['data'];
 
+const wmsDataWithGeometry = {
+  attributes: {
+    dct_references_s: {},
+    ogm: {
+      id: 'cook-county-contours',
+      gbl_wxsIdentifier_s: 'Contours',
+    },
+  },
+  meta: {
+    ui: {
+      viewer: {
+        protocol: 'wms',
+        endpoint:
+          'https://example.com/cook-county/services/contours/MapServer/WMSServer',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-88.2, 41.6],
+              [-88.2, 42.2],
+              [-87.4, 42.2],
+              [-87.4, 41.6],
+              [-88.2, 41.6],
+            ],
+          ],
+        },
+      },
+    },
+  },
+} as Parameters<typeof ResourceViewer>[0]['data'];
+
+const secondWmsDataWithGeometry = {
+  attributes: {
+    dct_references_s: {},
+    ogm: {
+      id: 'cook-county-zoning',
+      gbl_wxsIdentifier_s: 'Zoning',
+    },
+  },
+  meta: {
+    ui: {
+      viewer: {
+        protocol: 'wms',
+        endpoint:
+          'https://example.com/cook-county/services/zoning/MapServer/WMSServer',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-88.0, 41.7],
+              [-88.0, 42.0],
+              [-87.5, 42.0],
+              [-87.5, 41.7],
+              [-88.0, 41.7],
+            ],
+          ],
+        },
+      },
+    },
+  },
+} as Parameters<typeof ResourceViewer>[0]['data'];
+
 describe('ResourceViewer', () => {
   let rectSpy: ReturnType<typeof vi.spyOn>;
 
@@ -271,6 +333,38 @@ describe('ResourceViewer', () => {
       });
       expect(mocks.vectorTileLayer).toHaveBeenCalled();
       expect(mocks.fitInternal).toHaveBeenCalled();
+    });
+  });
+
+  describe('Leaflet-backed viewer remounts', () => {
+    it('replaces the viewer container when the resource changes', async () => {
+      const { rerender, container } = render(
+        <ResourceViewer data={wmsDataWithGeometry} pageValue="SHOW" />
+      );
+
+      await act(async () => {});
+
+      const firstViewer = container.querySelector('#leaflet-viewer');
+      expect(firstViewer).not.toBeNull();
+      expect(
+        firstViewer?.getAttribute('data-leaflet-viewer-layer-id-value')
+      ).toBe('Contours');
+
+      rerender(
+        <ResourceViewer data={secondWmsDataWithGeometry} pageValue="SHOW" />
+      );
+
+      await act(async () => {});
+
+      const secondViewer = container.querySelector('#leaflet-viewer');
+      expect(secondViewer).not.toBeNull();
+      expect(secondViewer).not.toBe(firstViewer);
+      expect(
+        secondViewer?.getAttribute('data-leaflet-viewer-layer-id-value')
+      ).toBe('Zoning');
+      expect(secondViewer?.getAttribute('data-leaflet-viewer-url-value')).toBe(
+        'https://example.com/cook-county/services/zoning/MapServer/WMSServer'
+      );
     });
   });
 });
