@@ -736,10 +736,58 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
                                 console.log('Attempting to update map size...');
                                 try {
                                   map.updateSize();
+                                  map.renderSync?.();
+                                  fitToGeometryExtent('post-update-size');
                                   console.log('Map size updated');
                                 } catch (e) {
                                   console.warn('Failed to update map size:', e);
                                 }
+                              }
+
+                              if (
+                                source &&
+                                source.getState?.() !== 'ready' &&
+                                typeof (source as any).on === 'function' &&
+                                !(source as any)
+                                  .__resourceViewerReadyListenerAttached
+                              ) {
+                                (
+                                  source as any
+                                ).__resourceViewerReadyListenerAttached = true;
+                                const onSourceChange = () => {
+                                  const sourceState = source.getState?.();
+                                  if (sourceState === 'ready') {
+                                    try {
+                                      map.updateSize?.();
+                                      map.renderSync?.();
+                                      fitToGeometryExtent(
+                                        'pmtiles-source-ready'
+                                      );
+                                    } finally {
+                                      (source as any).un?.(
+                                        'change',
+                                        onSourceChange
+                                      );
+                                      (
+                                        source as any
+                                      ).__resourceViewerReadyListenerAttached =
+                                        false;
+                                    }
+                                  } else if (sourceState === 'error') {
+                                    console.warn(
+                                      'PMTiles source entered error state'
+                                    );
+                                    (source as any).un?.(
+                                      'change',
+                                      onSourceChange
+                                    );
+                                    (
+                                      source as any
+                                    ).__resourceViewerReadyListenerAttached =
+                                      false;
+                                  }
+                                };
+                                (source as any).on('change', onSourceChange);
                               }
 
                               // Check if we can see tile loading
