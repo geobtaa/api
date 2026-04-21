@@ -35,7 +35,7 @@ env:
   clear:
     APPLICATION_URL: https://lib-geoportal-prd-web-01.oit.umn.edu
     APP_ENV: production
-    SEARCH_ENGINE_INDEXING_ENABLED: "true"
+    SEARCH_ENGINE_INDEXING_ENABLED: "false"
     RATE_LIMIT_ENABLED: "true"
     CACHE_DEBUG_HEADERS: "false"
     CACHE_LOG_EVENTS: "false"
