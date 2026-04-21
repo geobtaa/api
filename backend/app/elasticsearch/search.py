@@ -174,6 +174,10 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "field": "b1g_code_s",
             "size": DEFAULT_FACET_SIZE,
         },
+        "b1g_localCollectionLabel_sm": {
+            "field": "b1g_localCollectionLabel_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
         "geo_country": {
             "field": "geo_country.keyword",
             "size": GEO_COUNTRY_FACET_SIZE,
