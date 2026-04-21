@@ -379,6 +379,32 @@ class TestGetFacetValues:
         aggs = call_args.kwargs["aggs"]
         assert "facet_values" in aggs
         assert "include" in aggs["facet_values"]["terms"]
+        assert "[uU]" in aggs["facet_values"]["terms"]["include"]
+
+    @pytest.mark.asyncio
+    @patch("app.elasticsearch.search.es")
+    async def test_q_facet_regex_is_case_insensitive(self, mock_es):
+        """Test that q_facet regex matches facet values regardless of case."""
+        mock_response = MagicMock()
+        mock_response.body = {
+            "aggregations": {"facet_values": {"buckets": [{"key": "Michigan", "doc_count": 50}]}}
+        }
+        mock_es.search = AsyncMock(return_value=mock_response)
+
+        await get_facet_values(
+            facet_name="dct_spatial_sm",
+            query=None,
+            fq=None,
+            include_filters=None,
+            exclude_filters=None,
+            adv_q=None,
+            q_facet="michigan",
+        )
+
+        mock_es.search.assert_called_once()
+        call_args = mock_es.search.call_args
+        include_pattern = call_args.kwargs["aggs"]["facet_values"]["terms"]["include"]
+        assert include_pattern == ".*[mM][iI][cC][hH][iI][gG][aA][nN].*"
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")

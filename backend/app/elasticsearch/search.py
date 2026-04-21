@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import time
 from typing import Optional
 from urllib.parse import urlencode
@@ -57,6 +58,28 @@ def _escape_query_string_brackets(query_text: str) -> str:
         .replace("}", r"\}")
         .replace(":", r"\:")
     )
+
+
+def _build_case_insensitive_facet_regex(query_text: str) -> str:
+    """Build a Lucene regex that matches facet values case-insensitively.
+
+    Facet autocomplete aggregates over keyword fields, and the ``terms.include``
+    regex is case-sensitive. Expand alphabetic characters into explicit
+    lower/upper character classes so values like ``Michigan`` still match a
+    lowercase ``michigan`` query before Elasticsearch trims the bucket list.
+    """
+    pattern_parts: list[str] = []
+
+    for char in query_text:
+        lower = char.lower()
+        upper = char.upper()
+
+        if char.isalpha() and len(lower) == 1 and len(upper) == 1 and lower != upper:
+            pattern_parts.append(f"[{re.escape(lower)}{re.escape(upper)}]")
+        else:
+            pattern_parts.append(re.escape(char))
+
+    return f".*{''.join(pattern_parts)}.*"
 
 
 # Fields that should use their `.keyword` subfield for aggregations and filters
@@ -2206,14 +2229,11 @@ async def get_facet_values(
     # Build aggregation with large size to get all values for sorting/filtering
     agg_config = {"terms": {"field": agg_field, "size": size}}
 
-    # Optionally use ES include parameter for filtering (but we'll do client-side for simplicity)
+    # Narrow the bucket list in Elasticsearch so autocomplete doesn't pull unrelated values.
+    # Keyword-field regex matching is case-sensitive, so build an explicit case-insensitive
+    # pattern rather than relying solely on the later client-side filtering step.
     if q_facet:
-        # Use regex pattern matching in ES for better performance on large datasets
-        # Escape special regex characters
-        import re
-
-        escaped_query = re.escape(q_facet)
-        agg_config["terms"]["include"] = f".*{escaped_query}.*"
+        agg_config["terms"]["include"] = _build_case_insensitive_facet_regex(q_facet)
 
     search_query = {
         "query": {"bool": bool_query_dict},
