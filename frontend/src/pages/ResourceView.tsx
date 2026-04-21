@@ -44,11 +44,6 @@ interface SearchState {
   perPage?: number;
 }
 
-interface FacetFilter {
-  field: string;
-  value: string;
-}
-
 // Define the ResourceData type to match the actual API response
 interface ResourceData extends GeoDocument {
   meta?: {
@@ -194,83 +189,41 @@ export function ResourceView({
     : null;
 
   // Function to fetch next page of results
-  const fetchNextPage = async () => {
+  const fetchSearchPage = async (pageNumber: number) => {
     if (!searchState) return null;
-    const nextPage = searchState.currentPage + 1;
-
     try {
-      // Extract search parameters from the URL
       const urlParams = new URLSearchParams(
         searchState.searchUrl.split('?')[1] || ''
       );
-      const query = urlParams.get('q') || '';
-
-      // Extract facets from the URL if they exist
-      const facets: FacetFilter[] = [];
-      for (const [key, value] of urlParams.entries()) {
-        if (key.startsWith('fq[') && key.endsWith('][]')) {
-          const field = key.slice(3, -3); // Extract field name from fq[field][]
-          facets.push({ field, value });
-        }
-      }
-
-      // Get current sort value if it exists
-      const sort = urlParams.get('sort') || undefined;
-
       const results = await fetchSearchResults(
-        query,
-        nextPage,
+        urlParams.get('q') || '',
+        pageNumber,
         perPage,
-        facets,
+        [],
         setLastApiUrl,
-        sort
+        undefined,
+        [],
+        [],
+        undefined,
+        urlParams
       );
 
       return results.data;
     } catch (error) {
-      console.error('Error fetching next page:', error);
+      console.error(`Error fetching search page ${pageNumber}:`, error);
       return null;
     }
+  };
+
+  const fetchNextPage = async () => {
+    if (!searchState) return null;
+    return fetchSearchPage(searchState.currentPage + 1);
   };
 
   // Function to fetch previous page of results
   const fetchPrevPage = async () => {
     if (!searchState) return null;
-    const prevPage = searchState.currentPage - 1;
-
-    try {
-      // Extract search parameters from the URL
-      const urlParams = new URLSearchParams(
-        searchState.searchUrl.split('?')[1] || ''
-      );
-      const query = urlParams.get('q') || '';
-
-      // Extract facets from the URL if they exist
-      const facets: FacetFilter[] = [];
-      for (const [key, value] of urlParams.entries()) {
-        if (key.startsWith('fq[') && key.endsWith('][]')) {
-          const field = key.slice(3, -3); // Extract field name from fq[field][]
-          facets.push({ field, value });
-        }
-      }
-
-      // Get current sort value if it exists
-      const sort = urlParams.get('sort') || undefined;
-
-      const results = await fetchSearchResults(
-        query,
-        prevPage,
-        perPage,
-        facets,
-        setLastApiUrl,
-        sort
-      );
-
-      return results.data;
-    } catch (error) {
-      console.error('Error fetching previous page:', error);
-      return null;
-    }
+    return fetchSearchPage(searchState.currentPage - 1);
   };
 
   // Handle next result click

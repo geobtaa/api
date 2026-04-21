@@ -65,6 +65,24 @@ function applyDefaultQueryParams(url: URL, defaults: string[] | undefined) {
   });
 }
 
+function appendForwardedSearchFilters(
+  target: URLSearchParams,
+  source: URLSearchParams
+) {
+  Array.from(source.keys())
+    .filter(
+      (key) =>
+        key.startsWith('include_filters[') ||
+        key.startsWith('exclude_filters[') ||
+        key.startsWith('fq[')
+    )
+    .forEach((key) => {
+      source.getAll(key).forEach((value) => {
+        target.append(key, value);
+      });
+    });
+}
+
 /**
  * Gets the API base URL path for the NGINX BFF proxy.
  * The BFF proxy handles API key authentication server-side.
@@ -330,7 +348,8 @@ export async function fetchSearchResults(
   sort?: string,
   excludeFacets: FacetFilter[] = [],
   advancedQuery: AdvancedClause[] = [],
-  options: FetchOptions = defaultFetchOptions
+  options: FetchOptions = defaultFetchOptions,
+  sourceSearchParams?: URLSearchParams
 ): Promise<JsonApiResponse> {
   const startTime = performance.now();
   console.log('🌐 fetchSearchResults called with:', {
@@ -345,16 +364,27 @@ export async function fetchSearchResults(
   const apiBasePath = getApiBasePath();
   const baseUrl = `${apiBasePath}/search`;
   const url = createApiUrl(baseUrl);
+  const effectiveQuery = sourceSearchParams?.get('q') ?? query;
+  const effectiveSort = sort ?? sourceSearchParams?.get('sort') ?? undefined;
+  const effectiveSearchField =
+    sourceSearchParams?.get('search_field') || 'all_fields';
 
-  url.searchParams.set('search_field', 'all_fields');
-  url.searchParams.set('q', query);
+  url.searchParams.set('search_field', effectiveSearchField);
+  url.searchParams.set('q', effectiveQuery);
   url.searchParams.set('page', page.toString());
   url.searchParams.set('per_page', perPage.toString());
 
-  // Read geo filters from current URL if they exist
-  // Only apply them if all required geo filter parameters are present
-  // This ensures we don't apply partial or stale geo filters
-  if (typeof window !== 'undefined') {
+  if (sourceSearchParams) {
+    appendForwardedSearchFilters(url.searchParams, sourceSearchParams);
+
+    const rawAdvancedQuery = sourceSearchParams.get('adv_q');
+    if (rawAdvancedQuery) {
+      url.searchParams.set('adv_q', rawAdvancedQuery);
+    }
+  } else if (typeof window !== 'undefined') {
+    // Read geo filters from current URL if they exist
+    // Only apply them if all required geo filter parameters are present
+    // This ensures we don't apply partial or stale geo filters
     const currentUrl = new URL(window.location.href);
     const geoType = currentUrl.searchParams.get('include_filters[geo][type]');
 
@@ -383,7 +413,9 @@ export async function fetchSearchResults(
           }
         });
 
-        const relation = currentUrl.searchParams.get('include_filters[geo][relation]');
+        const relation = currentUrl.searchParams.get(
+          'include_filters[geo][relation]'
+        );
         if (relation) {
           url.searchParams.set('include_filters[geo][relation]', relation);
         }
@@ -391,8 +423,8 @@ export async function fetchSearchResults(
     }
   }
 
-  if (sort && sort !== 'relevance') {
-    url.searchParams.set('sort', sort);
+  if (effectiveSort && effectiveSort !== 'relevance') {
+    url.searchParams.set('sort', effectiveSort);
   }
 
   // Normalize legacy *_agg facet IDs to field-named IDs for the API
@@ -414,24 +446,26 @@ export async function fetchSearchResults(
     id_agg: 'id',
   };
 
-  facets.forEach(({ field, value }) => {
-    const normalized = FACET_ID_MAP[field] || field;
-    url.searchParams.append(`include_filters[${normalized}][]`, value);
-  });
+  if (!sourceSearchParams) {
+    facets.forEach(({ field, value }) => {
+      const normalized = FACET_ID_MAP[field] || field;
+      url.searchParams.append(`include_filters[${normalized}][]`, value);
+    });
 
-  // Apply exclude filters
-  excludeFacets.forEach(({ field, value }) => {
-    const normalized = FACET_ID_MAP[field] || field;
-    url.searchParams.append(`exclude_filters[${normalized}][]`, value);
-  });
+    // Apply exclude filters
+    excludeFacets.forEach(({ field, value }) => {
+      const normalized = FACET_ID_MAP[field] || field;
+      url.searchParams.append(`exclude_filters[${normalized}][]`, value);
+    });
 
-  if (advancedQuery.length > 0) {
-    const serialized = advancedQuery.map(({ op, field, q }) => ({
-      op,
-      f: FACET_ID_MAP[field] || field,
-      q,
-    }));
-    url.searchParams.set('adv_q', JSON.stringify(serialized));
+    if (advancedQuery.length > 0) {
+      const serialized = advancedQuery.map(({ op, field, q }) => ({
+        op,
+        f: FACET_ID_MAP[field] || field,
+        q,
+      }));
+      url.searchParams.set('adv_q', JSON.stringify(serialized));
+    }
   }
 
   console.log('🔗 API URL:', url.toString());

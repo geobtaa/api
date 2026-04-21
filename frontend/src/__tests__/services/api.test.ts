@@ -416,7 +416,8 @@ describe('fetchHomeBlogPosts', () => {
       .mockResolvedValueOnce({
         ok: true,
         headers: { get: () => 'application/json' },
-        text: async () => JSON.stringify({ data: [{ slug: 'latest-post' }], meta: {} }),
+        text: async () =>
+          JSON.stringify({ data: [{ slug: 'latest-post' }], meta: {} }),
       });
 
     const response = await fetchHomeBlogPosts({ limit: 3, theme: 'btaa' });
@@ -433,6 +434,84 @@ describe('fetchHomeBlogPosts', () => {
 describe('fetchSearchResults', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('replays source search params when paginating from a resource page', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        href: 'https://example.com/resources/abc123',
+      },
+      writable: true,
+    });
+
+    const onApiCall = vi.fn();
+    const sourceSearchParams = new URLSearchParams();
+    const advQuery = JSON.stringify([
+      { op: 'AND', f: 'dct_title_s', q: 'Chicago' },
+    ]);
+
+    sourceSearchParams.set('q', 'chicago');
+    sourceSearchParams.set('sort', 'year_desc');
+    sourceSearchParams.set('adv_q', advQuery);
+    sourceSearchParams.append(
+      'include_filters[gbl_resourceClass_sm][]',
+      'Maps'
+    );
+    sourceSearchParams.append(
+      'exclude_filters[dct_accessRights_s][]',
+      'Restricted'
+    );
+    sourceSearchParams.set('include_filters[year_range][start]', '1900');
+    sourceSearchParams.set('include_filters[year_range][end]', '1950');
+    sourceSearchParams.set('include_filters[geo][type]', 'bbox');
+    sourceSearchParams.set('include_filters[geo][field]', 'dcat_bbox');
+    sourceSearchParams.set('include_filters[geo][top_left][lat]', '45');
+    sourceSearchParams.set('include_filters[geo][top_left][lon]', '-109');
+    sourceSearchParams.set('include_filters[geo][bottom_right][lat]', '41');
+    sourceSearchParams.set('include_filters[geo][bottom_right][lon]', '-104');
+    sourceSearchParams.set('include_filters[geo][relation]', 'within');
+
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [], meta: {}, included: [] }),
+    });
+
+    await fetchSearchResults(
+      '',
+      2,
+      10,
+      [],
+      onApiCall,
+      undefined,
+      [],
+      [],
+      undefined,
+      sourceSearchParams
+    );
+
+    expect(onApiCall).toHaveBeenCalledTimes(1);
+    const requestUrl = new URL(onApiCall.mock.calls[0][0]);
+    expect(requestUrl.searchParams.get('q')).toBe('chicago');
+    expect(requestUrl.searchParams.get('page')).toBe('2');
+    expect(requestUrl.searchParams.get('per_page')).toBe('10');
+    expect(requestUrl.searchParams.get('sort')).toBe('year_desc');
+    expect(requestUrl.searchParams.get('adv_q')).toBe(advQuery);
+    expect(
+      requestUrl.searchParams.getAll('include_filters[gbl_resourceClass_sm][]')
+    ).toEqual(['Maps']);
+    expect(
+      requestUrl.searchParams.getAll('exclude_filters[dct_accessRights_s][]')
+    ).toEqual(['Restricted']);
+    expect(
+      requestUrl.searchParams.get('include_filters[year_range][start]')
+    ).toBe('1900');
+    expect(
+      requestUrl.searchParams.get('include_filters[year_range][end]')
+    ).toBe('1950');
+    expect(requestUrl.searchParams.get('include_filters[geo][relation]')).toBe(
+      'within'
+    );
   });
 
   it('forwards bbox relation when present in URL params', async () => {
@@ -477,6 +556,8 @@ describe('fetchSearchResults', () => {
     await fetchSearchResults('maps', 1, 10, [], onApiCall);
 
     const requestUrl = new URL(onApiCall.mock.calls[0][0]);
-    expect(requestUrl.searchParams.get('include_filters[geo][relation]')).toBeNull();
+    expect(
+      requestUrl.searchParams.get('include_filters[geo][relation]')
+    ).toBeNull();
   });
 });

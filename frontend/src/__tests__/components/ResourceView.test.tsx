@@ -702,7 +702,31 @@ describe('ResourceView Component', () => {
     });
 
     it('handles next navigation to new page', async () => {
-      // Test basic navigation functionality
+      const user = userEvent.setup();
+      const currentPageResults = Array.from({ length: 10 }, (_, index) => ({
+        id: `result-${index}`,
+      }));
+      currentPageResults[9] = { id: 'mit-001145244' };
+
+      const filteredSearchState = {
+        ...mockSearchState,
+        searchResults: currentPageResults,
+        currentIndex: 9,
+        totalResults: 20,
+        searchUrl:
+          '/search?q=chicago&include_filters[gbl_resourceClass_sm][]=Maps',
+        currentPage: 1,
+        perPage: 10,
+        absoluteIndex: 9,
+      };
+      mockUseLocation.mockReturnValue({
+        state: filteredSearchState,
+        pathname: '/resources/mit-001145244',
+        search: '',
+        hash: '',
+        key: 'test-key',
+      });
+
       render(
         <TestWrapper>
           <ResourceView />
@@ -717,10 +741,44 @@ describe('ResourceView Component', () => {
         ).toBeInTheDocument();
       });
 
-      // Should show navigation controls
-      expect(screen.getByText('Back')).toBeInTheDocument();
-      expect(screen.getByText('Clear')).toBeInTheDocument();
-      expect(screen.getByText('1 of 4')).toBeInTheDocument();
+      await user.click(screen.getByText('Next'));
+
+      expect(fetchSearchResults).toHaveBeenCalledWith(
+        'chicago',
+        2,
+        10,
+        [],
+        expect.any(Function),
+        undefined,
+        [],
+        [],
+        undefined,
+        expect.any(URLSearchParams)
+      );
+
+      const paginationCall = fetchSearchResults.mock.calls.find(
+        (call) =>
+          call[1] === 2 && call[2] === 10 && call[9] instanceof URLSearchParams
+      );
+      expect(paginationCall).toBeDefined();
+
+      const sourceSearchParams = paginationCall?.[9] as URLSearchParams;
+      expect(sourceSearchParams.get('q')).toBe('chicago');
+      expect(
+        sourceSearchParams.getAll('include_filters[gbl_resourceClass_sm][]')
+      ).toEqual(['Maps']);
+
+      expect(mockNavigate).toHaveBeenCalledWith(
+        '/resources/mit-001145244',
+        expect.objectContaining({
+          state: expect.objectContaining({
+            currentIndex: 0,
+            currentPage: 2,
+            absoluteIndex: 10,
+            searchResults: realFixtureData.slice(0, 2),
+          }),
+        })
+      );
     });
 
     it('handles previous navigation to previous page', async () => {
