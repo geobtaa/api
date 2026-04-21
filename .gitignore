@@ -208,8 +208,7 @@ backend/static/maps/*
 # Kamal secrets (base, common, and destination-specific)
 .kamal/secrets
 .kamal/secrets-common
-.kamal/secrets.dev1
-.kamal/secrets.dev2
+.kamal/secrets.*
 
 # Temp files
 tmp/

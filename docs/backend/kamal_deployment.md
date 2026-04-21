@@ -2,12 +2,13 @@
 
 ## Current Stack (Multi-Destination)
 
-This project uses **Kamal destinations** to deploy to multiple development servers. Each destination has its own config file and secrets.
+This project uses **Kamal destinations** to deploy to multiple environments. Each destination has its own config file and secrets.
 
 | Destination | Host | Config | Secrets |
 |-------------|------|--------|---------|
 | `dev1` | `lib-btaageoapi-dev-app-01.oit.umn.edu` | `config/deploy.dev1.yml` | `.kamal/secrets.dev1` |
 | `dev2` | `lib-geoportal-dev-web-01.oit.umn.edu` | `config/deploy.dev2.yml` | `.kamal/secrets.dev2` |
+| `prd` | `lib-geoportal-prd-web-01.oit.umn.edu` | `config/deploy.prd.yml` | `.kamal/secrets.prd` |
 
 Shared secrets (registry, PostgreSQL, Redis, etc.) live in `.kamal/secrets-common`. Kamal merges `config/deploy.yml` with the destination-specific file when you run `kamal deploy -d <destination>`.
 
@@ -24,6 +25,7 @@ Shared secrets (registry, PostgreSQL, Redis, etc.) live in `.kamal/secrets-commo
 **URLs**:
 - dev1: https://lib-btaageoapi-dev-app-01.oit.umn.edu
 - dev2: https://lib-geoportal-dev-web-01.oit.umn.edu
+- prd: https://lib-geoportal-prd-web-01.oit.umn.edu
 
 ### Single-host routing behavior
 
@@ -86,7 +88,13 @@ export KAMAL_HOST=lib-geoportal-dev-web-01.oit.umn.edu
 export KAMAL_SSH_USER=your_ssh_username
 EOF
 
-chmod 600 .kamal/secrets-common .kamal/secrets.dev1 .kamal/secrets.dev2
+# Per-destination: prd
+cat > .kamal/secrets.prd << 'EOF'
+export KAMAL_HOST=lib-geoportal-prd-web-01.oit.umn.edu
+export KAMAL_SSH_USER=your_ssh_username
+EOF
+
+chmod 600 .kamal/secrets-common .kamal/secrets.dev1 .kamal/secrets.dev2 .kamal/secrets.prd
 ```
 
 **Note**: These files are in `.gitignore`. Kamal loads `secrets-common` and `secrets.<destination>` when you run `kamal deploy -d <destination>`. For Makefile targets, set `KAMAL_DEST` (default `dev1`):
@@ -94,6 +102,7 @@ chmod 600 .kamal/secrets-common .kamal/secrets.dev1 .kamal/secrets.dev2
 ```bash
 make kamal-reindex                    # Uses dev1 by default
 make kamal-reindex KAMAL_DEST=dev2    # Targets dev2
+make kamal-reindex KAMAL_DEST=prd     # Targets production
 ```
 
 ### 2. Verify `config/deploy.yml` and Destination Files
@@ -101,6 +110,7 @@ make kamal-reindex KAMAL_DEST=dev2    # Targets dev2
 - **`config/deploy.yml`** — Base config (service, image, accessories, shared env). Uses `require_destination: true`.
 - **`config/deploy.dev1.yml`** — Overrides servers, proxy host, builder args, APPLICATION_URL for dev1.
 - **`config/deploy.dev2.yml`** — Same overrides for dev2.
+- **`config/deploy.prd.yml`** — Production host overrides plus production-only env flags (`APP_ENV`, indexing, rate limiting, cache debug headers).
 
 Kamal deep-merges the destination file with the base when you use `-d <destination>`.
 
@@ -116,14 +126,33 @@ ssh your-user@YOUR_SERVER_IP
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
 
-# Create deploy user (optional but recommended)
-sudo useradd -m -s /bin/bash deploy
-sudo usermod -aG docker deploy
-sudo mkdir -p /home/deploy/.ssh
-sudo cp ~/.ssh/authorized_keys /home/deploy/.ssh/
-sudo chown -R deploy:deploy /home/deploy/.ssh
-sudo chmod 700 /home/deploy/.ssh
+# Create a dedicated shared deploy group + user (recommended)
+sudo groupadd -f deploy
+id -u deploy >/dev/null 2>&1 || sudo useradd -m -g deploy -s /bin/bash deploy
+sudo usermod -g deploy -aG docker deploy
+sudo install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+sudo cp ~/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys
 sudo chmod 600 /home/deploy/.ssh/authorized_keys
+
+# Add each operator's public SSH key to /home/deploy/.ssh/authorized_keys
+# so future Kamal operators can all use the shared deploy account.
+
+# If this destination uses bind mounts under /var/lib (dev2/prd),
+# create the parent path once with sudo and make it writable by the shared deploy user.
+sudo mkdir -p /var/lib/btaa-geospatial-api
+sudo chown root:deploy /var/lib/btaa-geospatial-api
+sudo chmod 2775 /var/lib/btaa-geospatial-api
+
+# Elasticsearch's Docker image runs as uid:gid 1000:0.
+# If you bind-mount its data dir, grant group 0 write access so it can start.
+sudo mkdir -p /var/lib/btaa-geospatial-api/elasticsearch
+sudo chgrp -R 0 /var/lib/btaa-geospatial-api/elasticsearch
+sudo chmod -R g+rwx /var/lib/btaa-geospatial-api/elasticsearch
+
+# Quick verification
+id deploy
+ls -ld /home/deploy /home/deploy/.ssh /var/lib/btaa-geospatial-api
 
 # Exit and reconnect to apply group changes
 exit
@@ -161,6 +190,9 @@ kamal setup -d dev1
 # Or deploy to dev2 (new dev server)
 kamal setup -d dev2
 
+# Or deploy to prd (production server)
+kamal setup -d prd
+
 # This will:
 # - Install Kamal proxy on your server
 # - Start all accessories (ParadeDB, Elasticsearch, Redis)
@@ -176,10 +208,10 @@ kamal setup -d dev2
 
 ```bash
 # After setup, run migrations (specify destination)
-kamal app exec -d dev1 "python db/migrations/create_resource_spatial_facets_table.py"
+kamal app exec -d prd "python db/migrations/create_resource_spatial_facets_table.py"
 
 # Or use the alias
-kamal console -d dev1
+kamal console -d prd
 >>> from db.migrations import create_resource_spatial_facets_table
 >>> # Run migrations...
 ```
@@ -188,18 +220,18 @@ kamal console -d dev1
 
 ```bash
 # Check if containers are running (specify destination)
-kamal app details -d dev1
+kamal app details -d prd
 
 # Check accessories status
-kamal accessory details -d dev1 paradedb
-kamal accessory details -d dev1 elasticsearch
-kamal accessory details -d dev1 redis
+kamal accessory details -d prd paradedb
+kamal accessory details -d prd elasticsearch
+kamal accessory details -d prd redis
 
 # View application logs
-kamal app logs -d dev1
+kamal app logs -d prd
 
 # Test the API
-curl https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/health
+curl https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/health
 ```
 
 ## Common Kamal Commands
@@ -210,72 +242,75 @@ curl https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/health
 # Full deployment workflow (always specify -d <destination>)
 kamal deploy -d dev1                          # Deploy to dev1
 kamal deploy -d dev2 --roles worker            # Deploy only worker to dev2
-kamal redeploy -d dev1                         # Redeploy without rebuilding
-kamal rollback -d dev1                         # Rollback to previous version
+kamal deploy -d prd                            # Deploy to production
+kamal redeploy -d prd                          # Redeploy without rebuilding
+kamal rollback -d prd                          # Rollback to previous version
 
 # Database management (Makefile uses KAMAL_DEST, default dev1)
 make db-export                                 # Export local database
 make db-import                                 # Import to dev1
 make db-import KAMAL_DEST=dev2                 # Import to dev2
+make db-import KAMAL_DEST=prd                  # Import to production
 make db-sync                                   # Export + Import
 
 # Monitoring (Makefile targets use KAMAL_DEST)
 make kamal-worker-logs                         # Tail worker logs (dev1)
 make kamal-worker-logs KAMAL_DEST=dev2         # Tail worker logs (dev2)
-kamal app logs -d dev1 --roles web             # View web logs
-kamal app logs -d dev1 --roles worker          # View worker logs
-kamal app logs -d dev1 --roles flower          # View Flower logs
-kamal accessory logs -d dev1 paradedb          # View database logs
+make kamal-worker-logs KAMAL_DEST=prd          # Tail worker logs (prd)
+kamal app logs -d prd --roles web              # View web logs
+kamal app logs -d prd --roles worker           # View worker logs
+kamal app logs -d prd --roles flower           # View Flower logs
+kamal accessory logs -d prd paradedb           # View database logs
 
 # Accessories management
-kamal accessory boot -d dev1 paradedb          # Start ParadeDB
-kamal accessory reboot -d dev1 redis           # Restart Redis
+kamal accessory boot -d prd paradedb           # Start ParadeDB
+kamal accessory reboot -d prd redis            # Restart Redis
 ```
 
 ### Deployment
 ```bash
 # Deploy new version (must specify destination)
-kamal deploy -d dev1
+kamal deploy -d prd
 
 # Redeploy without building
-kamal redeploy -d dev1
+kamal redeploy -d prd
 
 # Rollback to previous version
-kamal rollback -d dev1
+kamal rollback -d prd
 ```
 
 ### Management
 ```bash
 # View logs
-kamal app logs -d dev1 -f
+kamal app logs -d prd -f
 
 # Execute commands in app container
-kamal app exec -d dev1 "python script.py"
+kamal app exec -d prd "python script.py"
 
-# SSH into server (KAMAL_HOST from secrets; use Make or source .kamal/secrets.dev1)
+# SSH into server (KAMAL_HOST from secrets; use Make or source .kamal/secrets.prd)
 ssh $KAMAL_SSH_USER@$KAMAL_HOST
 
 # Access PostgreSQL
-kamal accessory exec -d dev1 paradedb "psql -U postgres btaa_geospatial_api"
+kamal accessory exec -d prd paradedb "psql -U postgres btaa_geospatial_api"
 
 # Restart services
-kamal app restart -d dev1
-kamal accessory restart -d dev1 redis
+kamal app restart -d prd
+kamal accessory restart -d prd redis
 ```
 
 ### Monitoring
 ```bash
 # Check app status
-kamal app details -d dev1
+kamal app details -d prd
 
 # Check accessory status
-kamal accessory details -d dev1 paradedb
+kamal accessory details -d prd paradedb
 
 # View Celery worker logs (via Makefile)
-make kamal-worker-logs KAMAL_DEST=dev1
+make kamal-worker-logs KAMAL_DEST=prd
 
 # Access Flower (Celery monitoring) via SSH tunnel
-# Source .kamal/secrets.dev1 first, or use KAMAL_DEST for Make targets
+# Source .kamal/secrets.prd first, or use KAMAL_DEST for Make targets
 ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
 # Then open http://localhost:5555 in browser
 ```
@@ -467,14 +502,17 @@ The cron container runs daily at 2 AM (bridge sync) and 3 AM (blog sync) in the 
 # 1. Run diagnostics (crontab, timezone, env)
 make kamal-cron-debug                    # Uses KAMAL_DEST=dev1 by default
 make kamal-cron-debug KAMAL_DEST=dev2    # For dev2
+make kamal-cron-debug KAMAL_DEST=prd     # For production
 
 # 2. Manually test the bridge sync trigger (same as 2 AM job)
 make kamal-cron-test-bridge
 make kamal-cron-test-bridge KAMAL_DEST=dev2
+make kamal-cron-test-bridge KAMAL_DEST=prd
 
 # 3. Check bridge status after a run
 make kamal-bridge-status
 make kamal-bridge-status KAMAL_DEST=dev2
+make kamal-bridge-status KAMAL_DEST=prd
 ```
 
 **Common causes:**
@@ -492,11 +530,11 @@ The API returns `task_id` immediately when it enqueues a Celery task. The run re
 
 ```bash
 # Worker logs (look for bridge_sync_all, errors, Redis/DB connection)
-make kamal-worker-logs KAMAL_DEST=dev1
-# Or: kamal app logs -d dev1 --roles worker --tail 200
+make kamal-worker-logs KAMAL_DEST=prd
+# Or: kamal app logs -d prd --roles worker --tail 200
 
 # Verify worker container is running
-kamal app details -d dev1
+kamal app details -d prd
 ```
 
 **Check task in Flower** (if accessible via SSH tunnel):
@@ -512,7 +550,7 @@ ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
 - **Worker can't reach Redis** – CELERY_BROKER_URL / REDIS_HOST; accessories must have `roles: [web, worker, flower]`
 - **Worker can't reach ParadeDB** – DATABASE_URL; same role check
 - **Task crashed before `create_sync_run`** – e.g. `database.connect()` failure; check worker logs for tracebacks
-- **`ValueError: KITHE_BRIDGE_URL is required`** or **`KITHE_BRIDGE_TOKEN is required`** – Add these to `config/deploy.yml` (URL in `env.clear`, token in `env.secret`) and ensure `KITHE_BRIDGE_TOKEN` is in `.kamal/secrets`; redeploy
+- **`ValueError: KITHE_BRIDGE_URL is required`** or **`KITHE_BRIDGE_TOKEN is required`** – Add these to `config/deploy.yml` (URL in `env.clear`, token in `env.secret`) and ensure `KITHE_BRIDGE_TOKEN` is present in `.kamal/secrets-common` or the destination-specific `.kamal/secrets.<dest>` file; redeploy
 
 ### Image Build Failures
 
@@ -538,21 +576,21 @@ docker volume ls
 
 ### Database Export/Import
 
-Use the Makefile tasks to sync your local database to production:
+Use the Makefile tasks to sync your local database to a remote Kamal destination:
 
 ```bash
 # Export local ParadeDB database
 make db-export
 
 # Import to remote server (via Kamal)
-make db-import
+make db-import KAMAL_DEST=prd
 
 # Do both in one command
-make db-sync
+make db-sync KAMAL_DEST=prd
 ```
 
 This will:
-1. Export your local database to `tmp/btaa_ogm_api_export.sql.gz`
+1. Export your local database to `tmp/btaa_geospatial_api_export.sql.gz`
 2. Copy it to the remote server
 3. Import it into the ParadeDB container
 4. Clean up temporary files
@@ -561,7 +599,7 @@ This will:
 
 ```bash
 # Source environment variables for your destination
-set -a && source .kamal/secrets-common && source .kamal/secrets.dev1 && set +a
+set -a && source .kamal/secrets-common && source .kamal/secrets.prd && set +a
 
 # Backup ParadeDB data
 ssh $KAMAL_SSH_USER@$KAMAL_HOST '\
@@ -609,7 +647,7 @@ resources:
 
 1. **Use SSH Keys**: Disable password authentication
 2. **Firewall**: Only expose necessary ports (80, 443, 22)
-3. **Secrets**: Never commit `.kamal/secrets` to git
+3. **Secrets**: Never commit `.kamal/secrets-common` or `.kamal/secrets.<dest>` to git
 4. **Registry**: Use private registry for production images
 5. **Updates**: Regularly update Docker images and dependencies
 6. **Backups**: Automate database backups
@@ -655,8 +693,8 @@ jobs:
           OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL=${{ secrets.OPENAI_MODEL }}
           EOF
-          # Destination-specific (set KAMAL_DESTINATION in workflow env, e.g. dev1)
-          cat > .kamal/secrets.dev1 << EOF
+          # Destination-specific (set KAMAL_DESTINATION in workflow env, e.g. dev1/dev2/prd)
+          cat > .kamal/secrets.${{ env.KAMAL_DESTINATION }} << EOF
           export KAMAL_HOST=${{ secrets.KAMAL_HOST }}
           export KAMAL_SSH_USER=${{ secrets.KAMAL_SSH_USER }}
           EOF
@@ -670,15 +708,15 @@ jobs:
           ssh-keyscan ${{ secrets.KAMAL_HOST }} >> ~/.ssh/known_hosts
       
       - name: Deploy
-        run: kamal deploy -d dev1
-        # Or for dev2: kamal deploy -d dev2
+        run: kamal deploy -d $KAMAL_DESTINATION
+        # Examples: dev1, dev2, prd
         # Ensure GitHub secrets include KAMAL_HOST, KAMAL_SSH_USER for the target destination
 ```
 
 ## Next Steps
 
 1. ✅ Configure `config/deploy.yml`
-2. ✅ Create `.kamal/secrets`
+2. ✅ Create `.kamal/secrets-common` + `.kamal/secrets.<dest>`
 3. ✅ Prepare your server
 4. ✅ Set up DNS
 5. ✅ Run `kamal setup`

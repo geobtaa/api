@@ -1,0 +1,57 @@
+# Destination: prd — Production server
+# Merged with config/deploy.yml when using: kamal deploy -d prd
+
+servers:
+  web:
+    hosts:
+      - lib-geoportal-prd-web-01.oit.umn.edu
+    cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
+
+  worker:
+    hosts:
+      - lib-geoportal-prd-web-01.oit.umn.edu
+    cmd: celery -A app.tasks.worker worker --loglevel=INFO
+
+  cron:
+    hosts:
+      - lib-geoportal-prd-web-01.oit.umn.edu
+    cmd: bash -lc '(printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-manual}"; cat config/crontab) | crontab - && cron -f'
+    options:
+      user: root
+
+  flower:
+    hosts:
+      - lib-geoportal-prd-web-01.oit.umn.edu
+    cmd: celery -A app.tasks.worker flower --port=5555
+
+proxy:
+  host: lib-geoportal-prd-web-01.oit.umn.edu
+
+builder:
+  args:
+    VITE_API_BASE_URL: "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
+
+env:
+  clear:
+    APPLICATION_URL: https://lib-geoportal-prd-web-01.oit.umn.edu
+    APP_ENV: production
+    SEARCH_ENGINE_INDEXING_ENABLED: "true"
+    RATE_LIMIT_ENABLED: "true"
+    CACHE_DEBUG_HEADERS: "false"
+    CACHE_LOG_EVENTS: "false"
+
+# Bind mounts under /var/lib instead of user-home-scoped paths.
+accessories:
+  elasticsearch:
+    directories:
+      - /var/lib/btaa-geospatial-api/elasticsearch:/usr/share/elasticsearch/data
+
+  paradedb:
+    directories:
+      - /var/lib/btaa-geospatial-api/postgres:/var/lib/postgresql/data
+
+  redis:
+    directories:
+      - /var/lib/btaa-geospatial-api/redis:/data
+
+volumes: []

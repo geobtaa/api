@@ -104,16 +104,16 @@ Run from the **project root**. Key targets:
 | `make reindex`         | Atomic local reindex using versioned index + alias swap, then clear local search cache. |
 | `make reindex-benchmark` | Run atomic local reindex with benchmark timing output enabled. |
 | `make sitemap-generate` | Generate and cache sitemap XML for `/sitemap.xml` (used by cron in production). |
-| `make kamal-reindex`   | Atomic reindex on Kamal with versioned index + alias swap; auto-runs `kamal-clear-cache`. Use `KAMAL_DEST=dev1` or `dev2` (default dev1). |
+| `make kamal-reindex`   | Atomic reindex on Kamal with versioned index + alias swap; auto-runs `kamal-clear-cache`. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` (default `dev1`). |
 | `make verify-h3-index` | Verify H3 pyramid fields in Elasticsearch. |
-| `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). Use `KAMAL_DEST=dev1` or `dev2`. |
+| `make kamal-clear-cache` | Clear remote API cache on Kamal (`KAMAL_CACHE_TYPE`, default `search`). Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd`. |
 | `make clear_cache`     | Flush Redis cache (needs `REDIS_PASSWORD` in `.env`). |
 | `make resource-aux-init` | Ensure `resource_downloads`, `resource_licensed_accesses`, and `resource_assets` tables exist. |
 | `make bridge-sync`     | Trigger bridge sync; supports `RESOURCE_ID=...` / `BRIDGE_RESOURCE_ID=...` for one-record syncs. |
 | `make populate-distributions` | Rebuild legacy references, distributions, downloads, and assets; supports `RESOURCE_ID=...` / `GBL_ADMIN_RESOURCE_ID=...`. |
 | `make frontend-reset`  | Clear Vite cache and restart frontend-dev. |
 | `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz`. |
-| `make db-import`       | Import that dump to remote (Kamal); destructive. Use `KAMAL_DEST=dev1` or `dev2` to target server. |
+| `make db-import`       | Import that dump to remote (Kamal); destructive. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. |
 | `make db-sync`         | `db-export` then `db-import`. |
 | `make backfill-distributions` | Backfill resource_distributions for resources with dct_references_s but no distribution rows (e.g. OGM-harvested). |
 | `make docs-serve`    | Serve public MkDocs site locally at `http://localhost:8001`. |
@@ -188,5 +188,5 @@ Full flow (migrations, reindex, webhook, dumps): `docs/backend/ogm_harvesting.md
 - **Don't duplicate long docs here** — link to `docs/` (e.g. `docs/backend/ogm_harvesting.md`, `docs/frontend/testing.md`, `docs/make_tasks.md`) for procedures and rationale.
 - **When adding or changing Makefile targets, operational workflows, or other developer-facing features**, update the relevant `docs/*` files in the same change. At minimum, keep `docs/make_tasks.md` aligned with new task names, flags, and common examples.
 - **Public documentation site**: The `mkdocs/` directory contains the public-facing MkDocs Material site (API spec, linked data, tutorials). Use `make docs-serve` to preview locally. Internal dev docs remain in `docs/`.
-- **Secrets and env**: `.env` is not committed; use `.env.example` as a template. Kamal uses `.kamal/secrets-common` + `.kamal/secrets.<dest>` (e.g. `secrets.dev1`, `secrets.dev2`); all are gitignored.
+- **Secrets and env**: `.env` is not committed; use `.env.example` as a template. Kamal uses `.kamal/secrets-common` + `.kamal/secrets.<dest>` (e.g. `secrets.dev1`, `secrets.dev2`, `secrets.prd`); all are gitignored.
 - **When changing frontend deps or Vite config**: run `make frontend-reset` and have the user hard-refresh (or use an incognito window) to avoid 504s on old chunk URLs.

@@ -5,8 +5,9 @@
 -include .env
 export
 
-# Kamal destination (dev1, dev2, etc.). Use: make kamal-reindex KAMAL_DEST=dev2
+# Kamal destination (dev1, dev2, prd, etc.). Use: make kamal-reindex KAMAL_DEST=prd
 KAMAL_DEST ?= dev1
+KAMAL_DEST_HELP ?= Use a configured KAMAL_DEST (e.g. dev1, dev2, prd). Ensure .kamal/secrets-common and .kamal/secrets.<dest> exist.
 
 # Load Kamal secrets: destination-based (secrets-common + secrets.<dest>) or legacy .kamal/secrets
 ifneq (,$(wildcard .kamal/secrets-common))
@@ -341,7 +342,7 @@ db-import: ## Import dump to remote (Kamal); destructive
 	fi
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2 (e.g. make db-import KAMAL_DEST=dev2). Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@echo "Checking remote container status..."
@@ -893,7 +894,7 @@ kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUNS_LIMIT=N re
 	@echo "Fetching bridge sync status from Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
@@ -920,7 +921,7 @@ kamal-bridge-status-watch: ## Poll bridge sync status on Kamal continuously
 	@echo "Watching bridge sync status on Kamal (every $(BRIDGE_STATUS_POLL_SECONDS)s). Press Ctrl+C to stop."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Please source .kamal/secrets first."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@while true; do \
@@ -981,7 +982,7 @@ kamal-reindex: ## Atomic reindex on Kamal
 	@echo "Atomic reindex on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && \
@@ -1003,7 +1004,7 @@ kamal-verify-h3-index: ## Verify H3 index on Kamal
 	@echo "Verifying H3 pyramid fields on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/verify_h3_index.py'"
@@ -1020,7 +1021,7 @@ kamal-clear-cache: ## Clear remote cache on Kamal (KAMAL_CACHE_TYPE=search|resou
 	@echo "Clearing remote cache on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE), cache_type: $(KAMAL_CACHE_TYPE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/clear_cache_by_type.py $(KAMAL_CACHE_TYPE)'"
@@ -1035,7 +1036,7 @@ kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
 	@echo "Triggering GIN blog sync on Kamal... (RUN_NOW=$(RUN_NOW))"
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
@@ -1049,7 +1050,7 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 	@echo "Purging homepage blog cache on Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) "bash -lc '\
@@ -1069,11 +1070,11 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 
 # Debug Kamal cron container (bridge sync at 2 AM, blog sync at 3 AM).
 # Uses --reuse to exec into the running cron container (default spawns a new one with no crontab).
-# Usage: source .kamal/secrets && make kamal-cron-debug
+# Usage: make kamal-cron-debug [KAMAL_DEST=prd]
 kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@echo "=== Kamal cron container debug (KAMAL_DEST=$(KAMAL_DEST)) ==="
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
-		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Use KAMAL_DEST=dev1 or dev2."; \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@echo ""
@@ -1090,18 +1091,18 @@ kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
 
 # Manually run bridge sync trigger from cron container (same as 2 AM job).
-# Usage: source .kamal/secrets && make kamal-cron-test-bridge
+# Usage: make kamal-cron-test-bridge [KAMAL_DEST=prd]
 kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container (test cron job)
 	@echo "Running trigger_bridge_sync_cron.py inside Kamal cron container..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
-		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. Use KAMAL_DEST=dev1 or dev2."; \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
 	@echo "Check bridge status: make kamal-bridge-status"
 
 # Tail Celery worker logs (bridge sync, OGM, etc. run in worker).
-# Usage: source .kamal/secrets && make kamal-worker-logs [KAMAL_LOG_LINES=500]
+# Usage: make kamal-worker-logs [KAMAL_DEST=prd] [KAMAL_LOG_LINES=500]
 kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running tasks)
 	@echo "Tailing worker logs (Ctrl+C to stop)..."
 	@kamal app logs -d $(KAMAL_DEST) --roles worker --lines $(or $(KAMAL_LOG_LINES),200) -f
@@ -1110,14 +1111,14 @@ kamal-worker-logs: ## Tail Celery worker logs (diagnose queued-but-not-running t
 # This catches "host works, container cannot reach self public FQDN" problems.
 # Usage:
 #   make kamal-network-sanity
-#   make kamal-network-sanity KAMAL_DEST=dev2
+#   make kamal-network-sanity KAMAL_DEST=prd
 #   make kamal-network-sanity KAMAL_APP_ROLE=cron
 #   make kamal-network-sanity KAMAL_NETWORK_EXTERNAL_URLS="https://api.github.com https://geo.btaa.org"
 kamal-network-sanity: ## Check host/container outbound + self-FQDN networking on Kamal
 	@echo "Checking Kamal networking sanity (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@KAMAL_DEST="$(KAMAL_DEST)" \
@@ -1132,16 +1133,16 @@ kamal-network-sanity: ## Check host/container outbound + self-FQDN networking on
 
 # Prime thumbnail cache on remote Kamal app container.
 # Usage examples:
-#   source .kamal/secrets && make kamal-prime-thumbnail-cache
-#   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_LIMIT=500 PRIME_THUMBNAIL_CONCURRENCY=4
-#   source .kamal/secrets && make kamal-prime-thumbnail-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123"
-#   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_RETRY_FAILURES=1
-#   source .kamal/secrets && make kamal-prime-thumbnail-cache PRIME_FORCE=1
+#   make kamal-prime-thumbnail-cache KAMAL_DEST=prd
+#   make kamal-prime-thumbnail-cache KAMAL_DEST=prd PRIME_LIMIT=500 PRIME_THUMBNAIL_CONCURRENCY=4
+#   make kamal-prime-thumbnail-cache KAMAL_DEST=prd RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123"
+#   make kamal-prime-thumbnail-cache KAMAL_DEST=prd PRIME_RETRY_FAILURES=1
+#   make kamal-prime-thumbnail-cache KAMAL_DEST=prd PRIME_FORCE=1
 kamal-prime-thumbnail-cache: ## Prime thumbnail cache on Kamal
 	@echo "Priming thumbnail cache on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
-		echo "Use KAMAL_DEST=dev1 or dev2. Ensure .kamal/secrets-common and .kamal/secrets.dev1 (or .secrets.dev2) exist."; \
+		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
 	@ARGS=""; \
