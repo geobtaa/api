@@ -33,11 +33,29 @@ function GalleryThumbnail({
   resourceClass,
   index,
 }: GalleryThumbnailProps) {
+  const imageRef = useRef<HTMLImageElement | null>(null);
   const [showFallback, setShowFallback] = useState(!imageUrl);
   const [imageLoaded, setImageLoaded] = useState(false);
   const [shouldLoadImage, setShouldLoadImage] = useState(
     index < INITIAL_GALLERY_IMAGE_COUNT
   );
+
+  const syncImageState = (image: HTMLImageElement | null) => {
+    if (!image?.complete) return;
+
+    if (image.naturalWidth > 0) {
+      setImageLoaded(true);
+      setShowFallback(false);
+      return;
+    }
+
+    setShowFallback(true);
+  };
+
+  useEffect(() => {
+    setShowFallback(!imageUrl);
+    setImageLoaded(false);
+  }, [imageUrl]);
 
   useEffect(() => {
     if (!imageUrl || shouldLoadImage) return;
@@ -88,6 +106,11 @@ function GalleryThumbnail({
     };
   }, [imageUrl, index, shouldLoadImage]);
 
+  useEffect(() => {
+    if (!shouldLoadImage || !imageUrl) return;
+    syncImageState(imageRef.current);
+  }, [imageUrl, shouldLoadImage]);
+
   const showPlaceholder = !imageUrl || !shouldLoadImage || !imageLoaded || showFallback;
   const priorityProps = index < 5 ? ({ fetchpriority: 'high' } as const) : {};
 
@@ -95,6 +118,10 @@ function GalleryThumbnail({
     <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden relative">
       {imageUrl && shouldLoadImage && !showFallback ? (
         <img
+          ref={(image) => {
+            imageRef.current = image;
+            syncImageState(image);
+          }}
           src={imageUrl}
           alt=""
           className="w-full h-full object-cover"
@@ -111,7 +138,10 @@ function GalleryThumbnail({
       ) : null}
 
       {showPlaceholder ? (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+        <div
+          data-testid={`gallery-thumbnail-placeholder-${index}`}
+          className="absolute inset-0 flex items-center justify-center text-gray-400"
+        >
           {getResourceIcon(resourceClass)}
         </div>
       ) : null}

@@ -126,6 +126,40 @@ describe('GalleryView', () => {
     expect(thumbnail).toBeInTheDocument();
   });
 
+  it('hides the placeholder immediately for already-cached thumbnails', async () => {
+    const resultWithDirectThumbnail: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          thumbnail_url: 'https://example.com/thumb.jpg',
+        },
+      },
+    };
+
+    const completeSpy = vi
+      .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(true);
+    const naturalWidthSpy = vi
+      .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+      .mockReturnValue(800);
+
+    try {
+      renderGallery({
+        results: [resultWithDirectThumbnail],
+        totalResults: 1,
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.queryByTestId('gallery-thumbnail-placeholder-0')
+        ).not.toBeInTheDocument();
+      });
+    } finally {
+      naturalWidthSpy.mockRestore();
+      completeSpy.mockRestore();
+    }
+  });
+
   it('defers below-the-fold gallery images until after initial paint', () => {
     vi.useFakeTimers();
 
