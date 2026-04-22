@@ -659,6 +659,35 @@ class TestImageServiceThumbnailURL:
         assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
         mock_set.assert_called_once_with("test-doc", image_hash)
 
+    def test_get_thumbnail_url_prefers_cached_source_hash_without_alias_or_state(self):
+        """A cached deterministic source hash should emit the immutable asset immediately."""
+        source_url = "https://example.com/thumb.jpg"
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps({"http://schema.org/thumbnailUrl": source_url}),
+        }
+        image_hash = hashlib.sha256(
+            ("remote-thumb-normalized:v3:" + source_url).encode()
+        ).hexdigest()
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value=None,
+            ),
+            patch.object(ImageService, "has_cached_image_sync", return_value=True),
+            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
+        ):
+            service = ImageService(metadata)
+            result = service.get_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+        mock_set.assert_called_once_with("test-doc", image_hash)
+
     def test_get_thumbnail_url_no_thumbnail_source(self):
         """Test behavior when no thumbnail source is found."""
         metadata = {

@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -36,6 +37,10 @@ logger = logging.getLogger(__name__)
 
 IIIF_THUMBNAIL_BOX = os.getenv("IIIF_THUMBNAIL_BOX", "!800,800")
 IIIF_THUMBNAIL_PATH = f"/full/{IIIF_THUMBNAIL_BOX}/0/default.jpg"
+THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v3")
+REMOTE_THUMBNAIL_PREFIX = f"remote-thumb-normalized:{THUMBNAIL_CACHE_VERSION}:"
+COG_THUMBNAIL_PREFIX = "cog-thumb:"
+PMTILES_THUMBNAIL_PREFIX = "pmtiles-thumb:"
 
 # Shared Redis connection pool to avoid creating new connections for each ImageService instance
 _redis_connection_pool = None
@@ -378,6 +383,10 @@ class ImageService:
             source_url = self._get_thumbnail_source_url()
 
             if source_url:
+                cached_source_hash = self._candidate_cached_thumbnail_hash_sync(source_url)
+                if cached_source_hash:
+                    thumbnail_alias_service.set_hash_sync(doc_id, cached_source_hash)
+                    return f"{api_base_url}/thumbnails/{cached_source_hash}"
                 # Always return the resource-specific thumbnail endpoint
                 return f"{api_base_url}/resources/{doc_id}/thumbnail"
 
@@ -395,6 +404,45 @@ class ImageService:
         except Exception as e:
             self.logger.error(f"Error checking cached image: {e}")
             return False
+
+    def _candidate_cached_thumbnail_hash_sync(self, source_url: str) -> Optional[str]:
+        """Return the immutable thumbnail hash for a cached source URL, if known."""
+        try:
+            image_hash = None
+
+            if self._is_cog_url(source_url):
+                image_hash = hashlib.sha256(
+                    (COG_THUMBNAIL_PREFIX + source_url).encode()
+                ).hexdigest()
+            elif self._is_pmtiles_url(source_url):
+                image_hash = hashlib.sha256(
+                    (PMTILES_THUMBNAIL_PREFIX + source_url).encode()
+                ).hexdigest()
+            elif self._is_manifest_url(source_url):
+                manifest_cache_key = f"manifest:{source_url}"
+                cached_manifest_data = self.cache.get(manifest_cache_key)
+                if cached_manifest_data:
+                    manifest_json = json.loads(cached_manifest_data)
+                    resolved_url = self._extract_thumbnail_from_manifest_json(
+                        manifest_json, source_url
+                    )
+                    if resolved_url:
+                        standardized_url = self._standardize_iiif_url(resolved_url)
+                        image_hash = hashlib.sha256(
+                            (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
+                        ).hexdigest()
+            else:
+                standardized_url = self._standardize_iiif_url(source_url)
+                image_hash = hashlib.sha256(
+                    (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
+                ).hexdigest()
+
+            if image_hash and self.has_cached_image_sync(image_hash):
+                return image_hash
+            return None
+        except Exception as e:
+            self.logger.debug("Error resolving cached thumbnail hash for %s: %s", source_url, e)
+            return None
 
     def _get_bbox_for_wms(self) -> Optional[str]:
         """Parse dcat_bbox to WMS 1.3.0 BBOX string (minx,miny,maxx,maxy) for EPSG:4326."""

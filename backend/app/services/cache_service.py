@@ -102,10 +102,7 @@ def alias_redirect_cache_control_header() -> str:
     browser_ttl = int(os.getenv("ALIAS_REDIRECT_BROWSER_TTL_SECONDS", "3600"))
     shared_ttl = int(os.getenv("ALIAS_REDIRECT_SHARED_TTL_SECONDS", "86400"))
     swr = int(os.getenv("ALIAS_REDIRECT_STALE_WHILE_REVALIDATE_SECONDS", "604800"))
-    return (
-        f"public, max-age={browser_ttl}, s-maxage={shared_ttl}, "
-        f"stale-while-revalidate={swr}"
-    )
+    return f"public, max-age={browser_ttl}, s-maxage={shared_ttl}, stale-while-revalidate={swr}"
 
 
 def _log_cache_event(event: str, **fields: Any) -> None:

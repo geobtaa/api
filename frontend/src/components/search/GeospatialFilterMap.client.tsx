@@ -532,16 +532,49 @@ export function GeospatialFilterMap({
       }
     };
 
-    const initialFetchTimeout = window.setTimeout(() => {
-      void updateHexLayer(false);
-    }, 250);
+    let initialFetchTimeout: number | null = null;
+    let initialIdleCallbackId: number | null = null;
+
+    const scheduleInitialHexFetch = () => {
+      const run = () => {
+        initialFetchTimeout = window.setTimeout(() => {
+          void updateHexLayer(false);
+        }, 250);
+      };
+
+      if ('requestIdleCallback' in window) {
+        initialIdleCallbackId = window.requestIdleCallback(run, {
+          timeout: 2000,
+        });
+        return;
+      }
+
+      run();
+    };
+
+    if (document.readyState === 'complete') {
+      scheduleInitialHexFetch();
+    } else {
+      window.addEventListener('load', scheduleInitialHexFetch, { once: true });
+    }
+
     const onMoveOrZoom = () => updateHexLayer(false);
     map.on('moveend', onMoveOrZoom);
     map.on('zoomend', onMoveOrZoom);
 
     return () => {
       cancelled = true;
-      window.clearTimeout(initialFetchTimeout);
+      window.removeEventListener('load', scheduleInitialHexFetch);
+      if (initialFetchTimeout !== null) {
+        window.clearTimeout(initialFetchTimeout);
+      }
+      if (
+        initialIdleCallbackId !== null &&
+        'cancelIdleCallback' in window &&
+        typeof window.cancelIdleCallback === 'function'
+      ) {
+        window.cancelIdleCallback(initialIdleCallbackId);
+      }
       map.off('moveend', onMoveOrZoom);
       map.off('zoomend', onMoveOrZoom);
       if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {

@@ -1,7 +1,6 @@
 import { ChevronDown } from 'lucide-react';
 import { useSearchParams } from 'react-router';
 import { GeospatialFilterMap } from './GeospatialFilterMap';
-import { DEFAULT_OPEN_FACET_IDS } from '../FacetList';
 import type { FacetAccordionState } from '../../hooks/useFacetAccordion';
 
 const GEO_FACET_ID = 'geo';
@@ -37,12 +36,13 @@ export function LocationFacetCollapsible({
   setAccordion,
 }: LocationFacetCollapsibleProps) {
   const [searchParams] = useSearchParams();
+  const currentView = searchParams.get('view') || 'list';
   const isForcedOpen = hasGeoBbox(searchParams);
+  const isDefaultOpen = currentView === 'map';
   const isOpen =
     isForcedOpen ||
     accordion.opened.has(GEO_FACET_ID) ||
-    (DEFAULT_OPEN_FACET_IDS.has(GEO_FACET_ID) &&
-      !accordion.closed.has(GEO_FACET_ID));
+    (isDefaultOpen && !accordion.closed.has(GEO_FACET_ID));
 
   return (
     <details
@@ -79,9 +79,11 @@ export function LocationFacetCollapsible({
         <h3 className="font-semibold text-gray-900">Location</h3>
         <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180 shrink-0" />
       </summary>
-      <div className="pt-2">
-        <GeospatialFilterMap hideHeading />
-      </div>
+      {isOpen ? (
+        <div className="pt-2">
+          <GeospatialFilterMap hideHeading />
+        </div>
+      ) : null}
     </details>
   );
 }

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GalleryView } from '../../../components/search/GalleryView';
 import { BrowserRouter } from 'react-router';
 import { vi, describe, it, expect } from 'vitest';
@@ -46,6 +46,10 @@ const mockResults: GeoDocument[] = Array.from({ length: 25 }, (_, i) => ({
 }));
 
 describe('GalleryView', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
   const renderGallery = (props: any = {}) => {
     return render(
       <BrowserRouter>
@@ -120,6 +124,32 @@ describe('GalleryView', () => {
       'img[src="/resources/result-1/thumbnail"]'
     );
     expect(thumbnail).toBeInTheDocument();
+  });
+
+  it('defers below-the-fold gallery images until after initial paint', () => {
+    vi.useFakeTimers();
+
+    const { container } = renderGallery();
+
+    expect(
+      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(
+      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(75);
+    });
+
+    expect(
+      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+    ).toBeInTheDocument();
   });
 
   it('passes correct state to Link', () => {

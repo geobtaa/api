@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import type { GeoDocument } from '../../types/api';
 import { Link, useLocation } from 'react-router';
 import { getResourceIcon } from '../../utils/resourceIcons';
@@ -17,6 +17,108 @@ interface GalleryViewProps {
   perPage?: number;
   onLoadMore?: () => void;
   hasMore?: boolean;
+}
+
+const INITIAL_GALLERY_IMAGE_COUNT = 10;
+const DEFERRED_GALLERY_IMAGE_STAGGER_MS = 75;
+
+interface GalleryThumbnailProps {
+  imageUrl?: string;
+  resourceClass?: string;
+  index: number;
+}
+
+function GalleryThumbnail({
+  imageUrl,
+  resourceClass,
+  index,
+}: GalleryThumbnailProps) {
+  const [showFallback, setShowFallback] = useState(!imageUrl);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const [shouldLoadImage, setShouldLoadImage] = useState(
+    index < INITIAL_GALLERY_IMAGE_COUNT
+  );
+
+  useEffect(() => {
+    if (!imageUrl || shouldLoadImage) return;
+
+    if (typeof window === 'undefined') {
+      setShouldLoadImage(true);
+      return;
+    }
+
+    let timeoutId: number | null = null;
+    let idleCallbackId: number | null = null;
+
+    const activate = () => {
+      const delay =
+        Math.max(0, index - INITIAL_GALLERY_IMAGE_COUNT) *
+        DEFERRED_GALLERY_IMAGE_STAGGER_MS;
+      timeoutId = window.setTimeout(() => {
+        setShouldLoadImage(true);
+      }, delay);
+    };
+
+    const scheduleActivation = () => {
+      if ('requestIdleCallback' in window) {
+        idleCallbackId = window.requestIdleCallback(activate, { timeout: 2000 });
+        return;
+      }
+      activate();
+    };
+
+    if (document.readyState === 'complete') {
+      scheduleActivation();
+    } else {
+      window.addEventListener('load', scheduleActivation, { once: true });
+    }
+
+    return () => {
+      window.removeEventListener('load', scheduleActivation);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+      if (
+        idleCallbackId !== null &&
+        'cancelIdleCallback' in window &&
+        typeof window.cancelIdleCallback === 'function'
+      ) {
+        window.cancelIdleCallback(idleCallbackId);
+      }
+    };
+  }, [imageUrl, index, shouldLoadImage]);
+
+  const showPlaceholder = !imageUrl || !shouldLoadImage || !imageLoaded || showFallback;
+  const priorityProps = index < 5 ? ({ fetchpriority: 'high' } as const) : {};
+
+  return (
+    <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden relative">
+      {imageUrl && shouldLoadImage && !showFallback ? (
+        <img
+          src={imageUrl}
+          alt=""
+          className="w-full h-full object-cover"
+          decoding="async"
+          loading={index < 6 ? 'eager' : 'lazy'}
+          {...priorityProps}
+          onLoad={() => {
+            setImageLoaded(true);
+          }}
+          onError={() => {
+            setShowFallback(true);
+          }}
+        />
+      ) : null}
+
+      {showPlaceholder ? (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+          {getResourceIcon(resourceClass)}
+        </div>
+      ) : null}
+
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
+    </div>
+  );
 }
 
 export const GalleryView: React.FC<GalleryViewProps> = ({
@@ -120,44 +222,22 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   currentPage: currentPage,
                   perPage: perPage,
                 }}
-                className="flex flex-col flex-1"
+                className="flex flex-col flex-1 relative"
               >
-                <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden relative">
-                  {imageUrl ? (
-                    <img
-                      src={imageUrl}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      decoding="async"
-                      loading={index < 6 ? 'eager' : 'lazy'}
-                      onError={(e) => {
-                        // Handle error by hiding image and showing icon fallback
-                        e.currentTarget.style.display = 'none';
-                        e.currentTarget.parentElement?.classList.add(
-                          'fallback-icon'
-                        );
-                      }}
-                    />
-                  ) : (
-                    <div className="text-gray-400">
-                      {getResourceIcon(resourceClass)}
-                    </div>
-                  )}
+                <GalleryThumbnail
+                  imageUrl={imageUrl}
+                  resourceClass={resourceClass}
+                  index={index}
+                />
 
-                  {/* Fallback icon container (hidden by default) */}
-                  <div className="absolute inset-0 flex items-center justify-center text-gray-400 hidden fallback-icon-container">
-                    {getResourceIcon(resourceClass)}
-                  </div>
+                <div className="sr-only">Result {absIndex}</div>
 
+                <div className="absolute inset-0 pointer-events-none">
                   {/* Result Number Overlay - Screen Reader Only */}
-                  <div className="sr-only">Result {absIndex}</div>
-
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-
                   {/* Bookmark Button */}
                   {/* Visible if bookmarked, otherwise only on hover */}
                   <div
-                    className={`absolute top-2 right-2 z-10 transition-opacity ${
+                    className={`absolute top-2 right-2 z-10 pointer-events-auto transition-opacity ${
                       bookmarked
                         ? 'opacity-100'
                         : 'opacity-0 group-hover:opacity-100'

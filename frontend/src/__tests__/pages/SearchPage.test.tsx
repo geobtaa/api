@@ -21,6 +21,12 @@ vi.mock('../../components/search/GeospatialFilterMap', () => ({
   GeospatialFilterMap: () => <div data-testid="geo-filter-map">Geo Map</div>,
 }));
 
+vi.mock('../../components/search/ResourceClassFilterTabs', () => ({
+  ResourceClassFilterTabs: () => (
+    <div data-testid="resource-class-filter-tabs">Resource Class Tabs</div>
+  ),
+}));
+
 vi.mock('../../components/SearchResults', () => ({
   SearchResults: ({ results }: { results: GeoDocument[] }) => (
     <div data-testid="search-results-list">
@@ -144,6 +150,20 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByTestId('gallery-view')).toBeInTheDocument();
     expect(screen.queryByTestId('search-results-list')).not.toBeInTheDocument();
+  });
+
+  it('does not mount the location map by default in gallery view', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?view=gallery', results);
+
+    expect(screen.queryByTestId('geo-filter-map')).not.toBeInTheDocument();
+  });
+
+  it('mounts the location map by default in map view', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?view=map', results);
+
+    expect(screen.getByTestId('geo-filter-map')).toBeInTheDocument();
   });
 
   it('renders List View by default', async () => {
