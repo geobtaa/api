@@ -244,7 +244,7 @@ describe('searchParams', () => {
       expect(result.advancedQuery).toEqual([]);
     });
 
-    it('logs debug information', () => {
+    it('does not emit debug logging', () => {
       const consoleSpy = vi.spyOn(console, 'log');
       const searchParams = new URLSearchParams({
         q: 'test query',
@@ -254,23 +254,7 @@ describe('searchParams', () => {
 
       parseSearchParams(searchParams);
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        '🔗 parseSearchParams called with:',
-        expect.objectContaining({
-          rawParams: {
-            q: 'test query',
-            page: '2',
-            'fq[dc_publisher_sm][]': 'MIT Libraries',
-          },
-          parsed: expect.objectContaining({
-            query: 'test query',
-            page: 2,
-            facets: 1,
-            excludeFacets: 0,
-            advancedClauses: 0,
-          }),
-        })
-      );
+      expect(consoleSpy).not.toHaveBeenCalled();
     });
 
     it('handles malformed facet field names', () => {

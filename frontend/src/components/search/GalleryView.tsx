@@ -130,7 +130,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                       className="w-full h-full object-cover"
                       decoding="async"
                       loading={index < 6 ? 'eager' : 'lazy'}
-                      fetchPriority={index < 4 ? 'high' : 'auto'}
                       onError={(e) => {
                         // Handle error by hiding image and showing icon fallback
                         e.currentTarget.style.display = 'none';

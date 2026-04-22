@@ -1,5 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  act,
+} from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { SearchField } from '../../components/SearchField';
 
@@ -163,7 +169,9 @@ describe('SearchField', () => {
       </MemoryRouter>
     );
 
-    fireEvent.change(screen.getByRole('searchbox', { name: 'Search input' }), {
+    const searchInput = screen.getByRole('searchbox', { name: 'Search input' });
+    fireEvent.focus(searchInput);
+    fireEvent.change(searchInput, {
       target: { value: 'chicago' },
     });
 
@@ -181,6 +189,12 @@ describe('SearchField', () => {
       { timeout: 1500 }
     );
 
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith('/suggest?q=chicago', {
+        headers: { Accept: 'application/json' },
+      });
+    });
+
     fireEvent.click(screen.getByRole('button', { name: /chicago in title/i }));
 
     await waitFor(() => {
@@ -193,6 +207,22 @@ describe('SearchField', () => {
       expect(params.get('q')).toBe('chicago');
       expect(params.get('search_field')).toBe('dct_title_s');
     });
+  });
+
+  it('does not fetch keyword suggestions on initial mount from URL state alone', async () => {
+    render(
+      <MemoryRouter initialEntries={['/search?q=chicago']}>
+        <Routes>
+          <Route path="*" element={<SearchField initialQuery="chicago" />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('renders an explicit advanced search button label', () => {

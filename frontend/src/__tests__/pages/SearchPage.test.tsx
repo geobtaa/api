@@ -331,6 +331,7 @@ describe('SearchPage Integration', () => {
       startPage: 1,
     };
     sessionStorage.setItem('b1g_gallery_state', JSON.stringify(storedState));
+    sessionStorage.setItem('b1g_gallery_restore_requested', '1');
 
     // Initial render with SERVER data (Page 1 only - 20 items)
     const serverResults = createMockApiResponse(
@@ -354,6 +355,31 @@ describe('SearchPage Integration', () => {
     ).toBeInTheDocument();
 
     unmount();
+  });
+
+  it('does not restore gallery state without an explicit restore request', async () => {
+    const storedState = {
+      context: 'view=gallery',
+      results: mockResults.slice(0, 40),
+      startPage: 1,
+    };
+    sessionStorage.setItem('b1g_gallery_state', JSON.stringify(storedState));
+
+    const serverResults = createMockApiResponse(
+      mockResults.slice(0, 20),
+      100,
+      1
+    );
+
+    renderWithRouter('/search?view=gallery', serverResults);
+
+    await waitFor(() => {
+      expect(screen.getAllByText(/Gallery Result/)).toHaveLength(20);
+    });
+
+    expect(
+      screen.getByText(/Showing results 1-20 of 100/i)
+    ).toBeInTheDocument();
   });
 
   // Helper must be defined in scope or imported
