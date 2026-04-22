@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import os
@@ -731,7 +732,7 @@ class ImageService:
         """Retrieve a cached image by its hash."""
         try:
             image_key = f"image:{image_hash}"
-            image_data = self.image_cache.get(image_key)
+            image_data = await asyncio.to_thread(self.image_cache.get, image_key)
             if image_data:
                 self.logger.debug(f"Serving cached image {image_hash}")
                 return image_data

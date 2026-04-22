@@ -5,6 +5,7 @@ This service uses py-staticmaps to generate static map images from locn_geometry
 Maps are stored in Redis (like thumbnails) for sharing between containers.
 """
 
+import asyncio
 import io
 import json
 import logging
@@ -815,7 +816,7 @@ class StaticMapService:
 
         try:
             map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
-            map_data = self.map_cache.get(map_key)
+            map_data = await asyncio.to_thread(self.map_cache.get, map_key)
             if map_data:
                 logger.debug(f"Serving cached static map for resource {resource_id}")
                 return map_data
@@ -831,7 +832,7 @@ class StaticMapService:
 
         try:
             map_key = self._cache_key(resource_id, variant=self._BASEMAP_VARIANT)
-            map_data = self.map_cache.get(map_key)
+            map_data = await asyncio.to_thread(self.map_cache.get, map_key)
             if map_data:
                 logger.debug(f"Serving cached basemap for resource {resource_id}")
                 return map_data

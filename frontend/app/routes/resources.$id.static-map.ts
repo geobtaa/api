@@ -14,7 +14,36 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const accept = request.headers.get("accept") || "image/*,*/*;q=0.8";
   const upstream = await serverFetch(`/resources/${id}/static-map`, {
     headers: { Accept: accept },
+    redirect: "manual",
   });
+
+  if (upstream.status === 302 || upstream.status === 301) {
+    const location = upstream.headers.get("location");
+    if (location) {
+      let redirectUrl = location;
+
+      if (location.startsWith("http://") || location.startsWith("https://")) {
+        try {
+          const u = new URL(location);
+          if (u.pathname.startsWith("/api/v1/static-maps/")) {
+            redirectUrl = u.pathname.replace("/api/v1", "") + u.search;
+          }
+        } catch {
+          // Fall back to the upstream location if parsing fails.
+        }
+      } else if (location.startsWith("/api/v1/static-maps/")) {
+        redirectUrl = location.replace("/api/v1", "");
+      }
+
+      return new Response(null, {
+        status: upstream.status,
+        headers: {
+          Location: redirectUrl,
+          "Cache-Control": upstream.headers.get("cache-control") || "no-store",
+        },
+      });
+    }
+  }
 
   const body = await upstream.arrayBuffer();
   const headers = new Headers(upstream.headers);
@@ -23,4 +52,3 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
 
   return new Response(body, { status: upstream.status, headers });
 }
-

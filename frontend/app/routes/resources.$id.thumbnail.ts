@@ -20,6 +20,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const query = url.search ? url.search : "";
   const upstream = await serverFetch(`/resources/${id}/thumbnail${query}`, {
     headers: { Accept: accept },
+    redirect: "manual",
   });
 
   // Handle redirects (302) - pass through to browser with transformed URL
