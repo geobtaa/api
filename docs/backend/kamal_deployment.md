@@ -13,7 +13,7 @@ This project uses **Kamal destinations** to deploy to multiple environments. Eac
 Shared secrets (registry, PostgreSQL, Redis, etc.) live in `.kamal/secrets-common`. Kamal merges `config/deploy.yml` with the destination-specific file when you run `kamal deploy -d <destination>`.
 
 **Application Containers:**
-- **Web**: Single-host router + SSR + API (public port 8000 via Traefik)
+- **Web**: `kamal-proxy` terminates public traffic, then the web container serves immutable frontend assets directly from nginx, routes `/api/*` to FastAPI, and sends page/data requests to SSR
 - **Worker**: Celery worker for background tasks
 - **Flower**: Celery monitoring UI (port 5555, internal)
 
@@ -33,6 +33,9 @@ This deployment serves both the SSR frontend and the API from the same hostname:
 
 - **SSR UI**: `https://<host>/`
 - **API**: `https://<host>/api/...` (e.g. `/api/v1/search`, `/api/docs`)
+- **Client assets**: `https://<host>/assets/...` and root static files are served directly by nginx from `frontend/build/client`
+
+Inside the web container, SSR loaders/actions call FastAPI directly on loopback (`127.0.0.1:8001`) rather than going back through nginx. This removes one internal proxy hop from server-rendered data requests. The web process now also starts uvicorn with a configurable worker count via `WEB_UVICORN_WORKERS` (default `2`).
 
 ## Prerequisites
 
@@ -108,9 +111,12 @@ make kamal-reindex KAMAL_DEST=prd     # Targets production
 ### 2. Verify `config/deploy.yml` and Destination Files
 
 - **`config/deploy.yml`** — Base config (service, image, accessories, shared env). Uses `require_destination: true`.
+- The base config also bridges hashed frontend assets with `asset_path: /app/frontend/build/client/assets` so open pages can keep loading old chunk URLs during deploys.
+- The base config now applies conservative, overrideable role caps so `web` keeps more CPU/memory headroom than the background roles by default. Override them at deploy time with `KAMAL_WEB_CPUS`, `KAMAL_WEB_MEMORY`, `KAMAL_WORKER_CPUS`, `KAMAL_WORKER_MEMORY`, `KAMAL_FLOWER_CPUS`, `KAMAL_FLOWER_MEMORY`, `KAMAL_CRON_CPUS`, and `KAMAL_CRON_MEMORY`.
+- The shared runtime env also exposes `WEB_UVICORN_WORKERS` (default `2`) so FastAPI process concurrency can be tuned without editing the startup script.
 - **`config/deploy.dev1.yml`** — Overrides servers, proxy host, builder args, APPLICATION_URL for dev1.
 - **`config/deploy.dev2.yml`** — Same overrides for dev2.
-- **`config/deploy.prd.yml`** — Production host overrides plus production-only env flags (`APP_ENV`, indexing, rate limiting, cache debug headers).
+- **`config/deploy.prd.yml`** — Production host overrides plus production-only env flags (`APP_ENV`, indexing, rate limiting, cache debug headers), a larger uvicorn worker count, higher `web`/`worker` resource caps, and a larger Elasticsearch heap.
 
 Kamal deep-merges the destination file with the base when you use `-d <destination>`.
 

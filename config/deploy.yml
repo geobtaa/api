@@ -16,6 +16,10 @@ builder:
     VITE_USE_JSONP: "false"
     VITE_ENFORCE_HTTPS: "true"
 
+# Bridge hashed frontend assets across deploys so open pages can continue
+# loading the old chunk set while the new release comes up.
+asset_path: /app/frontend/build/client/assets
+
 ssh:
   user: <%= ENV['KAMAL_SSH_USER'] %>
 
@@ -25,11 +29,17 @@ servers:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
+    options:
+      cpus: <%= ENV.fetch('KAMAL_WEB_CPUS', '2') %>
+      memory: <%= ENV.fetch('KAMAL_WEB_MEMORY', '1536m') %>
 
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    options:
+      cpus: <%= ENV.fetch('KAMAL_WORKER_CPUS', '1') %>
+      memory: <%= ENV.fetch('KAMAL_WORKER_MEMORY', '1024m') %>
 
   cron:
     hosts:
@@ -40,12 +50,17 @@ servers:
     # Kamal runs each "server" as its own container; `cron -f` keeps it alive.
     cmd: bash -lc '(printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-manual}"; cat config/crontab) | crontab - && cron -f'
     options:
+      cpus: <%= ENV.fetch('KAMAL_CRON_CPUS', '0.25') %>
+      memory: <%= ENV.fetch('KAMAL_CRON_MEMORY', '256m') %>
       user: root
 
   flower:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     cmd: celery -A app.tasks.worker flower --port=5555
+    options:
+      cpus: <%= ENV.fetch('KAMAL_FLOWER_CPUS', '0.5') %>
+      memory: <%= ENV.fetch('KAMAL_FLOWER_MEMORY', '512m') %>
 
 proxy:
   ssl: true
@@ -94,6 +109,7 @@ env:
     CORS_ORIGINS:          "*"
     STATIC_MAPS_DIR:       /app/static/maps
     RATE_LIMIT_ENABLED:    "false"
+    WEB_UVICORN_WORKERS:   "<%= ENV.fetch('WEB_UVICORN_WORKERS', '2') %>"
 
   secret:
     - REDIS_PASSWORD

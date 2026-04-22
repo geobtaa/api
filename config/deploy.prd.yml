@@ -6,11 +6,17 @@ servers:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
+    options:
+      cpus: 3
+      memory: 2560m
 
   worker:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    options:
+      cpus: 1.5
+      memory: 1536m
 
   cron:
     hosts:
@@ -39,10 +45,14 @@ env:
     RATE_LIMIT_ENABLED: "true"
     CACHE_DEBUG_HEADERS: "false"
     CACHE_LOG_EVENTS: "false"
+    WEB_UVICORN_WORKERS: "3"
 
 # Bind mounts under /var/lib instead of user-home-scoped paths.
 accessories:
   elasticsearch:
+    env:
+      clear:
+        ES_JAVA_OPTS: "-Xms4g -Xmx4g"
     directories:
       - /var/lib/btaa-geospatial-api/elasticsearch:/usr/share/elasticsearch/data
 
