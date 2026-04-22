@@ -15,6 +15,7 @@ from PIL import Image
 
 from app.api.v1.endpoint_modules.thumbnails import router
 from app.services.cache_service import weak_etag_from_body
+from app.tasks.worker import _remote_thumbnail_image_hash
 
 
 def create_valid_jpeg_image() -> bytes:
@@ -221,6 +222,73 @@ class TestThumbnailEndpoints:
             assert response.headers["content-type"] == "image/svg+xml"
             assert "<svg" in response.text
             mock_probe.assert_awaited_once_with("https://example.com/missing-thumbnail.jpg")
+
+    def test_get_thumbnail_valid_bridge_asset_uses_generated_thumbnail_route(self, client):
+        """Valid bridge thumbnail URLs should flow through the generated thumbnail cache."""
+        resource_id = "14c66cbf-b8fb-492d-b4e8-0a6cf911e25b"
+        asset_url = "https://example.com/bridge-thumbnail.jpg"
+        image_hash = _remote_thumbnail_image_hash(asset_url)
+        test_image_data = create_valid_jpeg_image()
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.ImageService"
+            ) as mock_cache_service_class,
+            patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session") as mock_session,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context",
+                new=AsyncMock(return_value=MagicMock(by_uri={}, legacy_reference_payload={})),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_thumbnail_asset_url",
+                new=AsyncMock(return_value=asset_url),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._probe_thumbnail_url",
+                new=AsyncMock(return_value=True),
+            ) as mock_probe,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.safe_record_thumbnail_state",
+                new=AsyncMock(),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
+            ) as mock_resource_service_class,
+        ):
+            mock_cache_service = MagicMock()
+            mock_cache_service.get_cached_image = AsyncMock(return_value=None)
+            mock_cache_service_class.return_value = mock_cache_service
+
+            mock_session_instance = AsyncMock()
+            mock_session.return_value.__aenter__.return_value = mock_session_instance
+            mock_row = MagicMock()
+            mock_row._mapping = {
+                "id": resource_id,
+                "dct_accessrights_s": "Public",
+                "gbl_resourceClass_sm": ["Maps"],
+                "locn_geometry": None,
+                "dcat_bbox": None,
+            }
+            mock_result = MagicMock()
+            mock_result.fetchone.return_value = mock_row
+            mock_session_instance.execute = AsyncMock(return_value=mock_result)
+
+            mock_resource_service = MagicMock()
+            mock_resource_service.get_cached_image = AsyncMock(return_value=test_image_data)
+            mock_resource_service._get_thumbnail_source_url.return_value = None
+            mock_resource_service._standardize_iiif_url.side_effect = lambda url: url
+            mock_resource_service._is_cog_url.return_value = False
+            mock_resource_service._is_pmtiles_url.return_value = False
+            mock_resource_service._is_manifest_url.return_value = False
+            mock_resource_service_class.return_value = mock_resource_service
+
+            response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
+
+            assert response.status_code == 302
+            assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            mock_probe.assert_awaited_once_with(asset_url)
+            mock_resource_service.get_cached_image.assert_awaited_once_with(image_hash)
+            mock_resource_service._get_thumbnail_source_url.assert_called_once_with()
 
     def test_get_thumbnail_service_error(self, client):
         """Test thumbnail retrieval with service error."""

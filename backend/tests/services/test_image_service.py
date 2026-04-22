@@ -54,14 +54,14 @@ class TestImageService:
 class TestImageServiceURLStandardization:
     """Test cases for IIIF URL standardization using real URLs."""
 
-    def test_standardize_iiif_url_stanford_preserves_sizing(self):
-        """Test that Stanford URLs with proper sizing are preserved."""
+    def test_standardize_iiif_url_stanford_uses_standard_box(self):
+        """Test that Stanford IIIF URLs are normalized to the standard box size."""
         metadata = {"id": "test-doc"}
 
         try:
             service = ImageService(metadata)
 
-            # Test Stanford URLs that should be preserved
+            # Test Stanford URLs that should be normalized
             test_urls = [
                 "https://stacks.stanford.edu/image/iiif/full/400,/0/default.jpg",
                 "https://stacks.stanford.edu/image/iiif/full/!,/0/default.jpg",
@@ -69,7 +69,7 @@ class TestImageServiceURLStandardization:
 
             for url in test_urls:
                 result = service._standardize_iiif_url(url)
-                assert result == url
+                assert "/full/!800,800/" in result
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -84,10 +84,10 @@ class TestImageServiceURLStandardization:
 
             # Test URLs that should have size parameters removed and standardized
             test_cases = [
-                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/400,/"),
+                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/!800,800/"),
             ]
 
             for input_url, expected_pattern in test_cases:
@@ -99,7 +99,7 @@ class TestImageServiceURLStandardization:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_standardize_iiif_url_adds_standard_size(self):
-        """Test adding standard 400px size to IIIF URLs."""
+        """Test adding standard boxed size to IIIF URLs."""
         metadata = {"id": "test-doc"}
 
         try:
@@ -114,7 +114,7 @@ class TestImageServiceURLStandardization:
             for url in test_urls:
                 result = service._standardize_iiif_url(url)
                 # Should contain the standard size pattern
-                assert "/full/400,/" in result or result == url
+                assert "/full/!800,800/" in result or result == url
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -227,7 +227,7 @@ class TestImageServiceThumbnailSourceURL:
             # Test IIIF image URL extraction
             references = {"http://iiif.io/api/image": "http://example.com/iiif/image"}
             result = service._get_thumbnail_source_url(references)
-            assert "http://example.com/iiif/image/full/200,/0/default.jpg" == result
+            assert "http://example.com/iiif/image/full/!800,800/0/default.jpg" == result
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -246,7 +246,7 @@ class TestImageServiceThumbnailSourceURL:
             }
             result = service._get_thumbnail_source_url(references)
             assert (
-                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/200,/0/default.jpg"
+                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg"
                 in result
             )
 
@@ -1257,13 +1257,13 @@ class TestImageServiceEdgeCases:
 
             # Test various URL patterns
             test_cases = [
-                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/,/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/!/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/full/0/default.png", "/full/400,/"),
+                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/,/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/!/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/full/0/default.png", "/full/!800,800/"),
             ]
 
             for input_url, expected_pattern in test_cases:
@@ -1289,7 +1289,7 @@ class TestImageServiceEdgeCases:
 
             # Should transform to proper ContentDM IIIF format
             assert (
-                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/200,/0/default.jpg"
+                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg"
                 in result
             )
 

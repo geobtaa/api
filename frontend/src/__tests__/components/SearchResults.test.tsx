@@ -541,6 +541,41 @@ describe('SearchResults Component', () => {
       );
       expect(thumbnail).toBeInTheDocument();
     });
+
+    it('routes raw bridge thumbnail assets through the backend thumbnail endpoint', () => {
+      const bridgeThumbnailResult: GeoDocument = {
+        ...mockFixtureData[1],
+        meta: {
+          ui: {
+            thumbnail_url:
+              'https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/test/huge-image.jpg',
+            viewer: {
+              geometry: {
+                type: 'Point',
+                coordinates: [-74.006, 40.7128],
+              },
+            },
+          },
+        },
+      };
+
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={[bridgeThumbnailResult]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const thumbnail = container.querySelector(
+        'img[src="/thumbnails/nyu-2451-34564"]'
+      );
+      expect(thumbnail).toBeInTheDocument();
+      expect(thumbnail).toHaveAttribute('alt', '');
+    });
   });
 
   describe('Content Display', () => {

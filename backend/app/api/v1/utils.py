@@ -209,6 +209,12 @@ async def _get_thumbnail_asset_url(resource_id: str) -> Optional[str]:
         return None
 
 
+def _build_resource_thumbnail_url(resource_id: str) -> str:
+    """Return the stable API thumbnail endpoint for a resource."""
+    application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+    return f"{application_url}/api/v1/resources/{resource_id}/thumbnail"
+
+
 def create_jsonapi_response(data, request_url=None, callback=None):
     """
     Create a JSON:API compliant response.
@@ -654,14 +660,13 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     # Create JSON:API compliant resource first
     resource = create_jsonapi_resource(attributes)
 
-    # If a bridge-synced thumbnail asset exists, expose its URL in meta.ui.thumbnail_url.
-    # This gives the frontend a direct thumbnail source while keeping the existing
-    # /thumbnail endpoint behavior available via image_service.
+    # If a bridge-synced thumbnail asset exists, expose the stable thumbnail endpoint
+    # instead of the raw stored object so clients go through the resize/cache pipeline.
     thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
     if thumb_asset_url:
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = thumb_asset_url
+        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
 
     # Add Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:
@@ -798,12 +803,12 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     # Create JSON:API compliant resource first
     resource = create_jsonapi_resource(attributes)
 
-    # Prefer bridge-synced thumbnail assets when present.
+    # Prefer the stable thumbnail endpoint when a bridge-synced thumbnail asset exists.
     thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
     if thumb_asset_url:
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = thumb_asset_url
+        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
 
     # Add pre-fetched Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:

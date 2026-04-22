@@ -1,7 +1,6 @@
 # ruff: noqa: E501
 import asyncio
 import base64
-import hashlib
 import json
 
 import aiohttp
@@ -23,7 +22,9 @@ from app.tasks.worker import (
     _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
+    _normalize_thumbnail_image,
     _pmtiles_thumbnail_image_hash,
+    _remote_thumbnail_image_hash,
     generate_cog_thumbnail,
     generate_pmtiles_thumbnail,
 )
@@ -321,32 +322,26 @@ async def _get_resource_thumbnail_response(
     if resource_dict.get("dct_accessrights_s") == "Restricted":
         return _svg_placeholder(title="Thumbnail unavailable", subtitle="Restricted resource")
 
-    # Prefer bridge-synced thumbnail assets (e.g., S3-backed thumbnails) when present.
-    # These are exposed in meta.ui.thumbnail_url for API clients, but we also want the
-    # legacy /resources/{id}/thumbnail endpoint to serve them directly.
-    asset_url = await _get_thumbnail_asset_url(id)
-    if asset_url:
-        asset_ok = await _probe_thumbnail_url(asset_url)
-        if asset_ok:
-            return RedirectResponse(
-                url=asset_url,
-                status_code=302,
-                headers={
-                    # Allow browsers/CDNs to cache the concrete image URL aggressively.
-                    "Cache-Control": "public, max-age=31536000, immutable",
-                },
-            )
-        logger.info(
-            "Thumbnail asset URL is unreachable or invalid for %s; falling back to generated asset",
-            id,
-        )
-
     # Get distribution context and image service
     distribution_context = await fetch_distribution_context(id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
 
-    # Determine the source thumbnail URL
+    # Prefer intrinsic thumbnail sources (IIIF, direct image, COG, PMTiles, manifest)
+    # over bridge assets. Bridge-synced assets are a useful fallback, but they may be
+    # undersized or oversized relative to the native source.
     source_url = image_service._get_thumbnail_source_url()
+
+    if not source_url:
+        asset_url = await _get_thumbnail_asset_url(id)
+        if asset_url:
+            asset_ok = await _probe_thumbnail_url(asset_url)
+            if asset_ok:
+                source_url = asset_url
+            else:
+                logger.info(
+                    "Thumbnail asset URL is unreachable or invalid for %s; falling back to generated asset",
+                    id,
+                )
 
     if not source_url:
         # No thumbnail source: show resource-class icon
@@ -382,13 +377,13 @@ async def _get_resource_thumbnail_response(
                 )
                 if resolved_url:
                     resolved_url = image_service._standardize_iiif_url(resolved_url)
-                    image_hash = hashlib.sha256(resolved_url.encode()).hexdigest()
+                    image_hash = _remote_thumbnail_image_hash(resolved_url)
         except Exception as e:
             logger.debug(f"Error checking manifest cache for {id}: {e}")
     else:
         # Direct image URL
         standardized_url = image_service._standardize_iiif_url(source_url)
-        image_hash = hashlib.sha256(standardized_url.encode()).hexdigest()
+        image_hash = _remote_thumbnail_image_hash(standardized_url)
 
     # Check if image is cached
     if image_hash:
@@ -624,9 +619,16 @@ async def get_resource_thumbnail_no_cache(
         if image_service._is_cog_url(source_url):
             image_bytes = await asyncio.to_thread(_generate_cog_thumbnail_bytes, source_url)
             if image_bytes:
+                normalized_bytes, normalized_type = _normalize_thumbnail_image(
+                    image_bytes, "image/png"
+                )
+                if not normalized_bytes or not normalized_type:
+                    return _svg_placeholder(
+                        title="Thumbnail unavailable", subtitle="Error normalizing image"
+                    )
                 return Response(
-                    content=image_bytes,
-                    media_type="image/png",
+                    content=normalized_bytes,
+                    media_type=normalized_type,
                     headers={"Cache-Control": "no-store"},
                 )
             return await _svg_icon_for_resource(resource_dict, variant=variant)
@@ -635,12 +637,14 @@ async def get_resource_thumbnail_no_cache(
         if image_service._is_pmtiles_url(source_url):
             image_bytes = await asyncio.to_thread(_generate_pmtiles_thumbnail_bytes, source_url)
             if image_bytes:
-                from app.api.v1.endpoint_modules.thumbnails import _detect_image_type
-
-                content_type = _detect_image_type(image_bytes)
+                normalized_bytes, normalized_type = _normalize_thumbnail_image(image_bytes, None)
+                if not normalized_bytes or not normalized_type:
+                    return _svg_placeholder(
+                        title="Thumbnail unavailable", subtitle="Error normalizing image"
+                    )
                 return Response(
-                    content=image_bytes,
-                    media_type=content_type or "image/png",
+                    content=normalized_bytes,
+                    media_type=normalized_type,
                     headers={"Cache-Control": "no-store"},
                 )
             return await _svg_icon_for_resource(resource_dict, variant=variant)
@@ -664,14 +668,15 @@ async def get_resource_thumbnail_no_cache(
                 title="Thumbnail unavailable", subtitle="Error downloading image"
             )
 
-        # Detect content type similarly to the cached thumbnail endpoint
-        from app.api.v1.endpoint_modules.thumbnails import _detect_image_type
-
-        content_type = _detect_image_type(image_bytes)
+        normalized_bytes, normalized_type = _normalize_thumbnail_image(image_bytes, None)
+        if not normalized_bytes or not normalized_type:
+            return _svg_placeholder(
+                title="Thumbnail unavailable", subtitle="Error normalizing image"
+            )
 
         return Response(
-            content=image_bytes,
-            media_type=content_type,
+            content=normalized_bytes,
+            media_type=normalized_type,
             headers={"Cache-Control": "no-store"},
         )
     except Exception as e:

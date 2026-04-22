@@ -94,6 +94,29 @@ function isGenericResourceThumbnailUrl(url: string | undefined): boolean {
   }
 }
 
+function isBridgeThumbnailAssetUrl(url: string | undefined): boolean {
+  if (!url) return false;
+
+  try {
+    const base =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const parsed = new URL(url, base);
+    return parsed.pathname.includes('/store/asset/');
+  } catch {
+    return url.includes('/store/asset/');
+  }
+}
+
+function getGeneratedThumbnailUrl(
+  resourceId: string,
+  view: SearchResultAssetView
+): string {
+  if (view === 'gallery') {
+    return `/resources/${resourceId}/thumbnail`;
+  }
+  return `/thumbnails/${resourceId}`;
+}
+
 export function getThumbnailFallbackUrl(
   resourceId: string,
   view: SearchResultAssetView
@@ -111,11 +134,18 @@ export function getResultPrimaryImageUrl(
   const extracted = extractThumbnailUrl(result);
   const normalized = toSsrAssetUrl(extracted);
 
-  // Search result layouts need the view-specific asset contract.
-  // The generic /resources/:id/thumbnail endpoint can render the wrong fallback
-  // variant for list/gallery/map cards, so we only trust it when we have a
-  // concrete non-generic asset URL.
-  if (normalized && !isGenericResourceThumbnailUrl(normalized)) {
+  // Route generic thumbnail endpoints and bridge-backed assets through the
+  // generated thumbnail pipeline so search cards never render oversized
+  // originals directly.
+  if (
+    normalized &&
+    (isGenericResourceThumbnailUrl(normalized) ||
+      isBridgeThumbnailAssetUrl(extracted))
+  ) {
+    return getGeneratedThumbnailUrl(result.id, view);
+  }
+
+  if (normalized) {
     return normalized;
   }
 

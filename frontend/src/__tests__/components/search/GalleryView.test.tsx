@@ -78,7 +78,7 @@ describe('GalleryView', () => {
     expect(thumbnail).toBeInTheDocument();
   });
 
-  it('ignores the generic resource thumbnail endpoint and still uses the grid fallback asset', () => {
+  it('routes the generic resource thumbnail endpoint through the gallery thumbnail route', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -95,7 +95,29 @@ describe('GalleryView', () => {
     });
 
     const thumbnail = container.querySelector(
-      'img[src="/static-maps/result-1/resource-class-icon"]'
+      'img[src="/resources/result-1/thumbnail"]'
+    );
+    expect(thumbnail).toBeInTheDocument();
+  });
+
+  it('routes raw bridge thumbnail assets through the gallery thumbnail route', () => {
+    const resultWithBridgeThumbnail: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          thumbnail_url:
+            'https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/test/huge-image.jpg',
+        },
+      },
+    };
+
+    const { container } = renderGallery({
+      results: [resultWithBridgeThumbnail],
+      totalResults: 1,
+    });
+
+    const thumbnail = container.querySelector(
+      'img[src="/resources/result-1/thumbnail"]'
     );
     expect(thumbnail).toBeInTheDocument();
   });

@@ -31,6 +31,9 @@ except (OSError, PermissionError):
 
 logger = logging.getLogger(__name__)
 
+IIIF_THUMBNAIL_BOX = os.getenv("IIIF_THUMBNAIL_BOX", "!800,800")
+IIIF_THUMBNAIL_PATH = f"/full/{IIIF_THUMBNAIL_BOX}/0/default.jpg"
+
 # Shared Redis connection pool to avoid creating new connections for each ImageService instance
 _redis_connection_pool = None
 _redis_image_connection_pool = None
@@ -195,12 +198,12 @@ class ImageService:
 
                 # Prefer direct image ID when present
                 if image.get("@id"):
-                    return image["@id"]
+                    return self._standardize_iiif_url(image["@id"])
 
                 # Fallback to image service @id to construct consistent size
                 service_id = image.get("service", {}).get("@id")
                 if service_id:
-                    return f"{service_id}/full/400,/0/default.jpg"
+                    return self._standardize_iiif_url(service_id)
 
             # Items - IIIF v3 style
             elif manifest_json.get("items"):
@@ -243,17 +246,17 @@ class ImageService:
 
                     if body_service_id:
                         self.logger.debug(f"Found body service ID: {body_service_id}")
-                        return f"{body_service_id}/full/400,/0/default.jpg"
+                        return self._standardize_iiif_url(body_service_id)
 
                     # Next try body.id (prefer direct ID unmodified)
                     if body.get("id"):
                         self.logger.debug(f"Found body ID: {body.get('id')}")
-                        return body["id"]
+                        return self._standardize_iiif_url(body["id"])
 
                 # Try direct id
                 if items_path.get("id"):
                     self.logger.debug(f"Found items path ID: {items_path.get('id')}")
-                    return items_path["id"]
+                    return self._standardize_iiif_url(items_path["id"])
 
             # Thumbnail - Try various thumbnail formats
             elif manifest_json.get("thumbnail"):
@@ -298,7 +301,7 @@ class ImageService:
     def _standardize_iiif_url(self, url: str) -> str:
         """
         Standardize IIIF image URLs to ensure consistent size.
-        Converts various IIIF image URLs to a standard 400px wide version.
+        Converts various IIIF image URLs to a standard bounded-box rendition.
         """
         try:
             # Skip if not a likely IIIF URL
@@ -307,18 +310,19 @@ class ImageService:
 
             # If URL points to info.json, convert to a standard image URL
             if url.endswith("/info.json"):
-                return url[:-10] + "/full/400,/0/default.jpg"
+                return url[:-10] + IIIF_THUMBNAIL_PATH
 
-            # Preserve Stanford IIIF URLs that already include sizing or '!'
-            if url_hostname_matches(url, "stacks.stanford.edu") and (
-                "/full/!" in url or "/full/400," in url
-            ):
+            if url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json")):
                 return url
 
             # If URL already contains /full/, replace everything after it with our standard path
             if "/full/" in url:
                 prefix = url.split("/full/")[0]
-                return f"{prefix}/full/400,/0/default.jpg"
+                return f"{prefix}{IIIF_THUMBNAIL_PATH}"
+
+            # Bare IIIF service endpoint or identifier without an explicit image request
+            if not re.search(r"/default\.[A-Za-z0-9]+$", url):
+                return f"{url.rstrip('/')}{IIIF_THUMBNAIL_PATH}"
 
             # As a final fallback, return original URL
             return url
@@ -468,16 +472,20 @@ class ImageService:
                 match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
                 if match:
                     collection, item_id = match.groups()
-                    return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}/full/200,/0/default.jpg"
+                    return self._standardize_iiif_url(
+                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}"
+                    )
 
                 # Pattern 2: /iiif/collection:id/manifest.json or /iiif/collection:id/
                 match = re.search(r"/iiif/([^/]+)/", iiif_url)
                 if match:
                     collection_item = match.group(1)
-                    return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/200,/0/default.jpg"
+                    return self._standardize_iiif_url(
+                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}"
+                    )
 
             # For non-ContentDM IIIF URLs, use standard format
-            return f"{iiif_url}/full/200,/0/default.jpg"
+            return self._standardize_iiif_url(iiif_url)
 
         # Check for IIIF Manifest - only extract URL, don't fetch manifest
         # Prefer explicit manifest relation keys (http and https)
@@ -510,7 +518,9 @@ class ImageService:
                 if match:
                     collection_item = match.group(1)
                     # Convert to direct IIIF image URL
-                    image_url = f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/400,/0/default.jpg"
+                    image_url = self._standardize_iiif_url(
+                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}"
+                    )
                     self.logger.info(
                         f"✅ Directly converted ContentDM manifest to image URL: {image_url}"
                     )
