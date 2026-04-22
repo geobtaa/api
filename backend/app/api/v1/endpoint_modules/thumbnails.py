@@ -6,7 +6,12 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from PIL import Image
 
-from app.services.cache_service import cache_control_header, weak_etag_from_body
+from app.services.cache_service import (
+    alias_redirect_cache_control_header,
+    cache_control_header,
+    immutable_asset_cache_control_header,
+    weak_etag_from_body,
+)
 from app.services.image_service import ImageService
 from app.services.thumbnail_alias_service import is_thumbnail_hash, thumbnail_alias_service
 from app.services.thumbnail_state_service import ThumbnailState, thumbnail_state_service
@@ -29,7 +34,7 @@ async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
                 status_code=302,
                 headers={
                     "Location": f"/api/v1/thumbnails/{image_hash}",
-                    "Cache-Control": "no-store",
+                    "Cache-Control": alias_redirect_cache_control_header(),
                 },
             )
         await thumbnail_alias_service.delete(resource_id)
@@ -51,7 +56,7 @@ async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
         status_code=302,
         headers={
             "Location": f"/api/v1/thumbnails/{state_hash}",
-            "Cache-Control": "no-store",
+            "Cache-Control": alias_redirect_cache_control_header(),
         },
     )
 
@@ -214,9 +219,14 @@ async def get_thumbnail(resource_id: str, request: Request):
     content_type = _detect_image_type(image_data)
 
     etag = weak_etag_from_body(image_data)
+    cache_control = (
+        immutable_asset_cache_control_header()
+        if is_thumbnail_hash(resource_id)
+        else cache_control_header(ttl_seconds=ASSET_CACHE_TTL_SECONDS)
+    )
     headers = {
         "ETag": etag,
-        "Cache-Control": cache_control_header(ttl_seconds=ASSET_CACHE_TTL_SECONDS),
+        "Cache-Control": cache_control,
         # If anything ends up being compressed, this avoids representation mixups.
         "Vary": "Accept-Encoding",
     }

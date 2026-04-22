@@ -102,6 +102,7 @@ class TestResourceThumbnailCogFlow:
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            assert "max-age=3600" in response.headers["cache-control"]
             mock_service_class.assert_called_once_with({})
             mock_service.has_cached_image.assert_awaited_once_with(image_hash)
 

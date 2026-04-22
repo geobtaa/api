@@ -103,7 +103,7 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 200
             assert response.headers["content-type"] == "image/jpeg"
-            assert "s-maxage=" in response.headers["cache-control"]
+            assert response.headers["cache-control"] == "public, max-age=31536000, immutable"
             assert response.headers["etag"] == weak_etag_from_body(test_image_data)
             assert response.content == test_image_data
 
@@ -131,6 +131,7 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            assert "max-age=3600" in response.headers["cache-control"]
             mock_service.has_cached_image.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_not_found(self, client):

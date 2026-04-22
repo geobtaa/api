@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import _get_thumbnail_asset_url, sanitize_for_json
+from app.services.cache_service import alias_redirect_cache_control_header
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
@@ -44,7 +45,7 @@ def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
         url=f"/api/v1/thumbnails/{image_hash}",
         status_code=302,
         headers={
-            "Cache-Control": "no-store",
+            "Cache-Control": alias_redirect_cache_control_header(),
         },
     )
 

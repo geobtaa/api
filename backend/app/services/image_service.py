@@ -22,6 +22,7 @@ from app.services.thumbnail_state_service import (
     ThumbnailStatePayload,
     infer_source_type,
     safe_record_thumbnail_state_sync,
+    thumbnail_state_service,
 )
 
 # Load environment variables from .env file
@@ -362,6 +363,17 @@ class ImageService:
             if image_hash:
                 return f"{api_base_url}/thumbnails/{image_hash}"
 
+            state = thumbnail_state_service.get_state_sync(doc_id)
+            if state:
+                state_hash = state.get("source_hash")
+                if (
+                    state.get("state") == ThumbnailState.SUCCESS
+                    and state_hash
+                    and self.has_cached_image_sync(state_hash)
+                ):
+                    thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
+                    return f"{api_base_url}/thumbnails/{state_hash}"
+
             # Determine the source thumbnail URL without making external calls
             source_url = self._get_thumbnail_source_url()
 
@@ -374,6 +386,15 @@ class ImageService:
         except Exception as e:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
             return None
+
+    def has_cached_image_sync(self, image_hash: str) -> bool:
+        """Return True when the cached image bytes still exist in Redis."""
+        try:
+            image_key = f"image:{image_hash}"
+            return bool(self.image_cache.exists(image_key))
+        except Exception as e:
+            self.logger.error(f"Error checking cached image: {e}")
+            return False
 
     def _get_bbox_for_wms(self) -> Optional[str]:
         """Parse dcat_bbox to WMS 1.3.0 BBOX string (minx,miny,maxx,maxy) for EPSG:4326."""

@@ -179,6 +179,16 @@ class ThumbnailStateService:
             row = result.fetchone()
             return dict(row._mapping) if row else None
 
+    def get_state_sync(self, resource_id: str) -> Optional[dict[str, Any]]:
+        with _sync_engine.begin() as conn:
+            result = conn.execute(
+                select(resource_thumbnail_state).where(
+                    resource_thumbnail_state.c.resource_id == resource_id
+                )
+            )
+            row = result.fetchone()
+            return dict(row._mapping) if row else None
+
 
 thumbnail_state_service = ThumbnailStateService()
 
