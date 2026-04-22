@@ -7,6 +7,12 @@ export PATH="/opt/venv/bin:$PATH"
 
 export WEB_UVICORN_WORKERS="${WEB_UVICORN_WORKERS:-2}"
 
+# Kamal's bridged asset directory can arrive owned by a transient numeric UID
+# with restrictive permissions. Normalize it before nginx serves /assets/.
+if [ -d /app/frontend/build/client/assets ]; then
+  chmod -R a+rX /app/frontend/build/client/assets || true
+fi
+
 echo "[start_web_singlehost] starting FastAPI (uvicorn) on 127.0.0.1:8001 with ${WEB_UVICORN_WORKERS} workers"
 cd /app/backend
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --ws websockets --workers "${WEB_UVICORN_WORKERS}" &

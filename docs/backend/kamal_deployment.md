@@ -34,6 +34,8 @@ This deployment serves both the SSR frontend and the API from the same hostname:
 - **SSR UI**: `https://<host>/`
 - **API**: `https://<host>/api/...` (e.g. `/api/v1/search`, `/api/docs`)
 - **Client assets**: `https://<host>/assets/...` and root static files are served directly by nginx from `frontend/build/client`
+- **Bridged asset permissions**: Kamal's `asset_path` bridge may mount `/app/frontend/build/client/assets` with a transient numeric owner and restrictive permissions; `start_web_singlehost.sh` normalizes that directory to `a+rX` before nginx starts so direct asset serving keeps working after deploys
+- **Service worker migration**: the frontend now registers a minimal service worker instead of the old Workbox precache/app-shell setup; `/registerSW.js` upgrades existing browsers onto it and the new `/sw.js` clears stale caches during activation so deploys do not strand users on stale chunk graphs while keeping the site installable
 
 Inside the web container, SSR loaders/actions call FastAPI directly on loopback (`127.0.0.1:8001`) rather than going back through nginx. This removes one internal proxy hop from server-rendered data requests. The web process now also starts uvicorn with a configurable worker count via `WEB_UVICORN_WORKERS` (default `2`).
 
@@ -112,6 +114,7 @@ make kamal-reindex KAMAL_DEST=prd     # Targets production
 
 - **`config/deploy.yml`** — Base config (service, image, accessories, shared env). Uses `require_destination: true`.
 - The base config also bridges hashed frontend assets with `asset_path: /app/frontend/build/client/assets` so open pages can keep loading old chunk URLs during deploys.
+- Because the bridged assets may land with an unmapped UID, the web startup script repairs `/app/frontend/build/client/assets` permissions before launching nginx. If assets ever start 404ing after an otherwise healthy deploy, check that directory first.
 - The base config now applies conservative, overrideable role caps so `web` keeps more CPU/memory headroom than the background roles by default. Override them at deploy time with `KAMAL_WEB_CPUS`, `KAMAL_WEB_MEMORY`, `KAMAL_WORKER_CPUS`, `KAMAL_WORKER_MEMORY`, `KAMAL_FLOWER_CPUS`, `KAMAL_FLOWER_MEMORY`, `KAMAL_CRON_CPUS`, and `KAMAL_CRON_MEMORY`.
 - The shared runtime env also exposes `WEB_UVICORN_WORKERS` (default `2`) so FastAPI process concurrency can be tuned without editing the startup script.
 - **`config/deploy.dev1.yml`** — Overrides servers, proxy host, builder args, APPLICATION_URL for dev1.
