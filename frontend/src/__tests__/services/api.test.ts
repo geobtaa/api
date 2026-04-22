@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import {
   fetchBookmarkedResources,
+  fetchFeaturedResourcePreview,
   fetchFacetValues,
   fetchHomeBlogPosts,
   fetchMapH3,
@@ -366,6 +367,42 @@ describe('fetchMapH3', () => {
     expect(url.pathname).toBe('/map/h3');
     expect(url.searchParams.get('_v')).toBe('2');
     expect(url.searchParams.get('adv_q')).toBe(advQuery);
+  });
+});
+
+describe('fetchFeaturedResourcePreview', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        hostname: 'example.com',
+      },
+      writable: true,
+    });
+  });
+
+  it('requests the lightweight homepage profile for featured previews', async () => {
+    const onApiCall = vi.fn();
+
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        data: {
+          id: 'resource-1',
+          type: 'resource',
+          attributes: { ogm: { id: 'resource-1', dct_title_s: 'Resource 1' } },
+        },
+      }),
+    });
+
+    await fetchFeaturedResourcePreview('resource-1', onApiCall);
+
+    expect(onApiCall).toHaveBeenCalledTimes(1);
+    const url = new URL(onApiCall.mock.calls[0][0]);
+    expect(url.pathname).toBe('/api-proxy/resources/resource-1');
+    expect(url.searchParams.get('format')).toBe('json');
+    expect(url.searchParams.get('ui_profile')).toBe('homepage');
   });
 });
 

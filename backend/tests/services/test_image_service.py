@@ -648,9 +648,7 @@ class TestImageServiceThumbnailURL:
                     "source_url": "http://example.com/old-thumb.jpg",
                 },
             ),
-            patch(
-                "app.services.image_service.thumbnail_alias_service.delete_sync"
-            ) as mock_delete,
+            patch("app.services.image_service.thumbnail_alias_service.delete_sync") as mock_delete,
             patch.object(
                 ImageService,
                 "_candidate_cached_thumbnail_hash_sync",
@@ -734,13 +732,16 @@ class TestImageServiceThumbnailURL:
         }
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
-        with patch(
-            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-            return_value=image_hash,
-        ), patch.object(
-            ImageService,
-            "_candidate_cached_thumbnail_hash_sync",
-            return_value=image_hash,
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=image_hash,
+            ),
+            patch.object(
+                ImageService,
+                "_candidate_cached_thumbnail_hash_sync",
+                return_value=image_hash,
+            ),
         ):
             service = ImageService(metadata)
             result = service.get_hot_thumbnail_url()

@@ -763,6 +763,59 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     return resource
 
 
+async def process_resource_homepage(resource_dict, session, apply_field_mapping=True):
+    """
+    Lightweight resource processor for homepage previews.
+
+    The homepage only needs the core OGM attributes plus thumbnail/viewer metadata,
+    so this path intentionally skips downloads, relationships, similar items, and
+    other expensive enrichments used by the full resource view.
+    """
+    from app.services.allmaps_service import AllmapsService
+    from app.services.ogm_field_mapper import OGMFieldMapper
+    from app.services.viewer_service import ViewerService
+
+    if apply_field_mapping:
+        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
+
+    distribution_context = await fetch_distribution_context(resource_dict["id"])
+    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
+
+    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
+    viewer_attributes = viewer_service.get_viewer_attributes()
+
+    allmaps_service = AllmapsService(resource_dict)
+    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+
+    attributes = {
+        **resource_dict,
+        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
+        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
+        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
+    }
+
+    for key, value in viewer_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    resource = create_jsonapi_resource(attributes)
+
+    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
+    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
+    if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
+
+    if allmaps_attributes:
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+
+    return resource
+
+
 async def process_resource_optimized(
     resource_dict,
     allmaps_attributes,
