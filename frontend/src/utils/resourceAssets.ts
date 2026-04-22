@@ -5,6 +5,8 @@ export type SearchResultAssetView = 'list' | 'gallery' | 'map';
 export type StaticMapVariant = 'basemap' | 'geometry' | 'resource-class-icon';
 
 const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
+const IMMUTABLE_STATIC_MAP_PATH_RE =
+  /^\/api\/v1\/static-map-assets\/[0-9a-f]{64}$/i;
 
 function toBrowserApiAssetUrl(pathname: string, search: string): string {
   const apiBasePath = getApiBasePath().replace(/\/$/, '');
@@ -47,11 +49,29 @@ export function extractThumbnailUrl(
   return normalized ? normalized : undefined;
 }
 
+export function extractStaticMapUrl(
+  result: Pick<GeoDocument, 'meta'>
+): string | undefined {
+  const metaUi = result.meta?.ui;
+  const staticMapUrl = metaUi?.static_map || metaUi?.['static_map'];
+
+  if (typeof staticMapUrl !== 'string') {
+    return undefined;
+  }
+
+  const normalized = staticMapUrl.trim();
+  return normalized ? normalized : undefined;
+}
+
 export function toSsrAssetUrl(url: string | undefined): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
 
   const normalizePath = (pathname: string, search: string) => {
     if (IMMUTABLE_THUMBNAIL_PATH_RE.test(pathname)) {
+      return toBrowserApiAssetUrl(pathname, search);
+    }
+
+    if (IMMUTABLE_STATIC_MAP_PATH_RE.test(pathname)) {
       return toBrowserApiAssetUrl(pathname, search);
     }
 
@@ -86,6 +106,9 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
     return normalizePath(parsed.pathname, parsed.search);
   } catch {
     if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) {
+      return toBrowserApiAssetUrl(url, '');
+    }
+    if (IMMUTABLE_STATIC_MAP_PATH_RE.test(url)) {
       return toBrowserApiAssetUrl(url, '');
     }
     if (url.startsWith('/api/v1/')) {
@@ -179,4 +202,17 @@ export function getStaticMapUrl(
     return `/static-maps/${resourceId}/resource-class-icon`;
   }
   return `/static-maps/${resourceId}/geometry`;
+}
+
+export function getResultStaticMapUrl(
+  result: Pick<GeoDocument, 'id' | 'meta'>
+): string {
+  const extracted = extractStaticMapUrl(result);
+  const normalized = toSsrAssetUrl(extracted);
+
+  if (normalized) {
+    return normalized;
+  }
+
+  return getStaticMapUrl(result.id, 'geometry');
 }

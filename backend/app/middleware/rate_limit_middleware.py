@@ -28,11 +28,17 @@ RATE_LIMIT_ENABLED = _rate_limit_enabled()
 DISABLE_RATE_LIMIT_FOR_TESTS = _bypass_rate_limit_for_tests()
 
 IMMUTABLE_THUMBNAIL_PATH_RE = re.compile(r"^/api/v1/thumbnails/[0-9a-f]{64}$", re.IGNORECASE)
+IMMUTABLE_STATIC_MAP_PATH_RE = re.compile(
+    r"^/api/v1/static-map-assets/[0-9a-f]{64}$",
+    re.IGNORECASE,
+)
 
 
 def _is_immutable_asset_route(path: str) -> bool:
     """Return True for public immutable asset paths that should bypass throttling."""
-    return bool(IMMUTABLE_THUMBNAIL_PATH_RE.fullmatch(path))
+    return bool(
+        IMMUTABLE_THUMBNAIL_PATH_RE.fullmatch(path) or IMMUTABLE_STATIC_MAP_PATH_RE.fullmatch(path)
+    )
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):

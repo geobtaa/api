@@ -4,8 +4,10 @@ Tests for the API utils module.
 
 from datetime import datetime
 from decimal import Decimal
-from unittest.mock import MagicMock
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 from fastapi.responses import JSONResponse
 
 from app.api.v1.utils import (
@@ -17,6 +19,7 @@ from app.api.v1.utils import (
     create_jsonapi_response,
     create_pagination_links,
     create_response,
+    process_resource_optimized,
     sanitize_for_json,
     strong_params,
 )
@@ -171,6 +174,89 @@ class TestAddThumbnailUrl:
 
         assert "ui_thumbnail_url" in result
         assert result["id"] == "test-123"
+
+    def test_add_thumbnail_url_hot_only_uses_hot_thumbnail_url(self):
+        """Hot-only mode should skip the slower resolver fallback."""
+        item = {"id": "test-123", "title": "Test Item"}
+        direct_hash_url = f"http://localhost:8000/api/v1/thumbnails/{'a' * 64}"
+
+        with (
+            patch(
+                "app.services.image_service.ImageService.get_hot_thumbnail_url",
+                return_value=direct_hash_url,
+            ) as mock_get_hot_thumbnail_url,
+            patch(
+                "app.services.image_service.ImageService.get_thumbnail_url",
+                return_value="http://localhost:8000/api/v1/resources/test-123/thumbnail",
+            ) as mock_get_thumbnail_url,
+        ):
+            result = add_thumbnail_url(item, hot_only=True)
+
+        assert result["ui_thumbnail_url"] == direct_hash_url
+        mock_get_hot_thumbnail_url.assert_called_once()
+        mock_get_thumbnail_url.assert_not_called()
+
+
+class TestProcessResourceOptimized:
+    """Focused tests for search-result resource serialization."""
+
+    @pytest.mark.asyncio
+    async def test_process_resource_optimized_hot_only_preserves_direct_hash_thumbnail(self):
+        """Gallery-mode processing should keep a direct hash URL even if a bridge asset exists."""
+        direct_hash_url = f"http://localhost:8000/api/v1/thumbnails/{'b' * 64}"
+        resource_dict = {
+            "id": "test-123",
+            "dct_title_s": "Test Item",
+            "schema_provider_s": "Test Provider",
+        }
+
+        with (
+            patch(
+                "app.api.v1.utils.fetch_distribution_context",
+                new=AsyncMock(return_value=SimpleNamespace(legacy_reference_payload={}, by_uri={})),
+            ),
+            patch(
+                "app.api.v1.utils.add_thumbnail_url",
+                side_effect=lambda item, distribution_context=None, hot_only=False: {
+                    **item,
+                    "ui_thumbnail_url": direct_hash_url,
+                },
+            ) as mock_add_thumbnail_url,
+            patch(
+                "app.api.v1.utils._get_thumbnail_asset_url",
+                new=AsyncMock(return_value="https://assets.example.edu/thumb.jpg"),
+            ),
+            patch(
+                "app.services.citation_service.CitationService.get_all_citations",
+                return_value={"apa": "APA", "mla": "MLA", "chicago": "Chicago"},
+            ),
+            patch(
+                "app.services.viewer_service.ViewerService.get_viewer_attributes",
+                return_value={},
+            ),
+            patch(
+                "app.services.download_service.DownloadService.get_download_options_with_bridge_asset_downloads",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.link_service.LinkService.get_links",
+                return_value={},
+            ),
+            patch(
+                "app.services.relationship_service.RelationshipService.get_resource_relationships",
+                new=AsyncMock(return_value={}),
+            ),
+        ):
+            resource = await process_resource_optimized(
+                resource_dict,
+                {},
+                apply_field_mapping=False,
+                hot_only_thumbnail_url=True,
+            )
+
+        assert mock_add_thumbnail_url.call_args.kwargs["hot_only"] is True
+        assert resource["meta"]["ui"]["thumbnail_url"] == direct_hash_url
+        assert "/resources/test-123/thumbnail" not in resource["meta"]["ui"]["thumbnail_url"]
 
 
 class TestAddCitations:

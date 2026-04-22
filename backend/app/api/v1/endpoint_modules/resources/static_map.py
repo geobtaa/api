@@ -4,6 +4,7 @@ from fastapi import HTTPException, Request
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.sql import select
 
+from app.services.cache_service import alias_redirect_cache_control_header
 from app.services.static_map_service import StaticMapService
 from db.models import resources
 
@@ -38,6 +39,20 @@ async def get_resource_static_map(
 ):
     """Compatibility route for the geometry-overlay static map asset."""
     try:
+        map_service = StaticMapService()
+        hot_map_hash = await map_service.materialize_cached_variant(
+            id,
+            variant=map_service.geometry_variant(),
+        )
+        if hot_map_hash:
+            return RedirectResponse(
+                url=f"/api/v1/static-map-assets/{hot_map_hash}",
+                status_code=302,
+                headers={
+                    "Cache-Control": alias_redirect_cache_control_header(),
+                },
+            )
+
         async with async_session() as session:
             query = select(resources.c.id).where(resources.c.id == id)
             result = await session.execute(query)

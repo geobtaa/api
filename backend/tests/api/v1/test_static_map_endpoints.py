@@ -27,6 +27,17 @@ def create_valid_png_image() -> bytes:
     return buf.getvalue()
 
 
+def create_static_map_service_mock(*, basemap_bytes=None, geometry_bytes=None) -> MagicMock:
+    """Create a service double that matches the async static map endpoint contract."""
+    svc = MagicMock()
+    svc.materialize_cached_variant = AsyncMock(return_value=None)
+    svc.get_cached_basemap = AsyncMock(return_value=basemap_bytes)
+    svc.get_cached_map = AsyncMock(return_value=geometry_bytes)
+    svc.basemap_variant.return_value = "basemap"
+    svc.geometry_variant.return_value = "geometry"
+    return svc
+
+
 @pytest.fixture
 def app():
     app = FastAPI()
@@ -48,8 +59,7 @@ class TestStaticMapsEndpoint:
         mock_resource.return_value = {"id": resource_id, "locn_geometry": "ENVELOPE(-10,10,10,-10)"}
 
         with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
-            svc = MagicMock()
-            svc.get_cached_basemap = AsyncMock(return_value=png_bytes)
+            svc = create_static_map_service_mock(basemap_bytes=png_bytes)
             svc_cls.return_value = svc
 
             resp = client.get(f"/static-maps/{resource_id}")
@@ -66,8 +76,7 @@ class TestStaticMapsEndpoint:
         mock_resource.return_value = {"id": resource_id, "locn_geometry": "ENVELOPE(-10,10,10,-10)"}
 
         with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
-            svc = MagicMock()
-            svc.get_cached_basemap = AsyncMock(return_value=png_bytes)
+            svc = create_static_map_service_mock(basemap_bytes=png_bytes)
             svc_cls.return_value = svc
 
             first = client.get(f"/static-maps/{resource_id}")
@@ -84,8 +93,7 @@ class TestStaticMapsEndpoint:
         mock_resource.return_value = {"id": resource_id, "locn_geometry": "ENVELOPE(-10,10,10,-10)"}
 
         with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
-            svc = MagicMock()
-            svc.get_cached_map = AsyncMock(return_value=png_bytes)
+            svc = create_static_map_service_mock(geometry_bytes=png_bytes)
             svc_cls.return_value = svc
 
             resp = client.get(f"/static-maps/{resource_id}/geometry")
@@ -116,8 +124,7 @@ class TestStaticMapsEndpoint:
         png_bytes = create_valid_png_image()
 
         with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
-            svc = MagicMock()
-            svc.get_cached_basemap = AsyncMock(return_value=None)
+            svc = create_static_map_service_mock()
             svc.generate_centered_basemap.return_value = png_bytes
             svc_cls.return_value = svc
 

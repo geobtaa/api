@@ -688,6 +688,82 @@ class TestImageServiceThumbnailURL:
         assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
         mock_set.assert_called_once_with("test-doc", image_hash)
 
+    def test_get_hot_thumbnail_url_prefers_cached_alias_hash(self):
+        """Hot-only URL generation should return a direct immutable thumbnail asset."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with patch(
+            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+            return_value=image_hash,
+        ):
+            service = ImageService(metadata)
+            result = service.get_hot_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+
+    def test_get_hot_thumbnail_url_falls_back_to_persisted_success_hash(self):
+        """Hot-only URL generation should use persisted success state."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value={"state": ThumbnailState.SUCCESS, "source_hash": image_hash},
+            ),
+            patch.object(ImageService, "has_cached_image_sync", return_value=True),
+            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
+        ):
+            service = ImageService(metadata)
+            result = service.get_hot_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+        mock_set.assert_called_once_with("test-doc", image_hash)
+
+    def test_get_hot_thumbnail_url_returns_none_when_bytes_are_not_hot(self):
+        """Hot-only URL generation should prefer no image over the slow resolver path."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value=None,
+            ),
+            patch.object(
+                ImageService,
+                "_candidate_cached_thumbnail_hash_sync",
+                return_value=None,
+            ),
+        ):
+            service = ImageService(metadata)
+            result = service.get_hot_thumbnail_url()
+
+        assert result is None
+
     def test_get_thumbnail_url_no_thumbnail_source(self):
         """Test behavior when no thumbnail source is found."""
         metadata = {

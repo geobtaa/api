@@ -396,6 +396,52 @@ class ImageService:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
             return None
 
+    def get_hot_thumbnail_url(self) -> Optional[str]:
+        """
+        Return only a hot immutable thumbnail asset URL.
+
+        This never falls back to the slower resource resolver endpoint. Callers can
+        use this for first-paint critical UI where a cheap placeholder is preferred
+        over a blocking thumbnail generation path.
+        """
+        try:
+            if self.metadata.get("dct_accessrights_s") == "Restricted":
+                return None
+
+            doc_id = self.metadata.get("id")
+            if not doc_id:
+                return None
+
+            api_base_url = self._api_v1_base_url()
+            image_hash = thumbnail_alias_service.get_hash_sync(doc_id)
+            if image_hash:
+                return f"{api_base_url}/thumbnails/{image_hash}"
+
+            state = thumbnail_state_service.get_state_sync(doc_id)
+            if state:
+                state_hash = state.get("source_hash")
+                if (
+                    state.get("state") == ThumbnailState.SUCCESS
+                    and state_hash
+                    and self.has_cached_image_sync(state_hash)
+                ):
+                    thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
+                    return f"{api_base_url}/thumbnails/{state_hash}"
+
+            source_url = self._get_thumbnail_source_url()
+            if not source_url:
+                return None
+
+            cached_source_hash = self._candidate_cached_thumbnail_hash_sync(source_url)
+            if cached_source_hash:
+                thumbnail_alias_service.set_hash_sync(doc_id, cached_source_hash)
+                return f"{api_base_url}/thumbnails/{cached_source_hash}"
+
+            return None
+        except Exception as e:
+            logger.error(f"Error getting hot thumbnail URL: {str(e)}")
+            return None
+
     def has_cached_image_sync(self, image_hash: str) -> bool:
         """Return True when the cached image bytes still exist in Redis."""
         try:

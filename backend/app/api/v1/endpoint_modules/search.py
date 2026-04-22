@@ -66,6 +66,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     exclude_filters = params.get("exclude_filters")
     fq = params.get("fq")
     adv_q = params.get("adv_q")
+    view = request.query_params.get("view") or params.get("view")
 
     # Validate adv_q if provided
     if adv_q is not None:
@@ -158,7 +159,12 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     if resource_data:
         for rd in resource_data:
             d = lookup.get(rd["id"]) or {}
-            obj = await process_resource_optimized(d, {}, apply_field_mapping=False)
+            obj = await process_resource_optimized(
+                d,
+                {},
+                apply_field_mapping=False,
+                hot_only_thumbnail_url=view == "gallery",
+            )
             # Ensure meta.ui.viewer.geometry is present when resource has geometry.
             # Search results must include it for map hover; ViewerService can miss it
             # when keys/format differ from resource detail path.

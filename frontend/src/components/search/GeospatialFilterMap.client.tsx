@@ -101,6 +101,7 @@ export function GeospatialFilterMap({
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
   const hexLayerRef = useRef<L.GeoJSON | null>(null);
   const basemapCleanupRef = useRef<(() => void) | null>(null);
+  const lastAutoFitSearchKeyRef = useRef<string | null>(null);
   const [hexesInView, setHexesInView] = useState<
     Array<{ h3: string; count: number }>
   >([]);
@@ -441,6 +442,10 @@ export function GeospatialFilterMap({
 
     let cancelled = false;
     const query = searchParams.get('q') ?? '';
+    const searchKey = searchParams.toString();
+    const hasActiveBBox = getBBoxFromParams() !== null;
+    const shouldAutoFitInitialHexes =
+      !hasActiveBBox && lastAutoFitSearchKeyRef.current !== searchKey;
 
     const updateHexLayer = async (shouldFitToHexes: boolean) => {
       const bounds = map.getBounds();
@@ -464,6 +469,10 @@ export function GeospatialFilterMap({
           queryString ? `?${queryString}` : undefined
         );
         if (cancelled) return;
+
+        if (shouldFitToHexes) {
+          lastAutoFitSearchKeyRef.current = searchKey;
+        }
 
         setHexesInView(res.hexes);
         setHexResolution(resolution);
@@ -538,7 +547,7 @@ export function GeospatialFilterMap({
     const scheduleInitialHexFetch = () => {
       const run = () => {
         initialFetchTimeout = window.setTimeout(() => {
-          void updateHexLayer(false);
+          void updateHexLayer(shouldAutoFitInitialHexes);
         }, 250);
       };
 

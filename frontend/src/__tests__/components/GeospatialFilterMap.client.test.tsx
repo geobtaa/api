@@ -148,6 +148,46 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
+  it('fits to result hexes on the initial search load when no bbox is active', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchMapH3).mockResolvedValueOnce({
+      hexes: [{ h3: '8928308280fffff', count: 12 }],
+    });
+    const originalReadyState = document.readyState;
+    Object.defineProperty(document, 'readyState', {
+      configurable: true,
+      value: 'complete',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/search?q=st%20paul&view=gallery']}>
+        <Routes>
+          <Route path="/search" element={<GeospatialFilterMap />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMapH3).toHaveBeenCalledTimes(1);
+    expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        padding: [24, 24],
+        maxZoom: 14,
+      }
+    );
+
+    Object.defineProperty(document, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  });
+
   it('updates geo relation to within when toggle is clicked', async () => {
     render(
       <MemoryRouter

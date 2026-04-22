@@ -6,6 +6,7 @@ Maps are stored in Redis (like thumbnails) for sharing between containers.
 """
 
 import asyncio
+import hashlib
 import io
 import json
 import logging
@@ -262,6 +263,9 @@ class StaticMapService:
     _TRANSPARENT_COLOR = staticmaps.Color(0, 0, 0, 0)
     _MAP_VARIANT = "static_map_v7"
     _BASEMAP_VARIANT = "static_basemap_v5"
+    _ASSET_KEY_PREFIX = "static_map_asset"
+    _ALIAS_KEY_PREFIX = "static_map_alias"
+    _HASH_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
 
     def _ban_icon_image(self, size: int) -> Image.Image:
         """Render the provided ban SVG path exactly via Cairo."""
@@ -355,6 +359,195 @@ class StaticMapService:
     def _cache_key(self, resource_id: str, *, variant: str = "static_map") -> str:
         """Build Redis key for a map variant."""
         return f"{variant}:{resource_id}"
+
+    def _asset_key(self, map_hash: str) -> str:
+        return f"{self._ASSET_KEY_PREFIX}:{map_hash}"
+
+    def _alias_key(self, resource_id: str, *, variant: str) -> str:
+        return f"{self._ALIAS_KEY_PREFIX}:{variant}:{resource_id}"
+
+    def _is_asset_hash(self, value: str | None) -> bool:
+        return bool(value and self._HASH_RE.fullmatch(value))
+
+    def _asset_hash(self, map_bytes: bytes) -> str:
+        return hashlib.sha256(map_bytes).hexdigest()
+
+    def _alias_cache(self):
+        try:
+            return redis.Redis(
+                host=self.redis_host,
+                port=self.redis_port,
+                password=self.redis_password,
+                db=0,
+                decode_responses=True,
+            )
+        except Exception as e:
+            logger.warning(f"Failed to initialize Redis alias cache for static maps: {e}")
+            return None
+
+    def geometry_variant(self) -> str:
+        return self._MAP_VARIANT
+
+    def basemap_variant(self) -> str:
+        return self._BASEMAP_VARIANT
+
+    def get_asset_hash_sync(self, resource_id: str, *, variant: str) -> Optional[str]:
+        alias_cache = self._alias_cache()
+        if not alias_cache:
+            return None
+
+        try:
+            value = alias_cache.get(self._alias_key(resource_id, variant=variant))
+            if self._is_asset_hash(value):
+                return value
+            if value:
+                alias_cache.delete(self._alias_key(resource_id, variant=variant))
+            return None
+        except Exception as e:
+            logger.warning(
+                "Failed to read static map alias for %s (%s): %s",
+                resource_id,
+                variant,
+                e,
+            )
+            return None
+
+    async def get_asset_hash(self, resource_id: str, *, variant: str) -> Optional[str]:
+        return await asyncio.to_thread(self.get_asset_hash_sync, resource_id, variant=variant)
+
+    def set_asset_hash_sync(self, resource_id: str, *, variant: str, map_hash: str) -> bool:
+        alias_cache = self._alias_cache()
+        if not alias_cache or not self._is_asset_hash(map_hash):
+            return False
+
+        try:
+            return bool(
+                alias_cache.setex(
+                    self._alias_key(resource_id, variant=variant),
+                    self.redis_ttl,
+                    map_hash,
+                )
+            )
+        except Exception as e:
+            logger.warning(
+                "Failed to cache static map alias for %s (%s) -> %s: %s",
+                resource_id,
+                variant,
+                map_hash,
+                e,
+            )
+            return False
+
+    async def set_asset_hash(self, resource_id: str, *, variant: str, map_hash: str) -> bool:
+        return await asyncio.to_thread(
+            self.set_asset_hash_sync,
+            resource_id,
+            variant=variant,
+            map_hash=map_hash,
+        )
+
+    def delete_asset_hash_sync(self, resource_id: str, *, variant: str) -> bool:
+        alias_cache = self._alias_cache()
+        if not alias_cache:
+            return False
+
+        try:
+            return bool(alias_cache.delete(self._alias_key(resource_id, variant=variant)))
+        except Exception as e:
+            logger.warning(
+                "Failed to delete static map alias for %s (%s): %s",
+                resource_id,
+                variant,
+                e,
+            )
+            return False
+
+    async def delete_asset_hash(self, resource_id: str, *, variant: str) -> bool:
+        return await asyncio.to_thread(self.delete_asset_hash_sync, resource_id, variant=variant)
+
+    def has_cached_asset_sync(self, map_hash: str) -> bool:
+        if not self.map_cache or not self._is_asset_hash(map_hash):
+            return False
+
+        try:
+            return bool(self.map_cache.exists(self._asset_key(map_hash)))
+        except Exception as e:
+            logger.error(f"Error checking cached static map asset {map_hash}: {e}")
+            return False
+
+    async def has_cached_asset(self, map_hash: str) -> bool:
+        return await asyncio.to_thread(self.has_cached_asset_sync, map_hash)
+
+    def get_cached_asset_sync(self, map_hash: str) -> Optional[bytes]:
+        if not self.map_cache or not self._is_asset_hash(map_hash):
+            return None
+
+        try:
+            return self.map_cache.get(self._asset_key(map_hash))
+        except Exception as e:
+            logger.error(f"Error retrieving cached static map asset {map_hash}: {e}")
+            return None
+
+    async def get_cached_asset(self, map_hash: str) -> Optional[bytes]:
+        return await asyncio.to_thread(self.get_cached_asset_sync, map_hash)
+
+    def cache_asset_sync(self, map_hash: str, map_bytes: bytes) -> bool:
+        if not self.map_cache or not self._is_asset_hash(map_hash):
+            return False
+
+        try:
+            return bool(self.map_cache.setex(self._asset_key(map_hash), self.redis_ttl, map_bytes))
+        except Exception as e:
+            logger.error(f"Error caching static map asset {map_hash}: {e}")
+            return False
+
+    def materialize_asset_sync(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        map_bytes: bytes,
+    ) -> Optional[str]:
+        if not map_bytes:
+            return None
+
+        map_hash = self._asset_hash(map_bytes)
+        self.cache_asset_sync(map_hash, map_bytes)
+        self.set_asset_hash_sync(resource_id, variant=variant, map_hash=map_hash)
+        return map_hash
+
+    def materialize_cached_variant_sync(self, resource_id: str, *, variant: str) -> Optional[str]:
+        map_hash = self.get_asset_hash_sync(resource_id, variant=variant)
+        if map_hash and self.has_cached_asset_sync(map_hash):
+            return map_hash
+        if map_hash:
+            self.delete_asset_hash_sync(resource_id, variant=variant)
+
+        if not self.map_cache:
+            return None
+
+        try:
+            map_bytes = self.map_cache.get(self._cache_key(resource_id, variant=variant))
+        except Exception as e:
+            logger.error(
+                "Error retrieving cached static map variant for %s (%s): %s",
+                resource_id,
+                variant,
+                e,
+            )
+            return None
+
+        if not map_bytes:
+            return None
+
+        return self.materialize_asset_sync(resource_id, variant=variant, map_bytes=map_bytes)
+
+    async def materialize_cached_variant(self, resource_id: str, *, variant: str) -> Optional[str]:
+        return await asyncio.to_thread(
+            self.materialize_cached_variant_sync,
+            resource_id,
+            variant=variant,
+        )
 
     def _geojson_to_staticmaps_objects(
         self,
@@ -615,6 +808,11 @@ class StaticMapService:
             try:
                 map_key = self._cache_key(resource_id, variant=variant)
                 self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
+                self.materialize_asset_sync(
+                    resource_id,
+                    variant=variant,
+                    map_bytes=map_bytes,
+                )
                 logger.info(
                     f"Generated and cached {variant} for resource {resource_id} "
                     f"(size: {len(map_bytes)} bytes)"
