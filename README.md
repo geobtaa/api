@@ -113,7 +113,8 @@ Or consult the documentation in `docs/` for manual setup details.
 
 ## Troubleshooting (quick)
 
-- **The website won't load**: wait ~30–60 seconds after `docker compose up -d` (databases need time to start)
+- **The website won't load**: wait ~60–120 seconds after `docker compose up -d` (databases need time to start, and Redis may need extra time to replay its local append-only cache)
+- **Docker Desktop says `redis` is unhealthy right after start**: that usually means Redis is still replaying persisted local cache data. Wait a minute, then run `docker compose up -d` again.
 - **Port 3000 is busy**: stop whichever frontend container is running: `docker compose stop frontend frontend-dev`
 - **Start fresh** (wipes local containers; keeps your project files):
 
