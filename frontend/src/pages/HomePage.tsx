@@ -73,6 +73,43 @@ function useSectionActivation<T extends HTMLElement>(rootMargin = '320px') {
   return { active, ref };
 }
 
+function useIdleActivation(timeout = 1200) {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (active || typeof window === 'undefined') return;
+
+    let cancelled = false;
+    let idleCallbackId: number | null = null;
+
+    const activate = () => {
+      if (!cancelled) setActive(true);
+    };
+
+    if (
+      'requestIdleCallback' in window &&
+      typeof window.requestIdleCallback === 'function'
+    ) {
+      idleCallbackId = window.requestIdleCallback(activate, { timeout });
+    } else {
+      activate();
+    }
+
+    return () => {
+      cancelled = true;
+      if (
+        idleCallbackId !== null &&
+        'cancelIdleCallback' in window &&
+        typeof window.cancelIdleCallback === 'function'
+      ) {
+        window.cancelIdleCallback(idleCallbackId);
+      }
+    };
+  }, [active, timeout]);
+
+  return active;
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -87,8 +124,9 @@ export function HomePage() {
   const [placeList, setPlaceList] = useState<FacetItem[]>([]);
   const [themeList, setThemeList] = useState<FacetItem[]>([]);
   const [publisherList, setPublisherList] = useState<FacetItem[]>([]);
-  const [resourceTypeFacetId, setResourceTypeFacetId] =
-    useState('gbl_resourceType_sm');
+  const [resourceTypeFacetId, setResourceTypeFacetId] = useState(
+    'gbl_resourceType_sm'
+  );
   const [placeFacetId, setPlaceFacetId] = useState('dct_spatial_sm');
   const [themeFacetId, setThemeFacetId] = useState('dcat_theme_sm');
   const [publisherFacetId, setPublisherFacetId] = useState('dct_publisher_sm');
@@ -107,12 +145,16 @@ export function HomePage() {
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
   const blogLimit = 3;
-  const browseSection = useSectionActivation<HTMLDivElement>('480px');
+  const browseSection = useSectionActivation<HTMLDivElement>('960px');
+  const browseFacetPrefetch = useIdleActivation();
   const partnerSection = useSectionActivation<HTMLElement>('640px');
   const blogSection = useSectionActivation<HTMLDivElement>('480px');
+  const shouldLoadBrowseFacets = browseSection.active || browseFacetPrefetch;
 
   function facetValuesToItems(
-    data: Array<{ attributes?: { value?: unknown; label?: unknown; hits?: number } }>
+    data: Array<{
+      attributes?: { value?: unknown; label?: unknown; hits?: number };
+    }>
   ): FacetItem[] {
     const items: FacetItem[] = [];
     if (!Array.isArray(data)) return items;
@@ -140,7 +182,7 @@ export function HomePage() {
   }
 
   useEffect(() => {
-    if (!browseSection.active) return;
+    if (!shouldLoadBrowseFacets) return;
 
     const fetchFacets = async () => {
       const searchParams = new URLSearchParams();
@@ -165,7 +207,9 @@ export function HomePage() {
             )
           );
 
-        const resourceTypeItems = facetValuesToItems(resourceTypeRes.data ?? []);
+        const resourceTypeItems = facetValuesToItems(
+          resourceTypeRes.data ?? []
+        );
         const placeItems = facetValuesToItems(placeRes.data ?? []);
         const themeItems = facetValuesToItems(themeRes.data ?? []);
         const publisherItems = facetValuesToItems(publisherRes.data ?? []);
@@ -187,7 +231,7 @@ export function HomePage() {
     };
 
     void fetchFacets();
-  }, [browseSection.active]);
+  }, [shouldLoadBrowseFacets]);
 
   useEffect(() => {
     const handleHeroDescriptionVisibility = (event: Event) => {
@@ -310,7 +354,9 @@ export function HomePage() {
                 />
               ))
             : items.map((item) => {
-                const formattedCount = !isLoading ? formatCount(item.count) : '';
+                const formattedCount = !isLoading
+                  ? formatCount(item.count)
+                  : '';
                 const rowAriaLabel = !isLoading
                   ? `${title} ${item.label}, ${formattedCount} resources`
                   : `${title} ${item.label}`;
@@ -423,10 +469,7 @@ export function HomePage() {
                   Browse All Resources
                 </h2>
               </div>
-              <button
-                onClick={handleBrowseAll}
-                className={primaryCtaClass}
-              >
+              <button onClick={handleBrowseAll} className={primaryCtaClass}>
                 View all resources
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -475,9 +518,7 @@ export function HomePage() {
               {BTAA_PARTNER_INSTITUTIONS.map((institution) => {
                 const searchHref = getPartnerInstitutionSearchHref(institution);
                 const tileContent = (
-                  <div
-                    className="relative flex h-full min-h-[84px] w-full items-center justify-center overflow-hidden bg-[#003C5B] p-3"
-                  >
+                  <div className="relative flex h-full min-h-[84px] w-full items-center justify-center overflow-hidden bg-[#003C5B] p-3">
                     {institution.campusMap &&
                       (partnerSection.active ? (
                         <img
