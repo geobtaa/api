@@ -1,6 +1,7 @@
 # ruff: noqa: E501
 import asyncio
 import base64
+import hashlib
 import json
 
 import aiohttp
@@ -37,6 +38,7 @@ from . import async_session, logger, router
 
 # Timeout for probing thumbnail source URL (avoid blocking; fail fast if 404/unreachable)
 THUMBNAIL_PROBE_TIMEOUT = 5
+RESOURCE_CLASS_ICON_SIGNATURE_VERSION = "2026-04-22-a"
 
 
 def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
@@ -225,7 +227,7 @@ def _svg_resource_class_icon(
     *,
     background_data_uri: str | None = None,
     use_gradient: bool = False,
-) -> Response:
+) -> bytes:
     """
     Return an SVG icon for the resource's first resource class.
     Matches the frontend fallback icon set: Datasets, Maps, Web services,
@@ -277,17 +279,10 @@ def _svg_resource_class_icon(
         background_data_uri=background_data_uri,
         use_gradient=use_gradient,
     )
-    return Response(
-        content=svg,
-        media_type="image/svg+xml",
-        headers={
-            "Cache-Control": "no-store",
-            "X-Placeholder": "true",
-        },
-    )
+    return svg.encode("utf-8")
 
 
-async def _svg_icon_on_gradient(resource_dict: dict) -> Response:
+async def _svg_icon_on_gradient(resource_dict: dict) -> bytes:
     """Return a resource-class icon on a gradient background (no map)."""
     return _svg_resource_class_icon(
         _get_first_resource_class(resource_dict),
@@ -295,7 +290,34 @@ async def _svg_icon_on_gradient(resource_dict: dict) -> Response:
     )
 
 
-async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-basemap") -> Response:
+def _resource_class_icon_signature(
+    resource_dict: dict,
+    *,
+    variant: str = "icon-basemap",
+) -> str:
+    """Return a stable signature for a resource-class icon asset."""
+    map_service = StaticMapService()
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    payload = json.dumps(
+        {
+            "version": RESOURCE_CLASS_ICON_SIGNATURE_VERSION,
+            "variant": variant,
+            "geometry": map_service.geometry_signature(geometry),
+            "resource_class": _canonicalize_resource_class(
+                _get_first_resource_class(resource_dict)
+            ),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+async def _svg_icon_bytes_for_resource(
+    resource_dict: dict,
+    *,
+    variant: str = "icon-basemap",
+) -> bytes:
     """
     Return a resource-class icon, optionally layered over a basemap or gradient.
     variant: 'icon-basemap' (default) = icon on basemap; 'icon-gradient' = icon on gradient.
@@ -350,9 +372,28 @@ async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-ba
     )
 
 
+async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-basemap") -> Response:
+    svg_bytes = await _svg_icon_bytes_for_resource(resource_dict, variant=variant)
+    return Response(
+        content=svg_bytes,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Placeholder": "true",
+        },
+    )
+
+
 def _svg_collection_icon() -> Response:
     """SVG icon for Collection resources (legacy alias)."""
-    return _svg_resource_class_icon("Collections")
+    return Response(
+        content=_svg_resource_class_icon("Collections"),
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Placeholder": "true",
+        },
+    )
 
 
 async def _fetch_resource_dict(id: str) -> dict | None:

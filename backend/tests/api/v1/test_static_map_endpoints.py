@@ -7,7 +7,7 @@ Tests for static map endpoints.
 """
 
 import io
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
@@ -27,12 +27,22 @@ def create_valid_png_image() -> bytes:
     return buf.getvalue()
 
 
+def create_valid_svg_image() -> bytes:
+    """Create a minimal valid SVG image for testing."""
+    return (
+        b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
+        b'<rect width="10" height="10" fill="#003C5B"/></svg>'
+    )
+
+
 def create_static_map_service_mock(*, basemap_bytes=None, geometry_bytes=None) -> MagicMock:
     """Create a service double that matches the async static map endpoint contract."""
     svc = MagicMock()
     svc.materialize_cached_variant = AsyncMock(return_value=None)
+    svc.materialize_asset = AsyncMock(return_value=None)
     svc.get_cached_basemap = AsyncMock(return_value=basemap_bytes)
     svc.get_cached_map = AsyncMock(return_value=geometry_bytes)
+    svc.get_cached_asset = AsyncMock(return_value=None)
     svc.basemap_variant.return_value = "basemap"
     svc.geometry_variant.return_value = "geometry"
     svc.geometry_signature.return_value = "geometry-signature"
@@ -116,6 +126,8 @@ class TestStaticMapsEndpoint:
     @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
     def test_get_static_map_resource_class_icon(self, mock_resource, client):
         resource_id = "test-resource-id"
+        png_bytes = create_valid_png_image()
+        icon_hash = "deadbeef" * 8
         mock_resource.return_value = {
             "id": resource_id,
             "gbl_resourceClass_sm": ["Maps"],
@@ -123,14 +135,47 @@ class TestStaticMapsEndpoint:
             "dcat_bbox": "ENVELOPE(-10,10,10,-10)",
         }
 
-        with patch("app.api.v1.endpoint_modules.resources.thumbnail.StaticMapService") as svc_cls:
-            svc = MagicMock()
-            svc.get_cached_basemap = AsyncMock(return_value=create_valid_png_image())
+        with (
+            patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as route_svc_cls,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.StaticMapService"
+            ) as icon_svc_cls,
+        ):
+            route_svc = create_static_map_service_mock()
+            route_svc.materialize_asset = AsyncMock(return_value=icon_hash)
+            route_svc_cls.return_value = route_svc
+
+            icon_svc = MagicMock()
+            icon_svc.geometry_signature.return_value = "geometry-signature"
+            icon_svc.get_cached_basemap = AsyncMock(return_value=png_bytes)
+            icon_svc_cls.return_value = icon_svc
+
+            resp = client.get(
+                f"/static-maps/{resource_id}/resource-class-icon",
+                allow_redirects=False,
+            )
+            assert resp.status_code == 302
+            assert resp.headers["location"] == f"/api/v1/static-map-assets/{icon_hash}"
+            route_svc.materialize_cached_variant.assert_awaited_once_with(
+                resource_id,
+                variant="resource-class-icon",
+                source_signature=ANY,
+            )
+            route_svc.materialize_asset.assert_awaited_once()
+
+    def test_get_static_map_asset_serves_svg(self, client):
+        svg_bytes = create_valid_svg_image()
+
+        with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
+            svc = create_static_map_service_mock()
+            svc.get_cached_asset = AsyncMock(return_value=svg_bytes)
             svc_cls.return_value = svc
 
-            resp = client.get(f"/static-maps/{resource_id}/resource-class-icon")
+            resp = client.get(f"/static-map-assets/{'ab' * 32}")
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "image/svg+xml"
+            assert resp.headers["etag"] == weak_etag_from_body(svg_bytes)
+            assert "immutable" in resp.headers["cache-control"]
 
     def test_get_institution_static_map_generates_and_serves_png(self, client):
         png_bytes = create_valid_png_image()

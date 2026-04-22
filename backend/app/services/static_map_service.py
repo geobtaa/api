@@ -644,6 +644,22 @@ class StaticMapService:
         )
         return map_hash
 
+    async def materialize_asset(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        map_bytes: bytes,
+        source_signature: str | None = None,
+    ) -> Optional[str]:
+        return await asyncio.to_thread(
+            self.materialize_asset_sync,
+            resource_id,
+            variant=variant,
+            map_bytes=map_bytes,
+            source_signature=source_signature,
+        )
+
     def materialize_cached_variant_sync(
         self,
         resource_id: str,
