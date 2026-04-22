@@ -80,6 +80,31 @@ def _resource_row(id: str, dct_references_s: str, locn_geometry: str | None = No
 class TestResourceThumbnailCogFlow:
     """Test COG thumbnail handling in resource thumbnail endpoint."""
 
+    def test_resource_thumbnail_alias_redirect_short_circuits(self, client):
+        """Hot resource-id requests should redirect straight to the immutable asset."""
+        resource_id = "test-fast-alias"
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.thumbnail_alias_service.get_hash",
+                new=AsyncMock(return_value=image_hash),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
+            ) as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service.has_cached_image = AsyncMock(return_value=True)
+            mock_service_class.return_value = mock_service
+
+            response = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
+
+            assert response.status_code == 302
+            assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            mock_service_class.assert_called_once_with({})
+            mock_service.has_cached_image.assert_awaited_once_with(image_hash)
+
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
     def test_native_thumbnail_source_takes_priority_over_bridge_asset(

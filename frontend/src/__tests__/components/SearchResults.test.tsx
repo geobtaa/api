@@ -576,6 +576,41 @@ describe('SearchResults Component', () => {
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
     });
+
+    it('preserves immutable API thumbnail assets for direct browser fetching', () => {
+      const imageHash =
+        'e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639';
+      const directHashThumbnailResult: GeoDocument = {
+        ...mockFixtureData[1],
+        meta: {
+          ui: {
+            thumbnail_url: `http://localhost:8000/api/v1/thumbnails/${imageHash}`,
+            viewer: {
+              geometry: {
+                type: 'Point',
+                coordinates: [-74.006, 40.7128],
+              },
+            },
+          },
+        },
+      };
+
+      const { container } = render(
+        <TestWrapper>
+          <SearchResults
+            results={[directHashThumbnailResult]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const thumbnail = container.querySelector(
+        `img[src="/api/v1/thumbnails/${imageHash}"]`
+      );
+      expect(thumbnail).toBeInTheDocument();
+    });
   });
 
   describe('Content Display', () => {

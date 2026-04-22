@@ -3,6 +3,8 @@ import type { GeoDocument } from '../types/api';
 export type SearchResultAssetView = 'list' | 'gallery' | 'map';
 export type StaticMapVariant = 'basemap' | 'geometry' | 'resource-class-icon';
 
+const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
+
 export function extractThumbnailUrl(
   result: Pick<GeoDocument, 'meta'>
 ): string | undefined {
@@ -42,6 +44,10 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
 
   const normalizePath = (pathname: string, search: string) => {
+    if (IMMUTABLE_THUMBNAIL_PATH_RE.test(pathname)) {
+      return pathname + search;
+    }
+
     if (pathname.startsWith('/api/v1/thumbnails/')) {
       return pathname.replace('/api/v1', '') + search;
     }
@@ -72,6 +78,9 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
     const parsed = new URL(url, base);
     return normalizePath(parsed.pathname, parsed.search);
   } catch {
+    if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) {
+      return url;
+    }
     if (url.startsWith('/api/v1/')) {
       return url.replace('/api/v1', '');
     }

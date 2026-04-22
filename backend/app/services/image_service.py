@@ -15,6 +15,7 @@ from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
 )
+from app.services.thumbnail_alias_service import thumbnail_alias_service
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
@@ -121,6 +122,12 @@ class ImageService:
             self.logger.setLevel(logging.INFO)
 
         # print(f"Document WXS: {self.metadata.get('gbl_wxsidentifier_s')}")
+
+    def _api_v1_base_url(self) -> str:
+        """Return APPLICATION_URL normalized to the API v1 root."""
+        if self.application_url.endswith("/api/v1"):
+            return self.application_url
+        return f"{self.application_url}/api/v1"
 
     def _get_manifest(self, manifest_url: str) -> Optional[Dict]:
         """Get manifest from cache or fetch and cache it."""
@@ -350,12 +357,17 @@ class ImageService:
             if not doc_id:
                 return None
 
+            api_base_url = self._api_v1_base_url()
+            image_hash = thumbnail_alias_service.get_hash_sync(doc_id)
+            if image_hash:
+                return f"{api_base_url}/thumbnails/{image_hash}"
+
             # Determine the source thumbnail URL without making external calls
             source_url = self._get_thumbnail_source_url()
 
             if source_url:
                 # Always return the resource-specific thumbnail endpoint
-                return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
+                return f"{api_base_url}/resources/{doc_id}/thumbnail"
 
             return None
 
@@ -740,6 +752,16 @@ class ImageService:
         except Exception as e:
             self.logger.error(f"Error retrieving cached image: {e}")
             return None
+
+    async def has_cached_image(self, image_hash: str) -> bool:
+        """Return True when the cached image bytes still exist in Redis."""
+        try:
+            image_key = f"image:{image_hash}"
+            exists = await asyncio.to_thread(self.image_cache.exists, image_key)
+            return bool(exists)
+        except Exception as e:
+            self.logger.error(f"Error checking cached image: {e}")
+            return False
 
     def is_pmtiles_skip_cached(self, image_hash: str) -> bool:
         """

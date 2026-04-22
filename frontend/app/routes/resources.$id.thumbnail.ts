@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs } from "react-router";
+import { proxyUpstreamResponse } from "../lib/proxy-response";
 import { serverFetch } from "../lib/server-api";
 
 /**
@@ -27,23 +28,21 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   if (upstream.status === 302 || upstream.status === 301) {
     const location = upstream.headers.get("location");
     if (location) {
-      // Transform the redirect location to use SSR route if it's a thumbnail hash
       let redirectUrl = location;
-      // Handle absolute URLs
+
       if (location.startsWith("http://") || location.startsWith("https://")) {
         try {
           const u = new URL(location);
           if (u.pathname.startsWith("/api/v1/thumbnails/")) {
-            redirectUrl = u.pathname.replace("/api/v1/thumbnails/", "/thumbnails/") + u.search;
+            redirectUrl = u.pathname + u.search;
           }
         } catch {
-          // If URL parsing fails, use as-is
+          // If URL parsing fails, use as-is.
         }
       } else if (location.startsWith("/api/v1/thumbnails/")) {
-        // Handle relative URLs
-        redirectUrl = location.replace("/api/v1/thumbnails/", "/thumbnails/");
+        redirectUrl = location;
       }
-      
+
       return new Response(null, {
         status: upstream.status,
         headers: {
@@ -54,10 +53,5 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     }
   }
 
-  const body = await upstream.arrayBuffer();
-  const headers = new Headers(upstream.headers);
-  headers.delete("content-encoding");
-  headers.delete("content-length");
-
-  return new Response(body, { status: upstream.status, headers });
+  return proxyUpstreamResponse(upstream);
 }

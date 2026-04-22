@@ -8,12 +8,52 @@ from PIL import Image
 
 from app.services.cache_service import cache_control_header, weak_etag_from_body
 from app.services.image_service import ImageService
+from app.services.thumbnail_alias_service import is_thumbnail_hash, thumbnail_alias_service
+from app.services.thumbnail_state_service import ThumbnailState, thumbnail_state_service
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
+
+
+async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
+    """Redirect resource-id requests to a hot immutable asset when possible."""
+    image_service = ImageService({})
+
+    image_hash = await thumbnail_alias_service.get_hash(resource_id)
+    if image_hash:
+        if await image_service.has_cached_image(image_hash):
+            return Response(
+                status_code=302,
+                headers={
+                    "Location": f"/api/v1/thumbnails/{image_hash}",
+                    "Cache-Control": "no-store",
+                },
+            )
+        await thumbnail_alias_service.delete(resource_id)
+
+    state = await thumbnail_state_service.get_state(resource_id)
+    if not state:
+        return None
+
+    state_hash = state.get("source_hash")
+    if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
+        return None
+
+    if not await image_service.has_cached_image(state_hash):
+        await thumbnail_alias_service.delete(resource_id)
+        return None
+
+    await thumbnail_alias_service.set_hash(resource_id, state_hash)
+    return Response(
+        status_code=302,
+        headers={
+            "Location": f"/api/v1/thumbnails/{state_hash}",
+            "Cache-Control": "no-store",
+        },
+    )
 
 
 def _detect_image_type(image_data: bytes) -> str:
@@ -120,6 +160,11 @@ async def get_placeholder_thumbnail():
 @router.get("/thumbnails/{resource_id}")
 async def get_thumbnail(resource_id: str, request: Request):
     """Serve a resource thumbnail asset with a guaranteed image fallback."""
+    if not is_thumbnail_hash(resource_id):
+        redirect = await _get_resource_alias_redirect(resource_id)
+        if redirect is not None:
+            return redirect
+
     try:
         # Create service without resource (we only need cache access)
         image_service = ImageService({})
@@ -129,6 +174,9 @@ async def get_thumbnail(resource_id: str, request: Request):
         raise HTTPException(status_code=500, detail=str(e)) from e
 
     if not image_data:
+        if is_thumbnail_hash(resource_id):
+            raise HTTPException(status_code=404, detail="Thumbnail asset not found")
+
         from app.api.v1.endpoint_modules.resources.thumbnail import (
             _get_resource_thumbnail_response,
         )

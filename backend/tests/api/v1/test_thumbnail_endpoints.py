@@ -91,7 +91,7 @@ class TestThumbnailEndpoints:
 
     def test_get_thumbnail_success(self, client):
         """Test successful thumbnail retrieval."""
-        test_image_hash = "test_hash_123"
+        test_image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
         test_image_data = create_valid_jpeg_image()
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
@@ -110,6 +110,28 @@ class TestThumbnailEndpoints:
             # Verify service was called correctly
             mock_service_class.assert_called_once_with({})
             mock_service.get_cached_image.assert_called_once_with(test_image_hash)
+
+    def test_get_thumbnail_resource_alias_redirect(self, client):
+        """Resource-id requests should redirect to the hot immutable hash asset when known."""
+        resource_id = "nyu-2451-34564"
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
+                new=AsyncMock(return_value=image_hash),
+            ),
+            patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class,
+        ):
+            mock_service = MagicMock()
+            mock_service.has_cached_image = AsyncMock(return_value=True)
+            mock_service_class.return_value = mock_service
+
+            response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
+
+            assert response.status_code == 302
+            assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            mock_service.has_cached_image.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_not_found(self, client):
         """Test thumbnail retrieval when image is not found."""
@@ -132,6 +154,21 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 404
             assert "Resource not found" in response.json()["detail"]
+
+    def test_get_thumbnail_missing_hash_returns_404(self, client):
+        """Missing immutable asset hashes should fail fast instead of resolving as resource ids."""
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
+            mock_service = MagicMock()
+            mock_service.get_cached_image = AsyncMock(return_value=None)
+            mock_service_class.return_value = mock_service
+
+            response = client.get(f"/thumbnails/{image_hash}")
+
+            assert response.status_code == 404
+            assert response.json()["detail"] == "Thumbnail asset not found"
+            mock_service.get_cached_image.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_resource_asset_fallback(self, client):
         """Test resource asset fallback when the path is a resource id, not a cached hash."""

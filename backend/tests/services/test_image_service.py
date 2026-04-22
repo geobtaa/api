@@ -4,6 +4,7 @@ Tests for ImageService - comprehensive coverage using real fixtures and data.
 
 import hashlib
 import json
+from unittest.mock import patch
 
 import pytest
 
@@ -609,6 +610,25 @@ class TestImageServiceThumbnailURL:
         except Exception as e:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_url_prefers_cached_alias_hash(self):
+        """Hot aliases should emit the immutable thumbnail asset URL directly."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with patch(
+            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+            return_value=image_hash,
+        ):
+            service = ImageService(metadata)
+            result = service.get_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
 
     def test_get_thumbnail_url_no_thumbnail_source(self):
         """Test behavior when no thumbnail source is found."""

@@ -20,6 +20,10 @@ def _create_app() -> FastAPI:
     async def test_endpoint():
         return JSONResponse({"ok": True})
 
+    @app.get("/api/v1/thumbnails/{image_hash}")
+    async def thumbnail_asset(image_hash: str):
+        return JSONResponse({"image_hash": image_hash})
+
     app.add_middleware(RateLimitMiddleware)
     return app
 
@@ -134,3 +138,14 @@ class TestRateLimitMiddlewareIntegration:
         assert second.status_code == 429
         body = second.json()
         assert body.get("error") == "Rate limit exceeded"
+
+    def test_immutable_thumbnail_asset_bypasses_rate_limit(self, rate_limited_client):
+        """Hash-addressed thumbnail assets should not consume the anonymous quota."""
+
+        path = "/api/v1/thumbnails/e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+        first = rate_limited_client.get(path)
+        second = rate_limited_client.get(path)
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert "X-RateLimit-Limit" not in first.headers

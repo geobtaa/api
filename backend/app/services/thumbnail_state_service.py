@@ -11,6 +11,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.services.distribution_repository import async_session_factory
+from app.services.thumbnail_alias_service import thumbnail_alias_service
 from db.config import DATABASE_URL
 from db.models import resource_thumbnail_state
 
@@ -141,14 +142,32 @@ class ThumbnailStateService:
         )
         return stmt
 
+    async def _sync_alias_async(self, payload: ThumbnailStatePayload) -> None:
+        """Mirror success/placeheld state into the Redis alias cache."""
+        if payload.state == ThumbnailState.SUCCESS and payload.source_hash:
+            await thumbnail_alias_service.set_hash(payload.resource_id, payload.source_hash)
+            return
+        if payload.state == ThumbnailState.PLACEHELD:
+            await thumbnail_alias_service.delete(payload.resource_id)
+
+    def _sync_alias_sync(self, payload: ThumbnailStatePayload) -> None:
+        """Mirror success/placeheld state into the Redis alias cache."""
+        if payload.state == ThumbnailState.SUCCESS and payload.source_hash:
+            thumbnail_alias_service.set_hash_sync(payload.resource_id, payload.source_hash)
+            return
+        if payload.state == ThumbnailState.PLACEHELD:
+            thumbnail_alias_service.delete_sync(payload.resource_id)
+
     async def record_state(self, payload: ThumbnailStatePayload) -> None:
         async with async_session_factory() as session:
             await session.execute(self._build_upsert_stmt(payload))
             await session.commit()
+        await self._sync_alias_async(payload)
 
     def record_state_sync(self, payload: ThumbnailStatePayload) -> None:
         with _sync_engine.begin() as conn:
             conn.execute(self._build_upsert_stmt(payload))
+        self._sync_alias_sync(payload)
 
     async def get_state(self, resource_id: str) -> Optional[dict[str, Any]]:
         async with async_session_factory() as session:

@@ -12,11 +12,13 @@ from app.api.v1.utils import _get_thumbnail_asset_url, sanitize_for_json
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
+from app.services.thumbnail_alias_service import thumbnail_alias_service
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
     ThumbnailStatePayload,
     safe_record_thumbnail_state,
+    thumbnail_state_service,
 )
 from app.tasks.worker import (
     _cog_thumbnail_image_hash,
@@ -34,6 +36,43 @@ from . import async_session, logger, router
 
 # Timeout for probing thumbnail source URL (avoid blocking; fail fast if 404/unreachable)
 THUMBNAIL_PROBE_TIMEOUT = 5
+
+
+def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
+    """Redirect clients to the immutable hash-addressed thumbnail asset."""
+    return RedirectResponse(
+        url=f"/api/v1/thumbnails/{image_hash}",
+        status_code=302,
+        headers={
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse | None:
+    """Resolve a hot resource_id request through the alias cache before heavy work."""
+    image_service = ImageService({})
+
+    image_hash = await thumbnail_alias_service.get_hash(resource_id)
+    if image_hash:
+        if await image_service.has_cached_image(image_hash):
+            return _thumbnail_asset_redirect(image_hash)
+        await thumbnail_alias_service.delete(resource_id)
+
+    state = await thumbnail_state_service.get_state(resource_id)
+    if not state:
+        return None
+
+    state_hash = state.get("source_hash")
+    if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
+        return None
+
+    if not await image_service.has_cached_image(state_hash):
+        await thumbnail_alias_service.delete(resource_id)
+        return None
+
+    await thumbnail_alias_service.set_hash(resource_id, state_hash)
+    return _thumbnail_asset_redirect(state_hash)
 
 
 async def _probe_thumbnail_url(url: str) -> bool:
@@ -314,12 +353,22 @@ async def _get_resource_thumbnail_response(
     """Resolve the resource thumbnail response for a specific fallback variant."""
     resource_dict = await _fetch_resource_dict(id)
     if not resource_dict:
+        await thumbnail_alias_service.delete(id)
         if not_found_placeholder:
             return _svg_placeholder(title="Thumbnail unavailable", subtitle="Resource not found")
         raise HTTPException(status_code=404, detail="Resource not found")
 
     # Check for restricted access rights
     if resource_dict.get("dct_accessrights_s") == "Restricted":
+        await safe_record_thumbnail_state(
+            ThumbnailStatePayload(
+                resource_id=id,
+                state=ThumbnailState.PLACEHELD,
+                source_type=None,
+                source_url=None,
+                state_detail="Restricted resource",
+            )
+        )
         return _svg_placeholder(title="Thumbnail unavailable", subtitle="Restricted resource")
 
     # Get distribution context and image service
@@ -408,14 +457,7 @@ async def _get_resource_thumbnail_response(
                 )
             )
             # Image exists, redirect to the serving endpoint (same pattern as static-maps)
-            return RedirectResponse(
-                url=f"/api/v1/thumbnails/{image_hash}",
-                status_code=302,
-                headers={
-                    # Don't let caches pin the redirect response itself.
-                    "Cache-Control": "no-store",
-                },
-            )
+            return _thumbnail_asset_redirect(image_hash)
         # PMTiles: if we previously failed (e.g. vector tiles), show resource-class icon
         if image_service._is_pmtiles_url(source_url) and image_service.is_pmtiles_skip_cached(
             image_hash
@@ -570,6 +612,9 @@ async def get_resource_thumbnail(
         - SVG placeholder if thumbnail is not ready yet (queues background job)
     """
     try:
+        fast_redirect = await _fast_thumbnail_alias_redirect(id)
+        if fast_redirect is not None:
+            return fast_redirect
         return await _get_resource_thumbnail_response(
             id,
             request,
