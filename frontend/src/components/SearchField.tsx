@@ -153,7 +153,7 @@ export function SearchField({
   // Fetch keyword suggestions
   useEffect(() => {
     const fetchSuggestionsDebounced = setTimeout(async () => {
-      if (query.trim() && !isPlaceInputFocused) {
+      if (query.trim() && !isPlaceInputFocused && isKeywordInputFocused) {
         try {
           // IMPORTANT: Do not call the API directly from the browser when rate limiting is enabled.
           // `/suggest` is served by the SSR server, which injects the API key server-side.
@@ -227,16 +227,6 @@ export function SearchField({
   const handleSelectPlace = (place: GazetteerPlace) => {
     const attrs = place.attributes;
 
-    // Debug: Log the place and bbox values
-    console.log('📍 Selected place:', {
-      name: attrs.name,
-      placetype: attrs.placetype,
-      min_latitude: attrs.min_latitude,
-      max_latitude: attrs.max_latitude,
-      min_longitude: attrs.min_longitude,
-      max_longitude: attrs.max_longitude,
-    });
-
     setSelectedPlace(place);
     setPlaceQuery('');
     setShowPlaceSuggestions(false);
@@ -263,11 +253,6 @@ export function SearchField({
     const topLeftLon = attrs.min_longitude;
     const bottomRightLat = attrs.min_latitude;
     const bottomRightLon = attrs.max_longitude;
-
-    console.log('🗺️ Setting bbox:', {
-      top_left: { lat: topLeftLat, lon: topLeftLon },
-      bottom_right: { lat: bottomRightLat, lon: bottomRightLon },
-    });
 
     setGeoBBoxParams(newParams, {
       topLeftLat: topLeftLat.toString(),

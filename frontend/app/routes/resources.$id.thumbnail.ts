@@ -2,6 +2,21 @@ import type { LoaderFunctionArgs } from "react-router";
 import { proxyUpstreamResponse } from "../lib/proxy-response";
 import { serverFetch } from "../lib/server-api";
 
+function toBrowserThumbnailLocation(requestUrl: URL, location: string): string {
+  if (!location.startsWith("/api/v1/thumbnails/")) {
+    return location;
+  }
+
+  const isLocalDev =
+    requestUrl.hostname === "localhost" || requestUrl.hostname === "127.0.0.1";
+
+  if (!isLocalDev) {
+    return location;
+  }
+
+  return `http://localhost:8000${location}`;
+}
+
 /**
  * SSR-served resource thumbnail (resource route).
  *
@@ -34,13 +49,13 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
         try {
           const u = new URL(location);
           if (u.pathname.startsWith("/api/v1/thumbnails/")) {
-            redirectUrl = u.pathname + u.search;
+            redirectUrl = toBrowserThumbnailLocation(url, u.pathname + u.search);
           }
         } catch {
           // If URL parsing fails, use as-is.
         }
       } else if (location.startsWith("/api/v1/thumbnails/")) {
-        redirectUrl = location;
+        redirectUrl = toBrowserThumbnailLocation(url, location);
       }
 
       return new Response(null, {

@@ -532,13 +532,16 @@ export function GeospatialFilterMap({
       }
     };
 
-    updateHexLayer(true);
+    const initialFetchTimeout = window.setTimeout(() => {
+      void updateHexLayer(false);
+    }, 250);
     const onMoveOrZoom = () => updateHexLayer(false);
     map.on('moveend', onMoveOrZoom);
     map.on('zoomend', onMoveOrZoom);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(initialFetchTimeout);
       map.off('moveend', onMoveOrZoom);
       map.off('zoomend', onMoveOrZoom);
       if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {

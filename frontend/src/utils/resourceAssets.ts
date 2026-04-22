@@ -1,9 +1,16 @@
 import type { GeoDocument } from '../types/api';
+import { getApiBasePath } from '../services/api';
 
 export type SearchResultAssetView = 'list' | 'gallery' | 'map';
 export type StaticMapVariant = 'basemap' | 'geometry' | 'resource-class-icon';
 
 const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
+
+function toBrowserApiAssetUrl(pathname: string, search: string): string {
+  const apiBasePath = getApiBasePath().replace(/\/$/, '');
+  const assetPath = pathname.replace(/^\/api\/v1/, '');
+  return `${apiBasePath}${assetPath}${search}`;
+}
 
 export function extractThumbnailUrl(
   result: Pick<GeoDocument, 'meta'>
@@ -45,7 +52,7 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
 
   const normalizePath = (pathname: string, search: string) => {
     if (IMMUTABLE_THUMBNAIL_PATH_RE.test(pathname)) {
-      return pathname + search;
+      return toBrowserApiAssetUrl(pathname, search);
     }
 
     if (pathname.startsWith('/api/v1/thumbnails/')) {
@@ -79,7 +86,7 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
     return normalizePath(parsed.pathname, parsed.search);
   } catch {
     if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) {
-      return url;
+      return toBrowserApiAssetUrl(url, '');
     }
     if (url.startsWith('/api/v1/')) {
       return url.replace('/api/v1', '');

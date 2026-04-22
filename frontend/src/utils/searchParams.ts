@@ -91,17 +91,6 @@ export function parseSearchParams(searchParams: URLSearchParams) {
 
   const advancedQuery = parseAdvancedClauses(searchParams.get('adv_q'));
 
-  console.log('🔗 parseSearchParams called with:', {
-    rawParams: Object.fromEntries(searchParams.entries()),
-    parsed: {
-      query,
-      page,
-      facets: facets.length,
-      excludeFacets: excludeFacets.length,
-      advancedClauses: advancedQuery.length,
-    },
-  });
-
   return { query, page, facets, excludeFacets, advancedQuery, hasQueryParam };
 }
 

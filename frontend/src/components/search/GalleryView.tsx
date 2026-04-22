@@ -6,6 +6,7 @@ import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
 import { ResultCardPill } from './ResultCardPill';
 import { BookmarkButton } from '../BookmarkButton';
 import { useBookmarks } from '../../context/BookmarkContext';
+import { requestGalleryStateRestore } from '../../utils/galleryState';
 
 interface GalleryViewProps {
   results: GeoDocument[];
@@ -37,6 +38,20 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   const getAbsoluteIndex = (relativeIndex: number) => {
     const page = startPage || currentPage;
     return (page - 1) * perPage + relativeIndex + 1;
+  };
+
+  const handleResultNavigation = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    requestGalleryStateRestore();
   };
 
   useEffect(() => {
@@ -95,6 +110,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
             >
               <Link
                 to={`/resources/${r.id}`}
+                onClick={handleResultNavigation}
                 state={{
                   searchResults: results,
                   currentIndex: index, // Local index in the current results array
@@ -112,6 +128,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                       src={imageUrl}
                       alt=""
                       className="w-full h-full object-cover"
+                      decoding="async"
+                      loading={index < 6 ? 'eager' : 'lazy'}
+                      fetchPriority={index < 4 ? 'high' : 'auto'}
                       onError={(e) => {
                         // Handle error by hiding image and showing icon fallback
                         e.currentTarget.style.display = 'none';
