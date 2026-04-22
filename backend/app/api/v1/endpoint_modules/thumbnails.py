@@ -25,37 +25,28 @@ ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 
 async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
     """Redirect resource-id requests to a hot immutable asset when possible."""
-    image_service = ImageService({})
-
     image_hash = await thumbnail_alias_service.get_hash(resource_id)
-    if image_hash:
-        if await image_service.has_cached_image(image_hash):
-            return Response(
-                status_code=302,
-                headers={
-                    "Location": f"/api/v1/thumbnails/{image_hash}",
-                    "Cache-Control": alias_redirect_cache_control_header(),
-                },
-            )
-        await thumbnail_alias_service.delete(resource_id)
+    if not image_hash:
+        state = await thumbnail_state_service.get_state(resource_id)
+        if not state:
+            return None
 
-    state = await thumbnail_state_service.get_state(resource_id)
-    if not state:
+        state_hash = state.get("source_hash")
+        if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
+            return None
+
+    from app.api.v1.endpoint_modules.resources.thumbnail import (
+        _current_hot_thumbnail_hash_for_resource,
+    )
+
+    current_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
+    if not current_hash:
         return None
 
-    state_hash = state.get("source_hash")
-    if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
-        return None
-
-    if not await image_service.has_cached_image(state_hash):
-        await thumbnail_alias_service.delete(resource_id)
-        return None
-
-    await thumbnail_alias_service.set_hash(resource_id, state_hash)
     return Response(
         status_code=302,
         headers={
-            "Location": f"/api/v1/thumbnails/{state_hash}",
+            "Location": f"/api/v1/thumbnails/{current_hash}",
             "Cache-Control": alias_redirect_cache_control_header(),
         },
     )

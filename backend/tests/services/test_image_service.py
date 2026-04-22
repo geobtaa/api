@@ -148,8 +148,8 @@ class TestImageServiceURLStandardization:
 class TestImageServiceThumbnailSourceURL:
     """Test cases for thumbnail source URL extraction using real reference data."""
 
-    def test_get_thumbnail_source_url_b1g_image_ss_takes_priority(self):
-        """b1g_image_ss MUST be used when present; overrides all other sources."""
+    def test_get_thumbnail_source_url_iiif_beats_b1g_image_ss(self):
+        """Prefer IIIF-derived thumbnails over curated b1g_image_ss derivatives."""
         metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
         try:
             service = ImageService(metadata)
@@ -158,7 +158,20 @@ class TestImageServiceThumbnailSourceURL:
                 "http://iiif.io/api/image": "http://example.com/iiif/image",
             }
             result = service._get_thumbnail_source_url(references)
-            assert result == "https://curated.example.com/thumb.jpg"
+            assert result == "http://example.com/iiif/image/full/!800,800/0/default.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_manifest_beats_b1g_image_ss(self):
+        """Prefer IIIF manifests over b1g_image_ss when both are present."""
+        manifest_url = "https://example.com/iiif/manifest"
+        metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+        try:
+            service = ImageService(metadata)
+            result = service._get_thumbnail_source_url(
+                {"http://iiif.io/api/presentation#manifest": manifest_url}
+            )
+            assert result == manifest_url
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
@@ -612,24 +625,43 @@ class TestImageServiceThumbnailURL:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
-    def test_get_thumbnail_url_prefers_cached_alias_hash(self):
-        """Hot aliases should emit the immutable thumbnail asset URL directly."""
+    def test_get_thumbnail_url_invalidates_stale_alias_hash(self):
+        """A stale alias should not keep an outdated immutable asset pinned forever."""
         metadata = {
             "id": "test-doc",
             "dct_references_s": json.dumps(
                 {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
             ),
         }
-        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+        stale_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
-        with patch(
-            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-            return_value=image_hash,
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=stale_hash,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value={
+                    "state": ThumbnailState.SUCCESS,
+                    "source_hash": stale_hash,
+                    "source_url": "http://example.com/old-thumb.jpg",
+                },
+            ),
+            patch(
+                "app.services.image_service.thumbnail_alias_service.delete_sync"
+            ) as mock_delete,
+            patch.object(
+                ImageService,
+                "_candidate_cached_thumbnail_hash_sync",
+                return_value=None,
+            ),
         ):
             service = ImageService(metadata)
             result = service.get_thumbnail_url()
 
-        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+        assert result == "http://localhost:8000/api/v1/resources/test-doc/thumbnail"
+        mock_delete.assert_called()
 
     def test_get_thumbnail_url_falls_back_to_persisted_success_hash(self):
         """Persisted success state should emit the immutable asset even if alias cache is cold."""
@@ -648,7 +680,11 @@ class TestImageServiceThumbnailURL:
             ),
             patch(
                 "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value={"state": ThumbnailState.SUCCESS, "source_hash": image_hash},
+                return_value={
+                    "state": ThumbnailState.SUCCESS,
+                    "source_hash": image_hash,
+                    "source_url": "http://example.com/thumb.jpg",
+                },
             ),
             patch.object(ImageService, "has_cached_image_sync", return_value=True),
             patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
@@ -688,8 +724,8 @@ class TestImageServiceThumbnailURL:
         assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
         mock_set.assert_called_once_with("test-doc", image_hash)
 
-    def test_get_hot_thumbnail_url_prefers_cached_alias_hash(self):
-        """Hot-only URL generation should return a direct immutable thumbnail asset."""
+    def test_get_hot_thumbnail_url_reuses_current_alias_hash(self):
+        """Hot-only URL generation may reuse an alias when it still matches the current source."""
         metadata = {
             "id": "test-doc",
             "dct_references_s": json.dumps(
@@ -700,6 +736,10 @@ class TestImageServiceThumbnailURL:
 
         with patch(
             "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+            return_value=image_hash,
+        ), patch.object(
+            ImageService,
+            "_candidate_cached_thumbnail_hash_sync",
             return_value=image_hash,
         ):
             service = ImageService(metadata)
@@ -724,7 +764,11 @@ class TestImageServiceThumbnailURL:
             ),
             patch(
                 "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value={"state": ThumbnailState.SUCCESS, "source_hash": image_hash},
+                return_value={
+                    "state": ThumbnailState.SUCCESS,
+                    "source_hash": image_hash,
+                    "source_url": "http://example.com/thumb.jpg",
+                },
             ),
             patch.object(ImageService, "has_cached_image_sync", return_value=True),
             patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,

@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import FastAPI
+from fastapi.responses import Response
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -91,20 +92,40 @@ class TestResourceThumbnailCogFlow:
                 new=AsyncMock(return_value=image_hash),
             ),
             patch(
-                "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
-            ) as mock_service_class,
+                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+                new=AsyncMock(return_value=image_hash),
+            ) as mock_current_hash,
         ):
-            mock_service = MagicMock()
-            mock_service.has_cached_image = AsyncMock(return_value=True)
-            mock_service_class.return_value = mock_service
-
             response = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             assert "max-age=3600" in response.headers["cache-control"]
-            mock_service_class.assert_called_once_with({})
-            mock_service.has_cached_image.assert_awaited_once_with(image_hash)
+            mock_current_hash.assert_awaited_once_with(resource_id)
+
+    def test_resource_thumbnail_stale_alias_falls_back_to_current_resolution(self, client):
+        """A stale alias should fall through to the resource resolver."""
+        resource_id = "test-stale-alias"
+        fallback_response = Response(content="<svg></svg>", media_type="image/svg+xml")
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.thumbnail_alias_service.get_hash",
+                new=AsyncMock(return_value="deadbeef" * 8),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
+                new=AsyncMock(return_value=fallback_response),
+            ) as mock_response,
+        ):
+            response = client.get(f"/resources/{resource_id}/thumbnail")
+
+            assert response.status_code == 200
+            mock_response.assert_awaited_once()
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")

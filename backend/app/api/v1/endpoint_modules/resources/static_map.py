@@ -40,9 +40,23 @@ async def get_resource_static_map(
     """Compatibility route for the geometry-overlay static map asset."""
     try:
         map_service = StaticMapService()
+        async with async_session() as session:
+            query = select(resources.c.id, resources.c.locn_geometry, resources.c.dcat_bbox).where(
+                resources.c.id == id
+            )
+            result = await session.execute(query)
+            row = result.fetchone()
+
+            if not row:
+                return _svg_placeholder(title="Map unavailable", subtitle="Resource not found")
+
+        resolved_id = str(row._mapping["id"])
+        geometry = row._mapping.get("locn_geometry") or row._mapping.get("dcat_bbox")
+        source_signature = map_service.geometry_signature(geometry)
         hot_map_hash = await map_service.materialize_cached_variant(
             id,
             variant=map_service.geometry_variant(),
+            source_signature=source_signature,
         )
         if hot_map_hash:
             return RedirectResponse(
@@ -53,15 +67,6 @@ async def get_resource_static_map(
                 },
             )
 
-        async with async_session() as session:
-            query = select(resources.c.id).where(resources.c.id == id)
-            result = await session.execute(query)
-            row = result.fetchone()
-
-            if not row:
-                return _svg_placeholder(title="Map unavailable", subtitle="Resource not found")
-
-        resolved_id = str(row._mapping["id"])
         relative_target = f"/api/v1/static-maps/{quote(resolved_id, safe='')}/geometry"
 
         return RedirectResponse(
@@ -116,11 +121,17 @@ async def get_resource_static_map_no_cache(
 
         # Generate map synchronously and update cache (geometry or global)
         map_service = StaticMapService()
+        source_signature = map_service.geometry_signature(geometry)
         if not geometry:
-            map_bytes = map_service.generate_global_map(id)
+            map_bytes = map_service.generate_global_map(id, source_signature=source_signature)
         else:
-            map_bytes = map_service.generate_map(id, geometry) or map_service.generate_global_map(
-                id
+            map_bytes = map_service.generate_map(
+                id,
+                geometry,
+                source_signature=source_signature,
+            ) or map_service.generate_global_map(
+                id,
+                source_signature=source_signature,
             )
         if not map_bytes:
             return _svg_placeholder(title="Map unavailable", subtitle="Error generating map")

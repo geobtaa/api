@@ -36,6 +36,11 @@ async def _fetch_resource_dict(resource_id: str) -> dict | None:
         return dict(row._mapping)
 
 
+def _resource_geometry(resource_dict: dict) -> object | None:
+    """Return the geometry input currently used for static-map generation."""
+    return resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+
+
 def _validated_png_response(
     map_data: bytes,
     request: Request,
@@ -70,10 +75,19 @@ def _validated_png_response(
     return Response(content=map_data, media_type="image/png", headers=headers)
 
 
-async def _get_asset_redirect(resource_id: str, *, variant: str) -> Response | None:
+async def _get_asset_redirect(
+    resource_id: str,
+    *,
+    variant: str,
+    source_signature: str,
+) -> Response | None:
     """Redirect resource-id static map requests to a hot immutable asset when possible."""
     map_service = StaticMapService()
-    map_hash = await map_service.materialize_cached_variant(resource_id, variant=variant)
+    map_hash = await map_service.materialize_cached_variant(
+        resource_id,
+        variant=variant,
+        source_signature=source_signature,
+    )
     if not map_hash:
         return None
 
@@ -86,39 +100,67 @@ async def _get_asset_redirect(resource_id: str, *, variant: str) -> Response | N
     )
 
 
-async def _get_or_generate_map_data(resource_id: str, *, variant: str) -> bytes:
+async def _get_or_generate_map_data(
+    resource_id: str,
+    *,
+    resource_dict: dict,
+    variant: str,
+    source_signature: str,
+) -> bytes:
     """Return the requested static map variant, generating it synchronously when needed."""
-    resource_dict = await _fetch_resource_dict(resource_id)
-    if not resource_dict:
-        raise HTTPException(status_code=404, detail="Resource not found")
-
-    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    geometry = _resource_geometry(resource_dict)
     map_service = StaticMapService()
 
     if variant == "geometry":
-        map_data = await map_service.get_cached_map(resource_id)
+        map_data = await map_service.get_cached_map(
+            resource_id,
+            source_signature=source_signature,
+        )
         if not map_data:
             map_data = (
-                map_service.generate_map(resource_id, geometry)
+                map_service.generate_map(
+                    resource_id,
+                    geometry,
+                    source_signature=source_signature,
+                )
                 if geometry
-                else map_service.generate_global_map(resource_id)
+                else map_service.generate_global_map(
+                    resource_id,
+                    source_signature=source_signature,
+                )
             )
         if not map_data:
-            map_data = map_service.generate_global_map(resource_id)
+            map_data = map_service.generate_global_map(
+                resource_id,
+                source_signature=source_signature,
+            )
         if not map_data:
             raise HTTPException(status_code=404, detail="Static map not found")
         return map_data
 
     if variant == "basemap":
-        map_data = await map_service.get_cached_basemap(resource_id)
+        map_data = await map_service.get_cached_basemap(
+            resource_id,
+            source_signature=source_signature,
+        )
         if not map_data:
             map_data = (
-                map_service.generate_basemap(resource_id, geometry)
+                map_service.generate_basemap(
+                    resource_id,
+                    geometry,
+                    source_signature=source_signature,
+                )
                 if geometry
-                else map_service.generate_global_basemap(resource_id)
+                else map_service.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature,
+                )
             )
         if not map_data:
-            map_data = map_service.generate_global_basemap(resource_id)
+            map_data = map_service.generate_global_basemap(
+                resource_id,
+                source_signature=source_signature,
+            )
         if not map_data:
             raise HTTPException(status_code=404, detail="Static map not found")
         return map_data
@@ -138,13 +180,22 @@ async def get_institution_static_map(
     cache_id = f"institution:{map_id}"
     try:
         map_service = StaticMapService(map_width=640, map_height=320)
-        map_data = await map_service.get_cached_basemap(cache_id)
+        source_signature = map_service.centered_basemap_signature(
+            latitude=lat,
+            longitude=lon,
+            zoom=zoom,
+        )
+        map_data = await map_service.get_cached_basemap(
+            cache_id,
+            source_signature=source_signature,
+        )
         if not map_data:
             map_data = map_service.generate_centered_basemap(
                 cache_id,
                 latitude=lat,
                 longitude=lon,
                 zoom=zoom,
+                source_signature=source_signature,
             )
     except Exception as e:
         logger.error(f"Error retrieving institution static map {map_id}: {e}")
@@ -174,15 +225,27 @@ async def get_static_map_asset(map_hash: str, request: Request):
 @router.get("/static-maps/{resource_id}/geometry")
 async def get_static_map_geometry(resource_id: str, request: Request):
     """Serve or generate the static map with geometry overlay for a resource."""
+    resource_dict = await _fetch_resource_dict(resource_id)
+    if not resource_dict:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    map_service = StaticMapService()
+    source_signature = map_service.geometry_signature(_resource_geometry(resource_dict))
     redirect = await _get_asset_redirect(
         resource_id,
-        variant=StaticMapService().geometry_variant(),
+        variant=map_service.geometry_variant(),
+        source_signature=source_signature,
     )
     if redirect is not None:
         return redirect
 
     try:
-        map_data = await _get_or_generate_map_data(resource_id, variant="geometry")
+        map_data = await _get_or_generate_map_data(
+            resource_id,
+            resource_dict=resource_dict,
+            variant="geometry",
+            source_signature=source_signature,
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -213,15 +276,27 @@ async def get_static_map_resource_class_icon(resource_id: str):
 @router.get("/static-maps/{resource_id}")
 async def get_static_map(resource_id: str, request: Request):
     """Serve or generate the basemap-only static map asset for a resource."""
+    resource_dict = await _fetch_resource_dict(resource_id)
+    if not resource_dict:
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    map_service = StaticMapService()
+    source_signature = map_service.geometry_signature(_resource_geometry(resource_dict))
     redirect = await _get_asset_redirect(
         resource_id,
-        variant=StaticMapService().basemap_variant(),
+        variant=map_service.basemap_variant(),
+        source_signature=source_signature,
     )
     if redirect is not None:
         return redirect
 
     try:
-        map_data = await _get_or_generate_map_data(resource_id, variant="basemap")
+        map_data = await _get_or_generate_map_data(
+            resource_id,
+            resource_dict=resource_dict,
+            variant="basemap",
+            source_signature=source_signature,
+        )
     except HTTPException:
         raise
     except Exception as e:

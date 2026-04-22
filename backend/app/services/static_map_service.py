@@ -266,6 +266,7 @@ class StaticMapService:
     _ASSET_KEY_PREFIX = "static_map_asset"
     _ALIAS_KEY_PREFIX = "static_map_alias"
     _HASH_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
+    _GLOBAL_SIGNATURE_SEED = "static-map:no-geometry"
 
     def _ban_icon_image(self, size: int) -> Image.Image:
         """Render the provided ban SVG path exactly via Cairo."""
@@ -356,14 +357,30 @@ class StaticMapService:
             width=width,
         )
 
-    def _cache_key(self, resource_id: str, *, variant: str = "static_map") -> str:
+    def _cache_key(
+        self,
+        resource_id: str,
+        *,
+        variant: str = "static_map",
+        source_signature: str | None = None,
+    ) -> str:
         """Build Redis key for a map variant."""
+        if source_signature:
+            return f"{variant}:{source_signature}:{resource_id}"
         return f"{variant}:{resource_id}"
 
     def _asset_key(self, map_hash: str) -> str:
         return f"{self._ASSET_KEY_PREFIX}:{map_hash}"
 
-    def _alias_key(self, resource_id: str, *, variant: str) -> str:
+    def _alias_key(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> str:
+        if source_signature:
+            return f"{self._ALIAS_KEY_PREFIX}:{variant}:{source_signature}:{resource_id}"
         return f"{self._ALIAS_KEY_PREFIX}:{variant}:{resource_id}"
 
     def _is_asset_hash(self, value: str | None) -> bool:
@@ -391,17 +408,67 @@ class StaticMapService:
     def basemap_variant(self) -> str:
         return self._BASEMAP_VARIANT
 
-    def get_asset_hash_sync(self, resource_id: str, *, variant: str) -> Optional[str]:
+    def geometry_signature(self, geometry: Any) -> str:
+        """Return a stable content signature for the current geometry input."""
+        if geometry in (None, ""):
+            normalized = self._GLOBAL_SIGNATURE_SEED
+        else:
+            geojson = self._geometry_to_geojson_dict(geometry)
+            if geojson is not None:
+                normalized = json.dumps(geojson, sort_keys=True, separators=(",", ":"))
+            elif isinstance(geometry, str):
+                normalized = geometry.strip()
+            else:
+                normalized = json.dumps(
+                    geometry,
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    default=str,
+                )
+        return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+    def centered_basemap_signature(self, *, latitude: float, longitude: float, zoom: int) -> str:
+        """Return a stable content signature for a campus-centered basemap request."""
+        payload = json.dumps(
+            {
+                "latitude": round(float(latitude), 6),
+                "longitude": round(float(longitude), 6),
+                "zoom": int(zoom),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+    def get_asset_hash_sync(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> Optional[str]:
         alias_cache = self._alias_cache()
         if not alias_cache:
             return None
 
         try:
-            value = alias_cache.get(self._alias_key(resource_id, variant=variant))
+            value = alias_cache.get(
+                self._alias_key(
+                    resource_id,
+                    variant=variant,
+                    source_signature=source_signature,
+                )
+            )
             if self._is_asset_hash(value):
                 return value
             if value:
-                alias_cache.delete(self._alias_key(resource_id, variant=variant))
+                alias_cache.delete(
+                    self._alias_key(
+                        resource_id,
+                        variant=variant,
+                        source_signature=source_signature,
+                    )
+                )
             return None
         except Exception as e:
             logger.warning(
@@ -412,10 +479,28 @@ class StaticMapService:
             )
             return None
 
-    async def get_asset_hash(self, resource_id: str, *, variant: str) -> Optional[str]:
-        return await asyncio.to_thread(self.get_asset_hash_sync, resource_id, variant=variant)
+    async def get_asset_hash(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> Optional[str]:
+        return await asyncio.to_thread(
+            self.get_asset_hash_sync,
+            resource_id,
+            variant=variant,
+            source_signature=source_signature,
+        )
 
-    def set_asset_hash_sync(self, resource_id: str, *, variant: str, map_hash: str) -> bool:
+    def set_asset_hash_sync(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        map_hash: str,
+        source_signature: str | None = None,
+    ) -> bool:
         alias_cache = self._alias_cache()
         if not alias_cache or not self._is_asset_hash(map_hash):
             return False
@@ -423,7 +508,11 @@ class StaticMapService:
         try:
             return bool(
                 alias_cache.setex(
-                    self._alias_key(resource_id, variant=variant),
+                    self._alias_key(
+                        resource_id,
+                        variant=variant,
+                        source_signature=source_signature,
+                    ),
                     self.redis_ttl,
                     map_hash,
                 )
@@ -438,21 +527,43 @@ class StaticMapService:
             )
             return False
 
-    async def set_asset_hash(self, resource_id: str, *, variant: str, map_hash: str) -> bool:
+    async def set_asset_hash(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        map_hash: str,
+        source_signature: str | None = None,
+    ) -> bool:
         return await asyncio.to_thread(
             self.set_asset_hash_sync,
             resource_id,
             variant=variant,
             map_hash=map_hash,
+            source_signature=source_signature,
         )
 
-    def delete_asset_hash_sync(self, resource_id: str, *, variant: str) -> bool:
+    def delete_asset_hash_sync(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> bool:
         alias_cache = self._alias_cache()
         if not alias_cache:
             return False
 
         try:
-            return bool(alias_cache.delete(self._alias_key(resource_id, variant=variant)))
+            return bool(
+                alias_cache.delete(
+                    self._alias_key(
+                        resource_id,
+                        variant=variant,
+                        source_signature=source_signature,
+                    )
+                )
+            )
         except Exception as e:
             logger.warning(
                 "Failed to delete static map alias for %s (%s): %s",
@@ -462,8 +573,19 @@ class StaticMapService:
             )
             return False
 
-    async def delete_asset_hash(self, resource_id: str, *, variant: str) -> bool:
-        return await asyncio.to_thread(self.delete_asset_hash_sync, resource_id, variant=variant)
+    async def delete_asset_hash(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> bool:
+        return await asyncio.to_thread(
+            self.delete_asset_hash_sync,
+            resource_id,
+            variant=variant,
+            source_signature=source_signature,
+        )
 
     def has_cached_asset_sync(self, map_hash: str) -> bool:
         if not self.map_cache or not self._is_asset_hash(map_hash):
@@ -507,27 +629,53 @@ class StaticMapService:
         *,
         variant: str,
         map_bytes: bytes,
+        source_signature: str | None = None,
     ) -> Optional[str]:
         if not map_bytes:
             return None
 
         map_hash = self._asset_hash(map_bytes)
         self.cache_asset_sync(map_hash, map_bytes)
-        self.set_asset_hash_sync(resource_id, variant=variant, map_hash=map_hash)
+        self.set_asset_hash_sync(
+            resource_id,
+            variant=variant,
+            map_hash=map_hash,
+            source_signature=source_signature,
+        )
         return map_hash
 
-    def materialize_cached_variant_sync(self, resource_id: str, *, variant: str) -> Optional[str]:
-        map_hash = self.get_asset_hash_sync(resource_id, variant=variant)
+    def materialize_cached_variant_sync(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> Optional[str]:
+        map_hash = self.get_asset_hash_sync(
+            resource_id,
+            variant=variant,
+            source_signature=source_signature,
+        )
         if map_hash and self.has_cached_asset_sync(map_hash):
             return map_hash
         if map_hash:
-            self.delete_asset_hash_sync(resource_id, variant=variant)
+            self.delete_asset_hash_sync(
+                resource_id,
+                variant=variant,
+                source_signature=source_signature,
+            )
 
         if not self.map_cache:
             return None
 
         try:
-            map_bytes = self.map_cache.get(self._cache_key(resource_id, variant=variant))
+            map_bytes = self.map_cache.get(
+                self._cache_key(
+                    resource_id,
+                    variant=variant,
+                    source_signature=source_signature,
+                )
+            )
         except Exception as e:
             logger.error(
                 "Error retrieving cached static map variant for %s (%s): %s",
@@ -540,13 +688,25 @@ class StaticMapService:
         if not map_bytes:
             return None
 
-        return self.materialize_asset_sync(resource_id, variant=variant, map_bytes=map_bytes)
+        return self.materialize_asset_sync(
+            resource_id,
+            variant=variant,
+            map_bytes=map_bytes,
+            source_signature=source_signature,
+        )
 
-    async def materialize_cached_variant(self, resource_id: str, *, variant: str) -> Optional[str]:
+    async def materialize_cached_variant(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> Optional[str]:
         return await asyncio.to_thread(
             self.materialize_cached_variant_sync,
             resource_id,
             variant=variant,
+            source_signature=source_signature,
         )
 
     def _geojson_to_staticmaps_objects(
@@ -742,6 +902,7 @@ class StaticMapService:
         resource_id: str,
         *,
         variant: str = "static_map",
+        source_signature: str | None = None,
         post_process: Callable[[Image.Image], Image.Image] | None = None,
         render_width: int | None = None,
         render_height: int | None = None,
@@ -806,12 +967,17 @@ class StaticMapService:
         map_bytes = buf.getvalue()
         if self.map_cache:
             try:
-                map_key = self._cache_key(resource_id, variant=variant)
+                map_key = self._cache_key(
+                    resource_id,
+                    variant=variant,
+                    source_signature=source_signature,
+                )
                 self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
                 self.materialize_asset_sync(
                     resource_id,
                     variant=variant,
                     map_bytes=map_bytes,
+                    source_signature=source_signature,
                 )
                 logger.info(
                     f"Generated and cached {variant} for resource {resource_id} "
@@ -824,7 +990,13 @@ class StaticMapService:
         logger.warning("Redis not available, cannot cache static map")
         return None
 
-    def generate_map(self, resource_id: str, geometry: Any) -> Optional[bytes]:
+    def generate_map(
+        self,
+        resource_id: str,
+        geometry: Any,
+        *,
+        source_signature: str | None = None,
+    ) -> Optional[bytes]:
         """
         Generate a static map image from a geometry and store it in Redis.
         Uses full GeoJSON (polygons, lines) when available to match the show page;
@@ -884,7 +1056,12 @@ class StaticMapService:
                 context.add_object(rectangle)
 
             # Render and cache (requires outbound HTTP for tiles)
-            return self._render_and_cache(context, resource_id, variant=self._MAP_VARIANT)
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._MAP_VARIANT,
+                source_signature=source_signature or self.geometry_signature(geometry),
+            )
 
         except Exception as e:
             logger.error(
@@ -892,7 +1069,12 @@ class StaticMapService:
             )
             return None
 
-    def generate_global_map(self, resource_id: str) -> Optional[bytes]:
+    def generate_global_map(
+        self,
+        resource_id: str,
+        *,
+        source_signature: str | None = None,
+    ) -> Optional[bytes]:
         """
         Generate a world-view static map (no bbox) for resources with no geometry.
         Uses the same tile layer and cache key as generate_map.
@@ -903,6 +1085,7 @@ class StaticMapService:
                 context,
                 resource_id,
                 variant=self._MAP_VARIANT,
+                source_signature=source_signature or self.geometry_signature(None),
                 post_process=self._overlay_no_data_symbol,
                 render_width=512,
                 render_height=512,
@@ -914,7 +1097,13 @@ class StaticMapService:
             )
             return None
 
-    def generate_basemap(self, resource_id: str, geometry: Any) -> Optional[bytes]:
+    def generate_basemap(
+        self,
+        resource_id: str,
+        geometry: Any,
+        *,
+        source_signature: str | None = None,
+    ) -> Optional[bytes]:
         """
         Generate a basemap-only image using the resource extent with no visible geometry overlay.
         """
@@ -934,10 +1123,16 @@ class StaticMapService:
             bbox_coords = self._parse_geometry_to_bbox(geometry)
             if not bbox_coords:
                 logger.warning(f"Could not parse geometry for basemap {resource_id}")
-                return self.generate_global_basemap(resource_id)
+                return self.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                )
 
             if self._is_global_bbox(bbox_coords):
-                return self.generate_global_basemap(resource_id)
+                return self.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                )
 
             context = staticmaps.Context()
             context.set_tile_provider(tile_provider_Carto)
@@ -952,12 +1147,22 @@ class StaticMapService:
                     width=self._LINE_WIDTH,
                 )
                 context.add_object(invisible_extent)
-            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._BASEMAP_VARIANT,
+                source_signature=source_signature or self.geometry_signature(geometry),
+            )
         except Exception as e:
             logger.error(f"Error generating basemap for resource {resource_id}: {e}", exc_info=True)
             return None
 
-    def generate_global_basemap(self, resource_id: str) -> Optional[bytes]:
+    def generate_global_basemap(
+        self,
+        resource_id: str,
+        *,
+        source_signature: str | None = None,
+    ) -> Optional[bytes]:
         """Generate a world-view basemap image with no geometry overlay."""
         try:
             context = self._global_map_context()
@@ -965,6 +1170,7 @@ class StaticMapService:
                 context,
                 resource_id,
                 variant=self._BASEMAP_VARIANT,
+                source_signature=source_signature or self.geometry_signature(None),
                 render_width=512,
                 render_height=512,
             )
@@ -976,7 +1182,13 @@ class StaticMapService:
             return None
 
     def generate_centered_basemap(
-        self, resource_id: str, *, latitude: float, longitude: float, zoom: int = 15
+        self,
+        resource_id: str,
+        *,
+        latitude: float,
+        longitude: float,
+        zoom: int = 15,
+        source_signature: str | None = None,
     ) -> Optional[bytes]:
         """Generate a basemap centered on a specific lat/lon at a fixed zoom."""
         try:
@@ -991,7 +1203,17 @@ class StaticMapService:
             context.set_tile_provider(tile_provider_Carto)
             context.set_center(staticmaps.create_latlng(latitude, longitude))
             context.set_zoom(max(1, min(int(zoom), 20)))
-            return self._render_and_cache(context, resource_id, variant=self._BASEMAP_VARIANT)
+            return self._render_and_cache(
+                context,
+                resource_id,
+                variant=self._BASEMAP_VARIANT,
+                source_signature=source_signature
+                or self.centered_basemap_signature(
+                    latitude=latitude,
+                    longitude=longitude,
+                    zoom=zoom,
+                ),
+            )
         except Exception as e:
             logger.error(
                 f"Error generating centered basemap for resource {resource_id}: {e}",
@@ -999,7 +1221,12 @@ class StaticMapService:
             )
             return None
 
-    async def get_cached_map(self, resource_id: str) -> Optional[bytes]:
+    async def get_cached_map(
+        self,
+        resource_id: str,
+        *,
+        source_signature: str | None = None,
+    ) -> Optional[bytes]:
         """
         Retrieve a cached static map from Redis.
 
@@ -1013,7 +1240,11 @@ class StaticMapService:
             return None
 
         try:
-            map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
+            map_key = self._cache_key(
+                resource_id,
+                variant=self._MAP_VARIANT,
+                source_signature=source_signature,
+            )
             map_data = await asyncio.to_thread(self.map_cache.get, map_key)
             if map_data:
                 logger.debug(f"Serving cached static map for resource {resource_id}")
@@ -1023,13 +1254,22 @@ class StaticMapService:
             logger.error(f"Error retrieving cached static map for {resource_id}: {e}")
             return None
 
-    async def get_cached_basemap(self, resource_id: str) -> Optional[bytes]:
+    async def get_cached_basemap(
+        self,
+        resource_id: str,
+        *,
+        source_signature: str | None = None,
+    ) -> Optional[bytes]:
         """Retrieve a cached basemap-only image from Redis."""
         if not self.map_cache:
             return None
 
         try:
-            map_key = self._cache_key(resource_id, variant=self._BASEMAP_VARIANT)
+            map_key = self._cache_key(
+                resource_id,
+                variant=self._BASEMAP_VARIANT,
+                source_signature=source_signature,
+            )
             map_data = await asyncio.to_thread(self.map_cache.get, map_key)
             if map_data:
                 logger.debug(f"Serving cached basemap for resource {resource_id}")
@@ -1039,19 +1279,23 @@ class StaticMapService:
             logger.error(f"Error retrieving cached basemap for {resource_id}: {e}")
             return None
 
-    def basemap_exists(self, resource_id: str) -> bool:
+    def basemap_exists(self, resource_id: str, *, source_signature: str | None = None) -> bool:
         """Check if a basemap-only image exists in Redis cache."""
         if not self.map_cache:
             return False
 
         try:
-            map_key = self._cache_key(resource_id, variant=self._BASEMAP_VARIANT)
+            map_key = self._cache_key(
+                resource_id,
+                variant=self._BASEMAP_VARIANT,
+                source_signature=source_signature,
+            )
             return bool(self.map_cache.exists(map_key))
         except Exception as e:
             logger.error(f"Error checking if basemap exists for {resource_id}: {e}")
             return False
 
-    def map_exists(self, resource_id: str) -> bool:
+    def map_exists(self, resource_id: str, *, source_signature: str | None = None) -> bool:
         """
         Check if a static map exists in Redis cache.
 
@@ -1065,7 +1309,11 @@ class StaticMapService:
             return False
 
         try:
-            map_key = self._cache_key(resource_id, variant=self._MAP_VARIANT)
+            map_key = self._cache_key(
+                resource_id,
+                variant=self._MAP_VARIANT,
+                source_signature=source_signature,
+            )
             return bool(self.map_cache.exists(map_key))
         except Exception as e:
             logger.error(f"Error checking if static map exists for {resource_id}: {e}")

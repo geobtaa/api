@@ -146,9 +146,11 @@ def _hot_static_map_url(resource_dict: Dict[str, Any]) -> Optional[str]:
     from app.services.static_map_service import StaticMapService
 
     map_service = StaticMapService()
+    source_signature = map_service.geometry_signature(geometry)
     map_hash = map_service.materialize_cached_variant_sync(
         resource_dict["id"],
         variant=map_service.geometry_variant(),
+        source_signature=source_signature,
     )
     if not map_hash:
         return None

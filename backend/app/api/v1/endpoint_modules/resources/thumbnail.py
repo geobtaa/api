@@ -50,30 +50,40 @@ def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
     )
 
 
+async def _current_hot_thumbnail_hash_for_resource(
+    resource_id: str,
+    *,
+    resource_dict: dict | None = None,
+) -> str | None:
+    """Return the current hot immutable thumbnail hash for a resource, if still valid."""
+    if resource_dict is None:
+        resource_dict = await _fetch_resource_dict(resource_id)
+        if not resource_dict:
+            await thumbnail_alias_service.delete(resource_id)
+            return None
+
+    distribution_context = await fetch_distribution_context(resource_id)
+    image_service = ImageService(resource_dict, distribution_context=distribution_context)
+    return await image_service.current_thumbnail_hash()
+
+
 async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse | None:
     """Resolve a hot resource_id request through the alias cache before heavy work."""
-    image_service = ImageService({})
-
     image_hash = await thumbnail_alias_service.get_hash(resource_id)
-    if image_hash:
-        if await image_service.has_cached_image(image_hash):
-            return _thumbnail_asset_redirect(image_hash)
-        await thumbnail_alias_service.delete(resource_id)
+    if not image_hash:
+        state = await thumbnail_state_service.get_state(resource_id)
+        if not state:
+            return None
 
-    state = await thumbnail_state_service.get_state(resource_id)
-    if not state:
+        state_hash = state.get("source_hash")
+        if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
+            return None
+
+    current_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
+    if not current_hash:
         return None
 
-    state_hash = state.get("source_hash")
-    if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
-        return None
-
-    if not await image_service.has_cached_image(state_hash):
-        await thumbnail_alias_service.delete(resource_id)
-        return None
-
-    await thumbnail_alias_service.set_hash(resource_id, state_hash)
-    return _thumbnail_asset_redirect(state_hash)
+    return _thumbnail_asset_redirect(current_hash)
 
 
 async def _probe_thumbnail_url(url: str) -> bool:
@@ -301,7 +311,12 @@ async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-ba
             # before the square thumbnail crop is applied in the SVG.
             map_service = StaticMapService()
             resource_id = str(resource_id)
-            map_bytes = await map_service.get_cached_basemap(resource_id)
+            geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+            source_signature = map_service.geometry_signature(geometry)
+            map_bytes = await map_service.get_cached_basemap(
+                resource_id,
+                source_signature=source_signature,
+            )
             if not map_bytes:
                 geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
                 generator = (
@@ -310,9 +325,18 @@ async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-ba
                     else map_service.generate_global_basemap
                 )
                 map_bytes = (
-                    await asyncio.to_thread(generator, resource_id, geometry)
+                    await asyncio.to_thread(
+                        generator,
+                        resource_id,
+                        geometry,
+                        source_signature=source_signature,
+                    )
                     if geometry
-                    else await asyncio.to_thread(generator, resource_id)
+                    else await asyncio.to_thread(
+                        generator,
+                        resource_id,
+                        source_signature=source_signature,
+                    )
                 )
             if map_bytes:
                 encoded = base64.b64encode(map_bytes).decode("ascii")

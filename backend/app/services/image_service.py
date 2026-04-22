@@ -344,6 +344,106 @@ class ImageService:
             self.logger.error(f"Error standardizing IIIF URL {url}: {e}")
             return url
 
+    def _b1g_image_source_url(self) -> Optional[str]:
+        """Return the configured b1g_image_ss URL when it contains a usable HTTP(S) value."""
+        b1g_image = self.metadata.get("b1g_image_ss")
+        if not b1g_image:
+            return None
+
+        url = None
+        if isinstance(b1g_image, list) and b1g_image:
+            url = b1g_image[0]
+        elif isinstance(b1g_image, str):
+            # Handle JSON array string, e.g. '["https://..."]' from DB
+            s = b1g_image.strip()
+            if s.startswith(("http://", "https://")):
+                url = s
+            elif s.startswith("["):
+                try:
+                    parsed = json.loads(s)
+                    if isinstance(parsed, list) and parsed:
+                        url = parsed[0]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        if isinstance(url, str) and url.strip().startswith(("http://", "https://")):
+            return url.strip()
+        return None
+
+    def _current_thumbnail_hash_sync(
+        self,
+        doc_id: str,
+        *,
+        source_url: Optional[str],
+    ) -> Optional[str]:
+        """
+        Return the hot immutable hash for the current preferred source, if available.
+
+        Persisted success state is only reused when it still points at the same
+        preferred source URL. This lets records self-heal when thumbnail source
+        selection changes (for example, switching from a tiny ContentDM derivative
+        to a IIIF-derived thumbnail).
+        """
+        candidate_hash = (
+            self._candidate_cached_thumbnail_hash_sync(source_url) if source_url else None
+        )
+        state = thumbnail_state_service.get_state_sync(doc_id)
+        alias_hash = thumbnail_alias_service.get_hash_sync(doc_id)
+
+        if alias_hash:
+            alias_matches_state = (
+                source_url
+                and state is not None
+                and state.get("state") == ThumbnailState.SUCCESS
+                and state.get("source_hash") == alias_hash
+                and state.get("source_url") == source_url
+                and self.has_cached_image_sync(alias_hash)
+            )
+            alias_matches_candidate = candidate_hash is not None and alias_hash == candidate_hash
+            if alias_matches_state or alias_matches_candidate:
+                return alias_hash
+            thumbnail_alias_service.delete_sync(doc_id)
+
+        if state:
+            state_hash = state.get("source_hash")
+            state_source_url = state.get("source_url")
+            if (
+                source_url
+                and state.get("state") == ThumbnailState.SUCCESS
+                and state_hash
+                and state_source_url == source_url
+                and self.has_cached_image_sync(state_hash)
+            ):
+                thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
+                return state_hash
+
+            if state_hash and not self.has_cached_image_sync(state_hash):
+                thumbnail_alias_service.delete_sync(doc_id)
+
+            if source_url and state_source_url and state_source_url != source_url:
+                thumbnail_alias_service.delete_sync(doc_id)
+
+        if not source_url:
+            return None
+
+        if candidate_hash:
+            thumbnail_alias_service.set_hash_sync(doc_id, candidate_hash)
+            return candidate_hash
+
+        return None
+
+    def current_thumbnail_hash_sync(self) -> Optional[str]:
+        """Return the current hot immutable thumbnail hash for this resource, if any."""
+        doc_id = self.metadata.get("id")
+        if not doc_id:
+            return None
+        source_url = self._get_thumbnail_source_url()
+        return self._current_thumbnail_hash_sync(doc_id, source_url=source_url)
+
+    async def current_thumbnail_hash(self) -> Optional[str]:
+        """Async wrapper for current_thumbnail_hash_sync."""
+        return await asyncio.to_thread(self.current_thumbnail_hash_sync)
+
     def get_thumbnail_url(self) -> Optional[str]:
         """
         Get the thumbnail URL for a resource.
@@ -364,29 +464,12 @@ class ImageService:
                 return None
 
             api_base_url = self._api_v1_base_url()
-            image_hash = thumbnail_alias_service.get_hash_sync(doc_id)
+            source_url = self._get_thumbnail_source_url()
+            image_hash = self.current_thumbnail_hash_sync()
             if image_hash:
                 return f"{api_base_url}/thumbnails/{image_hash}"
 
-            state = thumbnail_state_service.get_state_sync(doc_id)
-            if state:
-                state_hash = state.get("source_hash")
-                if (
-                    state.get("state") == ThumbnailState.SUCCESS
-                    and state_hash
-                    and self.has_cached_image_sync(state_hash)
-                ):
-                    thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
-                    return f"{api_base_url}/thumbnails/{state_hash}"
-
-            # Determine the source thumbnail URL without making external calls
-            source_url = self._get_thumbnail_source_url()
-
             if source_url:
-                cached_source_hash = self._candidate_cached_thumbnail_hash_sync(source_url)
-                if cached_source_hash:
-                    thumbnail_alias_service.set_hash_sync(doc_id, cached_source_hash)
-                    return f"{api_base_url}/thumbnails/{cached_source_hash}"
                 # Always return the resource-specific thumbnail endpoint
                 return f"{api_base_url}/resources/{doc_id}/thumbnail"
 
@@ -413,31 +496,8 @@ class ImageService:
                 return None
 
             api_base_url = self._api_v1_base_url()
-            image_hash = thumbnail_alias_service.get_hash_sync(doc_id)
-            if image_hash:
-                return f"{api_base_url}/thumbnails/{image_hash}"
-
-            state = thumbnail_state_service.get_state_sync(doc_id)
-            if state:
-                state_hash = state.get("source_hash")
-                if (
-                    state.get("state") == ThumbnailState.SUCCESS
-                    and state_hash
-                    and self.has_cached_image_sync(state_hash)
-                ):
-                    thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
-                    return f"{api_base_url}/thumbnails/{state_hash}"
-
-            source_url = self._get_thumbnail_source_url()
-            if not source_url:
-                return None
-
-            cached_source_hash = self._candidate_cached_thumbnail_hash_sync(source_url)
-            if cached_source_hash:
-                thumbnail_alias_service.set_hash_sync(doc_id, cached_source_hash)
-                return f"{api_base_url}/thumbnails/{cached_source_hash}"
-
-            return None
+            image_hash = self.current_thumbnail_hash_sync()
+            return f"{api_base_url}/thumbnails/{image_hash}" if image_hash else None
         except Exception as e:
             logger.error(f"Error getting hot thumbnail URL: {str(e)}")
             return None
@@ -561,33 +621,8 @@ class ImageService:
         if references is None and not self.by_uri:
             references = self._parse_legacy_references()
 
-        # b1g_image_ss takes priority: MUST use when present (BTAA curated image)
-        b1g_image = self.metadata.get("b1g_image_ss")
-        if b1g_image:
-            url = None
-            if isinstance(b1g_image, list) and b1g_image:
-                url = b1g_image[0]
-            elif isinstance(b1g_image, str):
-                # Handle JSON array string, e.g. '["https://..."]' from DB
-                s = b1g_image.strip()
-                if s.startswith(("http://", "https://")):
-                    url = s
-                elif s.startswith("["):
-                    try:
-                        parsed = json.loads(s)
-                        if isinstance(parsed, list) and parsed:
-                            url = parsed[0]
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-            if isinstance(url, str) and url.strip().startswith(("http://", "https://")):
-                return url.strip()
-
-        # Check for direct thumbnail URL first (support http and https keys)
-        for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
-            if url := self._first_url(thumb_key, references=references):
-                return url
-
-        # Check for IIIF thumbnail URL
+        # Prefer IIIF sources so we can generate our own consistently sized thumbnail
+        # instead of inheriting a tiny upstream derivative from b1g_image_ss.
         for iiif_key in ("http://iiif.io/api/image", "https://iiif.io/api/image"):
             iiif_url = self._first_url(iiif_key, references=references)
             if not iiif_url:
@@ -659,6 +694,16 @@ class ImageService:
             self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
             self._queue_manifest_processing(manifest_url)
             return manifest_url
+
+        # Use curated b1g_image_ss only after exhausting IIIF-based options.
+        b1g_image_url = self._b1g_image_source_url()
+        if b1g_image_url:
+            return b1g_image_url
+
+        # Check for direct thumbnail URL first (support http and https keys)
+        for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
+            if url := self._first_url(thumb_key, references=references):
+                return url
 
         # Check for ESRI services (including FeatureLayer for migration routes, etc.)
         for esri_uri in (
