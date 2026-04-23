@@ -602,10 +602,10 @@ This will:
 1. Export your local database to `tmp/btaa_geospatial_api_export.sql.gz`
 2. Build the `db-sync` import archive used by `make db-import`
 3. Copy that archive to the remote server
-4. Import it into the ParadeDB container while preserving destination-local tables listed in `DB_SYNC_PRESERVE_TABLES`
+4. Import it into the ParadeDB container while preserving destination-local tables listed in `DB_SYNC_PRESERVE_TABLES` and their owned sequences listed in `DB_SYNC_PRESERVE_SEQUENCES`
 5. Clean up temporary files
 
-By default, `db-sync` preserves `api_service_tiers`, `api_keys`, and `api_usage_logs` on the destination box. To force a full overwrite, rerun with `DB_SYNC_PRESERVE_LOCAL_TABLES=false`.
+By default, `db-sync` preserves `api_service_tiers`, `api_keys`, and `api_usage_logs` on the destination box, along with their owned `*_id_seq` sequences. To force a full overwrite, rerun with `DB_SYNC_PRESERVE_LOCAL_TABLES=false`.
 
 ### Manual Database Backup
 

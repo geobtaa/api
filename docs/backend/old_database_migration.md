@@ -262,7 +262,7 @@ If you need to rollback the migration:
    ```bash
    make db-import
    ```
-   `make db-import` now preserves destination-local `api_service_tiers`, `api_keys`, and `api_usage_logs` by default. If you need a full overwrite during rollback, rerun `make db-export DB_SYNC_PRESERVE_LOCAL_TABLES=false` and `make db-import DB_SYNC_PRESERVE_LOCAL_TABLES=false`.
+   `make db-import` now preserves destination-local `api_service_tiers`, `api_keys`, and `api_usage_logs` by default, along with their owned `*_id_seq` sequences. If you need a full overwrite during rollback, rerun `make db-export DB_SYNC_PRESERVE_LOCAL_TABLES=false` and `make db-import DB_SYNC_PRESERVE_LOCAL_TABLES=false`.
 
 2. **Or manually clean**:
    ```sql

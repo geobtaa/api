@@ -122,11 +122,14 @@ RESOURCE_IDS ?=
 DB_SYNC_FULL_EXPORT ?= tmp/btaa_geospatial_api_export.sql.gz
 DB_SYNC_PRESERVE_LOCAL_TABLES ?= true
 DB_SYNC_PRESERVE_TABLES ?= api_service_tiers api_keys api_usage_logs
+DB_SYNC_PRESERVE_SEQUENCES ?= $(addsuffix _id_seq,$(DB_SYNC_PRESERVE_TABLES))
 DB_SYNC_ARCHIVE_MODE := full
 DB_SYNC_PG_DUMP_EXCLUDES :=
 ifneq (,$(filter true TRUE 1 yes YES,$(DB_SYNC_PRESERVE_LOCAL_TABLES)))
 DB_SYNC_ARCHIVE_MODE := preserve-local
-DB_SYNC_PG_DUMP_EXCLUDES := $(foreach table,$(DB_SYNC_PRESERVE_TABLES),--exclude-table=public.$(table))
+DB_SYNC_PG_DUMP_EXCLUDES := \
+	$(foreach table,$(DB_SYNC_PRESERVE_TABLES),--exclude-table=public.$(table)) \
+	$(foreach sequence,$(DB_SYNC_PRESERVE_SEQUENCES),--exclude-table=public.$(sequence))
 endif
 DB_SYNC_IMPORT_ARCHIVE ?= tmp/btaa_geospatial_api_sync_$(DB_SYNC_ARCHIVE_MODE).dump
 
@@ -346,6 +349,7 @@ db-export: ## Export ParadeDB to tmp/btaa_geospatial_api_export.sql.gz
 	@ls -lh $(DB_SYNC_FULL_EXPORT)
 	@echo "Building db-sync import archive: $(DB_SYNC_IMPORT_ARCHIVE)"
 	@echo "db-sync preserves destination-local tables: $(if $(DB_SYNC_PG_DUMP_EXCLUDES),$(DB_SYNC_PRESERVE_TABLES),none)"
+	@echo "db-sync preserves owned sequences: $(if $(DB_SYNC_PG_DUMP_EXCLUDES),$(DB_SYNC_PRESERVE_SEQUENCES),none)"
 	@docker exec btaa-geospatial-api-paradedb pg_dump \
 		-U postgres \
 		-d btaa_geospatial_api \
@@ -376,6 +380,7 @@ db-import: ## Import dump to remote (Kamal); destructive
 	@echo "Remote container is running. Starting import..."
 	@echo "⚠️  WARNING: This will replace synced database objects on the destination!"
 	@echo "Destination-local tables preserved during db-sync: $(if $(DB_SYNC_PG_DUMP_EXCLUDES),$(DB_SYNC_PRESERVE_TABLES),none)"
+	@echo "Owned sequences preserved during db-sync: $(if $(DB_SYNC_PG_DUMP_EXCLUDES),$(DB_SYNC_PRESERVE_SEQUENCES),none)"
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
 	@echo "Copying db-sync archive to remote server..."
