@@ -1,5 +1,6 @@
 import logging
 from typing import Any, Dict, List, Optional
+from urllib.parse import quote
 
 from app.services.distribution_repository import (
     DistributionContext,
@@ -56,10 +57,10 @@ class LinkService:
         if metadata_links:
             links["Metadata"] = metadata_links
 
-        # Add "Open in ArcGIS Online" links
+        # Add "Open in ArcGIS" links
         arcgis_links = self._get_arcgis_links()
         if arcgis_links:
-            links["Open in ArcGIS Online"] = arcgis_links
+            links["Open in ArcGIS"] = arcgis_links
 
         # Add "Documentation" links
         documentation_links = self._get_documentation_links()
@@ -177,7 +178,7 @@ class LinkService:
         return links
 
     def _get_arcgis_links(self) -> List[Dict[str, str]]:
-        """Get the “Open in ArcGIS Online” links derived from resource distributions."""
+        """Get the “Open in ArcGIS” links derived from resource distributions."""
         links = []
         try:
             arcgis_service_types = {
@@ -187,17 +188,32 @@ class LinkService:
                 "urn:x-esri:serviceType:ArcGIS#TiledMapLayer": "TiledMapLayer",
             }
 
+            available_services = []
             for service_type, service_name in arcgis_service_types.items():
                 arcgis_url = self._first_url(service_type)
                 if arcgis_url:
-                    links.append(
-                        {"label": f"Open in ArcGIS Online ({service_name})", "url": arcgis_url}
-                    )
+                    available_services.append((service_name, arcgis_url))
+
+            multiple_services = len(available_services) > 1
+            for service_name, arcgis_url in available_services:
+                label_suffix = f" ({service_name})" if multiple_services else ""
+                links.append(
+                    {
+                        "label": f"MapViewer{label_suffix}",
+                        "url": self._build_arcgis_mapviewer_url(arcgis_url),
+                    }
+                )
+                links.append({"label": f"REST Service Details{label_suffix}", "url": arcgis_url})
 
         except Exception as e:
             logger.error(f"Error getting ArcGIS links: {e}", exc_info=True)
 
         return links
+
+    @staticmethod
+    def _build_arcgis_mapviewer_url(arcgis_url: str) -> str:
+        encoded_url = quote(arcgis_url, safe="")
+        return f"https://www.arcgis.com/home/webmap/viewer.html?urls={encoded_url}"
 
     def _get_documentation_links(self) -> List[Dict[str, str]]:
         """Get the “Documentation” links derived from resource distributions."""

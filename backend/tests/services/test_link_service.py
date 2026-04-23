@@ -434,9 +434,13 @@ class TestLinkServiceArcGISLinks:
         service = LinkService(resource_dict)
         links = service._get_arcgis_links()
 
-        assert len(links) == 1
+        assert len(links) == 2
         assert {
-            "label": "Open in ArcGIS Online (DynamicMapLayer)",
+            "label": "MapViewer",
+            "url": "https://www.arcgis.com/home/webmap/viewer.html?urls=http%3A%2F%2Fexample.com%2Farcgis%2Fdynamic",
+        } in links
+        assert {
+            "label": "REST Service Details",
             "url": "http://example.com/arcgis/dynamic",
         } in links
 
@@ -451,9 +455,13 @@ class TestLinkServiceArcGISLinks:
         service = LinkService(resource_dict)
         links = service._get_arcgis_links()
 
-        assert len(links) == 1
+        assert len(links) == 2
         assert {
-            "label": "Open in ArcGIS Online (FeatureLayer)",
+            "label": "MapViewer",
+            "url": "https://www.arcgis.com/home/webmap/viewer.html?urls=http%3A%2F%2Fexample.com%2Farcgis%2Ffeature",
+        } in links
+        assert {
+            "label": "REST Service Details",
             "url": "http://example.com/arcgis/feature",
         } in links
 
@@ -468,9 +476,13 @@ class TestLinkServiceArcGISLinks:
         service = LinkService(resource_dict)
         links = service._get_arcgis_links()
 
-        assert len(links) == 1
+        assert len(links) == 2
         assert {
-            "label": "Open in ArcGIS Online (ImageMapLayer)",
+            "label": "MapViewer",
+            "url": "https://www.arcgis.com/home/webmap/viewer.html?urls=http%3A%2F%2Fexample.com%2Farcgis%2Fimage",
+        } in links
+        assert {
+            "label": "REST Service Details",
             "url": "http://example.com/arcgis/image",
         } in links
 
@@ -485,9 +497,13 @@ class TestLinkServiceArcGISLinks:
         service = LinkService(resource_dict)
         links = service._get_arcgis_links()
 
-        assert len(links) == 1
+        assert len(links) == 2
         assert {
-            "label": "Open in ArcGIS Online (TiledMapLayer)",
+            "label": "MapViewer",
+            "url": "https://www.arcgis.com/home/webmap/viewer.html?urls=http%3A%2F%2Fexample.com%2Farcgis%2Ftiled",
+        } in links
+        assert {
+            "label": "REST Service Details",
             "url": "http://example.com/arcgis/tiled",
         } in links
 
@@ -505,13 +521,21 @@ class TestLinkServiceArcGISLinks:
         service = LinkService(resource_dict)
         links = service._get_arcgis_links()
 
-        assert len(links) == 2
+        assert len(links) == 4
         assert {
-            "label": "Open in ArcGIS Online (DynamicMapLayer)",
+            "label": "MapViewer (DynamicMapLayer)",
+            "url": "https://www.arcgis.com/home/webmap/viewer.html?urls=http%3A%2F%2Fexample.com%2Farcgis%2Fdynamic",
+        } in links
+        assert {
+            "label": "REST Service Details (DynamicMapLayer)",
             "url": "http://example.com/arcgis/dynamic",
         } in links
         assert {
-            "label": "Open in ArcGIS Online (FeatureLayer)",
+            "label": "MapViewer (FeatureLayer)",
+            "url": "https://www.arcgis.com/home/webmap/viewer.html?urls=http%3A%2F%2Fexample.com%2Farcgis%2Ffeature",
+        } in links
+        assert {
+            "label": "REST Service Details (FeatureLayer)",
             "url": "http://example.com/arcgis/feature",
         } in links
 
@@ -579,13 +603,13 @@ class TestLinkServiceGetLinks:
         assert "Visit Source" in links
         assert "Web Services" in links
         assert "Metadata" in links
-        assert "Open in ArcGIS Online" in links
+        assert "Open in ArcGIS" in links
         assert "Documentation" in links
 
         assert len(links["Visit Source"]) == 1
         assert len(links["Web Services"]) == 1
         assert len(links["Metadata"]) == 1
-        assert len(links["Open in ArcGIS Online"]) == 1
+        assert len(links["Open in ArcGIS"]) == 2
         assert len(links["Documentation"]) == 1
 
     def test_get_links_partial_coverage(self):
@@ -605,7 +629,7 @@ class TestLinkServiceGetLinks:
         assert "Visit Source" in links
         assert "Web Services" in links
         assert "Metadata" not in links
-        assert "Open in ArcGIS Online" not in links
+        assert "Open in ArcGIS" not in links
         assert "Documentation" not in links
 
     def test_get_links_no_links(self):

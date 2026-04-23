@@ -158,7 +158,7 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
   };
 
   const handleCategoryClick = (category: string, items: LinkItem[]) => {
-    const lightboxCategories = ['Web Services', 'Metadata'];
+    const lightboxCategories = ['Web Services', 'Metadata', 'Open in ArcGIS'];
 
     if (lightboxCategories.includes(category)) {
       setLightboxContent({ category, items });
@@ -181,12 +181,11 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
     setMetadataError(null);
   };
 
-  const isMetadataLightbox =
-    lightboxContent?.category.toLowerCase().includes('metadata');
+  const isMetadataLightbox = lightboxContent?.category
+    .toLowerCase()
+    .includes('metadata');
   const showMetadataView =
-    isMetadataLightbox &&
-    resourceId &&
-    transformableMetadataItems.length > 0;
+    isMetadataLightbox && resourceId && transformableMetadataItems.length > 0;
 
   return (
     <>
@@ -227,7 +226,9 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
                         key={link.format}
                         type="button"
                         role="tab"
-                        aria-selected={activeMetadataLink?.format === link.format}
+                        aria-selected={
+                          activeMetadataLink?.format === link.format
+                        }
                         onClick={() => setActiveMetadataLink(link)}
                         className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
                           activeMetadataLink?.format === link.format
@@ -235,7 +236,9 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
                             : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                         }`}
                       >
-                        {link.label.replace(' XML', '').replace(' Metadata', '')}
+                        {link.label
+                          .replace(' XML', '')
+                          .replace(' Metadata', '')}
                       </button>
                     ))}
                   </div>
@@ -275,9 +278,7 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
                   )}
                   {metadataHtml && !metadataLoading && (
                     <iframe
-                      title={
-                        activeMetadataLink?.label ?? 'Metadata'
-                      }
+                      title={activeMetadataLink?.label ?? 'Metadata'}
                       srcDoc={metadataHtml}
                       className="w-full min-h-[500px] border border-gray-200 rounded-lg"
                       sandbox="allow-same-origin"

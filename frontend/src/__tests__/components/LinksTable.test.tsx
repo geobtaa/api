@@ -18,6 +18,16 @@ describe('LinksTable', () => {
       { label: 'WMS Service', url: 'https://example.com/wms' },
       { label: 'WFS Service', url: 'https://example.com/wfs' },
     ],
+    'Open in ArcGIS': [
+      {
+        label: 'MapViewer',
+        url: 'https://www.arcgis.com/home/webmap/viewer.html?urls=https%3A%2F%2Fexample.com%2Ffeature',
+      },
+      {
+        label: 'REST Service Details',
+        url: 'https://example.com/feature',
+      },
+    ],
     Metadata: [{ label: 'ISO 19115', url: 'https://example.com/metadata.xml' }],
   };
 
@@ -45,6 +55,7 @@ describe('LinksTable', () => {
     render(<LinksTable links={mockLinks} />);
     expect(screen.getByText('Visit Source')).toBeInTheDocument();
     expect(screen.getByText('Web Services')).toBeInTheDocument();
+    expect(screen.getByText('Open in ArcGIS')).toBeInTheDocument();
     expect(screen.getByText('Metadata')).toBeInTheDocument();
   });
 
@@ -79,6 +90,17 @@ describe('LinksTable', () => {
     expect(screen.queryByText('WMS Service')).not.toBeInTheDocument();
   });
 
+  it('opens lightbox for Open in ArcGIS category', () => {
+    render(<LinksTable links={mockLinks} />);
+    const openInArcgisButton = screen.getByRole('button', {
+      name: 'Open in ArcGIS',
+    });
+    fireEvent.click(openInArcgisButton);
+
+    expect(screen.getByText('MapViewer')).toBeInTheDocument();
+    expect(screen.getByText('REST Service Details')).toBeInTheDocument();
+  });
+
   it('does not render when links are empty', () => {
     const { container } = render(<LinksTable links={{}} />);
     expect(container.firstChild).toBeNull();
@@ -101,7 +123,8 @@ describe('LinksTable', () => {
       global.fetch = mockFetch;
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: () => Promise.resolve('<html><body>Transformed Metadata</body></html>'),
+        text: () =>
+          Promise.resolve('<html><body>Transformed Metadata</body></html>'),
       });
 
       render(
@@ -128,8 +151,7 @@ describe('LinksTable', () => {
     it('shows Download button when viewing transformed metadata', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: () =>
-          Promise.resolve('<html><body>Transformed</body></html>'),
+        text: () => Promise.resolve('<html><body>Transformed</body></html>'),
       });
 
       render(
@@ -142,15 +164,16 @@ describe('LinksTable', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Metadata' }));
 
       await waitFor(() => {
-        expect(screen.getByRole('link', { name: /Download/i })).toBeInTheDocument();
+        expect(
+          screen.getByRole('link', { name: /Download/i })
+        ).toBeInTheDocument();
       });
     });
 
     it('shows format tabs when multiple transformable formats', async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        text: () =>
-          Promise.resolve('<html><body>ISO Content</body></html>'),
+        text: () => Promise.resolve('<html><body>ISO Content</body></html>'),
       });
 
       render(
@@ -163,7 +186,9 @@ describe('LinksTable', () => {
       fireEvent.click(screen.getByRole('button', { name: 'Metadata' }));
 
       await waitFor(() => {
-        expect(screen.getByRole('tab', { name: 'ISO 19115' })).toBeInTheDocument();
+        expect(
+          screen.getByRole('tab', { name: 'ISO 19115' })
+        ).toBeInTheDocument();
         expect(screen.getByRole('tab', { name: 'FGDC' })).toBeInTheDocument();
       });
     });
