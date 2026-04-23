@@ -51,33 +51,33 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self.usage_log_service = APIUsageLogService()
 
     async def dispatch(self, request: Request, call_next):
-        """Process request and enforce rate limiting."""
-        # Skip rate limiting if disabled
-        if not _rate_limit_enabled():
-            logger.debug(f"Rate limiting disabled, skipping for {request.url.path}")
-            return await call_next(request)
+        """Process request, optionally enforce rate limiting, and log usage."""
 
         # Skip rate limiting when test bypass flag is set, unless explicitly forced
         if _bypass_rate_limit_for_tests() and not request.headers.get("X-Force-RateLimit"):
             logger.debug("Rate limiting bypassed for tests (DISABLE_RATE_LIMIT_FOR_TESTS=true)")
             return await call_next(request)
 
-        # Skip rate limiting for admin endpoints (already protected)
-        if request.url.path.startswith("/api/v1/admin"):
-            logger.debug(f"Admin endpoint, skipping rate limiting for {request.url.path}")
-            return await call_next(request)
-
-        if _is_immutable_asset_route(request.url.path):
-            logger.debug("Immutable asset route, skipping rate limiting for %s", request.url.path)
-            return await call_next(request)
-
-        logger.debug(f"Processing rate limiting for {request.url.path}")
-
         # Extract API key from header or query parameter
         api_key = self._extract_api_key(request)
 
         # Extract IP address for IP whitelist checks
         request_ip = self._extract_ip_address(request)
+
+        skip_rate_limit_reason = None
+        if not _rate_limit_enabled():
+            skip_rate_limit_reason = "rate limiting disabled"
+        elif request.url.path.startswith("/api/v1/admin"):
+            skip_rate_limit_reason = "admin endpoint"
+        elif _is_immutable_asset_route(request.url.path):
+            skip_rate_limit_reason = "immutable asset route"
+
+        if skip_rate_limit_reason:
+            logger.debug(
+                "Skipping rate limiting for %s (%s)", request.url.path, skip_rate_limit_reason
+            )
+        else:
+            logger.debug("Processing rate limiting for %s", request.url.path)
 
         # Determine tier
         tier_info = await self._get_tier_info(api_key, request_ip)
@@ -96,7 +96,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Check rate limit (skip check for unlimited tiers)
         remaining = None
         reset_time = None
-        if requests_per_minute is not None:
+        if skip_rate_limit_reason is None and requests_per_minute is not None:
             allowed, remaining, reset_time = await self.rate_limit_service.check_rate_limit(
                 tier_name, identifier, requests_per_minute
             )
@@ -142,45 +142,42 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Calculate response time
         response_time_ms = int((time.time() - start_time) * 1000)
 
-        # Add rate limit headers to response (use remaining/reset_time from check if available)
-        if requests_per_minute is not None:
-            headers = await self.rate_limit_service.get_rate_limit_headers(
-                tier_name,
-                identifier,
-                requests_per_minute,
-                remaining=remaining,
-                reset_time=reset_time,
-            )
-        else:
-            headers = await self.rate_limit_service.get_rate_limit_headers(
-                tier_name, identifier, requests_per_minute
-            )
-        for header_name, header_value in headers.items():
-            response.headers[header_name] = header_value
+        # Add rate limit headers only when throttling is active for this request.
+        if skip_rate_limit_reason is None:
+            if requests_per_minute is not None:
+                headers = await self.rate_limit_service.get_rate_limit_headers(
+                    tier_name,
+                    identifier,
+                    requests_per_minute,
+                    remaining=remaining,
+                    reset_time=reset_time,
+                )
+            else:
+                headers = await self.rate_limit_service.get_rate_limit_headers(
+                    tier_name, identifier, requests_per_minute
+                )
+            for header_name, header_value in headers.items():
+                response.headers[header_name] = header_value
 
-        # Log API usage (fire-and-forget, won't block response)
-        # Skip logging for admin endpoints (same as rate limiting)
-        if not request.url.path.startswith("/api/v1/admin"):
-            try:
-                api_key_id = tier_info.get("api_key_id")
-                tier_id = tier_info.get("tier_id")
+        # Log API usage (fire-and-forget, won't block response).
+        try:
+            api_key_id = tier_info.get("api_key_id")
+            tier_id = tier_info.get("tier_id")
 
-                if tier_id is None:
-                    logger.warning(
-                        "No tier_id found while logging API usage for %s", request.url.path
-                    )
-                else:
-                    logger.info("Attempting to log API usage for a completed request")
-                    await self.usage_log_service.log_request(
-                        request=request,
-                        tier_id=tier_id,
-                        api_key_id=api_key_id,
-                        response_time_ms=response_time_ms,
-                        status_code=response.status_code,
-                    )
-            except Exception as e:
-                # Don't fail the request if logging fails
-                logger.error(f"Error logging API usage: {e}", exc_info=True)
+            if tier_id is None:
+                logger.warning("No tier_id found while logging API usage for %s", request.url.path)
+            else:
+                logger.info("Attempting to log API usage for a completed request")
+                await self.usage_log_service.log_request(
+                    request=request,
+                    tier_id=tier_id,
+                    api_key_id=api_key_id,
+                    response_time_ms=response_time_ms,
+                    status_code=response.status_code,
+                )
+        except Exception as e:
+            # Don't fail the request if logging fails
+            logger.error(f"Error logging API usage: {e}", exc_info=True)
 
         return response
 

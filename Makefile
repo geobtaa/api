@@ -118,6 +118,18 @@ PRIME_RETRY_FAILURES ?=
 PRIME_RETRY_PLACEHELD ?=
 RESOURCE_IDS ?=
 
+# db-sync defaults
+DB_SYNC_FULL_EXPORT ?= tmp/btaa_geospatial_api_export.sql.gz
+DB_SYNC_PRESERVE_LOCAL_TABLES ?= true
+DB_SYNC_PRESERVE_TABLES ?= api_service_tiers api_keys api_usage_logs
+DB_SYNC_ARCHIVE_MODE := full
+DB_SYNC_PG_DUMP_EXCLUDES :=
+ifneq (,$(filter true TRUE 1 yes YES,$(DB_SYNC_PRESERVE_LOCAL_TABLES)))
+DB_SYNC_ARCHIVE_MODE := preserve-local
+DB_SYNC_PG_DUMP_EXCLUDES := $(foreach table,$(DB_SYNC_PRESERVE_TABLES),--exclude-table=public.$(table))
+endif
+DB_SYNC_IMPORT_ARCHIVE ?= tmp/btaa_geospatial_api_sync_$(DB_SYNC_ARCHIVE_MODE).dump
+
 # List all make targets with descriptions (like rake -T)
 help:
 	@echo "Usage: make [target]"
@@ -329,15 +341,28 @@ db-export: ## Export ParadeDB to tmp/btaa_geospatial_api_export.sql.gz
 		--no-acl \
 		--clean \
 		--if-exists \
-		| gzip > tmp/btaa_geospatial_api_export.sql.gz
-	@echo "Export complete: tmp/btaa_geospatial_api_export.sql.gz"
-	@ls -lh tmp/btaa_geospatial_api_export.sql.gz
+		| gzip > $(DB_SYNC_FULL_EXPORT)
+	@echo "Full export complete: $(DB_SYNC_FULL_EXPORT)"
+	@ls -lh $(DB_SYNC_FULL_EXPORT)
+	@echo "Building db-sync import archive: $(DB_SYNC_IMPORT_ARCHIVE)"
+	@echo "db-sync preserves destination-local tables: $(if $(DB_SYNC_PG_DUMP_EXCLUDES),$(DB_SYNC_PRESERVE_TABLES),none)"
+	@docker exec btaa-geospatial-api-paradedb pg_dump \
+		-U postgres \
+		-d btaa_geospatial_api \
+		--no-owner \
+		--no-acl \
+		-Fc \
+		-Z 9 \
+		$(DB_SYNC_PG_DUMP_EXCLUDES) \
+		> $(DB_SYNC_IMPORT_ARCHIVE)
+	@echo "db-sync archive complete: $(DB_SYNC_IMPORT_ARCHIVE)"
+	@ls -lh $(DB_SYNC_IMPORT_ARCHIVE)
 
 # Import database dump to remote server via Kamal
 db-import: ## Import dump to remote (Kamal); destructive
 	@echo "Importing database to remote PostgreSQL..."
-	@if [ ! -f tmp/btaa_geospatial_api_export.sql.gz ]; then \
-		echo "ERROR: Export file not found. Run 'make db-export' first."; \
+	@if [ ! -f $(DB_SYNC_IMPORT_ARCHIVE) ]; then \
+		echo "ERROR: db-sync archive not found at $(DB_SYNC_IMPORT_ARCHIVE). Run 'make db-export' first."; \
 		exit 1; \
 	fi
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
@@ -349,18 +374,23 @@ db-import: ## Import dump to remote (Kamal); destructive
 	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST 'docker ps | grep btaa-geospatial-api-paradedb' || \
 		(echo "ERROR: Remote paradedb container is not running. Check Kamal deployment." && exit 1)
 	@echo "Remote container is running. Starting import..."
-	@echo "⚠️  WARNING: This will drop and recreate all database objects!"
+	@echo "⚠️  WARNING: This will replace synced database objects on the destination!"
+	@echo "Destination-local tables preserved during db-sync: $(if $(DB_SYNC_PG_DUMP_EXCLUDES),$(DB_SYNC_PRESERVE_TABLES),none)"
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
-	@echo "Copying dump file to remote server..."
-	@scp tmp/btaa_geospatial_api_export.sql.gz $$KAMAL_SSH_USER@$$KAMAL_HOST:/var/tmp/
+	@echo "Copying db-sync archive to remote server..."
+	@scp $(DB_SYNC_IMPORT_ARCHIVE) $$KAMAL_SSH_USER@$$KAMAL_HOST:/var/tmp/
 	@echo "Importing database..."
 	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
-		gunzip -c /var/tmp/btaa_geospatial_api_export.sql.gz | \
-		docker exec -i btaa-geospatial-api-paradedb psql \
+		docker exec -i btaa-geospatial-api-paradedb pg_restore \
 			-U postgres \
-			-d btaa_geospatial_api && \
-		rm /var/tmp/btaa_geospatial_api_export.sql.gz'
+			-d btaa_geospatial_api \
+			--no-owner \
+			--no-acl \
+			--clean \
+			--if-exists \
+			< /var/tmp/$(notdir $(DB_SYNC_IMPORT_ARCHIVE)) && \
+		rm /var/tmp/$(notdir $(DB_SYNC_IMPORT_ARCHIVE))'
 	@echo "✓ Import complete!"
 
 # Export and import in one command

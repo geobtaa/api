@@ -112,9 +112,9 @@ Run from the **project root**. Key targets:
 | `make bridge-sync`     | Trigger bridge sync; supports `RESOURCE_ID=...` / `BRIDGE_RESOURCE_ID=...` for one-record syncs. |
 | `make populate-distributions` | Rebuild legacy references, distributions, downloads, and assets; supports `RESOURCE_ID=...` / `GBL_ADMIN_RESOURCE_ID=...`. |
 | `make frontend-reset`  | Clear Vite cache and restart frontend-dev. |
-| `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz`. |
-| `make db-import`       | Import that dump to remote (Kamal); destructive. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. |
-| `make db-sync`         | `db-export` then `db-import`. |
+| `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz` and build the `db-sync` import archive. |
+| `make db-import`       | Import the `db-sync` archive to remote (Kamal). By default, preserves destination-local `api_service_tiers`, `api_keys`, and `api_usage_logs`. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. |
+| `make db-sync`         | `db-export` then `db-import`, preserving destination-local API tables by default. |
 | `make backfill-distributions` | Backfill resource_distributions for resources with dct_references_s but no distribution rows (e.g. OGM-harvested). |
 | `make docs-serve`    | Serve public MkDocs site locally at `http://localhost:8001`. |
 | `make docs-build`    | Build public MkDocs site to `mkdocs/site/`. |

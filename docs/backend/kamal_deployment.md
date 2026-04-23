@@ -257,10 +257,10 @@ kamal rollback -d prd                          # Rollback to previous version
 
 # Database management (Makefile uses KAMAL_DEST, default dev1)
 make db-export                                 # Export local database
-make db-import                                 # Import to dev1
-make db-import KAMAL_DEST=dev2                 # Import to dev2
-make db-import KAMAL_DEST=prd                  # Import to production
-make db-sync                                   # Export + Import
+make db-import                                 # Import to dev1 (preserves destination-local API tables)
+make db-import KAMAL_DEST=dev2                 # Import to dev2 (preserves destination-local API tables)
+make db-import KAMAL_DEST=prd                  # Import to production (preserves destination-local API tables)
+make db-sync                                   # Export + Import, preserving destination-local API tables
 
 # Monitoring (Makefile targets use KAMAL_DEST)
 make kamal-worker-logs                         # Tail worker logs (dev1)
@@ -600,9 +600,12 @@ make db-sync KAMAL_DEST=prd
 
 This will:
 1. Export your local database to `tmp/btaa_geospatial_api_export.sql.gz`
-2. Copy it to the remote server
-3. Import it into the ParadeDB container
-4. Clean up temporary files
+2. Build the `db-sync` import archive used by `make db-import`
+3. Copy that archive to the remote server
+4. Import it into the ParadeDB container while preserving destination-local tables listed in `DB_SYNC_PRESERVE_TABLES`
+5. Clean up temporary files
+
+By default, `db-sync` preserves `api_service_tiers`, `api_keys`, and `api_usage_logs` on the destination box. To force a full overwrite, rerun with `DB_SYNC_PRESERVE_LOCAL_TABLES=false`.
 
 ### Manual Database Backup
 
