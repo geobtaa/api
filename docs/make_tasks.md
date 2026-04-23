@@ -51,6 +51,7 @@ Overrides:
 - `make bridge-status-watch`: poll the current bridge run with the same readable summary.
   - By default it shows only the current run, with processed/imported counts, pages, throughput, and estimated remaining time for full crawls.
   - Use `make bridge-status-watch BRIDGE_STATUS_SHOW_LAST=1` if you also want the last completed run for comparison.
+- One-time Kamal host bootstrap: prepare each server with the shared `deploy` SSH account before routine deploys. Use `backend/scripts/bootstrap_kamal_deploy_user.sh --host <host> --ssh-user <existing_admin_user>`, then keep `KAMAL_SSH_USER=deploy` in `.kamal/secrets.<dest>`. See `docs/backend/kamal_deployment.md`.
 - `make kamal-reindex`: atomic remote reindex on Kamal using a versioned index + alias swap (runs once by default with `--roles web`). Uses `KAMAL_DEST=dev1` by default and supports any configured destination such as `dev2` or `prd`; secrets come from `.kamal/secrets-common` + `.kamal/secrets.<dest>`. On success, runs `make kamal-clear-cache`.
   - Useful overrides: `KAMAL_REINDEX_RETAIN_PREVIOUS=1` (default), `KAMAL_REINDEX_PRUNE_OLD=true` (default), `KAMAL_REINDEX_ALLOW_PARTIAL=false` (default; blocks swap on indexing/count mismatch), `KAMAL_REINDEX_REMOVE_LEGACY_INDEX=true` (default; one-time migration from legacy non-alias index name).
 - `make kamal-verify-h3-index`: verify H3 fields on remote Kamal app containers. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd`.

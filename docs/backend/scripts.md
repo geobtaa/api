@@ -154,6 +154,31 @@ python scripts/clear_cache_by_type.py all
 python scripts/test_gazetteer_api.py [--base-url URL]
 ```
 
+### 9. `bootstrap_kamal_deploy_user.sh`
+
+**Purpose**: Bootstraps the shared `deploy` SSH account used for Kamal deployments on remote hosts.
+
+**Key Features**:
+- Creates the `deploy` group and user if needed
+- Adds `deploy` to the `docker` group
+- Seeds `/home/deploy/.ssh/authorized_keys` from the current remote operator
+- Prepares `/var/lib/btaa-geospatial-api` for shared bind mounts
+- Pre-creates the Elasticsearch bind-mount directory with GID 0 write access for fresh hosts
+
+**Usage**:
+```bash
+backend/scripts/bootstrap_kamal_deploy_user.sh \
+  --host lib-geoportal-dev-web-01.oit.umn.edu \
+  --ssh-user your_existing_admin_user
+```
+
+**Requirements**:
+- Run from the repo root on your local machine
+- The existing remote SSH user must already have passwordless `sudo`
+- Docker should already be installed on the target host
+
+See also `docs/backend/kamal_deployment.md` for the full Kamal runbook.
+
 ## Common Features
 
 All scripts share some common features:

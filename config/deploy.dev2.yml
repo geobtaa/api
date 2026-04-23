@@ -34,19 +34,3 @@ builder:
 env:
   clear:
     APPLICATION_URL: https://lib-geoportal-dev-web-01.oit.umn.edu
-
-# Bind mounts under /var/lib instead of user-home-scoped paths (dev2 only)
-accessories:
-  elasticsearch:
-    directories:
-      - /var/lib/btaa-geospatial-api/elasticsearch:/usr/share/elasticsearch/data
-
-  paradedb:
-    directories:
-      - /var/lib/btaa-geospatial-api/postgres:/var/lib/postgresql/data
-
-  redis:
-    directories:
-      - /var/lib/btaa-geospatial-api/redis:/data
-
-volumes: []

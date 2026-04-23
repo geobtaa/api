@@ -140,7 +140,7 @@ accessories:
     # Optional: expose on host loopback for debugging from the VM
     port: "127.0.0.1:9200:9200"
     directories:
-      - esdata:/usr/share/elasticsearch/data
+      - /var/lib/btaa-geospatial-api/elasticsearch:/usr/share/elasticsearch/data
 
   paradedb:
     image: paradedb/paradedb:0.18.11
@@ -153,7 +153,7 @@ accessories:
         - POSTGRES_PASSWORD
     port: "127.0.0.1:5432:5432"
     directories:
-      - pgdata:/var/lib/postgresql/data
+      - /var/lib/btaa-geospatial-api/postgres:/var/lib/postgresql/data
 
   redis:
     image: redis:7.4.6-alpine
@@ -163,9 +163,6 @@ accessories:
         - REDIS_PASSWORD
     cmd: sh -lc 'redis-server --appendonly yes --protected-mode yes --bind 0.0.0.0 --requirepass "$REDIS_PASSWORD"'
     directories:
-      - redisdata:/data
+      - /var/lib/btaa-geospatial-api/redis:/data
 
-volumes:
-  - esdata
-  - pgdata
-  - redisdata
+volumes: []
