@@ -8,6 +8,10 @@ import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
 import type { GeoDocument } from '../../types/api';
 
+vi.mock('../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+}));
+
 // Mock the API functions to return real fixture data
 vi.mock('../../services/api', () => ({
   fetchResourceDetails: vi.fn(),

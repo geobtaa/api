@@ -1,11 +1,32 @@
 import requests
 import urllib3
+from pathlib import Path
+
+
+def _plugin_version() -> str:
+    metadata_path = Path(__file__).with_name("metadata.txt")
+    try:
+        for line in metadata_path.read_text(encoding="utf-8").splitlines():
+            if line.startswith("version="):
+                return line.split("=", 1)[1].strip()
+    except OSError:
+        pass
+    return "unknown"
 
 
 class BtaaApiClient:
     def __init__(self, base_url="https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"):
         self.base_url = base_url.rstrip("/")
         self.session = requests.Session()
+        plugin_version = _plugin_version()
+        self.session.headers.update(
+            {
+                "User-Agent": f"BTAA-QGIS-Plugin/{plugin_version}",
+                "X-BTAA-Client-Name": "qgis-plugin",
+                "X-BTAA-Client-Version": plugin_version,
+                "X-BTAA-Client-Channel": "desktop",
+            }
+        )
 
         # Disable SSL verification for local dev or misconfigured servers safely
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)

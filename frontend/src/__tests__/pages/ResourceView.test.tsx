@@ -5,6 +5,10 @@ import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
 
+vi.mock('../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+}));
+
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal();
   return {

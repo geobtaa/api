@@ -31,6 +31,8 @@ Overrides:
   - Benchmark mode: `make reindex-benchmark` (or `REINDEX_BENCHMARK=true make reindex`) prints per-chunk timings and a final phase summary.
 - `make sitemap-generate`: generate and cache the crawler-facing sitemap payload served at `/sitemap.xml` (and supporting `/sitemaps/*.xml` parts when the URL count exceeds sitemap protocol limits).
   - `robots.txt` only advertises that sitemap when `SEARCH_ENGINE_INDEXING_ENABLED=true`; the default remains block-all for local/dev safety.
+- `make analytics-maintenance`: ensure monthly `analytics_*` partitions exist, roll up completed daily analytics into compact summary tables, and drop expired raw partitions once they are safely summarized.
+- `make analytics-size-report`: print current Postgres sizes for `analytics_*` parent tables, partitions, and rollup tables.
 - `make ogm-refresh`: trigger OpenGeoMetadata harvest for all enabled weekly repos (`POST /api/v1/admin/ogm/harvest` with `{"ogm_all":true,"ogm_trigger":"weekly"}`).
 - `make ogm-refresh-repo OGM_REPO_NAME=edu.stanford.purl`: trigger OpenGeoMetadata harvest for one repo (`{"ogm_repo_name":"...","ogm_trigger":"manual"}`).
 - OGM harvests update local Postgres records, `resource_distributions`, and `resource_relationships` automatically. Run `make reindex` if you need local Elasticsearch/search results updated immediately after the harvest.
@@ -61,11 +63,21 @@ Overrides:
 - `make ingest-featured`: ingest `data/fixtures/btaa_featured_resources` into the DB and then reindex into Elasticsearch (one-step for featured resources).
 - `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
 
+Analytics storage knobs live in `.env` / deploy env vars:
+
+- `ANALYTICS_RETENTION_API_USAGE_DAYS` default `30`
+- `ANALYTICS_RETENTION_SEARCH_DAYS` default `90`
+- `ANALYTICS_RETENTION_IMPRESSION_DAYS` default `30`
+- `ANALYTICS_RETENTION_EVENT_DAYS` default `90`
+- `ANALYTICS_PARTITION_HISTORY_MONTHS` default `2`
+- `ANALYTICS_PARTITION_FUTURE_MONTHS` default `2`
+- `ANALYTICS_ROLLUP_MAX_DAYS_PER_RUN` default `31`
+
 ## Frontend (Docker)
 
 - `make frontend-reset`: clear Vite cache in `frontend-dev` and restart the dev server. Use after changing `optimizeDeps` or when seeing "Failed to fetch dynamically imported module" or 504 "Outdated Optimize Dep". **After running it, do a hard refresh** (Ctrl+Shift+R or Cmd+Shift+R) or open the app in an incognito window—otherwise the browser may keep requesting old chunk URLs and still get 504s.
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`, and also build the `db-sync` import archive used by `db-import`
-- `make db-import`: import the `db-sync` archive to remote via Kamal. By default this preserves destination-local tables listed in `DB_SYNC_PRESERVE_TABLES` (`api_service_tiers`, `api_keys`, `api_usage_logs`) and their owned sequences listed in `DB_SYNC_PRESERVE_SEQUENCES`. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. To force a full overwrite, run `make db-export DB_SYNC_PRESERVE_LOCAL_TABLES=false` and then `make db-import DB_SYNC_PRESERVE_LOCAL_TABLES=false ...`.
+- `make db-import`: import the `db-sync` archive to remote via Kamal. By default this preserves destination-local tables listed in `DB_SYNC_PRESERVE_TABLES` (`api_service_tiers`, `api_keys`, `analytics_api_usage_logs`, `analytics_searches`, `analytics_search_impressions`, `analytics_events`) and their owned sequences listed in `DB_SYNC_PRESERVE_SEQUENCES`. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. To force a full overwrite, run `make db-export DB_SYNC_PRESERVE_LOCAL_TABLES=false` and then `make db-import DB_SYNC_PRESERVE_LOCAL_TABLES=false ...`.
 - `make db-sync`: `db-export` + `db-import` with destination-local table preservation enabled by default
 - **GBL Admin production sync**: `make gbl-admin-db-sync` downloads the latest `pgdump-geoportal_production-*.sql.gz` from the GBL Admin server and restores the newest local matching dump into local ParadeDB, whether that file is compressed (`.sql.gz`) or already decompressed (`.sql`). It streams from the compressed file when using `.gz`, so you only need space for the `.gz`. After restore, it keeps the newly restored database plus the newest previously restored `geoportal_production_*` database, pruning older ones by default (`GBL_ADMIN_RETAIN_DBS=2`). The production role `geomg` is created locally so restore does not fail on OWNER clauses. If ParadeDB crashes during restore (e.g. OOM), increase Docker memory for the `paradedb` service and re-run; you may need to drop the partial DB first: `docker compose exec paradedb psql -U postgres -d postgres -c "DROP DATABASE IF EXISTS geoportal_production_YYYYMMDD;"`.
 - **GBL Admin add latest BTAA fields**: `make gbl-admin-db-add-latest-btaa-fields` adds latest BTAA compatibility columns to `resources`.

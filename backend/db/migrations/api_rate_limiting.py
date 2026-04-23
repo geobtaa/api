@@ -2,7 +2,7 @@
 
 This module provides a single entrypoint that:
 
-1. Creates the API rate limiting tables (api_service_tiers, api_keys, api_usage_logs)
+1. Creates the API rate limiting tables (api_service_tiers, api_keys, analytics_api_usage_logs)
 2. Seeds the six default service tiers
 
 It delegates to the existing migration helpers.

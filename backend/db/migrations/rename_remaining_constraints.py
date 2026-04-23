@@ -67,18 +67,21 @@ def rename_remaining_constraints():
                     try:
                         conn.execute(text(f"ALTER TABLE {old_name.split('_')[0]}s RENAME CONSTRAINT {old_name} TO {new_name}"))
                         logger.info(f"Successfully renamed constraint '{old_name}' to '{new_name}'.")
-                    except:
+                    except Exception:
+                        conn.rollback()
                         # If that fails, try to rename as index
                         try:
                             conn.execute(text(f"ALTER INDEX {old_name} RENAME TO {new_name}"))
                             logger.info(f"Successfully renamed index '{old_name}' to '{new_name}'.")
                         except Exception as e:
+                            conn.rollback()
                             logger.warning(f"Could not rename '{old_name}' to '{new_name}': {e}")
                             continue
                     
                     conn.commit()
                     
                 except Exception as e:
+                    conn.rollback()
                     logger.warning(f"Error processing '{old_name}': {e}")
                     continue
 

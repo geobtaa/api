@@ -205,6 +205,11 @@ app.add_middleware(
         "Cache-Control",
         "X-Requested-With",
         "X-CSRF-Token",
+        "X-Visit-Token",
+        "X-BTAA-Client-Name",
+        "X-BTAA-Client-Version",
+        "X-BTAA-Client-Channel",
+        "X-BTAA-Client-Instance",
     ],
     expose_headers=[
         "Content-Type",

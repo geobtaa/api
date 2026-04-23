@@ -179,6 +179,30 @@ backend/scripts/bootstrap_kamal_deploy_user.sh \
 
 See also `docs/backend/kamal_deployment.md` for the full Kamal runbook.
 
+### 10. `manage_analytics_storage.py`
+
+**Purpose**: Maintains analytics partitions, rollups, and retention.
+
+**Key Features**:
+- Ensures monthly partitions exist for raw `analytics_*` tables
+- Rolls up completed daily analytics into compact summary tables
+- Drops expired raw partitions only after rollups have caught up
+- Prints relation sizes for analytics parents, partitions, and rollups
+
+**Usage**:
+```bash
+cd backend
+python scripts/manage_analytics_storage.py --mode maintenance
+python scripts/manage_analytics_storage.py --mode size-report
+python scripts/manage_analytics_storage.py --mode ensure
+```
+
+From the project root you can run:
+```bash
+make analytics-maintenance
+make analytics-size-report
+```
+
 ## Common Features
 
 All scripts share some common features:
@@ -208,7 +232,12 @@ Rate limiting for the public API is enforced by middleware backed by Redis:
 
   - `api_service_tiers` – service tier definitions and per-minute limits
   - `api_keys` – hashed API keys associated with tiers
-  - `api_usage_logs` – analytics for incoming requests
+  - `analytics_api_usage_logs` – analytics for incoming requests
+  - `analytics_searches` – normalized Geoportal search analytics
+  - `analytics_search_impressions` – result impressions with rank/page/view
+  - `analytics_events` – resource views, result clicks, downloads, and outbound link events
+  - `analytics_daily_api_usage_metrics`, `analytics_daily_search_metrics`, `analytics_daily_resource_metrics` – compact daily rollups
+  - `analytics_maintenance_state` – rollup checkpoint state
 
 - Runtime configuration is controlled via environment variables (see also `README.md`):
 
@@ -218,6 +247,10 @@ Rate limiting for the public API is enforced by middleware backed by Redis:
   REDIS_HOST=redis
   REDIS_PORT=6379
   REDIS_PASSWORD=optional_password
+  ANALYTICS_RETENTION_API_USAGE_DAYS=30
+  ANALYTICS_RETENTION_SEARCH_DAYS=90
+  ANALYTICS_RETENTION_IMPRESSION_DAYS=30
+  ANALYTICS_RETENTION_EVENT_DAYS=90
   ```
 
 To create and manage API keys from the command line, you can call the admin endpoints with basic auth, for example:

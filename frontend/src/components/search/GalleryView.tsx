@@ -7,6 +7,7 @@ import { ResultCardPill } from './ResultCardPill';
 import { BookmarkButton } from '../BookmarkButton';
 import { useBookmarks } from '../../context/BookmarkContext';
 import { requestGalleryStateRestore } from '../../utils/galleryState';
+import { scheduleAnalyticsBatch } from '../../services/analytics';
 
 interface GalleryViewProps {
   results: GeoDocument[];
@@ -17,6 +18,7 @@ interface GalleryViewProps {
   perPage?: number;
   onLoadMore?: () => void;
   hasMore?: boolean;
+  searchId?: string;
 }
 
 const INITIAL_GALLERY_IMAGE_COUNT = 10;
@@ -160,6 +162,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   perPage = 20,
   onLoadMore,
   hasMore,
+  searchId,
 }) => {
   const { isBookmarked } = useBookmarks();
   const observerTarget = useRef<HTMLDivElement>(null);
@@ -172,7 +175,12 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
     return (page - 1) * perPage + relativeIndex + 1;
   };
 
-  const handleResultNavigation = (event: React.MouseEvent<HTMLAnchorElement>) => {
+  const handleResultNavigation = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    resourceId: string,
+    label: string,
+    rank: number
+  ) => {
     if (
       event.button !== 0 ||
       event.metaKey ||
@@ -183,6 +191,24 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
       return;
     }
 
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'result_click',
+          search_id: searchId,
+          resource_id: resourceId,
+          rank,
+          page: currentPage,
+          view: 'gallery',
+          label,
+          source_component: 'GalleryView',
+          properties: {
+            search_url: location.pathname + location.search,
+            total_results: totalResults,
+          },
+        },
+      ],
+    });
     requestGalleryStateRestore();
   };
 
@@ -242,7 +268,14 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
             >
               <Link
                 to={`/resources/${r.id}`}
-                onClick={handleResultNavigation}
+                onClick={(event) =>
+                  handleResultNavigation(
+                    event,
+                    r.id,
+                    typeof title === 'string' ? title : String(title),
+                    absIndex
+                  )
+                }
                 state={{
                   searchResults: results,
                   currentIndex: index, // Local index in the current results array
@@ -251,6 +284,8 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                   searchUrl: location.pathname + location.search,
                   currentPage: currentPage,
                   perPage: perPage,
+                  searchId: searchId,
+                  view: 'gallery',
                 }}
                 className="flex flex-col flex-1 relative"
               >

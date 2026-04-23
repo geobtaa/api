@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Copy, Check, Download } from 'lucide-react';
+import { scheduleAnalyticsBatch } from '../../services/analytics';
 
 export type CitationStyle = 'apa' | 'mla' | 'chicago';
 
@@ -11,6 +12,7 @@ interface CitationTableProps {
   permalink: string;
   /** Resource ID for export links (JSON-LD, RIS, BibTeX) */
   resourceId?: string;
+  searchId?: string;
 }
 
 function getApiBase(): string {
@@ -26,7 +28,13 @@ const STYLE_LABELS: Record<CitationStyle, string> = {
   chicago: 'Chicago',
 };
 
-export function CitationTable({ citation, citations, permalink, resourceId }: CitationTableProps) {
+export function CitationTable({
+  citation,
+  citations,
+  permalink,
+  resourceId,
+  searchId,
+}: CitationTableProps) {
   const [copiedPermalink, setCopiedPermalink] = useState(false);
   const [copiedCitation, setCopiedCitation] = useState(false);
   const [selectedStyle, setSelectedStyle] = useState<CitationStyle>('apa');
@@ -42,6 +50,18 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
   const handleCopyPermalink = async () => {
     try {
       await navigator.clipboard.writeText(permalink);
+      scheduleAnalyticsBatch({
+        events: [
+          {
+            event_type: 'permalink_copy',
+            search_id: searchId,
+            resource_id: resourceId,
+            label: 'BTAA Geoportal Link',
+            destination_url: permalink,
+            source_component: 'CitationTable',
+          },
+        ],
+      });
       setCopiedPermalink(true);
       setTimeout(() => setCopiedPermalink(false), 2000);
     } catch (err) {
@@ -52,6 +72,20 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
   const handleCopyCitation = async () => {
     try {
       await navigator.clipboard.writeText(displayCitation);
+      scheduleAnalyticsBatch({
+        events: [
+          {
+            event_type: 'citation_copy',
+            search_id: searchId,
+            resource_id: resourceId,
+            label: STYLE_LABELS[selectedStyle],
+            source_component: 'CitationTable',
+            properties: {
+              style: selectedStyle,
+            },
+          },
+        ],
+      });
       setCopiedCitation(true);
       setTimeout(() => setCopiedCitation(false), 2000);
     } catch (err) {
@@ -120,6 +154,20 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
                   <a
                     href={`${getApiBase()}/resources/${resourceId}/citation/ris`}
                     download={`${resourceId}.ris`}
+                    onClick={() =>
+                      scheduleAnalyticsBatch({
+                        events: [
+                          {
+                            event_type: 'citation_export',
+                            search_id: searchId,
+                            resource_id: resourceId,
+                            label: 'RIS',
+                            destination_url: `${getApiBase()}/resources/${resourceId}/citation/ris`,
+                            source_component: 'CitationTable',
+                          },
+                        ],
+                      })
+                    }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
                     <Download size={14} />
@@ -128,6 +176,20 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
                   <a
                     href={`${getApiBase()}/resources/${resourceId}/citation/bibtex`}
                     download={`${resourceId}.bib`}
+                    onClick={() =>
+                      scheduleAnalyticsBatch({
+                        events: [
+                          {
+                            event_type: 'citation_export',
+                            search_id: searchId,
+                            resource_id: resourceId,
+                            label: 'BibTeX',
+                            destination_url: `${getApiBase()}/resources/${resourceId}/citation/bibtex`,
+                            source_component: 'CitationTable',
+                          },
+                        ],
+                      })
+                    }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
                     <Download size={14} />
@@ -137,6 +199,20 @@ export function CitationTable({ citation, citations, permalink, resourceId }: Ci
                     href={`${getApiBase()}/resources/${resourceId}/citation/json-ld`}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() =>
+                      scheduleAnalyticsBatch({
+                        events: [
+                          {
+                            event_type: 'citation_export',
+                            search_id: searchId,
+                            resource_id: resourceId,
+                            label: 'JSON-LD',
+                            destination_url: `${getApiBase()}/resources/${resourceId}/citation/json-ld`,
+                            source_component: 'CitationTable',
+                          },
+                        ],
+                      })
+                    }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
                     JSON-LD

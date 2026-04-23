@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useParams, Link, useLocation, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowRight, ArrowLeftCircle, XCircle } from 'lucide-react';
@@ -27,6 +27,7 @@ import { formatCount } from '../utils/formatNumber';
 import { DisplayNotes } from '../components/resource/DisplayNotes';
 import { DataDictionariesSection } from '../components/resource/DataDictionariesSection';
 import { LightboxModal } from '../components/ui/LightboxModal';
+import { scheduleAnalyticsBatch } from '../services/analytics';
 
 // Define types for search results
 interface SearchResult {
@@ -42,6 +43,8 @@ interface SearchState {
   currentPage: number;
   absoluteIndex?: number;
   perPage?: number;
+  searchId?: string;
+  view?: 'list' | 'gallery' | 'map';
 }
 
 // Define the ResourceData type to match the actual API response
@@ -155,6 +158,7 @@ export function ResourceView({
   const [isDataDictionaryModalOpen, setIsDataDictionaryModalOpen] =
     useState(false);
   const { setLastApiUrl } = useApi();
+  const trackedResourceViewRef = useRef<string | null>(null);
 
   // Get configured perPage or default to 10
   const perPage = searchState?.perPage || 10;
@@ -230,6 +234,23 @@ export function ResourceView({
   const handleNextClick = async () => {
     if (!searchState) return;
 
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'next_result',
+          search_id: searchState.searchId,
+          resource_id: id,
+          rank: absoluteCurrentIndex + 1,
+          page: searchState.currentPage,
+          view: searchState.view,
+          source_component: 'ResourceView',
+          properties: {
+            search_url: searchState.searchUrl,
+          },
+        },
+      ],
+    });
+
     if (isLastInCurrentSet && hasMoreResults) {
       // Need to fetch next page
       try {
@@ -266,6 +287,23 @@ export function ResourceView({
   // Handle previous result click
   const handlePrevClick = async () => {
     if (!searchState) return;
+
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'previous_result',
+          search_id: searchState.searchId,
+          resource_id: id,
+          rank: absoluteCurrentIndex + 1,
+          page: searchState.currentPage,
+          view: searchState.view,
+          source_component: 'ResourceView',
+          properties: {
+            search_url: searchState.searchUrl,
+          },
+        },
+      ],
+    });
 
     if (isFirstInCurrentSet && hasPreviousResults) {
       // Need to fetch previous page
@@ -352,6 +390,41 @@ export function ResourceView({
       isMounted = false;
     };
   }, [id, prefetchedResource]); // eslint-disable-line react-hooks/exhaustive-deps -- setLastApiUrl is stable and intentionally excluded
+
+  useEffect(() => {
+    if (!data?.id) return;
+
+    const trackingKey = [
+      data.id,
+      searchState?.searchId || 'direct',
+      searchState?.currentPage || 0,
+      absoluteCurrentIndex,
+    ].join(':');
+
+    if (trackedResourceViewRef.current === trackingKey) {
+      return;
+    }
+    trackedResourceViewRef.current = trackingKey;
+
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'resource_view',
+          search_id: searchState?.searchId,
+          resource_id: data.id,
+          rank: searchState ? absoluteCurrentIndex + 1 : undefined,
+          page: searchState?.currentPage,
+          view: searchState?.view,
+          source_component: 'ResourceView',
+          properties: {
+            search_url: searchState?.searchUrl,
+            total_results: searchState?.totalResults,
+            has_search_context: Boolean(searchState),
+          },
+        },
+      ],
+    });
+  }, [absoluteCurrentIndex, data?.id, searchState]);
 
   if (isLoading) {
     return (
@@ -552,7 +625,11 @@ export function ResourceView({
                     {/* Downloads section */}
                     {data?.meta?.ui?.downloads &&
                       data.meta.ui.downloads.length > 0 && (
-                        <DownloadsTable downloads={data.meta.ui.downloads} />
+                        <DownloadsTable
+                          downloads={data.meta.ui.downloads}
+                          resourceId={data.id}
+                          searchId={searchState?.searchId}
+                        />
                       )}
 
                     {/* Data Dictionary link card (opens modal) */}
@@ -581,6 +658,7 @@ export function ResourceView({
                         <LinksTable
                           links={data.meta.ui.links}
                           resourceId={data?.id}
+                          searchId={searchState?.searchId}
                         />
                       )}
 
@@ -592,6 +670,7 @@ export function ResourceView({
                           citations={data.meta?.ui?.citations}
                           permalink={isMounted ? window.location.href : ''}
                           resourceId={data.id}
+                          searchId={searchState?.searchId}
                         />
                       </div>
                     )}

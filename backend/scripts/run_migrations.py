@@ -1,10 +1,7 @@
-import asyncio
 import logging
 
 from dotenv import load_dotenv
-from sqlalchemy.ext.asyncio import create_async_engine
 
-from db.config import DATABASE_URL
 from db.migrations.add_enrichment_type import add_enrichment_type_column
 from db.migrations.add_fast_gazetteer import add_fast_gazetteer
 from db.migrations.api_rate_limiting import init_api_rate_limiting
@@ -26,69 +23,66 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-async def run_migrations():
+def run_migrations():
     """Run all database migrations."""
     logger.info("Running database migrations...")
-
-    # Create async engine
-    engine = create_async_engine(DATABASE_URL)
 
     try:
         # Create gazetteer tables
         logger.info("Creating gazetteer tables...")
-        await create_gazetteer_tables(engine)
+        create_gazetteer_tables()
 
         # Create item relationships table
         logger.info("Creating item relationships table...")
-        await create_relationships_table(engine)
+        create_relationships_table()
 
         # Create FAST embeddings table
         logger.info("Creating FAST embeddings table...")
-        await create_fast_embeddings_table(engine)
+        create_fast_embeddings_table()
 
         # Create AI enrichments table
         logger.info("Creating AI enrichments table...")
-        await create_ai_enrichments_table(engine)
+        create_ai_enrichments_table()
 
         # Add enrichment type column
         logger.info("Adding enrichment type column...")
-        await add_enrichment_type_column(engine)
+        add_enrichment_type_column()
 
         # Add FAST gazetteer
         logger.info("Adding FAST gazetteer...")
-        await add_fast_gazetteer(engine)
+        add_fast_gazetteer()
 
         # Update FAST gazetteer
         logger.info("Updating FAST gazetteer...")
-        await update_fast_gazetteer(engine)
+        update_fast_gazetteer()
 
         # Rename AI enrichments table
         logger.info("Renaming AI enrichments table...")
-        await rename_ai_enrichments_table(engine)
+        rename_ai_enrichments_table()
 
         # Rename document_id to item_id in item_ai_enrichments table
         logger.info("Renaming document_id to item_id in item_ai_enrichments table...")
-        await rename_document_id_to_item_id(engine)
+        rename_document_id_to_item_id()
 
         # Create item_allmaps table
         logger.info("Creating item_allmaps table...")
-        await create_item_allmaps_table(engine)
+        create_item_allmaps_table()
 
         # Rename all item_* tables to resource_* tables
         logger.info("Renaming all item_* tables to resource_* tables...")
-        await rename_all_item_tables(engine)
+        rename_all_item_tables()
 
         # Rename item_id columns to resource_id in relevant tables
         logger.info("Renaming item_id columns to resource_id...")
-        await rename_item_id_to_resource_id(engine)
+        rename_item_id_to_resource_id()
 
         # Rename indexes that still reference old item_ naming
         logger.info("Renaming indexes to match new naming...")
-        await rename_indexes(engine)
+        rename_indexes()
 
         # Rename remaining constraints and indexes
         logger.info("Renaming remaining constraints and indexes...")
-        await rename_remaining_constraints(engine)
+        rename_remaining_constraints()
 
         # Initialize API rate limiting schema and tiers (idempotent)
         logger.info("Initializing API rate limiting schema and tiers...")
@@ -97,8 +91,6 @@ async def run_migrations():
     except Exception as e:
         logger.error(f"Error running migrations: {str(e)}")
         raise
-    finally:
-        await engine.dispose()
 
 
 if __name__ == "__main__":
@@ -106,4 +98,4 @@ if __name__ == "__main__":
     load_dotenv()
 
     # Run migrations
-    asyncio.run(run_migrations())
+    run_migrations()
