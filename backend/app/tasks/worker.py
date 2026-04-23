@@ -8,7 +8,7 @@ import redis
 import requests
 from celery import Celery
 from dotenv import load_dotenv
-from PIL import Image
+from PIL import Image, ImageOps
 
 from app.services.provider_throttle import provider_request_slot
 from app.services.thumbnail_queue_service import release_thumbnail_queue_slot
@@ -46,6 +46,11 @@ logging.basicConfig(
     handlers=log_handlers,
 )
 logger = logging.getLogger(__name__)
+
+THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v3")
+THUMBNAIL_MAX_EDGE = int(os.getenv("THUMBNAIL_MAX_EDGE", "512"))
+THUMBNAIL_JPEG_QUALITY = int(os.getenv("THUMBNAIL_JPEG_QUALITY", "78"))
+REMOTE_THUMBNAIL_PREFIX = f"remote-thumb-normalized:{THUMBNAIL_CACHE_VERSION}:"
 
 # Setup Celery
 broker_url = os.getenv(
@@ -141,6 +146,75 @@ def _is_terminal_retry(self, status_code: int | None = None) -> bool:
     return max_retries is not None and current_retries >= max_retries
 
 
+def _remote_thumbnail_image_hash(image_url: str) -> str:
+    """Compute Redis cache key hash for remote/IIIF-derived thumbnail images."""
+    return hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + image_url).encode()).hexdigest()
+
+
+def _image_has_alpha(img: Image.Image) -> bool:
+    if img.mode in ("RGBA", "LA"):
+        return True
+    if img.mode == "P":
+        return "transparency" in img.info
+    return False
+
+
+def _normalize_thumbnail_image(
+    content: bytes, content_type: Optional[str] = None
+) -> Tuple[Optional[bytes], Optional[str]]:
+    """
+    Normalize thumbnail image bytes for delivery.
+
+    - auto-orients based on EXIF
+    - constrains the longest edge to THUMBNAIL_MAX_EDGE
+    - strips metadata by re-encoding
+    - re-compresses to bounded delivery formats
+    """
+    if not content:
+        return None, None
+
+    try:
+        with Image.open(io.BytesIO(content)) as opened:
+            opened.load()
+            image = ImageOps.exif_transpose(opened)
+
+        has_alpha = _image_has_alpha(image)
+        normalized_content_type = (content_type or "").lower().split(";")[0].strip()
+        if has_alpha:
+            image = image.convert("RGBA")
+        else:
+            image = image.convert("RGB")
+
+        if max(image.size) > THUMBNAIL_MAX_EDGE:
+            image.thumbnail((THUMBNAIL_MAX_EDGE, THUMBNAIL_MAX_EDGE), Image.Resampling.LANCZOS)
+
+        output = io.BytesIO()
+        if has_alpha or normalized_content_type == "image/png":
+            image.save(output, format="PNG", optimize=True, compress_level=9)
+            normalized_type = "image/png"
+        else:
+            image.save(
+                output,
+                format="JPEG",
+                quality=THUMBNAIL_JPEG_QUALITY,
+                optimize=True,
+                progressive=True,
+            )
+            normalized_type = "image/jpeg"
+
+        normalized = output.getvalue()
+        if not normalized:
+            return None, None
+        return normalized, normalized_type
+    except Exception as exc:
+        logger.warning(
+            "Thumbnail normalization failed (content_type=%s): %s",
+            content_type,
+            exc,
+        )
+        return None, None
+
+
 @celery_app.task(bind=True, name="fetch_and_cache_image")
 def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
     """
@@ -160,7 +234,7 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
         logger.info(f"Resolved URL: {url} -> {resolved_url}")
 
         # Generate cache key based on the resolved image URL (not the original manifest URL)
-        source_hash = hashlib.sha256(resolved_url.encode()).hexdigest()
+        source_hash = _remote_thumbnail_image_hash(resolved_url)
         image_key = f"image:{source_hash}"
 
         # Check if already cached, but tolerate Redis outages
@@ -234,6 +308,23 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
             )
             return False
 
+        normalized_content, normalized_type = _normalize_thumbnail_image(
+            response.content, detected_type
+        )
+        if not normalized_content or not normalized_type:
+            logger.error(f"❌ Thumbnail normalization failed for {resolved_url}")
+            _record_thumbnail_state(
+                doc_id,
+                state=ThumbnailState.FAILURE,
+                source_type=source_type,
+                source_url=url,
+                source_hash=source_hash,
+                queue_task_id=getattr(getattr(self, "request", None), "id", None),
+                state_detail="Thumbnail normalization failed",
+                last_error=f"Thumbnail normalization failed for {resolved_url}",
+            )
+            return False
+
         # Cache image if Redis is available; otherwise, skip caching without retry storms
         if redis_available:
             try:
@@ -246,13 +337,14 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
                 ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
                 # Store image content with detected type (prepend type as metadata)
                 # We'll use a simple format: store content as-is, content type in separate key
-                redis_client.setex(image_key, ttl, response.content)
+                redis_client.setex(image_key, ttl, normalized_content)
                 # Store content type metadata separately (optional, for faster lookups)
                 type_key = f"image_type:{image_key.split(':')[1]}"
-                redis_client.setex(type_key, ttl, detected_type or "image/jpeg")
+                redis_client.setex(type_key, ttl, normalized_type)
                 logger.info(
-                    f"✅ Successfully cached valid image: {resolved_url} "
-                    f"(type: {detected_type}, size: {len(response.content)} bytes)"
+                    f"✅ Successfully cached normalized thumbnail: {resolved_url} "
+                    f"(type: {normalized_type}, original={len(response.content)} bytes, "
+                    f"normalized={len(normalized_content)} bytes)"
                 )
                 # Note: No need to invalidate search cache - search results always include
                 # /resources/{id}/thumbnail URL, and that endpoint handles checking if
@@ -568,14 +660,31 @@ def generate_cog_thumbnail(self, cog_url: str, doc_id: Optional[str] = None) -> 
             )
             return False
 
+        normalized_bytes, normalized_type = _normalize_thumbnail_image(image_bytes, "image/png")
+        if not normalized_bytes or not normalized_type:
+            logger.error(f"COG thumbnail normalization failed for {cog_url}")
+            _record_thumbnail_state(
+                doc_id,
+                state=ThumbnailState.FAILURE,
+                source_type="cog",
+                source_url=cog_url,
+                source_hash=image_hash,
+                queue_task_id=getattr(getattr(self, "request", None), "id", None),
+                state_detail="COG thumbnail normalization failed",
+                last_error="COG thumbnail normalization failed",
+            )
+            return False
+
         # Cache in Redis
         try:
             ttl = int(os.getenv("REDIS_TTL", 604800))
-            redis_client.setex(image_key, ttl, image_bytes)
+            redis_client.setex(image_key, ttl, normalized_bytes)
             type_key = f"image_type:{image_hash}"
-            redis_client.setex(type_key, ttl, "image/png")
+            redis_client.setex(type_key, ttl, normalized_type)
             logger.info(
-                f"Successfully cached COG thumbnail for {cog_url} (size: {len(image_bytes)} bytes)"
+                f"Successfully cached COG thumbnail for {cog_url} "
+                f"(type: {normalized_type}, original={len(image_bytes)} bytes, "
+                f"normalized={len(normalized_bytes)} bytes)"
             )
             detail = "Cached COG thumbnail successfully"
             if lease.waited_seconds > 0:
@@ -940,14 +1049,30 @@ def generate_pmtiles_thumbnail(self, pmtiles_url: str, doc_id: Optional[str] = N
             )
             return False
 
+        normalized_bytes, normalized_type = _normalize_thumbnail_image(image_bytes, content_type)
+        if not normalized_bytes or not normalized_type:
+            logger.error(f"PMTiles thumbnail normalization failed for {pmtiles_url}")
+            _record_thumbnail_state(
+                doc_id,
+                state=ThumbnailState.FAILURE,
+                source_type="pmtiles",
+                source_url=pmtiles_url,
+                source_hash=image_hash,
+                queue_task_id=getattr(getattr(self, "request", None), "id", None),
+                state_detail="PMTiles thumbnail normalization failed",
+                last_error="PMTiles thumbnail normalization failed",
+            )
+            return False
+
         try:
             ttl = int(os.getenv("REDIS_TTL", 604800))
-            redis_client.setex(image_key, ttl, image_bytes)
+            redis_client.setex(image_key, ttl, normalized_bytes)
             type_key = f"image_type:{image_hash}"
-            redis_client.setex(type_key, ttl, content_type or "image/png")
+            redis_client.setex(type_key, ttl, normalized_type)
             logger.info(
                 f"Successfully cached PMTiles thumbnail for {pmtiles_url} "
-                f"(size: {len(image_bytes)} bytes)"
+                f"(type: {normalized_type}, original={len(image_bytes)} bytes, "
+                f"normalized={len(normalized_bytes)} bytes)"
             )
             detail = "Cached PMTiles thumbnail successfully"
             if lease.waited_seconds > 0:

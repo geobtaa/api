@@ -104,6 +104,47 @@ async def test_get_resource_found(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_get_resource_homepage_profile_uses_lightweight_processor(monkeypatch):
+    from app.api.v1.endpoint_modules import resources as res
+
+    row = make_row({"id": "r1"})
+    res.async_session = lambda: DummySession(fetchone_row=row)
+
+    async def unexpected_full_process(resource_dict, session):
+        raise AssertionError("full resource processor should not run for homepage profile")
+
+    async def fake_homepage_process(resource_dict, session):
+        return {
+            "id": resource_dict["id"],
+            "type": "resource",
+            "attributes": {"profile": "homepage"},
+        }
+
+    monkeypatch.setattr(res, "process_resource", unexpected_full_process)
+    monkeypatch.setattr(res, "process_resource_homepage", fake_homepage_process)
+
+    class DummyRequest:
+        def __init__(self):
+            from starlette.datastructures import URL
+
+            self._url = URL("http://test/resources/r1?ui_profile=homepage")
+
+        @property
+        def url(self):
+            return self._url
+
+    resp = await res.get_resource(
+        request=DummyRequest(),
+        id="r1",
+        fields=None,
+        callback=None,
+        ui_profile="homepage",
+    )
+    assert hasattr(resp, "body")
+    assert b"homepage" in resp.body
+
+
+@pytest.mark.asyncio
 async def test_get_resource_not_found(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
 

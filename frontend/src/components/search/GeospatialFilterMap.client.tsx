@@ -101,6 +101,7 @@ export function GeospatialFilterMap({
   const previewRectangleRef = useRef<L.Rectangle | null>(null);
   const hexLayerRef = useRef<L.GeoJSON | null>(null);
   const basemapCleanupRef = useRef<(() => void) | null>(null);
+  const lastAutoFitSearchKeyRef = useRef<string | null>(null);
   const [hexesInView, setHexesInView] = useState<
     Array<{ h3: string; count: number }>
   >([]);
@@ -441,6 +442,10 @@ export function GeospatialFilterMap({
 
     let cancelled = false;
     const query = searchParams.get('q') ?? '';
+    const searchKey = searchParams.toString();
+    const hasActiveBBox = getBBoxFromParams() !== null;
+    const shouldAutoFitInitialHexes =
+      !hasActiveBBox && lastAutoFitSearchKeyRef.current !== searchKey;
 
     const updateHexLayer = async (shouldFitToHexes: boolean) => {
       const bounds = map.getBounds();
@@ -464,6 +469,10 @@ export function GeospatialFilterMap({
           queryString ? `?${queryString}` : undefined
         );
         if (cancelled) return;
+
+        if (shouldFitToHexes) {
+          lastAutoFitSearchKeyRef.current = searchKey;
+        }
 
         setHexesInView(res.hexes);
         setHexResolution(resolution);
@@ -532,13 +541,49 @@ export function GeospatialFilterMap({
       }
     };
 
-    updateHexLayer(true);
+    let initialFetchTimeout: number | null = null;
+    let initialIdleCallbackId: number | null = null;
+
+    const scheduleInitialHexFetch = () => {
+      const run = () => {
+        initialFetchTimeout = window.setTimeout(() => {
+          void updateHexLayer(shouldAutoFitInitialHexes);
+        }, 250);
+      };
+
+      if ('requestIdleCallback' in window) {
+        initialIdleCallbackId = window.requestIdleCallback(run, {
+          timeout: 2000,
+        });
+        return;
+      }
+
+      run();
+    };
+
+    if (document.readyState === 'complete') {
+      scheduleInitialHexFetch();
+    } else {
+      window.addEventListener('load', scheduleInitialHexFetch, { once: true });
+    }
+
     const onMoveOrZoom = () => updateHexLayer(false);
     map.on('moveend', onMoveOrZoom);
     map.on('zoomend', onMoveOrZoom);
 
     return () => {
       cancelled = true;
+      window.removeEventListener('load', scheduleInitialHexFetch);
+      if (initialFetchTimeout !== null) {
+        window.clearTimeout(initialFetchTimeout);
+      }
+      if (
+        initialIdleCallbackId !== null &&
+        'cancelIdleCallback' in window &&
+        typeof window.cancelIdleCallback === 'function'
+      ) {
+        window.cancelIdleCallback(initialIdleCallbackId);
+      }
       map.off('moveend', onMoveOrZoom);
       map.off('zoomend', onMoveOrZoom);
       if (hexLayerRef.current && map.hasLayer(hexLayerRef.current)) {

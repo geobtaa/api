@@ -1,5 +1,21 @@
 import type { LoaderFunctionArgs } from "react-router";
+import { proxyUpstreamResponse } from "../lib/proxy-response";
 import { serverFetch } from "../lib/server-api";
+
+function toBrowserThumbnailLocation(requestUrl: URL, location: string): string {
+  if (!location.startsWith("/api/v1/thumbnails/")) {
+    return location;
+  }
+
+  const isLocalDev =
+    requestUrl.hostname === "localhost" || requestUrl.hostname === "127.0.0.1";
+
+  if (!isLocalDev) {
+    return location;
+  }
+
+  return `http://localhost:8000${location}`;
+}
 
 /**
  * SSR-served resource thumbnail (resource route).
@@ -20,29 +36,28 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const query = url.search ? url.search : "";
   const upstream = await serverFetch(`/resources/${id}/thumbnail${query}`, {
     headers: { Accept: accept },
+    redirect: "manual",
   });
 
   // Handle redirects (302) - pass through to browser with transformed URL
   if (upstream.status === 302 || upstream.status === 301) {
     const location = upstream.headers.get("location");
     if (location) {
-      // Transform the redirect location to use SSR route if it's a thumbnail hash
       let redirectUrl = location;
-      // Handle absolute URLs
+
       if (location.startsWith("http://") || location.startsWith("https://")) {
         try {
           const u = new URL(location);
           if (u.pathname.startsWith("/api/v1/thumbnails/")) {
-            redirectUrl = u.pathname.replace("/api/v1/thumbnails/", "/thumbnails/") + u.search;
+            redirectUrl = toBrowserThumbnailLocation(url, u.pathname + u.search);
           }
         } catch {
-          // If URL parsing fails, use as-is
+          // If URL parsing fails, use as-is.
         }
       } else if (location.startsWith("/api/v1/thumbnails/")) {
-        // Handle relative URLs
-        redirectUrl = location.replace("/api/v1/thumbnails/", "/thumbnails/");
+        redirectUrl = toBrowserThumbnailLocation(url, location);
       }
-      
+
       return new Response(null, {
         status: upstream.status,
         headers: {
@@ -53,10 +68,5 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     }
   }
 
-  const body = await upstream.arrayBuffer();
-  const headers = new Headers(upstream.headers);
-  headers.delete("content-encoding");
-  headers.delete("content-length");
-
-  return new Response(body, { status: upstream.status, headers });
+  return proxyUpstreamResponse(upstream);
 }

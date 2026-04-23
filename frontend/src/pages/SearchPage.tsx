@@ -25,8 +25,10 @@ import {
 import { formatCount } from '../utils/formatNumber';
 import type { JsonApiResponse, GeoDocument } from '../types/api';
 import { useState, useEffect, useRef } from 'react';
-
-const GALLERY_STATE_STORAGE_KEY = 'b1g_gallery_state';
+import {
+  consumeGalleryStateRestoreRequest,
+  GALLERY_STATE_STORAGE_KEY,
+} from '../utils/galleryState';
 
 const isQuotaExceededError = (error: unknown): boolean => {
   if (error instanceof DOMException) {
@@ -137,15 +139,20 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
   // Restore state from session storage on mount (Client-side only)
   useEffect(() => {
+    const shouldRestore =
+      currentView === 'gallery' && consumeGalleryStateRestoreRequest();
+
+    if (!shouldRestore) {
+      setHasRestored(true);
+      return;
+    }
+
     try {
       const cached = sessionStorage.getItem(GALLERY_STATE_STORAGE_KEY);
       if (cached) {
         const { context, results, startPage } = JSON.parse(cached);
 
-        // Also check if view is gallery
-        const isGallery = (searchParams.get('view') || 'list') === 'gallery';
-
-        if (context === currentContext && isGallery) {
+        if (context === currentContext) {
           setAccumulatedResults(results);
           if (startPage) setAccumulatedStartPage(startPage);
         }

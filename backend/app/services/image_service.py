@@ -1,3 +1,5 @@
+import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -14,12 +16,14 @@ from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
 )
+from app.services.thumbnail_alias_service import thumbnail_alias_service
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
     ThumbnailStatePayload,
     infer_source_type,
     safe_record_thumbnail_state_sync,
+    thumbnail_state_service,
 )
 
 # Load environment variables from .env file
@@ -30,6 +34,13 @@ except (OSError, PermissionError):
     pass
 
 logger = logging.getLogger(__name__)
+
+IIIF_THUMBNAIL_BOX = os.getenv("IIIF_THUMBNAIL_BOX", "!800,800")
+IIIF_THUMBNAIL_PATH = f"/full/{IIIF_THUMBNAIL_BOX}/0/default.jpg"
+THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v3")
+REMOTE_THUMBNAIL_PREFIX = f"remote-thumb-normalized:{THUMBNAIL_CACHE_VERSION}:"
+COG_THUMBNAIL_PREFIX = "cog-thumb:"
+PMTILES_THUMBNAIL_PREFIX = "pmtiles-thumb:"
 
 # Shared Redis connection pool to avoid creating new connections for each ImageService instance
 _redis_connection_pool = None
@@ -118,6 +129,12 @@ class ImageService:
 
         # print(f"Document WXS: {self.metadata.get('gbl_wxsidentifier_s')}")
 
+    def _api_v1_base_url(self) -> str:
+        """Return APPLICATION_URL normalized to the API v1 root."""
+        if self.application_url.endswith("/api/v1"):
+            return self.application_url
+        return f"{self.application_url}/api/v1"
+
     def _get_manifest(self, manifest_url: str) -> Optional[Dict]:
         """Get manifest from cache or fetch and cache it."""
         cache_key = f"manifest:{manifest_url}"
@@ -195,12 +212,12 @@ class ImageService:
 
                 # Prefer direct image ID when present
                 if image.get("@id"):
-                    return image["@id"]
+                    return self._standardize_iiif_url(image["@id"])
 
                 # Fallback to image service @id to construct consistent size
                 service_id = image.get("service", {}).get("@id")
                 if service_id:
-                    return f"{service_id}/full/400,/0/default.jpg"
+                    return self._standardize_iiif_url(service_id)
 
             # Items - IIIF v3 style
             elif manifest_json.get("items"):
@@ -243,17 +260,17 @@ class ImageService:
 
                     if body_service_id:
                         self.logger.debug(f"Found body service ID: {body_service_id}")
-                        return f"{body_service_id}/full/400,/0/default.jpg"
+                        return self._standardize_iiif_url(body_service_id)
 
                     # Next try body.id (prefer direct ID unmodified)
                     if body.get("id"):
                         self.logger.debug(f"Found body ID: {body.get('id')}")
-                        return body["id"]
+                        return self._standardize_iiif_url(body["id"])
 
                 # Try direct id
                 if items_path.get("id"):
                     self.logger.debug(f"Found items path ID: {items_path.get('id')}")
-                    return items_path["id"]
+                    return self._standardize_iiif_url(items_path["id"])
 
             # Thumbnail - Try various thumbnail formats
             elif manifest_json.get("thumbnail"):
@@ -298,7 +315,7 @@ class ImageService:
     def _standardize_iiif_url(self, url: str) -> str:
         """
         Standardize IIIF image URLs to ensure consistent size.
-        Converts various IIIF image URLs to a standard 400px wide version.
+        Converts various IIIF image URLs to a standard bounded-box rendition.
         """
         try:
             # Skip if not a likely IIIF URL
@@ -307,24 +324,125 @@ class ImageService:
 
             # If URL points to info.json, convert to a standard image URL
             if url.endswith("/info.json"):
-                return url[:-10] + "/full/400,/0/default.jpg"
+                return url[:-10] + IIIF_THUMBNAIL_PATH
 
-            # Preserve Stanford IIIF URLs that already include sizing or '!'
-            if url_hostname_matches(url, "stacks.stanford.edu") and (
-                "/full/!" in url or "/full/400," in url
-            ):
+            if url.endswith(("/iiif3/manifest", "/iiif/manifest", "/manifest", "manifest.json")):
                 return url
 
             # If URL already contains /full/, replace everything after it with our standard path
             if "/full/" in url:
                 prefix = url.split("/full/")[0]
-                return f"{prefix}/full/400,/0/default.jpg"
+                return f"{prefix}{IIIF_THUMBNAIL_PATH}"
+
+            # Bare IIIF service endpoint or identifier without an explicit image request
+            if not re.search(r"/default\.[A-Za-z0-9]+$", url):
+                return f"{url.rstrip('/')}{IIIF_THUMBNAIL_PATH}"
 
             # As a final fallback, return original URL
             return url
         except Exception as e:
             self.logger.error(f"Error standardizing IIIF URL {url}: {e}")
             return url
+
+    def _b1g_image_source_url(self) -> Optional[str]:
+        """Return the configured b1g_image_ss URL when it contains a usable HTTP(S) value."""
+        b1g_image = self.metadata.get("b1g_image_ss")
+        if not b1g_image:
+            return None
+
+        url = None
+        if isinstance(b1g_image, list) and b1g_image:
+            url = b1g_image[0]
+        elif isinstance(b1g_image, str):
+            # Handle JSON array string, e.g. '["https://..."]' from DB
+            s = b1g_image.strip()
+            if s.startswith(("http://", "https://")):
+                url = s
+            elif s.startswith("["):
+                try:
+                    parsed = json.loads(s)
+                    if isinstance(parsed, list) and parsed:
+                        url = parsed[0]
+                except (json.JSONDecodeError, TypeError):
+                    pass
+
+        if isinstance(url, str) and url.strip().startswith(("http://", "https://")):
+            return url.strip()
+        return None
+
+    def _current_thumbnail_hash_sync(
+        self,
+        doc_id: str,
+        *,
+        source_url: Optional[str],
+    ) -> Optional[str]:
+        """
+        Return the hot immutable hash for the current preferred source, if available.
+
+        Persisted success state is only reused when it still points at the same
+        preferred source URL. This lets records self-heal when thumbnail source
+        selection changes (for example, switching from a tiny ContentDM derivative
+        to a IIIF-derived thumbnail).
+        """
+        candidate_hash = (
+            self._candidate_cached_thumbnail_hash_sync(source_url) if source_url else None
+        )
+        state = thumbnail_state_service.get_state_sync(doc_id)
+        alias_hash = thumbnail_alias_service.get_hash_sync(doc_id)
+
+        if alias_hash:
+            alias_matches_state = (
+                source_url
+                and state is not None
+                and state.get("state") == ThumbnailState.SUCCESS
+                and state.get("source_hash") == alias_hash
+                and state.get("source_url") == source_url
+                and self.has_cached_image_sync(alias_hash)
+            )
+            alias_matches_candidate = candidate_hash is not None and alias_hash == candidate_hash
+            if alias_matches_state or alias_matches_candidate:
+                return alias_hash
+            thumbnail_alias_service.delete_sync(doc_id)
+
+        if state:
+            state_hash = state.get("source_hash")
+            state_source_url = state.get("source_url")
+            if (
+                source_url
+                and state.get("state") == ThumbnailState.SUCCESS
+                and state_hash
+                and state_source_url == source_url
+                and self.has_cached_image_sync(state_hash)
+            ):
+                thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
+                return state_hash
+
+            if state_hash and not self.has_cached_image_sync(state_hash):
+                thumbnail_alias_service.delete_sync(doc_id)
+
+            if source_url and state_source_url and state_source_url != source_url:
+                thumbnail_alias_service.delete_sync(doc_id)
+
+        if not source_url:
+            return None
+
+        if candidate_hash:
+            thumbnail_alias_service.set_hash_sync(doc_id, candidate_hash)
+            return candidate_hash
+
+        return None
+
+    def current_thumbnail_hash_sync(self) -> Optional[str]:
+        """Return the current hot immutable thumbnail hash for this resource, if any."""
+        doc_id = self.metadata.get("id")
+        if not doc_id:
+            return None
+        source_url = self._get_thumbnail_source_url()
+        return self._current_thumbnail_hash_sync(doc_id, source_url=source_url)
+
+    async def current_thumbnail_hash(self) -> Optional[str]:
+        """Async wrapper for current_thumbnail_hash_sync."""
+        return await asyncio.to_thread(self.current_thumbnail_hash_sync)
 
     def get_thumbnail_url(self) -> Optional[str]:
         """
@@ -345,17 +463,91 @@ class ImageService:
             if not doc_id:
                 return None
 
-            # Determine the source thumbnail URL without making external calls
+            api_base_url = self._api_v1_base_url()
             source_url = self._get_thumbnail_source_url()
+            image_hash = self.current_thumbnail_hash_sync()
+            if image_hash:
+                return f"{api_base_url}/thumbnails/{image_hash}"
 
             if source_url:
                 # Always return the resource-specific thumbnail endpoint
-                return f"{self.application_url}/api/v1/resources/{doc_id}/thumbnail"
+                return f"{api_base_url}/resources/{doc_id}/thumbnail"
 
             return None
 
         except Exception as e:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
+            return None
+
+    def get_hot_thumbnail_url(self) -> Optional[str]:
+        """
+        Return only a hot immutable thumbnail asset URL.
+
+        This never falls back to the slower resource resolver endpoint. Callers can
+        use this for first-paint critical UI where a cheap placeholder is preferred
+        over a blocking thumbnail generation path.
+        """
+        try:
+            if self.metadata.get("dct_accessrights_s") == "Restricted":
+                return None
+
+            doc_id = self.metadata.get("id")
+            if not doc_id:
+                return None
+
+            api_base_url = self._api_v1_base_url()
+            image_hash = self.current_thumbnail_hash_sync()
+            return f"{api_base_url}/thumbnails/{image_hash}" if image_hash else None
+        except Exception as e:
+            logger.error(f"Error getting hot thumbnail URL: {str(e)}")
+            return None
+
+    def has_cached_image_sync(self, image_hash: str) -> bool:
+        """Return True when the cached image bytes still exist in Redis."""
+        try:
+            image_key = f"image:{image_hash}"
+            return bool(self.image_cache.exists(image_key))
+        except Exception as e:
+            self.logger.error(f"Error checking cached image: {e}")
+            return False
+
+    def _candidate_cached_thumbnail_hash_sync(self, source_url: str) -> Optional[str]:
+        """Return the immutable thumbnail hash for a cached source URL, if known."""
+        try:
+            image_hash = None
+
+            if self._is_cog_url(source_url):
+                image_hash = hashlib.sha256(
+                    (COG_THUMBNAIL_PREFIX + source_url).encode()
+                ).hexdigest()
+            elif self._is_pmtiles_url(source_url):
+                image_hash = hashlib.sha256(
+                    (PMTILES_THUMBNAIL_PREFIX + source_url).encode()
+                ).hexdigest()
+            elif self._is_manifest_url(source_url):
+                manifest_cache_key = f"manifest:{source_url}"
+                cached_manifest_data = self.cache.get(manifest_cache_key)
+                if cached_manifest_data:
+                    manifest_json = json.loads(cached_manifest_data)
+                    resolved_url = self._extract_thumbnail_from_manifest_json(
+                        manifest_json, source_url
+                    )
+                    if resolved_url:
+                        standardized_url = self._standardize_iiif_url(resolved_url)
+                        image_hash = hashlib.sha256(
+                            (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
+                        ).hexdigest()
+            else:
+                standardized_url = self._standardize_iiif_url(source_url)
+                image_hash = hashlib.sha256(
+                    (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
+                ).hexdigest()
+
+            if image_hash and self.has_cached_image_sync(image_hash):
+                return image_hash
+            return None
+        except Exception as e:
+            self.logger.debug("Error resolving cached thumbnail hash for %s: %s", source_url, e)
             return None
 
     def _get_bbox_for_wms(self) -> Optional[str]:
@@ -429,33 +621,8 @@ class ImageService:
         if references is None and not self.by_uri:
             references = self._parse_legacy_references()
 
-        # b1g_image_ss takes priority: MUST use when present (BTAA curated image)
-        b1g_image = self.metadata.get("b1g_image_ss")
-        if b1g_image:
-            url = None
-            if isinstance(b1g_image, list) and b1g_image:
-                url = b1g_image[0]
-            elif isinstance(b1g_image, str):
-                # Handle JSON array string, e.g. '["https://..."]' from DB
-                s = b1g_image.strip()
-                if s.startswith(("http://", "https://")):
-                    url = s
-                elif s.startswith("["):
-                    try:
-                        parsed = json.loads(s)
-                        if isinstance(parsed, list) and parsed:
-                            url = parsed[0]
-                    except (json.JSONDecodeError, TypeError):
-                        pass
-            if isinstance(url, str) and url.strip().startswith(("http://", "https://")):
-                return url.strip()
-
-        # Check for direct thumbnail URL first (support http and https keys)
-        for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
-            if url := self._first_url(thumb_key, references=references):
-                return url
-
-        # Check for IIIF thumbnail URL
+        # Prefer IIIF sources so we can generate our own consistently sized thumbnail
+        # instead of inheriting a tiny upstream derivative from b1g_image_ss.
         for iiif_key in ("http://iiif.io/api/image", "https://iiif.io/api/image"):
             iiif_url = self._first_url(iiif_key, references=references)
             if not iiif_url:
@@ -468,16 +635,20 @@ class ImageService:
                 match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
                 if match:
                     collection, item_id = match.groups()
-                    return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}/full/200,/0/default.jpg"
+                    return self._standardize_iiif_url(
+                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}"
+                    )
 
                 # Pattern 2: /iiif/collection:id/manifest.json or /iiif/collection:id/
                 match = re.search(r"/iiif/([^/]+)/", iiif_url)
                 if match:
                     collection_item = match.group(1)
-                    return f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/200,/0/default.jpg"
+                    return self._standardize_iiif_url(
+                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}"
+                    )
 
             # For non-ContentDM IIIF URLs, use standard format
-            return f"{iiif_url}/full/200,/0/default.jpg"
+            return self._standardize_iiif_url(iiif_url)
 
         # Check for IIIF Manifest - only extract URL, don't fetch manifest
         # Prefer explicit manifest relation keys (http and https)
@@ -510,7 +681,9 @@ class ImageService:
                 if match:
                     collection_item = match.group(1)
                     # Convert to direct IIIF image URL
-                    image_url = f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}/full/400,/0/default.jpg"
+                    image_url = self._standardize_iiif_url(
+                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}"
+                    )
                     self.logger.info(
                         f"✅ Directly converted ContentDM manifest to image URL: {image_url}"
                     )
@@ -521,6 +694,16 @@ class ImageService:
             self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
             self._queue_manifest_processing(manifest_url)
             return manifest_url
+
+        # Use curated b1g_image_ss only after exhausting IIIF-based options.
+        b1g_image_url = self._b1g_image_source_url()
+        if b1g_image_url:
+            return b1g_image_url
+
+        # Check for direct thumbnail URL first (support http and https keys)
+        for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
+            if url := self._first_url(thumb_key, references=references):
+                return url
 
         # Check for ESRI services (including FeatureLayer for migration routes, etc.)
         for esri_uri in (
@@ -721,7 +904,7 @@ class ImageService:
         """Retrieve a cached image by its hash."""
         try:
             image_key = f"image:{image_hash}"
-            image_data = self.image_cache.get(image_key)
+            image_data = await asyncio.to_thread(self.image_cache.get, image_key)
             if image_data:
                 self.logger.debug(f"Serving cached image {image_hash}")
                 return image_data
@@ -729,6 +912,16 @@ class ImageService:
         except Exception as e:
             self.logger.error(f"Error retrieving cached image: {e}")
             return None
+
+    async def has_cached_image(self, image_hash: str) -> bool:
+        """Return True when the cached image bytes still exist in Redis."""
+        try:
+            image_key = f"image:{image_hash}"
+            exists = await asyncio.to_thread(self.image_cache.exists, image_key)
+            return bool(exists)
+        except Exception as e:
+            self.logger.error(f"Error checking cached image: {e}")
+            return False
 
     def is_pmtiles_skip_cached(self, image_hash: str) -> bool:
         """

@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { GalleryView } from '../../../components/search/GalleryView';
 import { BrowserRouter } from 'react-router';
 import { vi, describe, it, expect } from 'vitest';
@@ -46,6 +46,10 @@ const mockResults: GeoDocument[] = Array.from({ length: 25 }, (_, i) => ({
 }));
 
 describe('GalleryView', () => {
+  beforeEach(() => {
+    vi.useRealTimers();
+  });
+
   const renderGallery = (props: any = {}) => {
     return render(
       <BrowserRouter>
@@ -78,7 +82,7 @@ describe('GalleryView', () => {
     expect(thumbnail).toBeInTheDocument();
   });
 
-  it('ignores the generic resource thumbnail endpoint and still uses the grid fallback asset', () => {
+  it('routes the generic resource thumbnail endpoint through the gallery thumbnail route', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -95,9 +99,91 @@ describe('GalleryView', () => {
     });
 
     const thumbnail = container.querySelector(
-      'img[src="/static-maps/result-1/resource-class-icon"]'
+      'img[src="/resources/result-1/thumbnail"]'
     );
     expect(thumbnail).toBeInTheDocument();
+  });
+
+  it('routes raw bridge thumbnail assets through the gallery thumbnail route', () => {
+    const resultWithBridgeThumbnail: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          thumbnail_url:
+            'https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/test/huge-image.jpg',
+        },
+      },
+    };
+
+    const { container } = renderGallery({
+      results: [resultWithBridgeThumbnail],
+      totalResults: 1,
+    });
+
+    const thumbnail = container.querySelector(
+      'img[src="/resources/result-1/thumbnail"]'
+    );
+    expect(thumbnail).toBeInTheDocument();
+  });
+
+  it('hides the placeholder immediately for already-cached thumbnails', async () => {
+    const resultWithDirectThumbnail: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          thumbnail_url: 'https://example.com/thumb.jpg',
+        },
+      },
+    };
+
+    const completeSpy = vi
+      .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(true);
+    const naturalWidthSpy = vi
+      .spyOn(HTMLImageElement.prototype, 'naturalWidth', 'get')
+      .mockReturnValue(800);
+
+    try {
+      renderGallery({
+        results: [resultWithDirectThumbnail],
+        totalResults: 1,
+      });
+
+      await waitFor(() => {
+        expect(
+          screen.queryByTestId('gallery-thumbnail-placeholder-0')
+        ).not.toBeInTheDocument();
+      });
+    } finally {
+      naturalWidthSpy.mockRestore();
+      completeSpy.mockRestore();
+    }
+  });
+
+  it('defers below-the-fold gallery images until after initial paint', () => {
+    vi.useFakeTimers();
+
+    const { container } = renderGallery();
+
+    expect(
+      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(
+      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      vi.advanceTimersByTime(75);
+    });
+
+    expect(
+      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+    ).toBeInTheDocument();
   });
 
   it('passes correct state to Link', () => {

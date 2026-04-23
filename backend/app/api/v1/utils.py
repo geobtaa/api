@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, Optional
@@ -23,6 +24,10 @@ from db.database import database
 from db.models import resource_assets
 
 logger = logging.getLogger(__name__)
+IMMUTABLE_THUMBNAIL_URL_RE = re.compile(
+    r"(?:https?://[^/]+)?/api/v1/thumbnails/[0-9a-f]{64}(?:\?.*)?$",
+    re.IGNORECASE,
+)
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -102,7 +107,10 @@ def create_response(
 
 
 def add_thumbnail_url(
-    item: Dict, distribution_context: Optional[DistributionContext] = None
+    item: Dict,
+    distribution_context: Optional[DistributionContext] = None,
+    *,
+    hot_only: bool = False,
 ) -> Dict:
     """Add the ui_thumbnail_url to the item."""
     from app.services.image_service import ImageService
@@ -111,12 +119,44 @@ def add_thumbnail_url(
         distribution_context = build_distribution_context(item.get("id", ""), [])
 
     image_service = ImageService(item, distribution_context=distribution_context)
-    thumbnail_url = image_service.get_thumbnail_url()
+    thumbnail_url = (
+        image_service.get_hot_thumbnail_url() if hot_only else image_service.get_thumbnail_url()
+    )
 
     # Only set thumbnail_url if one was found (or placeholder for processing)
     # If None, frontend can use resource class (gbl_resourceClass_sm) to show default icon
     item["ui_thumbnail_url"] = thumbnail_url
     return item
+
+
+def _is_immutable_thumbnail_url(url: Optional[str]) -> bool:
+    return isinstance(url, str) and IMMUTABLE_THUMBNAIL_URL_RE.search(url) is not None
+
+
+def _build_static_map_url(resource_id: str) -> str:
+    application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+    return f"{application_url}/api/v1/static-maps/{resource_id}/geometry"
+
+
+def _hot_static_map_url(resource_dict: Dict[str, Any]) -> Optional[str]:
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    if not geometry:
+        return None
+
+    from app.services.static_map_service import StaticMapService
+
+    map_service = StaticMapService()
+    source_signature = map_service.geometry_signature(geometry)
+    map_hash = map_service.materialize_cached_variant_sync(
+        resource_dict["id"],
+        variant=map_service.geometry_variant(),
+        source_signature=source_signature,
+    )
+    if not map_hash:
+        return None
+
+    application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+    return f"{application_url}/api/v1/static-map-assets/{map_hash}"
 
 
 def add_citations(item: Dict, distribution_context: Optional[DistributionContext] = None) -> Dict:
@@ -207,6 +247,12 @@ async def _get_thumbnail_asset_url(resource_id: str) -> Optional[str]:
         # Never fail the request because of asset lookup issues
         logger.exception("Failed to resolve thumbnail asset for resource %s", resource_id)
         return None
+
+
+def _build_resource_thumbnail_url(resource_id: str) -> str:
+    """Return the stable API thumbnail endpoint for a resource."""
+    application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+    return f"{application_url}/api/v1/resources/{resource_id}/thumbnail"
 
 
 def create_jsonapi_response(data, request_url=None, callback=None):
@@ -654,14 +700,14 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     # Create JSON:API compliant resource first
     resource = create_jsonapi_resource(attributes)
 
-    # If a bridge-synced thumbnail asset exists, expose its URL in meta.ui.thumbnail_url.
-    # This gives the frontend a direct thumbnail source while keeping the existing
-    # /thumbnail endpoint behavior available via image_service.
+    # If a bridge-synced thumbnail asset exists, expose the stable thumbnail endpoint
+    # instead of the raw stored object so clients go through the resize/cache pipeline.
     thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
-    if thumb_asset_url:
+    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
+    if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = thumb_asset_url
+        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
 
     # Add Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:
@@ -677,8 +723,9 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     # This points directly at the geometry-overlay asset variant.
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
     if geometry:
-        application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-        static_map_url = f"{application_url}/api/v1/static-maps/{resource_dict['id']}/geometry"
+        static_map_url = _hot_static_map_url(resource_dict) or _build_static_map_url(
+            resource_dict["id"]
+        )
 
         if "meta" not in resource:
             resource["meta"] = {}
@@ -716,7 +763,66 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     return resource
 
 
-async def process_resource_optimized(resource_dict, allmaps_attributes, apply_field_mapping=True):
+async def process_resource_homepage(resource_dict, session, apply_field_mapping=True):
+    """
+    Lightweight resource processor for homepage previews.
+
+    The homepage only needs the core OGM attributes plus thumbnail/viewer metadata,
+    so this path intentionally skips downloads, relationships, similar items, and
+    other expensive enrichments used by the full resource view.
+    """
+    from app.services.allmaps_service import AllmapsService
+    from app.services.ogm_field_mapper import OGMFieldMapper
+    from app.services.viewer_service import ViewerService
+
+    if apply_field_mapping:
+        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
+
+    distribution_context = await fetch_distribution_context(resource_dict["id"])
+    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
+
+    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
+    viewer_attributes = viewer_service.get_viewer_attributes()
+
+    allmaps_service = AllmapsService(resource_dict)
+    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+
+    attributes = {
+        **resource_dict,
+        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
+        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
+        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
+    }
+
+    for key, value in viewer_attributes.items():
+        if key not in attributes:
+            attributes[key] = value
+
+    resource = create_jsonapi_resource(attributes)
+
+    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
+    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
+    if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
+
+    if allmaps_attributes:
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+
+    return resource
+
+
+async def process_resource_optimized(
+    resource_dict,
+    allmaps_attributes,
+    apply_field_mapping=True,
+    *,
+    hot_only_thumbnail_url: bool = False,
+):
     """
     Optimized version of process_resource for search results that uses pre-fetched Allmaps data.
     This eliminates the need for individual database queries during resource processing.
@@ -743,7 +849,11 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     distribution_context = await fetch_distribution_context(resource_dict["id"])
 
     # Add thumbnail URL
-    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
+    resource_dict = add_thumbnail_url(
+        resource_dict,
+        distribution_context=distribution_context,
+        hot_only=hot_only_thumbnail_url,
+    )
 
     # Generate citations (APA, MLA, Chicago)
     citation_service = CitationService(resource_dict, distribution_context=distribution_context)
@@ -798,12 +908,17 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     # Create JSON:API compliant resource first
     resource = create_jsonapi_resource(attributes)
 
-    # Prefer bridge-synced thumbnail assets when present.
+    # Prefer the stable thumbnail endpoint when a bridge-synced thumbnail asset exists.
     thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
-    if thumb_asset_url:
+    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
+    if (
+        thumb_asset_url
+        and not hot_only_thumbnail_url
+        and not _is_immutable_thumbnail_url(current_thumbnail_url)
+    ):
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = thumb_asset_url
+        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
 
     # Add pre-fetched Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:
@@ -819,8 +934,9 @@ async def process_resource_optimized(resource_dict, allmaps_attributes, apply_fi
     # See notes above in process_resource().
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
     if geometry:
-        application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-        static_map_url = f"{application_url}/api/v1/static-maps/{resource_dict['id']}/geometry"
+        static_map_url = _hot_static_map_url(resource_dict) or _build_static_map_url(
+            resource_dict["id"]
+        )
 
         if "meta" not in resource:
             resource["meta"] = {}

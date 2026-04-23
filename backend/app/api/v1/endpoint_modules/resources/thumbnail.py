@@ -10,20 +10,25 @@ from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import _get_thumbnail_asset_url, sanitize_for_json
+from app.services.cache_service import alias_redirect_cache_control_header
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
+from app.services.thumbnail_alias_service import thumbnail_alias_service
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
     ThumbnailStatePayload,
     safe_record_thumbnail_state,
+    thumbnail_state_service,
 )
 from app.tasks.worker import (
     _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
+    _normalize_thumbnail_image,
     _pmtiles_thumbnail_image_hash,
+    _remote_thumbnail_image_hash,
     generate_cog_thumbnail,
     generate_pmtiles_thumbnail,
 )
@@ -33,6 +38,54 @@ from . import async_session, logger, router
 
 # Timeout for probing thumbnail source URL (avoid blocking; fail fast if 404/unreachable)
 THUMBNAIL_PROBE_TIMEOUT = 5
+RESOURCE_CLASS_ICON_SIGNATURE_VERSION = "2026-04-22-a"
+
+
+def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
+    """Redirect clients to the immutable hash-addressed thumbnail asset."""
+    return RedirectResponse(
+        url=f"/api/v1/thumbnails/{image_hash}",
+        status_code=302,
+        headers={
+            "Cache-Control": alias_redirect_cache_control_header(),
+        },
+    )
+
+
+async def _current_hot_thumbnail_hash_for_resource(
+    resource_id: str,
+    *,
+    resource_dict: dict | None = None,
+) -> str | None:
+    """Return the current hot immutable thumbnail hash for a resource, if still valid."""
+    if resource_dict is None:
+        resource_dict = await _fetch_resource_dict(resource_id)
+        if not resource_dict:
+            await thumbnail_alias_service.delete(resource_id)
+            return None
+
+    distribution_context = await fetch_distribution_context(resource_id)
+    image_service = ImageService(resource_dict, distribution_context=distribution_context)
+    return await image_service.current_thumbnail_hash()
+
+
+async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse | None:
+    """Resolve a hot resource_id request through the alias cache before heavy work."""
+    image_hash = await thumbnail_alias_service.get_hash(resource_id)
+    if not image_hash:
+        state = await thumbnail_state_service.get_state(resource_id)
+        if not state:
+            return None
+
+        state_hash = state.get("source_hash")
+        if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
+            return None
+
+    current_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
+    if not current_hash:
+        return None
+
+    return _thumbnail_asset_redirect(current_hash)
 
 
 async def _probe_thumbnail_url(url: str) -> bool:
@@ -174,7 +227,7 @@ def _svg_resource_class_icon(
     *,
     background_data_uri: str | None = None,
     use_gradient: bool = False,
-) -> Response:
+) -> bytes:
     """
     Return an SVG icon for the resource's first resource class.
     Matches the frontend fallback icon set: Datasets, Maps, Web services,
@@ -226,17 +279,10 @@ def _svg_resource_class_icon(
         background_data_uri=background_data_uri,
         use_gradient=use_gradient,
     )
-    return Response(
-        content=svg,
-        media_type="image/svg+xml",
-        headers={
-            "Cache-Control": "no-store",
-            "X-Placeholder": "true",
-        },
-    )
+    return svg.encode("utf-8")
 
 
-async def _svg_icon_on_gradient(resource_dict: dict) -> Response:
+async def _svg_icon_on_gradient(resource_dict: dict) -> bytes:
     """Return a resource-class icon on a gradient background (no map)."""
     return _svg_resource_class_icon(
         _get_first_resource_class(resource_dict),
@@ -244,7 +290,34 @@ async def _svg_icon_on_gradient(resource_dict: dict) -> Response:
     )
 
 
-async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-basemap") -> Response:
+def _resource_class_icon_signature(
+    resource_dict: dict,
+    *,
+    variant: str = "icon-basemap",
+) -> str:
+    """Return a stable signature for a resource-class icon asset."""
+    map_service = StaticMapService()
+    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    payload = json.dumps(
+        {
+            "version": RESOURCE_CLASS_ICON_SIGNATURE_VERSION,
+            "variant": variant,
+            "geometry": map_service.geometry_signature(geometry),
+            "resource_class": _canonicalize_resource_class(
+                _get_first_resource_class(resource_dict)
+            ),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+async def _svg_icon_bytes_for_resource(
+    resource_dict: dict,
+    *,
+    variant: str = "icon-basemap",
+) -> bytes:
     """
     Return a resource-class icon, optionally layered over a basemap or gradient.
     variant: 'icon-basemap' (default) = icon on basemap; 'icon-gradient' = icon on gradient.
@@ -260,7 +333,12 @@ async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-ba
             # before the square thumbnail crop is applied in the SVG.
             map_service = StaticMapService()
             resource_id = str(resource_id)
-            map_bytes = await map_service.get_cached_basemap(resource_id)
+            geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+            source_signature = map_service.geometry_signature(geometry)
+            map_bytes = await map_service.get_cached_basemap(
+                resource_id,
+                source_signature=source_signature,
+            )
             if not map_bytes:
                 geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
                 generator = (
@@ -269,9 +347,18 @@ async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-ba
                     else map_service.generate_global_basemap
                 )
                 map_bytes = (
-                    await asyncio.to_thread(generator, resource_id, geometry)
+                    await asyncio.to_thread(
+                        generator,
+                        resource_id,
+                        geometry,
+                        source_signature=source_signature,
+                    )
                     if geometry
-                    else await asyncio.to_thread(generator, resource_id)
+                    else await asyncio.to_thread(
+                        generator,
+                        resource_id,
+                        source_signature=source_signature,
+                    )
                 )
             if map_bytes:
                 encoded = base64.b64encode(map_bytes).decode("ascii")
@@ -285,9 +372,28 @@ async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-ba
     )
 
 
+async def _svg_icon_for_resource(resource_dict: dict, *, variant: str = "icon-basemap") -> Response:
+    svg_bytes = await _svg_icon_bytes_for_resource(resource_dict, variant=variant)
+    return Response(
+        content=svg_bytes,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Placeholder": "true",
+        },
+    )
+
+
 def _svg_collection_icon() -> Response:
     """SVG icon for Collection resources (legacy alias)."""
-    return _svg_resource_class_icon("Collections")
+    return Response(
+        content=_svg_resource_class_icon("Collections"),
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Placeholder": "true",
+        },
+    )
 
 
 async def _fetch_resource_dict(id: str) -> dict | None:
@@ -313,40 +419,44 @@ async def _get_resource_thumbnail_response(
     """Resolve the resource thumbnail response for a specific fallback variant."""
     resource_dict = await _fetch_resource_dict(id)
     if not resource_dict:
+        await thumbnail_alias_service.delete(id)
         if not_found_placeholder:
             return _svg_placeholder(title="Thumbnail unavailable", subtitle="Resource not found")
         raise HTTPException(status_code=404, detail="Resource not found")
 
     # Check for restricted access rights
     if resource_dict.get("dct_accessrights_s") == "Restricted":
-        return _svg_placeholder(title="Thumbnail unavailable", subtitle="Restricted resource")
-
-    # Prefer bridge-synced thumbnail assets (e.g., S3-backed thumbnails) when present.
-    # These are exposed in meta.ui.thumbnail_url for API clients, but we also want the
-    # legacy /resources/{id}/thumbnail endpoint to serve them directly.
-    asset_url = await _get_thumbnail_asset_url(id)
-    if asset_url:
-        asset_ok = await _probe_thumbnail_url(asset_url)
-        if asset_ok:
-            return RedirectResponse(
-                url=asset_url,
-                status_code=302,
-                headers={
-                    # Allow browsers/CDNs to cache the concrete image URL aggressively.
-                    "Cache-Control": "public, max-age=31536000, immutable",
-                },
+        await safe_record_thumbnail_state(
+            ThumbnailStatePayload(
+                resource_id=id,
+                state=ThumbnailState.PLACEHELD,
+                source_type=None,
+                source_url=None,
+                state_detail="Restricted resource",
             )
-        logger.info(
-            "Thumbnail asset URL is unreachable or invalid for %s; falling back to generated asset",
-            id,
         )
+        return _svg_placeholder(title="Thumbnail unavailable", subtitle="Restricted resource")
 
     # Get distribution context and image service
     distribution_context = await fetch_distribution_context(id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
 
-    # Determine the source thumbnail URL
+    # Prefer intrinsic thumbnail sources (IIIF, direct image, COG, PMTiles, manifest)
+    # over bridge assets. Bridge-synced assets are a useful fallback, but they may be
+    # undersized or oversized relative to the native source.
     source_url = image_service._get_thumbnail_source_url()
+
+    if not source_url:
+        asset_url = await _get_thumbnail_asset_url(id)
+        if asset_url:
+            asset_ok = await _probe_thumbnail_url(asset_url)
+            if asset_ok:
+                source_url = asset_url
+            else:
+                logger.info(
+                    "Thumbnail asset URL is unreachable or invalid for %s; falling back to generated asset",
+                    id,
+                )
 
     if not source_url:
         # No thumbnail source: show resource-class icon
@@ -382,13 +492,13 @@ async def _get_resource_thumbnail_response(
                 )
                 if resolved_url:
                     resolved_url = image_service._standardize_iiif_url(resolved_url)
-                    image_hash = hashlib.sha256(resolved_url.encode()).hexdigest()
+                    image_hash = _remote_thumbnail_image_hash(resolved_url)
         except Exception as e:
             logger.debug(f"Error checking manifest cache for {id}: {e}")
     else:
         # Direct image URL
         standardized_url = image_service._standardize_iiif_url(source_url)
-        image_hash = hashlib.sha256(standardized_url.encode()).hexdigest()
+        image_hash = _remote_thumbnail_image_hash(standardized_url)
 
     # Check if image is cached
     if image_hash:
@@ -413,14 +523,7 @@ async def _get_resource_thumbnail_response(
                 )
             )
             # Image exists, redirect to the serving endpoint (same pattern as static-maps)
-            return RedirectResponse(
-                url=f"/api/v1/thumbnails/{image_hash}",
-                status_code=302,
-                headers={
-                    # Don't let caches pin the redirect response itself.
-                    "Cache-Control": "no-store",
-                },
-            )
+            return _thumbnail_asset_redirect(image_hash)
         # PMTiles: if we previously failed (e.g. vector tiles), show resource-class icon
         if image_service._is_pmtiles_url(source_url) and image_service.is_pmtiles_skip_cached(
             image_hash
@@ -575,6 +678,9 @@ async def get_resource_thumbnail(
         - SVG placeholder if thumbnail is not ready yet (queues background job)
     """
     try:
+        fast_redirect = await _fast_thumbnail_alias_redirect(id)
+        if fast_redirect is not None:
+            return fast_redirect
         return await _get_resource_thumbnail_response(
             id,
             request,
@@ -624,9 +730,16 @@ async def get_resource_thumbnail_no_cache(
         if image_service._is_cog_url(source_url):
             image_bytes = await asyncio.to_thread(_generate_cog_thumbnail_bytes, source_url)
             if image_bytes:
+                normalized_bytes, normalized_type = _normalize_thumbnail_image(
+                    image_bytes, "image/png"
+                )
+                if not normalized_bytes or not normalized_type:
+                    return _svg_placeholder(
+                        title="Thumbnail unavailable", subtitle="Error normalizing image"
+                    )
                 return Response(
-                    content=image_bytes,
-                    media_type="image/png",
+                    content=normalized_bytes,
+                    media_type=normalized_type,
                     headers={"Cache-Control": "no-store"},
                 )
             return await _svg_icon_for_resource(resource_dict, variant=variant)
@@ -635,12 +748,14 @@ async def get_resource_thumbnail_no_cache(
         if image_service._is_pmtiles_url(source_url):
             image_bytes = await asyncio.to_thread(_generate_pmtiles_thumbnail_bytes, source_url)
             if image_bytes:
-                from app.api.v1.endpoint_modules.thumbnails import _detect_image_type
-
-                content_type = _detect_image_type(image_bytes)
+                normalized_bytes, normalized_type = _normalize_thumbnail_image(image_bytes, None)
+                if not normalized_bytes or not normalized_type:
+                    return _svg_placeholder(
+                        title="Thumbnail unavailable", subtitle="Error normalizing image"
+                    )
                 return Response(
-                    content=image_bytes,
-                    media_type=content_type or "image/png",
+                    content=normalized_bytes,
+                    media_type=normalized_type,
                     headers={"Cache-Control": "no-store"},
                 )
             return await _svg_icon_for_resource(resource_dict, variant=variant)
@@ -664,14 +779,15 @@ async def get_resource_thumbnail_no_cache(
                 title="Thumbnail unavailable", subtitle="Error downloading image"
             )
 
-        # Detect content type similarly to the cached thumbnail endpoint
-        from app.api.v1.endpoint_modules.thumbnails import _detect_image_type
-
-        content_type = _detect_image_type(image_bytes)
+        normalized_bytes, normalized_type = _normalize_thumbnail_image(image_bytes, None)
+        if not normalized_bytes or not normalized_type:
+            return _svg_placeholder(
+                title="Thumbnail unavailable", subtitle="Error normalizing image"
+            )
 
         return Response(
-            content=image_bytes,
-            media_type=content_type,
+            content=normalized_bytes,
+            media_type=normalized_type,
             headers={"Cache-Control": "no-store"},
         )
     except Exception as e:

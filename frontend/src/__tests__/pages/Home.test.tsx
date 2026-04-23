@@ -11,6 +11,9 @@ import { getPartnerInstitutionSearchHref } from '../../constants/partnerInstitut
 vi.mock('../../components/SearchField', () => ({
   SearchField: () => <input placeholder="Search for maps, data, imagery..." />,
 }));
+vi.mock('../../components/home/HomePageHexMapBackground.client', () => ({
+  HomePageHexMapBackground: () => null,
+}));
 
 describe('Home Page', () => {
   const renderHome = () => {
@@ -59,11 +62,6 @@ describe('Home Page', () => {
     expect(screen.getByAltText(/logo for indiana university/i)).toBeInTheDocument();
     expect(
       screen.getByAltText(/logo for university of washington/i)
-    ).toBeInTheDocument();
-    expect(
-      container.querySelector(
-        '[style*="/institutions/indiana-university/static-map"]'
-      )
     ).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /search resources near indiana university/i })

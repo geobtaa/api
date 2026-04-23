@@ -1,6 +1,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   Suspense,
   lazy,
@@ -40,6 +41,75 @@ const BTAA_VIDEO_MODAL_TITLE_ID = 'btaa-video-modal-title';
 const BTAA_VIDEO_EMBED_URL =
   'https://www.youtube.com/embed/p060LdJodXQ?autoplay=1&rel=0';
 
+function useSectionActivation<T extends HTMLElement>(rootMargin = '320px') {
+  const ref = useRef<T | null>(null);
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (active || typeof window === 'undefined') return;
+
+    if (typeof window.IntersectionObserver !== 'function') {
+      setActive(true);
+      return;
+    }
+
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setActive(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin, threshold: 0.01 }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [active, rootMargin]);
+
+  return { active, ref };
+}
+
+function useIdleActivation(timeout = 1200) {
+  const [active, setActive] = useState(false);
+
+  useEffect(() => {
+    if (active || typeof window === 'undefined') return;
+
+    let cancelled = false;
+    let idleCallbackId: number | null = null;
+
+    const activate = () => {
+      if (!cancelled) setActive(true);
+    };
+
+    if (
+      'requestIdleCallback' in window &&
+      typeof window.requestIdleCallback === 'function'
+    ) {
+      idleCallbackId = window.requestIdleCallback(activate, { timeout });
+    } else {
+      activate();
+    }
+
+    return () => {
+      cancelled = true;
+      if (
+        idleCallbackId !== null &&
+        'cancelIdleCallback' in window &&
+        typeof window.cancelIdleCallback === 'function'
+      ) {
+        window.cancelIdleCallback(idleCallbackId);
+      }
+    };
+  }, [active, timeout]);
+
+  return active;
+}
+
 export function HomePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -54,8 +124,9 @@ export function HomePage() {
   const [placeList, setPlaceList] = useState<FacetItem[]>([]);
   const [themeList, setThemeList] = useState<FacetItem[]>([]);
   const [publisherList, setPublisherList] = useState<FacetItem[]>([]);
-  const [resourceTypeFacetId, setResourceTypeFacetId] =
-    useState('gbl_resourceType_sm');
+  const [resourceTypeFacetId, setResourceTypeFacetId] = useState(
+    'gbl_resourceType_sm'
+  );
   const [placeFacetId, setPlaceFacetId] = useState('dct_spatial_sm');
   const [themeFacetId, setThemeFacetId] = useState('dcat_theme_sm');
   const [publisherFacetId, setPublisherFacetId] = useState('dct_publisher_sm');
@@ -74,9 +145,16 @@ export function HomePage() {
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
   const blogLimit = 3;
+  const browseSection = useSectionActivation<HTMLDivElement>('960px');
+  const browseFacetPrefetch = useIdleActivation();
+  const partnerSection = useSectionActivation<HTMLElement>('640px');
+  const blogSection = useSectionActivation<HTMLDivElement>('480px');
+  const shouldLoadBrowseFacets = browseSection.active || browseFacetPrefetch;
 
   function facetValuesToItems(
-    data: Array<{ attributes?: { value?: unknown; label?: unknown; hits?: number } }>
+    data: Array<{
+      attributes?: { value?: unknown; label?: unknown; hits?: number };
+    }>
   ): FacetItem[] {
     const items: FacetItem[] = [];
     if (!Array.isArray(data)) return items;
@@ -104,6 +182,8 @@ export function HomePage() {
   }
 
   useEffect(() => {
+    if (!shouldLoadBrowseFacets) return;
+
     const fetchFacets = async () => {
       const searchParams = new URLSearchParams();
       searchParams.set('q', '');
@@ -127,7 +207,9 @@ export function HomePage() {
             )
           );
 
-        const resourceTypeItems = facetValuesToItems(resourceTypeRes.data ?? []);
+        const resourceTypeItems = facetValuesToItems(
+          resourceTypeRes.data ?? []
+        );
         const placeItems = facetValuesToItems(placeRes.data ?? []);
         const themeItems = facetValuesToItems(themeRes.data ?? []);
         const publisherItems = facetValuesToItems(publisherRes.data ?? []);
@@ -148,8 +230,8 @@ export function HomePage() {
       }
     };
 
-    fetchFacets();
-  }, []);
+    void fetchFacets();
+  }, [shouldLoadBrowseFacets]);
 
   useEffect(() => {
     const handleHeroDescriptionVisibility = (event: Event) => {
@@ -177,6 +259,7 @@ export function HomePage() {
       setBlogPosts([]);
       return;
     }
+    if (!blogSection.active) return;
 
     const fetchBlogPosts = async () => {
       setBlogLoading(true);
@@ -196,8 +279,8 @@ export function HomePage() {
       }
     };
 
-    fetchBlogPosts();
-  }, [blogEnabled, blogLimit]);
+    void fetchBlogPosts();
+  }, [blogEnabled, blogLimit, blogSection.active]);
 
   const handleResourceTypeClick = (value: string) => {
     navigate(
@@ -263,35 +346,44 @@ export function HomePage() {
       <div>
         <h3 className="text-lg font-semibold text-gray-900 mb-3">{title}</h3>
         <div className="space-y-2">
-          {items.map((item) => {
-            const formattedCount = !isLoading ? formatCount(item.count) : '';
-            const rowAriaLabel = !isLoading
-              ? `${title} ${item.label}, ${formattedCount} resources`
-              : `${title} ${item.label}`;
+          {isLoading && items.length === 0
+            ? Array.from({ length: 5 }, (_, index) => (
+                <div
+                  key={`${title.toLowerCase()}-skeleton-${index}`}
+                  className="h-[46px] animate-pulse border border-gray-200 bg-slate-100"
+                />
+              ))
+            : items.map((item) => {
+                const formattedCount = !isLoading
+                  ? formatCount(item.count)
+                  : '';
+                const rowAriaLabel = !isLoading
+                  ? `${title} ${item.label}, ${formattedCount} resources`
+                  : `${title} ${item.label}`;
 
-            return (
-              <button
-                key={`${title.toLowerCase()}-${item.value}`}
-                onClick={() => onClick(item.value)}
-                className="flex w-full items-center gap-2 border border-gray-200 border-l-[2px] border-l-[#003C5B] bg-white px-3 py-2 text-left transition-colors group hover:bg-slate-50"
-                aria-label={rowAriaLabel}
-              >
-                <div className="flex w-full items-center gap-2">
-                  {iconRenderer && (
-                    <div className="shrink-0 text-gray-500">
-                      {iconRenderer(item.value)}
+                return (
+                  <button
+                    key={`${title.toLowerCase()}-${item.value}`}
+                    onClick={() => onClick(item.value)}
+                    className="flex w-full items-center gap-2 border border-gray-200 border-l-[2px] border-l-[#003C5B] bg-white px-3 py-2 text-left transition-colors group hover:bg-slate-50"
+                    aria-label={rowAriaLabel}
+                  >
+                    <div className="flex w-full items-center gap-2">
+                      {iconRenderer && (
+                        <div className="shrink-0 text-gray-500">
+                          {iconRenderer(item.value)}
+                        </div>
+                      )}
+                      <span className="truncate text-gray-700">
+                        {item.label}
+                      </span>
+                      <span className="ml-auto shrink-0 px-1.5 py-0.5 text-sm font-semibold tabular-nums text-gray-900">
+                        {formattedCount}
+                      </span>
                     </div>
-                  )}
-                  <span className="truncate text-gray-700">
-                    {item.label}
-                  </span>
-                  <span className="ml-auto shrink-0 px-1.5 py-0.5 text-sm font-semibold tabular-nums text-gray-900">
-                    {formattedCount}
-                  </span>
-                </div>
-              </button>
-            );
-          })}
+                  </button>
+                );
+              })}
         </div>
         <button
           type="button"
@@ -366,7 +458,10 @@ export function HomePage() {
         </div>
         <HomepageFeaturedCollection />
         {/* Browse All Resources section */}
-        <div className="flex-shrink-0 w-full border-y border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10">
+        <div
+          ref={browseSection.ref}
+          className="flex-shrink-0 w-full border-y border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10"
+        >
           <div>
             <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
               <div className="max-w-2xl">
@@ -374,10 +469,7 @@ export function HomePage() {
                   Browse All Resources
                 </h2>
               </div>
-              <button
-                onClick={handleBrowseAll}
-                className={primaryCtaClass}
-              >
+              <button onClick={handleBrowseAll} className={primaryCtaClass}>
                 View all resources
                 <ArrowRight className="h-4 w-4" />
               </button>
@@ -410,7 +502,10 @@ export function HomePage() {
             </div>
           </div>
         </div>
-        <section className="w-full border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10">
+        <section
+          ref={partnerSection.ref}
+          className="w-full border-t border-gray-200 bg-white px-4 sm:px-6 lg:px-8 py-10"
+        >
           <div className="w-full">
             <p className="text-xs font-semibold tracking-[0.16em] text-brand-primary uppercase text-center mb-2">
               Big Ten Academic Alliance Geoportal
@@ -423,18 +518,24 @@ export function HomePage() {
               {BTAA_PARTNER_INSTITUTIONS.map((institution) => {
                 const searchHref = getPartnerInstitutionSearchHref(institution);
                 const tileContent = (
-                  <div
-                    className="relative flex h-full min-h-[84px] w-full items-center justify-center overflow-hidden bg-[#003C5B] p-3"
-                  >
-                    {institution.campusMap && (
-                      <div
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-100 transition-transform duration-300 group-hover:scale-105"
-                        style={{
-                          backgroundImage: `url(/institutions/${institution.slug}/static-map)`,
-                        }}
-                      />
-                    )}
+                  <div className="relative flex h-full min-h-[84px] w-full items-center justify-center overflow-hidden bg-[#003C5B] p-3">
+                    {institution.campusMap &&
+                      (partnerSection.active ? (
+                        <img
+                          src={`/institutions/${institution.slug}/static-map`}
+                          alt=""
+                          aria-hidden="true"
+                          loading="lazy"
+                          decoding="async"
+                          fetchpriority="low"
+                          className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-100 transition-transform duration-300 group-hover:scale-105"
+                        />
+                      ) : (
+                        <div
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_30%_35%,rgba(255,255,255,0.18),transparent_45%),linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.03))]"
+                        />
+                      ))}
                     <div className="relative z-10 flex items-center justify-center rounded-md bg-[#003C5B]/70 px-3 py-2 shadow-sm backdrop-blur-[1px] transition-colors group-hover:bg-[#003C5B]/78">
                       <img
                         src={
@@ -489,7 +590,7 @@ export function HomePage() {
           </div>
         </section>
         {blogEnabled && (
-          <div className="w-full">
+          <div ref={blogSection.ref} className="w-full">
             <GinBlogSection
               posts={blogPosts}
               loading={blogLoading}

@@ -14,7 +14,8 @@ import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_ITEMS } from '../../config/featured';
-import { fetchResourceDetails } from '../../services/api';
+import { fetchFeaturedResourcePreview } from '../../services/api';
+import { getApiBasePath } from '../../services/api';
 import type { GeoDocumentDetails } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { ResultCardPill } from '../search/ResultCardPill';
@@ -30,11 +31,22 @@ import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
+const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
+
+function toBrowserApiAssetUrl(pathname: string, search = ''): string {
+  const apiBasePath = getApiBasePath().replace(/\/$/, '');
+  const assetPath = pathname.replace(/^\/api\/v1/, '');
+  return `${apiBasePath}${assetPath}${search}`;
+}
+
 function toSsrThumbnailUrl(url: string | undefined): string {
   if (!url || typeof url !== 'string') return '';
   try {
     if (url.startsWith('http://') || url.startsWith('https://')) {
       const u = new URL(url);
+      if (IMMUTABLE_THUMBNAIL_PATH_RE.test(u.pathname)) {
+        return toBrowserApiAssetUrl(u.pathname, u.search);
+      }
       if (u.pathname.startsWith('/api/v1/thumbnails/')) {
         return (
           u.pathname.replace('/api/v1/thumbnails/', '/thumbnails/') + u.search
@@ -45,6 +57,9 @@ function toSsrThumbnailUrl(url: string | undefined): string {
       }
       return url;
     }
+    if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) {
+      return toBrowserApiAssetUrl(url);
+    }
     if (url.startsWith('/api/v1/thumbnails/')) {
       return url.replace('/api/v1/thumbnails/', '/thumbnails/');
     }
@@ -52,8 +67,10 @@ function toSsrThumbnailUrl(url: string | undefined): string {
     if (m) return m[1];
     return url;
   } catch {
-    if (url.includes('/api/v1/thumbnails/'))
+    if (url.includes('/api/v1/thumbnails/')) {
+      if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) return toBrowserApiAssetUrl(url);
       return url.replace('/api/v1/thumbnails/', '/thumbnails/');
+    }
     if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail'))
       return url.replace('/api/v1', '');
     return url;
@@ -388,14 +405,34 @@ export function HomePageHexMapBackground() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.allSettled(
-      FEATURED_ITEMS.map((item) => fetchResourceDetails(item.id))
-    ).then((results) => {
-      if (cancelled) return;
-      setFeaturedDetails(
-        results.map((r) => (r.status === 'fulfilled' ? r.value : null))
+
+    const loadDetail = async (itemId: string, index: number) => {
+      try {
+        const detail = await fetchFeaturedResourcePreview(itemId);
+        if (cancelled) return;
+        setFeaturedDetails((prev) => {
+          const next = [...prev];
+          next[index] = detail;
+          return next;
+        });
+      } catch {
+        // Keep the placeholder state for this thumbnail.
+      }
+    };
+
+    const loadFeaturedPreviews = async () => {
+      const [firstItem, ...remainingItems] = FEATURED_ITEMS;
+
+      if (firstItem) {
+        await loadDetail(firstItem.id, 0);
+      }
+
+      await Promise.allSettled(
+        remainingItems.map((item, offset) => loadDetail(item.id, offset + 1))
       );
-    });
+    };
+
+    void loadFeaturedPreviews();
     return () => {
       cancelled = true;
     };

@@ -43,16 +43,6 @@ export function SearchResults({
     return (currentPage - 1) * perPage + relativeIndex + 1;
   };
 
-  // Add debug logging
-  console.log('SearchResults props:', {
-    resultCount: results.length,
-    firstResult: results[0],
-    thumbnailUrls: results.map((r) => ({
-      id: r.id,
-      thumbnail: r.meta?.ui?.thumbnail_url,
-    })),
-  });
-
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-20">
@@ -75,58 +65,6 @@ export function SearchResults({
         const ogm = result?.attributes?.ogm;
         const title = ogm?.dct_title_s ?? '(Untitled)';
         const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
-
-        // Add detailed debugging to inspect the actual structure
-        console.log('Raw result object:', {
-          id: result.id,
-          type: result.type,
-          attributes: result.attributes,
-          thumbnail: result.meta?.ui?.thumbnail_url,
-          // Log the full object to see its structure
-          fullResult: result,
-        });
-
-        // Deep inspection of meta structure
-        const metaUi = result.meta?.ui;
-        const allMetaUiProps = metaUi ? Object.getOwnPropertyNames(metaUi) : [];
-        const metaUiDescriptors = metaUi
-          ? Object.getOwnPropertyDescriptors(metaUi)
-          : {};
-
-        console.log('Deep meta inspection:', {
-          hasMeta: !!result.meta,
-          metaKeys: result.meta ? Object.keys(result.meta) : [],
-          hasMetaUi: !!metaUi,
-          metaUiKeys: metaUi ? Object.keys(metaUi) : [],
-          allMetaUiProps: allMetaUiProps,
-          thumbnailUrlDirect: metaUi?.thumbnail_url,
-          thumbnailUrlBracket: metaUi?.['thumbnail_url'],
-          thumbnailUrlDescriptor: metaUiDescriptors['thumbnail_url'],
-          metaUiStringified: metaUi ? JSON.stringify(metaUi) : 'no ui',
-          fullMetaStringified: result.meta
-            ? JSON.stringify(result.meta)
-            : 'no meta',
-          // Try to access via Object.getOwnPropertyDescriptor
-          hasThumbnailProperty: metaUi && 'thumbnail_url' in metaUi,
-          thumbnailUrlViaGetOwnProperty: metaUi
-            ? Object.getOwnPropertyDescriptor(metaUi, 'thumbnail_url')?.value
-            : undefined,
-        });
-
-        // Add detailed debug logging for thumbnails
-        console.log('Full result object:', result);
-        console.log('Result thumbnail debug:', {
-          id: result.id,
-          title,
-          thumbnailUrl: result.meta?.ui?.thumbnail_url,
-          resourceClass,
-        });
-
-        // Debug individual result
-        console.log(`Rendering result ${result.id}:`, {
-          title,
-          thumbnail: result.meta?.ui?.thumbnail_url,
-        });
 
         const hoverGeometry = getHoverGeometryForResult(result);
         return (
@@ -166,22 +104,6 @@ export function SearchResults({
                   );
                   const hasThumbnail = !imageErrors.has(result.id);
 
-                  // Debug logging for thumbnail rendering decision
-                  if (!hasThumbnail) {
-                    console.log(`Thumbnail check for ${result.id}:`, {
-                      hasMeta: !!result.meta,
-                      hasMetaUi: !!result.meta?.ui,
-                      primaryImageUrl,
-                      isInImageErrors: imageErrors.has(result.id),
-                      metaUiKeys: result.meta?.ui
-                        ? Object.keys(result.meta.ui)
-                        : [],
-                      metaUiStringified: result.meta?.ui
-                        ? JSON.stringify(result.meta.ui)
-                        : 'no ui',
-                    });
-                  }
-
                   return hasThumbnail ? (
                     <div
                       className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} rounded-l-lg`}
@@ -191,24 +113,8 @@ export function SearchResults({
                         alt=""
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
-                          console.error(
-                            `Error loading thumbnail for ${result.id}:`,
-                            {
-                              primaryImageUrl,
-                              error: e,
-                              target: (e.target as HTMLImageElement)?.src,
-                            }
-                          );
                           setImageErrors((prev) =>
                             new Set(prev).add(result.id)
-                          );
-                        }}
-                        onLoad={() => {
-                          console.log(
-                            `Successfully loaded thumbnail for ${result.id}:`,
-                            {
-                              primaryImageUrl,
-                            }
                           );
                         }}
                       />

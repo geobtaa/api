@@ -4,10 +4,12 @@ Tests for ImageService - comprehensive coverage using real fixtures and data.
 
 import hashlib
 import json
+from unittest.mock import patch
 
 import pytest
 
 from app.services.image_service import ImageService
+from app.services.thumbnail_state_service import ThumbnailState
 
 
 class TestImageService:
@@ -54,14 +56,14 @@ class TestImageService:
 class TestImageServiceURLStandardization:
     """Test cases for IIIF URL standardization using real URLs."""
 
-    def test_standardize_iiif_url_stanford_preserves_sizing(self):
-        """Test that Stanford URLs with proper sizing are preserved."""
+    def test_standardize_iiif_url_stanford_uses_standard_box(self):
+        """Test that Stanford IIIF URLs are normalized to the standard box size."""
         metadata = {"id": "test-doc"}
 
         try:
             service = ImageService(metadata)
 
-            # Test Stanford URLs that should be preserved
+            # Test Stanford URLs that should be normalized
             test_urls = [
                 "https://stacks.stanford.edu/image/iiif/full/400,/0/default.jpg",
                 "https://stacks.stanford.edu/image/iiif/full/!,/0/default.jpg",
@@ -69,7 +71,7 @@ class TestImageServiceURLStandardization:
 
             for url in test_urls:
                 result = service._standardize_iiif_url(url)
-                assert result == url
+                assert "/full/!800,800/" in result
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -84,10 +86,10 @@ class TestImageServiceURLStandardization:
 
             # Test URLs that should have size parameters removed and standardized
             test_cases = [
-                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/400,/"),
+                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/!800,800/"),
             ]
 
             for input_url, expected_pattern in test_cases:
@@ -99,7 +101,7 @@ class TestImageServiceURLStandardization:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_standardize_iiif_url_adds_standard_size(self):
-        """Test adding standard 400px size to IIIF URLs."""
+        """Test adding standard boxed size to IIIF URLs."""
         metadata = {"id": "test-doc"}
 
         try:
@@ -114,7 +116,7 @@ class TestImageServiceURLStandardization:
             for url in test_urls:
                 result = service._standardize_iiif_url(url)
                 # Should contain the standard size pattern
-                assert "/full/400,/" in result or result == url
+                assert "/full/!800,800/" in result or result == url
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -146,8 +148,8 @@ class TestImageServiceURLStandardization:
 class TestImageServiceThumbnailSourceURL:
     """Test cases for thumbnail source URL extraction using real reference data."""
 
-    def test_get_thumbnail_source_url_b1g_image_ss_takes_priority(self):
-        """b1g_image_ss MUST be used when present; overrides all other sources."""
+    def test_get_thumbnail_source_url_iiif_beats_b1g_image_ss(self):
+        """Prefer IIIF-derived thumbnails over curated b1g_image_ss derivatives."""
         metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
         try:
             service = ImageService(metadata)
@@ -156,7 +158,20 @@ class TestImageServiceThumbnailSourceURL:
                 "http://iiif.io/api/image": "http://example.com/iiif/image",
             }
             result = service._get_thumbnail_source_url(references)
-            assert result == "https://curated.example.com/thumb.jpg"
+            assert result == "http://example.com/iiif/image/full/!800,800/0/default.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_manifest_beats_b1g_image_ss(self):
+        """Prefer IIIF manifests over b1g_image_ss when both are present."""
+        manifest_url = "https://example.com/iiif/manifest"
+        metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+        try:
+            service = ImageService(metadata)
+            result = service._get_thumbnail_source_url(
+                {"http://iiif.io/api/presentation#manifest": manifest_url}
+            )
+            assert result == manifest_url
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
@@ -227,7 +242,7 @@ class TestImageServiceThumbnailSourceURL:
             # Test IIIF image URL extraction
             references = {"http://iiif.io/api/image": "http://example.com/iiif/image"}
             result = service._get_thumbnail_source_url(references)
-            assert "http://example.com/iiif/image/full/200,/0/default.jpg" == result
+            assert "http://example.com/iiif/image/full/!800,800/0/default.jpg" == result
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -246,7 +261,7 @@ class TestImageServiceThumbnailSourceURL:
             }
             result = service._get_thumbnail_source_url(references)
             assert (
-                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/200,/0/default.jpg"
+                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg"
                 in result
             )
 
@@ -609,6 +624,190 @@ class TestImageServiceThumbnailURL:
         except Exception as e:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_url_invalidates_stale_alias_hash(self):
+        """A stale alias should not keep an outdated immutable asset pinned forever."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        stale_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=stale_hash,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value={
+                    "state": ThumbnailState.SUCCESS,
+                    "source_hash": stale_hash,
+                    "source_url": "http://example.com/old-thumb.jpg",
+                },
+            ),
+            patch("app.services.image_service.thumbnail_alias_service.delete_sync") as mock_delete,
+            patch.object(
+                ImageService,
+                "_candidate_cached_thumbnail_hash_sync",
+                return_value=None,
+            ),
+        ):
+            service = ImageService(metadata)
+            result = service.get_thumbnail_url()
+
+        assert result == "http://localhost:8000/api/v1/resources/test-doc/thumbnail"
+        mock_delete.assert_called()
+
+    def test_get_thumbnail_url_falls_back_to_persisted_success_hash(self):
+        """Persisted success state should emit the immutable asset even if alias cache is cold."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value={
+                    "state": ThumbnailState.SUCCESS,
+                    "source_hash": image_hash,
+                    "source_url": "http://example.com/thumb.jpg",
+                },
+            ),
+            patch.object(ImageService, "has_cached_image_sync", return_value=True),
+            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
+        ):
+            service = ImageService(metadata)
+            result = service.get_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+        mock_set.assert_called_once_with("test-doc", image_hash)
+
+    def test_get_thumbnail_url_prefers_cached_source_hash_without_alias_or_state(self):
+        """A cached deterministic source hash should emit the immutable asset immediately."""
+        source_url = "https://example.com/thumb.jpg"
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps({"http://schema.org/thumbnailUrl": source_url}),
+        }
+        image_hash = hashlib.sha256(
+            ("remote-thumb-normalized:v3:" + source_url).encode()
+        ).hexdigest()
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value=None,
+            ),
+            patch.object(ImageService, "has_cached_image_sync", return_value=True),
+            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
+        ):
+            service = ImageService(metadata)
+            result = service.get_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+        mock_set.assert_called_once_with("test-doc", image_hash)
+
+    def test_get_hot_thumbnail_url_reuses_current_alias_hash(self):
+        """Hot-only URL generation may reuse an alias when it still matches the current source."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=image_hash,
+            ),
+            patch.object(
+                ImageService,
+                "_candidate_cached_thumbnail_hash_sync",
+                return_value=image_hash,
+            ),
+        ):
+            service = ImageService(metadata)
+            result = service.get_hot_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+
+    def test_get_hot_thumbnail_url_falls_back_to_persisted_success_hash(self):
+        """Hot-only URL generation should use persisted success state."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value={
+                    "state": ThumbnailState.SUCCESS,
+                    "source_hash": image_hash,
+                    "source_url": "http://example.com/thumb.jpg",
+                },
+            ),
+            patch.object(ImageService, "has_cached_image_sync", return_value=True),
+            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
+        ):
+            service = ImageService(metadata)
+            result = service.get_hot_thumbnail_url()
+
+        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
+        mock_set.assert_called_once_with("test-doc", image_hash)
+
+    def test_get_hot_thumbnail_url_returns_none_when_bytes_are_not_hot(self):
+        """Hot-only URL generation should prefer no image over the slow resolver path."""
+        metadata = {
+            "id": "test-doc",
+            "dct_references_s": json.dumps(
+                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
+            ),
+        }
+
+        with (
+            patch(
+                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+                return_value=None,
+            ),
+            patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value=None,
+            ),
+            patch.object(
+                ImageService,
+                "_candidate_cached_thumbnail_hash_sync",
+                return_value=None,
+            ),
+        ):
+            service = ImageService(metadata)
+            result = service.get_hot_thumbnail_url()
+
+        assert result is None
 
     def test_get_thumbnail_url_no_thumbnail_source(self):
         """Test behavior when no thumbnail source is found."""
@@ -1257,13 +1456,13 @@ class TestImageServiceEdgeCases:
 
             # Test various URL patterns
             test_cases = [
-                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/,/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/!/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/400,/"),
-                ("https://example.com/iiif/image/full/full/0/default.png", "/full/400,/"),
+                ("https://example.com/iiif/image/full/full/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/,/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/!/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/,200/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/200,200/0/default.jpg", "/full/!800,800/"),
+                ("https://example.com/iiif/image/full/full/0/default.png", "/full/!800,800/"),
             ]
 
             for input_url, expected_pattern in test_cases:
@@ -1289,7 +1488,7 @@ class TestImageServiceEdgeCases:
 
             # Should transform to proper ContentDM IIIF format
             assert (
-                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/200,/0/default.jpg"
+                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg"
                 in result
             )
 

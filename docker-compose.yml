@@ -167,6 +167,9 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
+      # Local Redis persists its append-only dataset; when the cache grows, replay can
+      # take over a minute before the server starts accepting connections.
+      start_period: 120s
     restart: unless-stopped
 
   celery_worker:

@@ -1,4 +1,5 @@
 import type { LoaderFunctionArgs } from "@react-router";
+import { proxyUpstreamResponse } from "../lib/proxy-response";
 import { serverFetch } from "../lib/server-api";
 import { getPartnerInstitutionBySlug } from "../../src/constants/partnerInstitutions";
 
@@ -27,10 +28,5 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
     },
   );
 
-  const body = await upstream.arrayBuffer();
-  const headers = new Headers(upstream.headers);
-  headers.delete("content-encoding");
-  headers.delete("content-length");
-
-  return new Response(body, { status: upstream.status, headers });
+  return proxyUpstreamResponse(upstream);
 }

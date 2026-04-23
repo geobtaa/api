@@ -1,9 +1,11 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from httpx import AsyncClient
+from starlette.requests import Request
 
+from app.api.v1.endpoint_modules.search import _handle_search
 from app.main import app
 
 client = TestClient(app)
@@ -16,6 +18,24 @@ def _check_elasticsearch_error(response):
         error_str = str(error_data.get("error", "")).lower()
         if any(term in error_str for term in ["elasticsearch", "index", "connection", "not found"]):
             pytest.skip(f"Elasticsearch not available: {error_data.get('error', 'Unknown error')}")
+
+
+def _build_request(query_string: bytes) -> Request:
+    return Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "GET",
+            "scheme": "http",
+            "path": "/api/v1/search",
+            "raw_path": b"/api/v1/search",
+            "query_string": query_string,
+            "headers": [],
+            "server": ("testserver", 80),
+            "client": ("testclient", 50000),
+            "root_path": "",
+        }
+    )
 
 
 @pytest.fixture
@@ -125,6 +145,75 @@ async def test_suggest_endpoint(async_client: AsyncClient):
     data = response.json()
     assert "data" in data
     assert isinstance(data["data"], list)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query_string", "expected_hot_only"),
+    [
+        (b"q=st+paul&view=gallery", True),
+        (b"q=st+paul&view=list", False),
+    ],
+)
+async def test_handle_search_sets_gallery_hot_only_thumbnail_mode(
+    query_string: bytes, expected_hot_only: bool
+):
+    request = _build_request(query_string)
+    row = MagicMock()
+    row._mapping = {"id": "test-doc", "dct_title_s": "Test Resource"}
+
+    db_result = MagicMock()
+    db_result.fetchall.return_value = [row]
+
+    session = AsyncMock()
+    session.execute.return_value = db_result
+
+    session_context = AsyncMock()
+    session_context.__aenter__.return_value = session
+    session_context.__aexit__.return_value = False
+
+    processed_resource = {
+        "type": "resource",
+        "id": "test-doc",
+        "attributes": {},
+        "meta": {"ui": {}},
+    }
+
+    with (
+        patch(
+            "app.api.v1.endpoint_modules.search.SearchService.search",
+            new=AsyncMock(
+                return_value={
+                    "data": [{"id": "test-doc"}],
+                    "meta": {"pages": {"total_count": 1, "total_pages": 1}},
+                }
+            ),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.async_session",
+            return_value=session_context,
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.process_resource_optimized",
+            new=AsyncMock(return_value=processed_resource),
+        ) as mock_process_resource_optimized,
+    ):
+        response = await _handle_search(
+            request,
+            {
+                "q": "st paul",
+                "page": 1,
+                "per_page": 20,
+                "meta": True,
+                "request_query_params": query_string.decode("utf-8"),
+            },
+        )
+
+    assert response.status_code == 200
+    assert (
+        mock_process_resource_optimized.await_args.kwargs["hot_only_thumbnail_url"]
+        is expected_hot_only
+    )
 
 
 @pytest.mark.integration

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { GeoDocument } from '../../types/api';
+import { getResultStaticMapUrl } from '../../utils/resourceAssets';
 
 interface StaticResultMapProps {
   result: GeoDocument;
@@ -9,12 +10,13 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
   const [imageError, setImageError] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const imgRef = useRef<HTMLImageElement | null>(null);
+  const imageUrl = getResultStaticMapUrl(result);
 
   // If we navigate between result sets, reset loading/error state.
   useEffect(() => {
     setImageError(false);
     setIsLoading(true);
-  }, [result.id]);
+  }, [result.id, imageUrl]);
 
   // Handle cases where the image is already in the browser cache and the `load`
   // event can fire before React attaches the handler.
@@ -24,14 +26,7 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
     if (img.complete && img.naturalWidth > 0) {
       setIsLoading(false);
     }
-  }, [result.id]);
-
-  // Build static map URL
-  // Use the compatibility route so cards still get an image placeholder while
-  // the geometry map asset is being generated server-side.
-  const getStaticMapUrl = (): string => {
-    return `/resources/${result.id}/static-map`;
-  };
+  }, [result.id, imageUrl]);
 
   // If image failed to load, show placeholder
   if (imageError) {
@@ -51,7 +46,7 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
       )}
       <img
         ref={imgRef}
-        src={getStaticMapUrl()}
+        src={imageUrl}
         alt=""
         className="h-full w-full object-cover"
         onLoad={() => setIsLoading(false)}

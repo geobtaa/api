@@ -4,7 +4,7 @@ import { StaticResultMap } from '../../../components/search/StaticResultMap';
 import type { GeoDocument } from '../../../types/api';
 
 describe('StaticResultMap', () => {
-  it('uses the backend static-map endpoint even when geometry is missing', () => {
+  it('falls back to the geometry static-map endpoint even when geometry is missing', () => {
     const result: GeoDocument = {
       id: 'no-geometry-result',
       type: 'document',
@@ -26,8 +26,10 @@ describe('StaticResultMap', () => {
 
     const { container } = render(<StaticResultMap result={result} />);
 
-    const image = container.querySelector('img[src="/resources/no-geometry-result/static-map"]');
-    expect(image).toHaveAttribute('src', '/resources/no-geometry-result/static-map');
+    const image = container.querySelector(
+      'img[src="/static-maps/no-geometry-result/geometry"]'
+    );
+    expect(image).toHaveAttribute('src', '/static-maps/no-geometry-result/geometry');
     expect(image).toHaveAttribute('alt', '');
     expect(screen.queryByText('No map data')).not.toBeInTheDocument();
   });

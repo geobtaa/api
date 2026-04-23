@@ -693,6 +693,36 @@ export async function fetchResourceDetails(
   }
 }
 
+export async function fetchFeaturedResourcePreview(
+  id: string,
+  onApiCall?: (url: string) => void,
+  options: FetchOptions = { useJsonp: false }
+): Promise<GeoDocumentDetails> {
+  const apiBasePath = getApiBasePath();
+  const baseUrl = `${apiBasePath}/resources/${id}`;
+  const url = createApiUrl(baseUrl);
+  url.searchParams.set('ui_profile', 'homepage');
+  onApiCall?.(url.toString());
+
+  try {
+    const response = await unifiedFetch<{ data: GeoDocumentDetails }>(
+      url.toString(),
+      options
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching featured resource preview:', error);
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    throw new ApiError(
+      `Failed to fetch featured resource preview: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
+  }
+}
+
 interface Suggestion {
   type: 'suggestion';
   id: string;

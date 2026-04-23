@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 import time
 from typing import Optional
 
@@ -26,6 +27,19 @@ def _bypass_rate_limit_for_tests() -> bool:
 RATE_LIMIT_ENABLED = _rate_limit_enabled()
 DISABLE_RATE_LIMIT_FOR_TESTS = _bypass_rate_limit_for_tests()
 
+IMMUTABLE_THUMBNAIL_PATH_RE = re.compile(r"^/api/v1/thumbnails/[0-9a-f]{64}$", re.IGNORECASE)
+IMMUTABLE_STATIC_MAP_PATH_RE = re.compile(
+    r"^/api/v1/static-map-assets/[0-9a-f]{64}$",
+    re.IGNORECASE,
+)
+
+
+def _is_immutable_asset_route(path: str) -> bool:
+    """Return True for public immutable asset paths that should bypass throttling."""
+    return bool(
+        IMMUTABLE_THUMBNAIL_PATH_RE.fullmatch(path) or IMMUTABLE_STATIC_MAP_PATH_RE.fullmatch(path)
+    )
+
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Middleware to enforce rate limiting based on API keys and service tiers."""
@@ -51,6 +65,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Skip rate limiting for admin endpoints (already protected)
         if request.url.path.startswith("/api/v1/admin"):
             logger.debug(f"Admin endpoint, skipping rate limiting for {request.url.path}")
+            return await call_next(request)
+
+        if _is_immutable_asset_route(request.url.path):
+            logger.debug("Immutable asset route, skipping rate limiting for %s", request.url.path)
             return await call_next(request)
 
         logger.debug(f"Processing rate limiting for {request.url.path}")

@@ -5,9 +5,17 @@ set -euo pipefail
 # NOTE: Kamal runs `bash -lc ...` which can reset PATH; this makes it explicit.
 export PATH="/opt/venv/bin:$PATH"
 
-echo "[start_web_singlehost] starting FastAPI (uvicorn) on 127.0.0.1:8001"
+export WEB_UVICORN_WORKERS="${WEB_UVICORN_WORKERS:-2}"
+
+# Kamal's bridged asset directory can arrive owned by a transient numeric UID
+# with restrictive permissions. Normalize it before nginx serves /assets/.
+if [ -d /app/frontend/build/client/assets ]; then
+  chmod -R a+rX /app/frontend/build/client/assets || true
+fi
+
+echo "[start_web_singlehost] starting FastAPI (uvicorn) on 127.0.0.1:8001 with ${WEB_UVICORN_WORKERS} workers"
 cd /app/backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --ws websockets &
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 --ws websockets --workers "${WEB_UVICORN_WORKERS}" &
 UVICORN_PID=$!
 
 echo "[start_web_singlehost] starting SSR (react-router-serve) on 0.0.0.0:3000"
@@ -15,8 +23,9 @@ cd /app/frontend
 export NODE_ENV="${NODE_ENV:-production}"
 export PORT="${PORT:-3000}"
 
-# Prefer loopback through nginx for consistency with the browser's path-based API URL.
-export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8000/api/v1}"
+# Let SSR talk directly to FastAPI on loopback so loader/action fetches avoid
+# an extra nginx hop inside the same container.
+export API_BASE_URL="${API_BASE_URL:-http://127.0.0.1:8001/api/v1}"
 
 npm start &
 SSR_PID=$!

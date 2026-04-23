@@ -42,7 +42,7 @@ describe("api.map.h3 loader", () => {
     expect(pathAndQuery).toContain("include_filters%5Bdct_spatial_sm%5D%5B%5D=Pennsylvania");
   });
 
-  it("revalidates browser cache instead of keeping hex responses fresh for an hour", async () => {
+  it("lets browsers keep non-empty hex responses briefly while shared caches keep them hot", async () => {
     vi.mocked(serverFetchJsonWithTheme).mockResolvedValue({
       resolution: 5,
       hexes: [["85283473fffffff", 2]],
@@ -54,7 +54,7 @@ describe("api.map.h3 loader", () => {
 
     const response = await loader(loaderArgs);
 
-    expect(response.headers.get("Cache-Control")).toContain("max-age=0");
+    expect(response.headers.get("Cache-Control")).toContain("max-age=300");
     expect(response.headers.get("Cache-Control")).toContain("s-maxage=86400");
   });
 });

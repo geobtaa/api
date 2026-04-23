@@ -9,7 +9,7 @@ import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from app.middleware.rate_limit_middleware import RateLimitMiddleware
+from app.middleware.rate_limit_middleware import RateLimitMiddleware, _is_immutable_asset_route
 
 
 class TestRateLimitMiddleware:
@@ -138,6 +138,28 @@ class TestRateLimitMiddleware:
 
         assert ip_address is None
 
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            (
+                "/api/v1/thumbnails/"
+                "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639",
+                True,
+            ),
+            (
+                "/api/v1/thumbnails/"
+                "E7810CCA426F65FA9E5E25124CA1B213B6C54DEEC0901C88805558FAA7E25639",
+                True,
+            ),
+            ("/api/v1/thumbnails/placeholder", False),
+            ("/api/v1/thumbnails/stanford-fc944xn1421", False),
+            ("/api/v1/resources/stanford-fc944xn1421/thumbnail", False),
+        ],
+    )
+    def test_is_immutable_asset_route(self, path, expected):
+        """Only content-hash thumbnail assets should bypass the limiter."""
+        assert _is_immutable_asset_route(path) is expected
+
     @pytest.mark.asyncio
     async def test_get_tier_info_with_ip_whitelist_allowed(self, middleware):
         """Test tier info retrieval when IP is in whitelist."""
@@ -208,6 +230,24 @@ class TestRateLimitMiddleware:
 
         call_next.assert_called_once_with(request)
         assert response is not None
+
+    @pytest.mark.asyncio
+    async def test_dispatch_immutable_thumbnail_asset_skipped(self, middleware):
+        """Immutable cached thumbnail assets should bypass anonymous throttling."""
+        request = MagicMock(spec=Request)
+        request.url = MagicMock()
+        request.url.path = (
+            "/api/v1/thumbnails/e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+        )
+        middleware.api_key_service.get_anonymous_tier = AsyncMock()
+        middleware.rate_limit_service.check_rate_limit = AsyncMock()
+        call_next = AsyncMock(return_value=JSONResponse(content={}, status_code=200))
+
+        response = await middleware.dispatch(request, call_next)
+
+        call_next.assert_called_once_with(request)
+        middleware.api_key_service.get_anonymous_tier.assert_not_called()
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_dispatch_rate_limit_exceeded(self, middleware):

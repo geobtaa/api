@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { GeospatialFilterMap } from '../../components/search/GeospatialFilterMap.client';
+import { fetchMapH3 } from '../../services/api';
 
 const mockControl = { addTo: vi.fn(), remove: vi.fn() };
 const mockMapInstance = {
@@ -90,6 +91,7 @@ function SearchLocationProbe() {
 describe('GeospatialFilterMap client', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useRealTimers();
     localStorage.clear();
     class MockIntersectionObserver {
       observe() {}
@@ -99,6 +101,90 @@ describe('GeospatialFilterMap client', () => {
       writable: true,
       configurable: true,
       value: MockIntersectionObserver,
+    });
+  });
+
+  it('waits until window load before issuing the initial hex request', async () => {
+    vi.useFakeTimers();
+
+    const originalReadyState = document.readyState;
+    Object.defineProperty(document, 'readyState', {
+      configurable: true,
+      value: 'loading',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/search?q=chicago&view=gallery']}>
+        <Routes>
+          <Route path="/search" element={<GeospatialFilterMap />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+
+    expect(fetchMapH3).not.toHaveBeenCalled();
+
+    fireEvent(window, new Event('load'));
+
+    act(() => {
+      vi.advanceTimersByTime(249);
+    });
+
+    expect(fetchMapH3).not.toHaveBeenCalled();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+
+    expect(fetchMapH3).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(document, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
+    });
+  });
+
+  it('fits to result hexes on the initial search load when no bbox is active', async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchMapH3).mockResolvedValueOnce({
+      hexes: [{ h3: '8928308280fffff', count: 12 }],
+    });
+    const originalReadyState = document.readyState;
+    Object.defineProperty(document, 'readyState', {
+      configurable: true,
+      value: 'complete',
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/search?q=st%20paul&view=gallery']}>
+        <Routes>
+          <Route path="/search" element={<GeospatialFilterMap />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await act(async () => {
+      vi.advanceTimersByTime(250);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(fetchMapH3).toHaveBeenCalledTimes(1);
+    expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        padding: [24, 24],
+        maxZoom: 14,
+      }
+    );
+
+    Object.defineProperty(document, 'readyState', {
+      configurable: true,
+      value: originalReadyState,
     });
   });
 

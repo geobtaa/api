@@ -91,6 +91,20 @@ def cache_control_header(*, ttl_seconds: int) -> str:
     )
 
 
+def immutable_asset_cache_control_header() -> str:
+    """Cache-Control policy for content-addressed immutable assets."""
+    max_age = int(os.getenv("IMMUTABLE_ASSET_MAX_AGE_SECONDS", "31536000"))
+    return f"public, max-age={max_age}, immutable"
+
+
+def alias_redirect_cache_control_header() -> str:
+    """Cache-Control policy for resource-id to immutable-asset redirects."""
+    browser_ttl = int(os.getenv("ALIAS_REDIRECT_BROWSER_TTL_SECONDS", "3600"))
+    shared_ttl = int(os.getenv("ALIAS_REDIRECT_SHARED_TTL_SECONDS", "86400"))
+    swr = int(os.getenv("ALIAS_REDIRECT_STALE_WHILE_REVALIDATE_SECONDS", "604800"))
+    return f"public, max-age={browser_ttl}, s-maxage={shared_ttl}, stale-while-revalidate={swr}"
+
+
 def _log_cache_event(event: str, **fields: Any) -> None:
     """Optional structured-ish cache event logging for observability."""
     if not CACHE_LOG_EVENTS:

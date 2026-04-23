@@ -1,7 +1,18 @@
 import type { GeoDocument } from '../types/api';
+import { getApiBasePath } from '../services/api';
 
 export type SearchResultAssetView = 'list' | 'gallery' | 'map';
 export type StaticMapVariant = 'basemap' | 'geometry' | 'resource-class-icon';
+
+const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;
+const IMMUTABLE_STATIC_MAP_PATH_RE =
+  /^\/api\/v1\/static-map-assets\/[0-9a-f]{64}$/i;
+
+function toBrowserApiAssetUrl(pathname: string, search: string): string {
+  const apiBasePath = getApiBasePath().replace(/\/$/, '');
+  const assetPath = pathname.replace(/^\/api\/v1/, '');
+  return `${apiBasePath}${assetPath}${search}`;
+}
 
 export function extractThumbnailUrl(
   result: Pick<GeoDocument, 'meta'>
@@ -38,10 +49,32 @@ export function extractThumbnailUrl(
   return normalized ? normalized : undefined;
 }
 
+export function extractStaticMapUrl(
+  result: Pick<GeoDocument, 'meta'>
+): string | undefined {
+  const metaUi = result.meta?.ui;
+  const staticMapUrl = metaUi?.static_map || metaUi?.['static_map'];
+
+  if (typeof staticMapUrl !== 'string') {
+    return undefined;
+  }
+
+  const normalized = staticMapUrl.trim();
+  return normalized ? normalized : undefined;
+}
+
 export function toSsrAssetUrl(url: string | undefined): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
 
   const normalizePath = (pathname: string, search: string) => {
+    if (IMMUTABLE_THUMBNAIL_PATH_RE.test(pathname)) {
+      return toBrowserApiAssetUrl(pathname, search);
+    }
+
+    if (IMMUTABLE_STATIC_MAP_PATH_RE.test(pathname)) {
+      return toBrowserApiAssetUrl(pathname, search);
+    }
+
     if (pathname.startsWith('/api/v1/thumbnails/')) {
       return pathname.replace('/api/v1', '') + search;
     }
@@ -72,6 +105,12 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
     const parsed = new URL(url, base);
     return normalizePath(parsed.pathname, parsed.search);
   } catch {
+    if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) {
+      return toBrowserApiAssetUrl(url, '');
+    }
+    if (IMMUTABLE_STATIC_MAP_PATH_RE.test(url)) {
+      return toBrowserApiAssetUrl(url, '');
+    }
     if (url.startsWith('/api/v1/')) {
       return url.replace('/api/v1', '');
     }
@@ -94,6 +133,29 @@ function isGenericResourceThumbnailUrl(url: string | undefined): boolean {
   }
 }
 
+function isBridgeThumbnailAssetUrl(url: string | undefined): boolean {
+  if (!url) return false;
+
+  try {
+    const base =
+      typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const parsed = new URL(url, base);
+    return parsed.pathname.includes('/store/asset/');
+  } catch {
+    return url.includes('/store/asset/');
+  }
+}
+
+function getGeneratedThumbnailUrl(
+  resourceId: string,
+  view: SearchResultAssetView
+): string {
+  if (view === 'gallery') {
+    return `/resources/${resourceId}/thumbnail`;
+  }
+  return `/thumbnails/${resourceId}`;
+}
+
 export function getThumbnailFallbackUrl(
   resourceId: string,
   view: SearchResultAssetView
@@ -111,11 +173,18 @@ export function getResultPrimaryImageUrl(
   const extracted = extractThumbnailUrl(result);
   const normalized = toSsrAssetUrl(extracted);
 
-  // Search result layouts need the view-specific asset contract.
-  // The generic /resources/:id/thumbnail endpoint can render the wrong fallback
-  // variant for list/gallery/map cards, so we only trust it when we have a
-  // concrete non-generic asset URL.
-  if (normalized && !isGenericResourceThumbnailUrl(normalized)) {
+  // Route generic thumbnail endpoints and bridge-backed assets through the
+  // generated thumbnail pipeline so search cards never render oversized
+  // originals directly.
+  if (
+    normalized &&
+    (isGenericResourceThumbnailUrl(normalized) ||
+      isBridgeThumbnailAssetUrl(extracted))
+  ) {
+    return getGeneratedThumbnailUrl(result.id, view);
+  }
+
+  if (normalized) {
     return normalized;
   }
 
@@ -133,4 +202,17 @@ export function getStaticMapUrl(
     return `/static-maps/${resourceId}/resource-class-icon`;
   }
   return `/static-maps/${resourceId}/geometry`;
+}
+
+export function getResultStaticMapUrl(
+  result: Pick<GeoDocument, 'id' | 'meta'>
+): string {
+  const extracted = extractStaticMapUrl(result);
+  const normalized = toSsrAssetUrl(extracted);
+
+  if (normalized) {
+    return normalized;
+  }
+
+  return getStaticMapUrl(result.id, 'geometry');
 }

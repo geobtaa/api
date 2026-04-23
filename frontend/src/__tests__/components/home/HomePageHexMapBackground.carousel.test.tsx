@@ -133,11 +133,11 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
   beforeEach(() => {
     vi.useRealTimers();
     localStorage.clear();
-    vi.mocked(api.fetchResourceDetails).mockImplementation((id: string) => {
+    vi.mocked(api.fetchFeaturedResourcePreview).mockImplementation((id: string) => {
       const idx = FEATURED_RESOURCE_IDS.indexOf(id);
       return Promise.resolve(
         MOCK_DETAILS[idx >= 0 ? idx : 0] as Awaited<
-          ReturnType<typeof api.fetchResourceDetails>
+          ReturnType<typeof api.fetchFeaturedResourcePreview>
         >
       );
     });

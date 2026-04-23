@@ -47,6 +47,8 @@ export default function Root() {
 
         <ScrollRestoration />
         <Scripts />
+        {/* Keep this path stable so existing browsers upgrade onto the minimal
+            service worker and drop the old Workbox precache safely. */}
         {!import.meta.env.DEV && <script src="/registerSW.js" />}
       </body>
     </html>

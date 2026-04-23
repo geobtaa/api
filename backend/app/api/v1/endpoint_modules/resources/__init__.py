@@ -93,6 +93,7 @@ from app.api.v1.utils import (  # noqa: E402, I001
     create_jsonapi_response,
     create_response,
     process_resource,
+    process_resource_homepage,
     sanitize_for_json,
 )
 from app.services.link_service import LinkService  # noqa: E402, I001

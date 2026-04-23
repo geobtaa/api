@@ -3,12 +3,12 @@ import { loader } from '../api.search.facets';
 import type { LoaderFunctionArgs } from 'react-router';
 import type { FacetValuesResponse } from '../../../src/types/api';
 
-// Mock serverFetchJson
+// Mock serverFetch
 vi.mock('../../lib/server-api', () => ({
-  serverFetchJson: vi.fn(),
+  serverFetch: vi.fn(),
 }));
 
-import { serverFetchJson } from '../../lib/server-api';
+import { serverFetch } from '../../lib/server-api';
 
 describe('api.search.facets loader', () => {
   beforeEach(() => {
@@ -38,19 +38,27 @@ describe('api.search.facets loader', () => {
   };
 
   it('extracts facetName from path params', async () => {
-    const mockRequest = new Request('https://example.com/search/facets/dct_spatial_sm');
+    const mockRequest = new Request(
+      'https://example.com/search/facets/dct_spatial_sm'
+    );
     const mockParams = { facetName: 'dct_spatial_sm' };
     const loaderArgs = {
       params: mockParams,
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockResolvedValue(mockFacetResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
 
     const response = await loader(loaderArgs);
     const data = await response.json();
 
-    expect(serverFetchJson).toHaveBeenCalledWith(
+    expect(serverFetch).toHaveBeenCalledWith(
       expect.stringContaining('/search/facets/dct_spatial_sm')
     );
     expect(data).toEqual(mockFacetResponse);
@@ -77,11 +85,17 @@ describe('api.search.facets loader', () => {
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockResolvedValue(mockFacetResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
 
     await loader(loaderArgs);
 
-    const callArg = vi.mocked(serverFetchJson).mock.calls[0][0];
+    const callArg = vi.mocked(serverFetch).mock.calls[0][0];
     expect(callArg).toContain('/search/facets/dct_spatial_sm');
     expect(callArg).toContain('page=2');
     expect(callArg).toContain('per_page=20');
@@ -102,11 +116,17 @@ describe('api.search.facets loader', () => {
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockResolvedValue(mockFacetResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
 
     await loader(loaderArgs);
 
-    const callArg = vi.mocked(serverFetchJson).mock.calls[0][0];
+    const callArg = vi.mocked(serverFetch).mock.calls[0][0];
     // The URL will contain the encoded parameter (%5B = [, %5D = ])
     expect(callArg).toMatch(/include_filters%5Bdct_spatial_sm%5D%5B%5D/);
   });
@@ -122,17 +142,25 @@ describe('api.search.facets loader', () => {
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockResolvedValue(mockFacetResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
 
     await loader(loaderArgs);
 
-    const callArg = vi.mocked(serverFetchJson).mock.calls[0][0];
+    const callArg = vi.mocked(serverFetch).mock.calls[0][0];
     // The URL will contain the encoded parameter (%5B = [, %5D = ])
     expect(callArg).toMatch(/exclude_filters%5Bdct_spatial_sm%5D%5B%5D/);
   });
 
   it('forwards adv_q parameter', async () => {
-    const advQuery = encodeURIComponent(JSON.stringify([{ op: 'AND', f: 'dct_title_s', q: 'Iowa' }]));
+    const advQuery = encodeURIComponent(
+      JSON.stringify([{ op: 'AND', f: 'dct_title_s', q: 'Iowa' }])
+    );
     const mockRequest = new Request(
       `https://example.com/search/facets/dct_spatial_sm?adv_q=${advQuery}`
     );
@@ -142,38 +170,54 @@ describe('api.search.facets loader', () => {
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockResolvedValue(mockFacetResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
 
     await loader(loaderArgs);
 
-    const callArg = vi.mocked(serverFetchJson).mock.calls[0][0];
+    const callArg = vi.mocked(serverFetch).mock.calls[0][0];
     expect(callArg).toContain('adv_q=');
   });
 
   it('handles API errors and propagates status', async () => {
-    const mockRequest = new Request('https://example.com/search/facets/dct_spatial_sm');
+    const mockRequest = new Request(
+      'https://example.com/search/facets/dct_spatial_sm'
+    );
     const mockParams = { facetName: 'dct_spatial_sm' };
     const loaderArgs = {
       params: mockParams,
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    const errorResponse = new Response('API request failed: 404 Not Found', { status: 404 });
-    vi.mocked(serverFetchJson).mockRejectedValue(errorResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response('API request failed: 404 Not Found', {
+        status: 404,
+        headers: {
+          'Content-Type': 'text/plain; charset=utf-8',
+        },
+      })
+    );
 
     const response = await loader(loaderArgs);
     expect(response.status).toBe(404);
   });
 
   it('handles general errors and returns 500', async () => {
-    const mockRequest = new Request('https://example.com/search/facets/dct_spatial_sm');
+    const mockRequest = new Request(
+      'https://example.com/search/facets/dct_spatial_sm'
+    );
     const mockParams = { facetName: 'dct_spatial_sm' };
     const loaderArgs = {
       params: mockParams,
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockRejectedValue(new Error('Network error'));
+    vi.mocked(serverFetch).mockRejectedValue(new Error('Network error'));
 
     const response = await loader(loaderArgs);
     expect(response.status).toBe(500);
@@ -182,18 +226,57 @@ describe('api.search.facets loader', () => {
   });
 
   it('returns JSON response with correct content type', async () => {
-    const mockRequest = new Request('https://example.com/search/facets/dct_spatial_sm');
+    const mockRequest = new Request(
+      'https://example.com/search/facets/dct_spatial_sm'
+    );
     const mockParams = { facetName: 'dct_spatial_sm' };
     const loaderArgs = {
       params: mockParams,
       request: mockRequest,
     } as unknown as LoaderFunctionArgs;
 
-    vi.mocked(serverFetchJson).mockResolvedValue(mockFacetResponse);
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
 
     const response = await loader(loaderArgs);
     expect(response.headers.get('content-type')).toContain('application/json');
     const data = await response.json();
     expect(data).toEqual(mockFacetResponse);
+  });
+
+  it('preserves upstream cache headers', async () => {
+    const mockRequest = new Request(
+      'https://example.com/search/facets/dct_spatial_sm'
+    );
+    const mockParams = { facetName: 'dct_spatial_sm' };
+    const loaderArgs = {
+      params: mockParams,
+      request: mockRequest,
+    } as unknown as LoaderFunctionArgs;
+
+    vi.mocked(serverFetch).mockResolvedValue(
+      new Response(JSON.stringify(mockFacetResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control':
+            'public, max-age=0, s-maxage=43200, stale-while-revalidate=300',
+          ETag: 'W/"facet-test"',
+          Vary: 'Accept-Encoding, Accept',
+          'X-Cache': 'HIT',
+        },
+      })
+    );
+
+    const response = await loader(loaderArgs);
+
+    expect(response.headers.get('cache-control')).toContain('s-maxage=43200');
+    expect(response.headers.get('etag')).toBe('W/"facet-test"');
+    expect(response.headers.get('vary')).toBe('Accept-Encoding, Accept');
+    expect(response.headers.get('x-cache')).toBe('HIT');
   });
 });

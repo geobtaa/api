@@ -13,7 +13,7 @@ import type { MapH3ResponseRaw } from "../../src/services/api";
  * Aggressive caching: hex data changes only on reindex. Long TTL reduces load.
  * Responses are gzip'd when the client sends Accept-Encoding: gzip and payload is large enough.
  */
-const MAP_H3_BROWSER_MAX_AGE = 0; // Revalidate in browsers so stale local hexes don't linger
+const MAP_H3_BROWSER_MAX_AGE = 300; // Repeat exact-query visits should hit browser cache
 const MAP_H3_S_MAXAGE = 86400; // 24 hours CDN/shared cache
 const MAP_H3_STALE_WHILE_REVALIDATE = 86400; // Serve stale up to 24h while revalidating
 const MAP_H3_GZIP_MIN_BYTES = 1024; // Only gzip if uncompressed body >= this (avoid overhead for tiny responses)

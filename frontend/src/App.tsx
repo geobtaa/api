@@ -20,13 +20,8 @@ import 'leaflet/dist/leaflet.css';
 // Ensure Stimulus is available globally
 const application = Application.start();
 (window as any).Stimulus = application;
-console.log('Stimulus initialized:', (window as any).Stimulus);
 
 function App() {
-  console.log('Environment variables:', {
-    VITE_USE_JSONP: import.meta.env.VITE_USE_JSONP,
-    VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL,
-  });
   const [searchParams] = useSearchParams();
   const hasSearchParams = Array.from(searchParams.entries()).length > 0;
 

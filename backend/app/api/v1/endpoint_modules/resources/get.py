@@ -4,7 +4,12 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
-from app.api.v1.utils import create_jsonapi_response, process_resource, sanitize_for_json
+from app.api.v1.utils import (
+    create_jsonapi_response,
+    process_resource,
+    process_resource_homepage,
+    sanitize_for_json,
+)
 from app.services.cache_service import cached_endpoint
 from db.models import resources
 
@@ -17,6 +22,10 @@ async def get_resource(
     request: Request,
     id: str,
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
+    ui_profile: Optional[str] = Query(
+        None,
+        description="Optional lightweight response profile (for example: homepage).",
+    ),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
     format: Optional[str] = Query(None, description="Response format (json, jsonp)"),
 ):
@@ -41,8 +50,8 @@ async def get_resource(
                 resource_dict = filter_resource_fields(resource_dict, fields)
                 logger.info(f"Filtered resource dict: {resource_dict}")
 
-            # Process the resource using the shared function (this will add Allmaps to meta.ui)
-            jsonapi_resource = await process_resource(resource_dict, session)
+            processor = process_resource_homepage if ui_profile == "homepage" else process_resource
+            jsonapi_resource = await processor(resource_dict, session)
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None
