@@ -1,8 +1,10 @@
 import asyncio
 import logging
+import os
 from typing import Any, Coroutine, Dict, Optional
 
 from app.services.bridge_sync.harvest import sync_bridge
+from app.services.bridge_sync.report import send_bridge_sync_report_for_run
 from app.tasks.worker import celery_app
 from db.database import database
 
@@ -21,6 +23,16 @@ def _get_loop() -> asyncio.AbstractEventLoop:
 
 def _run(coro: Coroutine[Any, Any, Any]) -> Any:
     return _get_loop().run_until_complete(coro)
+
+
+def _report_triggers() -> set[str]:
+    raw = os.getenv("BRIDGE_SYNC_REPORT_ON_TRIGGERS", "nightly_cron,cron")
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
+
+
+def _should_send_report(trigger: str) -> bool:
+    trigger_norm = (trigger or "").strip().lower()
+    return trigger_norm in _report_triggers() or "*" in _report_triggers()
 
 
 @celery_app.task(
@@ -61,9 +73,38 @@ async def _bridge_sync_all_async(
         changed_since,
         resource_id,
     )
-    return await sync_bridge(
-        trigger=trigger,
-        limit=limit,
-        changed_since=changed_since,
-        resource_id=resource_id,
-    )
+    try:
+        result = await sync_bridge(
+            trigger=trigger,
+            limit=limit,
+            changed_since=changed_since,
+            resource_id=resource_id,
+        )
+    except Exception as exc:
+        run_id = getattr(exc, "bridge_sync_run_id", None)
+        if run_id and _should_send_report(trigger):
+            try:
+                await send_bridge_sync_report_for_run(int(run_id))
+            except Exception as report_exc:
+                logger.warning(
+                    "Bridge sync report failed for failed run_id=%s: %s",
+                    run_id,
+                    report_exc,
+                    exc_info=True,
+                )
+        raise
+
+    run_id = result.get("bridge_id")
+    if run_id and _should_send_report(trigger):
+        try:
+            report_stats = await send_bridge_sync_report_for_run(int(run_id))
+            result["report"] = report_stats
+        except Exception as exc:
+            logger.warning(
+                "Bridge sync report failed for run_id=%s: %s",
+                run_id,
+                exc,
+                exc_info=True,
+            )
+            result["report"] = {"enabled": True, "sent": False, "error": str(exc)}
+    return result

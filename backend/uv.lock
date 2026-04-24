@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.12'",
@@ -678,6 +678,7 @@ dependencies = [
     { name = "greenlet" },
     { name = "h11" },
     { name = "h3" },
+    { name = "httpx" },
     { name = "idna" },
     { name = "jinja2" },
     { name = "jsonschema" },
@@ -721,7 +722,6 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "mypy" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
@@ -752,7 +752,7 @@ requires-dist = [
     { name = "greenlet", specifier = "==3.1.1" },
     { name = "h11", specifier = "==0.16.0" },
     { name = "h3", specifier = ">=4.0.0" },
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.24.0" },
+    { name = "httpx", specifier = ">=0.24.0" },
     { name = "idna", specifier = "==3.10" },
     { name = "jinja2", specifier = ">=3.1.2" },
     { name = "jsonschema", specifier = ">=4.21.1" },

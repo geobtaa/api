@@ -66,6 +66,7 @@ dependencies = [
     "python-multipart==0.0.26",
     "tornado==6.5.5",
     "Pygments==2.20.0",
+    "httpx>=0.24.0",
 ]
 
 [project.optional-dependencies]
@@ -76,7 +77,6 @@ dev = [
     "pytest-xdist>=3.5.0",
     "ruff>=0.11.6",
     "mypy==1.9.0",
-    "httpx>=0.24.0",
 ]
 
 [tool.setuptools]

@@ -7,6 +7,7 @@ import pytest
 from app.services.cache_service import (
     CacheService,
     _resource_cache_tags_from_body,
+    _warm_metadata_from_request,
     cached_endpoint,
     invalidate_cache_with_prefix,
 )
@@ -23,6 +24,23 @@ def test_resource_cache_tags_from_jsonapi_body():
 
 def test_resource_cache_tags_from_jsonapi_body_ignores_non_json():
     assert _resource_cache_tags_from_body(b"<html>nope</html>") == set()
+
+
+def test_warm_metadata_from_get_request():
+    class Request:
+        method = "GET"
+
+        class Url:
+            path = "/api/v1/resources/example-1"
+            query = "fields=dct_title_s"
+
+        url = Url()
+
+    assert _warm_metadata_from_request(Request()) == {
+        "method": "GET",
+        "path": "/api/v1/resources/example-1",
+        "query": "fields=dct_title_s",
+    }
 
 
 class TestCacheService:

@@ -29,7 +29,7 @@ def _previous_utc_day_start_iso_z() -> str:
 
 
 def main() -> None:
-    bridge_trigger = os.getenv("BRIDGE_TRIGGER", "manual")
+    bridge_trigger = os.getenv("BRIDGE_TRIGGER", "nightly_cron")
     changed_since = os.getenv("CHANGED_SINCE") or _previous_utc_day_start_iso_z()
     limit_raw = os.getenv("BRIDGE_LIMIT", "").strip()
     limit = int(limit_raw) if limit_raw else None

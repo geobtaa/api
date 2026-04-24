@@ -50,11 +50,27 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdal-bin \
     libgdal-dev \
     nginx \
+    msmtp-mta \
     curl \
     ca-certificates \
     git \
     bash \
     && rm -rf /var/lib/apt/lists/*
+
+# Provide a sendmail-compatible command for app-generated operational mail.
+# UMN relay access may still require the production host/IP and From address to be approved.
+RUN printf '%s\n' \
+    'defaults' \
+    'syslog LOG_MAIL' \
+    'tls on' \
+    'tls_starttls on' \
+    'auth off' \
+    'account default' \
+    'host smtp.umn.edu' \
+    'port 587' \
+    'from no-reply@geo.btaa.org' \
+    > /etc/msmtprc \
+    && chmod 644 /etc/msmtprc
 
 # Install UV (python package manager)
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && /root/.local/bin/uv --version
@@ -116,4 +132,3 @@ HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=3 \
 
 # Kamal will override this via servers.web.cmd, but keep a sensible default.
 CMD ["bash", "-lc", "/app/scripts/start_web_singlehost.sh"]
-

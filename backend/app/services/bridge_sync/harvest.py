@@ -5,9 +5,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from app.services.bridge_sync.cache_refresh import refresh_cache_for_changed_resources
 from app.services.bridge_sync.client import KitheBridgeClient
 from app.services.bridge_sync.importer import BridgeResourceImporter
 from app.services.bridge_sync.repository import BridgeSyncRepository
+from app.services.bridge_sync.search_index import index_changed_resources
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -86,6 +88,7 @@ async def sync_bridge(
     last_cursor: Optional[str] = None
     pages_processed = 0
     stats: Dict[str, Any] = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+    changed_resource_ids: list[str] = []
     if resource_id_norm:
         stats["scope"] = "single"
         stats["estimated_total"] = 1
@@ -121,6 +124,11 @@ async def sync_bridge(
             pages_processed = 1
             found_resource = bool(record)
             page_records = [record] if record else []
+            changed_resource_ids.extend(
+                str(item.get("id")).strip()
+                for item in page_records
+                if isinstance(item, dict) and item.get("id")
+            )
             page_stats = await importer.upsert_records(
                 page_records,
                 run_started_at=run_started_at,
@@ -152,6 +160,12 @@ async def sync_bridge(
                 pages_processed += 1
 
                 page_records = page.data
+                if changed_since_norm:
+                    changed_resource_ids.extend(
+                        str(item.get("id")).strip()
+                        for item in page_records
+                        if isinstance(item, dict) and item.get("id")
+                    )
                 page_stats = await importer.upsert_records(
                     page_records,
                     run_started_at=run_started_at,
@@ -204,6 +218,21 @@ async def sync_bridge(
         if resource_id_norm:
             stats["found"] = found_resource
 
+        if changed_resource_ids:
+            stats["changed_resources"] = len({rid for rid in changed_resource_ids if rid})
+            try:
+                stats["search_index_refresh"] = await index_changed_resources(changed_resource_ids)
+            except Exception as index_exc:
+                logger.warning("Bridge search index refresh failed; continuing. err=%s", index_exc)
+                stats["search_index_refresh"] = {"enabled": True, "error": str(index_exc)}
+            try:
+                stats["cache_refresh"] = await refresh_cache_for_changed_resources(
+                    changed_resource_ids
+                )
+            except Exception as cache_exc:
+                logger.warning("Bridge cache refresh failed; continuing. err=%s", cache_exc)
+                stats["cache_refresh"] = {"enabled": True, "error": str(cache_exc)}
+
         await repo.finalize_sync_run(
             bridge_id=run_id,
             bridge_status="success",
@@ -240,4 +269,8 @@ async def sync_bridge(
             bridge_last_cursor=last_cursor,
             bridge_error=str(exc),
         )
+        try:
+            exc.bridge_sync_run_id = run_id
+        except Exception:
+            pass
         raise

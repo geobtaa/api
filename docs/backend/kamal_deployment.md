@@ -215,16 +215,45 @@ make db-sync KAMAL_DEST=prd
 ```bash
 make kamal-cron-debug KAMAL_DEST=prd
 make kamal-cron-test-bridge KAMAL_DEST=prd
+make kamal-cron-test-bridge KAMAL_DEST=prd CHANGED_SINCE=2026-04-23T00:00:00Z
 make kamal-bridge-status KAMAL_DEST=prd
 make kamal-bridge-status-watch KAMAL_DEST=prd
 ```
 
 The cron container currently runs:
 
-- daily bridge delta sync at `2:00 AM`
+- daily bridge delta sync at `2:00 AM` with `BRIDGE_TRIGGER=nightly_cron`
 - daily blog sync at `3:00 AM`
 - daily sitemap generation at `4:15 AM`
 - daily analytics storage maintenance at `4:45 AM`
+
+Bridge delta syncs update changed resources in Elasticsearch, invalidate and re-warm cache
+entries tagged with changed `resource:<id>` values, plus the canonical resource detail
+response for each changed resource.
+
+To send the styled nightly bridge report after the Celery sync task concludes, prd enables
+sendmail delivery:
+
+```bash
+BRIDGE_SYNC_REPORT_ENABLED=true
+BRIDGE_SYNC_REPORT_RECIPIENTS="ewlarson@gmail.com,majew030@umn.edu"
+BRIDGE_SYNC_REPORT_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
+BRIDGE_SYNC_REPORT_DELIVERY=sendmail
+SENDMAIL_PATH=/usr/sbin/sendmail
+SENDMAIL_ARGS="-t -i"
+```
+
+Reports are sent only when `KAMAL_DEST=prd` by default, so dev1/dev2 do not send duplicate
+email. Use `BRIDGE_SYNC_REPORT_DESTINATIONS` to change that. Reports are limited to
+`nightly_cron,cron` triggers by default. Use `BRIDGE_SYNC_REPORT_ON_TRIGGERS=*` for all bridge sync runs, or
+`BRIDGE_SYNC_REPORT_MIN_DELTA_PROCESSED` to change the suspiciously-small-delta warning threshold.
+The Kamal destination configs set `KAMAL_DEST` explicitly and default cron bridge syncs to
+`BRIDGE_TRIGGER=nightly_cron`.
+
+For Kamal, the sendmail-compatible binary must exist inside the container image. The Kamal
+image installs `msmtp-mta`, which provides `/usr/sbin/sendmail`, and configures it to use
+UMN's `smtp.umn.edu` relay without app-level SMTP credentials. UMN relay access may still
+require the production host/IP and the From address to be approved by OIT.
 
 For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 

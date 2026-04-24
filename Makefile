@@ -1136,14 +1136,14 @@ kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
 
 # Manually run bridge sync trigger from cron container (same as 2 AM job).
-# Usage: make kamal-cron-test-bridge [KAMAL_DEST=prd]
+# Usage: make kamal-cron-test-bridge [KAMAL_DEST=prd] [CHANGED_SINCE=2026-04-23T00:00:00Z]
 kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container (test cron job)
 	@echo "Running trigger_bridge_sync_cron.py inside Kamal cron container..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
-	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "/opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'CHANGED_SINCE=\"$(CHANGED_SINCE)\" BRIDGE_LIMIT=\"$(BRIDGE_LIMIT)\" /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py'"
 	@echo "Check bridge status: make kamal-bridge-status"
 
 # Tail Celery worker logs (bridge sync, OGM, etc. run in worker).

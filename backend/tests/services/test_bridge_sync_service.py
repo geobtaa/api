@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 
 import pytest
@@ -48,6 +49,8 @@ class FakeBridgeClient:
 @pytest.mark.database
 class TestBridgeSyncService:
     def setup_method(self):
+        os.environ["BRIDGE_SEARCH_INDEX_REFRESH_ENABLED"] = "false"
+        os.environ["BRIDGE_CACHE_REFRESH_ENABLED"] = "false"
         create_bridge_sync_tables()
         create_resource_aux_tables()
 
@@ -438,6 +441,8 @@ class TestBridgeSyncService:
 
             assert result["stats"]["missing"] == 0
             assert result["stats"]["retired"] == 0
+            assert result["stats"]["search_index_refresh"]["enabled"] is False
+            assert result["stats"]["cache_refresh"]["enabled"] is False
 
             # record_b should remain published (i.e., not retired just because it
             # wasn't returned in the delta crawl).

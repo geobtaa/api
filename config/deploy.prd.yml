@@ -21,7 +21,7 @@ servers:
   cron:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
-    cmd: bash -lc '(printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-manual}"; cat config/crontab) | crontab - && cron -f'
+    cmd: bash -lc '(printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-nightly_cron}"; cat config/crontab) | crontab - && cron -f'
     options:
       user: root
 
@@ -41,6 +41,11 @@ env:
   clear:
     APPLICATION_URL: https://lib-geoportal-prd-web-01.oit.umn.edu
     APP_ENV: production
+    KAMAL_DEST: prd
+    BRIDGE_SYNC_REPORT_ENABLED: "true"
+    BRIDGE_SYNC_REPORT_DELIVERY: sendmail
+    SENDMAIL_PATH: /usr/sbin/sendmail
+    SENDMAIL_ARGS: "-t -i"
     SEARCH_ENGINE_INDEXING_ENABLED: "false"
     RATE_LIMIT_ENABLED: "true"
     CACHE_DEBUG_HEADERS: "false"

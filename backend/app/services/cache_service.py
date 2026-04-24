@@ -233,6 +233,36 @@ def _resource_cache_tags_from_body(body: bytes) -> set[str]:
     return tags
 
 
+def _warm_metadata_from_request(request: Any) -> Optional[dict[str, str]]:
+    """Return enough request metadata to replay a cached public GET."""
+    if request is None:
+        return None
+    method = (getattr(request, "method", "") or "").upper()
+    if method and method != "GET":
+        return None
+    try:
+        path = str(request.url.path)
+    except Exception:
+        return None
+    if not path:
+        return None
+    try:
+        query = str(request.url.query or "")
+    except Exception:
+        query = ""
+    return {"method": "GET", "path": path, "query": query}
+
+
+def _find_request_in_call(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Any:
+    request = kwargs.get("request")
+    if request is not None:
+        return request
+    for arg in args:
+        if hasattr(arg, "url") and hasattr(arg, "method"):
+            return arg
+    return None
+
+
 async def _redis_call(coro):
     """Bounded wait for Redis operations; raises on timeout/errors."""
     return await asyncio.wait_for(coro, timeout=REDIS_TIMEOUT_SECONDS)
@@ -441,6 +471,30 @@ class CacheService:
             logger.error(f"Error invalidating tags {list(tags)}: {e}")
         return deleted
 
+    async def cached_records_for_tags(self, tags: Iterable[str]) -> list[dict[str, Any]]:
+        """Return cached response records associated with tags, before invalidation."""
+        if not self._redis_client or not ENDPOINT_CACHE:
+            return []
+
+        records_by_key: dict[str, dict[str, Any]] = {}
+        try:
+            for tag in {str(t) for t in tags if t}:
+                members = await _redis_call(self._redis_client.smembers(self._tagset_key(tag)))
+                for raw_key in members or []:
+                    cache_key = (
+                        raw_key.decode("utf-8")
+                        if isinstance(raw_key, (bytes, bytearray))
+                        else str(raw_key)
+                    )
+                    if cache_key in records_by_key:
+                        continue
+                    record = await self.get_record(cache_key)
+                    if record:
+                        records_by_key[cache_key] = {"cache_key": cache_key, **record}
+        except Exception as e:
+            logger.error(f"Error collecting cached records for tags {list(tags)}: {e}")
+        return list(records_by_key.values())
+
     @staticmethod
     def generate_cache_key(namespace: str, *args, **kwargs) -> str:
         """Generate a deterministic, versioned cache key from arguments.
@@ -530,6 +584,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                             "etag": etag,
                             "body_b64": _b64encode(body),
                         }
+                        warm = _warm_metadata_from_request(_find_request_in_call(args, kwargs))
+                        if warm:
+                            record["warm"] = warm
                         await cache_service.set_record(cache_key, record, ttl_seconds=redis_ttl)
                         _log_cache_event(
                             "refresh_store", namespace=key_namespace, redis_ttl=redis_ttl
@@ -710,6 +767,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                             "etag": etag,
                             "body_b64": _b64encode(body),
                         }
+                        warm = _warm_metadata_from_request(request)
+                        if warm:
+                            record["warm"] = warm
                         await cache_service.set_record(cache_key, record, ttl_seconds=redis_ttl)
                         # Tagging for invalidation
                         tag_set: set[str] = set(tags or [])
