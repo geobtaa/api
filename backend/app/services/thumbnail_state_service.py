@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from dataclasses import dataclass
@@ -158,16 +159,54 @@ class ThumbnailStateService:
         if payload.state == ThumbnailState.PLACEHELD:
             thumbnail_alias_service.delete_sync(payload.resource_id)
 
+    async def _invalidate_success_caches_async(self, payload: ThumbnailStatePayload) -> None:
+        """Evict cached API responses that embedded this resource before the thumbnail was hot."""
+        if payload.state != ThumbnailState.SUCCESS or not payload.source_hash:
+            return
+        try:
+            from app.services.cache_service import CacheService
+
+            deleted = await CacheService().invalidate_tags([f"resource:{payload.resource_id}"])
+            if deleted:
+                logger.info(
+                    "Invalidated %s cached response(s) for thumbnail success on %s",
+                    deleted,
+                    payload.resource_id,
+                )
+        except Exception as exc:
+            logger.warning(
+                "Failed to invalidate caches for thumbnail success on %s: %s",
+                payload.resource_id,
+                exc,
+            )
+
+    def _invalidate_success_caches_sync(self, payload: ThumbnailStatePayload) -> None:
+        """Sync wrapper for thumbnail success cache invalidation."""
+        if payload.state != ThumbnailState.SUCCESS or not payload.source_hash:
+            return
+
+        async def _run() -> None:
+            await self._invalidate_success_caches_async(payload)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            asyncio.run(_run())
+        else:
+            loop.create_task(_run())
+
     async def record_state(self, payload: ThumbnailStatePayload) -> None:
         async with async_session_factory() as session:
             await session.execute(self._build_upsert_stmt(payload))
             await session.commit()
         await self._sync_alias_async(payload)
+        await self._invalidate_success_caches_async(payload)
 
     def record_state_sync(self, payload: ThumbnailStatePayload) -> None:
         with _sync_engine.begin() as conn:
             conn.execute(self._build_upsert_stmt(payload))
         self._sync_alias_sync(payload)
+        self._invalidate_success_caches_sync(payload)
 
     async def get_state(self, resource_id: str) -> Optional[dict[str, Any]]:
         async with async_session_factory() as session:

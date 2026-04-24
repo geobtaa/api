@@ -1,4 +1,10 @@
-import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {
+  act,
+  render,
+  screen,
+  fireEvent,
+  waitFor,
+} from '@testing-library/react';
 import { GalleryView } from '../../../components/search/GalleryView';
 import { BrowserRouter } from 'react-router';
 import { vi, describe, it, expect } from 'vitest';
@@ -82,6 +88,25 @@ describe('GalleryView', () => {
     expect(thumbnail).toBeInTheDocument();
   });
 
+  it('does not overlay the inline resource icon while the fallback asset loads', () => {
+    const completeSpy = vi
+      .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(false);
+
+    try {
+      renderGallery({
+        results: [mockResults[0]],
+        totalResults: 1,
+      });
+
+      expect(
+        screen.queryByTestId('gallery-thumbnail-placeholder-0')
+      ).not.toBeInTheDocument();
+    } finally {
+      completeSpy.mockRestore();
+    }
+  });
+
   it('routes the generic resource thumbnail endpoint through the gallery thumbnail route', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
@@ -160,13 +185,46 @@ describe('GalleryView', () => {
     }
   });
 
+  it('uses a neutral loading surface instead of overlaying the resource icon on real thumbnails', () => {
+    const resultWithDirectThumbnail: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          thumbnail_url: 'https://example.com/thumb.jpg',
+        },
+      },
+    };
+
+    const completeSpy = vi
+      .spyOn(HTMLImageElement.prototype, 'complete', 'get')
+      .mockReturnValue(false);
+
+    try {
+      renderGallery({
+        results: [resultWithDirectThumbnail],
+        totalResults: 1,
+      });
+
+      expect(
+        screen.queryByTestId('gallery-thumbnail-placeholder-0')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId('gallery-thumbnail-loading-0')
+      ).toBeInTheDocument();
+    } finally {
+      completeSpy.mockRestore();
+    }
+  });
+
   it('defers below-the-fold gallery images until after initial paint', () => {
     vi.useFakeTimers();
 
     const { container } = renderGallery();
 
     expect(
-      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+      container.querySelector(
+        'img[src="/static-maps/result-16/resource-class-icon"]'
+      )
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -174,7 +232,9 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+      container.querySelector(
+        'img[src="/static-maps/result-16/resource-class-icon"]'
+      )
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -182,7 +242,9 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector('img[src="/static-maps/result-16/resource-class-icon"]')
+      container.querySelector(
+        'img[src="/static-maps/result-16/resource-class-icon"]'
+      )
     ).toBeInTheDocument();
   });
 

@@ -4,7 +4,28 @@ Tests for CacheService - comprehensive coverage using real fixtures and data.
 
 import pytest
 
-from app.services.cache_service import CacheService, cached_endpoint, invalidate_cache_with_prefix
+from app.services.cache_service import (
+    CacheService,
+    _resource_cache_tags_from_body,
+    cached_endpoint,
+    invalidate_cache_with_prefix,
+)
+
+
+def test_resource_cache_tags_from_jsonapi_body():
+    body = (
+        b'{"data":[{"type":"resource","id":"resource-1"},'
+        b'{"type":"resource","id":"resource-2"}]}'
+    )
+
+    assert _resource_cache_tags_from_body(body) == {
+        "resource:resource-1",
+        "resource:resource-2",
+    }
+
+
+def test_resource_cache_tags_from_jsonapi_body_ignores_non_json():
+    assert _resource_cache_tags_from_body(b"<html>nope</html>") == set()
 
 
 class TestCacheService:

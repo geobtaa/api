@@ -203,6 +203,36 @@ def _filter_cacheable_headers(headers: Headers | dict[str, str]) -> dict[str, st
     return allowed
 
 
+def _resource_cache_tags_from_body(body: bytes) -> set[str]:
+    """Extract resource tags from JSON:API response bodies for targeted invalidation."""
+    try:
+        payload = json.loads(body)
+    except Exception:
+        return set()
+
+    if not isinstance(payload, dict):
+        return set()
+
+    data = payload.get("data")
+    if isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list):
+        return set()
+
+    tags: set[str] = set()
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        resource_id = item.get("id")
+        if not resource_id:
+            attributes = item.get("attributes")
+            if isinstance(attributes, dict):
+                resource_id = attributes.get("id")
+        if resource_id:
+            tags.add(f"resource:{resource_id}")
+    return tags
+
+
 async def _redis_call(coro):
     """Bounded wait for Redis operations; raises on timeout/errors."""
     return await asyncio.wait_for(coro, timeout=REDIS_TIMEOUT_SECONDS)
@@ -701,6 +731,8 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                         if "facet_name" in cache_args and cache_args.get("facet_name"):
                             tag_set.add(f"facet:{cache_args.get('facet_name')}")
                             tag_set.add("search")
+                        if "/search" in path or "/resources" in path:
+                            tag_set.update(_resource_cache_tags_from_body(body))
                         # Resource-like endpoints commonly use 'id'
                         rid = cache_args.get("id") or cache_args.get("resource_id")
                         if rid and "/resources/" in path:
