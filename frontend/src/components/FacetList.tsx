@@ -41,9 +41,7 @@ interface FacetListProps {
   facets: JsonApiFacet[];
   /** Optional shared accordion state (persisted via useFacetAccordion). When provided, collapse/expand state is shared across facets and persisted. */
   accordion?: FacetAccordionState;
-  setAccordion?: React.Dispatch<
-    React.SetStateAction<FacetAccordionState>
-  >;
+  setAccordion?: React.Dispatch<React.SetStateAction<FacetAccordionState>>;
 }
 
 /** Facet IDs that are open by default. Includes geo (Location map) for use by SearchPage. */
@@ -273,9 +271,11 @@ export function FacetList({
 
   // Track user toggles separately from default/forced-open behavior.
   // Use controlled accordion when provided (persisted); otherwise internal state.
-  const [internalAccordion, setInternalAccordion] = useState<FacetAccordionState>(
-    () => ({ opened: new Set(), closed: new Set() })
-  );
+  const [internalAccordion, setInternalAccordion] =
+    useState<FacetAccordionState>(() => ({
+      opened: new Set(),
+      closed: new Set(),
+    }));
   const accordion = controlledAccordion ?? internalAccordion;
   const setAccordion = controlledSetAccordion ?? setInternalAccordion;
 
@@ -323,9 +323,7 @@ export function FacetList({
                 className="group border-b pb-4"
               >
                 <summary className="flex items-center justify-between cursor-pointer select-none py-2">
-                  <h3 className="font-semibold text-gray-900">
-                    Year
-                  </h3>
+                  <h3 className="font-semibold text-gray-900">Year</h3>
                   <ChevronDown className="h-4 w-4 text-gray-500 transition-transform group-open:rotate-180" />
                 </summary>
                 <div>
@@ -350,7 +348,9 @@ export function FacetList({
                             start: yearRangeStart
                               ? parseInt(yearRangeStart, 10)
                               : null,
-                            end: yearRangeEnd ? parseInt(yearRangeEnd, 10) : null,
+                            end: yearRangeEnd
+                              ? parseInt(yearRangeEnd, 10)
+                              : null,
                           }
                         : null
                     }
@@ -421,7 +421,7 @@ export function FacetList({
                           onClick={() =>
                             handleFacetClick(facet.rawId, item.value)
                           }
-                          className={`text-sm flex items-center gap-2 w-full text-left px-2 py-1 rounded hover:bg-gray-100 ${
+                          className={`text-sm flex items-center gap-2 w-full text-left py-1 pr-2 rounded hover:bg-gray-100 ${
                             isActive
                               ? 'text-blue-600 font-medium bg-blue-50 hover:bg-blue-100'
                               : 'text-gray-600 hover:text-gray-900'

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo } from 'react';
 import {
   BarChart,
   Bar,
+  Cell,
   Tooltip,
   ResponsiveContainer,
   ReferenceArea,
@@ -14,7 +15,6 @@ const DECADE_SIZE = 10;
 const MIN_YEAR = 1000;
 const MAX_YEAR = 2030;
 const YEAR_INPUT_PATTERN = /^\d{4}$/;
-const YEAR_FACET_MODE_STORAGE_KEY = 'b1g_year_facet_mode';
 
 type TimelineFacetItem =
   | [value: string | number, hits: number]
@@ -68,12 +68,10 @@ export function TimelineFacet({
     refAreaRight?: number | string;
     isDragging: boolean;
   }>({ isDragging: false });
-  const [mode, setMode] = React.useState<'graph' | 'form'>('graph');
-  const [hasLoadedModePreference, setHasLoadedModePreference] =
-    React.useState(false);
   const [manualStartYear, setManualStartYear] = React.useState('');
   const [manualEndYear, setManualEndYear] = React.useState('');
   const [manualError, setManualError] = React.useState<string | null>(null);
+  const [hoveredKey, setHoveredKey] = React.useState<number | null>(null);
 
   // Process data: raw years, or decade buckets when there are too many years
   const { data, isBucketed } = useMemo(() => {
@@ -124,8 +122,6 @@ export function TimelineFacet({
     return { data, isBucketed: true };
   }, [facet]);
 
-  if (data.length === 0) return null;
-
   const availableStartYear = data[0]?.xKey ?? null;
   const availableEndYear = data[data.length - 1]?.xEnd ?? null;
 
@@ -151,20 +147,11 @@ export function TimelineFacet({
     setManualError(null);
   }, [availableEndYear, availableStartYear, selectedRange]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const storedMode = window.localStorage.getItem(YEAR_FACET_MODE_STORAGE_KEY);
-    if (storedMode === 'graph' || storedMode === 'form') {
-      setMode(storedMode);
-    }
-    setHasLoadedModePreference(true);
-  }, []);
+  if (data.length === 0) return null;
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!hasLoadedModePreference) return;
-    window.localStorage.setItem(YEAR_FACET_MODE_STORAGE_KEY, mode);
-  }, [hasLoadedModePreference, mode]);
+  const selectPoint = (point: ChartPoint) => {
+    onChange({ start: point.xKey, end: point.xEnd });
+  };
 
   const onMouseDown = (e: any) => {
     if (e && e.activeLabel) {
@@ -196,7 +183,9 @@ export function TimelineFacet({
         !state.refAreaRight ||
         state.refAreaLeft === state.refAreaRight
       ) {
-        onChange(null);
+        const clickedKey = Number(state.refAreaRight ?? state.refAreaLeft);
+        const clickedPoint = data.find((p) => p.xKey === clickedKey);
+        if (clickedPoint) selectPoint(clickedPoint);
         return;
       }
 
@@ -214,6 +203,12 @@ export function TimelineFacet({
         onChange({ start: leftKey, end: rightKey });
       }
     }
+  };
+
+  const onChartClick = (e: any) => {
+    if (!e?.activeLabel || state.isDragging) return;
+    const point = data.find((p) => p.xKey === Number(e.activeLabel));
+    if (point) selectPoint(point);
   };
 
   const startYear = selectedRange?.start ?? null;
@@ -304,178 +299,185 @@ export function TimelineFacet({
         : endYear != null
           ? `Up to ${endYear}`
           : 'All Years';
-  const isFormMode = mode === 'form';
+  const isPointSelected = (point: ChartPoint) => {
+    if (!selectedRange) return false;
+    const selectedStart = selectedRange.start ?? availableStartYear;
+    const selectedEnd = selectedRange.end ?? availableEndYear;
+    if (selectedStart == null || selectedEnd == null) return false;
+    return point.xKey <= selectedEnd && point.xEnd >= selectedStart;
+  };
 
   return (
     <div className="relative w-full pa11y-ignore-contrast-timeline">
-      <div
-        className="mb-2 flex items-center justify-between gap-3 text-xs text-gray-500"
-      >
-        <div
-          className="inline-flex rounded-md border border-gray-200 bg-white p-0.5"
-          role="group"
-          aria-label="Year filter mode"
+      <div className="mb-2 flex items-center justify-between gap-3 text-xs text-gray-500">
+        <span
+          className="font-medium text-gray-700"
+          data-testid="timeline-selected-range"
         >
-          <button
-            type="button"
-            aria-pressed={!isFormMode}
-            onClick={() => {
-              setManualError(null);
-              setMode('graph');
-            }}
-            className={`rounded px-2 py-1 text-xs transition-colors ${
-              !isFormMode
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            Graph
-          </button>
-          <button
-            type="button"
-            aria-pressed={isFormMode}
-            onClick={() => {
-              setManualError(null);
-              setMode('form');
-            }}
-            className={`rounded px-2 py-1 text-xs transition-colors ${
-              isFormMode
-                ? 'bg-blue-600 text-white'
-                : 'text-gray-700 hover:bg-gray-100'
-            }`}
-          >
-            Form
-          </button>
-        </div>
-        <span className="font-medium text-gray-700">
           {selectedRangeLabel}
         </span>
+        <span className="text-gray-500">Click a bar or drag across years</span>
       </div>
 
-      {isFormMode ? (
-        <form
-          noValidate
-          onSubmit={handleManualSubmit}
-          className="space-y-3 pb-3"
-        >
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-700">
-                Start year
-              </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]{4}"
-                maxLength={4}
-                value={manualStartYear}
-                onChange={handleManualYearChange(setManualStartYear)}
-                placeholder="1900"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </label>
-            <label className="block">
-              <span className="mb-1 block text-xs font-medium text-gray-700">
-                End year
-              </span>
-              <input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]{4}"
-                maxLength={4}
-                value={manualEndYear}
-                onChange={handleManualYearChange(setManualEndYear)}
-                placeholder="2024"
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </label>
-          </div>
-          {manualError && (
-            <p className="text-xs text-red-600" role="alert">
-              {manualError}
-            </p>
-          )}
-          <div className="flex items-center gap-2">
-            <button
-              type="submit"
-              className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+      <div
+        className="sr-only"
+        role="listbox"
+        aria-label="Select year or year range"
+      >
+        {data.map((point) => (
+          <button
+            key={point.xKey}
+            type="button"
+            aria-pressed={isPointSelected(point)}
+            onClick={() => selectPoint(point)}
+          >
+            {isBucketed
+              ? `Select ${point.xKey} to ${point.xEnd}`
+              : `Select ${point.xKey}`}
+          </button>
+        ))}
+      </div>
+
+      <div
+        style={{ height: 110, width: '100%' }}
+        className="select-none [&_*:focus-visible]:!outline-none [&_*:focus]:!outline-none [&_.recharts-surface]:!outline-none [&_.recharts-wrapper]:!outline-none"
+      >
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            accessibilityLayer={false}
+            margin={{ top: 5, right: 0, left: 0, bottom: 5 }}
+            barCategoryGap={1}
+            onMouseDown={onMouseDown}
+            onMouseMove={onMouseMove}
+            onMouseUp={onMouseUp}
+            onMouseLeave={onMouseUp}
+            onClick={onChartClick}
+          >
+            <XAxis
+              dataKey="xKey"
+              minTickGap={20}
+              tick={{ fontSize: 10, fill: '#374151' }}
+              axisLine={false}
+              tickLine={false}
+              tickFormatter={(v) => (isBucketed ? `${v}s` : String(v))}
+            />
+            <Tooltip
+              cursor={{ fill: 'rgba(37, 99, 235, 0.08)' }}
+              content={({ active, payload }) => {
+                if (active && payload && payload.length) {
+                  const p = payload[0].payload as ChartPoint;
+                  return (
+                    <div className="z-50 rounded border border-gray-200 bg-white p-2 text-xs shadow-lg">
+                      <p className="font-semibold">
+                        {isBucketed ? `${p.xKey}-${p.xEnd}` : p.label}
+                      </p>
+                      <p className="text-gray-600">{`${payload[0].value} results`}</p>
+                    </div>
+                  );
+                }
+                return null;
+              }}
+            />
+            <Bar
+              dataKey="count"
+              minPointSize={3}
+              radius={[2, 2, 0, 0]}
+              onMouseEnter={(point: ChartPoint) => setHoveredKey(point.xKey)}
+              onMouseLeave={() => setHoveredKey(null)}
+              className="cursor-pointer"
             >
-              Apply
-            </button>
-            <button
-              type="button"
-              onClick={handleClear}
-              className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
-            >
-              Clear
-            </button>
-          </div>
-        </form>
-      ) : (
-        <div style={{ height: 100, width: '100%' }} className="select-none">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart
-              data={data}
-              margin={{ top: 5, right: 0, left: 0, bottom: 5 }}
-              barCategoryGap={1}
-              onMouseDown={onMouseDown}
-              onMouseMove={onMouseMove}
-              onMouseUp={onMouseUp}
-              onMouseLeave={onMouseUp} // Stop dragging if leaving chart
-            >
-              <XAxis
-                dataKey="xKey"
-                minTickGap={20}
-                tick={{ fontSize: 10, fill: '#374151' }}
-                axisLine={false}
-                tickLine={false}
-                tickFormatter={(v) => (isBucketed ? `${v}s` : String(v))}
-              />
-              <Tooltip
-                cursor={{ fill: 'transparent' }}
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    const p = payload[0].payload as ChartPoint;
-                    return (
-                      <div className="bg-white border border-gray-200 p-2 shadow-lg rounded text-xs z-50">
-                        <p className="font-semibold">
-                          {isBucketed ? `${p.xKey}–${p.xEnd}` : p.label}
-                        </p>
-                        <p className="text-gray-600">{`Count: ${payload[0].value}`}</p>
-                      </div>
-                    );
+              {data.map((point) => (
+                <Cell
+                  key={point.xKey}
+                  fill={
+                    isPointSelected(point)
+                      ? '#1d4ed8'
+                      : hoveredKey === point.xKey
+                        ? '#2563eb'
+                        : selectedRange
+                          ? '#93c5fd'
+                          : '#3b82f6'
                   }
-                  return null;
-                }}
-              />
-              <Bar
-                dataKey="count"
+                />
+              ))}
+            </Bar>
+            {refAreaX1 != null && refAreaX2 != null && (
+              <ReferenceArea
+                x1={refAreaX1}
+                x2={refAreaX2}
+                stroke="none"
                 fill="#3b82f6"
-                minPointSize={3}
-                radius={[2, 2, 0, 0]}
+                fillOpacity={0.14}
               />
-              {refAreaX1 != null && refAreaX2 != null && (
-                <ReferenceArea
-                  x1={refAreaX1}
-                  x2={refAreaX2}
-                  strokeOpacity={0.3}
-                  fill="#3b82f6"
-                  fillOpacity={0.1}
-                />
-              )}
-              {state.refAreaLeft && state.refAreaRight && (
-                <ReferenceArea
-                  x1={state.refAreaLeft}
-                  x2={state.refAreaRight}
-                  strokeOpacity={0.3}
-                  fill="#3b82f6"
-                  fillOpacity={0.3}
-                />
-              )}
-            </BarChart>
-          </ResponsiveContainer>
+            )}
+            {state.refAreaLeft && state.refAreaRight && (
+              <ReferenceArea
+                x1={state.refAreaLeft}
+                x2={state.refAreaRight}
+                stroke="none"
+                fill="#3b82f6"
+                fillOpacity={0.28}
+              />
+            )}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      <form noValidate onSubmit={handleManualSubmit} className="space-y-2 pb-3">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] items-end gap-2">
+          <label className="block min-w-0">
+            <span className="mb-1 block text-xs font-medium text-gray-700">
+              Start Year
+            </span>
+            <input
+              type="text"
+              aria-label="Start year"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              value={manualStartYear}
+              onChange={handleManualYearChange(setManualStartYear)}
+              placeholder="1900"
+              className="h-10 w-full rounded-md border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </label>
+          <label className="block min-w-0">
+            <span className="mb-1 block text-xs font-medium text-gray-700">
+              End Year
+            </span>
+            <input
+              type="text"
+              aria-label="End year"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              value={manualEndYear}
+              onChange={handleManualYearChange(setManualEndYear)}
+              placeholder="2024"
+              className="h-10 w-full rounded-md border border-gray-300 px-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </label>
+          <button
+            type="submit"
+            className="h-10 rounded-md bg-blue-600 px-3 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="h-10 rounded-md border border-gray-300 px-3 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-100"
+          >
+            Clear
+          </button>
         </div>
-      )}
+        {manualError && (
+          <p className="text-xs text-red-600" role="alert">
+            {manualError}
+          </p>
+        )}
+      </form>
     </div>
   );
 }

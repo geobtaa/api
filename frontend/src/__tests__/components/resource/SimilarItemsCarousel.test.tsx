@@ -45,7 +45,7 @@ describe('SimilarItemsCarousel', () => {
     const pill = screen.getByTestId('result-card-pill');
     expect(pill).toHaveTextContent('1929');
     expect(pill).toHaveTextContent('Maps');
-    expect(pill).toHaveClass('bg-gray-600', 'text-white');
+    expect(pill).toHaveClass('bg-[#003c5b]', 'text-white');
   });
 
   it('renders year and resource class from full GeoDocument attributes.ogm', () => {

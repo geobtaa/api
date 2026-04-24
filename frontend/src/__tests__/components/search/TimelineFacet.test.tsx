@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi } from 'vitest';
 import { TimelineFacet } from '../../../components/search/TimelineFacet';
@@ -9,8 +9,11 @@ vi.mock('recharts', () => {
   return {
     ...OriginalModule,
     ResponsiveContainer: ({ children }: any) => <div>{children}</div>,
-    BarChart: ({ children }: any) => <div data-testid="bar-chart">{children}</div>,
+    BarChart: ({ children }: any) => (
+      <div data-testid="bar-chart">{children}</div>
+    ),
     Bar: () => <div data-testid="bar" />,
+    Cell: () => null,
     Tooltip: () => <div data-testid="tooltip" />,
     ReferenceArea: () => <div data-testid="reference-area" />,
     XAxis: () => null,
@@ -33,11 +36,7 @@ describe('TimelineFacet', () => {
     links: { self: '...' },
   };
 
-  beforeEach(() => {
-    window.localStorage.clear();
-  });
-
-  it('renders the chart title', () => {
+  it('renders the selected range label and always-visible year fields', () => {
     render(
       <TimelineFacet
         facet={mockFacet}
@@ -46,22 +45,8 @@ describe('TimelineFacet', () => {
       />
     );
     expect(screen.getByText('All Years')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Graph' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Form' })).toBeInTheDocument();
-  });
-
-  it('defaults to graph mode', () => {
-    render(
-      <TimelineFacet
-        facet={mockFacet}
-        selectedRange={null}
-        onChange={() => {}}
-      />
-    );
-    expect(screen.getByRole('button', { name: 'Graph' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
+    expect(screen.getByLabelText('Start year')).toHaveValue('1900');
+    expect(screen.getByLabelText('End year')).toHaveValue('2000');
   });
 
   it('renders the BarChart', () => {
@@ -98,17 +83,20 @@ describe('TimelineFacet', () => {
     expect(screen.getByText('1950+')).toBeInTheDocument();
   });
 
-  it('prefills manual entry fields with available min and max years when no range is active', async () => {
-    render(<TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={() => {}} />);
-
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
+  it('prefills manual entry fields with available min and max years when no range is active', () => {
+    render(
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={() => {}}
+      />
+    );
 
     expect(screen.getByLabelText('Start year')).toHaveValue('1900');
     expect(screen.getByLabelText('End year')).toHaveValue('2000');
   });
 
-  it('prefills manual entry fields from the selected range', async () => {
+  it('prefills manual entry fields from the selected range', () => {
     render(
       <TimelineFacet
         facet={mockFacet as any}
@@ -117,18 +105,11 @@ describe('TimelineFacet', () => {
       />
     );
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
-
     expect(screen.getByLabelText('Start year')).toHaveValue('1950');
     expect(screen.getByLabelText('End year')).toHaveValue('2000');
-    expect(screen.getByRole('button', { name: 'Form' })).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    );
   });
 
-  it('preserves a partial active range when opening manual entry', async () => {
+  it('preserves a partial active range in manual entry', () => {
     render(
       <TimelineFacet
         facet={mockFacet as any}
@@ -137,9 +118,6 @@ describe('TimelineFacet', () => {
       />
     );
 
-    const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
-
     expect(screen.getByLabelText('Start year')).toHaveValue('1950');
     expect(screen.getByLabelText('End year')).toHaveValue('');
   });
@@ -147,11 +125,14 @@ describe('TimelineFacet', () => {
   it('requires at least one year before applying', async () => {
     const onChange = vi.fn();
     render(
-      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
     await user.clear(screen.getByLabelText('Start year'));
     await user.clear(screen.getByLabelText('End year'));
     await user.click(screen.getByRole('button', { name: 'Apply' }));
@@ -165,27 +146,35 @@ describe('TimelineFacet', () => {
   it('validates manual entry as 4-digit years', async () => {
     const onChange = vi.fn();
     render(
-      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
     await user.clear(screen.getByLabelText('Start year'));
     await user.type(screen.getByLabelText('Start year'), '950');
     await user.click(screen.getByRole('button', { name: 'Apply' }));
 
-    expect(screen.getByText('Enter years as 4-digit numbers.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Enter years as 4-digit numbers.')
+    ).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
   });
 
   it('allows start-only manual year input', async () => {
     const onChange = vi.fn();
     render(
-      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
     await user.clear(screen.getByLabelText('Start year'));
     await user.clear(screen.getByLabelText('End year'));
     await user.type(screen.getByLabelText('Start year'), '1950');
@@ -197,11 +186,14 @@ describe('TimelineFacet', () => {
   it('allows end-only manual year input', async () => {
     const onChange = vi.fn();
     render(
-      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
     await user.clear(screen.getByLabelText('Start year'));
     await user.clear(screen.getByLabelText('End year'));
     await user.type(screen.getByLabelText('End year'), '1950');
@@ -213,11 +205,14 @@ describe('TimelineFacet', () => {
   it('normalizes reversed manual year input before applying', async () => {
     const onChange = vi.fn();
     render(
-      <TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={onChange} />
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
     await user.clear(screen.getByLabelText('Start year'));
     await user.clear(screen.getByLabelText('End year'));
     await user.type(screen.getByLabelText('Start year'), '2000');
@@ -238,32 +233,50 @@ describe('TimelineFacet', () => {
     );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
     await user.click(screen.getByRole('button', { name: 'Clear' }));
 
     expect(onChange).toHaveBeenCalledWith(null);
   });
 
-  it('persists the selected mode in localStorage', async () => {
-    render(<TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={() => {}} />);
+  it('selects a single year from a focused chart bar control', async () => {
+    const onChange = vi.fn();
+    render(
+      <TimelineFacet
+        facet={mockFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
+    );
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: 'Form' }));
+    await user.click(screen.getByRole('button', { name: 'Select 1950' }));
 
-    expect(window.localStorage.getItem('b1g_year_facet_mode')).toBe('form');
+    expect(onChange).toHaveBeenCalledWith({ start: 1950, end: 1950 });
   });
 
-  it('restores form mode from localStorage', async () => {
-    window.localStorage.setItem('b1g_year_facet_mode', 'form');
+  it('selects a decade bucket from a focused chart bar control', async () => {
+    const manyYearFacet = {
+      ...mockFacet,
+      attributes: {
+        ...mockFacet.attributes,
+        items: Array.from({ length: 60 }, (_, index) => [1900 + index, 1]),
+      },
+    };
+    const onChange = vi.fn();
 
-    render(<TimelineFacet facet={mockFacet as any} selectedRange={null} onChange={() => {}} />);
+    render(
+      <TimelineFacet
+        facet={manyYearFacet as any}
+        selectedRange={null}
+        onChange={onChange}
+      />
+    );
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'Form' })).toHaveAttribute(
-        'aria-pressed',
-        'true'
-      );
-    });
-    expect(screen.getByLabelText('Start year')).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(
+      screen.getByRole('button', { name: 'Select 1930 to 1939' })
+    );
+
+    expect(onChange).toHaveBeenCalledWith({ start: 1930, end: 1939 });
   });
 });

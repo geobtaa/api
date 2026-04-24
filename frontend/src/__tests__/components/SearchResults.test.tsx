@@ -238,7 +238,7 @@ describe('SearchResults Component', () => {
       expect(pill).toBeInTheDocument();
       expect(pill).toHaveTextContent('1950');
       expect(pill).toHaveTextContent('Paper Maps');
-      expect(pill).toHaveClass('bg-gray-600', 'text-white');
+      expect(pill).toHaveClass('bg-[#003c5b]', 'text-white');
     });
 
     it('renders all search results', () => {
@@ -361,7 +361,8 @@ describe('SearchResults Component', () => {
             ogm: {
               id: 'polygon-result',
               dct_title_s: 'Result with complex geometry',
-              locn_geometry: 'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
+              locn_geometry:
+                'POLYGON((-97 49, -87 49, -87 43, -97 43, -97 49))',
             },
           },
           meta: {
@@ -488,7 +489,9 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const thumbnail = container.querySelector('img[src="https://example.com/thumbnail1.jpg"]');
+      const thumbnail = container.querySelector(
+        'img[src="https://example.com/thumbnail1.jpg"]'
+      );
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
     });
@@ -883,7 +886,10 @@ describe('SearchResults Component', () => {
       const thumbnail = container.querySelector(
         'img[src="/thumbnails/missing-thumb-test"]'
       );
-      expect(thumbnail).toHaveAttribute('src', '/thumbnails/missing-thumb-test');
+      expect(thumbnail).toHaveAttribute(
+        'src',
+        '/thumbnails/missing-thumb-test'
+      );
       expect(thumbnail).toHaveAttribute('alt', '');
     });
 
@@ -1049,7 +1055,9 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      const image = container.querySelector('img[src="https://example.com/thumbnail1.jpg"]');
+      const image = container.querySelector(
+        'img[src="https://example.com/thumbnail1.jpg"]'
+      );
       expect(image).toBeInTheDocument();
       expect(image).toHaveAttribute('alt', '');
     });

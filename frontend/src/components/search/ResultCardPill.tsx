@@ -38,7 +38,7 @@ export function ResultCardPill({
   );
 
   const basePillClass =
-    'inline-flex items-center rounded text-xs uppercase tracking-tighter text-white bg-gray-600 px-1.5 py-0.5';
+    'inline-flex items-center rounded text-xs uppercase tracking-tighter text-white bg-[#003c5b] px-1.5 py-0.5';
 
   return (
     <span

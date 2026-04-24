@@ -296,7 +296,7 @@ describe('GalleryView', () => {
     const pill = pills[0];
     expect(pill).toHaveTextContent('2020');
     expect(pill).toHaveTextContent('Map');
-    expect(pill).toHaveClass('bg-gray-600', 'text-white');
+    expect(pill).toHaveClass('bg-[#003c5b]', 'text-white');
   });
 
   describe('result numbers', () => {

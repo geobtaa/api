@@ -13,10 +13,7 @@ from app.services.cache_service import (
 
 
 def test_resource_cache_tags_from_jsonapi_body():
-    body = (
-        b'{"data":[{"type":"resource","id":"resource-1"},'
-        b'{"type":"resource","id":"resource-2"}]}'
-    )
+    body = b'{"data":[{"type":"resource","id":"resource-1"},{"type":"resource","id":"resource-2"}]}'
 
     assert _resource_cache_tags_from_body(body) == {
         "resource:resource-1",
