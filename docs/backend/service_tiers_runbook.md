@@ -2,6 +2,8 @@
 
 This document outlines the operational steps to enable and monitor **service tiers**, **API keys**, and **rate limiting** for the BTAA Geospatial API.
 
+For the broader analytics architecture, event taxonomy, retention model, and extension guidelines, see [Analytics Program](analytics_program.md).
+
 ### 1. One-time setup per environment
 
 - **Ensure database migrations have been run:**

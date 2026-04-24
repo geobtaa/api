@@ -183,6 +183,8 @@ See also `docs/backend/kamal_deployment.md` for the full Kamal runbook.
 
 **Purpose**: Maintains analytics partitions, rollups, and retention.
 
+See also [Analytics Program](analytics_program.md) for the full analytics architecture and operating model.
+
 **Key Features**:
 - Ensures monthly partitions exist for raw `analytics_*` tables
 - Rolls up completed daily analytics into compact summary tables

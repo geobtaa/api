@@ -226,6 +226,8 @@ The cron container currently runs:
 - daily sitemap generation at `4:15 AM`
 - daily analytics storage maintenance at `4:45 AM`
 
+For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
+
 ## Destination Differences
 
 The base config in `config/deploy.yml` is shared across all destinations. The destination files only override host-specific or environment-specific behavior.
