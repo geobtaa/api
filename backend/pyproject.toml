@@ -63,7 +63,7 @@ dependencies = [
     "opentelemetry-instrumentation-fastapi>=0.49b0",
     "pyyaml>=6.0.3",
     "lxml>=5.0.0",
-    "python-multipart==0.0.22",
+    "python-multipart==0.0.26",
     "tornado==6.5.5",
     "Pygments==2.20.0",
 ]
