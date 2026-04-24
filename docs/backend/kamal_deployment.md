@@ -32,7 +32,7 @@ Each destination is a single-host deployment with these app roles:
 
 - `web`: nginx + SSR + FastAPI on the public host
 - `worker`: Celery worker
-- `cron`: cron container for scheduled bridge/blog tasks
+- `cron`: cron container for scheduled bridge/blog/analytics-maintenance tasks
 - `flower`: Celery monitoring UI
 
 Each destination also runs these accessories on the same VM:
@@ -218,6 +218,15 @@ make kamal-cron-test-bridge KAMAL_DEST=prd
 make kamal-bridge-status KAMAL_DEST=prd
 make kamal-bridge-status-watch KAMAL_DEST=prd
 ```
+
+The cron container currently runs:
+
+- daily bridge delta sync at `2:00 AM`
+- daily blog sync at `3:00 AM`
+- daily sitemap generation at `4:15 AM`
+- daily analytics storage maintenance at `4:45 AM`
+
+For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 
 ## Destination Differences
 

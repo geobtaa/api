@@ -25,12 +25,64 @@ export class ApiError extends Error {
  * Authentication (API key) is handled by the NGINX BFF proxy server-side,
  * so no authentication headers are needed in the client.
  */
-function buildApiHeaders(): HeadersInit {
-  return {
+const VISIT_TOKEN_STORAGE_KEY = 'btaa_visit_token';
+
+function generateVisitToken(): string {
+  if (
+    typeof crypto !== 'undefined' &&
+    typeof crypto.randomUUID === 'function'
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `visit-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export function getVisitToken(): string | undefined {
+  if (typeof window === 'undefined') return undefined;
+
+  try {
+    const existing = window.sessionStorage.getItem(VISIT_TOKEN_STORAGE_KEY);
+    if (existing) return existing;
+
+    const nextToken = generateVisitToken();
+    window.sessionStorage.setItem(VISIT_TOKEN_STORAGE_KEY, nextToken);
+    return nextToken;
+  } catch {
+    return undefined;
+  }
+}
+
+function buildApiHeaders(urlObj: URL): HeadersInit {
+  const headers: Record<string, string> = {
     Accept: 'application/vnd.api+json, application/json',
-    // Note: Content-Type and CSRF token removed to avoid CORS preflight issues
-    // Note: API key authentication is handled by the NGINX BFF proxy server-side
   };
+
+  const appVersion = import.meta.env.VITE_APP_VERSION || 'dev';
+
+  // Only add custom analytics headers when they cannot trigger browser preflights:
+  // server-side fetches or same-origin browser requests.
+  if (typeof window === 'undefined') {
+    headers['X-BTAA-Client-Name'] = 'geoportal-ssr';
+    headers['X-BTAA-Client-Channel'] = 'ssr';
+    headers['X-BTAA-Client-Version'] = appVersion;
+    return headers;
+  }
+
+  if (urlObj.origin === window.location.origin) {
+    headers['X-BTAA-Client-Name'] = 'geoportal-web';
+    headers['X-BTAA-Client-Channel'] = 'browser';
+    headers['X-BTAA-Client-Version'] = appVersion;
+
+    const visitToken = getVisitToken();
+    if (visitToken) {
+      headers['X-Visit-Token'] = visitToken;
+    }
+  }
+
+  // Note: Content-Type and custom browser headers are intentionally omitted for
+  // cross-origin requests to avoid CORS preflight latency.
+  return headers;
 }
 
 const defaultFetchOptions: FetchOptions = {
@@ -264,7 +316,7 @@ async function unifiedFetch<T>(
 
     const requestPromise: Promise<T> = (async () => {
       const response = await fetch(fetchUrl, {
-        headers: buildApiHeaders(),
+        headers: buildApiHeaders(urlObj),
         mode: 'cors',
         credentials: 'omit',
         redirect: 'follow',

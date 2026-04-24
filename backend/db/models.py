@@ -503,7 +503,8 @@ api_keys = Table(
     "api_keys",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
-    Column("key_hash", String(64), nullable=False, unique=True, index=True),  # Deterministic API key hash
+    # Deterministic API key hash
+    Column("key_hash", String(64), nullable=False, unique=True, index=True),
     Column("tier_id", Integer, nullable=False, index=True),
     Column("name", String(255), nullable=True),
     Column("is_active", Boolean, nullable=False, server_default="true"),
@@ -513,11 +514,12 @@ api_keys = Table(
     Column("allowed_ips", JSON, nullable=True),  # JSON array of allowed IP addresses
 )
 
-# API usage logs table (for future analytics, inspired by Ahoy's comprehensive tracking)
-api_usage_logs = Table(
-    "api_usage_logs",
+# Analytics request log table (inspired by Ahoy's comprehensive tracking)
+analytics_api_usage_logs = Table(
+    "analytics_api_usage_logs",
     metadata,
     Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("partition_month", Date, primary_key=True, nullable=False),
     Column("api_key_id", Integer, nullable=True, index=True),  # Nullable for anonymous requests
     Column("tier_id", Integer, nullable=False, index=True),
     # Unique identifier to group requests from same session/visit
@@ -543,8 +545,152 @@ api_usage_logs = Table(
     Column("utm_term", String(255), nullable=True),
     Column("utm_content", String(255), nullable=True),
     Column("utm_campaign", String(255), nullable=True),
+    Column("client_name", String(100), nullable=True),
+    Column("client_version", String(100), nullable=True),
+    Column("client_channel", String(50), nullable=True),
+    Column("client_instance", String(100), nullable=True),
+    Column("source_host", String(255), nullable=True),
     # Custom properties/metadata for the request (Ahoy-inspired event properties)
     Column("properties", JSON, nullable=True),
+)
+
+analytics_searches = Table(
+    "analytics_searches",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("partition_month", Date, primary_key=True, nullable=False),
+    Column("search_id", String(64), nullable=False),
+    Column("visit_token", String(255), nullable=True, index=True),
+    Column("client_name", String(100), nullable=True),
+    Column("client_version", String(100), nullable=True),
+    Column("client_channel", String(50), nullable=True),
+    Column("client_instance", String(100), nullable=True),
+    Column("source_host", String(255), nullable=True),
+    Column("query", Text, nullable=True),
+    Column("search_url", Text, nullable=True),
+    Column("view", String(50), nullable=True),
+    Column("page", Integer, nullable=True),
+    Column("per_page", Integer, nullable=True),
+    Column("sort", String(100), nullable=True),
+    Column("search_field", String(100), nullable=True),
+    Column("results_count", Integer, nullable=False, server_default="0"),
+    Column("total_pages", Integer, nullable=True),
+    Column("zero_results", Boolean, nullable=False, server_default="false", index=True),
+    Column("occurred_at", TIMESTAMP, nullable=False, index=True, server_default=func.now()),
+    Column("properties", JSON, nullable=True),
+    UniqueConstraint("search_id", "partition_month", name="uq_analytics_searches_identity"),
+)
+
+analytics_search_impressions = Table(
+    "analytics_search_impressions",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("partition_month", Date, primary_key=True, nullable=False),
+    Column("search_id", String(64), nullable=False, index=True),
+    Column("visit_token", String(255), nullable=True, index=True),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("rank", Integer, nullable=False),
+    Column("page", Integer, nullable=True),
+    Column("view", String(50), nullable=True),
+    Column("occurred_at", TIMESTAMP, nullable=False, index=True, server_default=func.now()),
+    Column("properties", JSON, nullable=True),
+    UniqueConstraint(
+        "search_id",
+        "resource_id",
+        "rank",
+        "page",
+        "view",
+        "partition_month",
+        name="uq_analytics_search_impressions_identity",
+    ),
+)
+
+analytics_events = Table(
+    "analytics_events",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("partition_month", Date, primary_key=True, nullable=False),
+    Column("event_id", String(64), nullable=False),
+    Column("event_type", String(100), nullable=False, index=True),
+    Column("visit_token", String(255), nullable=True, index=True),
+    Column("search_id", String(64), nullable=True, index=True),
+    Column("resource_id", String(255), nullable=True, index=True),
+    Column("client_name", String(100), nullable=True),
+    Column("client_version", String(100), nullable=True),
+    Column("client_channel", String(50), nullable=True),
+    Column("client_instance", String(100), nullable=True),
+    Column("source_host", String(255), nullable=True),
+    Column("rank", Integer, nullable=True),
+    Column("page", Integer, nullable=True),
+    Column("view", String(50), nullable=True),
+    Column("label", String(255), nullable=True),
+    Column("destination_url", Text, nullable=True),
+    Column("source_component", String(100), nullable=True),
+    Column("occurred_at", TIMESTAMP, nullable=False, index=True, server_default=func.now()),
+    Column("properties", JSON, nullable=True),
+    UniqueConstraint("event_id", "partition_month", name="uq_analytics_events_identity"),
+)
+
+analytics_daily_api_usage_metrics = Table(
+    "analytics_daily_api_usage_metrics",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("rollup_key", String(64), nullable=False, unique=True, index=True),
+    Column("metric_date", Date, nullable=False, index=True),
+    Column("endpoint", String(500), nullable=False),
+    Column("method", String(10), nullable=False),
+    Column("status_code", Integer, nullable=False),
+    Column("tier_id", Integer, nullable=False),
+    Column("api_key_id", Integer, nullable=True),
+    Column("client_name", String(100), nullable=True),
+    Column("client_channel", String(50), nullable=True),
+    Column("source_host", String(255), nullable=True),
+    Column("requests_count", Integer, nullable=False, server_default="0"),
+    Column("unique_visits_count", Integer, nullable=False, server_default="0"),
+    Column("avg_response_time_ms", Numeric(10, 2), nullable=True),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+analytics_daily_search_metrics = Table(
+    "analytics_daily_search_metrics",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("rollup_key", String(64), nullable=False, unique=True, index=True),
+    Column("metric_date", Date, nullable=False, index=True),
+    Column("client_name", String(100), nullable=True),
+    Column("client_channel", String(50), nullable=True),
+    Column("source_host", String(255), nullable=True),
+    Column("view", String(50), nullable=True),
+    Column("search_field", String(100), nullable=True),
+    Column("sort", String(100), nullable=True),
+    Column("searches_count", Integer, nullable=False, server_default="0"),
+    Column("zero_results_count", Integer, nullable=False, server_default="0"),
+    Column("total_results_count", Integer, nullable=False, server_default="0"),
+    Column("total_impressions_count", Integer, nullable=False, server_default="0"),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+analytics_daily_resource_metrics = Table(
+    "analytics_daily_resource_metrics",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("rollup_key", String(64), nullable=False, unique=True, index=True),
+    Column("metric_date", Date, nullable=False, index=True),
+    Column("resource_id", String(255), nullable=False, index=True),
+    Column("event_type", String(100), nullable=False, index=True),
+    Column("client_name", String(100), nullable=True),
+    Column("client_channel", String(50), nullable=True),
+    Column("source_host", String(255), nullable=True),
+    Column("event_count", Integer, nullable=False, server_default="0"),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+analytics_maintenance_state = Table(
+    "analytics_maintenance_state",
+    metadata,
+    Column("job_name", String(100), primary_key=True),
+    Column("last_processed_date", Date, nullable=True),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
 
 # OpenGeoMetadata Harvesting / Admin tables

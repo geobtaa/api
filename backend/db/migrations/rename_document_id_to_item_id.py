@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 def rename_document_id_to_item_id():
     """Rename the 'document_id' column to 'item_id' in the item_ai_enrichments table."""
     try:
-        # Create engine
-        engine = create_engine(DATABASE_URL)
+        sync_database_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        engine = create_engine(sync_database_url)
 
         with engine.connect() as conn:
             # Check if the column 'document_id' exists

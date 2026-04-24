@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -121,7 +121,7 @@ RESOURCE_IDS ?=
 # db-sync defaults
 DB_SYNC_FULL_EXPORT ?= tmp/btaa_geospatial_api_export.sql.gz
 DB_SYNC_PRESERVE_LOCAL_TABLES ?= true
-DB_SYNC_PRESERVE_TABLES ?= api_service_tiers api_keys api_usage_logs
+DB_SYNC_PRESERVE_TABLES ?= api_service_tiers api_keys analytics_api_usage_logs analytics_searches analytics_search_impressions analytics_events
 DB_SYNC_PRESERVE_SEQUENCES ?= $(addsuffix _id_seq,$(DB_SYNC_PRESERVE_TABLES))
 DB_SYNC_ARCHIVE_MODE := full
 DB_SYNC_PG_DUMP_EXCLUDES :=
@@ -730,6 +730,16 @@ local-clear-search-cache: ## Clear local search cache
 sitemap-generate: ## Generate and cache sitemap XML for /sitemap.xml
 	@echo "Generating sitemap XML and crawler metadata..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/generate_sitemap.py'
+
+# Ensure analytics partitions/rollups/retention are in place and run one maintenance pass.
+analytics-maintenance: ## Run analytics partitioning, rollups, and retention maintenance
+	@echo "Running analytics storage maintenance..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/manage_analytics_storage.py --mode maintenance'
+
+# Print current analytics relation sizes from Postgres.
+analytics-size-report: ## Show analytics table and partition sizes
+	@echo "Reporting analytics relation sizes..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/manage_analytics_storage.py --mode size-report'
 
 # Refresh OpenGeoMetadata (OGM) harvest for all enabled weekly repos.
 # Uses ADMIN_USERNAME/ADMIN_PASSWORD from env or .env (defaults to admin/changeme).

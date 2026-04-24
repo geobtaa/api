@@ -3,6 +3,10 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DownloadsTable } from '../../../components/resource/DownloadsTable';
 
+vi.mock('../../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+}));
+
 describe('DownloadsTable', () => {
   it('renders generated download labels', () => {
     render(

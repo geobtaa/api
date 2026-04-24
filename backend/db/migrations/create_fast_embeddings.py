@@ -28,8 +28,8 @@ logger = logging.getLogger(__name__)
 def create_fast_embeddings_table():
     """Create the gazetteer_fast_embeddings table with vector support."""
     try:
-        # Create engine
-        engine = create_engine(DATABASE_URL)
+        sync_database_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        engine = create_engine(sync_database_url)
         
         # Check if table exists
         inspector = inspect(engine)

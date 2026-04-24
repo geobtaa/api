@@ -10,6 +10,7 @@ import { getResourceIcon } from '../utils/resourceIcons';
 import { getHoverGeometryForResult } from '../utils/geometryUtils';
 import { getResultPrimaryImageUrl } from '../utils/resourceAssets';
 import { fetchResourceDetails } from '../services/api';
+import { scheduleAnalyticsBatch } from '../services/analytics';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
 
@@ -20,6 +21,8 @@ interface SearchResultsProps {
   currentPage: number;
   perPage?: number;
   variant?: 'default' | 'compact';
+  searchId?: string;
+  searchView?: 'list' | 'gallery' | 'map';
 }
 
 export function SearchResults({
@@ -29,6 +32,8 @@ export function SearchResults({
   currentPage,
   perPage = 10,
   variant = 'default',
+  searchId,
+  searchView = 'list',
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
@@ -41,6 +46,31 @@ export function SearchResults({
   // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
     return (currentPage - 1) * perPage + relativeIndex + 1;
+  };
+
+  const trackResultClick = (
+    resourceId: string,
+    title: string,
+    relativeIndex: number
+  ) => {
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'result_click',
+          search_id: searchId,
+          resource_id: resourceId,
+          rank: getAbsoluteIndex(relativeIndex),
+          page: currentPage,
+          view: searchView,
+          label: title,
+          source_component: 'SearchResults',
+          properties: {
+            search_url: location.pathname + location.search,
+            total_results: totalResults,
+          },
+        },
+      ],
+    });
   };
 
   if (isLoading) {
@@ -166,6 +196,13 @@ export function SearchResults({
                   </span>
                   <Link
                     to={`/resources/${result.id}`}
+                    onClick={() =>
+                      trackResultClick(
+                        result.id,
+                        typeof title === 'string' ? title : String(title),
+                        index
+                      )
+                    }
                     state={{
                       searchResults: results,
                       currentIndex: index, // Local index
@@ -174,6 +211,8 @@ export function SearchResults({
                       searchUrl: location.pathname + location.search,
                       currentPage: currentPage,
                       perPage: perPage,
+                      searchId: searchId,
+                      view: searchView,
                     }}
                     className="flex-1"
                   >

@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 def rename_ai_enrichments_table():
     """Rename the ai_enrichments table to item_ai_enrichments."""
     try:
-        # Create engine and inspector
-        engine = create_engine(DATABASE_URL)
+        sync_database_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        engine = create_engine(sync_database_url)
         inspector = inspect(engine)
 
         # Check if old table exists and new table doesn't

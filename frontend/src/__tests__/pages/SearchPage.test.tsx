@@ -16,6 +16,12 @@ import {
 } from 'vitest';
 import type { GeoDocument, JsonApiResponse } from '../../types/api';
 
+vi.mock('../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+  generateAnalyticsId: vi.fn(() => 'search_test_id'),
+  serializeSearchParams: vi.fn(() => ({})),
+}));
+
 // Mock child components to isolate SearchPage logic
 vi.mock('../../components/search/GeospatialFilterMap', () => ({
   GeospatialFilterMap: () => <div data-testid="geo-filter-map">Geo Map</div>,

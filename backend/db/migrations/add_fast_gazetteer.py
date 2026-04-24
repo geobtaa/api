@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 def add_fast_gazetteer():
     """Add the gazetteer_fast table."""
     try:
-        # Create engine and inspector
-        engine = create_engine(DATABASE_URL)
+        sync_database_url = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
+        engine = create_engine(sync_database_url)
         inspector = inspect(engine)
 
         # Create MetaData instance

@@ -2,6 +2,7 @@ import React from 'react';
 import { Download, Image } from 'lucide-react';
 import { useState } from 'react';
 import { getApiBasePath } from '../../services/api';
+import { scheduleAnalyticsBatch } from '../../services/analytics';
 
 interface DownloadItem {
   label: string;
@@ -15,9 +16,15 @@ interface DownloadItem {
 
 interface DownloadsTableProps {
   downloads: DownloadItem[];
+  resourceId?: string;
+  searchId?: string;
 }
 
-export function DownloadsTable({ downloads }: DownloadsTableProps) {
+export function DownloadsTable({
+  downloads,
+  resourceId,
+  searchId,
+}: DownloadsTableProps) {
   const [preparing, setPreparing] = useState<Record<string, boolean>>({});
   const [failed, setFailed] = useState<Record<string, boolean>>({});
 
@@ -44,7 +51,26 @@ export function DownloadsTable({ downloads }: DownloadsTableProps) {
     event: React.MouseEvent<HTMLAnchorElement>,
     download: DownloadItem
   ) => {
-    if (!download.generated) return;
+    if (!download.generated) {
+      scheduleAnalyticsBatch({
+        events: [
+          {
+            event_type: 'download_click',
+            search_id: searchId,
+            resource_id: resourceId,
+            label: download.label,
+            destination_url: download.url,
+            source_component: 'DownloadsTable',
+            properties: {
+              generated: false,
+              download_type: download.download_type,
+              format: download.format,
+            },
+          },
+        ],
+      });
+      return;
+    }
     event.preventDefault();
 
     const key = download.generation_path || download.url;
@@ -66,6 +92,24 @@ export function DownloadsTable({ downloads }: DownloadsTableProps) {
 
     setPreparing((prev) => ({ ...prev, [key]: true }));
     setFailed((prev) => ({ ...prev, [key]: false }));
+
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'download_prepare_requested',
+          search_id: searchId,
+          resource_id: resourceId,
+          label: download.label,
+          destination_url: prepareUrl,
+          source_component: 'DownloadsTable',
+          properties: {
+            generated: true,
+            download_type: download.download_type,
+            format: download.format,
+          },
+        },
+      ],
+    });
 
     try {
       const response = await fetch(prepareUrl, {
@@ -89,10 +133,59 @@ export function DownloadsTable({ downloads }: DownloadsTableProps) {
       const payload = (await response.json()) as { download_url?: string };
       const rawDownloadUrl = payload.download_url || `${key}/file`;
       const downloadUrl = toApiUrl(rawDownloadUrl);
+      scheduleAnalyticsBatch({
+        events: [
+          {
+            event_type: 'download_prepare_success',
+            search_id: searchId,
+            resource_id: resourceId,
+            label: download.label,
+            destination_url: downloadUrl,
+            source_component: 'DownloadsTable',
+            properties: {
+              generated: true,
+              download_type: download.download_type,
+              format: download.format,
+            },
+          },
+          {
+            event_type: 'download_click',
+            search_id: searchId,
+            resource_id: resourceId,
+            label: download.label,
+            destination_url: downloadUrl,
+            source_component: 'DownloadsTable',
+            properties: {
+              generated: true,
+              download_type: download.download_type,
+              format: download.format,
+            },
+          },
+        ],
+      });
       window.open(downloadUrl, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Failed to prepare generated download:', error);
       setFailed((prev) => ({ ...prev, [key]: true }));
+      scheduleAnalyticsBatch({
+        events: [
+          {
+            event_type: 'download_prepare_failure',
+            search_id: searchId,
+            resource_id: resourceId,
+            label: download.label,
+            destination_url: prepareUrl,
+            source_component: 'DownloadsTable',
+            properties: {
+              generated: true,
+              download_type: download.download_type,
+              format: download.format,
+              error:
+                error instanceof Error ? error.message : 'unknown_prepare_error',
+            },
+          },
+        ],
+      });
     } finally {
       setPreparing((prev) => ({ ...prev, [key]: false }));
     }
@@ -121,6 +214,25 @@ export function DownloadsTable({ downloads }: DownloadsTableProps) {
                   className="text-sm text-blue-600 hover:text-blue-800 hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={() =>
+                    scheduleAnalyticsBatch({
+                      events: [
+                        {
+                          event_type: 'download_click',
+                          search_id: searchId,
+                          resource_id: resourceId,
+                          label: download.label,
+                          destination_url: download.url,
+                          source_component: 'DownloadsTable',
+                          properties: {
+                            generated: false,
+                            download_type: download.download_type,
+                            format: download.format,
+                          },
+                        },
+                      ],
+                    })
+                  }
                 >
                   {download.label.replace(' Image', '')}
                 </a>

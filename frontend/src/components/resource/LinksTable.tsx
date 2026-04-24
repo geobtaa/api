@@ -13,6 +13,7 @@ import {
   Download,
 } from 'lucide-react';
 import { getApiBasePath } from '../../services/api';
+import { scheduleAnalyticsBatch } from '../../services/analytics';
 
 interface LinkItem {
   label: string;
@@ -23,9 +24,14 @@ interface LinkItem {
 interface LinksTableProps {
   links: Record<string, LinkItem[]>;
   resourceId?: string;
+  searchId?: string;
 }
 
-export function LinksTable({ links, resourceId }: LinksTableProps) {
+export function LinksTable({
+  links,
+  resourceId,
+  searchId,
+}: LinksTableProps) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxContent, setLightboxContent] = useState<{
     category: string;
@@ -108,6 +114,45 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
 
   if (!links || Object.keys(links).length === 0) return null;
 
+  const resolveEventType = (category: string) => {
+    const categoryLower = category.toLowerCase();
+
+    if (categoryLower.includes('metadata')) return 'metadata_download';
+    if (categoryLower.includes('web services') || categoryLower.includes('api')) {
+      return 'web_service_click';
+    }
+    if (categoryLower.includes('source') || categoryLower.includes('visit')) {
+      return 'visit_source_click';
+    }
+    if (categoryLower.includes('arcgis')) return 'external_geoportal_click';
+    if (
+      categoryLower.includes('documentation') ||
+      categoryLower.includes('document')
+    ) {
+      return 'documentation_click';
+    }
+    return 'outbound_link_click';
+  };
+
+  const trackLinkClick = (category: string, item: LinkItem) => {
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: resolveEventType(category),
+          search_id: searchId,
+          resource_id: resourceId,
+          label: item.label,
+          destination_url: item.url,
+          source_component: 'LinksTable',
+          properties: {
+            category,
+            format: item.format,
+          },
+        },
+      ],
+    });
+  };
+
   const getCategoryIcon = (category: string) => {
     const categoryLower = category.toLowerCase();
 
@@ -168,6 +213,7 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
       setLightboxOpen(true);
     } else {
       if (items.length > 0) {
+        trackLinkClick(category, items[0]);
         window.open(items[0].url, '_blank', 'noopener,noreferrer');
       }
     }
@@ -250,6 +296,9 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
                     href={activeMetadataLink.url}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() =>
+                      trackLinkClick(lightboxContent.category, activeMetadataLink)
+                    }
                     className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded"
                   >
                     <Download className="w-4 h-4" />
@@ -291,6 +340,9 @@ export function LinksTable({ links, resourceId }: LinksTableProps) {
                     <a
                       key={index}
                       href={link.url}
+                      onClick={() =>
+                        trackLinkClick(lightboxContent.category, link)
+                      }
                       className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group"
                       target="_blank"
                       rel="noopener noreferrer"

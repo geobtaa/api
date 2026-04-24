@@ -26,6 +26,12 @@ import { BookmarkProvider } from '../../context/BookmarkContext';
 import { MapProvider } from '../../context/MapContext';
 import Cookies from 'js-cookie';
 
+vi.mock('../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+  generateAnalyticsId: vi.fn(() => 'search_test_id'),
+  serializeSearchParams: vi.fn(() => ({})),
+}));
+
 // Mocks to keep page rendering lightweight
 vi.mock('../../components/SearchField', () => ({
   SearchField: () => <input placeholder="Search" />,

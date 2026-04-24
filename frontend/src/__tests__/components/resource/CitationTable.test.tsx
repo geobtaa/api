@@ -12,6 +12,10 @@ import {
   type CitationStyle,
 } from '../../../components/resource/CitationTable';
 
+vi.mock('../../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+}));
+
 const renderWithRouter = (ui: React.ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
 

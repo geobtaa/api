@@ -3,7 +3,7 @@
 Setup script for API rate limiting system.
 
 This script:
-1. Creates the API rate limiting tables (api_service_tiers, api_keys, api_usage_logs)
+1. Creates the API rate limiting tables (api_service_tiers, api_keys, analytics_api_usage_logs)
 2. Initializes the six service tiers with their rate limits
 
 Run this script after setting up your database to enable rate limiting.
@@ -62,4 +62,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

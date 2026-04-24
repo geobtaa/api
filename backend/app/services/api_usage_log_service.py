@@ -1,27 +1,121 @@
 import logging
 import os
-from datetime import datetime
-from typing import Dict, Optional
+from datetime import datetime, timezone
+from typing import Any, Dict, Optional
 from urllib.parse import urlparse
 
-from sqlalchemy import insert
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
-
-from app.tasks.api_usage_enrichment import enrich_api_usage_log
-from db.config import DATABASE_URL
-from db.models import api_usage_logs
+from app.tasks.api_usage_enrichment import write_api_usage_log
 
 logger = logging.getLogger(__name__)
-
-# Create async engine and session; use NullPool to avoid cross-event-loop issues
-engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
-async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 class APIUsageLogService:
     """Service to log API usage for analytics."""
+
+    def _extract_client_properties(self, request) -> Dict[str, str]:
+        max_lengths = {
+            "client_name": 100,
+            "client_version": 100,
+            "client_channel": 50,
+            "client_instance": 100,
+        }
+        client_properties = {
+            "client_name": request.headers.get("X-BTAA-Client-Name"),
+            "client_version": request.headers.get("X-BTAA-Client-Version"),
+            "client_channel": request.headers.get("X-BTAA-Client-Channel"),
+            "client_instance": request.headers.get("X-BTAA-Client-Instance"),
+        }
+        return {
+            key: value[: max_lengths[key]]
+            for key, value in client_properties.items()
+            if isinstance(value, str) and value
+        }
+
+    def _partition_month(self, timestamp: datetime) -> str:
+        month_start = timestamp.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if month_start.tzinfo is not None:
+            month_start = month_start.astimezone(timezone.utc).replace(tzinfo=None)
+        return month_start.date().isoformat()
+
+    def _extract_source_host(self, request, referrer: Optional[str]) -> Optional[str]:
+        origin = request.headers.get("Origin")
+        for candidate in (origin, referrer):
+            if not candidate:
+                continue
+            try:
+                parsed = urlparse(candidate)
+                if parsed.netloc:
+                    return parsed.netloc[:255]
+            except Exception:
+                continue
+        return None
+
+    def _build_log_entry(
+        self,
+        request,
+        tier_id: int,
+        api_key_id: Optional[int] = None,
+        response_time_ms: Optional[int] = None,
+        status_code: int = 200,
+    ) -> Dict[str, Any]:
+        """Serialize the request into a Celery-safe analytics payload."""
+        endpoint = request.url.path
+        method = request.method
+        ip_address = self._get_ip_address(request)
+        user_agent = request.headers.get("User-Agent")
+        referrer = request.headers.get("Referer") or request.headers.get("Referrer")
+        referring_domain = self._extract_domain(referrer) if referrer else None
+        utm_params = self._extract_utm_params(request)
+        visit_token = request.headers.get("X-Visit-Token")
+        client_properties = self._extract_client_properties(request)
+        source_host = self._extract_source_host(request, referrer)
+        requested_at = datetime.utcnow()
+
+        query_params = dict(request.query_params)
+        for utm_key in ["utm_source", "utm_medium", "utm_term", "utm_content", "utm_campaign"]:
+            query_params.pop(utm_key, None)
+
+        properties = {
+            "query_params": query_params,
+        }
+        origin = request.headers.get("Origin")
+        if origin:
+            properties["origin"] = origin[:500]
+
+        return {
+            "api_key_id": api_key_id,
+            "tier_id": tier_id,
+            "visit_token": visit_token,
+            "partition_month": self._partition_month(requested_at),
+            "endpoint": endpoint[:500],
+            "method": method[:10],
+            "status_code": status_code,
+            "requested_at": requested_at.isoformat(),
+            "response_time_ms": response_time_ms,
+            "ip_address": ip_address[:45] if ip_address else None,
+            "user_agent": user_agent[:500] if user_agent else None,
+            "referrer": referrer[:500] if referrer else None,
+            "referring_domain": referring_domain[:255] if referring_domain else None,
+            "utm_source": utm_params.get("utm_source")[:255]
+            if utm_params.get("utm_source")
+            else None,
+            "utm_medium": utm_params.get("utm_medium")[:255]
+            if utm_params.get("utm_medium")
+            else None,
+            "utm_term": utm_params.get("utm_term")[:255] if utm_params.get("utm_term") else None,
+            "utm_content": utm_params.get("utm_content")[:255]
+            if utm_params.get("utm_content")
+            else None,
+            "utm_campaign": utm_params.get("utm_campaign")[:255]
+            if utm_params.get("utm_campaign")
+            else None,
+            "client_name": client_properties.get("client_name"),
+            "client_version": client_properties.get("client_version"),
+            "client_channel": client_properties.get("client_channel"),
+            "client_instance": client_properties.get("client_instance"),
+            "source_host": source_host,
+            "properties": properties,
+        }
 
     async def log_request(
         self,
@@ -32,10 +126,10 @@ class APIUsageLogService:
         status_code: int = 200,
     ):
         """
-        Log an API request to the api_usage_logs table.
+        Queue an API request for asynchronous analytics persistence.
 
-        This is designed to be called asynchronously and won't block the request.
-        Errors are logged but don't affect the request.
+        This path intentionally avoids direct database writes so request
+        processing does not wait on analytics storage.
 
         Args:
             request: FastAPI Request object
@@ -51,106 +145,16 @@ class APIUsageLogService:
             return
 
         try:
-            # Extract basic request info
-            endpoint = request.url.path
-            method = request.method
-
-            # Get IP address
-            ip_address = self._get_ip_address(request)
-
-            # Get user agent
-            user_agent = request.headers.get("User-Agent")
-
-            # Extract referrer
-            referrer = request.headers.get("Referer") or request.headers.get("Referrer")
-            referring_domain = self._extract_domain(referrer) if referrer else None
-
-            # Extract UTM parameters from query string
-            utm_params = self._extract_utm_params(request)
-
-            # Get visit token (if we implement visit tracking later)
-            visit_token = request.headers.get("X-Visit-Token")  # Future: generate if not present
-
-            # Extract all query parameters for properties (Ahoy-inspired event properties)
-            query_params = dict(request.query_params)
-            # Remove UTM params from query_params since they're stored separately
-            for utm_key in ["utm_source", "utm_medium", "utm_term", "utm_content", "utm_campaign"]:
-                query_params.pop(utm_key, None)
-
-            # Build properties JSON - always include query_params (even if empty dict)
-            properties = {
-                "query_params": query_params,
-            }
-
-            # Build log entry
-            log_entry = {
-                "api_key_id": api_key_id,
-                "tier_id": tier_id,
-                "visit_token": visit_token,
-                "endpoint": endpoint[:500],  # Truncate to max length
-                "method": method[:10],
-                "status_code": status_code,
-                "requested_at": datetime.utcnow(),
-                "response_time_ms": response_time_ms,
-                "ip_address": ip_address[:45] if ip_address else None,
-                "user_agent": user_agent[:500] if user_agent else None,
-                "referrer": referrer[:500] if referrer else None,
-                "referring_domain": referring_domain[:255] if referring_domain else None,
-                "utm_source": utm_params.get("utm_source")[:255]
-                if utm_params.get("utm_source")
-                else None,
-                "utm_medium": utm_params.get("utm_medium")[:255]
-                if utm_params.get("utm_medium")
-                else None,
-                "utm_term": utm_params.get("utm_term")[:255]
-                if utm_params.get("utm_term")
-                else None,
-                "utm_content": utm_params.get("utm_content")[:255]
-                if utm_params.get("utm_content")
-                else None,
-                "utm_campaign": utm_params.get("utm_campaign")[:255]
-                if utm_params.get("utm_campaign")
-                else None,
-                "properties": properties,  # Always store properties (includes query_params)
-                # Note: browser, os, device_type, location fields
-                # would be populated by background jobs/geocoding services in the future
-            }
-
-            # Insert asynchronously
-            async with async_session() as session:
-                try:
-                    logger.info(
-                        f"Logging API request: {endpoint} {method} - "
-                        f"tier_id={tier_id}, status={status_code}"
-                    )
-                    stmt = insert(api_usage_logs).values(**log_entry).returning(api_usage_logs.c.id)
-                    result = await session.execute(stmt)
-                    log_id = result.scalar()
-                    await session.commit()
-                    logger.info(
-                        f"Successfully logged API request: {endpoint} {method} (log_id={log_id})"
-                    )
-
-                    # Queue enrichment task (non-blocking, errors logged but
-                    # don't affect request)
-                    if log_id:
-                        try:
-                            enrich_api_usage_log.delay(log_id)
-                            logger.debug(f"Queued enrichment task for log_id={log_id}")
-                        except Exception as enrich_error:
-                            # Don't fail the request if enrichment queuing fails
-                            logger.warning(
-                                f"Failed to queue enrichment task for "
-                                f"log_id={log_id}: {enrich_error}"
-                            )
-                except Exception as e:
-                    await session.rollback()
-                    logger.error(f"Error logging API usage for {endpoint}: {e}", exc_info=True)
-                    logger.error("API usage log write failed")
-
+            log_entry = self._build_log_entry(
+                request=request,
+                tier_id=tier_id,
+                api_key_id=api_key_id,
+                response_time_ms=response_time_ms,
+                status_code=status_code,
+            )
+            write_api_usage_log.delay(log_entry)
         except Exception as e:
-            # Log but don't fail the request
-            logger.error(f"Error in API usage logging: {e}", exc_info=True)
+            logger.warning("Failed to queue API usage log: %s", e, exc_info=True)
 
     def _get_ip_address(self, request) -> Optional[str]:
         """Extract IP address from request."""

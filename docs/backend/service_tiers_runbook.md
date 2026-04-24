@@ -2,6 +2,8 @@
 
 This document outlines the operational steps to enable and monitor **service tiers**, **API keys**, and **rate limiting** for the BTAA Geospatial API.
 
+For the broader analytics architecture, event taxonomy, retention model, and extension guidelines, see [Analytics Program](analytics_program.md).
+
 ### 1. One-time setup per environment
 
 - **Ensure database migrations have been run:**
@@ -12,7 +14,9 @@ This document outlines the operational steps to enable and monitor **service tie
 
   This will:
 
-  - Create the `api_service_tiers`, `api_keys`, and `api_usage_logs` tables.
+  - Create the `api_service_tiers`, `api_keys`, `analytics_api_usage_logs`, `analytics_searches`, `analytics_search_impressions`, and `analytics_events` tables.
+  - Create the daily analytics rollup tables `analytics_daily_api_usage_metrics`, `analytics_daily_search_metrics`, `analytics_daily_resource_metrics`, and the `analytics_maintenance_state` checkpoint table.
+  - Convert raw analytics tables to monthly partitions when needed.
   - Seed the default service tiers (including `anonymous`, `general_registered`, and BTAA internal tiers).
 
 - **Ensure Redis is available:**
@@ -31,6 +35,14 @@ REDIS_PASSWORD=optional_password
 
 RATE_LIMIT_ENABLED=true      # Enable/disable middleware enforcement
 RATE_LIMIT_REDIS_DB=2        # Dedicated Redis DB for rate limiting
+
+ANALYTICS_RETENTION_API_USAGE_DAYS=30
+ANALYTICS_RETENTION_SEARCH_DAYS=90
+ANALYTICS_RETENTION_IMPRESSION_DAYS=30
+ANALYTICS_RETENTION_EVENT_DAYS=90
+ANALYTICS_PARTITION_HISTORY_MONTHS=2
+ANALYTICS_PARTITION_FUTURE_MONTHS=2
+ANALYTICS_ROLLUP_MAX_DAYS_PER_RUN=31
 ```
 
 For production:
@@ -104,15 +116,31 @@ When onboarding a new API client:
   - Hit a public endpoint and inspect response headers for `X-RateLimit-*`.
 
 - **Inspect API usage logs:**
-  - All requests are written to the `api_usage_logs` table with `tier_id` and optional `api_key_id`.
+  - API request analytics are queued to Celery and written asynchronously to `analytics_api_usage_logs`, with `tier_id` and optional `api_key_id`.
+  - Product analytics beacons from the Geoportal are queued to Celery and written asynchronously to `analytics_searches`, `analytics_search_impressions`, and `analytics_events`.
+  - Raw analytics now live in monthly partitions, and daily rollups are written to:
+    - `analytics_daily_api_usage_metrics`
+    - `analytics_daily_search_metrics`
+    - `analytics_daily_resource_metrics`
   - Use SQL or your preferred BI tool to:
     - Track high-volume clients.
     - Identify frequent 429 responses.
     - Analyze traffic by tier.
 
+- **Run storage maintenance manually if needed:**
+
+  ```bash
+  make analytics-maintenance
+  make analytics-size-report
+  ```
+
+  - `analytics-maintenance` is safe to re-run. It pre-creates future partitions, rolls up completed days, and drops raw partitions only after the rollups have caught up.
+
 - **Common failure modes:**
   - **Redis unavailable**:
     - Middleware logs a warning and allows traffic; rate limiting becomes “best effort” until Redis is restored.
+  - **Celery broker/worker unavailable**:
+    - API responses still succeed, but analytics request logs may be delayed or dropped until the queue path is healthy again.
   - **Missing tiers or keys**:
     - Re-run `scripts/run_migrations.py` to ensure tables & seed tiers exist.
     - Use `GET /api/v1/admin/api-tiers` to verify tier configuration.
@@ -128,4 +156,3 @@ To adjust per-minute limits or descriptions:
      - Run the initializer script directly against the target DB, or
      - Apply equivalent `UPDATE` statements manually.
 3. Communicate new limits to affected API clients.
-

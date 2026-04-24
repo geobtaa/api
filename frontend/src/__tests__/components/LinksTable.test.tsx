@@ -4,6 +4,10 @@ import { vi } from 'vitest';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import { LinksTable } from '../../components/resource/LinksTable';
 
+vi.mock('../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+}));
+
 // Mock fetch for metadata display endpoint
 const mockFetch = vi.fn();
 

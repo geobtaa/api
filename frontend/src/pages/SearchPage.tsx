@@ -29,6 +29,11 @@ import {
   consumeGalleryStateRestoreRequest,
   GALLERY_STATE_STORAGE_KEY,
 } from '../utils/galleryState';
+import {
+  generateAnalyticsId,
+  scheduleAnalyticsBatch,
+  serializeSearchParams,
+} from '../services/analytics';
 
 const isQuotaExceededError = (error: unknown): boolean => {
   if (error instanceof DOMException) {
@@ -93,7 +98,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     advancedQuery,
   } = parseSearchParams(searchParams);
   const sort = searchParams.get('sort') || 'relevance';
+  const searchField = searchParams.get('search_field') || 'all_fields';
   const currentView = (searchParams.get('view') as ViewMode) || 'list';
+  const normalizedQuery = query || '';
 
   const perPageParam = searchParams.get('per_page');
   const perPage =
@@ -133,9 +140,19 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
   const currentContext = getSearchContext(searchParams);
   const prevContextRef = useRef(currentContext); // Initialize with current
+  const searchContextRef = useRef(currentContext);
+  const trackedAnalyticsKeysRef = useRef<Set<string>>(new Set());
+  const [searchId, setSearchId] = useState(() => generateAnalyticsId('search'));
 
   // Track if restoration has been attempted
   const [hasRestored, setHasRestored] = useState(false);
+
+  useEffect(() => {
+    if (searchContextRef.current === currentContext) return;
+    searchContextRef.current = currentContext;
+    trackedAnalyticsKeysRef.current = new Set();
+    setSearchId(generateAnalyticsId('search'));
+  }, [currentContext]);
 
   // Restore state from session storage on mount (Client-side only)
   useEffect(() => {
@@ -504,6 +521,76 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   // Extract spelling suggestions from meta
   const spellingSuggestions = searchResults?.meta?.spellingSuggestions || [];
 
+  useEffect(() => {
+    if (isLoading || !searchResults) return;
+
+    const metaQuery = searchResults.meta?.query ?? '';
+    const metaCurrentPage = searchResults.meta?.currentPage ?? page;
+    const metaPerPage = searchResults.meta?.perPage ?? perPage;
+
+    if (
+      metaQuery !== normalizedQuery ||
+      metaCurrentPage !== page ||
+      metaPerPage !== perPage
+    ) {
+      return;
+    }
+
+    const pageResults = searchResults.data || [];
+    const trackedKey = [
+      searchId,
+      currentView,
+      page,
+      pageResults.map((result) => result.id).join(','),
+    ].join(':');
+
+    if (trackedAnalyticsKeysRef.current.has(trackedKey)) {
+      return;
+    }
+
+    trackedAnalyticsKeysRef.current.add(trackedKey);
+
+    scheduleAnalyticsBatch({
+      searches: [
+        {
+          search_id: searchId,
+          query: normalizedQuery,
+          search_url: `/search${searchParams.toString() ? `?${searchParams.toString()}` : ''}`,
+          view: currentView,
+          page,
+          per_page: perPage,
+          sort,
+          search_field: searchField,
+          results_count: searchResults.meta?.totalCount || 0,
+          total_pages: searchResults.meta?.totalPages || 0,
+          zero_results: pageResults.length === 0,
+          properties: {
+            constraints: serializeSearchParams(searchParams),
+            spelling_suggestions: searchResults.meta?.spellingSuggestions || [],
+          },
+        },
+      ],
+      impressions: pageResults.map((result, index) => ({
+        search_id: searchId,
+        resource_id: result.id,
+        rank: (page - 1) * perPage + index + 1,
+        page,
+        view: currentView,
+      })),
+    });
+  }, [
+    currentView,
+    isLoading,
+    page,
+    perPage,
+    normalizedQuery,
+    searchField,
+    searchId,
+    searchParams,
+    searchResults,
+    sort,
+  ]);
+
   // Type guard to check if suggestion is a SpellingSuggestion object
   const isSpellingSuggestion = (
     suggestion: unknown
@@ -663,6 +750,8 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       totalResults={searchTotalResults}
                       currentPage={page}
                       perPage={perPage}
+                      searchId={searchId}
+                      searchView={currentView}
                     />
                   )}
 
@@ -684,6 +773,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       perPage={perPage}
                       hasMore={page < totalPages}
                       onLoadMore={() => handlePageChange(page + 1)}
+                      searchId={searchId}
                     />
                   )}
 
@@ -698,6 +788,8 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                           currentPage={page}
                           perPage={perPage}
                           variant="compact"
+                          searchId={searchId}
+                          searchView={currentView}
                         />
                         {/* Pagination for map view (inside scrollable column) */}
                         {!isLoading && totalPages > 1 && (

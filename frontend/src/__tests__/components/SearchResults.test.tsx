@@ -10,6 +10,10 @@ import { MapProvider } from '../../context/MapContext';
 import { BookmarkProvider } from '../../context/BookmarkContext';
 import type { GeoDocument } from '../../types/api';
 
+vi.mock('../../services/analytics', () => ({
+  scheduleAnalyticsBatch: vi.fn(),
+}));
+
 // Real fixture data from the fixtures page
 const mockFixtureData: GeoDocument[] = [
   {
