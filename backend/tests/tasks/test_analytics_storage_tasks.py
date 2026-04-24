@@ -125,3 +125,16 @@ def test_legacy_api_usage_log_copy_prefers_existing_partition_month_column():
         'COALESCE(NULLIF("source_host", \'\'), NULLIF("referring_domain", \'\')) '
         'AS "source_host"' in select_sql
     )
+
+
+def test_legacy_api_usage_log_copy_can_skip_id_for_populated_destination():
+    insert_sql, select_sql = _build_copy_column_sql(
+        ["partition_month", "requested_at", "client_name"],
+        {"id", "requested_at", "properties"},
+    )
+
+    assert insert_sql == '"partition_month", "requested_at", "client_name"'
+    assert '"id"' not in insert_sql
+    assert 'DATE_TRUNC(\'month\', "requested_at")::date AS "partition_month"' in select_sql
+    assert '"requested_at" AS "requested_at"' in select_sql
+    assert 'NULLIF("properties"->>\'client_name\', \'\') AS "client_name"' in select_sql

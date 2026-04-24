@@ -96,6 +96,15 @@ def _ident(name: str) -> str:
     return f'"{name.replace(chr(34), chr(34) * 2)}"'
 
 
+def _set_table_id_sequence(conn, table_name: str) -> None:
+    max_id = conn.execute(text(f'SELECT MAX(id) FROM "{table_name}"')).scalar()
+    if max_id is not None:
+        conn.execute(
+            text("SELECT setval(pg_get_serial_sequence(:table_name, 'id'), :max_id, true)"),
+            {"table_name": table_name, "max_id": max_id},
+        )
+
+
 def _get_sync_database_url() -> str:
     database_url = os.getenv(
         "DATABASE_URL",
@@ -169,14 +178,7 @@ def rename_api_usage_logs_to_analytics_api_usage_logs() -> bool:
                         f'SELECT {select_columns_sql} FROM "{OLD_TABLE_NAME}"'
                     )
                 )
-                max_id = conn.execute(text(f'SELECT MAX(id) FROM "{NEW_TABLE_NAME}"')).scalar()
-                if max_id is not None:
-                    conn.execute(
-                        text(
-                            "SELECT setval(pg_get_serial_sequence(:table_name, 'id'), :max_id, true)"
-                        ),
-                        {"table_name": NEW_TABLE_NAME, "max_id": max_id},
-                    )
+                _set_table_id_sequence(conn, NEW_TABLE_NAME)
                 conn.execute(text(f'DROP TABLE "{OLD_TABLE_NAME}" CASCADE'))
                 logger.info(
                     "Dropped legacy table %s after migrating rows into %s.",
@@ -185,8 +187,35 @@ def rename_api_usage_logs_to_analytics_api_usage_logs() -> bool:
                 )
                 return True
 
+            merge_columns = [column for column in new_columns if column != "id"]
+            merge_insert_columns_sql, merge_select_columns_sql = _build_copy_column_sql(
+                merge_columns, old_columns
+            )
+            if merge_insert_columns_sql:
+                logger.info(
+                    "Merging %s legacy rows from %s into populated %s using fresh ids.",
+                    old_count,
+                    OLD_TABLE_NAME,
+                    NEW_TABLE_NAME,
+                )
+                _set_table_id_sequence(conn, NEW_TABLE_NAME)
+                conn.execute(
+                    text(
+                        f'INSERT INTO "{NEW_TABLE_NAME}" ({merge_insert_columns_sql}) '
+                        f'SELECT {merge_select_columns_sql} FROM "{OLD_TABLE_NAME}"'
+                    )
+                )
+                _set_table_id_sequence(conn, NEW_TABLE_NAME)
+                conn.execute(text(f'DROP TABLE "{OLD_TABLE_NAME}" CASCADE'))
+                logger.info(
+                    "Dropped legacy table %s after merging rows into populated %s.",
+                    OLD_TABLE_NAME,
+                    NEW_TABLE_NAME,
+                )
+                return True
+
         raise RuntimeError(
-            f"Both {OLD_TABLE_NAME} and {NEW_TABLE_NAME} exist with live data. "
+            f"Unable to reconcile {OLD_TABLE_NAME} into {NEW_TABLE_NAME}. "
             "Manual reconciliation is required before continuing."
         )
 
