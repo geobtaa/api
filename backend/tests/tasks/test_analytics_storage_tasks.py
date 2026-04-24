@@ -106,9 +106,9 @@ def test_legacy_api_usage_log_copy_derives_partition_month_and_source_fields():
         '"client_name", "source_host", "properties"'
     )
     assert 'DATE_TRUNC(\'month\', "requested_at")::date AS "partition_month"' in select_sql
-    assert 'NULLIF("properties"->>\'client_name\', \'\') AS "client_name"' in select_sql
-    assert 'NULLIF("referring_domain", \'\')' in select_sql
-    assert 'substring("referrer" from \'^[a-zA-Z]+://([^/]+)\')' in select_sql
+    assert "NULLIF(\"properties\"->>'client_name', '') AS \"client_name\"" in select_sql
+    assert "NULLIF(\"referring_domain\", '')" in select_sql
+    assert "substring(\"referrer\" from '^[a-zA-Z]+://([^/]+)')" in select_sql
 
 
 def test_legacy_api_usage_log_copy_prefers_existing_partition_month_column():
@@ -122,7 +122,7 @@ def test_legacy_api_usage_log_copy_prefers_existing_partition_month_column():
         'AS "partition_month"' in select_sql
     )
     assert (
-        'COALESCE(NULLIF("source_host", \'\'), NULLIF("referring_domain", \'\')) '
+        "COALESCE(NULLIF(\"source_host\", ''), NULLIF(\"referring_domain\", '')) "
         'AS "source_host"' in select_sql
     )
 
@@ -137,4 +137,4 @@ def test_legacy_api_usage_log_copy_can_skip_id_for_populated_destination():
     assert '"id"' not in insert_sql
     assert 'DATE_TRUNC(\'month\', "requested_at")::date AS "partition_month"' in select_sql
     assert '"requested_at" AS "requested_at"' in select_sql
-    assert 'NULLIF("properties"->>\'client_name\', \'\') AS "client_name"' in select_sql
+    assert "NULLIF(\"properties\"->>'client_name', '') AS \"client_name\"" in select_sql
