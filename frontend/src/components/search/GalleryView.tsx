@@ -24,6 +24,17 @@ interface GalleryViewProps {
 const INITIAL_GALLERY_IMAGE_COUNT = 10;
 const DEFERRED_GALLERY_IMAGE_STAGGER_MS = 75;
 
+function isResourceClassIconUrl(imageUrl: string | undefined): boolean {
+  if (!imageUrl) return false;
+
+  try {
+    const parsed = new URL(imageUrl, 'http://localhost');
+    return parsed.pathname.endsWith('/resource-class-icon');
+  } catch {
+    return imageUrl.includes('/resource-class-icon');
+  }
+}
+
 interface GalleryThumbnailProps {
   imageUrl?: string;
   resourceClass?: string;
@@ -81,7 +92,9 @@ function GalleryThumbnail({
 
     const scheduleActivation = () => {
       if ('requestIdleCallback' in window) {
-        idleCallbackId = window.requestIdleCallback(activate, { timeout: 2000 });
+        idleCallbackId = window.requestIdleCallback(activate, {
+          timeout: 2000,
+        });
         return;
       }
       activate();
@@ -113,7 +126,14 @@ function GalleryThumbnail({
     syncImageState(imageRef.current);
   }, [imageUrl, shouldLoadImage]);
 
-  const showPlaceholder = !imageUrl || !shouldLoadImage || !imageLoaded || showFallback;
+  const isResourceClassIcon = isResourceClassIconUrl(imageUrl);
+  const showIconPlaceholder = !imageUrl || showFallback || !shouldLoadImage;
+  const showNeutralPlaceholder =
+    Boolean(imageUrl) &&
+    shouldLoadImage &&
+    !imageLoaded &&
+    !showFallback &&
+    !isResourceClassIcon;
   const priorityProps = index < 5 ? ({ fetchpriority: 'high' } as const) : {};
 
   return (
@@ -126,7 +146,9 @@ function GalleryThumbnail({
           }}
           src={imageUrl}
           alt=""
-          className="w-full h-full object-cover"
+          className={`w-full h-full object-cover transition-opacity duration-150 ${
+            imageLoaded || isResourceClassIcon ? 'opacity-100' : 'opacity-0'
+          }`}
           decoding="async"
           loading={index < 6 ? 'eager' : 'lazy'}
           {...priorityProps}
@@ -139,7 +161,14 @@ function GalleryThumbnail({
         />
       ) : null}
 
-      {showPlaceholder ? (
+      {showNeutralPlaceholder ? (
+        <div
+          data-testid={`gallery-thumbnail-loading-${index}`}
+          className="absolute inset-0 bg-gray-100"
+        />
+      ) : null}
+
+      {showIconPlaceholder ? (
         <div
           data-testid={`gallery-thumbnail-placeholder-${index}`}
           className="absolute inset-0 flex items-center justify-center text-gray-400"
