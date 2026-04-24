@@ -4,6 +4,13 @@ from unittest.mock import patch
 import pytest
 
 
+def test_analytics_events_endpoint_is_hidden_from_openapi_schema(client):
+    response = client.get("/api/openapi.json")
+
+    assert response.status_code == 200
+    assert "/api/v1/analytics/events" not in response.json()["paths"]
+
+
 @pytest.mark.asyncio
 async def test_analytics_events_endpoint_queues_normalized_batch(async_client):
     payload = {

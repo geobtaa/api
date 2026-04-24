@@ -26,7 +26,7 @@ router = APIRouter()
 # Include all endpoint modules
 router.include_router(root_router, tags=["root"])
 router.include_router(search_router, tags=["search"])
-router.include_router(analytics_router, tags=["analytics"])
+router.include_router(analytics_router, tags=["analytics"], include_in_schema=False)
 router.include_router(home_router, tags=["home"])
 router.include_router(resources_router, tags=["resources"])
 router.include_router(thumbnails_router, tags=["thumbnails"])
