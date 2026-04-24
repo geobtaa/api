@@ -6,6 +6,9 @@ from app.tasks.analytics_events import (
     _normalize_search_row,
 )
 from app.tasks.api_usage_enrichment import _prepare_log_entry
+from db.migrations.rename_api_usage_logs_to_analytics_api_usage_logs import (
+    _build_copy_column_sql,
+)
 
 
 def test_normalize_search_row_sets_partition_month_from_occurred_at():
@@ -76,3 +79,49 @@ def test_prepare_log_entry_preserves_explicit_partition_month():
     )
 
     assert prepared["partition_month"] == date(2026, 4, 1)
+
+
+def test_legacy_api_usage_log_copy_derives_partition_month_and_source_fields():
+    insert_sql, select_sql = _build_copy_column_sql(
+        [
+            "id",
+            "partition_month",
+            "requested_at",
+            "referring_domain",
+            "client_name",
+            "source_host",
+            "properties",
+        ],
+        {
+            "id",
+            "requested_at",
+            "referring_domain",
+            "referrer",
+            "properties",
+        },
+    )
+
+    assert insert_sql == (
+        '"id", "partition_month", "requested_at", "referring_domain", '
+        '"client_name", "source_host", "properties"'
+    )
+    assert 'DATE_TRUNC(\'month\', "requested_at")::date AS "partition_month"' in select_sql
+    assert 'NULLIF("properties"->>\'client_name\', \'\') AS "client_name"' in select_sql
+    assert 'NULLIF("referring_domain", \'\')' in select_sql
+    assert 'substring("referrer" from \'^[a-zA-Z]+://([^/]+)\')' in select_sql
+
+
+def test_legacy_api_usage_log_copy_prefers_existing_partition_month_column():
+    _, select_sql = _build_copy_column_sql(
+        ["partition_month", "source_host"],
+        {"partition_month", "requested_at", "source_host", "referring_domain"},
+    )
+
+    assert (
+        'COALESCE("partition_month", DATE_TRUNC(\'month\', "requested_at")::date) '
+        'AS "partition_month"' in select_sql
+    )
+    assert (
+        'COALESCE(NULLIF("source_host", \'\'), NULLIF("referring_domain", \'\')) '
+        'AS "source_host"' in select_sql
+    )
