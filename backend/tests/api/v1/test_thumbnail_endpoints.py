@@ -259,6 +259,10 @@ class TestThumbnailEndpoints:
             patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
             ) as mock_resource_service_class,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.THUMBNAIL_REQUEST_PROBE_ENABLED",
+                True,
+            ),
         ):
             mock_cache_service = MagicMock()
             mock_cache_service.get_cached_image = AsyncMock(return_value=None)
@@ -320,6 +324,10 @@ class TestThumbnailEndpoints:
             patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
             ) as mock_resource_service_class,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.THUMBNAIL_REQUEST_PROBE_ENABLED",
+                True,
+            ),
         ):
             mock_cache_service = MagicMock()
             mock_cache_service.get_cached_image = AsyncMock(return_value=None)

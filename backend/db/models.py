@@ -8,6 +8,7 @@ from sqlalchemy import (
     Date,
     ForeignKey,
     Integer,
+    LargeBinary,
     MetaData,
     Numeric,
     String,
@@ -344,6 +345,18 @@ resource_thumbnail_state = Table(
     Column("failed_at", TIMESTAMP, nullable=True, index=True),
     Column("placeheld_at", TIMESTAMP, nullable=True, index=True),
     Column("last_transition_at", TIMESTAMP, nullable=False, server_default=func.now(), index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+generated_visual_assets = Table(
+    "generated_visual_assets",
+    metadata,
+    Column("asset_hash", String(64), primary_key=True),
+    Column("asset_kind", String(64), nullable=False, index=True),
+    Column("content_type", String(255), nullable=False),
+    Column("body", LargeBinary, nullable=False),
+    Column("byte_size", Integer, nullable=False),
     Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )

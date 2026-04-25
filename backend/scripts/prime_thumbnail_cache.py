@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -40,7 +39,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
-from app.api.v1.utils import sanitize_for_json  # noqa: E402
+from app.api.v1.utils import _get_thumbnail_asset_url, sanitize_for_json  # noqa: E402
 from app.services.distribution_repository import (  # noqa: E402
     async_session_factory,
     fetch_distribution_context,
@@ -58,11 +57,16 @@ from app.services.thumbnail_state_service import (  # noqa: E402
     infer_source_type,
     safe_record_thumbnail_state,
 )
+from app.services.visual_asset_cache import (  # noqa: E402
+    cache_visual_asset,
+    store_durable_visual_asset,
+)
 from app.tasks.worker import (  # noqa: E402
     _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
     _pmtiles_thumbnail_image_hash,
+    _remote_thumbnail_image_hash,
     _resolve_image_url,
     _validate_image_content,
     redis_client,
@@ -77,10 +81,6 @@ USER_AGENT = "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"
 
 def _thumbnail_fetch_timeout() -> int:
     return int(os.getenv("THUMBNAIL_FETCH_TIMEOUT", "30"))
-
-
-def _cache_ttl() -> int:
-    return int(os.getenv("REDIS_TTL", 604800))
 
 
 def _compute_thumbnail_image_hash(image_service: ImageService, source_url: str) -> str | None:
@@ -100,25 +100,30 @@ def _compute_thumbnail_image_hash(image_service: ImageService, source_url: str) 
                 )
                 if resolved:
                     resolved = image_service._standardize_iiif_url(resolved)
-                    return hashlib.sha256(resolved.encode()).hexdigest()
+                    return _remote_thumbnail_image_hash(resolved)
         except Exception as exc:
             logger.debug("Manifest cache read failed for %s: %s", source_url, exc)
 
         resolved_url = _resolve_image_url(source_url)
         if resolved_url != source_url:
-            return hashlib.sha256(resolved_url.encode()).hexdigest()
+            return _remote_thumbnail_image_hash(resolved_url)
         return None
 
     standardized = image_service._standardize_iiif_url(source_url)
-    return hashlib.sha256(standardized.encode()).hexdigest()
+    return _remote_thumbnail_image_hash(standardized)
 
 
 def _store_image_bytes(image_hash: str, image_bytes: bytes, content_type: str) -> bool:
     """Store image bytes and MIME metadata in Redis."""
     try:
-        ttl = _cache_ttl()
-        redis_client.setex(f"image:{image_hash}", ttl, image_bytes)
-        redis_client.setex(f"image_type:{image_hash}", ttl, content_type)
+        cache_visual_asset(redis_client, f"image:{image_hash}", image_bytes)
+        cache_visual_asset(redis_client, f"image_type:{image_hash}", content_type)
+        store_durable_visual_asset(
+            image_hash,
+            asset_kind="thumbnail",
+            content_type=content_type,
+            body=image_bytes,
+        )
         return True
     except Exception as exc:
         logger.warning("Failed to cache thumbnail %s: %s", image_hash[:12], exc)
@@ -128,7 +133,7 @@ def _store_image_bytes(image_hash: str, image_bytes: bytes, content_type: str) -
 def _set_pmtiles_skip_marker(image_hash: str) -> bool:
     """Cache the PMTiles skip marker used by the API."""
     try:
-        redis_client.setex(f"pmtiles_skip_v2:{image_hash}", _cache_ttl(), b"1")
+        cache_visual_asset(redis_client, f"pmtiles_skip_v2:{image_hash}", b"1")
         return True
     except Exception as exc:
         logger.warning("Failed to cache PMTiles skip marker %s: %s", image_hash[:12], exc)
@@ -350,6 +355,9 @@ async def _prime_thumbnail_for_resource(
     distribution_context = await fetch_distribution_context(resource_id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
     source_url = image_service._get_thumbnail_source_url()
+
+    if not source_url:
+        source_url = await _get_thumbnail_asset_url(resource_id)
 
     if not source_url:
         await safe_record_thumbnail_state(

@@ -18,6 +18,7 @@ from app.services.thumbnail_state_service import (
     infer_source_type,
     safe_record_thumbnail_state_sync,
 )
+from app.services.visual_asset_cache import cache_visual_asset, store_durable_visual_asset
 
 # Load environment variables from .env file
 load_dotenv()
@@ -329,19 +330,18 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
         # Cache image if Redis is available; otherwise, skip caching without retry storms
         if redis_available:
             try:
-                # TODO(cache-policy): Thumbnail cache should move away from fixed TTL eviction.
-                # Keep thumbnails effectively long-lived and invalidate only when:
-                # 1) associated resource metadata changes in a thumbnail-affecting way, or
-                # 2) an admin explicitly purges thumbnail cache entries.
-                # Implementation options: resource revision in cache key, tag-based invalidation,
-                # and targeted admin purge by resource ID/hash.
-                ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
                 # Store image content with detected type (prepend type as metadata)
                 # We'll use a simple format: store content as-is, content type in separate key
-                redis_client.setex(image_key, ttl, normalized_content)
+                cache_visual_asset(redis_client, image_key, normalized_content)
                 # Store content type metadata separately (optional, for faster lookups)
                 type_key = f"image_type:{image_key.split(':')[1]}"
-                redis_client.setex(type_key, ttl, normalized_type)
+                cache_visual_asset(redis_client, type_key, normalized_type)
+                store_durable_visual_asset(
+                    source_hash,
+                    asset_kind="thumbnail",
+                    content_type=normalized_type,
+                    body=normalized_content,
+                )
                 logger.info(
                     f"✅ Successfully cached normalized thumbnail: {resolved_url} "
                     f"(type: {normalized_type}, original={len(response.content)} bytes, "
@@ -678,10 +678,15 @@ def generate_cog_thumbnail(self, cog_url: str, doc_id: Optional[str] = None) -> 
 
         # Cache in Redis
         try:
-            ttl = int(os.getenv("REDIS_TTL", 604800))
-            redis_client.setex(image_key, ttl, normalized_bytes)
+            cache_visual_asset(redis_client, image_key, normalized_bytes)
             type_key = f"image_type:{image_hash}"
-            redis_client.setex(type_key, ttl, normalized_type)
+            cache_visual_asset(redis_client, type_key, normalized_type)
+            store_durable_visual_asset(
+                image_hash,
+                asset_kind="thumbnail:cog",
+                content_type=normalized_type,
+                body=normalized_bytes,
+            )
             logger.info(
                 f"Successfully cached COG thumbnail for {cog_url} "
                 f"(type: {normalized_type}, original={len(image_bytes)} bytes, "
@@ -1015,8 +1020,7 @@ def generate_pmtiles_thumbnail(self, pmtiles_url: str, doc_id: Optional[str] = N
             # static map instead. Version prefix allows retry after logic improvements.
             try:
                 skip_key = f"pmtiles_skip_v2:{image_hash}"
-                ttl = int(os.getenv("REDIS_TTL", 604800))
-                redis_client.setex(skip_key, ttl, b"1")
+                cache_visual_asset(redis_client, skip_key, b"1")
             except Exception as skip_err:
                 logger.warning(f"Failed to cache PMTiles skip marker: {skip_err}")
             _record_thumbnail_state(
@@ -1035,8 +1039,7 @@ def generate_pmtiles_thumbnail(self, pmtiles_url: str, doc_id: Optional[str] = N
             logger.error(f"PMTiles thumbnail failed validation for {pmtiles_url}")
             try:
                 skip_key = f"pmtiles_skip_v2:{image_hash}"
-                ttl = int(os.getenv("REDIS_TTL", 604800))
-                redis_client.setex(skip_key, ttl, b"1")
+                cache_visual_asset(redis_client, skip_key, b"1")
             except Exception:
                 pass
             _record_thumbnail_state(
@@ -1066,10 +1069,15 @@ def generate_pmtiles_thumbnail(self, pmtiles_url: str, doc_id: Optional[str] = N
             return False
 
         try:
-            ttl = int(os.getenv("REDIS_TTL", 604800))
-            redis_client.setex(image_key, ttl, normalized_bytes)
+            cache_visual_asset(redis_client, image_key, normalized_bytes)
             type_key = f"image_type:{image_hash}"
-            redis_client.setex(type_key, ttl, normalized_type)
+            cache_visual_asset(redis_client, type_key, normalized_type)
+            store_durable_visual_asset(
+                image_hash,
+                asset_kind="thumbnail:pmtiles",
+                content_type=normalized_type,
+                body=normalized_bytes,
+            )
             logger.info(
                 f"Successfully cached PMTiles thumbnail for {pmtiles_url} "
                 f"(type: {normalized_type}, original={len(image_bytes)} bytes, "

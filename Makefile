@@ -597,10 +597,11 @@ gbl-admin-db-import-resources: ## Import resources from GBL Admin bridge
 		-e DB_PASSWORD="$$DB_PASSWORD" \
 		api bash -lc "cd /app/backend && python db/migrations/import_from_old_production.py $$IMPORT_FLAGS"
 
-# Ensure resource_downloads/resource_assets/resource_licensed_accesses exist.
+# Ensure resource_downloads/resource_assets/resource_licensed_accesses and generated visual assets exist.
 resource-aux-init: ## Ensure resource auxiliary tables exist
 	@echo "Ensuring resource auxiliary tables exist..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_resource_aux_tables.py'
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_visual_assets_table.py'
 
 # Populate dct_references_s/resource_distributions/resource_downloads/resource_assets from legacy GBL Admin data.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
@@ -1129,11 +1130,11 @@ kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@echo "--- 2. Container timezone and time ---"
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "date; echo TZ=$$TZ; cat /etc/timezone 2>/dev/null || true"
 	@echo ""
-	@echo "--- 3. Env check (APPLICATION_URL set?) ---"
-	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL'"
+	@echo "--- 3. Env check (APPLICATION_URL / REDIS_HOST / DATABASE_URL / PYTHONPATH) ---"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL; echo REDIS_HOST=\$$REDIS_HOST; if [ -n \"\$$DATABASE_URL\" ]; then echo DATABASE_URL_SET=yes; else echo DATABASE_URL_SET=no; fi; echo PYTHONPATH=\$$PYTHONPATH; echo TZ=\$$TZ'"
 	@echo ""
-	@echo "--- 4. Script + venv Python (requests) ---"
-	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "ls -la /app/scripts/trigger_bridge_sync_cron.py 2>/dev/null; /opt/venv/bin/python3 -c 'import requests' && echo 'requests OK' || echo '(venv/requests check failed)'"
+	@echo "--- 4. Script + cron bootstrap ---"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'ls -la /app/scripts/trigger_bridge_sync_cron.py /app/scripts/cron_env.sh 2>/dev/null; env -i SHELL=/bin/bash BASH_ENV=/app/scripts/cron_env.sh /bin/bash -lc \"echo REDIS_HOST=\\\$$REDIS_HOST; if [ -n \\\\\"\\\$$DATABASE_URL\\\\\" ]; then echo DATABASE_URL_SET=yes; else echo DATABASE_URL_SET=no; fi; echo PYTHONPATH=\\\$$PYTHONPATH; echo BRIDGE_SYNC_LOCAL_TIMEZONE=\\\$$BRIDGE_SYNC_LOCAL_TIMEZONE\"'"
 
 # Manually run bridge sync trigger from cron container (same as 2 AM job).
 # Usage: make kamal-cron-test-bridge [KAMAL_DEST=prd] [CHANGED_SINCE=2026-04-23T00:00:00Z]

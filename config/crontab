@@ -4,11 +4,17 @@
 #   cat config/crontab | crontab -
 #
 # Notes:
-# - The cron schedule uses the cron container's local timezone.
-# - The bridge sync delta crawl uses `changed_since` for the previous UTC day at 00:00:00Z.
+# - Cron strips most container env vars. `BASH_ENV` reloads the required ones
+#   from the running container before each job starts.
+# - `CRON_TZ` keeps the schedule pinned to America/Chicago, including DST.
+# - The bridge sync delta crawl uses the previous America/Chicago day at
+#   00:00:00 and converts that to UTC for the bridge API.
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+BASH_ENV=/app/scripts/cron_env.sh
+CRON_TZ=America/Chicago
+TZ=America/Chicago
 
 # Daily 2:00 AM: enqueue bridge sync delta crawl (yesterday 00:00:00Z).
 # Use venv Python: cron runs with minimal PATH and system python3 lacks requests/etc.

@@ -48,6 +48,9 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
         ref={imgRef}
         src={imageUrl}
         alt=""
+        loading="lazy"
+        decoding="async"
+        fetchPriority="low"
         className="h-full w-full object-cover"
         onLoad={() => setIsLoading(false)}
         onError={() => {

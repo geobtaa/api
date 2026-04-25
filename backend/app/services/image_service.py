@@ -25,6 +25,7 @@ from app.services.thumbnail_state_service import (
     safe_record_thumbnail_state_sync,
     thumbnail_state_service,
 )
+from app.services.visual_asset_cache import cache_visual_asset, get_durable_visual_asset
 
 # Load environment variables from .env file
 try:
@@ -503,13 +504,14 @@ class ImageService:
             return None
 
     def has_cached_image_sync(self, image_hash: str) -> bool:
-        """Return True when the cached image bytes still exist in Redis."""
+        """Return True when image bytes exist in Redis or durable visual storage."""
         try:
             image_key = f"image:{image_hash}"
-            return bool(self.image_cache.exists(image_key))
+            if self.image_cache.exists(image_key):
+                return True
         except Exception as e:
             self.logger.error(f"Error checking cached image: {e}")
-            return False
+        return get_durable_visual_asset(image_hash) is not None
 
     def _candidate_cached_thumbnail_hash_sync(self, source_url: str) -> Optional[str]:
         """Return the immutable thumbnail hash for a cached source URL, if known."""
@@ -902,26 +904,39 @@ class ImageService:
 
     async def get_cached_image(self, image_hash: str) -> Optional[bytes]:
         """Retrieve a cached image by its hash."""
+        image_key = f"image:{image_hash}"
         try:
-            image_key = f"image:{image_hash}"
             image_data = await asyncio.to_thread(self.image_cache.get, image_key)
             if image_data:
                 self.logger.debug(f"Serving cached image {image_hash}")
                 return image_data
-            return None
         except Exception as e:
             self.logger.error(f"Error retrieving cached image: {e}")
-            return None
+
+        durable = await asyncio.to_thread(get_durable_visual_asset, image_hash)
+        if durable:
+            image_bytes, content_type = durable
+            await asyncio.to_thread(cache_visual_asset, self.image_cache, image_key, image_bytes)
+            await asyncio.to_thread(
+                cache_visual_asset,
+                self.image_cache,
+                f"image_type:{image_hash}",
+                content_type,
+            )
+            self.logger.debug(f"Rehydrated cached image {image_hash} from durable store")
+            return image_bytes
+        return None
 
     async def has_cached_image(self, image_hash: str) -> bool:
-        """Return True when the cached image bytes still exist in Redis."""
+        """Return True when image bytes exist in Redis or durable visual storage."""
         try:
             image_key = f"image:{image_hash}"
             exists = await asyncio.to_thread(self.image_cache.exists, image_key)
-            return bool(exists)
+            if exists:
+                return True
         except Exception as e:
             self.logger.error(f"Error checking cached image: {e}")
-            return False
+        return await asyncio.to_thread(get_durable_visual_asset, image_hash) is not None
 
     def is_pmtiles_skip_cached(self, image_hash: str) -> bool:
         """

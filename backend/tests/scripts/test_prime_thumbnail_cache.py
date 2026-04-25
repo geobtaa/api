@@ -14,6 +14,9 @@ async def test_prime_thumbnail_no_source_records_placeheld():
         patch.object(
             prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
         ) as mock_state,
+        patch.object(
+            prime_thumbnail_cache, "_get_thumbnail_asset_url", AsyncMock(return_value=None)
+        ),
         patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
     ):
         service = MagicMock()

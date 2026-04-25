@@ -8,6 +8,8 @@ from typing import Optional
 
 import redis
 
+from app.services.visual_asset_cache import cache_visual_asset
+
 logger = logging.getLogger(__name__)
 
 THUMBNAIL_HASH_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
@@ -45,12 +47,7 @@ class ThumbnailAliasService:
 
     def __init__(self) -> None:
         self.cache = redis.Redis(connection_pool=_get_redis_alias_connection_pool())
-        self.ttl_seconds = int(
-            os.getenv(
-                "THUMBNAIL_ALIAS_TTL_SECONDS",
-                os.getenv("REDIS_TTL", "604800"),
-            )
-        )
+        self.ttl_seconds = int(os.getenv("THUMBNAIL_ALIAS_TTL_SECONDS", "0"))
 
     def _key(self, resource_id: str) -> str:
         return f"{THUMBNAIL_ALIAS_PREFIX}:{resource_id}"
@@ -76,7 +73,9 @@ class ThumbnailAliasService:
         if not is_thumbnail_hash(image_hash):
             return False
         try:
-            return bool(self.cache.setex(self._key(resource_id), self.ttl_seconds, image_hash))
+            if self.ttl_seconds > 0:
+                return bool(self.cache.setex(self._key(resource_id), self.ttl_seconds, image_hash))
+            return cache_visual_asset(self.cache, self._key(resource_id), image_hash)
         except Exception as exc:
             logger.warning(
                 "Failed to cache thumbnail alias for %s -> %s: %s",

@@ -176,8 +176,8 @@ class TestGenerateCogThumbnailTask:
             mock_redis.exists.return_value = False
             result = generate_cog_thumbnail(cog_url, resource_id)
             assert result is True
-            mock_redis.setex.assert_called()
-            calls = [c[0][0] for c in mock_redis.setex.call_args_list]
+            mock_redis.set.assert_called()
+            calls = [c[0][0] for c in mock_redis.set.call_args_list]
             assert any("image:" in k for k in calls)
             patch_worker_side_effects["provider_slot"].assert_called_once()
             payload = patch_worker_side_effects["state"].call_args.args[0]

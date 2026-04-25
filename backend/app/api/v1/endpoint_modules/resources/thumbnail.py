@@ -3,6 +3,7 @@ import asyncio
 import base64
 import hashlib
 import json
+import os
 
 import aiohttp
 from fastapi import HTTPException, Request
@@ -38,6 +39,9 @@ from . import async_session, logger, router
 
 # Timeout for probing thumbnail source URL (avoid blocking; fail fast if 404/unreachable)
 THUMBNAIL_PROBE_TIMEOUT = 5
+THUMBNAIL_REQUEST_PROBE_ENABLED = (
+    os.getenv("THUMBNAIL_REQUEST_PROBE_ENABLED", "false").lower() == "true"
+)
 RESOURCE_CLASS_ICON_SIGNATURE_VERSION = "2026-04-22-a"
 
 
@@ -448,7 +452,7 @@ async def _get_resource_thumbnail_response(
 
     if not source_url:
         asset_url = await _get_thumbnail_asset_url(id)
-        if asset_url:
+        if asset_url and THUMBNAIL_REQUEST_PROBE_ENABLED:
             asset_ok = await _probe_thumbnail_url(asset_url)
             if asset_ok:
                 source_url = asset_url
@@ -552,6 +556,7 @@ async def _get_resource_thumbnail_response(
         and not image_service._is_cog_url(source_url)
         and not image_service._is_pmtiles_url(source_url)
         and geometry
+        and THUMBNAIL_REQUEST_PROBE_ENABLED
     ):
         fetch_url = image_service._standardize_iiif_url(source_url)
         probe_ok = await _probe_thumbnail_url(fetch_url)

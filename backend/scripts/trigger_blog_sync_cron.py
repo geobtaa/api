@@ -22,7 +22,7 @@ def main() -> None:
         print(json.dumps({"queued": "inline", "result": result}, default=str))
         return
 
-    task = gin_blog_sync.delay()
+    task = gin_blog_sync.apply_async(ignore_result=True)
     print(json.dumps({"queued": "gin_blog_sync", "task_id": task.id}))
 
 

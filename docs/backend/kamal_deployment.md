@@ -222,10 +222,17 @@ make kamal-bridge-status-watch KAMAL_DEST=prd
 
 The cron container currently runs:
 
-- daily bridge delta sync at `2:00 AM` with `BRIDGE_TRIGGER=nightly_cron`
-- daily blog sync at `3:00 AM`
-- daily sitemap generation at `4:15 AM`
-- daily analytics storage maintenance at `4:45 AM`
+- daily bridge delta sync at `2:00 AM America/Chicago` with `BRIDGE_TRIGGER=nightly_cron`
+- daily blog sync at `3:00 AM America/Chicago`
+- daily sitemap generation at `4:15 AM America/Chicago`
+- daily analytics storage maintenance at `4:45 AM America/Chicago`
+
+Cron now sets `CRON_TZ=America/Chicago` in the crontab, and bridge delta windows are
+computed from the previous America/Chicago day before converting to UTC for the bridge
+API. Each cron shell also loads `/app/scripts/cron_env.sh` via `BASH_ENV`, which restores
+the container's Redis, database, Python-path, and bridge settings before the job starts.
+Bridge/blog cron triggers enqueue Celery tasks with `apply_async(ignore_result=True)` so
+they do not depend on a result-backend subscription just to queue fire-and-forget work.
 
 Bridge delta syncs update changed resources in Elasticsearch, invalidate and re-warm cache
 entries tagged with changed `resource:<id>` values, plus the canonical resource detail

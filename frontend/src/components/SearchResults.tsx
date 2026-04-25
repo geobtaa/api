@@ -37,7 +37,8 @@ export function SearchResults({
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
-  const { setHoveredGeometry, setHoveredResourceId, setGeometryIfHovering } = useMap();
+  const { setHoveredGeometry, setHoveredResourceId, setGeometryIfHovering } =
+    useMap();
   const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
 
@@ -141,6 +142,9 @@ export function SearchResults({
                       <img
                         src={primaryImageUrl}
                         alt=""
+                        loading={index < 2 ? 'eager' : 'lazy'}
+                        decoding="async"
+                        fetchPriority={index < 2 ? 'high' : 'low'}
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
                         onError={(e) => {
                           setImageErrors((prev) =>

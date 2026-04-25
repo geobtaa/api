@@ -82,9 +82,16 @@ async def _fetch_resource_batch(last_id: str | None, batch_size: int) -> list[di
 
 def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tuple[str, str]:
     service = StaticMapService()
+    source_signature = service.geometry_signature(geometry)
 
-    needs_static_map = force or not service.map_exists(resource_id)
-    needs_basemap = force or not service.basemap_exists(resource_id)
+    needs_static_map = force or not service.map_exists(
+        resource_id,
+        source_signature=source_signature,
+    )
+    needs_basemap = force or not service.basemap_exists(
+        resource_id,
+        source_signature=source_signature,
+    )
 
     if not needs_static_map and not needs_basemap:
         return ("cached", "both caches already primed")
@@ -94,23 +101,31 @@ def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tup
 
     if geometry:
         if needs_static_map:
-            if service.generate_map(resource_id, geometry):
+            if service.generate_map(
+                resource_id,
+                geometry,
+                source_signature=source_signature,
+            ):
                 generated += 1
             else:
                 failed += 1
         if needs_basemap:
-            if service.generate_basemap(resource_id, geometry):
+            if service.generate_basemap(
+                resource_id,
+                geometry,
+                source_signature=source_signature,
+            ):
                 generated += 1
             else:
                 failed += 1
     else:
         if needs_static_map:
-            if service.generate_global_map(resource_id):
+            if service.generate_global_map(resource_id, source_signature=source_signature):
                 generated += 1
             else:
                 failed += 1
         if needs_basemap:
-            if service.generate_global_basemap(resource_id):
+            if service.generate_global_basemap(resource_id, source_signature=source_signature):
                 generated += 1
             else:
                 failed += 1

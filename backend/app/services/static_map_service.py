@@ -22,6 +22,12 @@ from PIL import Image
 from shapely import wkt as shapely_wkt
 from shapely.geometry import shape
 
+from app.services.visual_asset_cache import (
+    cache_visual_asset,
+    get_durable_visual_asset,
+    store_durable_visual_asset,
+)
+
 # Load environment variables
 load_dotenv()
 
@@ -57,8 +63,6 @@ class StaticMapService:
         self.redis_host = os.getenv("REDIS_HOST", "redis")
         self.redis_port = int(os.getenv("REDIS_PORT", 6379))
         self.redis_password = os.getenv("REDIS_PASSWORD")
-        self.redis_ttl = int(os.getenv("REDIS_TTL", 604800))  # 7 days default
-
         try:
             self.map_cache = redis.Redis(
                 host=self.redis_host,
@@ -389,6 +393,16 @@ class StaticMapService:
     def _asset_hash(self, map_bytes: bytes) -> str:
         return hashlib.sha256(map_bytes).hexdigest()
 
+    def _asset_content_type(self, map_bytes: bytes) -> str:
+        stripped = map_bytes.lstrip()
+        if map_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+            return "image/png"
+        if stripped.startswith(b"<svg") or (
+            stripped.startswith(b"<?xml") and b"<svg" in stripped[:512]
+        ):
+            return "image/svg+xml"
+        return "application/octet-stream"
+
     def _alias_cache(self):
         try:
             return redis.Redis(
@@ -506,16 +520,14 @@ class StaticMapService:
             return False
 
         try:
-            return bool(
-                alias_cache.setex(
-                    self._alias_key(
-                        resource_id,
-                        variant=variant,
-                        source_signature=source_signature,
-                    ),
-                    self.redis_ttl,
-                    map_hash,
-                )
+            return cache_visual_asset(
+                alias_cache,
+                self._alias_key(
+                    resource_id,
+                    variant=variant,
+                    source_signature=source_signature,
+                ),
+                map_hash,
             )
         except Exception as e:
             logger.warning(
@@ -601,14 +613,23 @@ class StaticMapService:
         return await asyncio.to_thread(self.has_cached_asset_sync, map_hash)
 
     def get_cached_asset_sync(self, map_hash: str) -> Optional[bytes]:
-        if not self.map_cache or not self._is_asset_hash(map_hash):
+        if not self._is_asset_hash(map_hash):
             return None
 
-        try:
-            return self.map_cache.get(self._asset_key(map_hash))
-        except Exception as e:
-            logger.error(f"Error retrieving cached static map asset {map_hash}: {e}")
+        if self.map_cache:
+            try:
+                cached = self.map_cache.get(self._asset_key(map_hash))
+                if cached:
+                    return cached
+            except Exception as e:
+                logger.error(f"Error retrieving cached static map asset {map_hash}: {e}")
+        durable = get_durable_visual_asset(map_hash)
+        if not durable:
             return None
+
+        map_bytes, _content_type = durable
+        self.cache_asset_sync(map_hash, map_bytes)
+        return map_bytes
 
     async def get_cached_asset(self, map_hash: str) -> Optional[bytes]:
         return await asyncio.to_thread(self.get_cached_asset_sync, map_hash)
@@ -618,7 +639,7 @@ class StaticMapService:
             return False
 
         try:
-            return bool(self.map_cache.setex(self._asset_key(map_hash), self.redis_ttl, map_bytes))
+            return cache_visual_asset(self.map_cache, self._asset_key(map_hash), map_bytes)
         except Exception as e:
             logger.error(f"Error caching static map asset {map_hash}: {e}")
             return False
@@ -636,6 +657,12 @@ class StaticMapService:
 
         map_hash = self._asset_hash(map_bytes)
         self.cache_asset_sync(map_hash, map_bytes)
+        store_durable_visual_asset(
+            map_hash,
+            asset_kind=variant,
+            content_type=self._asset_content_type(map_bytes),
+            body=map_bytes,
+        )
         self.set_asset_hash_sync(
             resource_id,
             variant=variant,
@@ -672,7 +699,7 @@ class StaticMapService:
             variant=variant,
             source_signature=source_signature,
         )
-        if map_hash and self.has_cached_asset_sync(map_hash):
+        if map_hash and self.get_cached_asset_sync(map_hash):
             return map_hash
         if map_hash:
             self.delete_asset_hash_sync(
@@ -988,7 +1015,7 @@ class StaticMapService:
                     variant=variant,
                     source_signature=source_signature,
                 )
-                self.map_cache.setex(map_key, self.redis_ttl, map_bytes)
+                cache_visual_asset(self.map_cache, map_key, map_bytes)
                 self.materialize_asset_sync(
                     resource_id,
                     variant=variant,

@@ -393,8 +393,8 @@ class TestGeneratePmtilesThumbnailTask:
             mock_redis.exists.return_value = False
             result = generate_pmtiles_thumbnail(pmtiles_url, resource_id)
             assert result is True
-            mock_redis.setex.assert_called()
-            calls = [c[0][0] for c in mock_redis.setex.call_args_list]
+            mock_redis.set.assert_called()
+            calls = [c[0][0] for c in mock_redis.set.call_args_list]
             assert any("image:" in k for k in calls)
             patch_worker_side_effects["provider_slot"].assert_called_once()
             payload = patch_worker_side_effects["state"].call_args.args[0]
@@ -417,8 +417,8 @@ class TestGeneratePmtilesThumbnailTask:
             result = generate_pmtiles_thumbnail(pmtiles_url, resource_id)
             assert result is False
             # Should cache skip marker (pmtiles_skip_v2:...), not an image
-            setex_calls = mock_redis.setex.call_args_list
-            assert all("pmtiles_skip_v2:" in str(c[0][0]) for c in setex_calls)
+            set_calls = mock_redis.set.call_args_list
+            assert all("pmtiles_skip_v2:" in str(c[0][0]) for c in set_calls)
             payload = patch_worker_side_effects["state"].call_args.args[0]
             assert payload.state == "placeheld"
             assert payload.source_type == "pmtiles"

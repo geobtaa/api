@@ -129,12 +129,17 @@ If the client sends `If-None-Match: <etag>`, the API will return **304 Not Modif
 
 ## Asset endpoints (thumbnails + static maps)
 
-This repo has two *image asset* families that are backed by Redis object caches:
+This repo has two *image asset* families that are backed by Redis object caches and
+durable database storage:
 
 - Thumbnails: `GET /api/v1/thumbnails/{image_hash}`
 - Static maps: `GET /api/v1/static-maps/{resource_id}`
 
-**Important**: these are *not* durable immutable assets (they are cached in Redis with a finite TTL), so they should **not** be shipped with year-long browser `max-age` unless the URL is truly immutable *and* the backing store is durable.
+Generated thumbnail/static-map bytes are persisted in `generated_visual_assets`
+and rehydrated into Redis on cache miss. Redis is the hot serving layer; the
+database is the durable fallback across cache churn, restarts, and deploys.
+`VISUAL_ASSET_CACHE_TTL_SECONDS=0` (default) stores these hot Redis keys without
+expiry. Set a positive value only when an environment needs bounded Redis memory.
 
 ### Best-practice semantics used here
 
@@ -142,6 +147,10 @@ This repo has two *image asset* families that are backed by Redis object caches:
   - `ETag` + `If-None-Match` → `304 Not Modified`
   - `Cache-Control: public, max-age=0, s-maxage=...` with SWR / stale-if-error
   - This allows CDNs to cache aggressively, while ensuring clients don’t get pinned to stale/broken images when the Redis object TTL expires.
+
+- **Priming for hot paths**:
+  - `make prime-thumbnail-cache`, `make prime-static-map-cache`, and `make prime-visual-caches` generate assets ahead of user traffic.
+  - Run `make resource-aux-init` before first priming on a new environment so `generated_visual_assets` exists.
 
 - **Non-cacheable placeholders** for “not ready” states:
   - `GET /api/v1/resources/{id}/static-map` always returns an **image** (SVG placeholder while a background job generates the PNG), with `Cache-Control: no-store`.
@@ -288,4 +297,3 @@ This avoids needing a live `flush_all`.
 - **Redis latency**:
   - tune `REDIS_TIMEOUT_SECONDS`
   - keep Redis close to the API network-wise
-
