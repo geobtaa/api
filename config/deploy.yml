@@ -45,10 +45,10 @@ servers:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
     # Load `config/crontab` and inject required env vars so cron jobs can
-    # use secret-backed values like ADMIN_USERNAME/ADMIN_PASSWORD.
+    # use secret-backed values like DATABASE_URL and ADMIN_PASSWORD.
     #
     # Kamal runs each "server" as its own container; `cron -f` keeps it alive.
-    cmd: bash -lc '(printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-nightly_cron}"; cat config/crontab) | crontab - && cron -f'
+    cmd: bash -lc '/opt/venv/bin/python3 /app/scripts/render_cron_env.py /tmp/cron-container-env.sh && (printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-nightly_cron}"; cat config/crontab) | crontab - && cron -f'
     options:
       cpus: <%= ENV.fetch('KAMAL_CRON_CPUS', '0.25') %>
       memory: <%= ENV.fetch('KAMAL_CRON_MEMORY', '256m') %>
