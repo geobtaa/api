@@ -133,8 +133,11 @@ DB_SYNC_PG_DUMP_EXCLUDES := \
 endif
 DB_SYNC_IMPORT_ARCHIVE ?= tmp/btaa_geospatial_api_sync_$(DB_SYNC_ARCHIVE_MODE).dump
 VISUAL_ASSETS_ARCHIVE ?= tmp/generated_visual_assets.dump
+VISUAL_ASSETS_MANIFEST ?= tmp/generated_visual_assets.manifest
 VISUAL_ASSETS_DESTS ?= dev1 dev2 prd
 VISUAL_ASSETS_PG_DUMP_COMPRESS ?= 1
+VISUAL_ASSETS_STAGE_SUFFIX ?= _stage
+VISUAL_ASSETS_BACKUP_SCHEMA ?= visual_asset_backup
 LOCAL_DB_WAIT_SECONDS ?= 180
 DOCKER_BIN ?= $(shell command -v docker 2>/dev/null || { test -x /usr/local/bin/docker && printf /usr/local/bin/docker; })
 DOCKER_COMPOSE ?= $(DOCKER_BIN) compose
@@ -353,8 +356,24 @@ visual-assets-export: ## Export generated visual asset table data only
 		echo "Start it with: docker compose up -d paradedb"; \
 		exit 1; \
 	fi
-	@mkdir -p $(dir $(VISUAL_ASSETS_ARCHIVE))
-	@docker exec btaa-geospatial-api-paradedb pg_dump \
+	@mkdir -p $(dir $(VISUAL_ASSETS_ARCHIVE)) $(dir $(VISUAL_ASSETS_MANIFEST))
+	@set -e; \
+	ASSET_COUNT="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COUNT(*)::bigint FROM public.generated_visual_assets;")"; \
+	ASSET_BYTE_SUM="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COALESCE(SUM(byte_size), 0)::bigint FROM public.generated_visual_assets;")"; \
+	LINK_COUNT="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COUNT(*)::bigint FROM public.generated_visual_asset_links;")"; \
+	ASSET_STORAGE_BYTES="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COALESCE(pg_total_relation_size('public.generated_visual_assets'::regclass), 0);")"; \
+	LINK_STORAGE_BYTES="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COALESCE(pg_total_relation_size('public.generated_visual_asset_links'::regclass), 0);")"; \
+	EST_BYTES="$$((ASSET_STORAGE_BYTES + LINK_STORAGE_BYTES))"; \
+	printf '%s\n' \
+		"ASSET_COUNT=$$ASSET_COUNT" \
+		"ASSET_BYTE_SUM=$$ASSET_BYTE_SUM" \
+		"LINK_COUNT=$$LINK_COUNT" \
+		"ASSET_STORAGE_BYTES=$$ASSET_STORAGE_BYTES" \
+		"LINK_STORAGE_BYTES=$$LINK_STORAGE_BYTES" \
+		"TOTAL_STORAGE_BYTES=$$EST_BYTES" \
+		> $(VISUAL_ASSETS_MANIFEST); \
+	echo "Approximate source size: $$EST_BYTES bytes"; \
+	$(DOCKER_BIN) exec btaa-geospatial-api-paradedb pg_dump \
 		-U postgres \
 		-d btaa_geospatial_api \
 		--no-owner \
@@ -364,15 +383,23 @@ visual-assets-export: ## Export generated visual asset table data only
 		-Z $(VISUAL_ASSETS_PG_DUMP_COMPRESS) \
 		--table=public.generated_visual_assets \
 		--table=public.generated_visual_asset_links \
+	| python3 backend/scripts/stream_with_progress.py \
+		--label "visual-assets export" \
+		--expected-bytes "$$EST_BYTES" \
 		> $(VISUAL_ASSETS_ARCHIVE)
 	@echo "Generated visual asset archive complete: $(VISUAL_ASSETS_ARCHIVE)"
 	@ls -lh $(VISUAL_ASSETS_ARCHIVE)
+	@echo "Generated visual asset manifest complete: $(VISUAL_ASSETS_MANIFEST)"
 
 # Import durable generated visual asset data to a single Kamal destination.
 visual-assets-import: ## Import generated visual asset data to KAMAL_DEST
 	@echo "Importing generated visual asset data to Kamal (dest: $(KAMAL_DEST))..."
 	@if [ ! -f $(VISUAL_ASSETS_ARCHIVE) ]; then \
 		echo "ERROR: archive not found at $(VISUAL_ASSETS_ARCHIVE). Run 'make visual-assets-export' first."; \
+		exit 1; \
+	fi
+	@if [ ! -f $(VISUAL_ASSETS_MANIFEST) ]; then \
+		echo "ERROR: manifest not found at $(VISUAL_ASSETS_MANIFEST). Run 'make visual-assets-export' first."; \
 		exit 1; \
 	fi
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
@@ -382,29 +409,35 @@ visual-assets-import: ## Import generated visual asset data to KAMAL_DEST
 	fi
 	@echo "Ensuring generated visual asset tables exist on $(KAMAL_DEST)..."
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_visual_assets_table.py'"
+	@echo "Preparing staged visual asset tables on $(KAMAL_DEST)..."
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/manage_visual_asset_stage.py prepare --stage-suffix $(VISUAL_ASSETS_STAGE_SUFFIX) --backup-schema $(VISUAL_ASSETS_BACKUP_SCHEMA)'"
 	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST 'docker ps | grep btaa-geospatial-api-paradedb' || \
 		(echo "ERROR: Remote paradedb container is not running. Check Kamal deployment." && exit 1)
-	@echo "WARNING: This replaces generated_visual_assets and generated_visual_asset_links on $(KAMAL_DEST)."
-	@echo "Other database tables are left untouched."
+	@echo "WARNING: This stages the archive into generated_visual_asset_*$(VISUAL_ASSETS_STAGE_SUFFIX) on $(KAMAL_DEST), verifies it, then atomically swaps it into place."
+	@echo "The previous live generated_visual_asset_* tables are preserved in schema $(VISUAL_ASSETS_BACKUP_SCHEMA)."
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
-	@echo "Copying $(VISUAL_ASSETS_ARCHIVE) to $(KAMAL_DEST)..."
-	@scp $(VISUAL_ASSETS_ARCHIVE) $$KAMAL_SSH_USER@$$KAMAL_HOST:/var/tmp/
-	@echo "Restoring generated visual asset data on $(KAMAL_DEST)..."
-	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
-		set -e; \
-		docker exec -i btaa-geospatial-api-paradedb psql \
-			-U postgres \
-			-d btaa_geospatial_api \
-			-c "TRUNCATE TABLE generated_visual_asset_links, generated_visual_assets RESTART IDENTITY"; \
-		docker exec -i btaa-geospatial-api-paradedb pg_restore \
-			-U postgres \
-			-d btaa_geospatial_api \
-			--no-owner \
-			--no-acl \
-			--data-only \
-			< /var/tmp/$(notdir $(VISUAL_ASSETS_ARCHIVE)); \
-		rm /var/tmp/$(notdir $(VISUAL_ASSETS_ARCHIVE))'
+	@echo "Loading archive into staged visual asset tables on $(KAMAL_DEST)..."
+	@set -e; \
+	. $(VISUAL_ASSETS_MANIFEST); \
+	ARCHIVE_BYTES="$$(wc -c < $(VISUAL_ASSETS_ARCHIVE) | tr -d ' ')"; \
+	echo "Archive size: $$ARCHIVE_BYTES bytes"; \
+	cat $(VISUAL_ASSETS_ARCHIVE) \
+	| python3 backend/scripts/stream_with_progress.py \
+		--label "visual-assets archive import" \
+		--expected-bytes "$$ARCHIVE_BYTES" \
+	| $(DOCKER_BIN) exec -i btaa-geospatial-api-paradedb pg_restore \
+		-f - \
+		--no-owner \
+		--no-acl \
+		--data-only \
+	| sed \
+		-e 's/COPY public.generated_visual_asset_links (/COPY public.generated_visual_asset_links$(VISUAL_ASSETS_STAGE_SUFFIX) (/g' \
+		-e 's/COPY public.generated_visual_assets (/COPY public.generated_visual_assets$(VISUAL_ASSETS_STAGE_SUFFIX) (/g' \
+		-e '/generated_visual_asset_links_id_seq/d' \
+	| ssh $$KAMAL_SSH_USER@$$KAMAL_HOST 'docker exec -i btaa-geospatial-api-paradedb psql -v ON_ERROR_STOP=1 -U postgres -d btaa_geospatial_api'; \
+	kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/manage_visual_asset_stage.py verify --stage-suffix $(VISUAL_ASSETS_STAGE_SUFFIX) --backup-schema $(VISUAL_ASSETS_BACKUP_SCHEMA) --expected-asset-count $$ASSET_COUNT --expected-asset-byte-sum $$ASSET_BYTE_SUM --expected-link-count $$LINK_COUNT'"; \
+	kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/manage_visual_asset_stage.py cutover --stage-suffix $(VISUAL_ASSETS_STAGE_SUFFIX) --backup-schema $(VISUAL_ASSETS_BACKUP_SCHEMA) --expected-asset-count $$ASSET_COUNT --expected-asset-byte-sum $$ASSET_BYTE_SUM --expected-link-count $$LINK_COUNT'"
 	@echo "Generated visual asset import complete for $(KAMAL_DEST)."
 
 # Stream durable generated visual asset data directly to a single Kamal destination.
@@ -427,35 +460,52 @@ visual-assets-stream-import: ## Stream generated visual asset data directly to K
 	fi
 	@echo "Ensuring generated visual asset tables exist on $(KAMAL_DEST)..."
 	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_visual_assets_table.py'"
+	@echo "Preparing staged visual asset tables on $(KAMAL_DEST)..."
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/manage_visual_asset_stage.py prepare --stage-suffix $(VISUAL_ASSETS_STAGE_SUFFIX) --backup-schema $(VISUAL_ASSETS_BACKUP_SCHEMA)'"
 	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST 'docker ps | grep btaa-geospatial-api-paradedb' || \
 		(echo "ERROR: Remote paradedb container is not running. Check Kamal deployment." && exit 1)
-	@echo "WARNING: This streams local generated_visual_assets and generated_visual_asset_links directly to $(KAMAL_DEST)."
-	@echo "It truncates the remote generated_visual_asset_* tables before restore and does not write a local archive."
+	@echo "WARNING: This streams local generated_visual_assets and generated_visual_asset_links into staged tables on $(KAMAL_DEST), verifies them, then atomically swaps them into place."
+	@echo "The previous live generated_visual_asset_* tables are preserved in schema $(VISUAL_ASSETS_BACKUP_SCHEMA)."
 	@echo "Press Ctrl+C within 5 seconds to cancel..."
 	@sleep 5
 	@echo "Streaming generated visual asset data to $(KAMAL_DEST)..."
-	@docker exec btaa-geospatial-api-paradedb pg_dump \
+	@set -e; \
+	ASSET_COUNT="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COUNT(*)::bigint FROM public.generated_visual_assets;")"; \
+	ASSET_BYTE_SUM="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COALESCE(SUM(byte_size), 0)::bigint FROM public.generated_visual_assets;")"; \
+	LINK_COUNT="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COUNT(*)::bigint FROM public.generated_visual_asset_links;")"; \
+	ASSET_STORAGE_BYTES="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COALESCE(pg_total_relation_size('public.generated_visual_assets'::regclass), 0);")"; \
+	LINK_STORAGE_BYTES="$$($(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql -U postgres -d btaa_geospatial_api -Atc "SELECT COALESCE(pg_total_relation_size('public.generated_visual_asset_links'::regclass), 0);")"; \
+	echo "Approximate source size: $$((ASSET_STORAGE_BYTES + LINK_STORAGE_BYTES)) bytes"; \
+	$(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql \
+		-v ON_ERROR_STOP=1 \
 		-U postgres \
 		-d btaa_geospatial_api \
-		--no-owner \
-		--no-acl \
-		--data-only \
-		-Fc \
-		-Z $(VISUAL_ASSETS_PG_DUMP_COMPRESS) \
-		--table=public.generated_visual_assets \
-		--table=public.generated_visual_asset_links \
+		-c "COPY (SELECT asset_hash, asset_kind, content_type, body, byte_size, created_at, updated_at FROM public.generated_visual_assets) TO STDOUT WITH (FORMAT binary)" \
+	| python3 backend/scripts/stream_with_progress.py \
+		--label "visual-assets assets stream" \
+		--expected-bytes "$$ASSET_STORAGE_BYTES" \
 	| ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
-		set -e; \
-		docker exec btaa-geospatial-api-paradedb psql \
+		docker exec -i btaa-geospatial-api-paradedb psql \
+			-v ON_ERROR_STOP=1 \
 			-U postgres \
 			-d btaa_geospatial_api \
-			-c "TRUNCATE TABLE generated_visual_asset_links, generated_visual_assets RESTART IDENTITY"; \
-		docker exec -i btaa-geospatial-api-paradedb pg_restore \
+			-c "COPY public.generated_visual_assets$(VISUAL_ASSETS_STAGE_SUFFIX) (asset_hash, asset_kind, content_type, body, byte_size, created_at, updated_at) FROM STDIN WITH (FORMAT binary)"'; \
+	$(DOCKER_BIN) exec btaa-geospatial-api-paradedb psql \
+		-v ON_ERROR_STOP=1 \
+		-U postgres \
+		-d btaa_geospatial_api \
+		-c "COPY (SELECT resource_id, asset_hash, asset_kind, source_signature, created_at, updated_at FROM public.generated_visual_asset_links) TO STDOUT WITH (FORMAT binary)" \
+	| python3 backend/scripts/stream_with_progress.py \
+		--label "visual-assets links stream" \
+		--expected-bytes "$$LINK_STORAGE_BYTES" \
+	| ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
+		docker exec -i btaa-geospatial-api-paradedb psql \
+			-v ON_ERROR_STOP=1 \
 			-U postgres \
 			-d btaa_geospatial_api \
-			--no-owner \
-			--no-acl \
-			--data-only'
+			-c "COPY public.generated_visual_asset_links$(VISUAL_ASSETS_STAGE_SUFFIX) (resource_id, asset_hash, asset_kind, source_signature, created_at, updated_at) FROM STDIN WITH (FORMAT binary)"'; \
+	kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/manage_visual_asset_stage.py verify --stage-suffix $(VISUAL_ASSETS_STAGE_SUFFIX) --backup-schema $(VISUAL_ASSETS_BACKUP_SCHEMA) --expected-asset-count $$ASSET_COUNT --expected-asset-byte-sum $$ASSET_BYTE_SUM --expected-link-count $$LINK_COUNT'"; \
+	kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/manage_visual_asset_stage.py cutover --stage-suffix $(VISUAL_ASSETS_STAGE_SUFFIX) --backup-schema $(VISUAL_ASSETS_BACKUP_SCHEMA) --expected-asset-count $$ASSET_COUNT --expected-asset-byte-sum $$ASSET_BYTE_SUM --expected-link-count $$LINK_COUNT'"
 	@echo "Generated visual asset stream import complete for $(KAMAL_DEST)."
 
 # Export once locally, then import the same generated visual asset archive to each destination.
@@ -464,7 +514,8 @@ visual-assets-sync-all: visual-assets-export ## Export once, then import generat
 		echo "=== Syncing generated visual assets to $$dest ==="; \
 		$(MAKE) --no-print-directory visual-assets-import \
 			KAMAL_DEST=$$dest \
-			VISUAL_ASSETS_ARCHIVE="$(VISUAL_ASSETS_ARCHIVE)"; \
+			VISUAL_ASSETS_ARCHIVE="$(VISUAL_ASSETS_ARCHIVE)" \
+			VISUAL_ASSETS_MANIFEST="$(VISUAL_ASSETS_MANIFEST)"; \
 	done
 
 # Run PMTiles network integration test (proves raster thumbnail harvest works).
