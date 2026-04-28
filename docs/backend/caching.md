@@ -156,6 +156,7 @@ expiry. Set a positive value only when an environment needs bounded Redis memory
   - After a Redis reset, priming first tries to rehydrate from durable visual storage before regenerating remote thumbnails or static maps.
   - For large local catch-up runs on disk-constrained laptops, temporarily start Redis in in-memory mode with `REDIS_APPENDONLY=no` and `REDIS_SAVE=""`. The durable bytes and resource-to-asset links still land in Postgres, while Redis avoids building giant AOF/RDB files during the warm-up.
   - After a local priming run, `make visual-assets-export` can package just those generated asset rows, and `make visual-assets-sync-all` can promote them to `dev1`, `dev2`, and `prd` without repeating expensive generation on every server.
+  - When you only need one Kamal destination and local disk is tight, `make visual-assets-stream-import KAMAL_DEST=dev1` streams those same rows directly from local ParadeDB into the remote ParadeDB container without writing a large local dump archive first.
   - Priming logs individual broken upstream assets without exiting nonzero, so a handful of bad provider images do not block the rest of the warming run. Use `python scripts/prime_thumbnail_cache.py --strict-failures` or `python scripts/prime_static_map_cache.py --strict-failures` when a diagnostic run should fail on any asset error.
 
 - **Non-cacheable placeholders** for “not ready” states:

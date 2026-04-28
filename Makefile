@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -134,6 +134,7 @@ endif
 DB_SYNC_IMPORT_ARCHIVE ?= tmp/btaa_geospatial_api_sync_$(DB_SYNC_ARCHIVE_MODE).dump
 VISUAL_ASSETS_ARCHIVE ?= tmp/generated_visual_assets.dump
 VISUAL_ASSETS_DESTS ?= dev1 dev2 prd
+VISUAL_ASSETS_PG_DUMP_COMPRESS ?= 1
 LOCAL_DB_WAIT_SECONDS ?= 180
 DOCKER_BIN ?= $(shell command -v docker 2>/dev/null || { test -x /usr/local/bin/docker && printf /usr/local/bin/docker; })
 DOCKER_COMPOSE ?= $(DOCKER_BIN) compose
@@ -360,7 +361,7 @@ visual-assets-export: ## Export generated visual asset table data only
 		--no-acl \
 		--data-only \
 		-Fc \
-		-Z 9 \
+		-Z $(VISUAL_ASSETS_PG_DUMP_COMPRESS) \
 		--table=public.generated_visual_assets \
 		--table=public.generated_visual_asset_links \
 		> $(VISUAL_ASSETS_ARCHIVE)
@@ -405,6 +406,57 @@ visual-assets-import: ## Import generated visual asset data to KAMAL_DEST
 			< /var/tmp/$(notdir $(VISUAL_ASSETS_ARCHIVE)); \
 		rm /var/tmp/$(notdir $(VISUAL_ASSETS_ARCHIVE))'
 	@echo "Generated visual asset import complete for $(KAMAL_DEST)."
+
+# Stream durable generated visual asset data directly to a single Kamal destination.
+visual-assets-stream-import: ## Stream generated visual asset data directly to KAMAL_DEST
+	@echo "Streaming generated visual asset data to Kamal (dest: $(KAMAL_DEST))..."
+	@if [ -z "$$POSTGRES_PASSWORD" ]; then \
+		echo "ERROR: POSTGRES_PASSWORD environment variable is not set."; \
+		echo "Please set it in a .env file or export it before running this target."; \
+		exit 1; \
+	fi
+	@if ! docker ps | grep -q btaa-geospatial-api-paradedb; then \
+		echo "ERROR: ParadeDB container (btaa-geospatial-api-paradedb) is not running."; \
+		echo "Start it with: docker compose up -d paradedb"; \
+		exit 1; \
+	fi
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@echo "Ensuring generated visual asset tables exist on $(KAMAL_DEST)..."
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_visual_assets_table.py'"
+	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST 'docker ps | grep btaa-geospatial-api-paradedb' || \
+		(echo "ERROR: Remote paradedb container is not running. Check Kamal deployment." && exit 1)
+	@echo "WARNING: This streams local generated_visual_assets and generated_visual_asset_links directly to $(KAMAL_DEST)."
+	@echo "It truncates the remote generated_visual_asset_* tables before restore and does not write a local archive."
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	@echo "Streaming generated visual asset data to $(KAMAL_DEST)..."
+	@docker exec btaa-geospatial-api-paradedb pg_dump \
+		-U postgres \
+		-d btaa_geospatial_api \
+		--no-owner \
+		--no-acl \
+		--data-only \
+		-Fc \
+		-Z $(VISUAL_ASSETS_PG_DUMP_COMPRESS) \
+		--table=public.generated_visual_assets \
+		--table=public.generated_visual_asset_links \
+	| ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
+		set -e; \
+		docker exec btaa-geospatial-api-paradedb psql \
+			-U postgres \
+			-d btaa_geospatial_api \
+			-c "TRUNCATE TABLE generated_visual_asset_links, generated_visual_assets RESTART IDENTITY"; \
+		docker exec -i btaa-geospatial-api-paradedb pg_restore \
+			-U postgres \
+			-d btaa_geospatial_api \
+			--no-owner \
+			--no-acl \
+			--data-only'
+	@echo "Generated visual asset stream import complete for $(KAMAL_DEST)."
 
 # Export once locally, then import the same generated visual asset archive to each destination.
 visual-assets-sync-all: visual-assets-export ## Export once, then import generated visual assets to VISUAL_ASSETS_DESTS
