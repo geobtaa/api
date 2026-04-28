@@ -50,14 +50,15 @@ export function StaticResultMap({ result }: StaticResultMapProps) {
         alt=""
         loading="lazy"
         decoding="async"
-        fetchPriority="low"
-        className="h-full w-full object-cover"
+        {...({ fetchpriority: 'low' } as const)}
+        className={`h-full w-full object-cover transition-opacity duration-150 ${
+          isLoading ? 'opacity-0' : 'opacity-100'
+        }`}
         onLoad={() => setIsLoading(false)}
         onError={() => {
           setIsLoading(false);
           setImageError(true);
         }}
-        style={{ display: isLoading ? 'none' : 'block' }}
       />
     </div>
   );

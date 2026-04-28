@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -132,6 +132,11 @@ DB_SYNC_PG_DUMP_EXCLUDES := \
 	$(foreach sequence,$(DB_SYNC_PRESERVE_SEQUENCES),--exclude-table=public.$(sequence))
 endif
 DB_SYNC_IMPORT_ARCHIVE ?= tmp/btaa_geospatial_api_sync_$(DB_SYNC_ARCHIVE_MODE).dump
+VISUAL_ASSETS_ARCHIVE ?= tmp/generated_visual_assets.dump
+VISUAL_ASSETS_DESTS ?= dev1 dev2 prd
+LOCAL_DB_WAIT_SECONDS ?= 180
+DOCKER_BIN ?= $(shell command -v docker 2>/dev/null || { test -x /usr/local/bin/docker && printf /usr/local/bin/docker; })
+DOCKER_COMPOSE ?= $(DOCKER_BIN) compose
 
 # List all make targets with descriptions (like rake -T)
 help:
@@ -258,16 +263,41 @@ clear-thumbnail-cache: ## Clear thumbnail cache for RESOURCE_ID
 		echo "Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT"; \
 		exit 1; \
 	fi
-	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/clear_thumbnail_cache.py "$(RESOURCE_ID)"'
+	@$(DOCKER_COMPOSE) exec -T api bash -lc 'cd /app/backend && python scripts/clear_thumbnail_cache.py "$(RESOURCE_ID)"'
+
+# Wait until local ParadeDB accepts SQL against the app database.
+wait-local-db: ## Wait for local ParadeDB to accept SQL
+	@echo "Waiting for local ParadeDB to accept SQL..."
+	@if [ -z "$(DOCKER_BIN)" ]; then \
+		echo "ERROR: docker is not installed or not on PATH."; \
+		exit 1; \
+	fi
+	@if [ -z "$$($(DOCKER_COMPOSE) ps --status running --services paradedb 2>/dev/null)" ]; then \
+		echo "ERROR: paradedb service is not running."; \
+		echo "Start it with: docker compose up -d paradedb"; \
+		exit 1; \
+	fi
+	@$(DOCKER_COMPOSE) exec -T paradedb bash -lc '\
+		set -e; \
+		deadline=$$(($$(date +%s) + $(LOCAL_DB_WAIT_SECONDS))); \
+		until PGPASSWORD="$$POSTGRES_PASSWORD" psql -U postgres -d btaa_geospatial_api -Atc "SELECT 1" >/dev/null 2>&1; do \
+			if [ $$(date +%s) -ge $$deadline ]; then \
+				echo "ERROR: btaa_geospatial_api did not become queryable within $(LOCAL_DB_WAIT_SECONDS)s."; \
+				exit 1; \
+			fi; \
+			echo "ParadeDB is still starting/recovering; waiting..."; \
+			sleep 3; \
+		done'
+	@echo "Local ParadeDB is ready."
 
 # Prime thumbnail cache entries with progress meter + ETA.
 # Usage examples:
 #   make prime-thumbnail-cache
 #   make prime-thumbnail-cache PRIME_LIMIT=500 PRIME_THUMBNAIL_CONCURRENCY=6
 #   make prime-thumbnail-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
-prime-thumbnail-cache: ## Prime thumbnail cache (PRIME_LIMIT, PRIME_BATCH_SIZE, etc.)
+prime-thumbnail-cache: wait-local-db ## Prime thumbnail cache (PRIME_LIMIT, PRIME_BATCH_SIZE, etc.)
 	@echo "Priming thumbnail cache..."
-	@docker compose exec -T api bash -lc '\
+	@$(DOCKER_COMPOSE) exec -T api bash -lc '\
 		set -e; \
 		cd /app/backend; \
 		ARGS=""; \
@@ -282,9 +312,9 @@ prime-thumbnail-cache: ## Prime thumbnail cache (PRIME_LIMIT, PRIME_BATCH_SIZE, 
 #   make prime-static-map-cache
 #   make prime-static-map-cache PRIME_LIMIT=500 PRIME_STATIC_MAP_CONCURRENCY=3
 #   make prime-static-map-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
-prime-static-map-cache: ## Prime static-map cache
+prime-static-map-cache: wait-local-db ## Prime static-map cache
 	@echo "Priming static-map caches..."
-	@docker compose exec -T api bash -lc '\
+	@$(DOCKER_COMPOSE) exec -T api bash -lc '\
 		set -e; \
 		cd /app/backend; \
 		ARGS=""; \
@@ -308,6 +338,82 @@ prime-visual-caches: ## Prime thumbnail + static-map caches
 		PRIME_STATIC_MAP_CONCURRENCY="$(PRIME_STATIC_MAP_CONCURRENCY)" \
 		PRIME_FORCE="$(PRIME_FORCE)" \
 		RESOURCE_IDS="$(RESOURCE_IDS)"
+
+# Export only durable generated visual asset data from local ParadeDB.
+visual-assets-export: ## Export generated visual asset table data only
+	@echo "Exporting generated visual asset data..."
+	@if [ -z "$$POSTGRES_PASSWORD" ]; then \
+		echo "ERROR: POSTGRES_PASSWORD environment variable is not set."; \
+		echo "Please set it in a .env file or run: POSTGRES_PASSWORD=yourpass make visual-assets-export"; \
+		exit 1; \
+	fi
+	@if ! docker ps | grep -q btaa-geospatial-api-paradedb; then \
+		echo "ERROR: ParadeDB container (btaa-geospatial-api-paradedb) is not running."; \
+		echo "Start it with: docker compose up -d paradedb"; \
+		exit 1; \
+	fi
+	@mkdir -p $(dir $(VISUAL_ASSETS_ARCHIVE))
+	@docker exec btaa-geospatial-api-paradedb pg_dump \
+		-U postgres \
+		-d btaa_geospatial_api \
+		--no-owner \
+		--no-acl \
+		--data-only \
+		-Fc \
+		-Z 9 \
+		--table=public.generated_visual_assets \
+		--table=public.generated_visual_asset_links \
+		> $(VISUAL_ASSETS_ARCHIVE)
+	@echo "Generated visual asset archive complete: $(VISUAL_ASSETS_ARCHIVE)"
+	@ls -lh $(VISUAL_ASSETS_ARCHIVE)
+
+# Import durable generated visual asset data to a single Kamal destination.
+visual-assets-import: ## Import generated visual asset data to KAMAL_DEST
+	@echo "Importing generated visual asset data to Kamal (dest: $(KAMAL_DEST))..."
+	@if [ ! -f $(VISUAL_ASSETS_ARCHIVE) ]; then \
+		echo "ERROR: archive not found at $(VISUAL_ASSETS_ARCHIVE). Run 'make visual-assets-export' first."; \
+		exit 1; \
+	fi
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@echo "Ensuring generated visual asset tables exist on $(KAMAL_DEST)..."
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_visual_assets_table.py'"
+	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST 'docker ps | grep btaa-geospatial-api-paradedb' || \
+		(echo "ERROR: Remote paradedb container is not running. Check Kamal deployment." && exit 1)
+	@echo "WARNING: This replaces generated_visual_assets and generated_visual_asset_links on $(KAMAL_DEST)."
+	@echo "Other database tables are left untouched."
+	@echo "Press Ctrl+C within 5 seconds to cancel..."
+	@sleep 5
+	@echo "Copying $(VISUAL_ASSETS_ARCHIVE) to $(KAMAL_DEST)..."
+	@scp $(VISUAL_ASSETS_ARCHIVE) $$KAMAL_SSH_USER@$$KAMAL_HOST:/var/tmp/
+	@echo "Restoring generated visual asset data on $(KAMAL_DEST)..."
+	@ssh $$KAMAL_SSH_USER@$$KAMAL_HOST '\
+		set -e; \
+		docker exec -i btaa-geospatial-api-paradedb psql \
+			-U postgres \
+			-d btaa_geospatial_api \
+			-c "TRUNCATE TABLE generated_visual_asset_links, generated_visual_assets RESTART IDENTITY"; \
+		docker exec -i btaa-geospatial-api-paradedb pg_restore \
+			-U postgres \
+			-d btaa_geospatial_api \
+			--no-owner \
+			--no-acl \
+			--data-only \
+			< /var/tmp/$(notdir $(VISUAL_ASSETS_ARCHIVE)); \
+		rm /var/tmp/$(notdir $(VISUAL_ASSETS_ARCHIVE))'
+	@echo "Generated visual asset import complete for $(KAMAL_DEST)."
+
+# Export once locally, then import the same generated visual asset archive to each destination.
+visual-assets-sync-all: visual-assets-export ## Export once, then import generated visual assets to VISUAL_ASSETS_DESTS
+	@for dest in $(VISUAL_ASSETS_DESTS); do \
+		echo "=== Syncing generated visual assets to $$dest ==="; \
+		$(MAKE) --no-print-directory visual-assets-import \
+			KAMAL_DEST=$$dest \
+			VISUAL_ASSETS_ARCHIVE="$(VISUAL_ASSETS_ARCHIVE)"; \
+	done
 
 # Run PMTiles network integration test (proves raster thumbnail harvest works).
 # Requires network access. The fixture b1g_PJxxfKgpqpUT uses MVT PMTiles which may fail;

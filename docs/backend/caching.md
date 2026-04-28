@@ -135,9 +135,11 @@ durable database storage:
 - Thumbnails: `GET /api/v1/thumbnails/{image_hash}`
 - Static maps: `GET /api/v1/static-maps/{resource_id}`
 
-Generated thumbnail/static-map bytes are persisted in `generated_visual_assets`
-and rehydrated into Redis on cache miss. Redis is the hot serving layer; the
-database is the durable fallback across cache churn, restarts, and deploys.
+Generated thumbnail/static-map bytes are persisted in `generated_visual_assets`;
+resource-to-asset mappings are persisted in `generated_visual_asset_links`.
+On a Redis miss, the API can recover the resource alias, serve the durable
+asset, and rehydrate Redis. Redis is the hot serving layer; the database is the
+durable fallback across cache churn, restarts, and deploys.
 `VISUAL_ASSET_CACHE_TTL_SECONDS=0` (default) stores these hot Redis keys without
 expiry. Set a positive value only when an environment needs bounded Redis memory.
 
@@ -150,7 +152,11 @@ expiry. Set a positive value only when an environment needs bounded Redis memory
 
 - **Priming for hot paths**:
   - `make prime-thumbnail-cache`, `make prime-static-map-cache`, and `make prime-visual-caches` generate assets ahead of user traffic.
-  - Run `make resource-aux-init` before first priming on a new environment so `generated_visual_assets` exists.
+  - Run `make resource-aux-init` before first priming on a new environment so `generated_visual_assets` and `generated_visual_asset_links` exist.
+  - After a Redis reset, priming first tries to rehydrate from durable visual storage before regenerating remote thumbnails or static maps.
+  - For large local catch-up runs on disk-constrained laptops, temporarily start Redis in in-memory mode with `REDIS_APPENDONLY=no` and `REDIS_SAVE=""`. The durable bytes and resource-to-asset links still land in Postgres, while Redis avoids building giant AOF/RDB files during the warm-up.
+  - After a local priming run, `make visual-assets-export` can package just those generated asset rows, and `make visual-assets-sync-all` can promote them to `dev1`, `dev2`, and `prd` without repeating expensive generation on every server.
+  - Priming logs individual broken upstream assets without exiting nonzero, so a handful of bad provider images do not block the rest of the warming run. Use `python scripts/prime_thumbnail_cache.py --strict-failures` or `python scripts/prime_static_map_cache.py --strict-failures` when a diagnostic run should fail on any asset error.
 
 - **Non-cacheable placeholders** for “not ready” states:
   - `GET /api/v1/resources/{id}/static-map` always returns an **image** (SVG placeholder while a background job generates the PNG), with `Cache-Control: no-store`.

@@ -60,6 +60,7 @@ from app.services.thumbnail_state_service import (  # noqa: E402
 from app.services.visual_asset_cache import (  # noqa: E402
     cache_visual_asset,
     store_durable_visual_asset,
+    store_durable_visual_asset_link,
 )
 from app.tasks.worker import (  # noqa: E402
     _cog_thumbnail_image_hash,
@@ -113,7 +114,13 @@ def _compute_thumbnail_image_hash(image_service: ImageService, source_url: str) 
     return _remote_thumbnail_image_hash(standardized)
 
 
-def _store_image_bytes(image_hash: str, image_bytes: bytes, content_type: str) -> bool:
+def _store_image_bytes(
+    image_hash: str,
+    image_bytes: bytes,
+    content_type: str,
+    *,
+    resource_id: str | None = None,
+) -> bool:
     """Store image bytes and MIME metadata in Redis."""
     try:
         cache_visual_asset(redis_client, f"image:{image_hash}", image_bytes)
@@ -124,6 +131,13 @@ def _store_image_bytes(image_hash: str, image_bytes: bytes, content_type: str) -
             content_type=content_type,
             body=image_bytes,
         )
+        if resource_id:
+            store_durable_visual_asset_link(
+                resource_id,
+                asset_hash=image_hash,
+                asset_kind="thumbnail",
+                source_signature=image_hash,
+            )
         return True
     except Exception as exc:
         logger.warning("Failed to cache thumbnail %s: %s", image_hash[:12], exc)
@@ -140,7 +154,12 @@ def _set_pmtiles_skip_marker(image_hash: str) -> bool:
         return False
 
 
-def _prime_cog_thumbnail(source_url: str, image_hash: str) -> bool:
+def _prime_cog_thumbnail(
+    source_url: str,
+    image_hash: str,
+    *,
+    resource_id: str | None = None,
+) -> bool:
     with provider_request_slot(source_url, action="thumbnail prime (COG)"):
         image_bytes = _generate_cog_thumbnail_bytes(source_url)
     if not image_bytes or len(image_bytes) < 100:
@@ -148,10 +167,15 @@ def _prime_cog_thumbnail(source_url: str, image_hash: str) -> bool:
     is_valid, _ = _validate_image_content(image_bytes, "image/png")
     if not is_valid:
         return False
-    return _store_image_bytes(image_hash, image_bytes, "image/png")
+    return _store_image_bytes(image_hash, image_bytes, "image/png", resource_id=resource_id)
 
 
-def _prime_pmtiles_thumbnail(source_url: str, image_hash: str) -> tuple[bool, bool]:
+def _prime_pmtiles_thumbnail(
+    source_url: str,
+    image_hash: str,
+    *,
+    resource_id: str | None = None,
+) -> tuple[bool, bool]:
     """
     Prime PMTiles thumbnail cache.
 
@@ -167,10 +191,23 @@ def _prime_pmtiles_thumbnail(source_url: str, image_hash: str) -> tuple[bool, bo
     if not is_valid:
         return (False, _set_pmtiles_skip_marker(image_hash))
 
-    return (_store_image_bytes(image_hash, image_bytes, content_type or "image/png"), False)
+    return (
+        _store_image_bytes(
+            image_hash,
+            image_bytes,
+            content_type or "image/png",
+            resource_id=resource_id,
+        ),
+        False,
+    )
 
 
-def _prime_remote_thumbnail(image_hash: str, source_url: str) -> tuple[str, str]:
+def _prime_remote_thumbnail(
+    image_hash: str,
+    source_url: str,
+    *,
+    resource_id: str | None = None,
+) -> tuple[str, str]:
     resolved_url = _resolve_image_url(source_url)
     cooldown_remaining = provider_origin_cooldown_remaining(resolved_url)
     if cooldown_remaining > 0:
@@ -257,7 +294,12 @@ def _prime_remote_thumbnail(image_hash: str, source_url: str) -> tuple[str, str]
         )
         return ("failed", f"invalid image content ({resolved_url})")
 
-    if _store_image_bytes(image_hash, response.content, detected_type or "image/jpeg"):
+    if _store_image_bytes(
+        image_hash,
+        response.content,
+        detected_type or "image/jpeg",
+        resource_id=resource_id,
+    ):
         record_provider_success(resolved_url)
         return ("generated", "remote")
 
@@ -322,7 +364,9 @@ def _should_resume_skip(
 
     state = str(existing_state.get("state") or "").strip().lower()
     if state == ThumbnailState.SUCCESS:
-        return (True, "already succeeded in prior run")
+        # Re-check successful records so a Redis reset can rehydrate from
+        # durable visual storage instead of needlessly re-fetching upstream.
+        return (False, "")
     if state == ThumbnailState.FAILURE and not retry_failures:
         return (True, "already failed in prior run")
     if state == ThumbnailState.PLACEHELD and not retry_placeheld:
@@ -389,6 +433,19 @@ async def _prime_thumbnail_for_resource(
         if not force:
             cached_image = await image_service.get_cached_image(image_hash)
             if cached_image:
+                _valid, cached_content_type = _validate_image_content(cached_image, None)
+                store_durable_visual_asset(
+                    image_hash,
+                    asset_kind="thumbnail",
+                    content_type=cached_content_type or "application/octet-stream",
+                    body=cached_image,
+                )
+                store_durable_visual_asset_link(
+                    resource_id,
+                    asset_hash=image_hash,
+                    asset_kind="thumbnail",
+                    source_signature=image_hash,
+                )
                 await safe_record_thumbnail_state(
                     ThumbnailStatePayload(
                         resource_id=resource_id,
@@ -416,7 +473,12 @@ async def _prime_thumbnail_for_resource(
                 return ("cached-skip", resource_id, "pmtiles skip marker already cached")
 
         if image_service._is_cog_url(source_url):
-            ok = await asyncio.to_thread(_prime_cog_thumbnail, source_url, image_hash)
+            ok = await asyncio.to_thread(
+                _prime_cog_thumbnail,
+                source_url,
+                image_hash,
+                resource_id=resource_id,
+            )
             await safe_record_thumbnail_state(
                 ThumbnailStatePayload(
                     resource_id=resource_id,
@@ -432,7 +494,10 @@ async def _prime_thumbnail_for_resource(
 
         if image_service._is_pmtiles_url(source_url):
             ok, wrote_skip = await asyncio.to_thread(
-                _prime_pmtiles_thumbnail, source_url, image_hash
+                _prime_pmtiles_thumbnail,
+                source_url,
+                image_hash,
+                resource_id=resource_id,
             )
             if ok:
                 await safe_record_thumbnail_state(
@@ -472,7 +537,10 @@ async def _prime_thumbnail_for_resource(
             return ("failed", resource_id, "pmtiles")
 
         remote_status, remote_detail = await asyncio.to_thread(
-            _prime_remote_thumbnail, image_hash, source_url
+            _prime_remote_thumbnail,
+            image_hash,
+            source_url,
+            resource_id=resource_id,
         )
         if remote_status == "deprioritized":
             return ("deprioritized", resource_id, remote_detail)
@@ -630,7 +698,9 @@ async def _run(args: argparse.Namespace) -> int:
         for failure in failures[:20]:
             logger.warning("  %s", failure)
 
-    return 1 if counters["failed"] else 0
+    if counters["failed"] and args.strict_failures:
+        return 1
+    return 0
 
 
 def _parse_args() -> argparse.Namespace:
@@ -655,6 +725,11 @@ def _parse_args() -> argparse.Namespace:
         "--retry-placeheld",
         action="store_true",
         help="Retry resources already marked as placeheld in resource_thumbnail_state",
+    )
+    parser.add_argument(
+        "--strict-failures",
+        action="store_true",
+        help="Exit nonzero when any thumbnail fails; default logs failures and continues",
     )
     return parser.parse_args()
 

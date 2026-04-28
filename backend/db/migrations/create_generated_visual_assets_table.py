@@ -7,14 +7,14 @@ from sqlalchemy import create_engine, text
 
 sys.path.append(str(Path(__file__).parent.parent))
 
-from db.models import generated_visual_assets, metadata  # noqa: E402
+from db.models import generated_visual_asset_links, generated_visual_assets, metadata  # noqa: E402
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 def create_generated_visual_assets_table() -> None:
-    """Create durable storage for generated thumbnail and static-map bytes."""
+    """Create durable storage for generated visual bytes and resource links."""
     database_url = os.getenv(
         "DATABASE_URL",
         "postgresql://postgres:postgres@localhost:2345/btaa_ogm_api_test",
@@ -23,7 +23,7 @@ def create_generated_visual_assets_table() -> None:
     engine = create_engine(sync_database_url)
 
     logger.info("Ensuring generated_visual_assets table via metadata.create_all()...")
-    _ = generated_visual_assets
+    _ = (generated_visual_assets, generated_visual_asset_links)
     metadata.create_all(engine)
 
     with engine.connect() as conn:
@@ -59,6 +59,7 @@ def create_generated_visual_assets_table() -> None:
             )
         )
         conn.execute(text("ANALYZE generated_visual_assets;"))
+        conn.execute(text("ANALYZE generated_visual_asset_links;"))
         conn.commit()
 
     logger.info("generated_visual_assets table ready")

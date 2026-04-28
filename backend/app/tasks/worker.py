@@ -18,7 +18,11 @@ from app.services.thumbnail_state_service import (
     infer_source_type,
     safe_record_thumbnail_state_sync,
 )
-from app.services.visual_asset_cache import cache_visual_asset, store_durable_visual_asset
+from app.services.visual_asset_cache import (
+    cache_visual_asset,
+    store_durable_visual_asset,
+    store_durable_visual_asset_link,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -342,6 +346,13 @@ def fetch_and_cache_image(self, url: str, doc_id: Optional[str] = None) -> bool:
                     content_type=normalized_type,
                     body=normalized_content,
                 )
+                if doc_id:
+                    store_durable_visual_asset_link(
+                        doc_id,
+                        asset_hash=source_hash,
+                        asset_kind="thumbnail",
+                        source_signature=source_hash,
+                    )
                 logger.info(
                     f"✅ Successfully cached normalized thumbnail: {resolved_url} "
                     f"(type: {normalized_type}, original={len(response.content)} bytes, "
@@ -687,6 +698,13 @@ def generate_cog_thumbnail(self, cog_url: str, doc_id: Optional[str] = None) -> 
                 content_type=normalized_type,
                 body=normalized_bytes,
             )
+            if doc_id:
+                store_durable_visual_asset_link(
+                    doc_id,
+                    asset_hash=image_hash,
+                    asset_kind="thumbnail",
+                    source_signature=image_hash,
+                )
             logger.info(
                 f"Successfully cached COG thumbnail for {cog_url} "
                 f"(type: {normalized_type}, original={len(image_bytes)} bytes, "
@@ -1078,6 +1096,13 @@ def generate_pmtiles_thumbnail(self, pmtiles_url: str, doc_id: Optional[str] = N
                 content_type=normalized_type,
                 body=normalized_bytes,
             )
+            if doc_id:
+                store_durable_visual_asset_link(
+                    doc_id,
+                    asset_hash=image_hash,
+                    asset_kind="thumbnail",
+                    source_signature=image_hash,
+                )
             logger.info(
                 f"Successfully cached PMTiles thumbnail for {pmtiles_url} "
                 f"(type: {normalized_type}, original={len(image_bytes)} bytes, "

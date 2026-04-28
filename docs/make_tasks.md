@@ -25,7 +25,12 @@ Overrides:
 
 ## Data + ops
 
-- `make resource-aux-init`: ensure `resource_downloads`, `resource_licensed_accesses`, `resource_assets`, and durable `generated_visual_assets` tables exist before bridge/legacy sync or visual-cache priming work.
+- `make resource-aux-init`: ensure `resource_downloads`, `resource_licensed_accesses`, `resource_assets`, and durable `generated_visual_assets` / `generated_visual_asset_links` tables exist before bridge/legacy sync or visual-cache priming work.
+- `make visual-assets-export`: export only local durable generated visual asset rows to `tmp/generated_visual_assets.dump`. Use this after local visual-cache priming finishes.
+- `make visual-assets-import KAMAL_DEST=dev1`: import that archive to one Kamal destination. The import first runs the deployed visual-asset table migration, then replaces only `generated_visual_assets` and `generated_visual_asset_links`; resource, API, and analytics tables are left untouched. Deploy code containing the current migration before importing.
+- `make visual-assets-sync-all`: export once, then import the same archive to each destination in `VISUAL_ASSETS_DESTS` (default: `dev1 dev2 prd`). Override with `VISUAL_ASSETS_DESTS="dev1 dev2"` or `VISUAL_ASSETS_ARCHIVE=tmp/my_visual_assets.dump` as needed.
+- `make prime-visual-caches`: runs thumbnail priming first, then static-map priming. After a Redis reset, the priming scripts first try to rehydrate from durable visual storage before regenerating remote thumbnails or maps. Individual broken upstream assets are logged and recorded without making the task fail, so one bad provider thumbnail or map does not stop the full warming run. Local priming waits for ParadeDB to answer `SELECT 1` before starting, which avoids startup/recovery races after Docker restarts.
+  - For very large local warm-up runs, you can temporarily recreate Redis with `REDIS_APPENDONLY=no` and `REDIS_SAVE=""` so Redis stays an in-memory hot cache while Postgres remains the durable store for generated visual assets and links.
 - `make reindex`: atomic local reindex using a versioned index + alias swap (non-destructive build + atomic cutover). Defaults favor safety: swap is blocked on indexing errors/count mismatch, and one previous versioned index is retained. After a successful swap, it automatically clears local `search` cache.
   - Useful local tuning overrides: `REINDEX_CHUNK_SIZE`, `REINDEX_BULK_SIZE`, `REINDEX_BULK_MAX_RETRIES`, `REINDEX_FAST_SETTINGS`, `REINDEX_FORCE_REPLICAS_ZERO`, `REINDEX_RETAIN_PREVIOUS`.
   - Benchmark mode: `make reindex-benchmark` (or `REINDEX_BENCHMARK=true make reindex`) prints per-chunk timings and a final phase summary.

@@ -83,15 +83,23 @@ async def _fetch_resource_batch(last_id: str | None, batch_size: int) -> list[di
 def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tuple[str, str]:
     service = StaticMapService()
     source_signature = service.geometry_signature(geometry)
+    static_map_variant = service.geometry_variant()
+    basemap_variant = service.basemap_variant()
 
-    needs_static_map = force or not service.map_exists(
-        resource_id,
-        source_signature=source_signature,
-    )
-    needs_basemap = force or not service.basemap_exists(
-        resource_id,
-        source_signature=source_signature,
-    )
+    if force:
+        needs_static_map = True
+        needs_basemap = True
+    else:
+        needs_static_map = not service.materialize_cached_variant_sync(
+            resource_id,
+            variant=static_map_variant,
+            source_signature=source_signature,
+        )
+        needs_basemap = not service.materialize_cached_variant_sync(
+            resource_id,
+            variant=basemap_variant,
+            source_signature=source_signature,
+        )
 
     if not needs_static_map and not needs_basemap:
         return ("cached", "both caches already primed")
@@ -252,7 +260,9 @@ async def _run(args: argparse.Namespace) -> int:
         for failure in failures[:20]:
             logger.warning("  %s", failure)
 
-    return 1 if counters["failed"] else 0
+    if counters["failed"] and args.strict_failures:
+        return 1
+    return 0
 
 
 def _parse_args() -> argparse.Namespace:
@@ -266,6 +276,11 @@ def _parse_args() -> argparse.Namespace:
         "--concurrency", type=int, default=2, help="Concurrent static-map generation tasks"
     )
     parser.add_argument("--force", action="store_true", help="Regenerate maps even if cache exists")
+    parser.add_argument(
+        "--strict-failures",
+        action="store_true",
+        help="Exit nonzero when any static map fails; default logs failures and continues",
+    )
     return parser.parse_args()
 
 

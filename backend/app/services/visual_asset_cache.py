@@ -6,7 +6,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db.config import DATABASE_URL
-from db.models import generated_visual_assets
+from db.models import generated_visual_asset_links, generated_visual_assets
 
 _engine = None
 logger = logging.getLogger(__name__)
@@ -75,6 +75,72 @@ def store_durable_visual_asset(
     except Exception as exc:
         logger.warning("Failed to persist visual asset %s: %s", asset_hash[:12], exc)
         return False
+
+
+def store_durable_visual_asset_link(
+    resource_id: str,
+    *,
+    asset_hash: str,
+    asset_kind: str,
+    source_signature: str | None = None,
+) -> bool:
+    if not durable_visual_asset_enabled() or not resource_id or not asset_hash:
+        return False
+
+    values = {
+        "resource_id": resource_id,
+        "asset_hash": asset_hash,
+        "asset_kind": asset_kind,
+        "source_signature": source_signature or "",
+    }
+    stmt = pg_insert(generated_visual_asset_links).values(**values)
+    stmt = stmt.on_conflict_do_update(
+        constraint="uq_generated_visual_asset_links_resource_kind_signature",
+        set_={"asset_hash": stmt.excluded.asset_hash},
+    )
+    try:
+        with _sync_engine().begin() as conn:
+            conn.execute(stmt)
+        return True
+    except Exception as exc:
+        logger.warning(
+            "Failed to persist visual asset link %s %s %s: %s",
+            resource_id,
+            asset_kind,
+            asset_hash[:12],
+            exc,
+        )
+        return False
+
+
+def get_durable_visual_asset_hash_for_resource(
+    resource_id: str,
+    *,
+    asset_kind: str,
+    source_signature: str | None = None,
+) -> str | None:
+    if not durable_visual_asset_enabled() or not resource_id:
+        return None
+
+    stmt = select(generated_visual_asset_links.c.asset_hash).where(
+        generated_visual_asset_links.c.resource_id == resource_id,
+        generated_visual_asset_links.c.asset_kind == asset_kind,
+        generated_visual_asset_links.c.source_signature == (source_signature or ""),
+    )
+    try:
+        with _sync_engine().connect() as conn:
+            row = conn.execute(stmt).fetchone()
+    except Exception as exc:
+        logger.warning(
+            "Failed to load durable visual asset link %s %s: %s",
+            resource_id,
+            asset_kind,
+            exc,
+        )
+        return None
+    if not row:
+        return None
+    return str(row._mapping["asset_hash"])
 
 
 def get_durable_visual_asset(asset_hash: str) -> tuple[bytes, str] | None:

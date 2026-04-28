@@ -25,7 +25,9 @@ from shapely.geometry import shape
 from app.services.visual_asset_cache import (
     cache_visual_asset,
     get_durable_visual_asset,
+    get_durable_visual_asset_hash_for_resource,
     store_durable_visual_asset,
+    store_durable_visual_asset_link,
 )
 
 # Load environment variables
@@ -462,36 +464,47 @@ class StaticMapService:
         source_signature: str | None = None,
     ) -> Optional[str]:
         alias_cache = self._alias_cache()
-        if not alias_cache:
-            return None
-
-        try:
-            value = alias_cache.get(
-                self._alias_key(
-                    resource_id,
-                    variant=variant,
-                    source_signature=source_signature,
-                )
-            )
-            if self._is_asset_hash(value):
-                return value
-            if value:
-                alias_cache.delete(
+        if alias_cache:
+            try:
+                value = alias_cache.get(
                     self._alias_key(
                         resource_id,
                         variant=variant,
                         source_signature=source_signature,
                     )
                 )
-            return None
-        except Exception as e:
-            logger.warning(
-                "Failed to read static map alias for %s (%s): %s",
-                resource_id,
-                variant,
-                e,
-            )
-            return None
+                if self._is_asset_hash(value):
+                    return value
+                if value:
+                    alias_cache.delete(
+                        self._alias_key(
+                            resource_id,
+                            variant=variant,
+                            source_signature=source_signature,
+                        )
+                    )
+            except Exception as e:
+                logger.warning(
+                    "Failed to read static map alias for %s (%s): %s",
+                    resource_id,
+                    variant,
+                    e,
+                )
+        value = get_durable_visual_asset_hash_for_resource(
+            resource_id,
+            asset_kind=variant,
+            source_signature=source_signature,
+        )
+        if value and self._is_asset_hash(value):
+            if self.get_cached_asset_sync(value):
+                self.set_asset_hash_sync(
+                    resource_id,
+                    variant=variant,
+                    map_hash=value,
+                    source_signature=source_signature,
+                )
+                return value
+        return None
 
     async def get_asset_hash(
         self,
@@ -662,6 +675,12 @@ class StaticMapService:
             asset_kind=variant,
             content_type=self._asset_content_type(map_bytes),
             body=map_bytes,
+        )
+        store_durable_visual_asset_link(
+            resource_id,
+            asset_hash=map_hash,
+            asset_kind=variant,
+            source_signature=source_signature,
         )
         self.set_asset_hash_sync(
             resource_id,

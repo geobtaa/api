@@ -153,12 +153,20 @@ services:
   redis:
     image: redis:7.4.6-alpine
     container_name: btaa-geospatial-api-redis
-    command: >
-      redis-server
-      --appendonly yes
-      --protected-mode yes
-      --bind 0.0.0.0
-      --requirepass ${REDIS_PASSWORD}
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_APPENDONLY=${REDIS_APPENDONLY-yes}
+      - REDIS_SAVE=${REDIS_SAVE-900 1 300 10 60 10000}
+    command:
+      - sh
+      - -lc
+      - >
+        exec redis-server
+        --appendonly "$${REDIS_APPENDONLY}"
+        --save "$${REDIS_SAVE}"
+        --protected-mode yes
+        --bind 0.0.0.0
+        --requirepass "$${REDIS_PASSWORD}"
     volumes:
       - redis-data:/data
     networks: [elastic]

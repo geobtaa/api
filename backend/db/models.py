@@ -65,7 +65,6 @@ resources = Table(
     Column("gbl_mdVersion_s", String),
     Column("gbl_suppressed_b", Boolean),
     Column("gbl_georeferenced_b", Boolean),
-    
     # BTAA-specific fields for OGM Aardvark compliance
     Column("b1g_code_s", String),
     Column("b1g_status_s", String),
@@ -97,7 +96,6 @@ resources = Table(
     Column("b1g_dct_provenance_sm", ARRAY(String)),
     Column("b1g_dcat_spatialResolutionInMeters_s", String),
     Column("b1g_websitePlatform_s", String),
-    
     # Additional BTAA fields for old database migration
     Column("b1g_adms_supportedSchema_sm", ARRAY(String)),
     Column("b1g_dateAccessioned_sm", ARRAY(String)),  # Note: array version for migration
@@ -359,6 +357,36 @@ generated_visual_assets = Table(
     Column("byte_size", Integer, nullable=False),
     Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+generated_visual_asset_links = Table(
+    "generated_visual_asset_links",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "resource_id",
+        String(255),
+        ForeignKey("resources.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column(
+        "asset_hash",
+        String(64),
+        ForeignKey("generated_visual_assets.asset_hash", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("asset_kind", String(64), nullable=False, index=True),
+    Column("source_signature", String(64), nullable=False, server_default="", index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "resource_id",
+        "asset_kind",
+        "source_signature",
+        name="uq_generated_visual_asset_links_resource_kind_signature",
+    ),
 )
 
 # Distribution types lookup table

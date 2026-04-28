@@ -107,17 +107,30 @@ async def test_prime_thumbnail_deprioritized_remote_provider_skips_without_state
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_resume_skips_prior_success_without_work():
+async def test_prime_thumbnail_resume_rechecks_prior_success_and_rehydrates_cache():
     resource = {"id": "resource-resume-success", "dct_accessrights_s": "Public"}
+    source_url = "https://example.com/thumb.png"
 
     with (
-        patch.object(
-            prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()
-        ) as mock_fetch,
+        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
         patch.object(
             prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
         ) as mock_state,
+        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
+        patch.object(
+            prime_thumbnail_cache,
+            "_compute_thumbnail_image_hash",
+            return_value="abc123",
+        ),
     ):
+        service = MagicMock()
+        service._get_thumbnail_source_url.return_value = source_url
+        service._is_cog_url.return_value = False
+        service._is_pmtiles_url.return_value = False
+        service._is_manifest_url.return_value = False
+        service.get_cached_image = AsyncMock(return_value=b"cached-image")
+        mock_service_cls.return_value = service
+
         result = await prime_thumbnail_cache._prime_thumbnail_for_resource(
             resource,
             force=False,
@@ -126,13 +139,10 @@ async def test_prime_thumbnail_resume_skips_prior_success_without_work():
             existing_state={"resource_id": "resource-resume-success", "state": "success"},
         )
 
-        assert result == (
-            "skipped-resume",
-            "resource-resume-success",
-            "already succeeded in prior run",
-        )
-        mock_fetch.assert_not_awaited()
-        mock_state.assert_not_awaited()
+        assert result == ("cached", "resource-resume-success", "thumbnail already cached")
+        payload = mock_state.await_args.args[0]
+        assert payload.state == "success"
+        assert payload.source_hash == "abc123"
 
 
 @pytest.mark.asyncio
