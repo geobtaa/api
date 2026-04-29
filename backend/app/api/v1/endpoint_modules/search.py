@@ -167,6 +167,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     processed_resources = []
 
     if resource_data:
+
         async def append_processed_resources(processing_session=None):
             for rd in resource_data:
                 d = lookup.get(rd["id"]) or {}
@@ -221,15 +222,11 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                     # Filter nested attributes (ogm and b1g)
                     filtered_attrs = {}
                     if "ogm" in attrs:
-                        filtered_ogm = {
-                            k: v for k, v in attrs["ogm"].items() if k in requested
-                        }
+                        filtered_ogm = {k: v for k, v in attrs["ogm"].items() if k in requested}
                         if filtered_ogm:
                             filtered_attrs["ogm"] = filtered_ogm
                     if "b1g" in attrs:
-                        filtered_b1g = {
-                            k: v for k, v in attrs["b1g"].items() if k in requested
-                        }
+                        filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
                         if filtered_b1g:
                             filtered_attrs["b1g"] = filtered_b1g
 

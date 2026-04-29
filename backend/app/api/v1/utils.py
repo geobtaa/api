@@ -696,12 +696,12 @@ async def process_resource(
 
     distribution_context = await fetch_distribution_context(resource_dict["id"])
 
-    # Add thumbnail URL
-    resource_dict = add_thumbnail_url(
-        resource_dict,
-        distribution_context=distribution_context,
-        hot_only=hot_only_thumbnail_url,
-    )
+    # Keep the default call shape stable for older mocks and callers; only opt into
+    # the newer hot-cache-only path when explicitly requested.
+    thumbnail_kwargs: dict[str, Any] = {"distribution_context": distribution_context}
+    if hot_only_thumbnail_url:
+        thumbnail_kwargs["hot_only"] = True
+    resource_dict = add_thumbnail_url(resource_dict, **thumbnail_kwargs)
     if not resource_dict.get("ui_thumbnail_url"):
         resource_dict["ui_resource_class_icon_url"] = _hot_resource_class_icon_url(resource_dict)
 
@@ -902,12 +902,12 @@ async def process_resource_optimized(
 
     distribution_context = await fetch_distribution_context(resource_dict["id"])
 
-    # Add thumbnail URL
-    resource_dict = add_thumbnail_url(
-        resource_dict,
-        distribution_context=distribution_context,
-        hot_only=hot_only_thumbnail_url,
-    )
+    # Keep the default call shape stable for older mocks and callers; only opt into
+    # the newer hot-cache-only path when explicitly requested.
+    thumbnail_kwargs: dict[str, Any] = {"distribution_context": distribution_context}
+    if hot_only_thumbnail_url:
+        thumbnail_kwargs["hot_only"] = True
+    resource_dict = add_thumbnail_url(resource_dict, **thumbnail_kwargs)
     if hot_only_thumbnail_url and not resource_dict.get("ui_thumbnail_url"):
         resource_dict["ui_resource_class_icon_url"] = _hot_resource_class_icon_url(resource_dict)
 

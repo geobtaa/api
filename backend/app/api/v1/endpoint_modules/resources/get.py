@@ -57,6 +57,7 @@ async def get_resource(
                 logger.info(f"Filtered resource dict: {resource_dict}")
                 jsonapi_resource = await process_resource(resource_dict, session)
             else:
+
                 async def build_resource(resource_data: dict):
                     return await process_resource(
                         resource_data,

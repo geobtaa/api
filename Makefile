@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-resource-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -113,6 +113,7 @@ PRIME_LIMIT ?=
 PRIME_BATCH_SIZE ?= 100
 PRIME_THUMBNAIL_CONCURRENCY ?= 4
 PRIME_STATIC_MAP_CONCURRENCY ?= 2
+PRIME_RESOURCE_CONCURRENCY ?= 4
 PRIME_FORCE ?=
 PRIME_RETRY_FAILURES ?=
 PRIME_RETRY_PLACEHELD ?=
@@ -327,6 +328,23 @@ prime-static-map-cache: wait-local-db ## Prime static-map cache
 		if [ -n "$(PRIME_STATIC_MAP_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_STATIC_MAP_CONCURRENCY)"; fi; \
 		case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
 		python scripts/prime_static_map_cache.py $$ARGS $(RESOURCE_IDS)'
+
+# Prime shared API resource representation cache entries.
+# Usage examples:
+#   make prime-resource-cache
+#   make prime-resource-cache PRIME_LIMIT=500 PRIME_RESOURCE_CONCURRENCY=6
+#   make prime-resource-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
+prime-resource-cache: wait-local-db ## Prime shared API resource representation cache
+	@echo "Priming resource representation cache..."
+	@$(DOCKER_COMPOSE) exec -T api bash -lc '\
+		set -e; \
+		cd /app/backend; \
+		ARGS=""; \
+		if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
+		if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
+		if [ -n "$(PRIME_RESOURCE_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_RESOURCE_CONCURRENCY)"; fi; \
+		case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+		python scripts/prime_resource_representation_cache.py $$ARGS $(RESOURCE_IDS)'
 
 # Prime both visual caches in sequence.
 prime-visual-caches: ## Prime thumbnail + static-map caches
@@ -1408,6 +1426,26 @@ kamal-prime-thumbnail-cache: ## Prime thumbnail cache on Kamal
 	case "$(PRIME_RETRY_FAILURES)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --retry-failures" ;; esac; \
 	case "$(PRIME_RETRY_PLACEHELD)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --retry-placeheld" ;; esac; \
 	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_thumbnail_cache.py $$ARGS $(RESOURCE_IDS)'"
+
+# Prime shared API resource representation cache on remote Kamal app container.
+# Usage examples:
+#   make kamal-prime-resource-cache KAMAL_DEST=dev1
+#   make kamal-prime-resource-cache KAMAL_DEST=dev1 PRIME_LIMIT=500
+#   make kamal-prime-resource-cache KAMAL_DEST=dev1 RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123"
+#   make kamal-prime-resource-cache KAMAL_DEST=dev1 PRIME_FORCE=1
+kamal-prime-resource-cache: ## Prime shared API resource representation cache on Kamal
+	@echo "Priming resource representation cache on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@ARGS=""; \
+	if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
+	if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
+	if [ -n "$(PRIME_RESOURCE_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_RESOURCE_CONCURRENCY)"; fi; \
+	case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_resource_representation_cache.py $$ARGS $(RESOURCE_IDS)'"
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 
