@@ -131,36 +131,42 @@ class TestThumbnailEndpoints:
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             assert "max-age=3600" in response.headers["cache-control"]
-            mock_current_hash.assert_awaited_once_with(resource_id)
+            mock_current_hash.assert_not_awaited()
 
-    def test_get_thumbnail_stale_alias_falls_back_to_resource_endpoint(self, client):
-        """A stale alias should fall through to the resource resolver instead of redirecting."""
+    def test_get_thumbnail_success_state_rehydrates_alias_redirect(self, client):
+        """Cold Redis aliases should rehydrate from persisted success state."""
         resource_id = "nyu-2451-34564"
-        fallback_response = Response(
-            content="<svg></svg>",
-            media_type="image/svg+xml",
-            headers={"Cache-Control": "no-store"},
-        )
+        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
         with (
             patch(
                 "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
-                new=AsyncMock(return_value="deadbeef" * 8),
+                new=AsyncMock(return_value=None),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.set_hash",
+                new=AsyncMock(return_value=True),
+            ) as mock_set_hash,
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.thumbnail_state_service.get_state",
+                new=AsyncMock(
+                    return_value={
+                        "state": "success",
+                        "source_hash": image_hash,
+                    }
+                ),
             ),
             patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
                 new=AsyncMock(return_value=None),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
-                new=AsyncMock(return_value=fallback_response),
-            ) as mock_resource_response,
+            ) as mock_current_hash,
         ):
-            response = client.get(f"/thumbnails/{resource_id}")
+            response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
 
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "image/svg+xml"
-            mock_resource_response.assert_awaited_once()
+            assert response.status_code == 302
+            assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
+            mock_set_hash.assert_awaited_once_with(resource_id, image_hash)
+            mock_current_hash.assert_not_awaited()
 
     def test_get_thumbnail_not_found(self, client):
         """Test thumbnail retrieval when image is not found."""

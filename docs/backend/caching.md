@@ -152,8 +152,10 @@ expiry. Set a positive value only when an environment needs bounded Redis memory
 
 - **Priming for hot paths**:
   - `make prime-thumbnail-cache`, `make prime-static-map-cache`, and `make prime-visual-caches` generate assets ahead of user traffic.
+  - On Kamal, `make kamal-prime-visual-caches KAMAL_DEST=dev1` warms thumbnail plus static-map/icon Redis entries; pair it with `make kamal-prime-resource-cache KAMAL_DEST=dev1` before collecting performance HARs.
   - Run `make resource-aux-init` before first priming on a new environment so `generated_visual_assets` and `generated_visual_asset_links` exist.
   - After a Redis reset, priming first tries to rehydrate from durable visual storage before regenerating remote thumbnails or static maps.
+  - Static-map and resource-class-icon priming also writes a latest-asset alias, letting hot gallery redirects skip the database and jump straight to the immutable `/static-map-assets/{hash}` URL.
   - For large local catch-up runs on disk-constrained laptops, temporarily start Redis in in-memory mode with `REDIS_APPENDONLY=no` and `REDIS_SAVE=""`. The durable bytes and resource-to-asset links still land in Postgres, while Redis avoids building giant AOF/RDB files during the warm-up.
   - After a local priming run, `make visual-assets-export` can package just those generated asset rows, and `make visual-assets-sync-all` can promote them to `dev1`, `dev2`, and `prd` without repeating expensive generation on every server. Exports now include a small manifest with row counts and asset byte totals so each destination can verify the staged import before cutover.
   - When you only need one Kamal destination and local disk is tight, `make visual-assets-stream-import KAMAL_DEST=dev1` streams those same rows directly from local ParadeDB into staged remote tables without writing a large local dump archive first. The live remote tables stay in place until the staged counts verify, then the staged tables swap in atomically and the previous live copy is preserved in `visual_asset_backup`.

@@ -40,6 +40,19 @@ async def get_resource_static_map(
     """Compatibility route for the geometry-overlay static map asset."""
     try:
         map_service = StaticMapService()
+        hot_map_hash = await map_service.materialize_cached_variant(
+            id,
+            variant=map_service.geometry_variant(),
+        )
+        if hot_map_hash:
+            return RedirectResponse(
+                url=f"/api/v1/static-map-assets/{hot_map_hash}",
+                status_code=302,
+                headers={
+                    "Cache-Control": alias_redirect_cache_control_header(),
+                },
+            )
+
         async with async_session() as session:
             query = select(resources.c.id, resources.c.locn_geometry, resources.c.dcat_bbox).where(
                 resources.c.id == id
@@ -53,14 +66,14 @@ async def get_resource_static_map(
         resolved_id = str(row._mapping["id"])
         geometry = row._mapping.get("locn_geometry") or row._mapping.get("dcat_bbox")
         source_signature = map_service.geometry_signature(geometry)
-        hot_map_hash = await map_service.materialize_cached_variant(
+        current_map_hash = await map_service.materialize_cached_variant(
             id,
             variant=map_service.geometry_variant(),
             source_signature=source_signature,
         )
-        if hot_map_hash:
+        if current_map_hash:
             return RedirectResponse(
-                url=f"/api/v1/static-map-assets/{hot_map_hash}",
+                url=f"/api/v1/static-map-assets/{current_map_hash}",
                 status_code=302,
                 headers={
                     "Cache-Control": alias_redirect_cache_control_header(),

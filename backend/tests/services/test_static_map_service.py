@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 from app.services.static_map_service import StaticMapService
 
@@ -43,7 +43,7 @@ def test_materialize_asset_persists_resource_link():
     map_bytes = b"\x89PNG\r\n\x1a\nmap"
 
     with (
-        patch.object(service, "set_asset_hash_sync"),
+        patch.object(service, "set_asset_hash_sync") as mock_set_hash,
         patch("app.services.static_map_service.store_durable_visual_asset"),
         patch("app.services.static_map_service.store_durable_visual_asset_link") as mock_link,
     ):
@@ -55,9 +55,35 @@ def test_materialize_asset_persists_resource_link():
         )
 
     assert asset_hash
-    mock_link.assert_called_once_with(
-        "resource-1",
-        asset_hash=asset_hash,
-        asset_kind="resource-class-icon",
-        source_signature="sig-123",
+    mock_link.assert_has_calls(
+        [
+            call(
+                "resource-1",
+                asset_hash=asset_hash,
+                asset_kind="resource-class-icon",
+                source_signature="sig-123",
+            ),
+            call(
+                "resource-1",
+                asset_hash=asset_hash,
+                asset_kind="resource-class-icon",
+                source_signature=None,
+            ),
+        ]
+    )
+    mock_set_hash.assert_has_calls(
+        [
+            call(
+                "resource-1",
+                variant="resource-class-icon",
+                map_hash=asset_hash,
+                source_signature="sig-123",
+            ),
+            call(
+                "resource-1",
+                variant="resource-class-icon",
+                map_hash=asset_hash,
+                source_signature=None,
+            ),
+        ]
     )

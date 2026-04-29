@@ -32,21 +32,20 @@ async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
             return None
 
         state_hash = state.get("source_hash")
-        if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
+        if (
+            state.get("state") != ThumbnailState.SUCCESS
+            or not state_hash
+            or not is_thumbnail_hash(str(state_hash))
+        ):
             return None
 
-    from app.api.v1.endpoint_modules.resources.thumbnail import (
-        _current_hot_thumbnail_hash_for_resource,
-    )
-
-    current_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
-    if not current_hash:
-        return None
+        image_hash = str(state_hash)
+        await thumbnail_alias_service.set_hash(resource_id, image_hash)
 
     return Response(
         status_code=302,
         headers={
-            "Location": f"/api/v1/thumbnails/{current_hash}",
+            "Location": f"/api/v1/thumbnails/{image_hash}",
             "Cache-Control": alias_redirect_cache_control_header(),
         },
     )
@@ -68,32 +67,22 @@ def _detect_image_type(image_data: bytes) -> str:
     # Check magic bytes first
     magic_bytes = image_data[:4]
 
+    # The endpoint validates the decoded image once before this MIME sniff.
+    # Avoid a second PIL decode on every hot immutable asset response.
     # JPEG: FF D8 FF
     if magic_bytes[:3] == b"\xff\xd8\xff":
-        try:
-            Image.open(io.BytesIO(image_data)).verify()
-            return "image/jpeg"
-        except Exception:
-            pass
+        return "image/jpeg"
 
     # PNG: 89 50 4E 47
     if magic_bytes == b"\x89PNG":
-        try:
-            Image.open(io.BytesIO(image_data)).verify()
-            return "image/png"
-        except Exception:
-            pass
+        return "image/png"
 
     # GIF: 47 49 46 38 (GIF8)
     is_gif = magic_bytes[:3] == b"GIF" or (
         len(image_data) > 6 and image_data[:6] in [b"GIF87a", b"GIF89a"]
     )
     if is_gif:
-        try:
-            Image.open(io.BytesIO(image_data)).verify()
-            return "image/gif"
-        except Exception:
-            pass
+        return "image/gif"
 
     # WebP: RIFF...WEBP
     if len(image_data) >= 12 and image_data[:4] == b"RIFF" and image_data[8:12] == b"WEBP":

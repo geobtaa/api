@@ -7,7 +7,7 @@ Tests for static map endpoints.
 """
 
 import io
-from unittest.mock import ANY, AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, call, patch
 
 import pytest
 from fastapi import FastAPI
@@ -65,6 +65,53 @@ def client(app):
 
 class TestStaticMapsEndpoint:
     @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
+    def test_get_static_map_latest_alias_short_circuits_before_db(self, mock_resource, client):
+        resource_id = "test-resource-id"
+        asset_hash = "deadbeef" * 8
+
+        with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
+            svc = create_static_map_service_mock()
+            svc.materialize_cached_variant = AsyncMock(return_value=asset_hash)
+            svc_cls.return_value = svc
+
+            resp = client.get(f"/static-maps/{resource_id}", allow_redirects=False)
+
+            assert resp.status_code == 302
+            assert resp.headers["location"] == f"/api/v1/static-map-assets/{asset_hash}"
+            mock_resource.assert_not_called()
+            svc.materialize_cached_variant.assert_awaited_once_with(
+                resource_id,
+                variant="basemap",
+                source_signature=None,
+            )
+
+    @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
+    def test_get_resource_class_icon_latest_alias_short_circuits_before_db(
+        self, mock_resource, client
+    ):
+        resource_id = "test-resource-id"
+        asset_hash = "deadbeef" * 8
+
+        with patch("app.api.v1.endpoint_modules.static_maps.StaticMapService") as svc_cls:
+            svc = create_static_map_service_mock()
+            svc.materialize_cached_variant = AsyncMock(return_value=asset_hash)
+            svc_cls.return_value = svc
+
+            resp = client.get(
+                f"/static-maps/{resource_id}/resource-class-icon",
+                allow_redirects=False,
+            )
+
+            assert resp.status_code == 302
+            assert resp.headers["location"] == f"/api/v1/static-map-assets/{asset_hash}"
+            mock_resource.assert_not_called()
+            svc.materialize_cached_variant.assert_awaited_once_with(
+                resource_id,
+                variant="resource-class-icon",
+                source_signature=None,
+            )
+
+    @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
     def test_get_static_map_success_headers_and_etag(self, mock_resource, client):
         resource_id = "test-resource-id"
         png_bytes = create_valid_png_image()
@@ -80,10 +127,11 @@ class TestStaticMapsEndpoint:
             assert resp.headers["etag"] == weak_etag_from_body(png_bytes)
             assert resp.headers["cache-control"].startswith("public, max-age=0")
             assert "s-maxage=" in resp.headers["cache-control"]
-            svc.materialize_cached_variant.assert_awaited_once_with(
-                resource_id,
-                variant="basemap",
-                source_signature="geometry-signature",
+            svc.materialize_cached_variant.assert_has_awaits(
+                [
+                    call(resource_id, variant="basemap", source_signature=None),
+                    call(resource_id, variant="basemap", source_signature="geometry-signature"),
+                ]
             )
 
     @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
@@ -117,10 +165,11 @@ class TestStaticMapsEndpoint:
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "image/png"
             assert resp.headers["etag"] == weak_etag_from_body(png_bytes)
-            svc.materialize_cached_variant.assert_awaited_once_with(
-                resource_id,
-                variant="geometry",
-                source_signature="geometry-signature",
+            svc.materialize_cached_variant.assert_has_awaits(
+                [
+                    call(resource_id, variant="geometry", source_signature=None),
+                    call(resource_id, variant="geometry", source_signature="geometry-signature"),
+                ]
             )
 
     @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
@@ -156,10 +205,11 @@ class TestStaticMapsEndpoint:
             )
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{icon_hash}"
-            route_svc.materialize_cached_variant.assert_awaited_once_with(
-                resource_id,
-                variant="resource-class-icon",
-                source_signature=ANY,
+            route_svc.materialize_cached_variant.assert_has_awaits(
+                [
+                    call(resource_id, variant="resource-class-icon", source_signature=None),
+                    call(resource_id, variant="resource-class-icon", source_signature=ANY),
+                ]
             )
             route_svc.materialize_asset.assert_awaited_once()
 
@@ -174,7 +224,7 @@ class TestStaticMapsEndpoint:
             resp = client.get(f"/static-map-assets/{'ab' * 32}")
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "image/svg+xml"
-            assert resp.headers["etag"] == weak_etag_from_body(svg_bytes)
+            assert resp.headers["etag"] == f'W/"{"ab" * 32}"'
             assert "immutable" in resp.headers["cache-control"]
 
     def test_get_institution_static_map_generates_and_serves_png(self, client):
@@ -202,6 +252,27 @@ class TestStaticMapsEndpoint:
 
 class TestResourceStaticMapEndpoint:
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
+    def test_resource_static_map_latest_alias_short_circuits_before_db(
+        self, mock_session, client
+    ):
+        asset_hash = "deadbeef" * 8
+
+        with patch("app.api.v1.endpoint_modules.resources.static_map.StaticMapService") as svc_cls:
+            svc = create_static_map_service_mock()
+            svc.materialize_cached_variant = AsyncMock(return_value=asset_hash)
+            svc_cls.return_value = svc
+
+            resp = client.get("/resources/test-resource-id/static-map", allow_redirects=False)
+
+            assert resp.status_code == 302
+            assert resp.headers["location"] == f"/api/v1/static-map-assets/{asset_hash}"
+            mock_session.assert_not_called()
+            svc.materialize_cached_variant.assert_awaited_once_with(
+                "test-resource-id",
+                variant="geometry",
+            )
+
+    @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
     def test_resource_static_map_hot_redirect_uses_current_geometry_signature(
         self, mock_session, client
     ):
@@ -220,17 +291,22 @@ class TestResourceStaticMapEndpoint:
 
         with patch("app.api.v1.endpoint_modules.resources.static_map.StaticMapService") as svc_cls:
             svc = create_static_map_service_mock()
-            svc.materialize_cached_variant = AsyncMock(return_value="deadbeef" * 8)
+            svc.materialize_cached_variant = AsyncMock(side_effect=[None, "deadbeef" * 8])
             svc_cls.return_value = svc
 
             resp = client.get("/resources/test-resource-id/static-map", allow_redirects=False)
 
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{'deadbeef' * 8}"
-            svc.materialize_cached_variant.assert_awaited_once_with(
-                "test-resource-id",
-                variant="geometry",
-                source_signature="geometry-signature",
+            svc.materialize_cached_variant.assert_has_awaits(
+                [
+                    call("test-resource-id", variant="geometry"),
+                    call(
+                        "test-resource-id",
+                        variant="geometry",
+                        source_signature="geometry-signature",
+                    ),
+                ]
             )
 
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")

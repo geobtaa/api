@@ -15,7 +15,7 @@ from app.services.cache_service import alias_redirect_cache_control_header
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
-from app.services.thumbnail_alias_service import thumbnail_alias_service
+from app.services.thumbnail_alias_service import is_thumbnail_hash, thumbnail_alias_service
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
@@ -76,20 +76,23 @@ async def _current_hot_thumbnail_hash_for_resource(
 async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse | None:
     """Resolve a hot resource_id request through the alias cache before heavy work."""
     image_hash = await thumbnail_alias_service.get_hash(resource_id)
-    if not image_hash:
-        state = await thumbnail_state_service.get_state(resource_id)
-        if not state:
-            return None
+    if image_hash:
+        return _thumbnail_asset_redirect(image_hash)
 
-        state_hash = state.get("source_hash")
-        if state.get("state") != ThumbnailState.SUCCESS or not state_hash:
-            return None
-
-    current_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
-    if not current_hash:
+    state = await thumbnail_state_service.get_state(resource_id)
+    if not state:
         return None
 
-    return _thumbnail_asset_redirect(current_hash)
+    state_hash = state.get("source_hash")
+    if (
+        state.get("state") != ThumbnailState.SUCCESS
+        or not state_hash
+        or not is_thumbnail_hash(str(state_hash))
+    ):
+        return None
+
+    await thumbnail_alias_service.set_hash(resource_id, str(state_hash))
+    return _thumbnail_asset_redirect(str(state_hash))
 
 
 async def _probe_thumbnail_url(url: str) -> bool:

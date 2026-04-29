@@ -699,12 +699,26 @@ class StaticMapService:
             asset_kind=variant,
             source_signature=source_signature,
         )
+        if source_signature:
+            store_durable_visual_asset_link(
+                resource_id,
+                asset_hash=map_hash,
+                asset_kind=variant,
+                source_signature=None,
+            )
         self.set_asset_hash_sync(
             resource_id,
             variant=variant,
             map_hash=map_hash,
             source_signature=source_signature,
         )
+        if source_signature:
+            self.set_asset_hash_sync(
+                resource_id,
+                variant=variant,
+                map_hash=map_hash,
+                source_signature=None,
+            )
         return map_hash
 
     async def materialize_asset(
