@@ -33,6 +33,21 @@ class FakeSessionFactory:
         return False
 
 
+class FakeDatabase:
+    def __init__(self, *, is_connected=False):
+        self.is_connected = is_connected
+        self.connect_count = 0
+        self.disconnect_count = 0
+
+    async def connect(self):
+        self.connect_count += 1
+        self.is_connected = True
+
+    async def disconnect(self):
+        self.disconnect_count += 1
+        self.is_connected = False
+
+
 def test_configure_logging_quiet_suppresses_app_info_logs(capsys):
     service_logger = logging.getLogger("app.services.allmaps_service")
     original_level = service_logger.level
@@ -51,6 +66,45 @@ def test_configure_logging_quiet_suppresses_app_info_logs(capsys):
     finally:
         service_logger.setLevel(original_level)
         logging.basicConfig(level=logging.WARNING, force=True)
+
+
+@pytest.mark.asyncio
+async def test_connect_legacy_database_opens_shared_pool_once():
+    fake_database = FakeDatabase(is_connected=False)
+
+    with patch.object(prime_resource_cache, "database", fake_database):
+        opened = await prime_resource_cache._connect_legacy_database()
+
+    assert opened is True
+    assert fake_database.connect_count == 1
+    assert fake_database.is_connected is True
+
+
+@pytest.mark.asyncio
+async def test_connect_legacy_database_leaves_existing_pool_open():
+    fake_database = FakeDatabase(is_connected=True)
+
+    with patch.object(prime_resource_cache, "database", fake_database):
+        opened = await prime_resource_cache._connect_legacy_database()
+
+    assert opened is False
+    assert fake_database.connect_count == 0
+    assert fake_database.is_connected is True
+
+
+@pytest.mark.asyncio
+async def test_disconnect_legacy_database_only_closes_pool_opened_by_primer():
+    fake_database = FakeDatabase(is_connected=True)
+
+    with patch.object(prime_resource_cache, "database", fake_database):
+        await prime_resource_cache._disconnect_legacy_database(opened=False)
+        assert fake_database.disconnect_count == 0
+        assert fake_database.is_connected is True
+
+        await prime_resource_cache._disconnect_legacy_database(opened=True)
+
+    assert fake_database.disconnect_count == 1
+    assert fake_database.is_connected is False
 
 
 @pytest.mark.asyncio
@@ -151,6 +205,16 @@ async def test_prime_resource_cache_counts_missing_explicit_resource_ids():
         patch.object(prime_resource_cache, "tqdm", DummyProgress),
         patch.object(
             prime_resource_cache,
+            "_connect_legacy_database",
+            AsyncMock(return_value=True),
+        ) as mock_connect,
+        patch.object(
+            prime_resource_cache,
+            "_disconnect_legacy_database",
+            AsyncMock(),
+        ) as mock_disconnect,
+        patch.object(
+            prime_resource_cache,
             "_fetch_resources_by_ids",
             AsyncMock(return_value=fetched),
         ) as mock_fetch,
@@ -169,6 +233,8 @@ async def test_prime_resource_cache_counts_missing_explicit_resource_ids():
         )
 
     assert counters == Counter({"primed": 1, "missing": 1})
+    mock_connect.assert_awaited_once()
+    mock_disconnect.assert_awaited_once_with(True)
     mock_fetch.assert_awaited_once_with(["resource-1", "resource-missing"], None)
     mock_prime_batch.assert_awaited_once()
 
@@ -180,6 +246,16 @@ async def test_prime_resource_cache_paginates_all_resources_until_limit():
 
     with (
         patch.object(prime_resource_cache, "tqdm", DummyProgress),
+        patch.object(
+            prime_resource_cache,
+            "_connect_legacy_database",
+            AsyncMock(return_value=True),
+        ) as mock_connect,
+        patch.object(
+            prime_resource_cache,
+            "_disconnect_legacy_database",
+            AsyncMock(),
+        ) as mock_disconnect,
         patch.object(prime_resource_cache, "_count_resources", AsyncMock(return_value=3)),
         patch.object(
             prime_resource_cache,
@@ -201,9 +277,49 @@ async def test_prime_resource_cache_paginates_all_resources_until_limit():
         )
 
     assert counters == Counter({"primed": 3})
+    mock_connect.assert_awaited_once()
+    mock_disconnect.assert_awaited_once_with(True)
     assert mock_fetch_batch.await_args_list[0].args == (None, 2, 3)
     assert mock_fetch_batch.await_args_list[1].args == ("b", 2, 1)
     assert mock_prime_batch.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_prime_resource_cache_disconnects_legacy_database_when_batch_fails():
+    with (
+        patch.object(prime_resource_cache, "tqdm", DummyProgress),
+        patch.object(
+            prime_resource_cache,
+            "_connect_legacy_database",
+            AsyncMock(return_value=True),
+        ),
+        patch.object(
+            prime_resource_cache,
+            "_disconnect_legacy_database",
+            AsyncMock(),
+        ) as mock_disconnect,
+        patch.object(prime_resource_cache, "_count_resources", AsyncMock(return_value=1)),
+        patch.object(
+            prime_resource_cache,
+            "_fetch_resource_batch",
+            AsyncMock(return_value=[{"id": "resource-1"}]),
+        ),
+        patch.object(
+            prime_resource_cache,
+            "_prime_batch",
+            AsyncMock(side_effect=RuntimeError("boom")),
+        ),
+    ):
+        with pytest.raises(RuntimeError, match="boom"):
+            await prime_resource_cache.prime_resource_representation_cache(
+                resource_ids=[],
+                limit=1,
+                batch_size=1,
+                concurrency=4,
+                force=False,
+            )
+
+    mock_disconnect.assert_awaited_once_with(True)
 
 
 def test_main_returns_failure_status_when_any_resource_fails():

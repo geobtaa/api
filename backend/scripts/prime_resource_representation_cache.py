@@ -38,6 +38,7 @@ from app.services.resource_representation_cache import (  # noqa: E402
     get_cached_resource_representations,
     store_resource_representation,
 )
+from db.database import database  # noqa: E402
 from db.models import resources  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,20 @@ async def _count_resources(resource_ids: list[str], limit: int | None) -> int:
         result = await session.execute(stmt)
         total = int(result.scalar_one() or 0)
         return min(total, limit) if limit else total
+
+
+async def _connect_legacy_database() -> bool:
+    """Connect the shared `databases` pool once before concurrent workers start."""
+    if database.is_connected:
+        return False
+
+    await database.connect()
+    return True
+
+
+async def _disconnect_legacy_database(opened: bool) -> None:
+    if opened and database.is_connected:
+        await database.disconnect()
 
 
 async def _fetch_resources_by_ids(
@@ -162,48 +177,54 @@ async def prime_resource_representation_cache(
     if not ENDPOINT_CACHE:
         logger.warning("ENDPOINT_CACHE is false; cache writes will be skipped.")
 
-    total = await _count_resources(resource_ids, limit)
-    counters: Counter = Counter()
+    opened_legacy_database = await _connect_legacy_database()
+    try:
+        total = await _count_resources(resource_ids, limit)
+        counters: Counter = Counter()
 
-    with tqdm(total=total, desc="Priming resource representations", unit="resource") as progress:
-        if resource_ids:
-            batch = await _fetch_resources_by_ids(resource_ids, limit)
-            counters.update(
-                await _prime_batch(
-                    batch,
-                    force=force,
-                    concurrency=concurrency,
-                    progress=progress,
+        with tqdm(
+            total=total, desc="Priming resource representations", unit="resource"
+        ) as progress:
+            if resource_ids:
+                batch = await _fetch_resources_by_ids(resource_ids, limit)
+                counters.update(
+                    await _prime_batch(
+                        batch,
+                        force=force,
+                        concurrency=concurrency,
+                        progress=progress,
+                    )
                 )
-            )
-            missing = total - len(batch)
-            if missing > 0:
-                counters["missing"] += missing
-                progress.update(missing)
-            return counters
+                missing = total - len(batch)
+                if missing > 0:
+                    counters["missing"] += missing
+                    progress.update(missing)
+                return counters
 
-        last_id = None
-        remaining = limit
-        while True:
-            batch = await _fetch_resource_batch(last_id, batch_size, remaining)
-            if not batch:
-                break
-
-            counters.update(
-                await _prime_batch(
-                    batch,
-                    force=force,
-                    concurrency=concurrency,
-                    progress=progress,
-                )
-            )
-            last_id = str(batch[-1]["id"])
-            if remaining is not None:
-                remaining -= len(batch)
-                if remaining <= 0:
+            last_id = None
+            remaining = limit
+            while True:
+                batch = await _fetch_resource_batch(last_id, batch_size, remaining)
+                if not batch:
                     break
 
-    return counters
+                counters.update(
+                    await _prime_batch(
+                        batch,
+                        force=force,
+                        concurrency=concurrency,
+                        progress=progress,
+                    )
+                )
+                last_id = str(batch[-1]["id"])
+                if remaining is not None:
+                    remaining -= len(batch)
+                    if remaining <= 0:
+                        break
+
+        return counters
+    finally:
+        await _disconnect_legacy_database(opened_legacy_database)
 
 
 def _parse_args() -> argparse.Namespace:
