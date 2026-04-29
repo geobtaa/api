@@ -211,7 +211,8 @@ def _validate_stage(
     stats = _stage_stats(conn, names)
     if stats["asset_count"] != expected_asset_count:
         raise RuntimeError(
-            f"Stage asset count mismatch: expected {expected_asset_count}, got {stats['asset_count']}"
+            "Stage asset count mismatch: "
+            f"expected {expected_asset_count}, got {stats['asset_count']}"
         )
     if stats["asset_byte_sum"] != expected_asset_byte_sum:
         raise RuntimeError(
@@ -223,7 +224,9 @@ def _validate_stage(
             f"Stage link count mismatch: expected {expected_link_count}, got {stats['link_count']}"
         )
     if stats["dangling_links"] != 0:
-        raise RuntimeError(f"Stage link integrity check failed: {stats['dangling_links']} dangling rows")
+        raise RuntimeError(
+            f"Stage link integrity check failed: {stats['dangling_links']} dangling rows"
+        )
     return stats
 
 
@@ -263,9 +266,11 @@ def _ensure_assets_trigger(conn) -> None:
 
 def prepare_stage(engine, names: StageNames) -> None:
     with engine.begin() as conn:
-        conn.execute(text(f'DROP TABLE IF EXISTS public.{_qident(names.stage_links)} CASCADE'))
-        conn.execute(text(f'DROP TABLE IF EXISTS public.{_qident(names.stage_assets)} CASCADE'))
-        conn.execute(text(f'DROP SEQUENCE IF EXISTS public.{_qident(names.stage_links_seq)} CASCADE'))
+        conn.execute(text(f"DROP TABLE IF EXISTS public.{_qident(names.stage_links)} CASCADE"))
+        conn.execute(text(f"DROP TABLE IF EXISTS public.{_qident(names.stage_assets)} CASCADE"))
+        conn.execute(
+            text(f"DROP SEQUENCE IF EXISTS public.{_qident(names.stage_links_seq)} CASCADE")
+        )
         conn.execute(
             text(
                 f"""
@@ -289,7 +294,7 @@ def prepare_stage(engine, names: StageNames) -> None:
                 """
             )
         )
-        conn.execute(text(f'CREATE SEQUENCE public.{_qident(names.stage_links_seq)} AS INTEGER'))
+        conn.execute(text(f"CREATE SEQUENCE public.{_qident(names.stage_links_seq)} AS INTEGER"))
         conn.execute(
             text(
                 f"""
@@ -415,36 +420,49 @@ def cutover_stage(
             expected_asset_byte_sum=expected_asset_byte_sum,
             expected_link_count=expected_link_count,
         )
-        conn.execute(text(f'CREATE SCHEMA IF NOT EXISTS {_qident(names.backup_schema)}'))
-        conn.execute(
-            text(f'DROP TABLE IF EXISTS {_qident(names.backup_schema)}.{_qident(names.live_links)} CASCADE')
-        )
-        conn.execute(
-            text(f'DROP TABLE IF EXISTS {_qident(names.backup_schema)}.{_qident(names.live_assets)} CASCADE')
-        )
+        conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {_qident(names.backup_schema)}"))
         conn.execute(
             text(
-                f'ALTER TABLE public.{_qident(names.live_links)} SET SCHEMA {_qident(names.backup_schema)}'
+                "DROP TABLE IF EXISTS "
+                f"{_qident(names.backup_schema)}.{_qident(names.live_links)} "
+                "CASCADE"
             )
         )
         conn.execute(
             text(
-                f'ALTER TABLE public.{_qident(names.live_assets)} SET SCHEMA {_qident(names.backup_schema)}'
+                "DROP TABLE IF EXISTS "
+                f"{_qident(names.backup_schema)}.{_qident(names.live_assets)} "
+                "CASCADE"
             )
         )
         conn.execute(
             text(
-                f'ALTER TABLE public.{_qident(names.stage_assets)} RENAME TO {_qident(names.live_assets)}'
+                f"ALTER TABLE public.{_qident(names.live_links)} "
+                f"SET SCHEMA {_qident(names.backup_schema)}"
             )
         )
         conn.execute(
             text(
-                f'ALTER TABLE public.{_qident(names.stage_links)} RENAME TO {_qident(names.live_links)}'
+                f"ALTER TABLE public.{_qident(names.live_assets)} "
+                f"SET SCHEMA {_qident(names.backup_schema)}"
             )
         )
         conn.execute(
             text(
-                f'ALTER SEQUENCE public.{_qident(names.stage_links_seq)} RENAME TO {_qident(names.live_links_seq)}'
+                f"ALTER TABLE public.{_qident(names.stage_assets)} "
+                f"RENAME TO {_qident(names.live_assets)}"
+            )
+        )
+        conn.execute(
+            text(
+                f"ALTER TABLE public.{_qident(names.stage_links)} "
+                f"RENAME TO {_qident(names.live_links)}"
+            )
+        )
+        conn.execute(
+            text(
+                f"ALTER SEQUENCE public.{_qident(names.stage_links_seq)} "
+                f"RENAME TO {_qident(names.live_links_seq)}"
             )
         )
         conn.execute(
@@ -544,8 +562,8 @@ def cutover_stage(
             )
         )
         _ensure_assets_trigger(conn)
-        conn.execute(text(f'ANALYZE public.{_qident(names.live_assets)}'))
-        conn.execute(text(f'ANALYZE public.{_qident(names.live_links)}'))
+        conn.execute(text(f"ANALYZE public.{_qident(names.live_assets)}"))
+        conn.execute(text(f"ANALYZE public.{_qident(names.live_links)}"))
     logger.info(
         "Cutover complete: live assets=%s live links=%s backup schema=%s",
         stats["asset_count"],
@@ -571,7 +589,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--backup-schema",
         default=DEFAULT_BACKUP_SCHEMA,
-        help=f"Schema that keeps the prior live tables after cutover (default: {DEFAULT_BACKUP_SCHEMA}).",
+        help=(
+            "Schema that keeps the prior live tables after cutover "
+            f"(default: {DEFAULT_BACKUP_SCHEMA})."
+        ),
     )
     parser.add_argument("--expected-asset-count", type=int, help="Expected staged asset row count.")
     parser.add_argument(
@@ -592,7 +613,11 @@ def main() -> int:
         prepare_stage(engine, names)
         return 0
 
-    if args.expected_asset_count is None or args.expected_asset_byte_sum is None or args.expected_link_count is None:
+    if (
+        args.expected_asset_count is None
+        or args.expected_asset_byte_sum is None
+        or args.expected_link_count is None
+    ):
         raise SystemExit(
             "verify and cutover require --expected-asset-count, "
             "--expected-asset-byte-sum, and --expected-link-count"

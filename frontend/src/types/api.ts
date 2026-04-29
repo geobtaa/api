@@ -85,6 +85,7 @@ export interface GeoDocument {
   meta?: {
     ui?: {
       thumbnail_url?: string | null;
+      resource_class_icon_url?: string | null;
       citation?: string;
       /** Citation formats: apa, mla, chicago */
       citations?: Record<string, string>;

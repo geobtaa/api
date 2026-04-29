@@ -88,6 +88,33 @@ describe('GalleryView', () => {
     expect(thumbnail).toBeInTheDocument();
   });
 
+  it('prefers a hot immutable resource-class icon asset when one is provided', () => {
+    const iconHash = 'c'.repeat(64);
+    const resultWithHotIconAsset: GeoDocument = {
+      ...mockResults[0],
+      meta: {
+        ui: {
+          resource_class_icon_url: `http://localhost:8000/api/v1/static-map-assets/${iconHash}?kind=resource-class-icon`,
+        },
+      },
+    };
+
+    const { container } = renderGallery({
+      results: [resultWithHotIconAsset],
+      totalResults: 1,
+    });
+
+    const hotIcon = container.querySelector(
+      `img[src="/api/v1/static-map-assets/${iconHash}?kind=resource-class-icon"]`
+    );
+    const legacyIcon = container.querySelector(
+      'img[src="/static-maps/result-1/resource-class-icon"]'
+    );
+
+    expect(hotIcon).toBeInTheDocument();
+    expect(legacyIcon).not.toBeInTheDocument();
+  });
+
   it('does not overlay the inline resource icon while the fallback asset loads', () => {
     const completeSpy = vi
       .spyOn(HTMLImageElement.prototype, 'complete', 'get')

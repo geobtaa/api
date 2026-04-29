@@ -463,6 +463,37 @@ class StaticMapService:
         variant: str,
         source_signature: str | None = None,
     ) -> Optional[str]:
+        hot_hash = self.get_hot_asset_hash_sync(
+            resource_id,
+            variant=variant,
+            source_signature=source_signature,
+        )
+        if hot_hash:
+            return hot_hash
+
+        value = get_durable_visual_asset_hash_for_resource(
+            resource_id,
+            asset_kind=variant,
+            source_signature=source_signature,
+        )
+        if value and self._is_asset_hash(value):
+            if self.get_cached_asset_sync(value):
+                self.set_asset_hash_sync(
+                    resource_id,
+                    variant=variant,
+                    map_hash=value,
+                    source_signature=source_signature,
+                )
+                return value
+        return None
+
+    def get_hot_asset_hash_sync(
+        self,
+        resource_id: str,
+        *,
+        variant: str,
+        source_signature: str | None = None,
+    ) -> Optional[str]:
         alias_cache = self._alias_cache()
         if alias_cache:
             try:
@@ -490,20 +521,6 @@ class StaticMapService:
                     variant,
                     e,
                 )
-        value = get_durable_visual_asset_hash_for_resource(
-            resource_id,
-            asset_kind=variant,
-            source_signature=source_signature,
-        )
-        if value and self._is_asset_hash(value):
-            if self.get_cached_asset_sync(value):
-                self.set_asset_hash_sync(
-                    resource_id,
-                    variant=variant,
-                    map_hash=value,
-                    source_signature=source_signature,
-                )
-                return value
         return None
 
     async def get_asset_hash(

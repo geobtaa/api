@@ -29,9 +29,15 @@ function isResourceClassIconUrl(imageUrl: string | undefined): boolean {
 
   try {
     const parsed = new URL(imageUrl, 'http://localhost');
-    return parsed.pathname.endsWith('/resource-class-icon');
+    return (
+      parsed.pathname.endsWith('/resource-class-icon') ||
+      parsed.searchParams.get('kind') === 'resource-class-icon'
+    );
   } catch {
-    return imageUrl.includes('/resource-class-icon');
+    return (
+      imageUrl.includes('/resource-class-icon') ||
+      imageUrl.includes('kind=resource-class-icon')
+    );
   }
 }
 

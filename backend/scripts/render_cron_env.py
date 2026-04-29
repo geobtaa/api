@@ -66,9 +66,7 @@ def write_cron_env(output_path: str, env: dict[str, str] | None = None) -> Path:
 
 def main() -> None:
     output_path = (
-        sys.argv[1]
-        if len(sys.argv) > 1
-        else os.getenv("CRON_ENV_OUTPUT_PATH", DEFAULT_OUTPUT_PATH)
+        sys.argv[1] if len(sys.argv) > 1 else os.getenv("CRON_ENV_OUTPUT_PATH", DEFAULT_OUTPUT_PATH)
     )
     write_cron_env(output_path)
 

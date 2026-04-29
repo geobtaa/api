@@ -133,9 +133,17 @@ def _is_immutable_thumbnail_url(url: Optional[str]) -> bool:
     return isinstance(url, str) and IMMUTABLE_THUMBNAIL_URL_RE.search(url) is not None
 
 
+def _application_url() -> str:
+    return os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
+
+
 def _build_static_map_url(resource_id: str) -> str:
-    application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-    return f"{application_url}/api/v1/static-maps/{resource_id}/geometry"
+    return f"{_application_url()}/api/v1/static-maps/{resource_id}/geometry"
+
+
+def _build_static_map_asset_url(map_hash: str, *, kind: str | None = None) -> str:
+    asset_url = f"{_application_url()}/api/v1/static-map-assets/{map_hash}"
+    return f"{asset_url}?kind={kind}" if kind else asset_url
 
 
 def _hot_static_map_url(resource_dict: Dict[str, Any]) -> Optional[str]:
@@ -155,8 +163,34 @@ def _hot_static_map_url(resource_dict: Dict[str, Any]) -> Optional[str]:
     if not map_hash:
         return None
 
-    application_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/")
-    return f"{application_url}/api/v1/static-map-assets/{map_hash}"
+    return _build_static_map_asset_url(map_hash)
+
+
+def _hot_resource_class_icon_url(resource_dict: Dict[str, Any]) -> Optional[str]:
+    from app.api.v1.endpoint_modules.resources.thumbnail import _resource_class_icon_signature
+    from app.services.static_map_service import StaticMapService
+
+    resource_id = resource_dict.get("id")
+    if not resource_id:
+        return None
+
+    map_service = StaticMapService()
+    source_signature = _resource_class_icon_signature(
+        resource_dict,
+        variant="icon-basemap",
+    )
+    map_hash = map_service.get_hot_asset_hash_sync(
+        resource_id,
+        variant="resource-class-icon",
+        source_signature=source_signature,
+    )
+    if not map_hash:
+        return None
+
+    return _build_static_map_asset_url(
+        map_hash,
+        kind="resource-class-icon",
+    )
 
 
 def add_citations(item: Dict, distribution_context: Optional[DistributionContext] = None) -> Dict:
@@ -309,6 +343,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
     # Fields that should go to meta.ui
     ui_field_names = [
         "ui_thumbnail_url",
+        "ui_resource_class_icon_url",
         "ui_citation",
         "ui_citations",
         "ui_downloads",
@@ -370,6 +405,11 @@ def create_jsonapi_resource(resource_data, request_url=None):
         # Add placeholder flag if it's a placeholder URL
         if "/thumbnails/placeholder" in str(thumbnail_url):
             restructured_ui["thumbnail_placeholder"] = True
+    if (
+        "ui_resource_class_icon_url" in ui_fields
+        and ui_fields["ui_resource_class_icon_url"] is not None
+    ):
+        restructured_ui["resource_class_icon_url"] = ui_fields["ui_resource_class_icon_url"]
     if "ui_citation" in ui_fields:
         restructured_ui["citation"] = ui_fields["ui_citation"]
     if "ui_citations" in ui_fields:
@@ -854,6 +894,8 @@ async def process_resource_optimized(
         distribution_context=distribution_context,
         hot_only=hot_only_thumbnail_url,
     )
+    if hot_only_thumbnail_url and not resource_dict.get("ui_thumbnail_url"):
+        resource_dict["ui_resource_class_icon_url"] = _hot_resource_class_icon_url(resource_dict)
 
     # Generate citations (APA, MLA, Chicago)
     citation_service = CitationService(resource_dict, distribution_context=distribution_context)
@@ -884,6 +926,7 @@ async def process_resource_optimized(
         "ui_citation": ui_citation,
         "ui_citations": ui_citations,
         "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_resource_class_icon_url": resource_dict.get("ui_resource_class_icon_url"),
         "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
         "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
         "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),

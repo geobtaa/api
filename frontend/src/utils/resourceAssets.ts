@@ -14,53 +14,57 @@ function toBrowserApiAssetUrl(pathname: string, search: string): string {
   return `${apiBasePath}${assetPath}${search}`;
 }
 
-export function extractThumbnailUrl(
-  result: Pick<GeoDocument, 'meta'>
+function extractMetaUiUrl(
+  result: Pick<GeoDocument, 'meta'>,
+  key: 'thumbnail_url' | 'static_map' | 'resource_class_icon_url'
 ): string | undefined {
   const metaUi = result.meta?.ui;
+  let value = metaUi?.[key];
 
-  let thumbnailUrl = metaUi?.thumbnail_url || metaUi?.['thumbnail_url'];
-
-  if (!thumbnailUrl && metaUi) {
+  if (!value && metaUi) {
     try {
       const parsed = JSON.parse(JSON.stringify(metaUi));
-      thumbnailUrl = parsed.thumbnail_url;
+      value = parsed[key];
     } catch {
       // Ignore serialization edge cases and keep trying.
     }
   }
 
-  if (!thumbnailUrl && metaUi) {
-    const descriptor = Object.getOwnPropertyDescriptor(metaUi, 'thumbnail_url');
+  if (!value && metaUi) {
+    const descriptor = Object.getOwnPropertyDescriptor(metaUi, key);
     if (descriptor) {
-      thumbnailUrl = descriptor.value;
+      value = descriptor.value;
     }
   }
 
-  if (!thumbnailUrl && metaUi && 'thumbnail_url' in metaUi) {
-    thumbnailUrl = (metaUi as { thumbnail_url?: string | null }).thumbnail_url;
+  if (!value && metaUi && key in metaUi) {
+    value = (metaUi as Record<string, string | null | undefined>)[key];
   }
 
-  if (typeof thumbnailUrl !== 'string') {
+  if (typeof value !== 'string') {
     return undefined;
   }
 
-  const normalized = thumbnailUrl.trim();
+  const normalized = value.trim();
   return normalized ? normalized : undefined;
+}
+
+export function extractThumbnailUrl(
+  result: Pick<GeoDocument, 'meta'>
+): string | undefined {
+  return extractMetaUiUrl(result, 'thumbnail_url');
 }
 
 export function extractStaticMapUrl(
   result: Pick<GeoDocument, 'meta'>
 ): string | undefined {
-  const metaUi = result.meta?.ui;
-  const staticMapUrl = metaUi?.static_map || metaUi?.['static_map'];
+  return extractMetaUiUrl(result, 'static_map');
+}
 
-  if (typeof staticMapUrl !== 'string') {
-    return undefined;
-  }
-
-  const normalized = staticMapUrl.trim();
-  return normalized ? normalized : undefined;
+export function extractResourceClassIconUrl(
+  result: Pick<GeoDocument, 'meta'>
+): string | undefined {
+  return extractMetaUiUrl(result, 'resource_class_icon_url');
 }
 
 export function toSsrAssetUrl(url: string | undefined): string | undefined {
@@ -186,6 +190,15 @@ export function getResultPrimaryImageUrl(
 
   if (normalized) {
     return normalized;
+  }
+
+  if (view === 'gallery') {
+    const resourceClassIconUrl = toSsrAssetUrl(
+      extractResourceClassIconUrl(result)
+    );
+    if (resourceClassIconUrl) {
+      return resourceClassIconUrl;
+    }
   }
 
   return getThumbnailFallbackUrl(result.id, view);

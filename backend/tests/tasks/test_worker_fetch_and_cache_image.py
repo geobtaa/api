@@ -21,6 +21,20 @@ def _large_jpeg_bytes() -> bytes:
     return buf.getvalue()
 
 
+def _cached_image_write(mock_redis) -> tuple[str, bytes]:
+    for call in mock_redis.set.call_args_list:
+        key, value = call.args
+        if isinstance(key, str) and key.startswith("image:"):
+            return key, value
+
+    for call in mock_redis.setex.call_args_list:
+        key, _ttl, value = call.args
+        if isinstance(key, str) and key.startswith("image:"):
+            return key, value
+
+    raise AssertionError("Expected thumbnail image bytes to be written to Redis")
+
+
 def test_fetch_and_cache_image_records_success_and_uses_provider_throttle():
     source_url = "https://example.com/thumb.png"
     response = MagicMock()
@@ -106,7 +120,7 @@ def test_fetch_and_cache_image_resizes_large_remote_image_before_caching():
         result = fetch_and_cache_image(source_url, "resource-large")
 
         assert result is True
-        image_key, _, cached_bytes = mock_redis.setex.call_args_list[0][0]
+        image_key, cached_bytes = _cached_image_write(mock_redis)
         assert image_key == f"image:{_remote_thumbnail_image_hash(source_url)}"
         cached_image = Image.open(io.BytesIO(cached_bytes))
         assert max(cached_image.size) <= 512
