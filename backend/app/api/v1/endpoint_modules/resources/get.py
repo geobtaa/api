@@ -5,12 +5,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import (
+    add_similar_items_to_resource,
     create_jsonapi_response,
     process_resource,
     process_resource_homepage,
     sanitize_for_json,
 )
 from app.services.cache_service import cached_endpoint
+from app.services.resource_representation_cache import get_or_build_resource_representation
 from db.models import resources
 
 from . import RESOURCE_CACHE_TTL, filter_resource_fields, get_async_session, logger, router
@@ -45,13 +47,32 @@ async def get_resource(
             resource_dict = sanitize_for_json(dict(row._mapping))
             resource_dict["id"] = id  # Ensure ID is set
 
-            # Apply field filtering if fields parameter is provided
-            if fields:
+            if ui_profile == "homepage":
+                if fields:
+                    resource_dict = filter_resource_fields(resource_dict, fields)
+                    logger.info(f"Filtered resource dict: {resource_dict}")
+                jsonapi_resource = await process_resource_homepage(resource_dict, session)
+            elif fields:
                 resource_dict = filter_resource_fields(resource_dict, fields)
                 logger.info(f"Filtered resource dict: {resource_dict}")
+                jsonapi_resource = await process_resource(resource_dict, session)
+            else:
+                async def build_resource(resource_data: dict):
+                    return await process_resource(
+                        resource_data,
+                        session,
+                        include_similar_items=False,
+                    )
 
-            processor = process_resource_homepage if ui_profile == "homepage" else process_resource
-            jsonapi_resource = await processor(resource_dict, session)
+                jsonapi_resource = await get_or_build_resource_representation(
+                    resource_dict,
+                    build_resource,
+                )
+                jsonapi_resource = await add_similar_items_to_resource(
+                    jsonapi_resource,
+                    resource_dict,
+                    session,
+                )
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None

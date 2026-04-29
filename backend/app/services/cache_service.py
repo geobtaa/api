@@ -331,6 +331,46 @@ class CacheService:
             logger.error(f"Error setting cache: {str(e)}")
             return False
 
+    async def get_many(self, keys: Iterable[str]) -> dict[str, Any]:
+        """Get many JSON-serializable cache values in one Redis round trip."""
+        if not self._redis_client or not ENDPOINT_CACHE:
+            return {}
+
+        key_list = [str(key) for key in keys if key]
+        if not key_list:
+            return {}
+
+        try:
+            values = await _redis_call(self._redis_client.mget(key_list))
+            results: dict[str, Any] = {}
+            for key, raw in zip(key_list, values):
+                if not raw:
+                    continue
+                results[key] = json.loads(raw)
+            return results
+        except Exception as e:
+            logger.error(f"Error retrieving many from cache: {str(e)}")
+            return {}
+
+    async def set_many(self, values: dict[str, Any], ttl: int = DEFAULT_CACHE_TTL) -> bool:
+        """Set many JSON-serializable cache values with the same expiration."""
+        if not self._redis_client or not ENDPOINT_CACHE:
+            return False
+
+        if not values:
+            return True
+
+        try:
+            pipe = self._redis_client.pipeline(transaction=False)
+            for key, value in values.items():
+                serialized = json.dumps(value).encode("utf-8")
+                pipe.set(str(key), serialized, ex=ttl)
+            await _redis_call(pipe.execute())
+            return True
+        except Exception as e:
+            logger.error(f"Error setting many cache values: {str(e)}")
+            return False
+
     async def delete(self, key: str) -> bool:
         """Delete a value from cache."""
         if not self._redis_client or not ENDPOINT_CACHE:

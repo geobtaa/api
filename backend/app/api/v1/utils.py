@@ -639,7 +639,37 @@ def create_gazetteer_meta_and_links(
     return meta, links
 
 
-async def process_resource(resource_dict, session, apply_field_mapping=True):
+async def add_similar_items_to_resource(resource, resource_dict, session):
+    """Attach similar items to a JSON:API resource object."""
+    try:
+        from app.services.similar_items_service import SimilarItemsService
+
+        similar_items = await SimilarItemsService.get_similar_items(
+            resource_dict["id"], session, limit=12
+        )
+
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["similar_items"] = similar_items
+    except Exception as e:
+        logger.warning(
+            f"Error getting similar items for resource {resource_dict.get('id')}: {str(e)}"
+        )
+        resource.setdefault("meta", {})
+        resource["meta"].setdefault("ui", {})
+        resource["meta"]["ui"]["similar_items"] = []
+
+    return resource
+
+
+async def process_resource(
+    resource_dict,
+    session,
+    apply_field_mapping=True,
+    *,
+    include_similar_items: bool = True,
+    hot_only_thumbnail_url: bool = False,
+):
     """
     Process a resource to add UI fields and prepare it for JSON:API response.
     This function is shared between resources and search endpoints.
@@ -667,7 +697,13 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
     distribution_context = await fetch_distribution_context(resource_dict["id"])
 
     # Add thumbnail URL
-    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
+    resource_dict = add_thumbnail_url(
+        resource_dict,
+        distribution_context=distribution_context,
+        hot_only=hot_only_thumbnail_url,
+    )
+    if not resource_dict.get("ui_thumbnail_url"):
+        resource_dict["ui_resource_class_icon_url"] = _hot_resource_class_icon_url(resource_dict)
 
     # Generate citations (APA, MLA, Chicago)
     citation_service = CitationService(resource_dict, distribution_context=distribution_context)
@@ -699,6 +735,7 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
         "ui_citation": ui_citation,
         "ui_citations": ui_citations,
         "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
+        "ui_resource_class_icon_url": resource_dict.get("ui_resource_class_icon_url"),
         "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
         "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
         "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
@@ -774,31 +811,8 @@ async def process_resource(resource_dict, session, apply_field_mapping=True):
 
         resource["meta"]["ui"]["static_map"] = static_map_url
 
-    # Add similar items to meta.ui
-    try:
-        from app.services.similar_items_service import SimilarItemsService
-
-        similar_items = await SimilarItemsService.get_similar_items(
-            resource_dict["id"], session, limit=12
-        )
-
-        if "meta" not in resource:
-            resource["meta"] = {}
-        if "ui" not in resource["meta"]:
-            resource["meta"]["ui"] = {}
-
-        resource["meta"]["ui"]["similar_items"] = similar_items
-    except Exception as e:
-        # Log error but don't fail resource processing
-        logger.warning(
-            f"Error getting similar items for resource {resource_dict.get('id')}: {str(e)}"
-        )
-        # Ensure ui block exists even if similar items fail
-        if "meta" not in resource:
-            resource["meta"] = {}
-        if "ui" not in resource["meta"]:
-            resource["meta"]["ui"] = {}
-        resource["meta"]["ui"]["similar_items"] = []
+    if include_similar_items:
+        resource = await add_similar_items_to_resource(resource, resource_dict, session)
 
     return resource
 

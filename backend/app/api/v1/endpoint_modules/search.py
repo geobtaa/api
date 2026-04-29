@@ -14,7 +14,7 @@ from app.api.v1.utils import (
     create_jsonapi_response,
     create_pagination_links,
     filter_empty_values,
-    process_resource_optimized,
+    process_resource,
     sanitize_for_json,
 )
 from app.elasticsearch.search import (
@@ -25,6 +25,10 @@ from app.elasticsearch.search import (
     process_facet_response,
 )
 from app.services.cache_service import cached_endpoint
+from app.services.resource_representation_cache import (
+    get_cached_resource_representations,
+    store_resource_representation,
+)
 from app.services.search_service import SearchService
 from app.services.viewer_service import create_viewer_attributes
 from db.config import DATABASE_URL
@@ -66,7 +70,6 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     exclude_filters = params.get("exclude_filters")
     fq = params.get("fq")
     adv_q = params.get("adv_q")
-    view = request.query_params.get("view") or params.get("view")
 
     # Validate adv_q if provided
     if adv_q is not None:
@@ -133,14 +136,21 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 }
             )
 
-    # Step 3: Batch fetch resource data
+    resource_ids = [r["id"] for r in resource_data]
+    cached_resources = {}
+    if resource_ids:
+        cached_resources = await get_cached_resource_representations(resource_ids)
+
+    missing_resource_ids = [
+        resource_id for resource_id in resource_ids if resource_id not in cached_resources
+    ]
+
+    # Step 3: Batch fetch resource data for cache misses
     lookup = {}
-    if resource_data:
+    if missing_resource_ids:
         try:
             async with async_session() as session:
-                query = select(resources).where(
-                    resources.c.id.in_([r["id"] for r in resource_data])
-                )
+                query = select(resources).where(resources.c.id.in_(missing_resource_ids))
                 result = await session.execute(query)
                 rows = result.fetchall()
                 lookup = {
@@ -157,74 +167,89 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     processed_resources = []
 
     if resource_data:
-        for rd in resource_data:
-            d = lookup.get(rd["id"]) or {}
-            obj = await process_resource_optimized(
-                d,
-                {},
-                apply_field_mapping=False,
-                hot_only_thumbnail_url=view == "gallery",
-            )
-            # Ensure meta.ui.viewer.geometry is present when resource has geometry.
-            # Search results must include it for map hover; ViewerService can miss it
-            # when keys/format differ from resource detail path.
-            if d and (d.get("locn_geometry") or d.get("dcat_bbox")):
-                ui = (obj.get("meta") or {}).get("ui") or {}
-                viewer_geom = (ui.get("viewer") or {}).get("geometry")
-                if not viewer_geom:
-                    viewer_attrs = create_viewer_attributes(d)
-                    geom = viewer_attrs.get("ui_viewer_geometry")
-                    if geom:
-                        obj.setdefault("meta", {})
-                        obj["meta"].setdefault("ui", {})
-                        obj["meta"]["ui"].setdefault("viewer", {})
-                        obj["meta"]["ui"]["viewer"]["geometry"] = geom
-            # obj["attributes"] is already nested with "ogm" and "b1g" structure
-            # from create_jsonapi_resource
-            attrs = obj.get("attributes", {})
+        async def append_processed_resources(processing_session=None):
+            for rd in resource_data:
+                d = lookup.get(rd["id"]) or {}
+                obj = cached_resources.get(rd["id"])
+                if obj is None:
+                    if not d or processing_session is None:
+                        continue
+                    obj = await process_resource(
+                        d,
+                        processing_session,
+                        include_similar_items=False,
+                    )
+                    await store_resource_representation(rd["id"], obj)
+                # Ensure meta.ui.viewer.geometry is present when resource has geometry.
+                # Search results must include it for map hover; ViewerService can miss it
+                # when keys/format differ from resource detail path.
+                if d and (d.get("locn_geometry") or d.get("dcat_bbox")):
+                    ui = (obj.get("meta") or {}).get("ui") or {}
+                    viewer_geom = (ui.get("viewer") or {}).get("geometry")
+                    if not viewer_geom:
+                        viewer_attrs = create_viewer_attributes(d)
+                        geom = viewer_attrs.get("ui_viewer_geometry")
+                        if geom:
+                            obj.setdefault("meta", {})
+                            obj["meta"].setdefault("ui", {})
+                            obj["meta"]["ui"].setdefault("viewer", {})
+                            obj["meta"]["ui"]["viewer"]["geometry"] = geom
+                # obj["attributes"] is already nested with "ogm" and "b1g" structure
+                # from create_jsonapi_resource
+                attrs = obj.get("attributes", {})
 
-            # Attach ES scoring and bbox spatial metrics into per-resource meta for debugging
-            if rd.get("score") is not None:
-                obj.setdefault("meta", {})
-                obj["meta"]["score"] = rd["score"]
-            if rd.get("bbox_overlap_ratio") is not None:
-                obj.setdefault("meta", {})
-                obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
-            if rd.get("bbox_containment_ratio") is not None:
-                obj.setdefault("meta", {})
-                obj["meta"]["bbox_containment_ratio"] = rd["bbox_containment_ratio"]
-            if rd.get("bbox_spatial_score") is not None:
-                obj.setdefault("meta", {})
-                obj["meta"]["bbox_spatial_score"] = rd["bbox_spatial_score"]
+                # Attach ES scoring and bbox spatial metrics into per-resource meta for debugging
+                if rd.get("score") is not None:
+                    obj.setdefault("meta", {})
+                    obj["meta"]["score"] = rd["score"]
+                if rd.get("bbox_overlap_ratio") is not None:
+                    obj.setdefault("meta", {})
+                    obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
+                if rd.get("bbox_containment_ratio") is not None:
+                    obj.setdefault("meta", {})
+                    obj["meta"]["bbox_containment_ratio"] = rd["bbox_containment_ratio"]
+                if rd.get("bbox_spatial_score") is not None:
+                    obj.setdefault("meta", {})
+                    obj["meta"]["bbox_spatial_score"] = rd["bbox_spatial_score"]
 
-            if isinstance(fields, str) and fields.strip():
-                # Handle field filtering for nested attributes structure
-                requested = [f.strip() for f in fields.split(",") if f.strip()]
-                if "id" not in requested:
-                    requested.append("id")
+                if isinstance(fields, str) and fields.strip():
+                    # Handle field filtering for nested attributes structure
+                    requested = [f.strip() for f in fields.split(",") if f.strip()]
+                    if "id" not in requested:
+                        requested.append("id")
 
-                # Filter nested attributes (ogm and b1g)
-                filtered_attrs = {}
-                if "ogm" in attrs:
-                    filtered_ogm = {k: v for k, v in attrs["ogm"].items() if k in requested}
-                    if filtered_ogm:
-                        filtered_attrs["ogm"] = filtered_ogm
-                if "b1g" in attrs:
-                    filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
-                    if filtered_b1g:
-                        filtered_attrs["b1g"] = filtered_b1g
+                    # Filter nested attributes (ogm and b1g)
+                    filtered_attrs = {}
+                    if "ogm" in attrs:
+                        filtered_ogm = {
+                            k: v for k, v in attrs["ogm"].items() if k in requested
+                        }
+                        if filtered_ogm:
+                            filtered_attrs["ogm"] = filtered_ogm
+                    if "b1g" in attrs:
+                        filtered_b1g = {
+                            k: v for k, v in attrs["b1g"].items() if k in requested
+                        }
+                        if filtered_b1g:
+                            filtered_attrs["b1g"] = filtered_b1g
 
-                obj["attributes"] = filtered_attrs
-            else:
-                # Use nested attributes as-is
-                obj["attributes"] = attrs
+                    obj["attributes"] = filtered_attrs
+                else:
+                    # Use nested attributes as-is
+                    obj["attributes"] = attrs
 
-            # Filter out empty arrays and empty strings from nested attributes
-            # filter_empty_values already handles nested dicts recursively
-            obj["attributes"] = filter_empty_values(obj["attributes"])
-            if not meta and "meta" in obj:
-                obj.pop("meta", None)
-            processed_resources.append(obj)
+                # Filter out empty arrays and empty strings from nested attributes
+                # filter_empty_values already handles nested dicts recursively
+                obj["attributes"] = filter_empty_values(obj["attributes"])
+                if not meta and "meta" in obj:
+                    obj.pop("meta", None)
+                processed_resources.append(obj)
+
+        if missing_resource_ids:
+            async with async_session() as processing_session:
+                await append_processed_resources(processing_session)
+        else:
+            await append_processed_resources()
 
     # Step 4: Build JSON:API response
     pages_info = result_obj.get("meta", {}).get("pages", {})
