@@ -4,7 +4,7 @@ import logging
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 from urllib.parse import urlencode
 
 import requests
@@ -642,59 +642,15 @@ class DownloadService:
         unit = units[max(unit_index, 0)]
         return f"{value:.1f} {unit}"
 
-    async def get_download_options_with_bridge_asset_downloads(
+    def _merge_bridge_asset_download_rows(
         self,
+        base_downloads: List[Dict],
+        rows: Iterable[Mapping[str, Any]],
     ) -> List[Dict]:
-        """
-        Extend `get_download_options()` with downloads coming from `resource_assets`.
-
-        The bridge API stores these in:
-        - `resource_assets.dct_references_uri_key == "download"`
-        - `resource_assets.file_url` for the actual link
-        - `resource_assets.file_size` for UI label size hints
-        - `resource_assets.label` for the link text
-        """
-        base_downloads = self.get_download_options()
-
-        resource_id = self.document.get("id") or ""
-        if not resource_id:
-            return base_downloads
-
-        try:
-            if not database.is_connected:
-                await database.connect()
-
-            query = (
-                select(
-                    resource_assets.c.label,
-                    resource_assets.c.title,
-                    resource_assets.c.file_url,
-                    resource_assets.c.file_mime_type,
-                    resource_assets.c.file_size,
-                    resource_assets.c.position,
-                    resource_assets.c.id,
-                )
-                .where(
-                    resource_assets.c.resource_id == resource_id,
-                    resource_assets.c.dct_references_uri_key == "download",
-                    resource_assets.c.file_url.is_not(None),
-                )
-                .order_by(resource_assets.c.position.asc(), resource_assets.c.id.asc())
-            )
-
-            rows = await database.fetch_all(query)
-        except Exception:
-            logger.exception(
-                "Failed to fetch bridge asset downloads for resource %s",
-                resource_id,
-            )
-            return base_downloads
-
         existing_by_url = {d.get("url"): d for d in base_downloads if d.get("url")}
         downloads: List[Dict] = list(base_downloads)
 
         for row in rows:
-            # `databases` Record behaves like a mapping; dict works too in tests.
             try:
                 file_url = row["file_url"]
                 label = row["label"]
@@ -733,6 +689,63 @@ class DownloadService:
             )
 
         return downloads
+
+    async def get_download_options_with_bridge_asset_downloads(
+        self,
+        bridge_asset_download_rows: Optional[Iterable[Mapping[str, Any]]] = None,
+    ) -> List[Dict]:
+        """
+        Extend `get_download_options()` with downloads coming from `resource_assets`.
+
+        The bridge API stores these in:
+        - `resource_assets.dct_references_uri_key == "download"`
+        - `resource_assets.file_url` for the actual link
+        - `resource_assets.file_size` for UI label size hints
+        - `resource_assets.label` for the link text
+        """
+        base_downloads = self.get_download_options()
+
+        if bridge_asset_download_rows is not None:
+            return self._merge_bridge_asset_download_rows(
+                base_downloads,
+                bridge_asset_download_rows,
+            )
+
+        resource_id = self.document.get("id") or ""
+        if not resource_id:
+            return base_downloads
+
+        try:
+            if not database.is_connected:
+                await database.connect()
+
+            query = (
+                select(
+                    resource_assets.c.label,
+                    resource_assets.c.title,
+                    resource_assets.c.file_url,
+                    resource_assets.c.file_mime_type,
+                    resource_assets.c.file_size,
+                    resource_assets.c.position,
+                    resource_assets.c.id,
+                )
+                .where(
+                    resource_assets.c.resource_id == resource_id,
+                    resource_assets.c.dct_references_uri_key == "download",
+                    resource_assets.c.file_url.is_not(None),
+                )
+                .order_by(resource_assets.c.position.asc(), resource_assets.c.id.asc())
+            )
+
+            rows = await database.fetch_all(query)
+        except Exception:
+            logger.exception(
+                "Failed to fetch bridge asset downloads for resource %s",
+                resource_id,
+            )
+            return base_downloads
+
+        return self._merge_bridge_asset_download_rows(base_downloads, rows)
 
 
 @dataclass

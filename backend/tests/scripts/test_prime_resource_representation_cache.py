@@ -128,7 +128,7 @@ async def test_prime_resource_representation_builds_core_resource_and_stores_cac
     ):
         result = await prime_resource_cache._prime_resource_representation(resource_dict)
 
-    assert result == ("primed", "resource-1")
+    assert result == ("primed", "resource-1", processed)
     mock_process.assert_awaited_once_with(
         resource_dict,
         session,
@@ -141,6 +141,7 @@ async def test_prime_resource_representation_builds_core_resource_and_stores_cac
 async def test_prime_batch_skips_cached_resources_and_primes_misses():
     batch = [{"id": "cached"}, {"id": "missing"}]
     progress = DummyProgress()
+    empty_context = prime_resource_cache.ResourceBatchContext({}, {}, {}, {}, {}, {})
 
     with (
         patch.object(
@@ -151,8 +152,18 @@ async def test_prime_batch_skips_cached_resources_and_primes_misses():
         patch.object(
             prime_resource_cache,
             "_prime_resource_representation",
-            AsyncMock(return_value=("primed", "missing")),
+            AsyncMock(return_value=("primed", "missing", {"id": "missing"})),
         ) as mock_prime,
+        patch.object(
+            prime_resource_cache,
+            "_build_batch_context",
+            AsyncMock(return_value=empty_context),
+        ),
+        patch.object(
+            prime_resource_cache,
+            "store_resource_representations",
+            AsyncMock(),
+        ) as mock_store_many,
     ):
         counters = await prime_resource_cache._prime_batch(
             batch,
@@ -164,13 +175,16 @@ async def test_prime_batch_skips_cached_resources_and_primes_misses():
     assert counters == Counter({"cached": 1, "primed": 1})
     assert progress.updated == 2
     mock_get_cached.assert_awaited_once_with(["cached", "missing"])
-    mock_prime.assert_awaited_once_with({"id": "missing"})
+    mock_prime.assert_awaited_once()
+    assert mock_prime.await_args.kwargs["store"] is False
+    mock_store_many.assert_awaited_once_with({"missing": {"id": "missing"}})
 
 
 @pytest.mark.asyncio
 async def test_prime_batch_force_rebuilds_cached_resources():
     batch = [{"id": "cached"}, {"id": "missing"}]
     progress = DummyProgress()
+    empty_context = prime_resource_cache.ResourceBatchContext({}, {}, {}, {}, {}, {})
 
     with (
         patch.object(
@@ -181,8 +195,23 @@ async def test_prime_batch_force_rebuilds_cached_resources():
         patch.object(
             prime_resource_cache,
             "_prime_resource_representation",
-            AsyncMock(side_effect=[("primed", "cached"), ("primed", "missing")]),
+            AsyncMock(
+                side_effect=[
+                    ("primed", "cached", {"id": "cached"}),
+                    ("primed", "missing", {"id": "missing"}),
+                ]
+            ),
         ) as mock_prime,
+        patch.object(
+            prime_resource_cache,
+            "_build_batch_context",
+            AsyncMock(return_value=empty_context),
+        ),
+        patch.object(
+            prime_resource_cache,
+            "store_resource_representations",
+            AsyncMock(),
+        ) as mock_store_many,
     ):
         counters = await prime_resource_cache._prime_batch(
             batch,
@@ -195,6 +224,9 @@ async def test_prime_batch_force_rebuilds_cached_resources():
     assert progress.updated == 2
     mock_get_cached.assert_not_awaited()
     assert mock_prime.await_count == 2
+    mock_store_many.assert_awaited_once_with(
+        {"cached": {"id": "cached"}, "missing": {"id": "missing"}}
+    )
 
 
 @pytest.mark.asyncio

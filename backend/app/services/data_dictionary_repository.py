@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -47,10 +47,23 @@ async def fetch_resource_data_dictionaries(
     resource_id: str, *, session: AsyncSession
 ) -> List[ResourceDataDictionaryRecord]:
     """Fetch dictionaries and entries for a resource, ordered by position."""
+    dictionaries_map = await fetch_resource_data_dictionaries_map([resource_id], session=session)
+    return dictionaries_map.get(resource_id, [])
+
+
+async def fetch_resource_data_dictionaries_map(
+    resource_ids: Iterable[str], *, session: AsyncSession
+) -> Dict[str, List[ResourceDataDictionaryRecord]]:
+    """Fetch dictionaries and entries for many resources in two queries."""
+    ids = list(dict.fromkeys(str(resource_id) for resource_id in resource_ids if resource_id))
+    if not ids:
+        return {}
+
     dictionaries_stmt = (
         select(resource_data_dictionaries)
-        .where(resource_data_dictionaries.c.resource_id == resource_id)
+        .where(resource_data_dictionaries.c.resource_id.in_(ids))
         .order_by(
+            resource_data_dictionaries.c.resource_id,
             resource_data_dictionaries.c.position,
             resource_data_dictionaries.c.id,
         )
@@ -59,9 +72,12 @@ async def fetch_resource_data_dictionaries(
     dictionary_rows = dictionaries_result.fetchall()
 
     if not dictionary_rows:
-        return []
+        return {}
 
     dictionary_ids = [row._mapping["id"] for row in dictionary_rows]
+    dictionary_resource_ids = {
+        row._mapping["id"]: row._mapping["resource_id"] for row in dictionary_rows
+    }
 
     entries_stmt = (
         select(resource_data_dictionary_entries)
@@ -81,7 +97,10 @@ async def fetch_resource_data_dictionaries(
         record = ResourceDataDictionaryEntryRecord(
             id=mapping["id"],
             resource_data_dictionary_id=mapping["resource_data_dictionary_id"],
-            friendlier_id=resource_id,
+            friendlier_id=dictionary_resource_ids.get(
+                mapping["resource_data_dictionary_id"],
+                "",
+            ),
             field_name=mapping["field_name"],
             field_type=mapping["field_type"],
             values=mapping["values"],
@@ -94,26 +113,25 @@ async def fetch_resource_data_dictionaries(
         )
         entries_by_dictionary_id.setdefault(record.resource_data_dictionary_id, []).append(record)
 
-    dictionaries: List[ResourceDataDictionaryRecord] = []
+    dictionaries_by_resource_id: Dict[str, List[ResourceDataDictionaryRecord]] = {}
     for row in dictionary_rows:
         mapping = row._mapping
         dictionary_id = mapping["id"]
-        dictionaries.append(
-            ResourceDataDictionaryRecord(
-                id=dictionary_id,
-                friendlier_id=mapping["resource_id"],
-                name=mapping["name"],
-                description=mapping["description"],
-                staff_notes=mapping["staff_notes"],
-                tags=mapping["tags"] or "",
-                position=mapping["position"] if mapping["position"] is not None else 0,
-                created_at=mapping["created_at"],
-                updated_at=mapping["updated_at"],
-                entries=entries_by_dictionary_id.get(dictionary_id, []),
-            )
+        record = ResourceDataDictionaryRecord(
+            id=dictionary_id,
+            friendlier_id=mapping["resource_id"],
+            name=mapping["name"],
+            description=mapping["description"],
+            staff_notes=mapping["staff_notes"],
+            tags=mapping["tags"] or "",
+            position=mapping["position"] if mapping["position"] is not None else 0,
+            created_at=mapping["created_at"],
+            updated_at=mapping["updated_at"],
+            entries=entries_by_dictionary_id.get(dictionary_id, []),
         )
+        dictionaries_by_resource_id.setdefault(record.friendlier_id, []).append(record)
 
-    return dictionaries
+    return dictionaries_by_resource_id
 
 
 def serialize_resource_data_dictionaries(

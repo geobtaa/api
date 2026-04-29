@@ -44,10 +44,15 @@ class TestCacheManagementService:
         mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        result = await service.clear_cache_by_type("resource")
+        with patch(
+            "app.services.admin_service.delete_durable_resource_representations",
+            new=AsyncMock(return_value=True),
+        ) as mock_delete_durable:
+            result = await service.clear_cache_by_type("resource")
 
         assert result["message"] == "Cache cleared successfully: resource"
         mock_cache_service.invalidate_tags.assert_awaited_once_with(["resource"])
+        mock_delete_durable.assert_awaited_once_with()
         mock_cache_service.flush_all.assert_not_awaited()
 
     @pytest.mark.asyncio
@@ -72,7 +77,11 @@ class TestCacheManagementService:
         mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        result = await service.clear_cache_by_type("all")
+        with patch(
+            "app.services.admin_service.delete_durable_resource_representations",
+            new=AsyncMock(return_value=True),
+        ) as mock_delete_durable:
+            result = await service.clear_cache_by_type("all")
 
         assert result["message"] == "Cache cleared successfully: all"
         # When cache_type is "all", it should invalidate all types AND flush all.
@@ -82,6 +91,7 @@ class TestCacheManagementService:
         mock_cache_service.invalidate_tags.assert_any_await(["resource"])
         mock_cache_service.invalidate_tags.assert_any_await(["suggest"])
         mock_cache_service.invalidate_tags.assert_any_await(["map"])
+        mock_delete_durable.assert_awaited_once_with()
         mock_cache_service.flush_all.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -92,7 +102,11 @@ class TestCacheManagementService:
         mock_cache_service.flush_all = AsyncMock()
         service = CacheManagementService(mock_cache_service)
 
-        result = await service.clear_cache_by_type(None)
+        with patch(
+            "app.services.admin_service.delete_durable_resource_representations",
+            new=AsyncMock(return_value=True),
+        ) as mock_delete_durable:
+            result = await service.clear_cache_by_type(None)
 
         assert result["message"] == "Cache cleared successfully: all"
         assert mock_cache_service.invalidate_tags.await_count == 4
@@ -100,6 +114,7 @@ class TestCacheManagementService:
         mock_cache_service.invalidate_tags.assert_any_await(["resource"])
         mock_cache_service.invalidate_tags.assert_any_await(["suggest"])
         mock_cache_service.invalidate_tags.assert_any_await(["map"])
+        mock_delete_durable.assert_awaited_once_with()
         mock_cache_service.flush_all.assert_awaited_once()
 
     @pytest.mark.asyncio

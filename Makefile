@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-resource-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-resource-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -110,10 +110,10 @@ BRIDGE_STATUS_RAW ?=
 BRIDGE_STATUS_SHOW_LAST ?= 0
 BLOG_API_URL ?= http://localhost:8000
 PRIME_LIMIT ?=
-PRIME_BATCH_SIZE ?= 100
+PRIME_BATCH_SIZE ?= 500
 PRIME_THUMBNAIL_CONCURRENCY ?= 4
 PRIME_STATIC_MAP_CONCURRENCY ?= 2
-PRIME_RESOURCE_CONCURRENCY ?= 4
+PRIME_RESOURCE_CONCURRENCY ?= 16
 PRIME_FORCE ?=
 PRIME_RETRY_FAILURES ?=
 PRIME_RETRY_PLACEHELD ?=
@@ -332,13 +332,14 @@ prime-static-map-cache: wait-local-db ## Prime static-map cache
 # Prime shared API resource representation cache entries.
 # Usage examples:
 #   make prime-resource-cache
-#   make prime-resource-cache PRIME_LIMIT=500 PRIME_RESOURCE_CONCURRENCY=6
+#   make prime-resource-cache PRIME_LIMIT=500 PRIME_RESOURCE_CONCURRENCY=16
 #   make prime-resource-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
 prime-resource-cache: wait-local-db ## Prime shared API resource representation cache
 	@echo "Priming resource representation cache..."
 	@$(DOCKER_COMPOSE) exec -T api bash -lc '\
 		set -e; \
 		cd /app/backend; \
+		python db/migrations/create_generated_resource_representations_table.py; \
 		ARGS=""; \
 		if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
 		if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
@@ -824,11 +825,16 @@ gbl-admin-db-import-resources: ## Import resources from GBL Admin bridge
 		-e DB_PASSWORD="$$DB_PASSWORD" \
 		api bash -lc "cd /app/backend && python db/migrations/import_from_old_production.py $$IMPORT_FLAGS"
 
-# Ensure resource_downloads/resource_assets/resource_licensed_accesses and generated visual assets exist.
+# Ensure resource_downloads/resource_assets/resource_licensed_accesses and generated caches exist.
 resource-aux-init: ## Ensure resource auxiliary tables exist
 	@echo "Ensuring resource auxiliary tables exist..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_resource_aux_tables.py'
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_visual_assets_table.py'
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_resource_representations_table.py'
+
+resource-cache-init: ## Ensure durable generated resource representation table exists
+	@echo "Ensuring durable generated resource representation table exists..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_resource_representations_table.py'
 
 # Populate dct_references_s/resource_distributions/resource_downloads/resource_assets from legacy GBL Admin data.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
@@ -1440,6 +1446,7 @@ kamal-prime-resource-cache: ## Prime shared API resource representation cache on
 		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
+	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_resource_representations_table.py'"
 	@ARGS=""; \
 	if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
 	if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \

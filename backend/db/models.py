@@ -389,6 +389,34 @@ generated_visual_asset_links = Table(
     ),
 )
 
+generated_resource_representations = Table(
+    "generated_resource_representations",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "resource_id",
+        String(255),
+        ForeignKey("resources.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("profile", String(64), nullable=False, index=True),
+    Column("version", String(64), nullable=False, index=True),
+    Column("payload", JSON, nullable=False),
+    Column("payload_hash", String(64), nullable=False, index=True),
+    Column("payload_byte_size", Integer, nullable=False),
+    Column("source_updated_at", TIMESTAMP, nullable=True, index=True),
+    Column("generated_at", TIMESTAMP, nullable=False, server_default=func.now(), index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "resource_id",
+        "profile",
+        "version",
+        name="uq_generated_resource_representations_identity",
+    ),
+)
+
 # Distribution types lookup table
 distribution_types = Table(
     "distribution_types",

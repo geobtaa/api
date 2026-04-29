@@ -28,6 +28,7 @@ IMMUTABLE_THUMBNAIL_URL_RE = re.compile(
     r"(?:https?://[^/]+)?/api/v1/thumbnails/[0-9a-f]{64}(?:\?.*)?$",
     re.IGNORECASE,
 )
+_UNSET = object()
 
 
 def sanitize_for_json(obj: Any) -> Any:
@@ -669,6 +670,13 @@ async def process_resource(
     *,
     include_similar_items: bool = True,
     hot_only_thumbnail_url: bool = False,
+    distribution_context: DistributionContext | None = None,
+    ui_downloads: list[dict[str, Any]] | None = None,
+    bridge_asset_download_rows: Any = None,
+    ui_relationships: dict[str, Any] | None = None,
+    allmaps_attributes: dict[str, Any] | None = None,
+    data_dictionaries_payload: list[dict[str, Any]] | None | object = _UNSET,
+    thumbnail_asset_url: str | None | object = _UNSET,
 ):
     """
     Process a resource to add UI fields and prepare it for JSON:API response.
@@ -694,7 +702,8 @@ async def process_resource(
     if apply_field_mapping:
         resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
 
-    distribution_context = await fetch_distribution_context(resource_dict["id"])
+    if distribution_context is None:
+        distribution_context = await fetch_distribution_context(resource_dict["id"])
 
     # Keep the default call shape stable for older mocks and callers; only opt into
     # the newer hot-cache-only path when explicitly requested.
@@ -716,18 +725,25 @@ async def process_resource(
 
     # Use DownloadService to get download options
     download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads()
+    if ui_downloads is None:
+        ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads(
+            bridge_asset_download_rows
+        )
 
     # Use LinkService to get links
     link_service = LinkService(resource_dict, distribution_context=distribution_context)
     ui_links = link_service.get_links()
 
     # Use RelationshipService to get relationships
-    ui_relationships = await RelationshipService.get_resource_relationships(resource_dict["id"])
+    if ui_relationships is None:
+        ui_relationships = await RelationshipService.get_resource_relationships(
+            resource_dict["id"]
+        )
 
     # Get Allmaps attributes
-    allmaps_service = AllmapsService(resource_dict)
-    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+    if allmaps_attributes is None:
+        allmaps_service = AllmapsService(resource_dict)
+        allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
 
     # Create the attributes dictionary
     attributes = {
@@ -745,20 +761,23 @@ async def process_resource(
     }
 
     # Attach read-only resource data dictionaries.
-    try:
-        data_dictionaries = await fetch_resource_data_dictionaries(
-            resource_dict["id"], session=session
-        )
-        if data_dictionaries:
-            attributes["data_dictionaries"] = sanitize_for_json(
-                serialize_resource_data_dictionaries(data_dictionaries)
+    if data_dictionaries_payload is _UNSET:
+        try:
+            data_dictionaries = await fetch_resource_data_dictionaries(
+                resource_dict["id"], session=session
             )
-    except Exception as e:
-        logger.warning(
-            "Failed to load data dictionaries for resource %s: %s",
-            resource_dict.get("id"),
-            str(e),
-        )
+            if data_dictionaries:
+                attributes["data_dictionaries"] = sanitize_for_json(
+                    serialize_resource_data_dictionaries(data_dictionaries)
+                )
+        except Exception as e:
+            logger.warning(
+                "Failed to load data dictionaries for resource %s: %s",
+                resource_dict.get("id"),
+                str(e),
+            )
+    elif data_dictionaries_payload:
+        attributes["data_dictionaries"] = sanitize_for_json(data_dictionaries_payload)
 
     # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
     try:
@@ -779,7 +798,11 @@ async def process_resource(
 
     # If a bridge-synced thumbnail asset exists, expose the stable thumbnail endpoint
     # instead of the raw stored object so clients go through the resize/cache pipeline.
-    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
+    thumb_asset_url = (
+        await _get_thumbnail_asset_url(resource_dict["id"])
+        if thumbnail_asset_url is _UNSET
+        else thumbnail_asset_url
+    )
     current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
     if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
         resource.setdefault("meta", {})
