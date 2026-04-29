@@ -1,3 +1,4 @@
+import logging
 from collections import Counter
 from unittest.mock import AsyncMock, patch
 
@@ -32,6 +33,26 @@ class FakeSessionFactory:
         return False
 
 
+def test_configure_logging_quiet_suppresses_app_info_logs(capsys):
+    service_logger = logging.getLogger("app.services.allmaps_service")
+    original_level = service_logger.level
+
+    try:
+        service_logger.setLevel(logging.INFO)
+        prime_resource_cache.configure_logging(verbose=False)
+
+        service_logger.info("too noisy for cache priming")
+        service_logger.warning("important cache priming warning")
+
+        captured = capsys.readouterr()
+        output = captured.out + captured.err
+        assert "too noisy for cache priming" not in output
+        assert "important cache priming warning" in output
+    finally:
+        service_logger.setLevel(original_level)
+        logging.basicConfig(level=logging.WARNING, force=True)
+
+
 @pytest.mark.asyncio
 async def test_prime_resource_representation_builds_core_resource_and_stores_cache():
     resource_dict = {"id": "resource-1", "dc_title_s": "Resource 1"}
@@ -44,8 +65,9 @@ async def test_prime_resource_representation_builds_core_resource_and_stores_cac
             "async_session_factory",
             return_value=FakeSessionFactory(session),
         ),
-        patch.object(prime_resource_cache, "process_resource", AsyncMock(return_value=processed))
-        as mock_process,
+        patch.object(
+            prime_resource_cache, "process_resource", AsyncMock(return_value=processed)
+        ) as mock_process,
         patch.object(
             prime_resource_cache, "store_resource_representation", new=AsyncMock()
         ) as mock_store,
@@ -198,6 +220,7 @@ def test_main_returns_failure_status_when_any_resource_fails():
                     "batch_size": 0,
                     "concurrency": 0,
                     "force": False,
+                    "verbose": False,
                 },
             )(),
         ),

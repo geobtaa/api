@@ -40,8 +40,15 @@ from app.services.resource_representation_cache import (  # noqa: E402
 )
 from db.models import resources  # noqa: E402
 
-logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def configure_logging(*, verbose: bool = False) -> None:
+    """Keep bulk priming output readable unless verbose diagnostics are requested."""
+    level = logging.INFO if verbose else logging.WARNING
+    logging.basicConfig(level=level, format="%(levelname)s: %(message)s", force=True)
+    for handler in logging.getLogger().handlers:
+        handler.setLevel(level)
 
 
 async def _count_resources(resource_ids: list[str], limit: int | None) -> int:
@@ -206,11 +213,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=100, help="Database batch size")
     parser.add_argument("--concurrency", type=int, default=4, help="Concurrent resource builders")
     parser.add_argument("--force", action="store_true", help="Rebuild even if cache entry exists")
+    parser.add_argument("--verbose", action="store_true", help="Show INFO logs from app services")
     return parser.parse_args()
 
 
 def main() -> int:
     args = _parse_args()
+    configure_logging(verbose=args.verbose)
     counters = asyncio.run(
         prime_resource_representation_cache(
             resource_ids=args.resource_ids,
@@ -220,12 +229,12 @@ def main() -> int:
             force=args.force,
         )
     )
-    logger.info(
-        "Resource representation priming complete: primed=%s cached=%s missing=%s failed=%s",
-        counters["primed"],
-        counters["cached"],
-        counters["missing"],
-        counters["failed"],
+    print(
+        "Resource representation priming complete: "
+        f"primed={counters['primed']} "
+        f"cached={counters['cached']} "
+        f"missing={counters['missing']} "
+        f"failed={counters['failed']}"
     )
     return 1 if counters["failed"] else 0
 
