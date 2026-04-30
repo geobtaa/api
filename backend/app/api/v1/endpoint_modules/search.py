@@ -388,8 +388,8 @@ async def search(
         return JSONResponse(content={"error": "Search request failed"}, status_code=500)
 
 
-@cached_endpoint(ttl=SEARCH_CACHE_TTL)
 @router.post("/search")
+@cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def search_post(
     request: Request,
     payload: Annotated[

@@ -11,6 +11,8 @@ import pytest
 from fastapi.responses import JSONResponse
 
 from app.api.v1.utils import (
+    _hot_resource_class_icon_url,
+    _hot_static_map_url,
     add_citations,
     add_thumbnail_url,
     add_ui_attributes,
@@ -195,6 +197,61 @@ class TestAddThumbnailUrl:
         assert result["ui_thumbnail_url"] == direct_hash_url
         mock_get_hot_thumbnail_url.assert_called_once()
         mock_get_thumbnail_url.assert_not_called()
+
+
+class TestHotVisualAssetUrls:
+    def test_hot_static_map_url_rehydrates_alias_without_redis_asset_body(self):
+        class FakeStaticMapService:
+            def __init__(self):
+                self.materialize_kwargs = None
+
+            def geometry_signature(self, geometry):
+                return f"sig:{geometry}"
+
+            def geometry_variant(self):
+                return "static_map_v7"
+
+            def materialize_cached_variant_sync(self, resource_id, **kwargs):
+                self.materialize_kwargs = {"resource_id": resource_id, **kwargs}
+                return "a" * 64
+
+        fake_service = FakeStaticMapService()
+        resource = {"id": "resource-1", "locn_geometry": "ENVELOPE(-1,1,1,-1)"}
+
+        with patch("app.services.static_map_service.StaticMapService", return_value=fake_service):
+            url = _hot_static_map_url(resource)
+
+        assert url.endswith(f"/static-map-assets/{'a' * 64}")
+        assert fake_service.materialize_kwargs["resource_id"] == "resource-1"
+        assert fake_service.materialize_kwargs["hydrate_asset"] is False
+
+    def test_hot_resource_class_icon_url_rehydrates_alias_without_redis_asset_body(self):
+        class FakeStaticMapService:
+            def __init__(self):
+                self.asset_hash_kwargs = None
+
+            def get_asset_hash_sync(self, resource_id, **kwargs):
+                self.asset_hash_kwargs = {"resource_id": resource_id, **kwargs}
+                return "b" * 64
+
+        fake_service = FakeStaticMapService()
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._resource_class_icon_signature",
+                return_value="icon-sig",
+            ),
+            patch("app.services.static_map_service.StaticMapService", return_value=fake_service),
+        ):
+            url = _hot_resource_class_icon_url({"id": "resource-1"})
+
+        assert url.endswith(f"/static-map-assets/{'b' * 64}?kind=resource-class-icon")
+        assert fake_service.asset_hash_kwargs == {
+            "resource_id": "resource-1",
+            "variant": "resource-class-icon",
+            "source_signature": "icon-sig",
+            "hydrate_asset": False,
+        }
 
 
 class TestProcessResourceOptimized:

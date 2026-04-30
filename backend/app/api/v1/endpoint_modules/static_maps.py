@@ -120,6 +120,7 @@ async def _get_asset_redirect(
         resource_id,
         variant=variant,
         source_signature=source_signature,
+        hydrate_asset=False,
     )
     if not map_hash:
         return None

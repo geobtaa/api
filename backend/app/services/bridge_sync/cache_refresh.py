@@ -129,7 +129,11 @@ async def _prime_static_map_caches(
 
     async def run_one(resource_dict: dict[str, Any]) -> tuple[str, str, str]:
         async with semaphore:
-            return await _prime_static_maps_for_resource(resource_dict, force=force)
+            return await _prime_static_maps_for_resource(
+                resource_dict,
+                force=force,
+                hydrate_assets=False,
+            )
 
     tasks = [asyncio.create_task(run_one(resource_dict)) for resource_dict in resource_dicts]
     for task in asyncio.as_completed(tasks):

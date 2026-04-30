@@ -110,6 +110,25 @@ async def test_warm_generated_assets_for_changed_resources_warms_all_generated_a
 
 
 @pytest.mark.asyncio
+async def test_bridge_static_map_warm_skips_redis_asset_body_hydration():
+    resource_dicts = [{"id": "resource-1", "locn_geometry": "ENVELOPE(-1,1,1,-1)"}]
+
+    with patch(
+        "scripts.prime_static_map_cache._prime_static_maps_for_resource",
+        new=AsyncMock(return_value=("cached", "resource-1", "ok")),
+    ) as mock_prime_static_map:
+        stats = await cache_refresh._prime_static_map_caches(
+            resource_dicts,
+            concurrency=1,
+            force=False,
+        )
+
+    assert stats == {"attempted": 1, "cached": 1}
+    mock_prime_static_map.assert_awaited_once()
+    assert mock_prime_static_map.await_args.kwargs["hydrate_assets"] is False
+
+
+@pytest.mark.asyncio
 async def test_warm_generated_assets_can_be_disabled(monkeypatch):
     monkeypatch.setenv("BRIDGE_GENERATED_ASSET_REFRESH_ENABLED", "false")
 

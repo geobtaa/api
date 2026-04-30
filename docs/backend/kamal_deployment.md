@@ -47,6 +47,11 @@ All three boxes now use the same persistent storage layout:
 - `/var/lib/btaa-geospatial-api/elasticsearch`
 - `/var/lib/btaa-geospatial-api/redis`
 
+Redis is configured with a memory ceiling (`REDIS_MAXMEMORY`, default `12gb`)
+and `volatile-lru` eviction so cache keys with TTLs are evicted before Redis can
+consume the whole VM. Override only after sizing the host and the visual/API
+cache workload.
+
 All routine Kamal operations should use the shared `deploy` SSH account.
 
 ### Single-host routing
@@ -199,6 +204,10 @@ kamal accessory reboot -d prd redis
 kamal accessory reboot -d prd all
 kamal app exec -d prd "bash -lc 'cd /app/backend && /opt/venv/bin/python scripts/verify_h3_index.py'"
 ```
+
+If a host is memory overloaded, swapping, or recovering from a large cache-prime
+run, use the step-by-step [VM memory recovery runbook](vm_memory_recovery.md)
+before restarting more services.
 
 ### Cache, indexing, and remote ops
 

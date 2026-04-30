@@ -39,6 +39,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
+# Priming is allowed to wait through Redis restarts/loading instead of turning
+# one transient cache outage into thousands of false per-resource failures.
+os.environ.setdefault("VISUAL_ASSET_REDIS_LOADING_MAX_WAIT_SECONDS", "900")
+os.environ.setdefault("VISUAL_ASSET_REDIS_LOADING_RETRY_SECONDS", "5")
+
 from app.api.v1.utils import _get_thumbnail_asset_url, sanitize_for_json  # noqa: E402
 from app.services.distribution_repository import (  # noqa: E402
     async_session_factory,

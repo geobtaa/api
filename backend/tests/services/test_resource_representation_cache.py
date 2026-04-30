@@ -172,9 +172,9 @@ async def test_store_resource_representations_bulk_persists_and_tags_each_resour
     assert len(cache_service.set_many_calls) == 1
     stored_values, ttl = cache_service.set_many_calls[0]
     assert ttl == resource_cache.RESOURCE_REPRESENTATION_CACHE_TTL
-    assert stored_values[
-        resource_representation_cache_key("r1", profile="api-full")
-    ] == {"id": "r1"}
+    assert stored_values[resource_representation_cache_key("r1", profile="api-full")] == {
+        "id": "r1"
+    }
     assert len(cache_service.tag_calls) == 2
     assert {"resource:r1", "resource:r2"} == {
         next(tag for tag in tags if tag.startswith("resource:"))

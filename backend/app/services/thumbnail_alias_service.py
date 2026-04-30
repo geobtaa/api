@@ -8,7 +8,7 @@ from typing import Optional
 
 import redis
 
-from app.services.visual_asset_cache import cache_visual_asset
+from app.services.visual_asset_cache import cache_visual_asset, redis_operation_with_loading_retry
 
 logger = logging.getLogger(__name__)
 
@@ -54,12 +54,19 @@ class ThumbnailAliasService:
 
     def get_hash_sync(self, resource_id: str) -> Optional[str]:
         """Return the cached immutable thumbnail hash for a resource, if present."""
+        key = self._key(resource_id)
         try:
-            value = self.cache.get(self._key(resource_id))
+            value = redis_operation_with_loading_retry(
+                lambda: self.cache.get(key),
+                operation_name=f"read thumbnail alias {key}",
+            )
             if is_thumbnail_hash(value):
                 return value
             if value:
-                self.cache.delete(self._key(resource_id))
+                redis_operation_with_loading_retry(
+                    lambda: self.cache.delete(key),
+                    operation_name=f"delete invalid thumbnail alias {key}",
+                )
             return None
         except Exception as exc:
             logger.warning("Failed to read thumbnail alias for %s: %s", resource_id, exc)
@@ -72,10 +79,16 @@ class ThumbnailAliasService:
         """Cache the immutable thumbnail hash for a resource."""
         if not is_thumbnail_hash(image_hash):
             return False
+        key = self._key(resource_id)
         try:
             if self.ttl_seconds > 0:
-                return bool(self.cache.setex(self._key(resource_id), self.ttl_seconds, image_hash))
-            return cache_visual_asset(self.cache, self._key(resource_id), image_hash)
+                return bool(
+                    redis_operation_with_loading_retry(
+                        lambda: self.cache.setex(key, self.ttl_seconds, image_hash),
+                        operation_name=f"cache thumbnail alias {key}",
+                    )
+                )
+            return cache_visual_asset(self.cache, key, image_hash)
         except Exception as exc:
             logger.warning(
                 "Failed to cache thumbnail alias for %s -> %s: %s",
@@ -90,8 +103,14 @@ class ThumbnailAliasService:
 
     def delete_sync(self, resource_id: str) -> bool:
         """Remove a resource thumbnail alias from Redis."""
+        key = self._key(resource_id)
         try:
-            return bool(self.cache.delete(self._key(resource_id)))
+            return bool(
+                redis_operation_with_loading_retry(
+                    lambda: self.cache.delete(key),
+                    operation_name=f"delete thumbnail alias {key}",
+                )
+            )
         except Exception as exc:
             logger.warning("Failed to delete thumbnail alias for %s: %s", resource_id, exc)
             return False

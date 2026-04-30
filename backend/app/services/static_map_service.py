@@ -10,6 +10,7 @@ import hashlib
 import io
 import json
 import logging
+import math
 import os
 import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -26,6 +27,7 @@ from app.services.visual_asset_cache import (
     cache_visual_asset,
     get_durable_visual_asset,
     get_durable_visual_asset_hash_for_resource,
+    redis_operation_with_loading_retry,
     store_durable_visual_asset,
     store_durable_visual_asset_link,
 )
@@ -34,6 +36,8 @@ from app.services.visual_asset_cache import (
 load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+WEB_MERCATOR_MAX_LATITUDE = 85.05112878
 
 # Custom Carto tile provider (not available in py-staticmaps v0.4.0)
 # Based on: https://github.com/flopp/py-staticmaps/blob/e0266dc40163e87ce42a0ea5d8836a9a4bd92208/staticmaps/tile_provider.py#L132
@@ -187,6 +191,34 @@ class StaticMapService:
         )
 
         return is_near_global
+
+    def _renderable_bbox(
+        self,
+        bbox_coords: Tuple[float, float, float, float],
+    ) -> Optional[Tuple[float, float, float, float]]:
+        """Return a Web-Mercator-safe bbox, or None when no renderable area remains."""
+        xmin, ymin, xmax, ymax = bbox_coords
+        if not all(math.isfinite(value) for value in bbox_coords):
+            return None
+
+        xmin = max(-180.0, min(180.0, xmin))
+        xmax = max(-180.0, min(180.0, xmax))
+        ymin = max(-WEB_MERCATOR_MAX_LATITUDE, min(WEB_MERCATOR_MAX_LATITUDE, ymin))
+        ymax = max(-WEB_MERCATOR_MAX_LATITUDE, min(WEB_MERCATOR_MAX_LATITUDE, ymax))
+
+        if xmin >= xmax or ymin >= ymax:
+            return None
+        if (xmax - xmin) < 0.001 or (ymax - ymin) < 0.001:
+            return None
+        return (xmin, ymin, xmax, ymax)
+
+    def _bbox_within_web_mercator(
+        self,
+        bbox_coords: Tuple[float, float, float, float],
+    ) -> bool:
+        """Return True when full geometry can be handed to staticmaps safely."""
+        _xmin, ymin, _xmax, ymax = bbox_coords
+        return ymin >= -WEB_MERCATOR_MAX_LATITUDE and ymax <= WEB_MERCATOR_MAX_LATITUDE
 
     def _parse_geometry_to_bbox(self, geometry: Any) -> Optional[Tuple[float, float, float, float]]:
         """
@@ -462,6 +494,7 @@ class StaticMapService:
         *,
         variant: str,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[str]:
         hot_hash = self.get_hot_asset_hash_sync(
             resource_id,
@@ -477,6 +510,14 @@ class StaticMapService:
             source_signature=source_signature,
         )
         if value and self._is_asset_hash(value):
+            if not hydrate_asset:
+                self.set_asset_hash_sync(
+                    resource_id,
+                    variant=variant,
+                    map_hash=value,
+                    source_signature=source_signature,
+                )
+                return value
             if self.get_cached_asset_sync(value):
                 self.set_asset_hash_sync(
                     resource_id,
@@ -496,23 +537,22 @@ class StaticMapService:
     ) -> Optional[str]:
         alias_cache = self._alias_cache()
         if alias_cache:
+            alias_key = self._alias_key(
+                resource_id,
+                variant=variant,
+                source_signature=source_signature,
+            )
             try:
-                value = alias_cache.get(
-                    self._alias_key(
-                        resource_id,
-                        variant=variant,
-                        source_signature=source_signature,
-                    )
+                value = redis_operation_with_loading_retry(
+                    lambda: alias_cache.get(alias_key),
+                    operation_name=f"read static map alias {alias_key}",
                 )
                 if self._is_asset_hash(value):
                     return value
                 if value:
-                    alias_cache.delete(
-                        self._alias_key(
-                            resource_id,
-                            variant=variant,
-                            source_signature=source_signature,
-                        )
+                    redis_operation_with_loading_retry(
+                        lambda: alias_cache.delete(alias_key),
+                        operation_name=f"delete invalid static map alias {alias_key}",
                     )
             except Exception as e:
                 logger.warning(
@@ -529,12 +569,14 @@ class StaticMapService:
         *,
         variant: str,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[str]:
         return await asyncio.to_thread(
             self.get_asset_hash_sync,
             resource_id,
             variant=variant,
             source_signature=source_signature,
+            hydrate_asset=hydrate_asset,
         )
 
     def set_asset_hash_sync(
@@ -634,7 +676,13 @@ class StaticMapService:
             return False
 
         try:
-            return bool(self.map_cache.exists(self._asset_key(map_hash)))
+            asset_key = self._asset_key(map_hash)
+            return bool(
+                redis_operation_with_loading_retry(
+                    lambda: self.map_cache.exists(asset_key),
+                    operation_name=f"check static map asset {asset_key}",
+                )
+            )
         except Exception as e:
             logger.error(f"Error checking cached static map asset {map_hash}: {e}")
             return False
@@ -648,7 +696,11 @@ class StaticMapService:
 
         if self.map_cache:
             try:
-                cached = self.map_cache.get(self._asset_key(map_hash))
+                asset_key = self._asset_key(map_hash)
+                cached = redis_operation_with_loading_retry(
+                    lambda: self.map_cache.get(asset_key),
+                    operation_name=f"read static map asset {asset_key}",
+                )
                 if cached:
                     return cached
             except Exception as e:
@@ -681,12 +733,14 @@ class StaticMapService:
         variant: str,
         map_bytes: bytes,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[str]:
         if not map_bytes:
             return None
 
         map_hash = self._asset_hash(map_bytes)
-        self.cache_asset_sync(map_hash, map_bytes)
+        if hydrate_asset:
+            self.cache_asset_sync(map_hash, map_bytes)
         store_durable_visual_asset(
             map_hash,
             asset_kind=variant,
@@ -728,6 +782,7 @@ class StaticMapService:
         variant: str,
         map_bytes: bytes,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[str]:
         return await asyncio.to_thread(
             self.materialize_asset_sync,
@@ -735,6 +790,7 @@ class StaticMapService:
             variant=variant,
             map_bytes=map_bytes,
             source_signature=source_signature,
+            hydrate_asset=hydrate_asset,
         )
 
     def materialize_cached_variant_sync(
@@ -743,12 +799,16 @@ class StaticMapService:
         *,
         variant: str,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[str]:
         map_hash = self.get_asset_hash_sync(
             resource_id,
             variant=variant,
             source_signature=source_signature,
+            hydrate_asset=hydrate_asset,
         )
+        if map_hash and not hydrate_asset:
+            return map_hash
         if map_hash and self.get_cached_asset_sync(map_hash):
             return map_hash
         if map_hash:
@@ -786,6 +846,7 @@ class StaticMapService:
             variant=variant,
             map_bytes=map_bytes,
             source_signature=source_signature,
+            hydrate_asset=hydrate_asset,
         )
 
     async def materialize_cached_variant(
@@ -794,12 +855,14 @@ class StaticMapService:
         *,
         variant: str,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[str]:
         return await asyncio.to_thread(
             self.materialize_cached_variant_sync,
             resource_id,
             variant=variant,
             source_signature=source_signature,
+            hydrate_asset=hydrate_asset,
         )
 
     def _geojson_to_staticmaps_objects(
@@ -999,8 +1062,9 @@ class StaticMapService:
         post_process: Callable[[Image.Image], Image.Image] | None = None,
         render_width: int | None = None,
         render_height: int | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[bytes]:
-        """Render context to PNG bytes and store in Redis. Returns bytes or None."""
+        """Render context to PNG bytes and persist it. Returns bytes or None."""
         render_width = render_width or self.map_width
         render_height = render_height or self.map_height
         try:
@@ -1058,7 +1122,7 @@ class StaticMapService:
         buf = io.BytesIO()
         image.save(buf, "PNG")
         map_bytes = buf.getvalue()
-        if self.map_cache:
+        if self.map_cache and hydrate_asset:
             try:
                 map_key = self._cache_key(
                     resource_id,
@@ -1066,22 +1130,31 @@ class StaticMapService:
                     source_signature=source_signature,
                 )
                 cache_visual_asset(self.map_cache, map_key, map_bytes)
-                self.materialize_asset_sync(
-                    resource_id,
-                    variant=variant,
-                    map_bytes=map_bytes,
-                    source_signature=source_signature,
-                )
-                logger.info(
-                    f"Generated and cached {variant} for resource {resource_id} "
-                    f"(size: {len(map_bytes)} bytes)"
-                )
-                return map_bytes
             except Exception as e:
-                logger.error(f"Failed to cache {variant} for {resource_id}: {e}")
+                logger.error(f"Failed to cache mutable {variant} key for {resource_id}: {e}")
                 return None
-        logger.warning("Redis not available, cannot cache static map")
-        return None
+        elif hydrate_asset:
+            logger.warning("Redis not available, cannot cache mutable static map key")
+
+        if not self.materialize_asset_sync(
+            resource_id,
+            variant=variant,
+            map_bytes=map_bytes,
+            source_signature=source_signature,
+            hydrate_asset=hydrate_asset,
+        ):
+            logger.error("Failed to persist %s for resource %s", variant, resource_id)
+            return None
+
+        action = "cached" if hydrate_asset else "persisted without Redis asset hydration"
+        logger.info(
+            "Generated and %s %s for resource %s (size: %s bytes)",
+            action,
+            variant,
+            resource_id,
+            len(map_bytes),
+        )
+        return map_bytes
 
     def generate_map(
         self,
@@ -1089,6 +1162,7 @@ class StaticMapService:
         geometry: Any,
         *,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[bytes]:
         """
         Generate a static map image from a geometry and store it in Redis.
@@ -1103,24 +1177,48 @@ class StaticMapService:
             PNG image bytes if successful, None if generation failed
         """
         try:
-            # Prefer best geometry: full GeoJSON (polygon/line) like the show page
-            geojson_dict = self._geometry_to_geojson_dict(geometry)
-            map_objects = (
-                self._geojson_to_staticmaps_objects(geojson_dict) if geojson_dict else None
-            )
-
             # Parse bbox for skip-global check and for fallback rectangle
             bbox_coords = self._parse_geometry_to_bbox(geometry)
             if not bbox_coords:
                 logger.warning(f"Could not parse geometry for resource {resource_id}")
-                return None
-
-            xmin, ymin, xmax, ymax = bbox_coords
+                return self.generate_global_map(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
 
             # Skip global datasets (they don't make good static maps)
             if self._is_global_bbox(bbox_coords):
                 logger.debug(f"Skipping global dataset for resource {resource_id}")
-                return None
+                return self.generate_global_map(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
+
+            render_bbox = self._renderable_bbox(bbox_coords)
+            if not render_bbox:
+                logger.debug(
+                    "Using global map for unrenderable Web-Mercator bbox on %s: %s",
+                    resource_id,
+                    bbox_coords,
+                )
+                return self.generate_global_map(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
+
+            # Prefer best geometry only when every coordinate is inside the
+            # renderable Web Mercator latitude range. Staticmaps' center/zoom
+            # math raises at/near the poles, so polar records use the clamped
+            # bbox fallback below.
+            geojson_dict = self._geometry_to_geojson_dict(geometry)
+            map_objects = (
+                self._geojson_to_staticmaps_objects(geojson_dict)
+                if geojson_dict and self._bbox_within_web_mercator(bbox_coords)
+                else None
+            )
 
             # Create a context for the map
             context = staticmaps.Context()
@@ -1134,13 +1232,13 @@ class StaticMapService:
                 # Fallback: bbox rectangle only (e.g. ENVELOPE or dcat_bbox string)
                 # Glow layer first, then main rectangle
                 glow_rect = self._bbox_area(
-                    bbox_coords,
+                    render_bbox,
                     fill_color=self._TRANSPARENT_COLOR,
                     color=self._STROKE_GLOW_COLOR,
                     width=self._STROKE_GLOW_WIDTH,
                 )
                 rectangle = self._bbox_area(
-                    bbox_coords,
+                    render_bbox,
                     fill_color=self._FILL_COLOR,
                     color=self._STROKE_COLOR,
                     width=self._LINE_WIDTH,
@@ -1154,6 +1252,7 @@ class StaticMapService:
                 resource_id,
                 variant=self._MAP_VARIANT,
                 source_signature=source_signature or self.geometry_signature(geometry),
+                hydrate_asset=hydrate_asset,
             )
 
         except Exception as e:
@@ -1167,6 +1266,7 @@ class StaticMapService:
         resource_id: str,
         *,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[bytes]:
         """
         Generate a world-view static map (no bbox) for resources with no geometry.
@@ -1182,6 +1282,7 @@ class StaticMapService:
                 post_process=self._overlay_no_data_symbol,
                 render_width=512,
                 render_height=512,
+                hydrate_asset=hydrate_asset,
             )
         except Exception as e:
             logger.error(
@@ -1196,11 +1297,41 @@ class StaticMapService:
         geometry: Any,
         *,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[bytes]:
         """
         Generate a basemap-only image using the resource extent with no visible geometry overlay.
         """
         try:
+            bbox_coords = self._parse_geometry_to_bbox(geometry)
+            if not bbox_coords:
+                logger.warning(f"Could not parse geometry for basemap {resource_id}")
+                return self.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
+
+            if self._is_global_bbox(bbox_coords):
+                return self.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
+
+            render_bbox = self._renderable_bbox(bbox_coords)
+            if not render_bbox:
+                logger.debug(
+                    "Using global basemap for unrenderable Web-Mercator bbox on %s: %s",
+                    resource_id,
+                    bbox_coords,
+                )
+                return self.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
+
             geojson_dict = self._geometry_to_geojson_dict(geometry)
             extent_objects = (
                 self._geojson_to_staticmaps_objects(
@@ -1210,22 +1341,9 @@ class StaticMapService:
                     width=self._LINE_WIDTH,
                     include_glow=False,
                 )
-                if geojson_dict
+                if geojson_dict and self._bbox_within_web_mercator(bbox_coords)
                 else None
             )
-            bbox_coords = self._parse_geometry_to_bbox(geometry)
-            if not bbox_coords:
-                logger.warning(f"Could not parse geometry for basemap {resource_id}")
-                return self.generate_global_basemap(
-                    resource_id,
-                    source_signature=source_signature or self.geometry_signature(None),
-                )
-
-            if self._is_global_bbox(bbox_coords):
-                return self.generate_global_basemap(
-                    resource_id,
-                    source_signature=source_signature or self.geometry_signature(None),
-                )
 
             context = staticmaps.Context()
             context.set_tile_provider(tile_provider_Carto)
@@ -1234,7 +1352,7 @@ class StaticMapService:
                     context.add_object(obj)
             else:
                 invisible_extent = self._bbox_area(
-                    bbox_coords,
+                    render_bbox,
                     fill_color=self._TRANSPARENT_COLOR,
                     color=self._TRANSPARENT_COLOR,
                     width=self._LINE_WIDTH,
@@ -1245,6 +1363,7 @@ class StaticMapService:
                 resource_id,
                 variant=self._BASEMAP_VARIANT,
                 source_signature=source_signature or self.geometry_signature(geometry),
+                hydrate_asset=hydrate_asset,
             )
         except Exception as e:
             logger.error(f"Error generating basemap for resource {resource_id}: {e}", exc_info=True)
@@ -1255,6 +1374,7 @@ class StaticMapService:
         resource_id: str,
         *,
         source_signature: str | None = None,
+        hydrate_asset: bool = True,
     ) -> Optional[bytes]:
         """Generate a world-view basemap image with no geometry overlay."""
         try:
@@ -1266,6 +1386,7 @@ class StaticMapService:
                 source_signature=source_signature or self.geometry_signature(None),
                 render_width=512,
                 render_height=512,
+                hydrate_asset=hydrate_asset,
             )
         except Exception as e:
             logger.error(

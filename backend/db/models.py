@@ -417,6 +417,45 @@ generated_resource_representations = Table(
     ),
 )
 
+generated_api_responses = Table(
+    "generated_api_responses",
+    metadata,
+    Column("cache_key", String(1024), primary_key=True),
+    Column("namespace", String(512), nullable=False, index=True),
+    Column("method", String(16), nullable=True, index=True),
+    Column("path", Text, nullable=True),
+    Column("query", Text, nullable=True),
+    Column("record", JSON, nullable=False),
+    Column("status", Integer, nullable=False, index=True),
+    Column("record_hash", String(64), nullable=False, index=True),
+    Column("body_byte_size", Integer, nullable=False),
+    Column("soft_expires_at", TIMESTAMP, nullable=True, index=True),
+    Column("hard_expires_at", TIMESTAMP, nullable=False, index=True),
+    Column("generated_at", TIMESTAMP, nullable=False, server_default=func.now(), index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
+generated_api_response_tags = Table(
+    "generated_api_response_tags",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column(
+        "cache_key",
+        String(1024),
+        ForeignKey("generated_api_responses.cache_key", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    ),
+    Column("tag", String(255), nullable=False, index=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    UniqueConstraint(
+        "cache_key",
+        "tag",
+        name="uq_generated_api_response_tags_cache_key_tag",
+    ),
+)
+
 # Distribution types lookup table
 distribution_types = Table(
     "distribution_types",

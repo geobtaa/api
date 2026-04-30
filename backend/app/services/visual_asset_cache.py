@@ -1,6 +1,7 @@
 import logging
 import os
-from typing import Any
+import time
+from typing import Any, Callable, TypeVar
 
 from sqlalchemy import create_engine, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
@@ -10,6 +11,7 @@ from db.models import generated_visual_asset_links, generated_visual_assets
 
 _engine = None
 logger = logging.getLogger(__name__)
+T = TypeVar("T")
 
 
 def visual_asset_ttl_seconds() -> int:
@@ -22,11 +24,82 @@ def visual_asset_ttl_seconds() -> int:
     return int(os.getenv("VISUAL_ASSET_CACHE_TTL_SECONDS", "0"))
 
 
+def _env_float(name: str, default: float) -> float:
+    value = os.getenv(name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        logger.warning("Invalid float for %s=%r; using default=%s", name, value, default)
+        return default
+
+
+def redis_loading_max_wait_seconds() -> float:
+    """How long visual-cache operations should wait while Redis is loading."""
+    return max(0.0, _env_float("VISUAL_ASSET_REDIS_LOADING_MAX_WAIT_SECONDS", 0.0))
+
+
+def redis_loading_retry_seconds() -> float:
+    """Retry cadence while Redis reports it is loading its persisted dataset."""
+    return max(0.05, _env_float("VISUAL_ASSET_REDIS_LOADING_RETRY_SECONDS", 5.0))
+
+
+def is_redis_loading_error(exc: BaseException) -> bool:
+    """Return True when Redis rejected the command because it is still loading."""
+    if exc.__class__.__name__ == "BusyLoadingError":
+        return True
+    return "redis is loading the dataset in memory" in str(exc).lower()
+
+
+def redis_operation_with_loading_retry(
+    operation: Callable[[], T],
+    *,
+    operation_name: str,
+) -> T:
+    """
+    Run a Redis operation, optionally waiting through Redis LOADING states.
+
+    Priming jobs set VISUAL_ASSET_REDIS_LOADING_MAX_WAIT_SECONDS so a Redis
+    restart/load does not become thousands of false per-resource failures.
+    Normal request handling keeps the default zero wait and falls back quickly.
+    """
+    deadline = time.monotonic() + redis_loading_max_wait_seconds()
+    warned = False
+
+    while True:
+        try:
+            return operation()
+        except Exception as exc:
+            if not is_redis_loading_error(exc) or time.monotonic() >= deadline:
+                raise
+
+            remaining = max(0.0, deadline - time.monotonic())
+            if not warned:
+                logger.warning(
+                    "%s blocked while Redis loads its dataset; waiting up to %.0fs",
+                    operation_name,
+                    remaining,
+                )
+                warned = True
+            time.sleep(min(redis_loading_retry_seconds(), remaining))
+
+
 def cache_visual_asset(cache: Any, key: str, value: bytes | str) -> bool:
     ttl = visual_asset_ttl_seconds()
     if ttl > 0:
-        return bool(cache.setex(key, ttl, value))
-    return bool(cache.set(key, value))
+        return bool(
+            redis_operation_with_loading_retry(
+                lambda: cache.setex(key, ttl, value),
+                operation_name=f"cache visual asset {key}",
+            )
+        )
+    return bool(
+        redis_operation_with_loading_retry(
+            lambda: cache.set(key, value),
+            operation_name=f"cache visual asset {key}",
+        )
+    )
 
 
 def durable_visual_asset_enabled() -> bool:

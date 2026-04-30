@@ -160,6 +160,7 @@ def _hot_static_map_url(resource_dict: Dict[str, Any]) -> Optional[str]:
         resource_dict["id"],
         variant=map_service.geometry_variant(),
         source_signature=source_signature,
+        hydrate_asset=False,
     )
     if not map_hash:
         return None
@@ -180,10 +181,11 @@ def _hot_resource_class_icon_url(resource_dict: Dict[str, Any]) -> Optional[str]
         resource_dict,
         variant="icon-basemap",
     )
-    map_hash = map_service.get_hot_asset_hash_sync(
+    map_hash = map_service.get_asset_hash_sync(
         resource_id,
         variant="resource-class-icon",
         source_signature=source_signature,
+        hydrate_asset=False,
     )
     if not map_hash:
         return None
@@ -736,9 +738,7 @@ async def process_resource(
 
     # Use RelationshipService to get relationships
     if ui_relationships is None:
-        ui_relationships = await RelationshipService.get_resource_relationships(
-            resource_dict["id"]
-        )
+        ui_relationships = await RelationshipService.get_resource_relationships(resource_dict["id"])
 
     # Get Allmaps attributes
     if allmaps_attributes is None:

@@ -16,6 +16,14 @@ from starlette.datastructures import Headers
 from starlette.responses import Response
 
 from app.security_utils import stable_hex_digest
+from app.services.durable_response_cache import (
+    delete_all_durable_api_responses,
+    delete_durable_api_response,
+    delete_durable_api_responses_for_tags,
+    delete_durable_api_responses_with_prefix,
+    get_durable_api_response,
+    store_durable_api_response,
+)
 
 # Load environment variables from .env file
 load_dotenv()
@@ -233,6 +241,40 @@ def _resource_cache_tags_from_body(body: bytes) -> set[str]:
     return tags
 
 
+def _response_cache_tags(
+    *,
+    namespace: str,
+    tags: Optional[Iterable[str]],
+    cache_args: dict[str, Any],
+    path: str,
+    body: bytes,
+) -> set[str]:
+    """Return durable/Redis tags for a cached endpoint response."""
+    tag_set: set[str] = set(tags or [])
+    tag_set.add(f"ns:{namespace}")
+
+    # Heuristics for common public APIs.
+    if namespace.endswith(".search"):
+        tag_set.add("search")
+    if namespace.endswith(".suggest"):
+        tag_set.add("suggest")
+    if "/resources" in path:
+        tag_set.add("resource")
+    if "gazetteer" in namespace or "/gazetteer" in path:
+        tag_set.add("gazetteer")
+    if "facet_name" in cache_args and cache_args.get("facet_name"):
+        tag_set.add(f"facet:{cache_args.get('facet_name')}")
+        tag_set.add("search")
+    if "/search" in path or "/resources" in path:
+        tag_set.update(_resource_cache_tags_from_body(body))
+
+    # Resource-like endpoints commonly use 'id'.
+    rid = cache_args.get("id") or cache_args.get("resource_id")
+    if rid and "/resources/" in path:
+        tag_set.add(f"resource:{rid}")
+    return tag_set
+
+
 def _warm_metadata_from_request(request: Any) -> Optional[dict[str, str]]:
     """Return enough request metadata to replay a cached public GET."""
     if request is None:
@@ -373,54 +415,98 @@ class CacheService:
 
     async def delete(self, key: str) -> bool:
         """Delete a value from cache."""
-        if not self._redis_client or not ENDPOINT_CACHE:
+        if not ENDPOINT_CACHE:
             return False
 
+        durable_deleted = await delete_durable_api_response(key)
         try:
-            return bool(await _redis_call(self._redis_client.delete(key)))
+            if not self._redis_client:
+                return durable_deleted
+            return bool(await _redis_call(self._redis_client.delete(key))) or durable_deleted
         except Exception as e:
             logger.error(f"Error deleting from cache: {str(e)}")
-            return False
+            return durable_deleted
 
     async def flush_all(self) -> bool:
         """Flush all cache entries."""
-        if not self._redis_client or not ENDPOINT_CACHE:
+        if not ENDPOINT_CACHE:
             return False
 
+        durable_deleted = await delete_all_durable_api_responses()
         try:
-            return await _redis_call(self._redis_client.flushdb())
+            if not self._redis_client:
+                return durable_deleted >= 0
+            return bool(await _redis_call(self._redis_client.flushdb()))
         except Exception as e:
             logger.error(f"Error flushing cache: {str(e)}")
-            return False
+            return durable_deleted >= 0
 
     async def get_record(self, key: str) -> Optional[dict[str, Any]]:
         """Get a cached response record (v2+)."""
-        if not self._redis_client or not ENDPOINT_CACHE:
-            return None
-        try:
-            raw = await _redis_call(self._redis_client.get(key))
-            if not raw:
-                return None
-            record = json.loads(raw)
-            if not isinstance(record, dict):
-                return None
-            if record.get("schema") != RECORD_SCHEMA_VERSION:
-                return None
-            return record
-        except Exception as e:
-            logger.error(f"Error retrieving record from cache: {str(e)}")
+        if not ENDPOINT_CACHE:
             return None
 
-    async def set_record(self, key: str, record: dict[str, Any], ttl_seconds: int) -> bool:
+        if self._redis_client:
+            try:
+                raw = await _redis_call(self._redis_client.get(key))
+                if raw:
+                    record = json.loads(raw)
+                    if isinstance(record, dict) and record.get("schema") == RECORD_SCHEMA_VERSION:
+                        return record
+            except Exception as e:
+                logger.error(f"Error retrieving record from cache: {str(e)}")
+
+        durable = await get_durable_api_response(key)
+        if not durable:
+            return None
+
+        record, tags, namespace = durable
+        if record.get("schema") != RECORD_SCHEMA_VERSION:
+            return None
+
+        now = _now_epoch()
+        hard_exp = float(record.get("hard_exp") or 0)
+        redis_ttl = max(1, int(hard_exp - now)) if hard_exp else DEFAULT_CACHE_TTL
+        await self.set_record(
+            key,
+            record,
+            ttl_seconds=redis_ttl,
+            write_durable=False,
+        )
+        if tags:
+            await self.tag_cache_key(key, tags, ttl_seconds=redis_ttl)
+        _log_cache_event("durable_hit", namespace=namespace or "", redis_ttl=redis_ttl)
+        return record
+
+    async def set_record(
+        self,
+        key: str,
+        record: dict[str, Any],
+        ttl_seconds: int,
+        *,
+        namespace: str | None = None,
+        tags: Iterable[str] | None = None,
+        write_durable: bool = True,
+    ) -> bool:
         """Set a cached response record (v2+) with expiration."""
-        if not self._redis_client or not ENDPOINT_CACHE:
+        if not ENDPOINT_CACHE:
             return False
+        redis_ok = False
         try:
-            raw = json.dumps(record, separators=(",", ":"), sort_keys=True).encode("utf-8")
-            return await _redis_call(self._redis_client.set(key, raw, ex=ttl_seconds))
+            if self._redis_client:
+                raw = json.dumps(record, separators=(",", ":"), sort_keys=True).encode("utf-8")
+                redis_ok = bool(await _redis_call(self._redis_client.set(key, raw, ex=ttl_seconds)))
         except Exception as e:
             logger.error(f"Error setting record cache: {str(e)}")
-            return False
+        durable_ok = False
+        if write_durable and namespace:
+            durable_ok = await store_durable_api_response(
+                key,
+                record,
+                namespace=namespace,
+                tags=tags or [],
+            )
+        return redis_ok or durable_ok
 
     async def acquire_lock(self, lock_key: str) -> bool:
         """Acquire a per-key lock to prevent stampedes."""
@@ -472,11 +558,15 @@ class CacheService:
 
         Returns number of cached response keys deleted (best-effort).
         """
-        if not self._redis_client or not ENDPOINT_CACHE:
+        if not ENDPOINT_CACHE:
             return 0
+        tag_values = {str(t) for t in tags if t}
+        durable_deleted = await delete_durable_api_responses_for_tags(tag_values)
         deleted = 0
+        if not self._redis_client:
+            return durable_deleted
         try:
-            for tag in {str(t) for t in tags if t}:
+            for tag in tag_values:
                 tagset_key = self._tagset_key(tag)
                 members = await _redis_call(self._redis_client.smembers(tagset_key))
                 if not members:
@@ -509,7 +599,7 @@ class CacheService:
                 await _redis_call(self._redis_client.delete(tagset_key))
         except Exception as e:
             logger.error(f"Error invalidating tags {list(tags)}: {e}")
-        return deleted
+        return deleted + durable_deleted
 
     async def cached_records_for_tags(self, tags: Iterable[str]) -> list[dict[str, Any]]:
         """Return cached response records associated with tags, before invalidation."""
@@ -592,6 +682,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
             args: tuple[Any, ...],
             kwargs: dict[str, Any],
             ttl_seconds: int,
+            cache_args: dict[str, Any],
+            explicit_tags: Optional[Iterable[str]],
+            path: str,
         ) -> None:
             """Recompute and refresh a cached key. Best-effort; never raises."""
             try:
@@ -627,7 +720,25 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                         warm = _warm_metadata_from_request(_find_request_in_call(args, kwargs))
                         if warm:
                             record["warm"] = warm
-                        await cache_service.set_record(cache_key, record, ttl_seconds=redis_ttl)
+                        tag_set = _response_cache_tags(
+                            namespace=key_namespace,
+                            tags=explicit_tags,
+                            cache_args=cache_args,
+                            path=path,
+                            body=body,
+                        )
+                        await cache_service.set_record(
+                            cache_key,
+                            record,
+                            ttl_seconds=redis_ttl,
+                            namespace=key_namespace,
+                            tags=tag_set,
+                        )
+                        await cache_service.tag_cache_key(
+                            cache_key,
+                            tag_set,
+                            ttl_seconds=redis_ttl,
+                        )
                         _log_cache_event(
                             "refresh_store", namespace=key_namespace, redis_ttl=redis_ttl
                         )
@@ -646,7 +757,12 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                             record["hard_exp"] = new_hard
                             # Keep TTL aligned with new hard expiry.
                             redis_ttl = max(1, int(new_hard - now))
-                            await cache_service.set_record(cache_key, record, ttl_seconds=redis_ttl)
+                            await cache_service.set_record(
+                                cache_key,
+                                record,
+                                ttl_seconds=redis_ttl,
+                                write_durable=False,
+                            )
                 except Exception:
                     pass
                 logger.warning(f"Cache refresh failed for {key_namespace}: {e}")
@@ -675,6 +791,11 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                 if request is not None
                 else CacheService.generate_cache_key(namespace, **cache_args)
             )
+            path = ""
+            try:
+                path = request.url.path if request else ""
+            except Exception:
+                path = ""
 
             # Try to get from cache
             cache_service = CacheService()
@@ -712,6 +833,9 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                                     args=args,
                                     kwargs=kwargs,
                                     ttl_seconds=ttl,
+                                    cache_args=cache_args,
+                                    explicit_tags=tags,
+                                    path=path,
                                 )
                             )
 
@@ -810,33 +934,20 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                         warm = _warm_metadata_from_request(request)
                         if warm:
                             record["warm"] = warm
-                        await cache_service.set_record(cache_key, record, ttl_seconds=redis_ttl)
-                        # Tagging for invalidation
-                        tag_set: set[str] = set(tags or [])
-                        tag_set.add(f"ns:{namespace}")
-                        # Heuristics for common public APIs
-                        if namespace.endswith(".search"):
-                            tag_set.add("search")
-                        if namespace.endswith(".suggest"):
-                            tag_set.add("suggest")
-                        path = ""
-                        try:
-                            path = request.url.path if request else ""
-                        except Exception:
-                            path = ""
-                        if "/resources" in path:
-                            tag_set.add("resource")
-                        if "gazetteer" in namespace or "/gazetteer" in path:
-                            tag_set.add("gazetteer")
-                        if "facet_name" in cache_args and cache_args.get("facet_name"):
-                            tag_set.add(f"facet:{cache_args.get('facet_name')}")
-                            tag_set.add("search")
-                        if "/search" in path or "/resources" in path:
-                            tag_set.update(_resource_cache_tags_from_body(body))
-                        # Resource-like endpoints commonly use 'id'
-                        rid = cache_args.get("id") or cache_args.get("resource_id")
-                        if rid and "/resources/" in path:
-                            tag_set.add(f"resource:{rid}")
+                        tag_set = _response_cache_tags(
+                            namespace=namespace,
+                            tags=tags,
+                            cache_args=cache_args,
+                            path=path,
+                            body=body,
+                        )
+                        await cache_service.set_record(
+                            cache_key,
+                            record,
+                            ttl_seconds=redis_ttl,
+                            namespace=namespace,
+                            tags=tag_set,
+                        )
                         await cache_service.tag_cache_key(cache_key, tag_set, ttl_seconds=redis_ttl)
                         _log_cache_event(
                             "store",
@@ -869,11 +980,13 @@ async def invalidate_cache_with_prefix(prefix: str) -> bool:
 
     try:
         cache_service = CacheService()
-        if not cache_service._redis_client:
-            return False
 
         # v2+ keys: {CACHE_ROOT}:{namespace}:{md5}
         pattern = f"{CACHE_ROOT}:{prefix}*"
+        await delete_durable_api_responses_with_prefix(pattern.rstrip("*"))
+        if not cache_service._redis_client:
+            return True
+
         deleted = 0
         async for key in cache_service._redis_client.scan_iter(match=pattern, count=500):
             deleted += int(await _redis_call(cache_service._redis_client.delete(key)))

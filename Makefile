@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-api-response-cache-init kamal-api-response-cache-prune clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
 
 # Load environment variables from .env file if it exists
@@ -316,6 +316,8 @@ prime-thumbnail-cache: wait-local-db ## Prime thumbnail cache (PRIME_LIMIT, PRIM
 # Usage examples:
 #   make prime-static-map-cache
 #   make prime-static-map-cache PRIME_LIMIT=500 PRIME_STATIC_MAP_CONCURRENCY=3
+#   make prime-static-map-cache PRIME_LIMIT=500 PRIME_STATIC_MAP_HYDRATE_ASSETS=1
+#   make prime-static-map-cache PRIME_STATIC_MAP_HYDRATE_ASSETS=1 PRIME_ALLOW_FULL_HYDRATION=1
 #   make prime-static-map-cache RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123" PRIME_FORCE=1
 prime-static-map-cache: wait-local-db ## Prime static-map cache
 	@echo "Priming static-map caches..."
@@ -327,6 +329,8 @@ prime-static-map-cache: wait-local-db ## Prime static-map cache
 		if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
 		if [ -n "$(PRIME_STATIC_MAP_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_STATIC_MAP_CONCURRENCY)"; fi; \
 		case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+		case "$(PRIME_STATIC_MAP_HYDRATE_ASSETS)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --hydrate-assets" ;; esac; \
+		case "$(PRIME_ALLOW_FULL_HYDRATION)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --allow-full-hydration" ;; esac; \
 		python scripts/prime_static_map_cache.py $$ARGS $(RESOURCE_IDS)'
 
 # Prime shared API resource representation cache entries.
@@ -340,6 +344,7 @@ prime-resource-cache: wait-local-db ## Prime shared API resource representation 
 		set -e; \
 		cd /app/backend; \
 		python db/migrations/create_generated_resource_representations_table.py; \
+		python db/migrations/create_generated_api_responses_table.py; \
 		ARGS=""; \
 		if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
 		if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
@@ -831,10 +836,20 @@ resource-aux-init: ## Ensure resource auxiliary tables exist
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_resource_aux_tables.py'
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_visual_assets_table.py'
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_resource_representations_table.py'
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_api_responses_table.py'
 
-resource-cache-init: ## Ensure durable generated resource representation table exists
-	@echo "Ensuring durable generated resource representation table exists..."
+resource-cache-init: ## Ensure durable generated resource/API response cache tables exist
+	@echo "Ensuring durable generated resource/API response cache tables exist..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_resource_representations_table.py'
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_api_responses_table.py'
+
+api-response-cache-init: ## Ensure durable generated API response cache tables exist
+	@echo "Ensuring durable generated API response cache tables exist..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_api_responses_table.py'
+
+api-response-cache-prune: ## Prune expired durable generated API response cache rows
+	@echo "Pruning expired durable generated API response cache rows..."
+	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/prune_generated_api_response_cache.py'
 
 # Populate dct_references_s/resource_distributions/resource_downloads/resource_assets from legacy GBL Admin data.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
@@ -1438,6 +1453,8 @@ kamal-prime-thumbnail-cache: ## Prime thumbnail cache on Kamal
 # Usage examples:
 #   make kamal-prime-static-map-cache KAMAL_DEST=prd
 #   make kamal-prime-static-map-cache KAMAL_DEST=prd PRIME_LIMIT=500 PRIME_STATIC_MAP_CONCURRENCY=4
+#   make kamal-prime-static-map-cache KAMAL_DEST=prd PRIME_LIMIT=500 PRIME_STATIC_MAP_HYDRATE_ASSETS=1
+#   make kamal-prime-static-map-cache KAMAL_DEST=prd PRIME_STATIC_MAP_HYDRATE_ASSETS=1 PRIME_ALLOW_FULL_HYDRATION=1
 #   make kamal-prime-static-map-cache KAMAL_DEST=prd RESOURCE_IDS="b1g_PJxxfKgpqpUT b1g_abc123"
 #   make kamal-prime-static-map-cache KAMAL_DEST=prd PRIME_FORCE=1
 kamal-prime-static-map-cache: ## Prime static-map cache on Kamal
@@ -1453,6 +1470,8 @@ kamal-prime-static-map-cache: ## Prime static-map cache on Kamal
 	if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
 	if [ -n "$(PRIME_STATIC_MAP_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_STATIC_MAP_CONCURRENCY)"; fi; \
 	case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
+	case "$(PRIME_STATIC_MAP_HYDRATE_ASSETS)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --hydrate-assets" ;; esac; \
+	case "$(PRIME_ALLOW_FULL_HYDRATION)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --allow-full-hydration" ;; esac; \
 	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_static_map_cache.py $$ARGS $(RESOURCE_IDS)'"
 
 # Prime thumbnail + static-map caches on remote Kamal app container.
@@ -1473,6 +1492,8 @@ kamal-prime-visual-caches: ## Prime thumbnail + static-map caches on Kamal
 		PRIME_LIMIT="$(PRIME_LIMIT)" \
 		PRIME_BATCH_SIZE="$(PRIME_BATCH_SIZE)" \
 		PRIME_STATIC_MAP_CONCURRENCY="$(PRIME_STATIC_MAP_CONCURRENCY)" \
+		PRIME_STATIC_MAP_HYDRATE_ASSETS="$(PRIME_STATIC_MAP_HYDRATE_ASSETS)" \
+		PRIME_ALLOW_FULL_HYDRATION="$(PRIME_ALLOW_FULL_HYDRATION)" \
 		PRIME_FORCE="$(PRIME_FORCE)" \
 		RESOURCE_IDS="$(RESOURCE_IDS)"
 
@@ -1489,13 +1510,31 @@ kamal-prime-resource-cache: ## Prime shared API resource representation cache on
 		echo "$(KAMAL_DEST_HELP)"; \
 		exit 1; \
 	fi
-	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_resource_representations_table.py'"
+	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_resource_representations_table.py && $(KAMAL_PYTHON) db/migrations/create_generated_api_responses_table.py'"
 	@ARGS=""; \
 	if [ -n "$(PRIME_LIMIT)" ]; then ARGS="$$ARGS --limit $(PRIME_LIMIT)"; fi; \
 	if [ -n "$(PRIME_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(PRIME_BATCH_SIZE)"; fi; \
 	if [ -n "$(PRIME_RESOURCE_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_RESOURCE_CONCURRENCY)"; fi; \
 	case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
 	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_resource_representation_cache.py $$ARGS $(RESOURCE_IDS)'"
+
+kamal-api-response-cache-init: ## Ensure durable generated API response cache tables on Kamal
+	@echo "Ensuring durable generated API response cache tables on Kamal (dest: $(KAMAL_DEST))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_api_responses_table.py'"
+
+kamal-api-response-cache-prune: ## Prune expired durable generated API response rows on Kamal
+	@echo "Pruning expired durable generated API response cache rows on Kamal (dest: $(KAMAL_DEST))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prune_generated_api_response_cache.py'"
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 

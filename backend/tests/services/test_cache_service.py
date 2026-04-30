@@ -2,6 +2,9 @@
 Tests for CacheService - comprehensive coverage using real fixtures and data.
 """
 
+import time
+from unittest.mock import AsyncMock, patch
+
 import pytest
 
 from app.services.cache_service import (
@@ -11,6 +14,58 @@ from app.services.cache_service import (
     cached_endpoint,
     invalidate_cache_with_prefix,
 )
+
+
+class FakeRedisPipeline:
+    def __init__(self):
+        self.calls = []
+
+    def sadd(self, *args):
+        self.calls.append(("sadd", args))
+        return self
+
+    def expire(self, *args):
+        self.calls.append(("expire", args))
+        return self
+
+    def srem(self, *args):
+        self.calls.append(("srem", args))
+        return self
+
+    def delete(self, *args):
+        self.calls.append(("delete", args))
+        return self
+
+    async def execute(self):
+        return [1 for _call in self.calls]
+
+
+class FakeRedis:
+    def __init__(self, *, get_value=None, members=None):
+        self.get_value = get_value
+        self.members = members or {}
+        self.set_calls = []
+        self.delete_calls = []
+        self.pipelines = []
+
+    async def get(self, _key):
+        return self.get_value
+
+    async def set(self, key, value, ex=None, nx=False):
+        self.set_calls.append((key, value, ex, nx))
+        return True
+
+    async def delete(self, key):
+        self.delete_calls.append(key)
+        return 1
+
+    async def smembers(self, key):
+        return self.members.get(key, set())
+
+    def pipeline(self, transaction=False):
+        pipe = FakeRedisPipeline()
+        self.pipelines.append((transaction, pipe))
+        return pipe
 
 
 def test_resource_cache_tags_from_jsonapi_body():
@@ -226,6 +281,101 @@ class TestCacheServiceBasicOperations:
                 or "redis" in str(e).lower()
                 or "nodename" in str(e).lower()
             )
+
+
+class TestCacheServiceDurableResponses:
+    @pytest.fixture(autouse=True)
+    def reset_singleton(self):
+        CacheService._instance = None
+        CacheService._redis_client = None
+        yield
+        CacheService._instance = None
+        CacheService._redis_client = None
+
+    @pytest.mark.asyncio
+    async def test_get_record_rehydrates_redis_from_durable_response(self):
+        record = {
+            "schema": 2,
+            "created": time.time(),
+            "soft_exp": time.time() + 30,
+            "hard_exp": time.time() + 60,
+            "status": 200,
+            "headers": {"content-type": "application/json"},
+            "etag": 'W/"abc"',
+            "body_b64": "e30=",
+        }
+        fake_redis = FakeRedis(get_value=None)
+
+        with (
+            patch("app.services.cache_service.ENDPOINT_CACHE", True),
+            patch(
+                "app.services.cache_service.get_durable_api_response",
+                new=AsyncMock(return_value=(record, {"search"}, "search_ns")),
+            ) as mock_get_durable,
+        ):
+            service = CacheService()
+            service._redis_client = fake_redis
+
+            result = await service.get_record("cache-key")
+
+        assert result == record
+        mock_get_durable.assert_awaited_once_with("cache-key")
+        assert fake_redis.set_calls
+        assert fake_redis.pipelines
+
+    @pytest.mark.asyncio
+    async def test_set_record_persists_durable_response_with_tags(self):
+        record = {
+            "schema": 2,
+            "created": time.time(),
+            "soft_exp": time.time() + 30,
+            "hard_exp": time.time() + 60,
+            "status": 200,
+            "headers": {},
+            "body_b64": "e30=",
+        }
+        fake_redis = FakeRedis()
+
+        with (
+            patch("app.services.cache_service.ENDPOINT_CACHE", True),
+            patch(
+                "app.services.cache_service.store_durable_api_response",
+                new=AsyncMock(return_value=True),
+            ) as mock_store_durable,
+        ):
+            service = CacheService()
+            service._redis_client = fake_redis
+
+            result = await service.set_record(
+                "cache-key",
+                record,
+                ttl_seconds=60,
+                namespace="search_ns",
+                tags={"search", "resource:r1"},
+            )
+
+        assert result is True
+        assert fake_redis.set_calls
+        mock_store_durable.assert_awaited_once()
+        assert mock_store_durable.await_args.kwargs["namespace"] == "search_ns"
+        assert set(mock_store_durable.await_args.kwargs["tags"]) == {"search", "resource:r1"}
+
+    @pytest.mark.asyncio
+    async def test_invalidate_tags_deletes_durable_responses_even_without_redis(self):
+        with (
+            patch("app.services.cache_service.ENDPOINT_CACHE", True),
+            patch(
+                "app.services.cache_service.delete_durable_api_responses_for_tags",
+                new=AsyncMock(return_value=3),
+            ) as mock_delete_durable,
+        ):
+            service = CacheService()
+            service._redis_client = None
+
+            deleted = await service.invalidate_tags(["search"])
+
+        assert deleted == 3
+        mock_delete_durable.assert_awaited_once_with({"search"})
 
 
 class TestCacheServiceKeyGeneration:

@@ -93,6 +93,8 @@ env:
     CACHE_VERSION:         "2026-01-14-C"
     # Optional: bump this to force a new cache namespace without flushing Redis
     CACHE_APP_VERSION:     ""
+    API_RESPONSE_DURABLE_CACHE_STORE: database
+    VISUAL_ASSET_CACHE_TTL_SECONDS: "604800"
     REDIS_TIMEOUT_SECONDS: "0.5"
     CACHE_LOCK_WAIT_SECONDS: "0.25"
     STALE_IF_ERROR_SECONDS: "300"
@@ -169,9 +171,12 @@ accessories:
     image: redis:7.4.6-alpine
     roles: [web, worker, flower]
     env:
+      clear:
+        REDIS_MAXMEMORY: "<%= ENV.fetch('REDIS_MAXMEMORY', '12gb') %>"
+        REDIS_MAXMEMORY_POLICY: "<%= ENV.fetch('REDIS_MAXMEMORY_POLICY', 'volatile-lru') %>"
       secret:
         - REDIS_PASSWORD
-    cmd: sh -lc 'redis-server --appendonly yes --protected-mode yes --bind 0.0.0.0 --requirepass "$REDIS_PASSWORD"'
+    cmd: sh -lc 'redis-server --appendonly yes --protected-mode yes --bind 0.0.0.0 --requirepass "$REDIS_PASSWORD" --maxmemory "$REDIS_MAXMEMORY" --maxmemory-policy "$REDIS_MAXMEMORY_POLICY"'
     directories:
       - /var/lib/btaa-geospatial-api/redis:/data
 

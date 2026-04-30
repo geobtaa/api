@@ -33,6 +33,11 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
+# Priming is allowed to wait through Redis restarts/loading instead of turning
+# one transient cache outage into thousands of false per-resource failures.
+os.environ.setdefault("VISUAL_ASSET_REDIS_LOADING_MAX_WAIT_SECONDS", "900")
+os.environ.setdefault("VISUAL_ASSET_REDIS_LOADING_RETRY_SECONDS", "5")
+
 from app.services.distribution_repository import async_session_factory  # noqa: E402
 from app.services.static_map_service import StaticMapService  # noqa: E402
 from db.models import resources  # noqa: E402
@@ -80,7 +85,13 @@ async def _fetch_resource_batch(last_id: str | None, batch_size: int) -> list[di
         return [dict(row._mapping) for row in result.fetchall()]
 
 
-def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tuple[str, str]:
+def _prime_static_maps_sync(
+    resource_id: str,
+    geometry: Any,
+    force: bool,
+    *,
+    hydrate_assets: bool = True,
+) -> tuple[str, str]:
     service = StaticMapService()
     source_signature = service.geometry_signature(geometry)
     static_map_variant = service.geometry_variant()
@@ -94,11 +105,13 @@ def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tup
             resource_id,
             variant=static_map_variant,
             source_signature=source_signature,
+            hydrate_asset=hydrate_assets,
         )
         needs_basemap = not service.materialize_cached_variant_sync(
             resource_id,
             variant=basemap_variant,
             source_signature=source_signature,
+            hydrate_asset=hydrate_assets,
         )
 
     if not needs_static_map and not needs_basemap:
@@ -113,6 +126,7 @@ def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tup
                 resource_id,
                 geometry,
                 source_signature=source_signature,
+                hydrate_asset=hydrate_assets,
             ):
                 generated += 1
             else:
@@ -122,18 +136,27 @@ def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tup
                 resource_id,
                 geometry,
                 source_signature=source_signature,
+                hydrate_asset=hydrate_assets,
             ):
                 generated += 1
             else:
                 failed += 1
     else:
         if needs_static_map:
-            if service.generate_global_map(resource_id, source_signature=source_signature):
+            if service.generate_global_map(
+                resource_id,
+                source_signature=source_signature,
+                hydrate_asset=hydrate_assets,
+            ):
                 generated += 1
             else:
                 failed += 1
         if needs_basemap:
-            if service.generate_global_basemap(resource_id, source_signature=source_signature):
+            if service.generate_global_basemap(
+                resource_id,
+                source_signature=source_signature,
+                hydrate_asset=hydrate_assets,
+            ):
                 generated += 1
             else:
                 failed += 1
@@ -146,14 +169,18 @@ def _prime_static_maps_sync(resource_id: str, geometry: Any, force: bool) -> tup
 
 
 async def _prime_static_maps_for_resource(
-    resource_dict: dict[str, Any], *, force: bool
+    resource_dict: dict[str, Any], *, force: bool, hydrate_assets: bool = True
 ) -> tuple[str, str, str]:
     resource_id = str(resource_dict["id"])
     geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
 
     try:
         status, detail = await asyncio.to_thread(
-            _prime_static_maps_sync, resource_id, geometry, force
+            _prime_static_maps_sync,
+            resource_id,
+            geometry,
+            force,
+            hydrate_assets=hydrate_assets,
         )
         return (status, resource_id, detail)
     except Exception as exc:
@@ -165,6 +192,7 @@ async def _process_batch(
     *,
     concurrency: int,
     force: bool,
+    hydrate_assets: bool,
     counters: Counter[str],
     progress: tqdm,
     failures: list[str],
@@ -173,7 +201,11 @@ async def _process_batch(
 
     async def _run(resource_dict: dict[str, Any]) -> tuple[str, str, str]:
         async with semaphore:
-            return await _prime_static_maps_for_resource(resource_dict, force=force)
+            return await _prime_static_maps_for_resource(
+                resource_dict,
+                force=force,
+                hydrate_assets=hydrate_assets,
+            )
 
     tasks = [asyncio.create_task(_run(resource_dict)) for resource_dict in batch]
 
@@ -201,6 +233,27 @@ async def _run(args: argparse.Namespace) -> int:
         logger.info("No resources matched the request.")
         return 0
 
+    if (
+        args.hydrate_assets
+        and not args.allow_full_hydration
+        and args.limit is None
+        and not resource_ids
+    ):
+        logger.error(
+            "Refusing full-corpus Redis asset-body hydration. Use --limit or explicit "
+            "resource IDs for hotsets, or pass --allow-full-hydration if the host is "
+            "sized for a full Redis DB 1 image-body cache."
+        )
+        return 2
+
+    if args.hydrate_assets:
+        logger.info("Redis asset-body hydration is enabled for this priming run.")
+    else:
+        logger.info(
+            "Redis asset-body hydration is disabled; priming durable assets, links, and aliases. "
+            "Use --hydrate-assets for small hotset runs that should load image bodies into Redis."
+        )
+
     counters: Counter[str] = Counter()
     failures: list[str] = []
 
@@ -222,6 +275,7 @@ async def _run(args: argparse.Namespace) -> int:
                     batch,
                     concurrency=args.concurrency,
                     force=args.force,
+                    hydrate_assets=args.hydrate_assets,
                     counters=counters,
                     progress=progress,
                     failures=failures,
@@ -238,6 +292,7 @@ async def _run(args: argparse.Namespace) -> int:
                     batch,
                     concurrency=args.concurrency,
                     force=args.force,
+                    hydrate_assets=args.hydrate_assets,
                     counters=counters,
                     progress=progress,
                     failures=failures,
@@ -276,6 +331,22 @@ def _parse_args() -> argparse.Namespace:
         "--concurrency", type=int, default=2, help="Concurrent static-map generation tasks"
     )
     parser.add_argument("--force", action="store_true", help="Regenerate maps even if cache exists")
+    parser.add_argument(
+        "--hydrate-assets",
+        action="store_true",
+        help=(
+            "Load/reload immutable static-map asset bodies into Redis. Default warms durable "
+            "links and aliases only to avoid exhausting Redis memory on full-corpus runs."
+        ),
+    )
+    parser.add_argument(
+        "--allow-full-hydration",
+        action="store_true",
+        help=(
+            "Allow --hydrate-assets without --limit or explicit resource IDs. Use only on hosts "
+            "sized for full Redis DB 1 static-map image-body hydration."
+        ),
+    )
     parser.add_argument(
         "--strict-failures",
         action="store_true",

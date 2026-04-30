@@ -43,6 +43,7 @@ async def get_resource_static_map(
         hot_map_hash = await map_service.materialize_cached_variant(
             id,
             variant=map_service.geometry_variant(),
+            hydrate_asset=False,
         )
         if hot_map_hash:
             return RedirectResponse(
@@ -70,6 +71,7 @@ async def get_resource_static_map(
             id,
             variant=map_service.geometry_variant(),
             source_signature=source_signature,
+            hydrate_asset=False,
         )
         if current_map_hash:
             return RedirectResponse(

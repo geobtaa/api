@@ -83,6 +83,7 @@ class TestStaticMapsEndpoint:
                 resource_id,
                 variant="basemap",
                 source_signature=None,
+                hydrate_asset=False,
             )
 
     @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
@@ -109,6 +110,7 @@ class TestStaticMapsEndpoint:
                 resource_id,
                 variant="resource-class-icon",
                 source_signature=None,
+                hydrate_asset=False,
             )
 
     @patch("app.api.v1.endpoint_modules.static_maps._fetch_resource_dict")
@@ -129,8 +131,18 @@ class TestStaticMapsEndpoint:
             assert "s-maxage=" in resp.headers["cache-control"]
             svc.materialize_cached_variant.assert_has_awaits(
                 [
-                    call(resource_id, variant="basemap", source_signature=None),
-                    call(resource_id, variant="basemap", source_signature="geometry-signature"),
+                    call(
+                        resource_id,
+                        variant="basemap",
+                        source_signature=None,
+                        hydrate_asset=False,
+                    ),
+                    call(
+                        resource_id,
+                        variant="basemap",
+                        source_signature="geometry-signature",
+                        hydrate_asset=False,
+                    ),
                 ]
             )
 
@@ -167,8 +179,18 @@ class TestStaticMapsEndpoint:
             assert resp.headers["etag"] == weak_etag_from_body(png_bytes)
             svc.materialize_cached_variant.assert_has_awaits(
                 [
-                    call(resource_id, variant="geometry", source_signature=None),
-                    call(resource_id, variant="geometry", source_signature="geometry-signature"),
+                    call(
+                        resource_id,
+                        variant="geometry",
+                        source_signature=None,
+                        hydrate_asset=False,
+                    ),
+                    call(
+                        resource_id,
+                        variant="geometry",
+                        source_signature="geometry-signature",
+                        hydrate_asset=False,
+                    ),
                 ]
             )
 
@@ -207,8 +229,18 @@ class TestStaticMapsEndpoint:
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{icon_hash}"
             route_svc.materialize_cached_variant.assert_has_awaits(
                 [
-                    call(resource_id, variant="resource-class-icon", source_signature=None),
-                    call(resource_id, variant="resource-class-icon", source_signature=ANY),
+                    call(
+                        resource_id,
+                        variant="resource-class-icon",
+                        source_signature=None,
+                        hydrate_asset=False,
+                    ),
+                    call(
+                        resource_id,
+                        variant="resource-class-icon",
+                        source_signature=ANY,
+                        hydrate_asset=False,
+                    ),
                 ]
             )
             route_svc.materialize_asset.assert_awaited_once()
@@ -252,9 +284,7 @@ class TestStaticMapsEndpoint:
 
 class TestResourceStaticMapEndpoint:
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
-    def test_resource_static_map_latest_alias_short_circuits_before_db(
-        self, mock_session, client
-    ):
+    def test_resource_static_map_latest_alias_short_circuits_before_db(self, mock_session, client):
         asset_hash = "deadbeef" * 8
 
         with patch("app.api.v1.endpoint_modules.resources.static_map.StaticMapService") as svc_cls:
@@ -270,6 +300,7 @@ class TestResourceStaticMapEndpoint:
             svc.materialize_cached_variant.assert_awaited_once_with(
                 "test-resource-id",
                 variant="geometry",
+                hydrate_asset=False,
             )
 
     @patch("app.api.v1.endpoint_modules.resources.static_map.async_session")
@@ -300,11 +331,12 @@ class TestResourceStaticMapEndpoint:
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{'deadbeef' * 8}"
             svc.materialize_cached_variant.assert_has_awaits(
                 [
-                    call("test-resource-id", variant="geometry"),
+                    call("test-resource-id", variant="geometry", hydrate_asset=False),
                     call(
                         "test-resource-id",
                         variant="geometry",
                         source_signature="geometry-signature",
+                        hydrate_asset=False,
                     ),
                 ]
             )

@@ -146,6 +146,7 @@ More detail is in `docs/mcp/README.md` and `docs/mcp/claude_desktop.md`.
 
 All documentation is now in the top-level `docs/` folder:
 
+- **Codebase overview / executive architecture summary**: `docs/backend/codebase_overview.md`
 - **Caching**: `docs/backend/caching.md`
 - **Search**: `docs/backend/search.md`
 - **Service tiers / API keys / rate limiting**: `docs/backend/service_tiers_runbook.md`
