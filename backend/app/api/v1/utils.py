@@ -4,7 +4,7 @@ import os
 import re
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Iterable, Optional
 
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
@@ -249,8 +249,13 @@ def add_ui_attributes(
 
 
 async def _get_thumbnail_asset_url(resource_id: str) -> Optional[str]:
+    urls_by_id = await _get_thumbnail_asset_urls([resource_id])
+    return urls_by_id.get(resource_id)
+
+
+async def _get_thumbnail_asset_urls(resource_ids: Iterable[str]) -> Dict[str, str]:
     """
-    Return the first thumbnail-capable asset URL for a resource, if any.
+    Return the first thumbnail-capable asset URL for each resource, if any.
 
     We look for resource_assets rows where:
     - resource_id matches
@@ -258,32 +263,43 @@ async def _get_thumbnail_asset_url(resource_id: str) -> Optional[str]:
     - file_url is not null/empty
     and prefer the lowest position/id for stable ordering.
     """
+    ids = list(dict.fromkeys(str(resource_id) for resource_id in resource_ids if resource_id))
+    if not ids:
+        return {}
+
     try:
         if not database.is_connected:
             await database.connect()
         query = (
-            select(resource_assets.c.file_url)
+            select(resource_assets.c.resource_id, resource_assets.c.file_url)
             .where(
-                resource_assets.c.resource_id == resource_id,
+                resource_assets.c.resource_id.in_(ids),
                 resource_assets.c.thumbnail.is_(True),
                 resource_assets.c.file_url.is_not(None),
             )
-            .order_by(resource_assets.c.position.asc(), resource_assets.c.id.asc())
-            .limit(1)
+            .order_by(
+                resource_assets.c.resource_id.asc(),
+                resource_assets.c.position.asc(),
+                resource_assets.c.id.asc(),
+            )
         )
-        row = await database.fetch_one(query)
-        if not row:
-            return None
-        # databases.Record supports dict-style access, not .get()
-        raw_url = row["file_url"]
-        if not isinstance(raw_url, str):
-            return None
-        url = raw_url.strip()
-        return url or None
+        rows = await database.fetch_all(query)
+        urls_by_id: Dict[str, str] = {}
+        for row in rows:
+            resource_id = str(row["resource_id"] or "")
+            if not resource_id or resource_id in urls_by_id:
+                continue
+            raw_url = row["file_url"]
+            if not isinstance(raw_url, str):
+                continue
+            url = raw_url.strip()
+            if url:
+                urls_by_id[resource_id] = url
+        return urls_by_id
     except Exception:
         # Never fail the request because of asset lookup issues
-        logger.exception("Failed to resolve thumbnail asset for resource %s", resource_id)
-        return None
+        logger.exception("Failed to resolve thumbnail assets for resources %s", ids)
+        return {}
 
 
 def _build_resource_thumbnail_url(resource_id: str) -> str:

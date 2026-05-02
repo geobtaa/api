@@ -162,6 +162,12 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
         "attributes": {},
         "meta": {"ui": {}},
     }
+    distribution_context = object()
+    relationship_payload = {"same_as": [{"resource_id": "related-doc"}]}
+    allmaps_payload = {"allmaps_id": "abc123"}
+    data_dictionary_payload = [{"id": 1, "name": "Fields"}]
+    bridge_download_rows = [{"label": "Download", "file_url": "https://example.com/file.zip"}]
+    thumbnail_asset_url = "https://example.com/thumb.jpg"
 
     with (
         patch(
@@ -192,6 +198,34 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
             new=AsyncMock(return_value=processed_resource),
         ) as mock_process_resource,
         patch(
+            "app.api.v1.endpoint_modules.search.fetch_distribution_context_map",
+            new=AsyncMock(return_value={"test-doc": distribution_context}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_allmaps_attributes_map",
+            new=AsyncMock(return_value={"test-doc": allmaps_payload}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_resource_data_dictionaries_map",
+            new=AsyncMock(return_value={"test-doc": ["ignored"]}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search._serialize_data_dictionaries_by_id",
+            return_value={"test-doc": data_dictionary_payload},
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationships_map",
+            new=AsyncMock(return_value={"test-doc": relationship_payload}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_bridge_asset_download_rows_map",
+            new=AsyncMock(return_value={"test-doc": bridge_download_rows}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search._get_thumbnail_asset_urls",
+            new=AsyncMock(return_value={"test-doc": thumbnail_asset_url}),
+        ),
+        patch(
             "app.api.v1.endpoint_modules.search.store_resource_representations",
             new=AsyncMock(),
         ) as mock_store_resource_representations,
@@ -212,8 +246,21 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     session.execute.assert_not_called()
     mock_get_cached_resource_representations.assert_awaited_once_with(["test-doc"])
     assert mock_search.await_args.kwargs["hydrate_hits"] is False
+    assert mock_search.await_args.kwargs["sanitize_response"] is False
     assert mock_async_session.call_count == 1
     assert mock_process_resource.await_args.kwargs["include_similar_items"] is False
+    assert mock_process_resource.await_args.kwargs["distribution_context"] is distribution_context
+    assert (
+        mock_process_resource.await_args.kwargs["bridge_asset_download_rows"]
+        == bridge_download_rows
+    )
+    assert mock_process_resource.await_args.kwargs["ui_relationships"] == relationship_payload
+    assert mock_process_resource.await_args.kwargs["allmaps_attributes"] == allmaps_payload
+    assert (
+        mock_process_resource.await_args.kwargs["data_dictionaries_payload"]
+        == data_dictionary_payload
+    )
+    assert mock_process_resource.await_args.kwargs["thumbnail_asset_url"] == thumbnail_asset_url
     mock_store_resource_representations.assert_awaited_once_with({"test-doc": processed_resource})
 
     payload = json.loads(response.body)
@@ -297,6 +344,7 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
         "attributes": {"ogm": {"dct_title_s": "Test Resource"}},
         "meta": {"ui": {}},
     }
+    distribution_context = object()
 
     with (
         patch(
@@ -321,6 +369,30 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
             new=AsyncMock(return_value=processed_resource),
         ) as mock_process_resource,
         patch(
+            "app.api.v1.endpoint_modules.search.fetch_distribution_context_map",
+            new=AsyncMock(return_value={"test-doc": distribution_context}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_allmaps_attributes_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_resource_data_dictionaries_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationships_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_bridge_asset_download_rows_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search._get_thumbnail_asset_urls",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
             "app.api.v1.endpoint_modules.search.store_resource_representations",
             new=AsyncMock(),
         ) as mock_store_resource_representations,
@@ -339,6 +411,7 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
     assert response.status_code == 200
     mock_async_session.assert_called()
     assert mock_process_resource.await_args.args[0]["dct_title_s"] == "Test Resource"
+    assert mock_process_resource.await_args.kwargs["distribution_context"] is distribution_context
     mock_store_resource_representations.assert_awaited_once_with({"test-doc": processed_resource})
 
 

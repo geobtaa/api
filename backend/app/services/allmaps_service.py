@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterable
 from typing import Dict
 from urllib.parse import quote
 
@@ -8,6 +9,51 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models import resource_allmaps
 
 logger = logging.getLogger(__name__)
+
+
+def _build_allmaps_attributes(row_mapping) -> Dict:
+    manifest_uri = row_mapping.get("iiif_manifest_uri")
+    annotated = row_mapping.get("annotated")
+
+    attributes = {
+        "allmaps_id": row_mapping.get("allmaps_id"),
+        "allmaps_annotated": annotated,
+        "allmaps_manifest_uri": manifest_uri,
+    }
+
+    if manifest_uri and annotated:
+        attributes["allmaps_annotation_url"] = (
+            f"https://annotations.allmaps.org/?url={quote(manifest_uri, safe='')}"
+        )
+
+    return attributes
+
+
+async def fetch_allmaps_attributes_map(
+    resource_ids: Iterable[str], session: AsyncSession
+) -> Dict[str, Dict]:
+    """Fetch Allmaps attributes for many resources in one query."""
+    ids = list(dict.fromkeys(str(resource_id) for resource_id in resource_ids if resource_id))
+    if not ids:
+        return {}
+
+    try:
+        query = select(resource_allmaps).where(resource_allmaps.c.resource_id.in_(ids))
+        result = await session.execute(query)
+        rows = result.fetchall()
+    except Exception as e:
+        logger.error("Error getting Allmaps attributes for resources %s: %s", ids, e, exc_info=True)
+        return {}
+
+    attributes_by_id: Dict[str, Dict] = {}
+    for row in rows:
+        mapping = row._mapping
+        resource_id = str(mapping.get("resource_id") or "")
+        if not resource_id:
+            continue
+        attributes_by_id[resource_id] = _build_allmaps_attributes(mapping)
+
+    return attributes_by_id
 
 
 class AllmapsService:
@@ -37,39 +83,16 @@ class AllmapsService:
             return {}
 
         try:
-            # Query the resource_allmaps table
-            query = select(resource_allmaps).where(
-                resource_allmaps.c.resource_id == self.resource_id
+            logger.info("Fetching Allmaps attributes for resource %s", self.resource_id)
+            attributes = (await fetch_allmaps_attributes_map([self.resource_id], session)).get(
+                self.resource_id,
+                {},
             )
-            logger.info(f"Executing query for resource {self.resource_id}: {query}")
-
-            result = await session.execute(query)
-            row = result.fetchone()
-
-            if not row:
-                logger.info(f"No Allmaps data found for resource {self.resource_id}")
+            if not attributes:
+                logger.info("No Allmaps data found for resource %s", self.resource_id)
                 return {}
 
-            # Convert to dict and extract relevant fields
-            allmaps_dict = dict(row._mapping)
-            logger.info(f"Found Allmaps data for resource {self.resource_id}: {allmaps_dict}")
-
-            manifest_uri = allmaps_dict.get("iiif_manifest_uri")
-            annotated = allmaps_dict.get("annotated")
-
-            attributes = {
-                "allmaps_id": allmaps_dict.get("allmaps_id"),
-                "allmaps_annotated": annotated,
-                "allmaps_manifest_uri": manifest_uri,
-            }
-
-            # Annotation URL for @allmaps/leaflet WarpedMapLayer when georeferenced
-            if manifest_uri and annotated:
-                attributes["allmaps_annotation_url"] = (
-                    f"https://annotations.allmaps.org/?url={quote(manifest_uri, safe='')}"
-                )
-
-            logger.info(f"Returning Allmaps attributes: {attributes}")
+            logger.info("Returning Allmaps attributes: %s", attributes)
             return attributes
 
         except Exception as e:

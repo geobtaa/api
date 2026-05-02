@@ -155,6 +155,10 @@ The new aggregation timing logs are emitted from the backend search layer and
 distinguish cache hits from full Elasticsearch aggregation misses, which makes
 it easier to compare warm and miss-path behavior during k6 runs.
 
+The API search endpoint also now emits `search_response_timing` debug logs that
+break down the `/api/v1/search` assembly path into search, representation-cache
+lookup, DB fallback, miss prefetch, miss build, and response-build stages.
+
 ### Run only one side of the stack
 
 ```bash

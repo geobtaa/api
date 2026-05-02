@@ -45,6 +45,18 @@ async def test_search_forwards_hydrate_hits_flag():
     assert mock_search.call_args.kwargs["hydrate_hits"] is False
 
 
+@pytest.mark.asyncio
+async def test_search_can_skip_result_sanitization_for_internal_callers():
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {"data": [], "meta": {}, "queryTime": {}}
+
+        result = await service.search(q="test", page=1, limit=10, sanitize_response=False)
+
+    assert result is mock_search.return_value
+
+
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 class TestSearchService:

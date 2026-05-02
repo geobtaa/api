@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
@@ -11,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from app.api.v1.advanced_search_utils import validate_adv_q
 from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
 from app.api.v1.utils import (
+    _get_thumbnail_asset_urls,
     create_jsonapi_response,
     create_pagination_links,
     filter_empty_values,
@@ -24,7 +26,18 @@ from app.elasticsearch.search import (
     get_search_criteria,
     process_facet_response,
 )
+from app.services.allmaps_service import fetch_allmaps_attributes_map
 from app.services.cache_service import cached_endpoint
+from app.services.data_dictionary_repository import (
+    fetch_resource_data_dictionaries_map,
+    serialize_resource_data_dictionaries,
+)
+from app.services.distribution_repository import (
+    build_distribution_context,
+    fetch_distribution_context_map,
+)
+from app.services.download_service import fetch_bridge_asset_download_rows_map
+from app.services.relationship_service import RelationshipService
 from app.services.resource_representation_cache import (
     get_cached_resource_representations,
     store_resource_representations,
@@ -94,6 +107,24 @@ def _extract_search_hit(item: dict) -> tuple[dict | None, dict | None]:
     )
 
 
+def _serialize_data_dictionaries_by_id(data_dictionaries_by_id: dict) -> dict[str, list[dict]]:
+    payloads: dict[str, list[dict]] = {}
+    for resource_id, dictionaries in data_dictionaries_by_id.items():
+        if not dictionaries:
+            continue
+        payloads[str(resource_id)] = sanitize_for_json(
+            serialize_resource_data_dictionaries(dictionaries)
+        )
+    return payloads
+
+
+def _log_search_response_timing(**payload: float | int | str) -> None:
+    logger.debug(
+        "search_response_timing %s",
+        json.dumps(payload, sort_keys=True),
+    )
+
+
 async def _handle_search(request: Request, params: dict) -> JSONResponse:
     """Shared search executor and response builder for GET and POST.
 
@@ -101,6 +132,8 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     facets, meta, callback, request_query_params (for GET only), include_filters,
     exclude_filters, fq, adv_q.
     """
+
+    request_started_at = time.perf_counter()
 
     # Defaults
     q = params.get("q")
@@ -122,8 +155,16 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     if adv_q is not None:
         adv_q = validate_adv_q(adv_q)
 
+    search_duration_ms = 0.0
+    cache_lookup_ms = 0.0
+    db_fallback_ms = 0.0
+    miss_prefetch_ms = 0.0
+    miss_build_ms = 0.0
+    response_build_ms = 0.0
+
     # Step 1: Call SearchService
     search_service = SearchService()
+    search_started_at = time.perf_counter()
     results = await search_service.search(
         q=q,
         page=page,
@@ -138,17 +179,18 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         fq_direct=fq,
         adv_q=adv_q,
         hydrate_hits=False,
+        sanitize_response=False,
     )
+    search_duration_ms = (time.perf_counter() - search_started_at) * 1000
     if isinstance(results, dict) and "error" in results:
         logger.error("Search service returned an internal error", exc_info=False)
         return JSONResponse(content={"error": "Elasticsearch search failed"}, status_code=500)
 
     # Step 2: Extract resource IDs and scores
-    sanitized_results = sanitize_for_json(results)
-    result_obj = sanitized_results if isinstance(sanitized_results, dict) else {}
+    result_obj = results if isinstance(results, dict) else {}
     resource_data = []
     search_resource_lookup = {}
-    for item in sanitized_results.get("data", []):
+    for item in result_obj.get("data", []):
         result_data, source_resource = _extract_search_hit(item)
         if result_data is None:
             continue
@@ -159,7 +201,9 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     resource_ids = [r["id"] for r in resource_data]
     cached_resources = {}
     if resource_ids:
+        cache_lookup_started_at = time.perf_counter()
         cached_resources = await get_cached_resource_representations(resource_ids)
+        cache_lookup_ms = (time.perf_counter() - cache_lookup_started_at) * 1000
 
     missing_resource_ids = [
         resource_id for resource_id in resource_ids if resource_id not in cached_resources
@@ -174,6 +218,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         if resource_id not in source_resources_by_id
     ]
     if missing_source_ids:
+        db_fallback_started_at = time.perf_counter()
         try:
             async with async_session() as session:
                 query = select(resources).where(resources.c.id.in_(missing_source_ids))
@@ -191,15 +236,51 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             # than crashing.
             logger.warning(f"Database query failed in search endpoint: {str(e)}")
             source_resources_by_id = dict(search_resource_lookup)
+        finally:
+            db_fallback_ms = (time.perf_counter() - db_fallback_started_at) * 1000
 
     # Process resources (initialize outside the if block to avoid UnboundLocalError)
     processed_resources = []
+    built_resources = {}
 
     if resource_data:
-        built_resources = {}
-
         if missing_resource_ids:
             async with async_session() as processing_session:
+                miss_prefetch_started_at = time.perf_counter()
+                distribution_context_lookup = await fetch_distribution_context_map(
+                    missing_resource_ids,
+                    session=processing_session,
+                )
+                distribution_contexts = {
+                    resource_id: distribution_context_lookup.get(resource_id)
+                    or build_distribution_context(resource_id, [])
+                    for resource_id in missing_resource_ids
+                }
+                allmaps_attributes_by_id = await fetch_allmaps_attributes_map(
+                    missing_resource_ids,
+                    processing_session,
+                )
+                data_dictionaries_by_id = await fetch_resource_data_dictionaries_map(
+                    missing_resource_ids,
+                    session=processing_session,
+                )
+                data_dictionary_payloads_by_id = _serialize_data_dictionaries_by_id(
+                    data_dictionaries_by_id
+                )
+                relationship_payloads_by_id = (
+                    await RelationshipService.get_resource_relationships_map(
+                        missing_resource_ids
+                    )
+                )
+                bridge_asset_download_rows_by_id = await fetch_bridge_asset_download_rows_map(
+                    missing_resource_ids
+                )
+                thumbnail_asset_urls_by_id = await _get_thumbnail_asset_urls(
+                    missing_resource_ids
+                )
+                miss_prefetch_ms = (time.perf_counter() - miss_prefetch_started_at) * 1000
+
+                miss_build_started_at = time.perf_counter()
                 for resource_id in missing_resource_ids:
                     source_resource = source_resources_by_id.get(resource_id)
                     if not source_resource:
@@ -208,7 +289,18 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                         source_resource,
                         processing_session,
                         include_similar_items=False,
+                        distribution_context=distribution_contexts.get(resource_id),
+                        bridge_asset_download_rows=bridge_asset_download_rows_by_id.get(
+                            resource_id
+                        ),
+                        ui_relationships=relationship_payloads_by_id.get(resource_id),
+                        allmaps_attributes=allmaps_attributes_by_id.get(resource_id),
+                        data_dictionaries_payload=data_dictionary_payloads_by_id.get(
+                            resource_id
+                        ),
+                        thumbnail_asset_url=thumbnail_asset_urls_by_id.get(resource_id),
                     )
+                miss_build_ms = (time.perf_counter() - miss_build_started_at) * 1000
             if built_resources:
                 await store_resource_representations(built_resources)
 
@@ -286,6 +378,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
             processed_resources.append(obj)
 
     # Step 4: Build JSON:API response
+    response_build_started_at = time.perf_counter()
     pages_info = result_obj.get("meta", {}).get("pages", {})
     total_count = pages_info.get("total_count", 0)
     total_pages = pages_info.get("total_pages", 0)
@@ -321,6 +414,23 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     }
     if isinstance(result_obj, dict) and "included" in result_obj:
         response["included"] = result_obj["included"]
+
+    response_build_ms = (time.perf_counter() - response_build_started_at) * 1000
+    _log_search_response_timing(
+        builtCount=len(built_resources),
+        cacheLookupMs=round(cache_lookup_ms, 2),
+        cachedCount=len(cached_resources),
+        dbFallbackCount=len(missing_source_ids),
+        dbFallbackMs=round(db_fallback_ms, 2),
+        missBuildMs=round(miss_build_ms, 2),
+        missCount=len(missing_resource_ids),
+        missPrefetchMs=round(miss_prefetch_ms, 2),
+        operation="_handle_search",
+        resourceCount=len(resource_ids),
+        responseBuildMs=round(response_build_ms, 2),
+        searchMs=round(search_duration_ms, 2),
+        totalMs=round((time.perf_counter() - request_started_at) * 1000, 2),
+    )
 
     return JSONResponse(content=sanitize_for_json(response))
 

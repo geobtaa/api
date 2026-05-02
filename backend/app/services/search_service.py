@@ -45,6 +45,7 @@ class SearchService:
         fq_direct: Optional[Dict] = None,
         adv_q: Optional[list] = None,
         hydrate_hits: bool = True,
+        sanitize_response: bool = True,
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
@@ -130,8 +131,10 @@ class SearchService:
                 results["meta"]["spellingSuggestions"] = results["meta"].pop("suggestions")
 
             # Sanitize the entire results object for JSON
-            sanitized_results = sanitize_for_json(results)
+            if not sanitize_response:
+                return results
 
+            sanitized_results = sanitize_for_json(results)
             return sanitized_results
 
         except Exception as e:
