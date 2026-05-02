@@ -15,7 +15,6 @@ from app.api.v1.utils import (
     _get_thumbnail_asset_urls,
     create_jsonapi_response,
     create_pagination_links,
-    filter_empty_values,
     process_resource,
     sanitize_for_json,
 )
@@ -119,10 +118,11 @@ def _serialize_data_dictionaries_by_id(data_dictionaries_by_id: dict) -> dict[st
 
 
 def _log_search_response_timing(**payload: float | int | str) -> None:
-    logger.debug(
-        "search_response_timing %s",
-        json.dumps(payload, sort_keys=True),
-    )
+    if logger.isEnabledFor(logging.DEBUG):
+        logger.debug(
+            "search_response_timing %s",
+            json.dumps(payload, sort_keys=True),
+        )
 
 
 async def _handle_search(request: Request, params: dict) -> JSONResponse:
@@ -364,9 +364,8 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 # Use nested attributes as-is
                 obj["attributes"] = attrs
 
-            # Filter out empty arrays and empty strings from nested attributes
-            # filter_empty_values already handles nested dicts recursively
-            obj["attributes"] = filter_empty_values(obj["attributes"])
+            # Cached/generated resource representations are already normalized by
+            # create_jsonapi_resource, so avoid a duplicate recursive attribute pass here.
             if not meta and "meta" in obj:
                 obj.pop("meta", None)
             processed_resources.append(obj)
@@ -460,8 +459,12 @@ async def search(
     start_time = time.time()
 
     try:
-        logger.info(
-            f"🔍 Starting search request: q='{q}', page={page}, per_page={per_page}, sort='{sort}'"
+        logger.debug(
+            "Starting search request: q=%r, page=%s, per_page=%s, sort=%r",
+            q,
+            page,
+            per_page,
+            sort,
         )
 
         # Parse adv_q from JSON string if provided
@@ -487,10 +490,11 @@ async def search(
             if raw_query_string
             else (request.url.query if request.url.query else "")
         )
-        logger.info(
-            f"Search GET: raw_query_string length={len(raw_query_string)}, "
-            f"query_string length={len(query_string)}, "
-            f"sample={query_string[:300]}"
+        logger.debug(
+            "Search GET: raw_query_string length=%s, query_string length=%s, sample=%s",
+            len(raw_query_string),
+            len(query_string),
+            query_string[:300],
         )
 
         # Extract filters manually to ensure they are passed correctly

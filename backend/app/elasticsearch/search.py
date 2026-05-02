@@ -436,7 +436,7 @@ def _log_aggregation_timing(
     log_message = "aggregation_timing %s"
     if total_ms >= SEARCH_TIMING_LOG_THRESHOLD_MS or cache_status != "hit":
         logger.info(log_message, json.dumps(payload, separators=(",", ":"), sort_keys=True))
-    else:
+    elif logger.isEnabledFor(logging.DEBUG):
         logger.debug(log_message, json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
@@ -837,12 +837,12 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
     # Normalize any flattened keys into nested structures
     geo_params = _normalize_geo_params(geo_params)
 
-    logger.info(f"Normalized geo_params: {geo_params}")
+    logger.debug("Normalized geo_params: %s", geo_params)
 
     geo_type = geo_params.get("type")
     geo_field = geo_params.get("field", "dcat_centroid")
 
-    logger.info(f"Geo filter - type: {geo_type}, field: {geo_field}")
+    logger.debug("Geo filter - type: %s, field: %s", geo_type, geo_field)
 
     if geo_type == "bbox":
         top_left = geo_params.get("top_left", {})
@@ -1049,10 +1049,10 @@ async def search_resources(
 
                 # Handle geospatial queries
                 if field == "geo" and isinstance(values, dict):
-                    logger.info(f"Building geo filter from values: {values}")
+                    logger.debug("Building geo filter from values: %s", values)
                     geo_filter = _build_geospatial_filter(values)
                     if geo_filter:
-                        logger.info(f"Geo filter built successfully: {geo_filter}")
+                        logger.debug("Geo filter built successfully: %s", geo_filter)
                         filter_clauses.append(geo_filter)
                         # Track bbox filter for spatial scoring
                         if (
@@ -1222,11 +1222,12 @@ async def search_resources(
         if filter_clauses:
             bool_query_dict["filter"] = filter_clauses
 
-        logger.info(f"Bool query - filter clauses count: {len(filter_clauses)}")
+        logger.debug("Bool query - filter clauses count: %s", len(filter_clauses))
         if filter_clauses:
-            logger.info(f"Filter clauses: {json.dumps(filter_clauses, indent=2)}")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug("Filter clauses: %s", json.dumps(filter_clauses, indent=2))
         else:
-            logger.warning("No filter clauses found - query will return all results!")
+            logger.debug("No filter clauses found - query will return all results")
 
         if must_clauses:
             bool_query_dict["must"] = must_clauses
@@ -1418,7 +1419,8 @@ async def search_resources(
 
         # If neither q nor adv_q provided, search_query already has match_all in must
 
-        logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
+        if logger.isEnabledFor(logging.DEBUG):
+            logger.debug("ES Query: %s", json.dumps(search_query, indent=2))
         es_roundtrip_ms = 0.0
 
         async def finalize_response(
@@ -1656,11 +1658,11 @@ async def process_search_response(
     """Process Elasticsearch response and format for API output."""
     try:
         total_hits = response["hits"]["total"]["value"]
-        logger.info(f"Total hits: {total_hits}")
+        logger.debug("Total hits: %s", total_hits)
 
         hits = response["hits"]["hits"]
         document_ids = [hit["_source"]["id"] for hit in hits]
-        logger.info(f"Found document IDs: {document_ids}")
+        logger.debug("Found document IDs: %s", document_ids)
 
         # Process spelling suggestions
         suggestions = []
@@ -2735,7 +2737,7 @@ async def find_similar_resources(resource_id: str, limit: int = 12) -> list:
         hits = response_dict.get("hits", {}).get("hits", [])
         similar_ids = [hit["_source"].get("id") for hit in hits if hit.get("_source", {}).get("id")]
 
-        logger.info(f"Found {len(similar_ids)} similar resources for {resource_id}")
+        logger.debug("Found %s similar resources for %s", len(similar_ids), resource_id)
         return similar_ids
 
     except Exception as e:
