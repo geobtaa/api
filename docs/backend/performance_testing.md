@@ -117,6 +117,28 @@ Available knobs:
 - `K6_SUGGEST_QUERY`
 - `K6_RESOURCE_ID`
 - `K6_SEARCH_PER_PAGE`
+- `K6_CACHE_BUST_SEARCH`
+
+### Force search miss-path traffic
+
+When you want to measure the uncached search/facet path instead of the warmed
+response-cache path, enable cache busting for search-like requests:
+
+```bash
+make k6-stress K6_CACHE_BUST_SEARCH=1
+```
+
+This appends an ignored `k6cb=...` query param to:
+
+- `/search`
+- faceted `/search`
+- `/api/v1/search`
+- faceted `/api/v1/search`
+- `/api/v1/search/facets/<facet_name>`
+
+That preserves the existing API/HTML payload shape while forcing unique
+search/facet request URLs, which is useful for finding the true miss-path
+latency ceiling on `dev1` or `prd`.
 
 ### Run only one side of the stack
 
