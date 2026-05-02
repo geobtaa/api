@@ -105,7 +105,9 @@ export function toSsrAssetUrl(url: string | undefined): string | undefined {
     }
 
     const base =
-      typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'http://localhost';
     const parsed = new URL(url, base);
     return normalizePath(parsed.pathname, parsed.search);
   } catch {
@@ -127,7 +129,9 @@ function isGenericResourceThumbnailUrl(url: string | undefined): boolean {
 
   try {
     const base =
-      typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'http://localhost';
     const parsed = new URL(url, base);
     return Boolean(
       parsed.pathname.match(/^\/(api\/v1\/)?resources\/[^/]+\/thumbnail$/)
@@ -142,7 +146,9 @@ function isBridgeThumbnailAssetUrl(url: string | undefined): boolean {
 
   try {
     const base =
-      typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+      typeof window !== 'undefined'
+        ? window.location.origin
+        : 'http://localhost';
     const parsed = new URL(url, base);
     return parsed.pathname.includes('/store/asset/');
   } catch {
@@ -173,18 +179,26 @@ export function getThumbnailFallbackUrl(
 export function getResultPrimaryImageUrl(
   result: Pick<GeoDocument, 'id' | 'meta'>,
   view: SearchResultAssetView
-): string {
+): string | undefined {
   const extracted = extractThumbnailUrl(result);
   const normalized = toSsrAssetUrl(extracted);
+  const galleryResourceClassIconUrl =
+    view === 'gallery'
+      ? toSsrAssetUrl(extractResourceClassIconUrl(result))
+      : undefined;
 
   // Route generic thumbnail endpoints and bridge-backed assets through the
-  // generated thumbnail pipeline so search cards never render oversized
-  // originals directly.
+  // generated thumbnail pipeline for non-gallery contexts. Gallery first paint
+  // is especially sensitive: if the immutable thumbnail is not hot yet, prefer
+  // the cheap generated class icon instead of blocking on thumbnail generation.
   if (
     normalized &&
     (isGenericResourceThumbnailUrl(normalized) ||
       isBridgeThumbnailAssetUrl(extracted))
   ) {
+    if (view === 'gallery') {
+      return galleryResourceClassIconUrl;
+    }
     return getGeneratedThumbnailUrl(result.id, view);
   }
 
@@ -192,13 +206,12 @@ export function getResultPrimaryImageUrl(
     return normalized;
   }
 
+  if (galleryResourceClassIconUrl) {
+    return galleryResourceClassIconUrl;
+  }
+
   if (view === 'gallery') {
-    const resourceClassIconUrl = toSsrAssetUrl(
-      extractResourceClassIconUrl(result)
-    );
-    if (resourceClassIconUrl) {
-      return resourceClassIconUrl;
-    }
+    return undefined;
   }
 
   return getThumbnailFallbackUrl(result.id, view);

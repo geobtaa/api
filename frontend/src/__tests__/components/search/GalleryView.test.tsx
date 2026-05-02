@@ -76,16 +76,16 @@ describe('GalleryView', () => {
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
   });
 
-  it('uses the grid fallback asset when a result has no real thumbnail', () => {
+  it('uses the inline resource icon when a result has no real thumbnail', () => {
     const { container } = renderGallery({
       results: [mockResults[0]],
       totalResults: 1,
     });
 
-    const thumbnail = container.querySelector(
-      'img[src="/static-maps/result-1/resource-class-icon"]'
-    );
-    expect(thumbnail).toBeInTheDocument();
+    expect(container.querySelector('img')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('gallery-thumbnail-placeholder-0')
+    ).toBeInTheDocument();
   });
 
   it('prefers a hot immutable resource-class icon asset when one is provided', () => {
@@ -115,7 +115,7 @@ describe('GalleryView', () => {
     expect(legacyIcon).not.toBeInTheDocument();
   });
 
-  it('does not overlay the inline resource icon while the fallback asset loads', () => {
+  it('shows the inline resource icon immediately for cold fallback items', () => {
     const completeSpy = vi
       .spyOn(HTMLImageElement.prototype, 'complete', 'get')
       .mockReturnValue(false);
@@ -127,14 +127,14 @@ describe('GalleryView', () => {
       });
 
       expect(
-        screen.queryByTestId('gallery-thumbnail-placeholder-0')
-      ).not.toBeInTheDocument();
+        screen.getByTestId('gallery-thumbnail-placeholder-0')
+      ).toBeInTheDocument();
     } finally {
       completeSpy.mockRestore();
     }
   });
 
-  it('routes the generic resource thumbnail endpoint through the gallery thumbnail route', () => {
+  it('uses the inline fallback for cold generic resource thumbnail endpoints', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -150,13 +150,13 @@ describe('GalleryView', () => {
       totalResults: 1,
     });
 
-    const thumbnail = container.querySelector(
-      'img[src="/resources/result-1/thumbnail"]'
-    );
-    expect(thumbnail).toBeInTheDocument();
+    expect(container.querySelector('img')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('gallery-thumbnail-placeholder-0')
+    ).toBeInTheDocument();
   });
 
-  it('routes raw bridge thumbnail assets through the gallery thumbnail route', () => {
+  it('uses the inline fallback for raw bridge thumbnail assets in gallery view', () => {
     const resultWithBridgeThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -172,10 +172,10 @@ describe('GalleryView', () => {
       totalResults: 1,
     });
 
-    const thumbnail = container.querySelector(
-      'img[src="/resources/result-1/thumbnail"]'
-    );
-    expect(thumbnail).toBeInTheDocument();
+    expect(container.querySelector('img')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('gallery-thumbnail-placeholder-0')
+    ).toBeInTheDocument();
   });
 
   it('hides the placeholder immediately for already-cached thumbnails', async () => {
@@ -245,13 +245,23 @@ describe('GalleryView', () => {
 
   it('defers below-the-fold gallery images until after initial paint', () => {
     vi.useFakeTimers();
+    const resultsWithDirectThumbnails = mockResults
+      .slice(0, 20)
+      .map((result) => ({
+        ...result,
+        meta: {
+          ui: {
+            thumbnail_url: `https://example.com/${result.id}.jpg`,
+          },
+        },
+      }));
 
-    const { container } = renderGallery();
+    const { container } = renderGallery({
+      results: resultsWithDirectThumbnails,
+    });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-16/resource-class-icon"]'
-      )
+      container.querySelector('img[src="https://example.com/result-16.jpg"]')
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -259,9 +269,7 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-16/resource-class-icon"]'
-      )
+      container.querySelector('img[src="https://example.com/result-16.jpg"]')
     ).not.toBeInTheDocument();
 
     act(() => {
@@ -269,9 +277,7 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-16/resource-class-icon"]'
-      )
+      container.querySelector('img[src="https://example.com/result-16.jpg"]')
     ).toBeInTheDocument();
   });
 

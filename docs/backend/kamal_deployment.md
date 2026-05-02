@@ -26,6 +26,32 @@ kamal deploy -d dev2
 kamal deploy -d prd
 ```
 
+## Current Host Inventory
+
+Snapshot date: `2026-05-01`
+
+These are the live VM specs observed over SSH with `hostname`, `nproc`,
+`free -h`, and `lsblk`. Refresh this section after resizing a host or moving a
+destination to a new VM.
+
+| Destination | vCPU | RAM | Swap | Disk layout | Notes |
+|-------------|------|-----|------|-------------|-------|
+| `dev1` | 8 | 31 GiB | 8 GiB | `208G` system disk plus `128G` secondary disk; `/var/lib` LVM volume currently `188G` | Original dev host |
+| `dev2` | 8 | 31 GiB | 4 GiB | `208G` system disk; `/var/lib` LVM volume currently `100G` | New dev host |
+| `prd` | 8 | 31 GiB | 4 GiB | `500G` system disk; `/var/lib` LVM volume currently `100G` | Same CPU/RAM class as dev, but larger disk and higher app/ES reservations |
+
+Quick refresh command pattern:
+
+```bash
+set -a
+source .kamal/secrets-common
+source .kamal/secrets.prd
+set +a
+
+ssh -o BatchMode=yes "$KAMAL_SSH_USER@$KAMAL_HOST" \
+  'hostname; nproc; free -h; lsblk -o NAME,SIZE,TYPE,MOUNTPOINT'
+```
+
 ## Current Runtime Layout
 
 Each destination is a single-host deployment with these app roles:
