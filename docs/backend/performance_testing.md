@@ -118,7 +118,9 @@ Available knobs:
 - `K6_RESOURCE_ID`
 - `K6_SEARCH_PER_PAGE`
 - `K6_CACHE_BUST_SEARCH`
+- `K6_CACHE_BUST_SEED`
 - `K6_ENDPOINT_BREAKDOWN`
+- `K6_SEARCH_DIAGNOSTICS`
 
 ### Force search miss-path traffic
 
@@ -144,9 +146,39 @@ is intentional because it represents protection against transport noise and
 duplicated frontend/API/QGIS/MCP search intent. Disable `SEARCH_RESULT_CACHE`
 only when you need to measure the full search-result assembly miss path.
 
+The cache-bust token includes a generated per-run seed so repeated smoke/stress
+runs do not accidentally reuse old endpoint-cache entries. Set
+`K6_CACHE_BUST_SEED=<value>` only when you intentionally need reproducible URLs.
+
 Add `K6_ENDPOINT_BREAKDOWN=1` when you need per-endpoint `p95`/`p99` rows in
 the k6 summary. This is useful after scenario-level thresholds fail and you
 need to see which tagged endpoint is carrying the tail latency.
+
+Search diagnostics are enabled by default with `K6_SEARCH_DIAGNOSTICS=1`.
+Search-like requests record custom k6 metrics from `X-Search-Semantic-Cache`
+and `Server-Timing` headers:
+
+- `search_semantic_cache_hit_rate`
+- `search_semantic_cache_hits`
+- `search_semantic_cache_misses`
+- `search_semantic_cache_observed`
+- `search_semantic_cache_unknown`
+- `search_response_duration`
+- `search_server_timing_total`
+- `search_server_timing_search`
+- `search_server_timing_response_build`
+- `search_server_timing_resource_cache_lookup`
+- `search_server_timing_db_fallback`
+- `search_server_timing_miss_prefetch`
+- `search_server_timing_miss_build`
+- `search_server_timing_semantic_cache_lookup`
+- `search_server_timing_semantic_cache_wait`
+- `search_server_timing_semantic_cache_store`
+
+These metrics help distinguish true cache misses from cache hits that are slow
+because of worker queueing, frontend fetch timing, or downstream response
+composition. Disable them with `K6_SEARCH_DIAGNOSTICS=0` only when you need the
+lowest possible test-client overhead.
 
 The frontend scenario treats `/search` as a browser flow: it requests the HTML
 shell and then requests `/search/results` for the JSON data that the hydrated

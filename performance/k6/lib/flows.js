@@ -3,6 +3,7 @@ import { check, fail, sleep } from "k6";
 import exec from "k6/execution";
 
 import { config } from "./config.js";
+import { recordSearchDiagnostics } from "./search_diagnostics.js";
 
 const HTML_HEADERS = {
   Accept: "text/html,application/xhtml+xml",
@@ -110,6 +111,7 @@ function buildFacetQueryString(seed) {
 
 function buildCacheBustToken(label) {
   return [
+    config.cacheBustSeed,
     exec.scenario.name || "scenario",
     exec.vu.idInTest || 0,
     exec.scenario.iterationInTest || 0,
@@ -220,6 +222,7 @@ export function frontendFlow(seed) {
       tags: { name: "frontend_search_results_api", surface: "frontend" },
     },
   );
+  recordSearchDiagnostics(searchResultsResponse, "frontend_search_results_api");
   checkJson(searchResultsResponse, "frontend search results api");
 
   if (facetQueryString) {
@@ -247,6 +250,10 @@ export function frontendFlow(seed) {
           surface: "frontend",
         },
       },
+    );
+    recordSearchDiagnostics(
+      facetedSearchResultsResponse,
+      "frontend_faceted_search_results_api",
     );
     checkJson(
       facetedSearchResultsResponse,
@@ -281,6 +288,7 @@ export function apiFlow(seed) {
       tags: { name: "api_search", surface: "api" },
     },
   );
+  recordSearchDiagnostics(searchResponse, "api_search");
   checkJson(searchResponse, "api search");
   check(searchResponse, {
     "api search returned data array": (res) => {
@@ -300,6 +308,7 @@ export function apiFlow(seed) {
         tags: { name: "api_faceted_search", surface: "api" },
       },
     );
+    recordSearchDiagnostics(facetedSearchResponse, "api_faceted_search");
     checkJson(facetedSearchResponse, "api faceted search");
   }
 
@@ -352,6 +361,9 @@ export function apiFlow(seed) {
         tags: { name: "api_facet_values", surface: "api" },
       },
     );
+    recordSearchDiagnostics(facetValuesResponse, "api_facet_values", {
+      expectSemanticCache: false,
+    });
     checkJson(facetValuesResponse, "api facet values");
   }
 

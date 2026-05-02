@@ -43,7 +43,9 @@ describe('search results proxy loader', () => {
       new Response(JSON.stringify(mockSearchResponse), {
         headers: {
           'Content-Type': 'application/json; charset=utf-8',
+          'Server-Timing': 'total;dur=4.2, semantic_cache;desc="hit"',
           'X-Cache': 'HIT',
+          'X-Search-Semantic-Cache': 'HIT',
         },
       })
     );
@@ -70,7 +72,9 @@ describe('search results proxy loader', () => {
     );
 
     expect(response.headers.get('content-type')).toContain('application/json');
+    expect(response.headers.get('server-timing')).toContain('total;dur=4.2');
     expect(response.headers.get('x-cache')).toBe('HIT');
+    expect(response.headers.get('x-search-semantic-cache')).toBe('HIT');
     expect(await response.json()).toEqual(mockSearchResponse);
   });
 

@@ -6,8 +6,10 @@ const FORWARDED_RESPONSE_HEADERS = [
   'content-type',
   'etag',
   'last-modified',
+  'server-timing',
   'vary',
   'x-cache',
+  'x-search-semantic-cache',
 ] as const;
 
 const FORWARDED_REQUEST_HEADERS = [
