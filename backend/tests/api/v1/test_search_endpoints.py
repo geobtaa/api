@@ -39,6 +39,13 @@ def _build_request(query_string: bytes) -> Request:
     )
 
 
+@pytest.fixture(autouse=True)
+def disable_semantic_search_cache_by_default(monkeypatch):
+    from app.api.v1.endpoint_modules import search as search_module
+
+    monkeypatch.setattr(search_module, "SEARCH_RESULT_CACHE_ENABLED", False)
+
+
 @pytest.fixture
 def mock_suggest_response():
     """Return a mock suggest response for testing."""
@@ -320,6 +327,99 @@ async def test_handle_search_reuses_cached_resource_representation():
     mock_store_resource_representations.assert_not_awaited()
     payload = json.loads(response.body)
     assert payload["data"][0]["attributes"]["ogm"]["dct_title_s"] == "Cached Resource"
+
+
+@pytest.mark.asyncio
+async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
+    from app.api.v1.endpoint_modules import search as search_module
+    from app.services.cache_service import CacheService as RealCacheService
+
+    monkeypatch.setattr(search_module, "SEARCH_RESULT_CACHE_ENABLED", True)
+
+    class FakeSemanticCache:
+        _redis_client = object()
+        store = {}
+        tagged = []
+        generate_cache_key = staticmethod(RealCacheService.generate_cache_key)
+
+        async def get(self, key):
+            value = self.store.get(key)
+            return json.loads(json.dumps(value)) if value is not None else None
+
+        async def set(self, key, value, ttl):
+            self.store[key] = json.loads(json.dumps(value))
+            return True
+
+        async def tag_cache_key(self, key, tags, ttl_seconds):
+            self.tagged.append((key, set(tags), ttl_seconds))
+
+        async def acquire_lock(self, lock_key):
+            return True
+
+    monkeypatch.setattr(search_module, "CacheService", FakeSemanticCache)
+
+    cached_resource = {
+        "type": "resource",
+        "id": "test-doc",
+        "attributes": {"ogm": {"dct_title_s": "Cached Resource"}},
+        "meta": {"ui": {}},
+    }
+    search_mock = AsyncMock(
+        return_value={
+            "data": [{"id": "test-doc", "score": 12.5}],
+            "meta": {"pages": {"total_count": 1, "total_pages": 1}},
+            "queryTime": {},
+        }
+    )
+
+    with (
+        patch(
+            "app.api.v1.endpoint_modules.search.SearchService.search",
+            search_mock,
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.get_cached_resource_representations",
+            new=AsyncMock(return_value={"test-doc": cached_resource}),
+        ),
+    ):
+        first = await search_module._handle_search(
+            _build_request(b"q=st+paul&k6cb=one"),
+            {
+                "q": "st paul",
+                "page": 1,
+                "per_page": 20,
+                "meta": True,
+                "request_query_params": "q=st+paul&k6cb=one",
+                "fq": {},
+                "include_filters": {},
+                "exclude_filters": {},
+            },
+        )
+        second = await search_module._handle_search(
+            _build_request(b"q=st+paul&k6cb=two"),
+            {
+                "q": "st paul",
+                "page": 1,
+                "per_page": 20,
+                "meta": False,
+                "request_query_params": "q=st+paul&k6cb=two",
+                "fq": {},
+                "include_filters": {},
+                "exclude_filters": {},
+            },
+        )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert search_mock.await_count == 1
+    assert first.headers["x-search-semantic-cache"] == "MISS"
+    assert second.headers["x-search-semantic-cache"] == "HIT"
+    assert any("search" in tags for _, tags, _ in FakeSemanticCache.tagged)
+
+    first_payload = json.loads(first.body)
+    second_payload = json.loads(second.body)
+    assert first_payload["data"][0]["meta"]["score"] == 12.5
+    assert "meta" not in second_payload["data"][0]
 
 
 @pytest.mark.asyncio

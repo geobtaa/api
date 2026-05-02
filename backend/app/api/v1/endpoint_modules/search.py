@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import os
 import time
 from typing import Annotated, Optional
 
@@ -26,7 +28,7 @@ from app.elasticsearch.search import (
     process_facet_response,
 )
 from app.services.allmaps_service import fetch_allmaps_attributes_map
-from app.services.cache_service import cached_endpoint
+from app.services.cache_service import ENDPOINT_CACHE, CacheService, cached_endpoint
 from app.services.data_dictionary_repository import (
     fetch_resource_data_dictionaries_map,
     serialize_resource_data_dictionaries,
@@ -53,6 +55,17 @@ router = APIRouter()
 # Cache TTL configuration in seconds
 SEARCH_CACHE_TTL = int(3600)  # 1 hour
 SUGGEST_CACHE_TTL = int(7200)  # 2 hours
+SEARCH_RESULT_CACHE_TTL = int(os.getenv("SEARCH_RESULT_CACHE_TTL", str(SEARCH_CACHE_TTL)))
+SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v1")
+SEARCH_RESULT_CACHE_NAMESPACE = "search.results"
+SEARCH_RESULT_CACHE_ENABLED = os.getenv("SEARCH_RESULT_CACHE", "true").lower() == "true"
+SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS = float(
+    os.getenv("SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS", "0.25")
+)
+SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS = float(
+    os.getenv("SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS", "750")
+)
+SEARCH_TIMING_HEADERS = os.getenv("SEARCH_TIMING_HEADERS", "true").lower() == "true"
 
 # Create async engine and session for search results processing
 engine = create_async_engine(DATABASE_URL)
@@ -118,11 +131,202 @@ def _serialize_data_dictionaries_by_id(data_dictionaries_by_id: dict) -> dict[st
 
 
 def _log_search_response_timing(**payload: float | int | str) -> None:
-    if logger.isEnabledFor(logging.DEBUG):
-        logger.debug(
-            "search_response_timing %s",
-            json.dumps(payload, sort_keys=True),
+    total_ms = float(payload.get("totalMs") or 0)
+    cache_status = str(payload.get("semanticCacheStatus") or "")
+    should_info = total_ms >= SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS or cache_status in {
+        "miss",
+        "wait_miss",
+    }
+    if should_info:
+        logger.info("search_response_timing %s", json.dumps(payload, sort_keys=True))
+    elif logger.isEnabledFor(logging.DEBUG):
+        logger.debug("search_response_timing %s", json.dumps(payload, sort_keys=True))
+
+
+def _canonical_filter_value(value):
+    if isinstance(value, dict):
+        return {str(k): _canonical_filter_value(value[k]) for k in sorted(value.keys())}
+    if isinstance(value, list):
+        normalized = [_canonical_filter_value(item) for item in value]
+        return sorted(
+            normalized,
+            key=lambda item: json.dumps(item, sort_keys=True, default=str),
         )
+    return value
+
+
+def _build_semantic_search_cache_key(
+    *,
+    q,
+    page: int,
+    per_page: int,
+    sort,
+    search_field,
+    fields,
+    facets,
+    include_filters,
+    exclude_filters,
+    fq,
+    adv_q,
+) -> str:
+    """Cache key for the expensive request-independent search response core."""
+    return CacheService.generate_cache_key(
+        SEARCH_RESULT_CACHE_NAMESPACE,
+        version=SEARCH_RESULT_CACHE_VERSION,
+        index=os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api"),
+        q=q or "",
+        page=page,
+        per_page=per_page,
+        sort=sort or "",
+        search_field=search_field or "",
+        fields=fields or "",
+        facets=facets or "",
+        include_filters=_canonical_filter_value(include_filters or {}),
+        exclude_filters=_canonical_filter_value(exclude_filters or {}),
+        fq=_canonical_filter_value(fq or {}),
+        adv_q=adv_q or [],
+    )
+
+
+async def _get_cached_search_response_core(
+    *,
+    cache_service: CacheService,
+    cache_key: str,
+    timings: dict[str, float | int | str],
+) -> tuple[dict | None, str]:
+    if not SEARCH_RESULT_CACHE_ENABLED or not ENDPOINT_CACHE:
+        timings["semanticCacheLookupMs"] = 0
+        return None, "disabled"
+
+    if getattr(cache_service, "_redis_client", True) is None:
+        timings["semanticCacheLookupMs"] = 0
+        return None, "disabled"
+
+    lookup_started_at = time.perf_counter()
+    cached_core = await cache_service.get(cache_key)
+    timings["semanticCacheLookupMs"] = round((time.perf_counter() - lookup_started_at) * 1000, 2)
+    if isinstance(cached_core, dict):
+        return cached_core, "hit"
+
+    lock_key = f"{cache_key}:lock"
+    if await cache_service.acquire_lock(lock_key):
+        return None, "miss"
+
+    wait_started_at = time.perf_counter()
+    deadline = wait_started_at + SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS
+    while time.perf_counter() < deadline:
+        await asyncio.sleep(0.05)
+        cached_core = await cache_service.get(cache_key)
+        if isinstance(cached_core, dict):
+            timings["semanticCacheWaitMs"] = round(
+                (time.perf_counter() - wait_started_at) * 1000, 2
+            )
+            return cached_core, "wait_hit"
+
+    timings["semanticCacheWaitMs"] = round((time.perf_counter() - wait_started_at) * 1000, 2)
+    return None, "wait_miss"
+
+
+async def _store_cached_search_response_core(
+    *,
+    cache_service: CacheService,
+    cache_key: str,
+    response_core: dict,
+    timings: dict[str, float | int | str],
+) -> None:
+    store_started_at = time.perf_counter()
+    stored = await cache_service.set(cache_key, response_core, ttl=SEARCH_RESULT_CACHE_TTL)
+    timings["semanticCacheStoreMs"] = round((time.perf_counter() - store_started_at) * 1000, 2)
+    if stored:
+        await cache_service.tag_cache_key(
+            cache_key,
+            {"search", SEARCH_RESULT_CACHE_NAMESPACE},
+            ttl_seconds=SEARCH_RESULT_CACHE_TTL,
+        )
+
+
+def _data_for_resource_meta_preference(data: list, *, include_resource_meta: bool) -> list:
+    if include_resource_meta:
+        return data
+    return [
+        {key: value for key, value in item.items() if key != "meta"}
+        if isinstance(item, dict)
+        else item
+        for item in data
+    ]
+
+
+def _server_timing_header(timings: dict[str, float | int | str]) -> str:
+    metric_map = {
+        "semanticCacheLookupMs": "semantic_cache_lookup",
+        "semanticCacheWaitMs": "semantic_cache_wait",
+        "semanticCacheStoreMs": "semantic_cache_store",
+        "searchMs": "search",
+        "resourceCacheLookupMs": "resource_cache_lookup",
+        "dbFallbackMs": "db_fallback",
+        "missPrefetchMs": "miss_prefetch",
+        "missBuildMs": "miss_build",
+        "responseBuildMs": "response_build",
+        "totalMs": "total",
+    }
+    parts = []
+    for key, name in metric_map.items():
+        value = timings.get(key)
+        if isinstance(value, (int, float)):
+            parts.append(f"{name};dur={float(value):.2f}")
+    status = timings.get("semanticCacheStatus")
+    if status:
+        parts.append(f'semantic_cache;desc="{status}"')
+    return ", ".join(parts)
+
+
+def _build_search_json_response(
+    *,
+    request: Request,
+    response_core: dict,
+    page: int,
+    total_pages: int,
+    include_resource_meta: bool,
+    timings: dict[str, float | int | str],
+) -> JSONResponse:
+    from app.api.v1.strong_params import SEARCH_ALLOWED_PARAMS
+
+    response_build_started_at = time.perf_counter()
+    links = create_pagination_links(
+        request,
+        page,
+        total_pages,
+        pagination_type="page",
+        allowed_params=SEARCH_ALLOWED_PARAMS,
+    )
+    base = create_jsonapi_response(data=[], request_url=str(request.url))
+    response = {
+        "jsonapi": base.get("jsonapi", {}),
+        "links": links,
+        "meta": response_core.get("meta", {}),
+        "data": _data_for_resource_meta_preference(
+            response_core.get("data", []),
+            include_resource_meta=include_resource_meta,
+        ),
+    }
+    if "included" in response_core:
+        response["included"] = response_core["included"]
+
+    timings["responseBuildMs"] = round((time.perf_counter() - response_build_started_at) * 1000, 2)
+    return JSONResponse(content=sanitize_for_json(response))
+
+
+def _attach_search_timing_headers(
+    json_response: JSONResponse,
+    timings: dict[str, float | int | str],
+) -> JSONResponse:
+    if SEARCH_TIMING_HEADERS:
+        json_response.headers["Server-Timing"] = _server_timing_header(timings)
+        if timings.get("semanticCacheStatus"):
+            json_response.headers["X-Search-Semantic-Cache"] = str(
+                timings["semanticCacheStatus"]
+            ).upper()
+    return json_response
 
 
 async def _handle_search(request: Request, params: dict) -> JSONResponse:
@@ -155,12 +359,50 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     if adv_q is not None:
         adv_q = validate_adv_q(adv_q)
 
+    timings: dict[str, float | int | str] = {
+        "operation": "_handle_search",
+        "semanticCacheStatus": "unknown",
+    }
+
+    semantic_cache_key = _build_semantic_search_cache_key(
+        q=q,
+        page=page,
+        per_page=per_page,
+        sort=sort,
+        search_field=search_field,
+        fields=fields,
+        facets=facets,
+        include_filters=include_filters,
+        exclude_filters=exclude_filters,
+        fq=fq,
+        adv_q=adv_q,
+    )
+    cache_service = CacheService()
+    cached_core, semantic_cache_status = await _get_cached_search_response_core(
+        cache_service=cache_service,
+        cache_key=semantic_cache_key,
+        timings=timings,
+    )
+    timings["semanticCacheStatus"] = semantic_cache_status
+    if cached_core is not None:
+        cached_meta = cached_core.get("meta", {}) if isinstance(cached_core, dict) else {}
+        response = _build_search_json_response(
+            request=request,
+            response_core=cached_core,
+            page=page,
+            total_pages=int(cached_meta.get("totalPages", 0) or 0),
+            include_resource_meta=bool(meta),
+            timings=timings,
+        )
+        timings["totalMs"] = round((time.perf_counter() - request_started_at) * 1000, 2)
+        _log_search_response_timing(**timings)
+        return _attach_search_timing_headers(response, timings)
+
     search_duration_ms = 0.0
     cache_lookup_ms = 0.0
     db_fallback_ms = 0.0
     miss_prefetch_ms = 0.0
     miss_build_ms = 0.0
-    response_build_ms = 0.0
 
     # Step 1: Call SearchService
     search_service = SearchService()
@@ -364,27 +606,12 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 # Use nested attributes as-is
                 obj["attributes"] = attrs
 
-            # Cached/generated resource representations are already normalized by
-            # create_jsonapi_resource, so avoid a duplicate recursive attribute pass here.
-            if not meta and "meta" in obj:
-                obj.pop("meta", None)
             processed_resources.append(obj)
 
-    # Step 4: Build JSON:API response
-    response_build_started_at = time.perf_counter()
+    # Step 4: Build the request-independent response core.
     pages_info = result_obj.get("meta", {}).get("pages", {})
     total_count = pages_info.get("total_count", 0)
     total_pages = pages_info.get("total_pages", 0)
-
-    from app.api.v1.strong_params import SEARCH_ALLOWED_PARAMS
-
-    links = create_pagination_links(
-        request,
-        page,
-        total_pages,
-        pagination_type="page",
-        allowed_params=SEARCH_ALLOWED_PARAMS,
-    )
 
     meta_block = {
         "totalCount": int(total_count),
@@ -397,35 +624,47 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         "spellingSuggestions": results.get("meta", {}).get("spellingSuggestions", []),
     }
 
-    # Build response with desired key order: jsonapi -> links -> meta -> data -> included
-    base = create_jsonapi_response(data=[], request_url=str(request.url))
-    response = {
-        "jsonapi": base.get("jsonapi", {}),
-        "links": links,
+    response_core = {
         "meta": meta_block,
         "data": processed_resources,
     }
     if isinstance(result_obj, dict) and "included" in result_obj:
-        response["included"] = result_obj["included"]
+        response_core["included"] = result_obj["included"]
 
-    response_build_ms = (time.perf_counter() - response_build_started_at) * 1000
-    _log_search_response_timing(
-        builtCount=len(built_resources),
-        cacheLookupMs=round(cache_lookup_ms, 2),
-        cachedCount=len(cached_resources),
-        dbFallbackCount=len(missing_source_ids),
-        dbFallbackMs=round(db_fallback_ms, 2),
-        missBuildMs=round(miss_build_ms, 2),
-        missCount=len(missing_resource_ids),
-        missPrefetchMs=round(miss_prefetch_ms, 2),
-        operation="_handle_search",
-        resourceCount=len(resource_ids),
-        responseBuildMs=round(response_build_ms, 2),
-        searchMs=round(search_duration_ms, 2),
-        totalMs=round((time.perf_counter() - request_started_at) * 1000, 2),
+    timings.update(
+        {
+            "builtCount": len(built_resources),
+            "resourceCacheLookupMs": round(cache_lookup_ms, 2),
+            "cachedCount": len(cached_resources),
+            "dbFallbackCount": len(missing_source_ids),
+            "dbFallbackMs": round(db_fallback_ms, 2),
+            "missBuildMs": round(miss_build_ms, 2),
+            "missCount": len(missing_resource_ids),
+            "missPrefetchMs": round(miss_prefetch_ms, 2),
+            "resourceCount": len(resource_ids),
+            "searchMs": round(search_duration_ms, 2),
+        }
     )
 
-    return JSONResponse(content=sanitize_for_json(response))
+    if semantic_cache_status != "disabled":
+        await _store_cached_search_response_core(
+            cache_service=cache_service,
+            cache_key=semantic_cache_key,
+            response_core=response_core,
+            timings=timings,
+        )
+
+    response = _build_search_json_response(
+        request=request,
+        response_core=response_core,
+        page=page,
+        total_pages=int(total_pages),
+        include_resource_meta=bool(meta),
+        timings=timings,
+    )
+    timings["totalMs"] = round((time.perf_counter() - request_started_at) * 1000, 2)
+    _log_search_response_timing(**timings)
+    return _attach_search_timing_headers(response, timings)
 
 
 @router.get("/search")
@@ -501,6 +740,7 @@ async def search(
         from app.services.search_service import SearchService
 
         search_service = SearchService()
+        filter_query = search_service.extract_filter_queries(query_string)
         include_filters, exclude_filters = search_service.extract_new_style_filters(query_string)
 
         return await _handle_search(
@@ -517,6 +757,7 @@ async def search(
                 "callback": callback,
                 "request_query_params": query_string,
                 "adv_q": parsed_adv_q,
+                "fq": filter_query,
                 "include_filters": include_filters,
                 "exclude_filters": exclude_filters,
             },

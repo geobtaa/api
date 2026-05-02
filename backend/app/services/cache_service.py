@@ -201,6 +201,9 @@ def _filter_cacheable_headers(headers: Headers | dict[str, str]) -> dict[str, st
         "connection",
         "keep-alive",
         "transfer-encoding",
+        # Per-request diagnostics should describe the live request, not a cached one.
+        "server-timing",
+        "x-search-semantic-cache",
     }
     allowed = {}
     for k, v in hdrs.items():

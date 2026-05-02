@@ -122,8 +122,8 @@ Available knobs:
 
 ### Force search miss-path traffic
 
-When you want to measure the uncached search/facet path instead of the warmed
-response-cache path, enable cache busting for search-like requests:
+When you want to bypass the URL-level endpoint response cache for search/facet
+requests, enable cache busting for search-like requests:
 
 ```bash
 make k6-stress K6_CACHE_BUST_SEARCH=1
@@ -138,8 +138,11 @@ This appends an ignored `k6cb=...` query param to:
 - `/api/v1/search/facets/<facet_name>`
 
 That preserves the existing API/HTML payload shape while forcing unique
-search/facet request URLs, which is useful for finding the true miss-path
-latency ceiling on `dev1` or `prd`.
+search/facet request URLs. The backend may still reuse semantic search-result
+cache entries when the actual query/filter/page/sort inputs are unchanged; this
+is intentional because it represents protection against transport noise and
+duplicated frontend/API/QGIS/MCP search intent. Disable `SEARCH_RESULT_CACHE`
+only when you need to measure the full search-result assembly miss path.
 
 Add `K6_ENDPOINT_BREAKDOWN=1` when you need per-endpoint `p95`/`p99` rows in
 the k6 summary. This is useful after scenario-level thresholds fail and you
@@ -153,22 +156,42 @@ search payload.
 
 ## Backend search knobs
 
-Two backend env vars are useful when tuning facet-heavy search behavior:
+These backend env vars are useful when tuning facet-heavy search behavior:
 
 - `SEARCH_FACET_CACHE_TTL`
   Controls how long normalized search facet blocks and facet-value buckets stay
   hot in Redis. Default: `3600` seconds.
+- `SEARCH_RESULT_CACHE`
+  Enables the semantic `/api/v1/search` response-core cache below the endpoint
+  response cache. Default: `true`.
+- `SEARCH_RESULT_CACHE_TTL`
+  Controls how long semantic search response cores stay hot in Redis. Default:
+  same as `SEARCH_CACHE_TTL` (`3600` seconds).
+- `SEARCH_RESULT_CACHE_VERSION`
+  Bumps only the semantic search response-core namespace when the cached core
+  format changes. Default: `v1`.
+- `SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS`
+  Controls how briefly a request waits for another worker to fill the semantic
+  cache before computing the response itself. Default: `0.25` seconds.
 - `SEARCH_TIMING_LOG_THRESHOLD_MS`
   Controls when the backend logs aggregation timing summaries at `info` instead
   of `debug`. Default: `750` milliseconds.
+- `SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS`
+  Controls when `/api/v1/search` response-assembly timing logs are emitted at
+  `info` instead of `debug`. Default: `750` milliseconds.
+- `SEARCH_TIMING_HEADERS`
+  Adds live `Server-Timing` and `X-Search-Semantic-Cache` headers to search
+  responses. Default: `true`. These diagnostics are not stored in endpoint
+  response-cache records.
 
 The new aggregation timing logs are emitted from the backend search layer and
 distinguish cache hits from full Elasticsearch aggregation misses, which makes
 it easier to compare warm and miss-path behavior during k6 runs.
 
-The API search endpoint also now emits `search_response_timing` debug logs that
-break down the `/api/v1/search` assembly path into search, representation-cache
-lookup, DB fallback, miss prefetch, miss build, and response-build stages.
+The API search endpoint also emits `search_response_timing` logs that break down
+the `/api/v1/search` assembly path into semantic-cache lookup/wait/store, search,
+representation-cache lookup, DB fallback, miss prefetch, miss build, and
+response-build stages.
 
 ### Run only one side of the stack
 
