@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-api-response-cache-init kamal-api-response-cache-prune clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -118,6 +118,28 @@ PRIME_FORCE ?=
 PRIME_RETRY_FAILURES ?=
 PRIME_RETRY_PLACEHELD ?=
 RESOURCE_IDS ?=
+K6_BASE_URL ?= https://lib-btaageoapi-dev-app-01.oit.umn.edu
+K6_QUERY ?= minnesota
+K6_SUGGEST_QUERY ?=
+K6_RESOURCE_ID ?=
+K6_SEARCH_PER_PAGE ?= 10
+K6_ENABLE_FRONTEND ?= 1
+K6_ENABLE_API ?= 1
+K6_FRONTEND_TARGET_VUS ?= 4
+K6_FRONTEND_RAMP_UP ?= 30s
+K6_FRONTEND_HOLD ?= 2m
+K6_FRONTEND_RAMP_DOWN ?= 30s
+K6_FRONTEND_THINK_TIME_SECONDS ?= 1
+K6_API_TARGET_VUS ?= 8
+K6_API_RAMP_UP ?= 30s
+K6_API_HOLD ?= 2m
+K6_API_RAMP_DOWN ?= 30s
+K6_API_THINK_TIME_SECONDS ?= 0.25
+K6_SMOKE_VUS ?= 1
+K6_SMOKE_ITERATIONS ?= 1
+K6_DOCKER_IMAGE ?= grafana/k6:latest
+K6_SCRIPT_DIR ?= performance/k6
+K6_OUTPUT_DIR ?= tmp/k6
 
 # db-sync defaults
 DB_SYNC_FULL_EXPORT ?= tmp/btaa_geospatial_api_export.sql.gz
@@ -259,6 +281,82 @@ test-coverage-baseline: ## Create baseline coverage for comparison
 	BASELINE_COVERAGE=$$(grep -o 'line-rate="[^"]*"' coverage.xml | head -1 | sed 's/line-rate="\([^"]*\)"/\1/' | awk '{printf "%.0f", $$1 * 100}'); \
 	echo "Baseline coverage: $$BASELINE_COVERAGE%"; \
 	echo "To use this baseline, run: BASELINE_COVERAGE=$$BASELINE_COVERAGE make test-coverage-compare"
+
+# Run a k6 script locally if available, or in Docker as a fallback.
+# Usage:
+#   make k6-smoke
+#   make k6-stress K6_BASE_URL=https://lib-btaageoapi-dev-app-01.oit.umn.edu
+#   make k6-stress K6_FRONTEND_TARGET_VUS=6 K6_API_TARGET_VUS=12
+k6-run: ## Internal helper for k6 targets (set K6_ENTRY=...)
+	@if [ -z "$(K6_ENTRY)" ]; then \
+		echo "ERROR: K6_ENTRY is required (for example: make k6-run K6_ENTRY=smoke.js)."; \
+		exit 1; \
+	fi
+	@mkdir -p "$(K6_OUTPUT_DIR)"
+	@if command -v k6 >/dev/null 2>&1; then \
+		echo "Running k6 locally against $(K6_BASE_URL)..."; \
+		K6_BASE_URL="$(K6_BASE_URL)" \
+		K6_QUERY="$(K6_QUERY)" \
+		K6_SUGGEST_QUERY="$(K6_SUGGEST_QUERY)" \
+		K6_RESOURCE_ID="$(K6_RESOURCE_ID)" \
+		K6_SEARCH_PER_PAGE="$(K6_SEARCH_PER_PAGE)" \
+		K6_ENABLE_FRONTEND="$(K6_ENABLE_FRONTEND)" \
+		K6_ENABLE_API="$(K6_ENABLE_API)" \
+		K6_FRONTEND_TARGET_VUS="$(K6_FRONTEND_TARGET_VUS)" \
+		K6_FRONTEND_RAMP_UP="$(K6_FRONTEND_RAMP_UP)" \
+		K6_FRONTEND_HOLD="$(K6_FRONTEND_HOLD)" \
+		K6_FRONTEND_RAMP_DOWN="$(K6_FRONTEND_RAMP_DOWN)" \
+		K6_FRONTEND_THINK_TIME_SECONDS="$(K6_FRONTEND_THINK_TIME_SECONDS)" \
+		K6_API_TARGET_VUS="$(K6_API_TARGET_VUS)" \
+		K6_API_RAMP_UP="$(K6_API_RAMP_UP)" \
+		K6_API_HOLD="$(K6_API_HOLD)" \
+		K6_API_RAMP_DOWN="$(K6_API_RAMP_DOWN)" \
+		K6_API_THINK_TIME_SECONDS="$(K6_API_THINK_TIME_SECONDS)" \
+		K6_SMOKE_VUS="$(K6_SMOKE_VUS)" \
+		K6_SMOKE_ITERATIONS="$(K6_SMOKE_ITERATIONS)" \
+		k6 run --summary-export "$(K6_SUMMARY_EXPORT)" "$(K6_SCRIPT_DIR)/$(K6_ENTRY)"; \
+	else \
+		if [ -z "$(DOCKER_BIN)" ]; then \
+			echo "ERROR: k6 is not installed and docker is unavailable."; \
+			exit 1; \
+		fi; \
+		echo "k6 is not installed locally; using Docker image $(K6_DOCKER_IMAGE) against $(K6_BASE_URL)..."; \
+		"$(DOCKER_BIN)" run --rm -i \
+			-v "$(CURDIR):/workdir" \
+			-w /workdir \
+			-e K6_BASE_URL="$(K6_BASE_URL)" \
+			-e K6_QUERY="$(K6_QUERY)" \
+			-e K6_SUGGEST_QUERY="$(K6_SUGGEST_QUERY)" \
+			-e K6_RESOURCE_ID="$(K6_RESOURCE_ID)" \
+			-e K6_SEARCH_PER_PAGE="$(K6_SEARCH_PER_PAGE)" \
+			-e K6_ENABLE_FRONTEND="$(K6_ENABLE_FRONTEND)" \
+			-e K6_ENABLE_API="$(K6_ENABLE_API)" \
+			-e K6_FRONTEND_TARGET_VUS="$(K6_FRONTEND_TARGET_VUS)" \
+			-e K6_FRONTEND_RAMP_UP="$(K6_FRONTEND_RAMP_UP)" \
+			-e K6_FRONTEND_HOLD="$(K6_FRONTEND_HOLD)" \
+			-e K6_FRONTEND_RAMP_DOWN="$(K6_FRONTEND_RAMP_DOWN)" \
+			-e K6_FRONTEND_THINK_TIME_SECONDS="$(K6_FRONTEND_THINK_TIME_SECONDS)" \
+			-e K6_API_TARGET_VUS="$(K6_API_TARGET_VUS)" \
+			-e K6_API_RAMP_UP="$(K6_API_RAMP_UP)" \
+			-e K6_API_HOLD="$(K6_API_HOLD)" \
+			-e K6_API_RAMP_DOWN="$(K6_API_RAMP_DOWN)" \
+			-e K6_API_THINK_TIME_SECONDS="$(K6_API_THINK_TIME_SECONDS)" \
+			-e K6_SMOKE_VUS="$(K6_SMOKE_VUS)" \
+			-e K6_SMOKE_ITERATIONS="$(K6_SMOKE_ITERATIONS)" \
+			"$(K6_DOCKER_IMAGE)" \
+			run --summary-export "/workdir/$(K6_SUMMARY_EXPORT)" "/workdir/$(K6_SCRIPT_DIR)/$(K6_ENTRY)"; \
+	fi
+	@echo "k6 summary written to $(K6_SUMMARY_EXPORT)"
+
+k6-smoke: ## Run a one-iteration k6 smoke test against frontend + API
+	@$(MAKE) --no-print-directory k6-run \
+		K6_ENTRY=smoke.js \
+		K6_SUMMARY_EXPORT=$(K6_OUTPUT_DIR)/smoke-summary.json
+
+k6-stress: ## Run concurrent frontend + API k6 stress test
+	@$(MAKE) --no-print-directory k6-run \
+		K6_ENTRY=stress.js \
+		K6_SUMMARY_EXPORT=$(K6_OUTPUT_DIR)/stress-summary.json
 
 # Clear cached thumbnail for a resource (PMTiles/COG) so it can be regenerated.
 # Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT

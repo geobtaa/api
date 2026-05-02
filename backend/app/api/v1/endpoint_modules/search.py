@@ -27,7 +27,7 @@ from app.elasticsearch.search import (
 from app.services.cache_service import cached_endpoint
 from app.services.resource_representation_cache import (
     get_cached_resource_representations,
-    store_resource_representation,
+    store_resource_representations,
 )
 from app.services.search_service import SearchService
 from app.services.viewer_service import create_viewer_attributes
@@ -45,6 +45,53 @@ SUGGEST_CACHE_TTL = int(7200)  # 2 hours
 # Create async engine and session for search results processing
 engine = create_async_engine(DATABASE_URL)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+
+
+def _extract_search_hit(item: dict) -> tuple[dict | None, dict | None]:
+    """Normalize a search-layer hit into result metadata and raw resource attributes."""
+    if not isinstance(item, dict):
+        return None, None
+
+    attrs = item.get("attributes")
+    if not isinstance(attrs, dict):
+        attrs = None
+
+    rid = item.get("id")
+    if not rid and attrs:
+        rid = attrs.get("id")
+    if not rid:
+        nested_attrs = attrs.get("attributes", {}) if attrs else {}
+        if isinstance(nested_attrs, dict):
+            rid = nested_attrs.get("id")
+    if not rid:
+        return None, None
+
+    score = item.get("score")
+    if score is None and attrs:
+        score = attrs.get("score")
+
+    overlap = item.get("bbox_overlap_ratio")
+    if overlap is None and attrs:
+        overlap = attrs.get("bbox_overlap_ratio")
+
+    containment = item.get("bbox_containment_ratio")
+    if containment is None and attrs:
+        containment = attrs.get("bbox_containment_ratio")
+
+    spatial_score = item.get("bbox_spatial_score")
+    if spatial_score is None and attrs:
+        spatial_score = attrs.get("bbox_spatial_score")
+
+    return (
+        {
+            "id": rid,
+            "score": score,
+            "bbox_overlap_ratio": overlap,
+            "bbox_containment_ratio": containment,
+            "bbox_spatial_score": spatial_score,
+        },
+        attrs,
+    )
 
 
 async def _handle_search(request: Request, params: dict) -> JSONResponse:
@@ -99,42 +146,14 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     sanitized_results = sanitize_for_json(results)
     result_obj = sanitized_results if isinstance(sanitized_results, dict) else {}
     resource_data = []
+    search_resource_lookup = {}
     for item in sanitized_results.get("data", []):
-        rid = None
-        score = None
-        overlap = None
-        containment = None
-        spatial_score = None
-        if isinstance(item, dict):
-            rid = (
-                item.get("id")
-                or item.get("attributes", {}).get("id")
-                or item.get("attributes", {}).get("attributes", {}).get("id")
-            )
-            # Be careful not to treat 0.0 as falsy; only fall back on None
-            score = item.get("score")
-            if score is None:
-                score = item.get("attributes", {}).get("score")
-
-            overlap = item.get("bbox_overlap_ratio")
-            if overlap is None:
-                overlap = item.get("attributes", {}).get("bbox_overlap_ratio")
-            containment = item.get("bbox_containment_ratio")
-            if containment is None:
-                containment = item.get("attributes", {}).get("bbox_containment_ratio")
-            spatial_score = item.get("bbox_spatial_score")
-            if spatial_score is None:
-                spatial_score = item.get("attributes", {}).get("bbox_spatial_score")
-        if rid:
-            resource_data.append(
-                {
-                    "id": rid,
-                    "score": score,
-                    "bbox_overlap_ratio": overlap,
-                    "bbox_containment_ratio": containment,
-                    "bbox_spatial_score": spatial_score,
-                }
-            )
+        result_data, source_resource = _extract_search_hit(item)
+        if result_data is None:
+            continue
+        resource_data.append(result_data)
+        if source_resource is not None:
+            search_resource_lookup[result_data["id"]] = source_resource
 
     resource_ids = [r["id"] for r in resource_data]
     cached_resources = {}
@@ -145,108 +164,125 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         resource_id for resource_id in resource_ids if resource_id not in cached_resources
     ]
 
-    # Step 3: Batch fetch resource data for cache misses
-    lookup = {}
-    if missing_resource_ids:
+    # Step 3: Use search-layer resource rows for cache misses first, then fall back to DB only
+    # when the search response did not include source attributes.
+    source_resources_by_id = dict(search_resource_lookup)
+    missing_source_ids = [
+        resource_id
+        for resource_id in missing_resource_ids
+        if resource_id not in source_resources_by_id
+    ]
+    if missing_source_ids:
         try:
             async with async_session() as session:
-                query = select(resources).where(resources.c.id.in_(missing_resource_ids))
+                query = select(resources).where(resources.c.id.in_(missing_source_ids))
                 result = await session.execute(query)
                 rows = result.fetchall()
-                lookup = {
-                    dict(row._mapping)["id"]: sanitize_for_json(dict(row._mapping)) for row in rows
-                }
+                source_resources_by_id.update(
+                    {
+                        dict(row._mapping)["id"]: sanitize_for_json(dict(row._mapping))
+                        for row in rows
+                    }
+                )
         except Exception as e:
             # If database query fails (e.g., connection pool closed), log and continue
             # with empty lookup. This allows the endpoint to return empty results rather
             # than crashing.
             logger.warning(f"Database query failed in search endpoint: {str(e)}")
-            lookup = {}
+            source_resources_by_id = dict(search_resource_lookup)
 
     # Process resources (initialize outside the if block to avoid UnboundLocalError)
     processed_resources = []
 
     if resource_data:
-
-        async def append_processed_resources(processing_session=None):
-            for rd in resource_data:
-                d = lookup.get(rd["id"]) or {}
-                obj = cached_resources.get(rd["id"])
-                if obj is None:
-                    if not d or processing_session is None:
-                        continue
-                    obj = await process_resource(
-                        d,
-                        processing_session,
-                        include_similar_items=False,
-                    )
-                    await store_resource_representation(rd["id"], obj)
-                # Ensure meta.ui.viewer.geometry is present when resource has geometry.
-                # Search results must include it for map hover; ViewerService can miss it
-                # when keys/format differ from resource detail path.
-                if d and (d.get("locn_geometry") or d.get("dcat_bbox")):
-                    ui = (obj.get("meta") or {}).get("ui") or {}
-                    viewer_geom = (ui.get("viewer") or {}).get("geometry")
-                    if not viewer_geom:
-                        viewer_attrs = create_viewer_attributes(d)
-                        geom = viewer_attrs.get("ui_viewer_geometry")
-                        if geom:
-                            obj.setdefault("meta", {})
-                            obj["meta"].setdefault("ui", {})
-                            obj["meta"]["ui"].setdefault("viewer", {})
-                            obj["meta"]["ui"]["viewer"]["geometry"] = geom
-                # obj["attributes"] is already nested with "ogm" and "b1g" structure
-                # from create_jsonapi_resource
-                attrs = obj.get("attributes", {})
-
-                # Attach ES scoring and bbox spatial metrics into per-resource meta for debugging
-                if rd.get("score") is not None:
-                    obj.setdefault("meta", {})
-                    obj["meta"]["score"] = rd["score"]
-                if rd.get("bbox_overlap_ratio") is not None:
-                    obj.setdefault("meta", {})
-                    obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
-                if rd.get("bbox_containment_ratio") is not None:
-                    obj.setdefault("meta", {})
-                    obj["meta"]["bbox_containment_ratio"] = rd["bbox_containment_ratio"]
-                if rd.get("bbox_spatial_score") is not None:
-                    obj.setdefault("meta", {})
-                    obj["meta"]["bbox_spatial_score"] = rd["bbox_spatial_score"]
-
-                if isinstance(fields, str) and fields.strip():
-                    # Handle field filtering for nested attributes structure
-                    requested = [f.strip() for f in fields.split(",") if f.strip()]
-                    if "id" not in requested:
-                        requested.append("id")
-
-                    # Filter nested attributes (ogm and b1g)
-                    filtered_attrs = {}
-                    if "ogm" in attrs:
-                        filtered_ogm = {k: v for k, v in attrs["ogm"].items() if k in requested}
-                        if filtered_ogm:
-                            filtered_attrs["ogm"] = filtered_ogm
-                    if "b1g" in attrs:
-                        filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
-                        if filtered_b1g:
-                            filtered_attrs["b1g"] = filtered_b1g
-
-                    obj["attributes"] = filtered_attrs
-                else:
-                    # Use nested attributes as-is
-                    obj["attributes"] = attrs
-
-                # Filter out empty arrays and empty strings from nested attributes
-                # filter_empty_values already handles nested dicts recursively
-                obj["attributes"] = filter_empty_values(obj["attributes"])
-                if not meta and "meta" in obj:
-                    obj.pop("meta", None)
-                processed_resources.append(obj)
+        built_resources = {}
 
         if missing_resource_ids:
             async with async_session() as processing_session:
-                await append_processed_resources(processing_session)
-        else:
-            await append_processed_resources()
+                for resource_id in missing_resource_ids:
+                    source_resource = source_resources_by_id.get(resource_id)
+                    if not source_resource:
+                        continue
+                    built_resources[resource_id] = await process_resource(
+                        source_resource,
+                        processing_session,
+                        include_similar_items=False,
+                    )
+            if built_resources:
+                await store_resource_representations(built_resources)
+
+        resources_by_id = {**cached_resources, **built_resources}
+
+        for rd in resource_data:
+            obj = resources_by_id.get(rd["id"])
+            if obj is None:
+                continue
+
+            source_resource = source_resources_by_id.get(rd["id"]) or {}
+
+            # Ensure meta.ui.viewer.geometry is present when resource has geometry.
+            # Search results must include it for map hover; ViewerService can miss it
+            # when keys/format differ from resource detail path.
+            if source_resource and (
+                source_resource.get("locn_geometry") or source_resource.get("dcat_bbox")
+            ):
+                ui = (obj.get("meta") or {}).get("ui") or {}
+                viewer_geom = (ui.get("viewer") or {}).get("geometry")
+                if not viewer_geom:
+                    viewer_attrs = create_viewer_attributes(source_resource)
+                    geom = viewer_attrs.get("ui_viewer_geometry")
+                    if geom:
+                        obj.setdefault("meta", {})
+                        obj["meta"].setdefault("ui", {})
+                        obj["meta"]["ui"].setdefault("viewer", {})
+                        obj["meta"]["ui"]["viewer"]["geometry"] = geom
+
+            # obj["attributes"] is already nested with "ogm" and "b1g" structure
+            # from create_jsonapi_resource
+            attrs = obj.get("attributes", {})
+
+            # Attach ES scoring and bbox spatial metrics into per-resource meta for debugging
+            if rd.get("score") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["score"] = rd["score"]
+            if rd.get("bbox_overlap_ratio") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_overlap_ratio"] = rd["bbox_overlap_ratio"]
+            if rd.get("bbox_containment_ratio") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_containment_ratio"] = rd["bbox_containment_ratio"]
+            if rd.get("bbox_spatial_score") is not None:
+                obj.setdefault("meta", {})
+                obj["meta"]["bbox_spatial_score"] = rd["bbox_spatial_score"]
+
+            if isinstance(fields, str) and fields.strip():
+                # Handle field filtering for nested attributes structure
+                requested = [f.strip() for f in fields.split(",") if f.strip()]
+                if "id" not in requested:
+                    requested.append("id")
+
+                # Filter nested attributes (ogm and b1g)
+                filtered_attrs = {}
+                if "ogm" in attrs:
+                    filtered_ogm = {k: v for k, v in attrs["ogm"].items() if k in requested}
+                    if filtered_ogm:
+                        filtered_attrs["ogm"] = filtered_ogm
+                if "b1g" in attrs:
+                    filtered_b1g = {k: v for k, v in attrs["b1g"].items() if k in requested}
+                    if filtered_b1g:
+                        filtered_attrs["b1g"] = filtered_b1g
+
+                obj["attributes"] = filtered_attrs
+            else:
+                # Use nested attributes as-is
+                obj["attributes"] = attrs
+
+            # Filter out empty arrays and empty strings from nested attributes
+            # filter_empty_values already handles nested dicts recursively
+            obj["attributes"] = filter_empty_values(obj["attributes"])
+            if not meta and "meta" in obj:
+                obj.pop("meta", None)
+            processed_resources.append(obj)
 
     # Step 4: Build JSON:API response
     pages_info = result_obj.get("meta", {}).get("pages", {})

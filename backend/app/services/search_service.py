@@ -16,15 +16,10 @@ from app.elasticsearch.client import es
 from app.elasticsearch.search import _normalize_geo_params
 from app.elasticsearch.suggest import normalize_suggestion_text, suggestion_sort_key
 from app.services.citation_service import CitationService
-from app.services.distribution_repository import (
-    build_distribution_context,
-    fetch_distribution_context,
-    fetch_distribution_context_map,
-)
+from app.services.distribution_repository import fetch_distribution_context
 from app.services.download_service import DownloadService
-from app.services.image_service import ImageService
 from app.services.relationship_service import RelationshipService
-from app.services.viewer_service import ViewerService, create_viewer_attributes
+from app.services.viewer_service import ViewerService
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -52,7 +47,6 @@ class SearchService:
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
-            timings = {}
             start_time = time.time()
 
             # Calculate skip from page/limit
@@ -96,7 +90,6 @@ class SearchService:
             sort_mapping = SORT_MAPPINGS.get(sort, None)
 
             # Elasticsearch query
-            es_start = time.time()
             results = await search_resources(
                 query=q,
                 fq=filter_query,
@@ -112,70 +105,23 @@ class SearchService:
             # Defensive: ensure results is a dict
             if not isinstance(results, dict):
                 results = {}
-            es_time = (time.time() - es_start) * 1000
-            timings["elasticsearch"] = f"{es_time:.0f}ms"
-
-            # Process each resource
-            process_start = time.time()
-            docs_processed = 0
-            citation_time = 0
-            thumbnail_time = 0
-            viewer_time = 0
-
-            resource_ids = [
-                resource.get("id") for resource in results.get("data", []) if resource.get("id")
-            ]
-            distribution_contexts = await fetch_distribution_context_map(resource_ids)
-
-            for resource in results.get("data", []):
-                resource_id = resource.get("id")
-                distribution_context = distribution_contexts.get(
-                    resource_id, build_distribution_context(resource_id or "", [])
-                )
-
-                # Add thumbnail URL
-                thumb_start = time.time()
-                image_service = ImageService(
-                    resource["attributes"], distribution_context=distribution_context
-                )
-                resource["attributes"]["ui_thumbnail_url"] = image_service.get_thumbnail_url()
-                thumbnail_time += time.time() - thumb_start
-
-                # Add citation
-                cite_start = time.time()
-                citation_service = CitationService(
-                    resource["attributes"], distribution_context=distribution_context
-                )
-                resource["attributes"]["ui_citation"] = citation_service.get_citation()
-                citation_time += time.time() - cite_start
-
-                # Add viewer attributes
-                viewer_start = time.time()
-                viewer_attrs = create_viewer_attributes(
-                    resource["attributes"], distribution_context=distribution_context
-                )
-                resource["attributes"].update(viewer_attrs)
-                viewer_time += time.time() - viewer_start
-
-                docs_processed += 1
-
-            process_time = time.time() - process_start
-            timings["resourceProcessing"] = {
-                "total": f"{(process_time * 1000):.0f}ms",
-                "perResource": (
-                    f"{((process_time / docs_processed) * 1000):.0f}ms"
-                    if docs_processed > 0
-                    else "0ms"
-                ),
-                "thumbnailService": f"{(thumbnail_time * 1000):.0f}ms",
-                "citationService": f"{(citation_time * 1000):.0f}ms",
-                "viewerService": f"{(viewer_time * 1000):.0f}ms",
-            }
 
             total_time = time.time() - start_time
-            timings["totalResponseTime"] = f"{(total_time * 1000):.0f}ms"
-
-            results["queryTime"] = timings
+            query_timings = results.get("queryTime", {})
+            if not isinstance(query_timings, dict):
+                query_timings = {}
+            query_timings.setdefault(
+                "resourceProcessing",
+                {
+                    "total": "0ms",
+                    "perResource": "0ms",
+                    "thumbnailService": "0ms",
+                    "citationService": "0ms",
+                    "viewerService": "0ms",
+                },
+            )
+            query_timings["totalResponseTime"] = f"{(total_time * 1000):.0f}ms"
+            results["queryTime"] = query_timings
 
             # Extract and add suggestions to meta if they exist
             if isinstance(results, dict) and "meta" in results and "suggestions" in results["meta"]:
