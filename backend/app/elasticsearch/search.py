@@ -789,6 +789,7 @@ async def search_resources(
     exclude_filters: dict | None = None,
     facets: Optional[str] = None,
     adv_q: Optional[list] = None,
+    hydrate_hits: bool = True,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -1265,6 +1266,7 @@ async def search_resources(
                 include_filters=include_filters,
                 exclude_filters=exclude_filters,
                 adv_q=adv_q,
+                hydrate_hits=hydrate_hits,
             )
         except Exception as es_error:
             logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
@@ -1304,6 +1306,7 @@ async def search_resources(
                         include_filters=include_filters,
                         exclude_filters=exclude_filters,
                         adv_q=adv_q,
+                        hydrate_hits=hydrate_hits,
                     )
                 except Exception as fallback_error:
                     logger.error(
@@ -1333,6 +1336,7 @@ async def search_resources(
             include_filters=include_filters,
             exclude_filters=exclude_filters,
             adv_q=adv_q,
+            hydrate_hits=hydrate_hits,
         )
 
     except Exception as e:
@@ -1424,6 +1428,7 @@ async def process_search_response(
     include_filters: dict | None = None,
     exclude_filters: dict | None = None,
     adv_q: Optional[list] = None,
+    hydrate_hits: bool = True,
 ):
     """Process Elasticsearch response and format for API output."""
     try:
@@ -1477,26 +1482,8 @@ async def process_search_response(
                 "included": [],
             }
 
-        start_time = time.time()
-        # Create a CASE statement to preserve the order of document_ids
-        order_case = (
-            "CASE "
-            + " ".join(
-                f"WHEN id = '{doc_id}' THEN {index}" for index, doc_id in enumerate(document_ids)
-            )
-            + " END"
-        )
-
-        query = (
-            resources.select().where(resources.c.id.in_(document_ids)).order_by(text(order_case))
-        )
-
-        resource_rows = await database.fetch_all(query)
         processed_resources = []
-
-        distribution_contexts = await fetch_distribution_context_map(
-            [resource["id"] for resource in resource_rows]
-        )
+        pg_query_time = 0.0
 
         # Precompute lookups from id -> score and bbox spatial metrics so we can
         # expose them in the API layer meta block.
@@ -1541,33 +1528,75 @@ async def process_search_response(
                     id_to_containment[rid] = metrics["containment_ratio"]
                     id_to_spatial_score[rid] = metrics["spatial_score"]
 
-        for resource in resource_rows:
-            rid = resource["id"]
-            distribution_context = distribution_contexts.get(rid)
-            score = id_to_score.get(rid, 0.0)
-            overlap_ratio = id_to_overlap.get(rid)
-            containment_ratio = id_to_containment.get(rid)
-            spatial_score = id_to_spatial_score.get(rid)
+        if hydrate_hits:
+            start_time = time.time()
+            # Create a CASE statement to preserve the order of document_ids
+            order_case = (
+                "CASE "
+                + " ".join(
+                    f"WHEN id = '{doc_id}' THEN {index}"
+                    for index, doc_id in enumerate(document_ids)
+                )
+                + " END"
+            )
 
-            doc: dict = {
-                "type": "document",
-                "id": rid,
-                "score": score,
-                "attributes": {
-                    **resource,
-                    **create_viewer_attributes(resource, distribution_context=distribution_context),
-                },
-            }
-            if overlap_ratio is not None:
-                doc["bbox_overlap_ratio"] = overlap_ratio
-            if containment_ratio is not None:
-                doc["bbox_containment_ratio"] = containment_ratio
-            if spatial_score is not None:
-                doc["bbox_spatial_score"] = spatial_score
+            query = (
+                resources.select()
+                .where(resources.c.id.in_(document_ids))
+                .order_by(text(order_case))
+            )
 
-            processed_resources.append(doc)
+            resource_rows = await database.fetch_all(query)
+            distribution_contexts = await fetch_distribution_context_map(
+                [resource["id"] for resource in resource_rows]
+            )
 
-        pg_query_time = (time.time() - start_time) * 1000
+            for resource in resource_rows:
+                rid = resource["id"]
+                distribution_context = distribution_contexts.get(rid)
+                score = id_to_score.get(rid, 0.0)
+                overlap_ratio = id_to_overlap.get(rid)
+                containment_ratio = id_to_containment.get(rid)
+                spatial_score = id_to_spatial_score.get(rid)
+
+                doc: dict = {
+                    "type": "document",
+                    "id": rid,
+                    "score": score,
+                    "attributes": {
+                        **resource,
+                        **create_viewer_attributes(
+                            resource, distribution_context=distribution_context
+                        ),
+                    },
+                }
+                if overlap_ratio is not None:
+                    doc["bbox_overlap_ratio"] = overlap_ratio
+                if containment_ratio is not None:
+                    doc["bbox_containment_ratio"] = containment_ratio
+                if spatial_score is not None:
+                    doc["bbox_spatial_score"] = spatial_score
+
+                processed_resources.append(doc)
+
+            pg_query_time = (time.time() - start_time) * 1000
+        else:
+            for rid in document_ids:
+                doc: dict = {
+                    "type": "document",
+                    "id": rid,
+                    "score": id_to_score.get(rid, 0.0),
+                }
+                overlap_ratio = id_to_overlap.get(rid)
+                containment_ratio = id_to_containment.get(rid)
+                spatial_score = id_to_spatial_score.get(rid)
+                if overlap_ratio is not None:
+                    doc["bbox_overlap_ratio"] = overlap_ratio
+                if containment_ratio is not None:
+                    doc["bbox_containment_ratio"] = containment_ratio
+                if spatial_score is not None:
+                    doc["bbox_spatial_score"] = spatial_score
+                processed_resources.append(doc)
 
         aggs = response.get("aggregations", {})
         included = [

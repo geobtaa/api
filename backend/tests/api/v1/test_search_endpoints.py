@@ -178,7 +178,7 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
                     "meta": {"pages": {"total_count": 1, "total_pages": 1}},
                 }
             ),
-        ),
+        ) as mock_search,
         patch(
             "app.api.v1.endpoint_modules.search.async_session",
             return_value=session_context,
@@ -211,6 +211,8 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     mock_async_session.assert_called_once()
     session.execute.assert_not_called()
     mock_get_cached_resource_representations.assert_awaited_once_with(["test-doc"])
+    assert mock_search.await_args.kwargs["hydrate_hits"] is False
+    assert mock_async_session.call_count == 1
     assert mock_process_resource.await_args.kwargs["include_similar_items"] is False
     mock_store_resource_representations.assert_awaited_once_with({"test-doc": processed_resource})
 

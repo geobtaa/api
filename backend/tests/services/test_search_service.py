@@ -33,6 +33,18 @@ async def test_search_preserves_search_payload_and_adds_lightweight_timings():
     assert "totalResponseTime" in result["queryTime"]
 
 
+@pytest.mark.asyncio
+async def test_search_forwards_hydrate_hits_flag():
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {"data": [], "meta": {}, "queryTime": {}}
+
+        await service.search(q="test", page=1, limit=10, hydrate_hits=False)
+
+    assert mock_search.call_args.kwargs["hydrate_hits"] is False
+
+
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 class TestSearchService:

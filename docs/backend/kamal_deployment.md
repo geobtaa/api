@@ -305,9 +305,9 @@ The base config in `config/deploy.yml` is shared across all destinations. The de
 
 Current differences:
 
-- `dev1`: base resource defaults, host `lib-btaageoapi-dev-app-01.oit.umn.edu`
+- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-mirrored performance profile for `web`/`worker` limits, Elasticsearch heap, and `WEB_UVICORN_WORKERS=3`
 - `dev2`: base resource defaults, host `lib-geoportal-dev-web-01.oit.umn.edu`
-- `prd`: larger `web` and `worker` limits, larger Elasticsearch heap, `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, `WEB_UVICORN_WORKERS=3`
+- `prd`: same performance profile as `dev1`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 
 If a new destination needs a persistent behavior difference, put only that override in `config/deploy.<dest>.yml` and keep the shared behavior in `config/deploy.yml`.
 

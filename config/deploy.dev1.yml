@@ -6,11 +6,17 @@ servers:
     hosts:
       - lib-btaageoapi-dev-app-01.oit.umn.edu
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
+    options:
+      cpus: 3
+      memory: 2560m
 
   worker:
     hosts:
       - lib-btaageoapi-dev-app-01.oit.umn.edu
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    options:
+      cpus: 1.5
+      memory: 1536m
 
   cron:
     hosts:
@@ -35,3 +41,10 @@ env:
   clear:
     APPLICATION_URL: https://lib-btaageoapi-dev-app-01.oit.umn.edu
     KAMAL_DEST: dev1
+    WEB_UVICORN_WORKERS: "3"
+
+accessories:
+  elasticsearch:
+    env:
+      clear:
+        ES_JAVA_OPTS: "-Xms4g -Xmx4g"

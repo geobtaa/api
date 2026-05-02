@@ -44,6 +44,7 @@ class SearchService:
         exclude_filters: Optional[Dict] = None,
         fq_direct: Optional[Dict] = None,
         adv_q: Optional[list] = None,
+        hydrate_hits: bool = True,
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
@@ -101,6 +102,7 @@ class SearchService:
                 exclude_filters=exclude_filters,
                 facets=facets,
                 adv_q=adv_q,
+                hydrate_hits=hydrate_hits,
             )
             # Defensive: ensure results is a dict
             if not isinstance(results, dict):

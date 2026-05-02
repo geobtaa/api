@@ -53,7 +53,7 @@ def _extract_search_hit(item: dict) -> tuple[dict | None, dict | None]:
         return None, None
 
     attrs = item.get("attributes")
-    if not isinstance(attrs, dict):
+    if not isinstance(attrs, dict) or not attrs:
         attrs = None
 
     rid = item.get("id")
@@ -137,6 +137,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         exclude_filters=exclude_filters,
         fq_direct=fq,
         adv_q=adv_q,
+        hydrate_hits=False,
     )
     if isinstance(results, dict) and "error" in results:
         logger.error("Search service returned an internal error", exc_info=False)
