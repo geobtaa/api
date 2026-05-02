@@ -18,6 +18,7 @@ import { MapResultView } from '../components/search/MapResultView';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
 import { LocationFacetCollapsible } from '../components/search/LocationFacetCollapsible';
 import { useFacetAccordion } from '../hooks/useFacetAccordion';
+import { useSearch } from '../hooks/useSearch';
 import {
   parseSearchParams,
   normalizeFacetValueForUrl,
@@ -74,14 +75,26 @@ type SearchPageProps = {
   searchResults?: JsonApiResponse | null;
   // Navigation state from the route (client transitions).
   isLoading?: boolean;
+  // Enables shell-first browser fetching through the keyed /search/results BFF route.
+  clientSearchEnabled?: boolean;
 };
 
 // Create a separate component for the search content
-function SearchContent({ searchResults, isLoading }: SearchPageProps) {
+function SearchContent({
+  searchResults,
+  isLoading,
+  clientSearchEnabled = false,
+}: SearchPageProps) {
   const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
+  const shouldFetchClientSearch = clientSearchEnabled && !searchResults;
+  const clientSearch = useSearch({ enabled: shouldFetchClientSearch });
+  const activeSearchResults = searchResults ?? clientSearch.results;
+  const activeIsLoading =
+    Boolean(isLoading) ||
+    (shouldFetchClientSearch && Boolean(clientSearch.isLoading));
 
   // Ensure ?q= is present if no params are set to trigger default search
   useEffect(() => {
@@ -108,19 +121,21 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       ? 20
       : perPageParam
         ? parseInt(perPageParam)
-        : searchResults?.meta?.perPage || 10;
-  const searchTotalResults = searchResults?.meta?.totalCount || 0;
+        : activeSearchResults?.meta?.perPage || 10;
+  const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
   const totalPages = Math.ceil(searchTotalResults / perPage);
 
   // For now, treat API errors as “no results” and let ErrorMessage show when needed.
-  const error = (searchResults as any)?.error
-    ? String((searchResults as any).error)
+  const resultError = (activeSearchResults as any)?.error
+    ? String((activeSearchResults as any).error)
     : null;
+  const error =
+    resultError || (shouldFetchClientSearch ? clientSearch.error : null);
 
   // Infinite Scroll State for Gallery View
   // Initialize with server data to prevent hydration mismatch
   const [accumulatedResults, setAccumulatedResults] = useState<GeoDocument[]>(
-    searchResults?.data || []
+    activeSearchResults?.data || []
   );
 
   // Track the starting page of the accumulated results (for deep links)
@@ -214,7 +229,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     // We strictly compare the stable context string.
     if (currentContext !== prevContext || currentView !== 'gallery') {
       // Context changed: Reset everything
-      setAccumulatedResults(searchResults?.data || []);
+      setAccumulatedResults(activeSearchResults?.data || []);
       setAccumulatedStartPage(page);
       // Clear cache for new context (optional, but good for cleanup)
       sessionStorage.removeItem(GALLERY_STATE_STORAGE_KEY);
@@ -234,20 +249,21 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
         // So: If Context is SAME, and Page is 1.
         // If we already have results starting at 1, and length > 20, keep them?
         if (
-          accumulatedResults.length > (searchResults?.data?.length || 0) &&
+          accumulatedResults.length >
+            (activeSearchResults?.data?.length || 0) &&
           accumulatedStartPage === 1
         ) {
           // Do nothing, keep accumulated results
         } else {
-          setAccumulatedResults(searchResults?.data || []);
+          setAccumulatedResults(activeSearchResults?.data || []);
           setAccumulatedStartPage(1);
         }
       } else {
         // Page > 1 and Same Context -> Append
-        if (searchResults?.data && searchResults.data.length > 0) {
+        if (activeSearchResults?.data && activeSearchResults.data.length > 0) {
           setAccumulatedResults((prev) => {
             const existingIds = new Set(prev.map((r) => r.id));
-            const newItems = (searchResults?.data || []).filter(
+            const newItems = (activeSearchResults?.data || []).filter(
               (r) => !existingIds.has(r.id)
             );
             if (newItems.length === 0) return prev;
@@ -260,7 +276,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
 
     prevContextRef.current = currentContext;
   }, [
-    searchResults,
+    activeSearchResults,
     currentContext,
     page,
     currentView,
@@ -280,7 +296,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     );
 
   const shouldShowSearchingPlaceholder =
-    !error && hasAnySearchCriteria && !searchResults && !isLoading;
+    !error && hasAnySearchCriteria && !activeSearchResults && !activeIsLoading;
 
   // Restore view preference whenever URL lacks a view param.
   // This keeps preferred layout sticky even when new searches navigate to /search?q=...
@@ -519,14 +535,15 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   };
 
   // Extract spelling suggestions from meta
-  const spellingSuggestions = searchResults?.meta?.spellingSuggestions || [];
+  const spellingSuggestions =
+    activeSearchResults?.meta?.spellingSuggestions || [];
 
   useEffect(() => {
-    if (isLoading || !searchResults) return;
+    if (activeIsLoading || !activeSearchResults) return;
 
-    const metaQuery = searchResults.meta?.query ?? '';
-    const metaCurrentPage = searchResults.meta?.currentPage ?? page;
-    const metaPerPage = searchResults.meta?.perPage ?? perPage;
+    const metaQuery = activeSearchResults.meta?.query ?? '';
+    const metaCurrentPage = activeSearchResults.meta?.currentPage ?? page;
+    const metaPerPage = activeSearchResults.meta?.perPage ?? perPage;
 
     if (
       metaQuery !== normalizedQuery ||
@@ -536,7 +553,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
       return;
     }
 
-    const pageResults = searchResults.data || [];
+    const pageResults = activeSearchResults.data || [];
     const trackedKey = [
       searchId,
       currentView,
@@ -561,12 +578,13 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
           per_page: perPage,
           sort,
           search_field: searchField,
-          results_count: searchResults.meta?.totalCount || 0,
-          total_pages: searchResults.meta?.totalPages || 0,
+          results_count: activeSearchResults.meta?.totalCount || 0,
+          total_pages: activeSearchResults.meta?.totalPages || 0,
           zero_results: pageResults.length === 0,
           properties: {
             constraints: serializeSearchParams(searchParams),
-            spelling_suggestions: searchResults.meta?.spellingSuggestions || [],
+            spelling_suggestions:
+              activeSearchResults.meta?.spellingSuggestions || [],
           },
         },
       ],
@@ -580,14 +598,14 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
     });
   }, [
     currentView,
-    isLoading,
+    activeIsLoading,
     page,
     perPage,
     normalizedQuery,
     searchField,
     searchId,
     searchParams,
-    searchResults,
+    activeSearchResults,
     sort,
   ]);
 
@@ -674,9 +692,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                 accordion={accordion}
                 setAccordion={setAccordion}
               />
-              {searchResults?.included ? (
+              {activeSearchResults?.included ? (
                 <FacetList
-                  facets={searchResults.included.filter(
+                  facets={activeSearchResults.included.filter(
                     (item) => item.type === 'facet' || item.type === 'timeline'
                   )}
                   accordion={accordion}
@@ -692,7 +710,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
               <div className="mb-2 flex justify-between items-center">
                 {error ? (
                   <h2 className="text-lg text-gray-600">Results</h2>
-                ) : isLoading || shouldShowSearchingPlaceholder ? (
+                ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
                   <h2 className="text-lg text-gray-600">Searching…</h2>
                 ) : (
                   <h2 className="text-lg text-gray-600">
@@ -725,7 +743,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                     />
                     <SortControl
                       options={
-                        searchResults?.included
+                        activeSearchResults?.included
                           ?.filter((item) => item.type === 'sort')
                           .map((sortOption) => ({
                             id: sortOption.id,
@@ -745,8 +763,8 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                 <>
                   {currentView === 'list' && (
                     <SearchResults
-                      results={searchResults?.data || []}
-                      isLoading={isLoading}
+                      results={activeSearchResults?.data || []}
+                      isLoading={activeIsLoading}
                       totalResults={searchTotalResults}
                       currentPage={page}
                       perPage={perPage}
@@ -760,9 +778,9 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       results={
                         accumulatedResults.length > 0
                           ? accumulatedResults
-                          : searchResults?.data || []
+                          : activeSearchResults?.data || []
                       }
-                      isLoading={isLoading}
+                      isLoading={activeIsLoading}
                       totalResults={searchTotalResults}
                       currentPage={page}
                       startPage={
@@ -782,8 +800,8 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       {/* Middle Column: Brief Results */}
                       <div className="md:col-span-4 pr-2">
                         <SearchResults
-                          results={searchResults?.data || []}
-                          isLoading={isLoading}
+                          results={activeSearchResults?.data || []}
+                          isLoading={activeIsLoading}
                           totalResults={searchTotalResults}
                           currentPage={page}
                           perPage={perPage}
@@ -792,7 +810,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                           searchView={currentView}
                         />
                         {/* Pagination for map view (inside scrollable column) */}
-                        {!isLoading && totalPages > 1 && (
+                        {!activeIsLoading && totalPages > 1 && (
                           <div className="mt-4">
                             <Pagination
                               currentPage={page}
@@ -806,7 +824,7 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                       {/* Right Column: Map */}
                       <div className="md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
                         <MapResultView
-                          results={searchResults?.data || []}
+                          results={activeSearchResults?.data || []}
                           highlightedResourceId={hoveredResourceId}
                           highlightedGeometry={hoveredGeometry}
                           resultStartIndex={(page - 1) * perPage + 1}
@@ -816,13 +834,15 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
                   )}
 
                   {/* Pagination for List view (bottom of page) */}
-                  {!isLoading && totalPages > 1 && currentView === 'list' && (
-                    <Pagination
-                      currentPage={page}
-                      totalPages={totalPages}
-                      onPageChange={handlePageChange}
-                    />
-                  )}
+                  {!activeIsLoading &&
+                    totalPages > 1 &&
+                    currentView === 'list' && (
+                      <Pagination
+                        currentPage={page}
+                        totalPages={totalPages}
+                        onPageChange={handlePageChange}
+                      />
+                    )}
                 </>
               )}
             </div>
@@ -834,12 +854,17 @@ function SearchContent({ searchResults, isLoading }: SearchPageProps) {
   );
 }
 
-export function SearchPage({ searchResults, isLoading }: SearchPageProps) {
+export function SearchPage({
+  searchResults,
+  isLoading,
+  clientSearchEnabled,
+}: SearchPageProps) {
   return (
     <MapProvider>
       <SearchContent
         searchResults={searchResults ?? null}
         isLoading={isLoading ?? false}
+        clientSearchEnabled={clientSearchEnabled}
       />
     </MapProvider>
   );

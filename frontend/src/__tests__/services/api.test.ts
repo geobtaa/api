@@ -473,6 +473,31 @@ describe('fetchSearchResults', () => {
     vi.clearAllMocks();
   });
 
+  it('uses the keyed frontend search-results proxy in the browser', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        href: 'https://example.com/search?q=maps',
+      },
+      writable: true,
+    });
+
+    const onApiCall = vi.fn();
+    (global.fetch as any).mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [], meta: {}, included: [] }),
+    });
+
+    await fetchSearchResults('maps', 1, 10, [], onApiCall);
+
+    const fetchUrl = new URL((global.fetch as any).mock.calls[0][0]);
+    expect(fetchUrl.pathname).toBe('/search/results');
+    expect(fetchUrl.searchParams.get('q')).toBe('maps');
+
+    const displayedApiUrl = new URL(onApiCall.mock.calls[0][0]);
+    expect(displayedApiUrl.pathname).toBe('/api/v1/search');
+  });
+
   it('replays source search params when paginating from a resource page', async () => {
     Object.defineProperty(window, 'location', {
       value: {

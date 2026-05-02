@@ -14,13 +14,23 @@ export interface SearchState {
   sort?: string;
 }
 
-export function useSearch() {
+export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [results, setResults] = useState<JsonApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { setLastApiUrl } = useApi();
   const sort = searchParams.get('sort') || 'relevance';
+  const view = searchParams.get('view') || 'list';
+  const perPageParam = searchParams.get('per_page');
+  const parsedPerPage = perPageParam ? parseInt(perPageParam, 10) : NaN;
+  const perPage = Number.isFinite(parsedPerPage)
+    ? parsedPerPage
+    : view === 'gallery'
+      ? 20
+      : 10;
+  const searchField = searchParams.get('search_field') || 'all_fields';
+  const searchParamsKey = searchParams.toString();
 
   // Parse search parameters and memoize facets to prevent infinite loops
   const {
@@ -44,14 +54,22 @@ export function useSearch() {
 
   useEffect(() => {
     console.log('🔍 useSearch useEffect triggered with:', {
+      enabled,
       query,
       page,
+      perPage,
       facetsLength: facets?.length,
       excludeLength: excludeFacets?.length,
       sort,
+      searchField,
       advancedClauses: advancedQuery.length,
       setLastApiUrl: typeof setLastApiUrl,
     });
+
+    if (!enabled) {
+      setIsLoading(false);
+      return;
+    }
 
     // Only fetch if we have a query parameter (even if empty) or facets
     if (
@@ -76,12 +94,14 @@ export function useSearch() {
         const searchResults = await fetchSearchResults(
           query || '', // Pass empty string if query is undefined
           page,
-          10,
+          perPage,
           facets,
           setLastApiUrl,
           sort,
           excludeFacets,
-          advancedQuery
+          advancedQuery,
+          undefined,
+          new URLSearchParams(searchParamsKey)
         );
 
         const endTime = performance.now();
@@ -108,11 +128,15 @@ export function useSearch() {
   }, [
     query,
     page,
+    perPage,
     facets,
     excludeFacets,
     advancedQuery,
     sort,
+    searchField,
+    searchParamsKey,
     hasQueryParam,
+    enabled,
     setLastApiUrl,
   ]);
 
@@ -208,7 +232,7 @@ export function useSearch() {
     isLoading,
     error,
     page: page || 1,
-    perPage: results?.meta?.perPage || 10,
+    perPage: results?.meta?.perPage || perPage,
     totalResults: results?.meta?.totalCount || 0,
     facets: facets || [],
     excludeFacets: excludeFacets || [],

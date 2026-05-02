@@ -1,6 +1,24 @@
 import { buildStages, config } from './lib/config.js';
 import { apiFlow, frontendFlow, setupSeed } from './lib/flows.js';
 
+const ENDPOINT_NAMES = [
+  'frontend_home_page',
+  'frontend_manifest',
+  'frontend_service_worker',
+  'frontend_search_page',
+  'frontend_search_results_api',
+  'frontend_faceted_search_page',
+  'frontend_faceted_search_results_api',
+  'frontend_resource_page',
+  'api_search',
+  'api_faceted_search',
+  'api_suggest',
+  'api_resource_list',
+  'api_resource_detail',
+  'api_facet_values',
+  'api_home_blog',
+];
+
 if (!config.enableFrontend && !config.enableApi) {
   throw new Error('At least one of K6_ENABLE_FRONTEND or K6_ENABLE_API must be enabled.');
 }
@@ -49,6 +67,12 @@ if (config.enableApi) {
     'p(95)<1500',
     'p(99)<3000',
   ];
+}
+
+if (config.endpointBreakdown) {
+  for (const endpointName of ENDPOINT_NAMES) {
+    thresholds[`http_req_duration{name:${endpointName}}`] = ['p(95)<60000', 'p(99)<60000'];
+  }
 }
 
 export const options = {

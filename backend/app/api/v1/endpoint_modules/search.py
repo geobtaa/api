@@ -268,16 +268,12 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                     data_dictionaries_by_id
                 )
                 relationship_payloads_by_id = (
-                    await RelationshipService.get_resource_relationships_map(
-                        missing_resource_ids
-                    )
+                    await RelationshipService.get_resource_relationships_map(missing_resource_ids)
                 )
                 bridge_asset_download_rows_by_id = await fetch_bridge_asset_download_rows_map(
                     missing_resource_ids
                 )
-                thumbnail_asset_urls_by_id = await _get_thumbnail_asset_urls(
-                    missing_resource_ids
-                )
+                thumbnail_asset_urls_by_id = await _get_thumbnail_asset_urls(missing_resource_ids)
                 miss_prefetch_ms = (time.perf_counter() - miss_prefetch_started_at) * 1000
 
                 miss_build_started_at = time.perf_counter()
@@ -295,9 +291,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                         ),
                         ui_relationships=relationship_payloads_by_id.get(resource_id),
                         allmaps_attributes=allmaps_attributes_by_id.get(resource_id),
-                        data_dictionaries_payload=data_dictionary_payloads_by_id.get(
-                            resource_id
-                        ),
+                        data_dictionaries_payload=data_dictionary_payloads_by_id.get(resource_id),
                         thumbnail_asset_url=thumbnail_asset_urls_by_id.get(resource_id),
                     )
                 miss_build_ms = (time.perf_counter() - miss_build_started_at) * 1000

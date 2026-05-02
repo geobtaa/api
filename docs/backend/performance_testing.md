@@ -118,6 +118,7 @@ Available knobs:
 - `K6_RESOURCE_ID`
 - `K6_SEARCH_PER_PAGE`
 - `K6_CACHE_BUST_SEARCH`
+- `K6_ENDPOINT_BREAKDOWN`
 
 ### Force search miss-path traffic
 
@@ -139,6 +140,16 @@ This appends an ignored `k6cb=...` query param to:
 That preserves the existing API/HTML payload shape while forcing unique
 search/facet request URLs, which is useful for finding the true miss-path
 latency ceiling on `dev1` or `prd`.
+
+Add `K6_ENDPOINT_BREAKDOWN=1` when you need per-endpoint `p95`/`p99` rows in
+the k6 summary. This is useful after scenario-level thresholds fail and you
+need to see which tagged endpoint is carrying the tail latency.
+
+The frontend scenario treats `/search` as a browser flow: it requests the HTML
+shell and then requests `/search/results` for the JSON data that the hydrated
+client fetches through the keyed frontend BFF route. This keeps the API-key
+throttling path represented in frontend load tests without blocking SSR on the
+search payload.
 
 ## Backend search knobs
 

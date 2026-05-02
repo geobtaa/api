@@ -32,6 +32,10 @@ MANIFEST
 !frontend/app/lib/
 !frontend/app/lib/**
 
+# k6 uses `performance/k6/lib/*` for shared stress-test helpers.
+!performance/k6/lib/
+!performance/k6/lib/**
+
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.

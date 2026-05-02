@@ -152,15 +152,18 @@ describe('useSearch', () => {
 
       expect(consoleSpy.log).toHaveBeenCalledWith(
         '🔍 useSearch useEffect triggered with:',
-        {
+        expect.objectContaining({
+          enabled: true,
           query: 'test',
           page: 2,
+          perPage: 10,
           facetsLength: 0,
           excludeLength: 0,
           sort: 'relevance',
+          searchField: 'all_fields',
           advancedClauses: 0,
           setLastApiUrl: 'function',
-        }
+        })
       );
     });
   });
@@ -178,7 +181,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 
@@ -204,7 +209,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 
@@ -238,7 +245,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'date',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 
@@ -257,7 +266,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 
@@ -279,7 +290,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          [{ op: 'AND', field: 'dct_title_s', q: 'Iowa' }]
+          [{ op: 'AND', field: 'dct_title_s', q: 'Iowa' }],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 
@@ -518,7 +531,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          advancedClauses
+          advancedClauses,
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 
@@ -652,7 +667,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
     });
@@ -676,7 +693,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
     });
@@ -705,7 +724,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'relevance',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
     });
@@ -753,7 +774,9 @@ describe('useSearch', () => {
           expect.any(Function),
           'date',
           [],
-          []
+          [],
+          undefined,
+          expect.any(URLSearchParams)
         );
       });
 

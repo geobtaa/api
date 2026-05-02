@@ -135,6 +135,24 @@ function appendForwardedSearchFilters(
     });
 }
 
+function getSearchResultsBasePath(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/search/results`;
+  }
+
+  return `${getApiBasePath()}/search`;
+}
+
+function toPublicSearchApiUrl(url: URL): string {
+  if (url.pathname === '/search/results') {
+    const publicUrl = new URL(url.toString());
+    publicUrl.pathname = '/api/v1/search';
+    return publicUrl.toString();
+  }
+
+  return url.toString();
+}
+
 /**
  * Gets the API base URL path for the NGINX BFF proxy.
  * The BFF proxy handles API key authentication server-side.
@@ -301,6 +319,8 @@ async function unifiedFetch<T>(
 
   // Use absolute URL (all requests go directly to BFF proxy)
   const fetchUrl = urlObj.toString();
+  const isSameOriginBrowserRequest =
+    typeof window !== 'undefined' && urlObj.origin === window.location.origin;
 
   if (options.useJsonp) {
     console.log('Using JSONP for request:', fetchUrl);
@@ -318,7 +338,7 @@ async function unifiedFetch<T>(
       const response = await fetch(fetchUrl, {
         headers: buildApiHeaders(urlObj),
         mode: 'cors',
-        credentials: 'omit',
+        credentials: isSameOriginBrowserRequest ? 'same-origin' : 'omit',
         redirect: 'follow',
       });
 
@@ -413,8 +433,7 @@ export async function fetchSearchResults(
     advancedClauses: advancedQuery.length,
   });
 
-  const apiBasePath = getApiBasePath();
-  const baseUrl = `${apiBasePath}/search`;
+  const baseUrl = getSearchResultsBasePath();
   const url = createApiUrl(baseUrl);
   const effectiveQuery = sourceSearchParams?.get('q') ?? query;
   const effectiveSort = sort ?? sourceSearchParams?.get('sort') ?? undefined;
@@ -432,6 +451,11 @@ export async function fetchSearchResults(
     const rawAdvancedQuery = sourceSearchParams.get('adv_q');
     if (rawAdvancedQuery) {
       url.searchParams.set('adv_q', rawAdvancedQuery);
+    }
+
+    const cacheBust = sourceSearchParams.get('k6cb');
+    if (cacheBust) {
+      url.searchParams.set('k6cb', cacheBust);
     }
   } else if (typeof window !== 'undefined') {
     // Read geo filters from current URL if they exist
@@ -520,10 +544,12 @@ export async function fetchSearchResults(
     }
   }
 
-  console.log('🔗 API URL:', url.toString());
+  const displayApiUrl = toPublicSearchApiUrl(url);
+
+  console.log('🔗 API URL:', displayApiUrl);
 
   if (onApiCall) {
-    onApiCall(url.toString());
+    onApiCall(displayApiUrl);
   }
 
   try {
