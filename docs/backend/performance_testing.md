@@ -140,6 +140,21 @@ That preserves the existing API/HTML payload shape while forcing unique
 search/facet request URLs, which is useful for finding the true miss-path
 latency ceiling on `dev1` or `prd`.
 
+## Backend search knobs
+
+Two backend env vars are useful when tuning facet-heavy search behavior:
+
+- `SEARCH_FACET_CACHE_TTL`
+  Controls how long normalized search facet blocks and facet-value buckets stay
+  hot in Redis. Default: `3600` seconds.
+- `SEARCH_TIMING_LOG_THRESHOLD_MS`
+  Controls when the backend logs aggregation timing summaries at `info` instead
+  of `debug`. Default: `750` milliseconds.
+
+The new aggregation timing logs are emitted from the backend search layer and
+distinguish cache hits from full Elasticsearch aggregation misses, which makes
+it easier to compare warm and miss-path behavior during k6 runs.
+
 ### Run only one side of the stack
 
 ```bash

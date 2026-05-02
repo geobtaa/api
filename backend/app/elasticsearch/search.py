@@ -11,6 +11,7 @@ from elasticsearch.exceptions import NotFoundError
 from fastapi import HTTPException
 from sqlalchemy.sql import text
 
+from app.services.cache_service import ENDPOINT_CACHE, CacheService
 from app.services.distribution_repository import fetch_distribution_context_map
 from app.services.viewer_service import create_viewer_attributes  # Updated import
 from db.database import database
@@ -39,6 +40,10 @@ ALLOWED_GEO_RELATIONS = {"intersects", "within", "contains", "disjoint"}
 BBOX_CONTAINMENT_WEIGHT = float(os.getenv("BBOX_CONTAINMENT_WEIGHT", "0.7"))
 BBOX_IOU_WEIGHT = float(os.getenv("BBOX_IOU_WEIGHT", "0.3"))
 BBOX_SPATIAL_BOOST_WEIGHT = float(os.getenv("BBOX_SPATIAL_BOOST_WEIGHT", "0.8"))
+SEARCH_FACET_CACHE_TTL = int(os.getenv("SEARCH_FACET_CACHE_TTL", "3600"))
+SEARCH_TIMING_LOG_THRESHOLD_MS = float(os.getenv("SEARCH_TIMING_LOG_THRESHOLD_MS", "750"))
+SEARCH_FACET_CACHE_NAMESPACE = "search.facets"
+FACET_VALUES_CACHE_NAMESPACE = "search.facet_values"
 
 
 def _escape_query_string_brackets(query_text: str) -> str:
@@ -219,6 +224,220 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
         raise ValueError(f"Invalid facet name: {facet_name}")
 
     return facet_configs[facet_name]
+
+
+def _global_bucket_aggregation() -> dict:
+    """Return the shared map/global bucket aggregation.
+
+    `geo_or_near_global` is precomputed at index time, so using it here avoids
+    re-evaluating the same OR/range logic for every aggregation request.
+    """
+    return {"filter": {"term": {"geo_or_near_global": True}}}
+
+
+def _build_search_aggregations() -> dict:
+    """Return the default search aggregation set in response order."""
+    return {
+        "dct_spatial_sm": {
+            "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "gbl_resourceClass_sm": {
+            "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "gbl_resourceType_sm": {
+            "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "gbl_indexYear_im": {"terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}},
+        "year_histogram": {
+            "histogram": {
+                "field": "gbl_indexYear_im",
+                "interval": 1,
+                "min_doc_count": 1,
+            }
+        },
+        "time_period": {"terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}},
+        "dct_language_sm": {
+            "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "dct_creator_sm": {
+            "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "dct_publisher_sm": {
+            "terms": {"field": "dct_publisher_sm.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "schema_provider_s": {
+            "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "b1g_code_s": {"terms": {"field": "b1g_code_s", "size": DEFAULT_FACET_SIZE}},
+        "ogm_repo": {"terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}},
+        "dct_accessRights_s": {
+            "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
+        },
+        "gbl_georeferenced_b": {
+            "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+        },
+        "geo_country": {"terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}},
+        "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
+        "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
+        "global_bucket_agg": _global_bucket_aggregation(),
+    }
+
+
+def _normalize_search_fields(search_fields: str | None) -> str:
+    return (search_fields or "").strip()
+
+
+def _build_search_facet_cache_key(
+    *,
+    index_name: str,
+    query: str | None,
+    search_fields: str | None,
+    fq: dict | None,
+    include_filters: dict | None,
+    exclude_filters: dict | None,
+    adv_q: Optional[list],
+    selected_aggs: tuple[str, ...],
+) -> str:
+    return CacheService.generate_cache_key(
+        SEARCH_FACET_CACHE_NAMESPACE,
+        index=index_name,
+        query=query or "",
+        search_fields=_normalize_search_fields(search_fields),
+        fq=fq or {},
+        include_filters=include_filters or {},
+        exclude_filters=exclude_filters or {},
+        adv_q=adv_q or [],
+        aggs=selected_aggs,
+    )
+
+
+def _build_facet_values_cache_key(
+    *,
+    index_name: str,
+    facet_name: str,
+    query: str | None,
+    fq: dict | None,
+    include_filters: dict | None,
+    exclude_filters: dict | None,
+    adv_q: Optional[list],
+    q_facet: str | None,
+    size: int,
+) -> str:
+    return CacheService.generate_cache_key(
+        FACET_VALUES_CACHE_NAMESPACE,
+        index=index_name,
+        facet_name=facet_name,
+        query=query or "",
+        fq=fq or {},
+        include_filters=include_filters or {},
+        exclude_filters=exclude_filters or {},
+        adv_q=adv_q or [],
+        q_facet=q_facet or "",
+        size=size,
+    )
+
+
+async def _get_cached_search_aggregations(cache_key: str) -> dict | None:
+    if not ENDPOINT_CACHE:
+        return None
+
+    payload = await CacheService().get(cache_key)
+    if not isinstance(payload, dict):
+        return None
+
+    aggregations = payload.get("aggregations")
+    return aggregations if isinstance(aggregations, dict) else None
+
+
+async def _store_cached_search_aggregations(
+    cache_key: str, aggregations: dict, selected_aggs: tuple[str, ...]
+) -> None:
+    if not ENDPOINT_CACHE or not aggregations:
+        return
+
+    cache_service = CacheService()
+    stored = await cache_service.set(
+        cache_key,
+        {
+            "aggregations": aggregations,
+        },
+        ttl=SEARCH_FACET_CACHE_TTL,
+    )
+    if stored:
+        await cache_service.tag_cache_key(
+            cache_key,
+            ["search", *(f"facet:{agg_name}" for agg_name in selected_aggs)],
+            ttl_seconds=SEARCH_FACET_CACHE_TTL,
+        )
+
+
+async def _get_cached_facet_values(cache_key: str) -> list[dict] | None:
+    if not ENDPOINT_CACHE:
+        return None
+
+    payload = await CacheService().get(cache_key)
+    if not isinstance(payload, dict):
+        return None
+
+    buckets = payload.get("buckets")
+    return buckets if isinstance(buckets, list) else None
+
+
+async def _store_cached_facet_values(cache_key: str, facet_name: str, buckets: list[dict]) -> None:
+    if not ENDPOINT_CACHE:
+        return
+
+    cache_service = CacheService()
+    stored = await cache_service.set(
+        cache_key,
+        {
+            "buckets": buckets,
+        },
+        ttl=SEARCH_FACET_CACHE_TTL,
+    )
+    if stored:
+        await cache_service.tag_cache_key(
+            cache_key,
+            ["search", f"facet:{facet_name}"],
+            ttl_seconds=SEARCH_FACET_CACHE_TTL,
+        )
+
+
+def _log_aggregation_timing(
+    *,
+    operation: str,
+    cache_status: str,
+    total_ms: float,
+    es_roundtrip_ms: float,
+    es_took_ms: float,
+    cache_lookup_ms: float,
+    cache_store_ms: float,
+    aggregation_names: tuple[str, ...],
+    total_hits: int | None = None,
+    hit_count: int | None = None,
+    source: str = "primary",
+) -> None:
+    payload = {
+        "operation": operation,
+        "source": source,
+        "cacheStatus": cache_status,
+        "totalMs": round(total_ms, 2),
+        "esRoundtripMs": round(es_roundtrip_ms, 2),
+        "esTookMs": round(es_took_ms, 2),
+        "cacheLookupMs": round(cache_lookup_ms, 2),
+        "cacheStoreMs": round(cache_store_ms, 2),
+        "aggregationNames": list(aggregation_names),
+    }
+    if total_hits is not None:
+        payload["totalHits"] = int(total_hits)
+    if hit_count is not None:
+        payload["hitCount"] = int(hit_count)
+
+    log_message = "aggregation_timing %s"
+    if total_ms >= SEARCH_TIMING_LOG_THRESHOLD_MS or cache_status != "hit":
+        logger.info(log_message, json.dumps(payload, separators=(",", ":"), sort_keys=True))
+    else:
+        logger.debug(log_message, json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
 def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list = None):
@@ -798,6 +1017,7 @@ async def search_resources(
         limit = 20  # Default to 20 if limit is zero or negative
 
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+    overall_start = time.perf_counter()
 
     try:
         # Get the current search criteria
@@ -894,70 +1114,33 @@ async def search_resources(
         if facets:
             allowed_aggs = {f.strip() for f in facets.split(",") if f.strip()}
 
-        full_aggs = {
-            "dct_spatial_sm": {
-                "terms": {"field": "dct_spatial_sm.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "gbl_resourceClass_sm": {
-                "terms": {"field": "gbl_resourceClass_sm.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "gbl_resourceType_sm": {
-                "terms": {"field": "gbl_resourceType_sm.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "gbl_indexYear_im": {
-                "terms": {"field": "gbl_indexYear_im", "size": DEFAULT_FACET_SIZE}
-            },
-            "year_histogram": {
-                "histogram": {
-                    "field": "gbl_indexYear_im",
-                    "interval": 1,
-                    "min_doc_count": 1,
-                    # Optional: bounds to force range? extended_bounds?
-                }
-            },
-            "time_period": {"terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}},
-            "dct_language_sm": {
-                "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "dct_creator_sm": {
-                "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "dct_publisher_sm": {
-                "terms": {"field": "dct_publisher_sm.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "schema_provider_s": {
-                "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "b1g_code_s": {"terms": {"field": "b1g_code_s", "size": DEFAULT_FACET_SIZE}},
-            "ogm_repo": {"terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}},
-            "dct_accessRights_s": {
-                "terms": {"field": "dct_accessRights_s.keyword", "size": DEFAULT_FACET_SIZE}
-            },
-            "gbl_georeferenced_b": {
-                "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
-            },
-            # Spatial facet aggregations with configurable sizes
-            # Note: These fields are text with .keyword subfields in the actual index
-            "geo_country": {
-                "terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}
-            },
-            "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
-            "geo_county": {"terms": {"field": "geo_county.keyword", "size": GEO_COUNTY_FACET_SIZE}},
-            "global_bucket_agg": {
-                "filter": {
-                    "bool": {
-                        "should": [
-                            {"term": {"geo_global": True}},
-                            {"range": {"bbox_diagonal_km": {"gt": NEAR_GLOBAL_DIAGONAL_KM}}},
-                        ]
-                    }
-                }
-            },
-        }
+        full_aggs = _build_search_aggregations()
 
         selected_aggs = (
             {k: v for k, v in full_aggs.items() if k in allowed_aggs} if allowed_aggs else full_aggs
         )
+        selected_agg_names = tuple(selected_aggs.keys())
+        facet_cache_status = "disabled"
+        facet_cache_lookup_ms = 0.0
+        facet_cache_store_ms = 0.0
+        cached_aggregations = None
+        if selected_aggs:
+            facet_cache_key = _build_search_facet_cache_key(
+                index_name=index_name,
+                query=search_criteria.get("query"),
+                search_fields=search_fields,
+                fq=fq,
+                include_filters=include_filters,
+                exclude_filters=exclude_filters,
+                adv_q=adv_q,
+                selected_aggs=selected_agg_names,
+            )
+            facet_cache_lookup_start = time.perf_counter()
+            cached_aggregations = await _get_cached_search_aggregations(facet_cache_key)
+            facet_cache_lookup_ms = (time.perf_counter() - facet_cache_lookup_start) * 1000
+            facet_cache_status = "hit" if cached_aggregations is not None else "miss"
+        else:
+            facet_cache_key = None
 
         # Build the search query
         # Support both q and adv_q simultaneously
@@ -1211,8 +1394,9 @@ async def search_resources(
             "size": limit,
             "sort": sort or [{"_score": "desc"}],
             "track_total_hits": True,
-            "aggs": selected_aggs,
         }
+        if cached_aggregations is None and selected_aggs:
+            search_query["aggs"] = selected_aggs
 
         # Add suggestions if q parameter was provided
         if search_criteria.get("query") and search_criteria["query"].strip():
@@ -1235,19 +1419,72 @@ async def search_resources(
         # If neither q nor adv_q provided, search_query already has match_all in must
 
         logger.debug(f"ES Query: {json.dumps(search_query, indent=2)}")
+        es_roundtrip_ms = 0.0
+
+        async def finalize_response(
+            response_dict: dict,
+            *,
+            source: str,
+            response_overlap_context: dict | None,
+        ) -> dict:
+            nonlocal facet_cache_store_ms
+
+            if cached_aggregations is not None:
+                response_dict["aggregations"] = cached_aggregations
+            elif facet_cache_key and selected_aggs:
+                facet_cache_store_start = time.perf_counter()
+                await _store_cached_search_aggregations(
+                    facet_cache_key,
+                    response_dict.get("aggregations", {}) or {},
+                    selected_agg_names,
+                )
+                facet_cache_store_ms = (time.perf_counter() - facet_cache_store_start) * 1000
+
+            result = await process_search_response(
+                response_dict,
+                limit,
+                skip,
+                search_criteria,
+                overlap_context=response_overlap_context,
+                include_filters=include_filters,
+                exclude_filters=exclude_filters,
+                adv_q=adv_q,
+                hydrate_hits=hydrate_hits,
+            )
+            total_ms = (time.perf_counter() - overall_start) * 1000
+            response_hits = response_dict.get("hits", {})
+            total_hits_value = (response_hits.get("total") or {}).get("value")
+            _log_aggregation_timing(
+                operation="search_resources",
+                cache_status=facet_cache_status,
+                total_ms=total_ms,
+                es_roundtrip_ms=es_roundtrip_ms,
+                es_took_ms=float(response_dict.get("took", 0) or 0),
+                cache_lookup_ms=facet_cache_lookup_ms,
+                cache_store_ms=facet_cache_store_ms,
+                aggregation_names=selected_agg_names,
+                total_hits=total_hits_value if total_hits_value is not None else None,
+                hit_count=len(response_hits.get("hits", []) or []),
+                source=source,
+            )
+            return result
 
         try:
             # Call ES using keyword args so tests can inspect 'query' and 'suggest'
-            response = await es.search(
-                index=index_name,
-                query=search_query["query"],
-                from_=skip,
-                size=limit,
-                sort=sort or [{"_score": "desc"}],
-                track_total_hits=True,
-                aggs=search_query["aggs"],
-                suggest=search_query.get("suggest"),
-            )
+            search_kwargs = {
+                "index": index_name,
+                "query": search_query["query"],
+                "from_": skip,
+                "size": limit,
+                "sort": sort or [{"_score": "desc"}],
+                "track_total_hits": True,
+                "suggest": search_query.get("suggest"),
+            }
+            if search_query.get("aggs"):
+                search_kwargs["aggs"] = search_query["aggs"]
+            es_roundtrip_start = time.perf_counter()
+            response = await es.search(**search_kwargs)
+            es_roundtrip_ms = (time.perf_counter() - es_roundtrip_start) * 1000
             response_dict = response.body if hasattr(response, "body") else response
         except NotFoundError:
             # Index missing: return empty result structure instead of 500
@@ -1257,16 +1494,10 @@ async def search_resources(
                 "took": 0,
                 "aggregations": {},
             }
-            return await process_search_response(
+            return await finalize_response(
                 empty_response,
-                limit,
-                skip,
-                search_criteria,
-                overlap_context=None,
-                include_filters=include_filters,
-                exclude_filters=exclude_filters,
-                adv_q=adv_q,
-                hydrate_hits=hydrate_hits,
+                source="missing_index",
+                response_overlap_context=None,
             )
         except Exception as es_error:
             logger.error(f"Elasticsearch error: {str(es_error)}", exc_info=True)
@@ -1282,31 +1513,29 @@ async def search_resources(
                     "falling back to plain bool query without overlap scoring."
                 )
                 try:
-                    fallback_response = await es.search(
-                        index=index_name,
-                        query={"bool": bool_query_dict},
-                        from_=skip,
-                        size=limit,
-                        sort=sort or [{"_score": "desc"}],
-                        track_total_hits=True,
-                        aggs=selected_aggs,
-                        suggest=search_query.get("suggest"),
-                    )
+                    fallback_kwargs = {
+                        "index": index_name,
+                        "query": {"bool": bool_query_dict},
+                        "from_": skip,
+                        "size": limit,
+                        "sort": sort or [{"_score": "desc"}],
+                        "track_total_hits": True,
+                        "suggest": search_query.get("suggest"),
+                    }
+                    if cached_aggregations is None and selected_aggs:
+                        fallback_kwargs["aggs"] = selected_aggs
+                    es_roundtrip_start = time.perf_counter()
+                    fallback_response = await es.search(**fallback_kwargs)
+                    es_roundtrip_ms = (time.perf_counter() - es_roundtrip_start) * 1000
                     fallback_dict = (
                         fallback_response.body
                         if hasattr(fallback_response, "body")
                         else fallback_response
                     )
-                    return await process_search_response(
+                    return await finalize_response(
                         fallback_dict,
-                        limit,
-                        skip,
-                        search_criteria,
-                        overlap_context=None,
-                        include_filters=include_filters,
-                        exclude_filters=exclude_filters,
-                        adv_q=adv_q,
-                        hydrate_hits=hydrate_hits,
+                        source="script_score_fallback",
+                        response_overlap_context=None,
                     )
                 except Exception as fallback_error:
                     logger.error(
@@ -1327,16 +1556,10 @@ async def search_resources(
                 error_detail["status_code"] = es_error.status_code
             raise HTTPException(status_code=500, detail=error_detail) from es_error
 
-        return await process_search_response(
+        return await finalize_response(
             response_dict,
-            limit,
-            skip,
-            search_criteria,
-            overlap_context=overlap_context,
-            include_filters=include_filters,
-            exclude_filters=exclude_filters,
-            adv_q=adv_q,
-            hydrate_hits=hydrate_hits,
+            source="primary",
+            response_overlap_context=overlap_context,
         )
 
     except Exception as e:
@@ -1816,16 +2039,7 @@ async def map_h3_aggregation(
         "h3_terms": {
             "terms": {"field": f"h3_res{resolution}", "size": h3_terms_size, "min_doc_count": 1}
         },
-        "global_bucket_agg": {
-            "filter": {
-                "bool": {
-                    "should": [
-                        {"term": {"geo_global": True}},
-                        {"range": {"bbox_diagonal_km": {"gt": NEAR_GLOBAL_DIAGONAL_KM}}},
-                    ]
-                }
-            }
-        },
+        "global_bucket_agg": _global_bucket_aggregation(),
     }
 
     try:
@@ -2137,6 +2351,7 @@ async def get_facet_values(
         HTTPException: If Elasticsearch query fails
     """
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+    overall_start = time.perf_counter()
 
     # Get facet aggregation configuration
     facet_config = get_facet_aggregation_config(facet_name)
@@ -2270,16 +2485,61 @@ async def get_facet_values(
         "aggs": {"facet_values": agg_config},
     }
 
+    cache_key = _build_facet_values_cache_key(
+        index_name=index_name,
+        facet_name=facet_name,
+        query=query,
+        fq=fq,
+        include_filters=include_filters,
+        exclude_filters=exclude_filters,
+        adv_q=adv_q,
+        q_facet=q_facet,
+        size=size,
+    )
+    cache_lookup_start = time.perf_counter()
+    cached_buckets = await _get_cached_facet_values(cache_key)
+    cache_lookup_ms = (time.perf_counter() - cache_lookup_start) * 1000
+    if cached_buckets is not None:
+        _log_aggregation_timing(
+            operation="get_facet_values",
+            cache_status="hit",
+            total_ms=(time.perf_counter() - overall_start) * 1000,
+            es_roundtrip_ms=0.0,
+            es_took_ms=0.0,
+            cache_lookup_ms=cache_lookup_ms,
+            cache_store_ms=0.0,
+            aggregation_names=(facet_name,),
+            total_hits=len(cached_buckets),
+            source="cache",
+        )
+        return cached_buckets
+
     try:
+        es_roundtrip_start = time.perf_counter()
         response = await es.search(
             index=index_name,
             query=search_query["query"],
             size=0,
             aggs=search_query["aggs"],
         )
+        es_roundtrip_ms = (time.perf_counter() - es_roundtrip_start) * 1000
         response_dict = response.body if hasattr(response, "body") else response
         buckets = response_dict.get("aggregations", {}).get("facet_values", {}).get("buckets", [])
-
+        cache_store_start = time.perf_counter()
+        await _store_cached_facet_values(cache_key, facet_name, buckets)
+        cache_store_ms = (time.perf_counter() - cache_store_start) * 1000
+        _log_aggregation_timing(
+            operation="get_facet_values",
+            cache_status="miss",
+            total_ms=(time.perf_counter() - overall_start) * 1000,
+            es_roundtrip_ms=es_roundtrip_ms,
+            es_took_ms=float(response_dict.get("took", 0) or 0),
+            cache_lookup_ms=cache_lookup_ms,
+            cache_store_ms=cache_store_ms,
+            aggregation_names=(facet_name,),
+            total_hits=len(buckets),
+            source="primary",
+        )
         return buckets
     except Exception as es_error:
         logger.error(f"Elasticsearch error getting facet values: {str(es_error)}", exc_info=True)

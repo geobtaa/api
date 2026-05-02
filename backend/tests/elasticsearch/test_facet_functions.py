@@ -296,6 +296,17 @@ class TestProcessFacetResponse:
 class TestGetFacetValues:
     """Test get_facet_values function."""
 
+    @pytest.fixture(autouse=True)
+    def _disable_facet_value_cache(self, monkeypatch):
+        monkeypatch.setattr(
+            "app.elasticsearch.search._get_cached_facet_values",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            "app.elasticsearch.search._store_cached_facet_values",
+            AsyncMock(),
+        )
+
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
     async def test_basic_facet_retrieval(self, mock_es):
@@ -326,6 +337,28 @@ class TestGetFacetValues:
         assert len(buckets) == 2
         assert buckets[0]["key"] == "Provider A"
         assert buckets[0]["doc_count"] == 100
+
+    @pytest.mark.asyncio
+    @patch("app.elasticsearch.search.es")
+    async def test_uses_cached_facet_values_when_available(self, mock_es):
+        """Facet-value cache hits should skip Elasticsearch entirely."""
+        cached_buckets = [{"key": "Provider A", "doc_count": 100}]
+
+        with patch(
+            "app.elasticsearch.search._get_cached_facet_values",
+            AsyncMock(return_value=cached_buckets),
+        ):
+            buckets = await get_facet_values(
+                facet_name="schema_provider_s",
+                query=None,
+                fq=None,
+                include_filters=None,
+                exclude_filters=None,
+                adv_q=None,
+            )
+
+        mock_es.search.assert_not_called()
+        assert buckets == cached_buckets
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
