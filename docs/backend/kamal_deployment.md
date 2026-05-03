@@ -99,6 +99,13 @@ This split protects QGIS, MCP, and other external API clients from queueing
 behind frontend server-side fetches. Set `WEB_INTERNAL_UVICORN_WORKERS=0` to
 fall back to the older single-pool behavior.
 
+React Router SSR/BFF traffic is also horizontally fanned out behind an nginx
+`ssr_backend` upstream. `WEB_SSR_WORKERS` controls how many local
+`react-router-serve` processes are started on ports `3000+`; nginx uses
+`least_conn` to distribute `/`, `/search/results`, resource pages, and other
+frontend routes across them. This preserves server-side API key injection while
+avoiding a single Node event loop as the frontend bottleneck.
+
 The health check path is:
 
 ```text
@@ -314,7 +321,7 @@ The base config in `config/deploy.yml` is shared across all destinations. The de
 
 Current differences:
 
-- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, and `WEB_INTERNAL_UVICORN_WORKERS=2`
+- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=2`, and `WEB_SSR_WORKERS=2`
 - `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`
 - `prd`: same performance profile as `dev1`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 

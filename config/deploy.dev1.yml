@@ -43,6 +43,7 @@ env:
     KAMAL_DEST: dev1
     WEB_UVICORN_WORKERS: "3"
     WEB_INTERNAL_UVICORN_WORKERS: "2"
+    WEB_SSR_WORKERS: "2"
 
 accessories:
   elasticsearch:

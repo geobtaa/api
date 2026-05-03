@@ -116,6 +116,7 @@ env:
     # traffic from occupying the public /api worker queue used by QGIS, MCP,
     # and other external clients. Set to "0" to route SSR back to the public pool.
     WEB_INTERNAL_UVICORN_WORKERS: "<%= ENV.fetch('WEB_INTERNAL_UVICORN_WORKERS', '1') %>"
+    WEB_SSR_WORKERS:      "<%= ENV.fetch('WEB_SSR_WORKERS', '1') %>"
     BRIDGE_SYNC_REPORT_ENABLED: "<%= ENV.fetch('BRIDGE_SYNC_REPORT_ENABLED', 'false') %>"
     BRIDGE_SYNC_REPORT_RECIPIENTS: "<%= ENV.fetch('BRIDGE_SYNC_REPORT_RECIPIENTS', 'ewlarson@gmail.com,majew030@umn.edu') %>"
     BRIDGE_SYNC_REPORT_FROM: "<%= ENV.fetch('BRIDGE_SYNC_REPORT_FROM', 'BTAA Geoportal <no-reply@geo.btaa.org>') %>"

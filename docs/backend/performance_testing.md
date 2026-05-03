@@ -202,6 +202,12 @@ frontend `2` workers. The next validation step after changing these values is to
 rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
 against the API-only baseline.
 
+If the API pool remains healthy but frontend `/search/results` or resource page
+tails stay high, check the SSR/BFF layer next. `WEB_SSR_WORKERS` controls how
+many local `react-router-serve` processes nginx balances across. Raising this
+keeps API-keyed frontend BFF requests server-side while reducing single-process
+Node queueing.
+
 ## Backend search knobs
 
 These backend env vars are useful when tuning facet-heavy search behavior:
