@@ -43,6 +43,17 @@ echo "[start_web_singlehost] configuring nginx SSR upstream for ${WEB_SSR_WORKER
   echo "}"
 } > /etc/nginx/ssr-upstream.conf
 
+echo "[start_web_singlehost] configuring nginx frontend API key include"
+if [ -n "${BTAA_GEOSPATIAL_API_KEY:-}" ]; then
+  ESCAPED_API_KEY="$(printf '%s' "${BTAA_GEOSPATIAL_API_KEY}" | sed 's/[$\\"]/\\&/g')"
+  printf 'proxy_set_header X-API-Key "%s";\n' "${ESCAPED_API_KEY}" > /etc/nginx/frontend-api-key.conf
+else
+  {
+    echo "# BTAA_GEOSPATIAL_API_KEY is not set."
+    echo "# Frontend BFF proxy requests will be forwarded without X-API-Key."
+  } > /etc/nginx/frontend-api-key.conf
+fi
+
 echo "[start_web_singlehost] starting ${WEB_SSR_WORKERS} SSR worker(s) (react-router-serve)"
 cd /app/frontend
 export NODE_ENV="${NODE_ENV:-production}"

@@ -184,7 +184,11 @@ The frontend scenario treats `/search` as a browser flow: it requests the HTML
 shell and then requests `/search/results` for the JSON data that the hydrated
 client fetches through the keyed frontend BFF route. This keeps the API-key
 throttling path represented in frontend load tests without blocking SSR on the
-search payload.
+search payload. In Kamal single-host deployments, nginx handles the exact
+`/search/results` JSON route directly: it injects the server-side API key and
+proxies to the internal FastAPI pool. That keeps the browser/API-key contract
+intact while avoiding the React Router worker queue for facet-heavy result
+payloads.
 
 ## Mixed-load worker isolation
 
@@ -195,7 +199,7 @@ frontend BFF traffic with:
 
 - `WEB_UVICORN_WORKERS`: public `/api/...` FastAPI workers.
 - `WEB_INTERNAL_UVICORN_WORKERS`: loopback-only FastAPI workers used by SSR/BFF
-  fetches through `API_BASE_URL`.
+  fetches through `API_BASE_URL` and nginx's direct `/search/results` BFF proxy.
 
 On prd-sized hosts, the current baseline is:
 
@@ -209,11 +213,11 @@ the shared 8-vCPU hosts. The next validation step after changing these values
 is to rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
 against the API-only baseline.
 
-If the API pool remains healthy but frontend `/search/results` or resource page
-tails stay high, check the SSR/BFF layer next. `WEB_SSR_WORKERS` controls how
-many local `react-router-serve` processes nginx balances across. Raising this
-keeps API-keyed frontend BFF requests server-side while reducing single-process
-Node queueing.
+If the API pool remains healthy but frontend resource page tails stay high,
+check the SSR layer next. `WEB_SSR_WORKERS` controls how many local
+`react-router-serve` processes nginx balances across. Raising this reduces
+single-process Node queueing for HTML routes, while `/search/results` data
+traffic should stay on the nginx -> internal FastAPI path.
 
 ## Backend search knobs
 

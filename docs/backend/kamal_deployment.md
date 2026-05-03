@@ -93,7 +93,7 @@ Kamal's bridged asset directory is normalized by `backend/scripts/start_web_sing
 The `web` container runs two FastAPI listener pools by default:
 
 - Public API pool: `127.0.0.1:8001`, reached through nginx `/api/...`, sized by `WEB_UVICORN_WORKERS`.
-- Internal frontend pool: `127.0.0.1:8002`, used by React Router SSR/BFF fetches through `API_BASE_URL`, sized by `WEB_INTERNAL_UVICORN_WORKERS`.
+- Internal frontend pool: `127.0.0.1:8002`, used by React Router SSR/BFF fetches through `API_BASE_URL` and by nginx's direct `/search/results` BFF proxy, sized by `WEB_INTERNAL_UVICORN_WORKERS`.
 
 This split protects QGIS, MCP, and other external API clients from queueing
 behind frontend server-side fetches. Set `WEB_INTERNAL_UVICORN_WORKERS=0` to
@@ -102,9 +102,13 @@ fall back to the older single-pool behavior.
 React Router SSR/BFF traffic is also horizontally fanned out behind an nginx
 `ssr_backend` upstream. `WEB_SSR_WORKERS` controls how many local
 `react-router-serve` processes are started on ports `3000+`; nginx uses
-`least_conn` to distribute `/`, `/search/results`, resource pages, and other
-frontend routes across them. This preserves server-side API key injection while
-avoiding a single Node event loop as the frontend bottleneck.
+`least_conn` to distribute `/`, resource pages, and other frontend HTML routes
+across them. The exact `/search/results` JSON route is handled by nginx instead:
+the startup script writes an uncommitted `/etc/nginx/frontend-api-key.conf`
+include from `BTAA_GEOSPATIAL_API_KEY`, and nginx proxies directly to
+`127.0.0.1:8002/api/v1/search`. This preserves server-side API key injection
+and API-key throttling while keeping facet-heavy search data traffic out of the
+Node worker queue.
 
 The health check path is:
 
