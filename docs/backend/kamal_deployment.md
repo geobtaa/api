@@ -321,7 +321,7 @@ The base config in `config/deploy.yml` is shared across all destinations. The de
 
 Current differences:
 
-- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=3`, and `WEB_SSR_WORKERS=2`
+- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=3`, and `WEB_SSR_WORKERS=3`
 - `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`
 - `prd`: same performance profile as `dev1`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 

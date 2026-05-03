@@ -52,7 +52,7 @@ env:
     CACHE_LOG_EVENTS: "false"
     WEB_UVICORN_WORKERS: "3"
     WEB_INTERNAL_UVICORN_WORKERS: "3"
-    WEB_SSR_WORKERS: "2"
+    WEB_SSR_WORKERS: "3"
 
 accessories:
   elasticsearch:
