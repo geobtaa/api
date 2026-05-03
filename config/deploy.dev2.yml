@@ -42,7 +42,7 @@ env:
     APPLICATION_URL: https://lib-geoportal-dev-web-01.oit.umn.edu
     KAMAL_DEST: dev2
     WEB_UVICORN_WORKERS: "3"
-    WEB_INTERNAL_UVICORN_WORKERS: "1"
+    WEB_INTERNAL_UVICORN_WORKERS: "2"
 
 accessories:
   elasticsearch:

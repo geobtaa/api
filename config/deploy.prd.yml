@@ -51,7 +51,7 @@ env:
     CACHE_DEBUG_HEADERS: "false"
     CACHE_LOG_EVENTS: "false"
     WEB_UVICORN_WORKERS: "3"
-    WEB_INTERNAL_UVICORN_WORKERS: "1"
+    WEB_INTERNAL_UVICORN_WORKERS: "2"
 
 accessories:
   elasticsearch:

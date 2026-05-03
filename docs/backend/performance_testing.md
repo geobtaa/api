@@ -198,7 +198,7 @@ frontend BFF traffic with:
   fetches through `API_BASE_URL`.
 
 On prd-sized hosts, the current baseline is public API `3` workers plus internal
-frontend `1` worker. The next validation step after changing these values is to
+frontend `2` workers. The next validation step after changing these values is to
 rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
 against the API-only baseline.
 
