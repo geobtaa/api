@@ -90,6 +90,15 @@ The public host serves both the UI and the API:
 
 Kamal's bridged asset directory is normalized by `backend/scripts/start_web_singlehost.sh` before nginx starts, so old chunk URLs keep working during deploys.
 
+The `web` container runs two FastAPI listener pools by default:
+
+- Public API pool: `127.0.0.1:8001`, reached through nginx `/api/...`, sized by `WEB_UVICORN_WORKERS`.
+- Internal frontend pool: `127.0.0.1:8002`, used by React Router SSR/BFF fetches through `API_BASE_URL`, sized by `WEB_INTERNAL_UVICORN_WORKERS`.
+
+This split protects QGIS, MCP, and other external API clients from queueing
+behind frontend server-side fetches. Set `WEB_INTERNAL_UVICORN_WORKERS=0` to
+fall back to the older single-pool behavior.
+
 The health check path is:
 
 ```text
@@ -305,8 +314,8 @@ The base config in `config/deploy.yml` is shared across all destinations. The de
 
 Current differences:
 
-- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-mirrored performance profile for `web`/`worker` limits, Elasticsearch heap, and `WEB_UVICORN_WORKERS=3`
-- `dev2`: base resource defaults, host `lib-geoportal-dev-web-01.oit.umn.edu`
+- `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, and `WEB_INTERNAL_UVICORN_WORKERS=1`
+- `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`
 - `prd`: same performance profile as `dev1`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 
 If a new destination needs a persistent behavior difference, put only that override in `config/deploy.<dest>.yml` and keep the shared behavior in `config/deploy.yml`.

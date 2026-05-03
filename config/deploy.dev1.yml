@@ -42,6 +42,7 @@ env:
     APPLICATION_URL: https://lib-btaageoapi-dev-app-01.oit.umn.edu
     KAMAL_DEST: dev1
     WEB_UVICORN_WORKERS: "3"
+    WEB_INTERNAL_UVICORN_WORKERS: "1"
 
 accessories:
   elasticsearch:

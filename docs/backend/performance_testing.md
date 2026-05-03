@@ -186,6 +186,22 @@ client fetches through the keyed frontend BFF route. This keeps the API-key
 throttling path represented in frontend load tests without blocking SSR on the
 search payload.
 
+## Mixed-load worker isolation
+
+When mixed frontend/API stress shows high client-observed latency but low
+`search_server_timing_total`, check for worker queue contention before changing
+search payload shape. The Kamal web container separates public API traffic from
+frontend BFF traffic with:
+
+- `WEB_UVICORN_WORKERS`: public `/api/...` FastAPI workers.
+- `WEB_INTERNAL_UVICORN_WORKERS`: loopback-only FastAPI workers used by SSR/BFF
+  fetches through `API_BASE_URL`.
+
+On prd-sized hosts, the current baseline is public API `3` workers plus internal
+frontend `1` worker. The next validation step after changing these values is to
+rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
+against the API-only baseline.
+
 ## Backend search knobs
 
 These backend env vars are useful when tuning facet-heavy search behavior:
