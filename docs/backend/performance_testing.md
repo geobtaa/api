@@ -204,12 +204,12 @@ frontend BFF traffic with:
 On prd-sized hosts, the current baseline is:
 
 - Public API: `WEB_UVICORN_WORKERS=3`
-- Internal frontend API pool: `WEB_INTERNAL_UVICORN_WORKERS=3`
+- Internal frontend API pool: `WEB_INTERNAL_UVICORN_WORKERS=4`
 - Frontend SSR/BFF: `WEB_SSR_WORKERS=3`
-- Web container ceiling: `cpus: 4`, `memory: 3072m`
+- Web container ceiling: `cpus: 5`, `memory: 3584m`
 
-The worker container is capped at `cpus: 1` so web traffic has more headroom on
-the shared 8-vCPU hosts. The next validation step after changing these values
+The worker container is capped at `cpus: 0.75` so web traffic has more headroom
+on the shared 8-vCPU hosts. The next validation step after changing these values
 is to rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
 against the API-only baseline.
 

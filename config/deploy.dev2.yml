@@ -7,15 +7,15 @@ servers:
       - lib-geoportal-dev-web-01.oit.umn.edu
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
     options:
-      cpus: 4
-      memory: 3072m
+      cpus: 5
+      memory: 3584m
 
   worker:
     hosts:
       - lib-geoportal-dev-web-01.oit.umn.edu
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
     options:
-      cpus: 1
+      cpus: 0.75
       memory: 1536m
 
   cron:
@@ -42,7 +42,7 @@ env:
     APPLICATION_URL: https://lib-geoportal-dev-web-01.oit.umn.edu
     KAMAL_DEST: dev2
     WEB_UVICORN_WORKERS: "3"
-    WEB_INTERNAL_UVICORN_WORKERS: "3"
+    WEB_INTERNAL_UVICORN_WORKERS: "4"
     WEB_SSR_WORKERS: "3"
 
 accessories:
