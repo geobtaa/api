@@ -197,9 +197,16 @@ frontend BFF traffic with:
 - `WEB_INTERNAL_UVICORN_WORKERS`: loopback-only FastAPI workers used by SSR/BFF
   fetches through `API_BASE_URL`.
 
-On prd-sized hosts, the current baseline is public API `3` workers plus internal
-frontend `2` workers. The next validation step after changing these values is to
-rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
+On prd-sized hosts, the current baseline is:
+
+- Public API: `WEB_UVICORN_WORKERS=3`
+- Internal frontend API pool: `WEB_INTERNAL_UVICORN_WORKERS=3`
+- Frontend SSR/BFF: `WEB_SSR_WORKERS=2`
+- Web container ceiling: `cpus: 4`, `memory: 3072m`
+
+The worker container is capped at `cpus: 1` so web traffic has more headroom on
+the shared 8-vCPU hosts. The next validation step after changing these values
+is to rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
 against the API-only baseline.
 
 If the API pool remains healthy but frontend `/search/results` or resource page
