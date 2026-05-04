@@ -8,6 +8,7 @@ from starlette.requests import Request
 
 from app.api.v1.endpoint_modules.search import _handle_search
 from app.main import app
+from app.services.resource_representation_cache import RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE
 
 client = TestClient(app)
 
@@ -171,6 +172,8 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     }
     distribution_context = object()
     relationship_payload = {"same_as": [{"resource_id": "related-doc"}]}
+    relationship_counts = {"same_as": 12}
+    relationship_browse_links = {"same_as": "/search?include_filters[same_as_agg][]=test-doc"}
     allmaps_payload = {"allmaps_id": "abc123"}
     data_dictionary_payload = [{"id": 1, "name": "Fields"}]
     bridge_download_rows = [{"label": "Download", "file_url": "https://example.com/file.zip"}]
@@ -221,8 +224,16 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
             return_value={"test-doc": data_dictionary_payload},
         ),
         patch(
-            "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationships_map",
-            new=AsyncMock(return_value={"test-doc": relationship_payload}),
+            "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationship_summaries_map",
+            new=AsyncMock(
+                return_value={
+                    "test-doc": {
+                        "relationships": relationship_payload,
+                        "counts": relationship_counts,
+                        "browse_links": relationship_browse_links,
+                    }
+                }
+            ),
         ),
         patch(
             "app.api.v1.endpoint_modules.search.fetch_bridge_asset_download_rows_map",
@@ -251,7 +262,10 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     assert response.status_code == 200
     mock_async_session.assert_called_once()
     session.execute.assert_not_called()
-    mock_get_cached_resource_representations.assert_awaited_once_with(["test-doc"])
+    mock_get_cached_resource_representations.assert_awaited_once_with(
+        ["test-doc"],
+        profile=RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+    )
     assert mock_search.await_args.kwargs["hydrate_hits"] is False
     assert mock_search.await_args.kwargs["sanitize_response"] is False
     assert mock_async_session.call_count == 1
@@ -262,13 +276,21 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
         == bridge_download_rows
     )
     assert mock_process_resource.await_args.kwargs["ui_relationships"] == relationship_payload
+    assert mock_process_resource.await_args.kwargs["ui_relationship_counts"] == relationship_counts
+    assert (
+        mock_process_resource.await_args.kwargs["ui_relationship_browse_links"]
+        == relationship_browse_links
+    )
     assert mock_process_resource.await_args.kwargs["allmaps_attributes"] == allmaps_payload
     assert (
         mock_process_resource.await_args.kwargs["data_dictionaries_payload"]
         == data_dictionary_payload
     )
     assert mock_process_resource.await_args.kwargs["thumbnail_asset_url"] == thumbnail_asset_url
-    mock_store_resource_representations.assert_awaited_once_with({"test-doc": processed_resource})
+    mock_store_resource_representations.assert_awaited_once_with(
+        {"test-doc": processed_resource},
+        profile=RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+    )
 
     payload = json.loads(response.body)
     assert payload["data"][0]["meta"]["score"] == 12.5
@@ -300,7 +322,7 @@ async def test_handle_search_reuses_cached_resource_representation():
         patch(
             "app.api.v1.endpoint_modules.search.get_cached_resource_representations",
             new=AsyncMock(return_value={"test-doc": cached_resource}),
-        ),
+        ) as mock_get_cached_resource_representations,
         patch(
             "app.api.v1.endpoint_modules.search.process_resource",
             new=AsyncMock(),
@@ -323,6 +345,10 @@ async def test_handle_search_reuses_cached_resource_representation():
 
     assert response.status_code == 200
     mock_async_session.assert_not_called()
+    mock_get_cached_resource_representations.assert_awaited_once_with(
+        ["test-doc"],
+        profile=RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+    )
     mock_process_resource.assert_not_awaited()
     mock_store_resource_representations.assert_not_awaited()
     payload = json.loads(response.body)
@@ -380,7 +406,7 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
         patch(
             "app.api.v1.endpoint_modules.search.get_cached_resource_representations",
             new=AsyncMock(return_value={"test-doc": cached_resource}),
-        ),
+        ) as mock_get_cached_resource_representations,
     ):
         first = await search_module._handle_search(
             _build_request(b"q=st+paul&k6cb=one"),
@@ -412,6 +438,9 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
     assert first.status_code == 200
     assert second.status_code == 200
     assert search_mock.await_count == 1
+    assert mock_get_cached_resource_representations.await_args.kwargs["profile"] == (
+        RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE
+    )
     assert first.headers["x-search-semantic-cache"] == "MISS"
     assert second.headers["x-search-semantic-cache"] == "HIT"
     assert any("search" in tags for _, tags, _ in FakeSemanticCache.tagged)
@@ -481,7 +510,7 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
             new=AsyncMock(return_value={}),
         ),
         patch(
-            "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationships_map",
+            "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationship_summaries_map",
             new=AsyncMock(return_value={}),
         ),
         patch(
@@ -512,7 +541,10 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
     mock_async_session.assert_called()
     assert mock_process_resource.await_args.args[0]["dct_title_s"] == "Test Resource"
     assert mock_process_resource.await_args.kwargs["distribution_context"] is distribution_context
-    mock_store_resource_representations.assert_awaited_once_with({"test-doc": processed_resource})
+    mock_store_resource_representations.assert_awaited_once_with(
+        {"test-doc": processed_resource},
+        profile=RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+    )
 
 
 @pytest.mark.integration

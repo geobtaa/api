@@ -371,6 +371,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
         "ui_viewer_endpoint",
         "ui_viewer_geometry",
         "ui_relationships",
+        "ui_relationship_counts",
+        "ui_relationship_browse_links",
         "ui_summaries",
         "ai_summaries",
         "suggest",
@@ -439,6 +441,12 @@ def create_jsonapi_resource(resource_data, request_url=None):
         restructured_ui["links"] = ui_fields["ui_links"]
     if "ui_relationships" in ui_fields:
         restructured_ui["relationships"] = ui_fields["ui_relationships"]
+    if "ui_relationship_counts" in ui_fields:
+        restructured_ui["relationship_counts"] = ui_fields["ui_relationship_counts"]
+    if "ui_relationship_browse_links" in ui_fields:
+        restructured_ui["relationship_browse_links"] = ui_fields[
+            "ui_relationship_browse_links"
+        ]
     if "ui_summaries" in ui_fields:
         restructured_ui["summaries"] = ui_fields["ui_summaries"]
     if "ai_summaries" in ui_fields:
@@ -692,6 +700,8 @@ async def process_resource(
     ui_downloads: list[dict[str, Any]] | None = None,
     bridge_asset_download_rows: Any = None,
     ui_relationships: dict[str, Any] | None = None,
+    ui_relationship_counts: dict[str, int] | None = None,
+    ui_relationship_browse_links: dict[str, str] | None = None,
     allmaps_attributes: dict[str, Any] | None = None,
     data_dictionaries_payload: list[dict[str, Any]] | None | object = _UNSET,
     thumbnail_asset_url: str | None | object = _UNSET,
@@ -775,6 +785,10 @@ async def process_resource(
         "ui_links": ui_links,
         "ui_relationships": ui_relationships,
     }
+    if ui_relationship_counts:
+        attributes["ui_relationship_counts"] = ui_relationship_counts
+    if ui_relationship_browse_links:
+        attributes["ui_relationship_browse_links"] = ui_relationship_browse_links
 
     # Attach read-only resource data dictionaries.
     if data_dictionaries_payload is _UNSET:

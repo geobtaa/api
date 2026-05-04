@@ -84,7 +84,7 @@ Overrides:
 - `make kamal-network-sanity`: compare host-shell and app-container connectivity on a Kamal destination. It probes a few external URLs plus the server's own public hostname and exits nonzero if the container cannot reach something the host can. Defaults to `KAMAL_DEST=dev1`, role `web`, self URL `https://$(KAMAL_HOST)`, and external URLs `https://api.github.com https://raw.githubusercontent.com https://gin.btaa.org http://example.com`. Override with `KAMAL_DEST=prd`, `KAMAL_APP_ROLE=cron`, `KAMAL_NETWORK_SELF_URL=...`, or `KAMAL_NETWORK_EXTERNAL_URLS="..."`.
 - `make ingest`: ingest BTAA fixture JSON files into the DB (runs inside the `api` Docker container). Default: `data/fixtures/btaa_fixtures_data`. Override with `make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources`. After ingest, run `make reindex` to index into Elasticsearch.
 - `make ingest-featured`: ingest `data/fixtures/btaa_featured_resources` into the DB and then reindex into Elasticsearch (one-step for featured resources).
-- `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
+- `make clear_cache`: flush Redis cache DB (`REDIS_DB`). The target reads `REDIS_PASSWORD` from the running Redis container so it matches the password Redis was started with and avoids passing the secret on the host command line.
 
 Analytics storage knobs live in `.env` / deploy env vars:
 

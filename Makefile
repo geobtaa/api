@@ -1656,12 +1656,8 @@ frontend-reset: ## Clear Vite cache and restart frontend-dev
 
 # Cache management
 clear_cache: ## Flush Redis cache
-	@if [ -z "$(REDIS_PASSWORD)" ]; then \
-		echo "ERROR: REDIS_PASSWORD is not set. Populate it in your .env file."; \
-		exit 1; \
-	fi
 	@echo "Flushing Redis cache (database $(if $(REDIS_DB),$(REDIS_DB),0))..."
-	@docker compose exec -T redis redis-cli -a "$(REDIS_PASSWORD)" -n $(if $(REDIS_DB),$(REDIS_DB),0) FLUSHDB
+	@docker compose exec -T redis sh -lc 'if [ -z "$$REDIS_PASSWORD" ]; then echo "ERROR: REDIS_PASSWORD is not set inside the redis container."; exit 1; fi; REDISCLI_AUTH="$$REDIS_PASSWORD" redis-cli -n $(if $(REDIS_DB),$(REDIS_DB),0) FLUSHDB'
 
 # Documentation (MkDocs public site)
 # ─────────────────────────────────────────────────────────────────────────

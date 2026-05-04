@@ -40,6 +40,7 @@ from app.services.distribution_repository import (
 from app.services.download_service import fetch_bridge_asset_download_rows_map
 from app.services.relationship_service import RelationshipService
 from app.services.resource_representation_cache import (
+    RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
     get_cached_resource_representations,
     store_resource_representations,
 )
@@ -66,6 +67,7 @@ SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS = float(
     os.getenv("SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS", "750")
 )
 SEARCH_TIMING_HEADERS = os.getenv("SEARCH_TIMING_HEADERS", "true").lower() == "true"
+SEARCH_RESULT_RELATIONSHIP_LIMIT = int(os.getenv("SEARCH_RESULT_RELATIONSHIP_LIMIT", "5"))
 
 # Create async engine and session for search results processing
 engine = create_async_engine(DATABASE_URL)
@@ -444,7 +446,10 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     cached_resources = {}
     if resource_ids:
         cache_lookup_started_at = time.perf_counter()
-        cached_resources = await get_cached_resource_representations(resource_ids)
+        cached_resources = await get_cached_resource_representations(
+            resource_ids,
+            profile=RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+        )
         cache_lookup_ms = (time.perf_counter() - cache_lookup_started_at) * 1000
 
     missing_resource_ids = [
@@ -509,8 +514,11 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 data_dictionary_payloads_by_id = _serialize_data_dictionaries_by_id(
                     data_dictionaries_by_id
                 )
-                relationship_payloads_by_id = (
-                    await RelationshipService.get_resource_relationships_map(missing_resource_ids)
+                relationship_summaries_by_id = (
+                    await RelationshipService.get_resource_relationship_summaries_map(
+                        missing_resource_ids,
+                        limit_per_predicate=SEARCH_RESULT_RELATIONSHIP_LIMIT,
+                    )
                 )
                 bridge_asset_download_rows_by_id = await fetch_bridge_asset_download_rows_map(
                     missing_resource_ids
@@ -523,6 +531,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                     source_resource = source_resources_by_id.get(resource_id)
                     if not source_resource:
                         continue
+                    relationship_summary = relationship_summaries_by_id.get(resource_id, {})
                     built_resources[resource_id] = await process_resource(
                         source_resource,
                         processing_session,
@@ -531,14 +540,19 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                         bridge_asset_download_rows=bridge_asset_download_rows_by_id.get(
                             resource_id
                         ),
-                        ui_relationships=relationship_payloads_by_id.get(resource_id),
+                        ui_relationships=relationship_summary.get("relationships", {}),
+                        ui_relationship_counts=relationship_summary.get("counts"),
+                        ui_relationship_browse_links=relationship_summary.get("browse_links"),
                         allmaps_attributes=allmaps_attributes_by_id.get(resource_id),
                         data_dictionaries_payload=data_dictionary_payloads_by_id.get(resource_id),
                         thumbnail_asset_url=thumbnail_asset_urls_by_id.get(resource_id),
                     )
                 miss_build_ms = (time.perf_counter() - miss_build_started_at) * 1000
             if built_resources:
-                await store_resource_representations(built_resources)
+                await store_resource_representations(
+                    built_resources,
+                    profile=RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+                )
 
         resources_by_id = {**cached_resources, **built_resources}
 

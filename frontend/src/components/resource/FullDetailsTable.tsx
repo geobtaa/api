@@ -23,6 +23,8 @@ interface FullDetailsTableProps {
     meta?: {
       ui?: {
         relationships?: Record<string, unknown>;
+        relationship_counts?: Record<string, number>;
+        relationship_browse_links?: Record<string, string>;
       };
     };
   };
@@ -67,6 +69,8 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     ...b1gAttributes,
   };
   const uiRelationships = data?.meta?.ui?.relationships || {};
+  const relationshipCounts = data?.meta?.ui?.relationship_counts || {};
+  const relationshipBrowseLinks = data?.meta?.ui?.relationship_browse_links || {};
   const [isPlaceExpanded, setIsPlaceExpanded] = useState(false);
 
   // Reset expanded state when data changes
@@ -446,13 +450,12 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
       .map(([relationshipType, items]) => {
         if (!Array.isArray(items) || items.length === 0) return null;
 
-        // Get the total count of items
-        const totalCount = items.length;
+        // Search result representations may include only the first few relationships.
+        const totalCount = relationshipCounts[relationshipType] ?? items.length;
 
         // Only display the first 5 items
         const displayItems = items.slice(0, 5);
 
-        // Determine if we need to show the "Browse all" link
         const showBrowseAll = totalCount > 5;
 
         // Map relationship type to the search filter field for "Browse all" link.
@@ -471,6 +474,9 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         // Get the ID of the current item to use as a filter
         // Ensure it's a string value for encodeURIComponent
         const currentItemId = String(attributes.id || '');
+        const browseAllLink =
+          relationshipBrowseLinks[relationshipType] ||
+          `/search?include_filters[${relationshipFacetField}][]=${encodeURIComponent(currentItemId)}`;
 
         return (
           <div key={relationshipType} className="mb-4">
@@ -507,7 +513,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
               {showBrowseAll && (
                 <li className="text-sm text-gray-900 mt-2 pt-2 border-t border-gray-200">
                   <Link
-                    to={`/search?include_filters[${relationshipFacetField}][]=${encodeURIComponent(currentItemId)}`}
+                    to={browseAllLink}
                     className="text-blue-600 hover:text-blue-800 flex items-center"
                   >
                     {relationshipLabels.browse_all
