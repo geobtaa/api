@@ -17,8 +17,10 @@ export interface SearchState {
 export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [results, setResults] = useState<JsonApiResponse | null>(null);
+  const [resultsKey, setResultsKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const { setLastApiUrl } = useApi();
   const sort = searchParams.get('sort') || 'relevance';
   const view = searchParams.get('view') || 'list';
@@ -53,6 +55,8 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   );
 
   useEffect(() => {
+    let isCurrentRequest = true;
+
     console.log('🔍 useSearch useEffect triggered with:', {
       enabled,
       query,
@@ -68,7 +72,9 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
 
     if (!enabled) {
       setIsLoading(false);
-      return;
+      return () => {
+        isCurrentRequest = false;
+      };
     }
 
     // Only fetch if we have a query parameter (even if empty) or facets
@@ -80,15 +86,23 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
     ) {
       console.log('⏭️ Skipping search - no query or facets');
       setResults(null);
-      return;
+      setResultsKey(null);
+      setError(null);
+      setErrorKey(null);
+      setIsLoading(false);
+      return () => {
+        isCurrentRequest = false;
+      };
     }
 
     console.log('🚀 Starting search API call...');
     const startTime = performance.now();
+    const requestSearchParamsKey = searchParamsKey;
 
     const fetchResults = async () => {
       setIsLoading(true);
       setError(null);
+      setErrorKey(null);
 
       try {
         const searchResults = await fetchSearchResults(
@@ -101,8 +115,10 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
           excludeFacets,
           advancedQuery,
           undefined,
-          new URLSearchParams(searchParamsKey)
+          new URLSearchParams(requestSearchParamsKey)
         );
+
+        if (!isCurrentRequest) return;
 
         const endTime = performance.now();
         console.log(
@@ -111,20 +127,30 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
         console.log(`📊 Results: ${searchResults?.data?.length || 0} items`);
 
         setResults(searchResults);
+        setResultsKey(requestSearchParamsKey);
       } catch (err) {
+        if (!isCurrentRequest) return;
+
         const endTime = performance.now();
         console.error(
           `❌ Search failed after ${(endTime - startTime).toFixed(2)}ms:`,
           err
         );
         setError(err instanceof Error ? err.message : 'An error occurred');
+        setErrorKey(requestSearchParamsKey);
         setResults(null);
+        setResultsKey(null);
       } finally {
+        if (!isCurrentRequest) return;
         setIsLoading(false);
       }
     };
 
     fetchResults();
+
+    return () => {
+      isCurrentRequest = false;
+    };
   }, [
     query,
     page,
@@ -229,8 +255,11 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   return {
     query,
     results,
+    resultsKey,
+    searchParamsKey,
     isLoading,
     error,
+    errorKey,
     page: page || 1,
     perPage: results?.meta?.perPage || perPage,
     totalResults: results?.meta?.totalCount || 0,

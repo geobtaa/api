@@ -70,6 +70,15 @@ const persistGalleryState = (state: {
   }
 };
 
+// Stable search identity for gallery accumulation. Page and per_page are excluded
+// so infinite scroll can keep already-loaded cards while the next page loads.
+const getSearchContext = (params: URLSearchParams) => {
+  const keys = Array.from(params.keys())
+    .filter((k) => k !== 'page' && k !== 'per_page')
+    .sort();
+  return keys.map((k) => `${k}=${params.getAll(k).sort().join(',')}`).join('&');
+};
+
 type SearchPageProps = {
   // Loader-provided results (SSR/server-side).
   searchResults?: JsonApiResponse | null;
@@ -89,20 +98,6 @@ function SearchContent({
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
-  const shouldFetchClientSearch = clientSearchEnabled && !searchResults;
-  const clientSearch = useSearch({ enabled: shouldFetchClientSearch });
-  const activeSearchResults = searchResults ?? clientSearch.results;
-  const activeIsLoading =
-    Boolean(isLoading) ||
-    (shouldFetchClientSearch && Boolean(clientSearch.isLoading));
-
-  // Ensure ?q= is present if no params are set to trigger default search
-  useEffect(() => {
-    if (Array.from(searchParams.keys()).length === 0) {
-      setSearchParams({ q: '' }, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
-
   const {
     query,
     page,
@@ -114,6 +109,40 @@ function SearchContent({
   const searchField = searchParams.get('search_field') || 'all_fields';
   const currentView = (searchParams.get('view') as ViewMode) || 'list';
   const normalizedQuery = query || '';
+  const currentSearchParamsKey = searchParams.toString();
+  const currentContext = getSearchContext(searchParams);
+  const hasAnySearchCriteria =
+    searchParams.has('q') ||
+    searchParams.has('adv_q') ||
+    Array.from(searchParams.keys()).some(
+      (key) =>
+        key.startsWith('include_filters[') ||
+        key.startsWith('exclude_filters[') ||
+        key.startsWith('fq[')
+    );
+  const shouldFetchClientSearch = clientSearchEnabled && !searchResults;
+  const clientSearch = useSearch({ enabled: shouldFetchClientSearch });
+  const hasFreshClientResults =
+    clientSearch.resultsKey === currentSearchParamsKey && clientSearch.results;
+  const hasCurrentClientError =
+    clientSearch.errorKey === currentSearchParamsKey && clientSearch.error;
+  const clientRequestSettledForCurrentParams =
+    Boolean(hasFreshClientResults) || Boolean(hasCurrentClientError);
+  const activeSearchResults =
+    searchResults ?? (hasFreshClientResults ? clientSearch.results : null);
+  const activeIsLoading =
+    Boolean(isLoading) ||
+    (shouldFetchClientSearch &&
+      hasAnySearchCriteria &&
+      (Boolean(clientSearch.isLoading) ||
+        !clientRequestSettledForCurrentParams));
+
+  // Ensure ?q= is present if no params are set to trigger default search
+  useEffect(() => {
+    if (Array.from(searchParams.keys()).length === 0) {
+      setSearchParams({ q: '' }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const perPageParam = searchParams.get('per_page');
   const perPage =
@@ -130,7 +159,8 @@ function SearchContent({
     ? String((activeSearchResults as any).error)
     : null;
   const error =
-    resultError || (shouldFetchClientSearch ? clientSearch.error : null);
+    resultError ||
+    (shouldFetchClientSearch ? hasCurrentClientError || null : null);
 
   // Infinite Scroll State for Gallery View
   // Initialize with server data to prevent hydration mismatch
@@ -139,21 +169,10 @@ function SearchContent({
   );
 
   // Track the starting page of the accumulated results (for deep links)
-  // Track the starting page of the accumulated results (for deep links)
   const [accumulatedStartPage, setAccumulatedStartPage] =
     useState<number>(page);
+  const [accumulatedContext, setAccumulatedContext] = useState(currentContext);
 
-  // Helper to get stable context string (excluding page and per_page for gallery consistency)
-  const getSearchContext = (params: URLSearchParams) => {
-    const keys = Array.from(params.keys())
-      .filter((k) => k !== 'page' && k !== 'per_page')
-      .sort();
-    return keys
-      .map((k) => `${k}=${params.getAll(k).sort().join(',')}`)
-      .join('&');
-  };
-
-  const currentContext = getSearchContext(searchParams);
   const prevContextRef = useRef(currentContext); // Initialize with current
   const searchContextRef = useRef(currentContext);
   const trackedAnalyticsKeysRef = useRef<Set<string>>(new Set());
@@ -186,6 +205,7 @@ function SearchContent({
 
         if (context === currentContext) {
           setAccumulatedResults(results);
+          setAccumulatedContext(context);
           if (startPage) setAccumulatedStartPage(startPage);
         }
       }
@@ -202,10 +222,11 @@ function SearchContent({
     if (
       hasRestored &&
       currentView === 'gallery' &&
+      accumulatedContext === currentContext &&
       accumulatedResults.length > 0
     ) {
       const state = {
-        context: currentContext,
+        context: accumulatedContext,
         results: accumulatedResults,
         startPage: accumulatedStartPage,
       };
@@ -214,6 +235,7 @@ function SearchContent({
   }, [
     accumulatedResults,
     accumulatedStartPage,
+    accumulatedContext,
     currentContext,
     currentView,
     hasRestored,
@@ -231,6 +253,7 @@ function SearchContent({
       // Context changed: Reset everything
       setAccumulatedResults(activeSearchResults?.data || []);
       setAccumulatedStartPage(page);
+      setAccumulatedContext(currentContext);
       // Clear cache for new context (optional, but good for cleanup)
       sessionStorage.removeItem(GALLERY_STATE_STORAGE_KEY);
     } else {
@@ -257,10 +280,12 @@ function SearchContent({
         } else {
           setAccumulatedResults(activeSearchResults?.data || []);
           setAccumulatedStartPage(1);
+          setAccumulatedContext(currentContext);
         }
       } else {
         // Page > 1 and Same Context -> Append
         if (activeSearchResults?.data && activeSearchResults.data.length > 0) {
+          setAccumulatedContext(currentContext);
           setAccumulatedResults((prev) => {
             const existingIds = new Set(prev.map((r) => r.id));
             const newItems = (activeSearchResults?.data || []).filter(
@@ -284,16 +309,6 @@ function SearchContent({
     accumulatedStartPage,
     hasRestored,
   ]);
-
-  const hasAnySearchCriteria =
-    searchParams.has('q') ||
-    searchParams.has('adv_q') ||
-    Array.from(searchParams.keys()).some(
-      (key) =>
-        key.startsWith('include_filters[') ||
-        key.startsWith('exclude_filters[') ||
-        key.startsWith('fq[')
-    );
 
   const shouldShowSearchingPlaceholder =
     !error && hasAnySearchCriteria && !activeSearchResults && !activeIsLoading;
@@ -616,6 +631,17 @@ function SearchContent({
     return suggestion && typeof suggestion === 'object' && 'text' in suggestion;
   };
 
+  const shouldUseAccumulatedResults =
+    currentView === 'gallery' &&
+    accumulatedContext === currentContext &&
+    accumulatedResults.length > 0;
+  const galleryResults = shouldUseAccumulatedResults
+    ? accumulatedResults
+    : activeSearchResults?.data || [];
+  const galleryStartPage = shouldUseAccumulatedResults
+    ? accumulatedStartPage
+    : page;
+
   return (
     <div className="min-h-screen flex flex-col">
       <Seo
@@ -717,10 +743,7 @@ function SearchContent({
                     Showing results{' '}
                     {(() => {
                       let start, end;
-                      if (
-                        currentView === 'gallery' &&
-                        accumulatedResults.length > 0
-                      ) {
+                      if (shouldUseAccumulatedResults) {
                         start = (accumulatedStartPage - 1) * perPage + 1;
                         end = start + accumulatedResults.length - 1;
                       } else {
@@ -775,19 +798,11 @@ function SearchContent({
 
                   {currentView === 'gallery' && (
                     <GalleryView
-                      results={
-                        accumulatedResults.length > 0
-                          ? accumulatedResults
-                          : activeSearchResults?.data || []
-                      }
+                      results={galleryResults}
                       isLoading={activeIsLoading}
                       totalResults={searchTotalResults}
                       currentPage={page}
-                      startPage={
-                        accumulatedResults.length > 0
-                          ? accumulatedStartPage
-                          : page
-                      }
+                      startPage={galleryStartPage}
                       perPage={perPage}
                       hasMore={page < totalPages}
                       onLoadMore={() => handlePageChange(page + 1)}
