@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fetchFacetValues } from '../services/api';
+import { debugLog } from '../utils/logger';
 import type {
   FacetValue,
   FacetValuesMeta,
@@ -80,7 +81,7 @@ export function useFacetModal({
       setError(null);
 
       try {
-        console.log('🔍 Loading facet values:', {
+        debugLog('🔍 Loading facet values:', {
           facetId,
           page: nextPage,
           perPage: nextPerPage,
@@ -98,7 +99,7 @@ export function useFacetModal({
           qFacet: nextQFacet || undefined,
         });
 
-        console.log('✅ Facet values response:', {
+        debugLog('✅ Facet values response:', {
           dataLength: response.data?.length || 0,
           meta: response.meta,
           totalCount: response.meta?.totalCount || 0,

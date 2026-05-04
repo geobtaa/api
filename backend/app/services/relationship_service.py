@@ -58,11 +58,11 @@ class RelationshipService:
         )
 
         if limit_per_predicate is None:
-            return (
-                base_select.where(resource_relationships.c.subject_id.in_(resource_ids)).order_by(
-                    resource_relationships.c.subject_id.asc(),
-                    resources.c.dct_title_s.asc(),
-                )
+            return base_select.where(
+                resource_relationships.c.subject_id.in_(resource_ids)
+            ).order_by(
+                resource_relationships.c.subject_id.asc(),
+                resources.c.dct_title_s.asc(),
             )
 
         ranked_relationships = base_select.add_columns(

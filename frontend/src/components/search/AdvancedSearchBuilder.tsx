@@ -11,6 +11,7 @@ import { fetchFacetValues } from '../../services/api';
 import type { FacetValue } from '../../types/api';
 import { getFacetValueDisplayLabel } from '../../utils/facetDisplay';
 import { formatCount } from '../../utils/formatNumber';
+import { debugLog } from '../../utils/logger';
 
 interface AdvancedSearchBuilderProps {
   clauses: AdvancedClause[];
@@ -247,7 +248,7 @@ export function AdvancedSearchBuilder({
         // Build search context from current form rows (excluding the row being edited)
         const contextParams = buildSearchContext(rowId);
 
-        console.log('Fetching facet suggestions for:', {
+        debugLog('Fetching facet suggestions for:', {
           fieldName,
           facetName,
           query,
@@ -262,7 +263,7 @@ export function AdvancedSearchBuilder({
           sort: 'count_desc',
         });
 
-        console.log('Facet suggestions response:', {
+        debugLog('Facet suggestions response:', {
           fieldName,
           facetName,
           count: response.data?.length || 0,

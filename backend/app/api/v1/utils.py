@@ -444,9 +444,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
     if "ui_relationship_counts" in ui_fields:
         restructured_ui["relationship_counts"] = ui_fields["ui_relationship_counts"]
     if "ui_relationship_browse_links" in ui_fields:
-        restructured_ui["relationship_browse_links"] = ui_fields[
-            "ui_relationship_browse_links"
-        ]
+        restructured_ui["relationship_browse_links"] = ui_fields["ui_relationship_browse_links"]
     if "ui_summaries" in ui_fields:
         restructured_ui["summaries"] = ui_fields["ui_summaries"]
     if "ai_summaries" in ui_fields:

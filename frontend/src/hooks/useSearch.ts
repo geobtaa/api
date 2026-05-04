@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { fetchSearchResults } from '../services/api';
 import { parseSearchParams } from '../utils/searchParams';
 import { useApi } from '../context/ApiContext';
+import { debugLog } from '../utils/logger';
 import type { JsonApiResponse } from '../types/api';
 import type { AdvancedClause, FacetFilter } from '../types/search';
 
@@ -57,7 +58,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   useEffect(() => {
     let isCurrentRequest = true;
 
-    console.log('🔍 useSearch useEffect triggered with:', {
+    debugLog('🔍 useSearch useEffect triggered with:', {
       enabled,
       query,
       page,
@@ -84,7 +85,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
       (!excludeFacets || excludeFacets.length === 0) &&
       (!advancedQuery || advancedQuery.length === 0)
     ) {
-      console.log('⏭️ Skipping search - no query or facets');
+      debugLog('⏭️ Skipping search - no query or facets');
       setResults(null);
       setResultsKey(null);
       setError(null);
@@ -95,7 +96,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
       };
     }
 
-    console.log('🚀 Starting search API call...');
+    debugLog('🚀 Starting search API call...');
     const startTime = performance.now();
     const requestSearchParamsKey = searchParamsKey;
 
@@ -121,10 +122,10 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
         if (!isCurrentRequest) return;
 
         const endTime = performance.now();
-        console.log(
+        debugLog(
           `✅ Search completed in ${(endTime - startTime).toFixed(2)}ms`
         );
-        console.log(`📊 Results: ${searchResults?.data?.length || 0} items`);
+        debugLog(`📊 Results: ${searchResults?.data?.length || 0} items`);
 
         setResults(searchResults);
         setResultsKey(requestSearchParamsKey);
