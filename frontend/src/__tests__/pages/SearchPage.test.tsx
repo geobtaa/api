@@ -5,6 +5,7 @@ import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { MapProvider } from '../../context/MapContext';
+import { fetchSearchResults } from '../../services/api';
 import {
   vi,
   describe,
@@ -21,6 +22,14 @@ vi.mock('../../services/analytics', () => ({
   generateAnalyticsId: vi.fn(() => 'search_test_id'),
   serializeSearchParams: vi.fn(() => ({})),
 }));
+
+vi.mock('../../services/api', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../services/api')>();
+  return {
+    ...actual,
+    fetchSearchResults: vi.fn(),
+  };
+});
 
 // Mock child components to isolate SearchPage logic
 vi.mock('../../components/search/GeospatialFilterMap', () => ({
@@ -105,12 +114,25 @@ const createMockApiResponse = (
   included: [],
 });
 
+const createMockResult = (id: string, title: string): GeoDocument => ({
+  type: 'file',
+  id,
+  attributes: {
+    ogm: {
+      dct_title_s: title,
+      gbl_resourceClass_sm: ['Map'],
+    },
+  },
+  links: { self: '#' },
+});
+
 describe('SearchPage Logic', () => {
   let getItemSpy: MockInstance;
   let setItemSpy: MockInstance;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(fetchSearchResults).mockReset();
     localStorage.clear();
     sessionStorage.clear();
     getItemSpy = vi.spyOn(sessionStorage, 'getItem');
@@ -124,7 +146,7 @@ describe('SearchPage Logic', () => {
   const renderWithRouter = (
     initialUrl = '/search',
     searchResults: JsonApiResponse | null = null,
-    options?: { returnRouter?: boolean }
+    options?: { returnRouter?: boolean; clientSearchEnabled?: boolean }
   ) => {
     const routes = [
       {
@@ -134,7 +156,11 @@ describe('SearchPage Logic', () => {
             <ApiProvider>
               <DebugProvider>
                 {/* MapProvider is guarded inside SearchPage, but we can wrap here too just in case context is needed outside */}
-                <SearchPage searchResults={searchResults} isLoading={false} />
+                <SearchPage
+                  searchResults={searchResults}
+                  isLoading={false}
+                  clientSearchEnabled={options?.clientSearchEnabled}
+                />
               </DebugProvider>
             </ApiProvider>
           </HelmetProvider>
@@ -178,6 +204,58 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByTestId('search-results-list')).toBeInTheDocument();
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
+  });
+
+  it('hides stale client results while a new query is loading', async () => {
+    const mockFetchSearchResults = vi.mocked(fetchSearchResults);
+    const oldResults = createMockApiResponse(
+      [createMockResult('old-result', 'Old query result')],
+      1,
+      1
+    );
+    const newResults = createMockApiResponse(
+      [createMockResult('new-result', 'North Dakota result')],
+      1,
+      1
+    );
+    let resolveNewSearch!: (value: JsonApiResponse) => void;
+
+    mockFetchSearchResults
+      .mockResolvedValueOnce(oldResults)
+      .mockImplementationOnce(
+        () =>
+          new Promise<JsonApiResponse>((resolve) => {
+            resolveNewSearch = resolve;
+          })
+      );
+
+    const { router } = renderWithRouter('/search?q=old', null, {
+      returnRouter: true,
+      clientSearchEnabled: true,
+    });
+
+    expect(
+      await screen.findByText('List Result Old query result')
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      await router.navigate('/search?q=North+Dakota');
+    });
+
+    await waitFor(() => {
+      expect(mockFetchSearchResults).toHaveBeenCalledTimes(2);
+    });
+    expect(
+      screen.queryByText('List Result Old query result')
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolveNewSearch(newResults);
+    });
+
+    expect(
+      await screen.findByText('List Result North Dakota result')
+    ).toBeInTheDocument();
   });
 
   it('restores saved map view preference when URL has no view param', async () => {
@@ -229,9 +307,7 @@ describe('SearchPage Logic', () => {
     const params = new URLSearchParams(router.state.location.search);
     expect(params.get('include_filters[geo][type]')).toBe('bbox');
     expect(params.get('include_filters[geo][top_left][lat]')).toBe('41.28');
-    expect(params.get('include_filters[geo][bottom_right][lat]')).toBe(
-      '34.59'
-    );
+    expect(params.get('include_filters[geo][bottom_right][lat]')).toBe('34.59');
     expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
   });
 

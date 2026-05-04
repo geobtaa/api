@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router';
+import { debugLog } from '../utils/logger';
 
 interface Fixture {
   id: string;
@@ -914,18 +915,18 @@ export function FixturesTestPage() {
       const response = await fetch(
         `${apiBaseUrl}/resources/${fixtureId}?format=json`
       );
-      console.log(
+      debugLog(
         `Checking ${fixtureId}: ${response.status} ${response.statusText}`
       );
 
       if (response.status === 404) {
-        console.log(`❌ ${fixtureId} not found (404)`);
+        debugLog(`❌ ${fixtureId} not found (404)`);
         return 'unavailable';
       }
 
       if (response.status === 200 || response.status === 304) {
         const contentType = response.headers.get('content-type');
-        console.log(`Content-Type for ${fixtureId}: ${contentType}`);
+        debugLog(`Content-Type for ${fixtureId}: ${contentType}`);
 
         // Parse JSON response to check for errors
         if (contentType && contentType.includes('application/json')) {
@@ -933,33 +934,33 @@ export function FixturesTestPage() {
 
           // Check if the response contains an error
           if (data.error) {
-            console.log(`❌ ${fixtureId} has error: ${data.error}`);
+            debugLog(`❌ ${fixtureId} has error: ${data.error}`);
             return 'unavailable';
           }
 
           // Check if it's a valid JSON:API response with data
           if (data.data && data.data.id) {
-            console.log(`✅ ${fixtureId} is available (JSON:API)`);
+            debugLog(`✅ ${fixtureId} is available (JSON:API)`);
             return 'available';
           }
 
           // Fallback: if we got JSON without error, consider it available
-          console.log(`✅ ${fixtureId} is available (JSON)`);
+          debugLog(`✅ ${fixtureId} is available (JSON)`);
           return 'available';
         } else {
-          console.log(
+          debugLog(
             `⚠️ ${fixtureId} returned unexpected content type: ${contentType}`
           );
           return 'unavailable';
         }
       } else {
-        console.log(
+        debugLog(
           `❌ ${fixtureId} returned ${response.status}: ${response.statusText}`
         );
         return 'unavailable';
       }
     } catch (error) {
-      console.log(`💥 ${fixtureId} error:`, error);
+      debugLog(`💥 ${fixtureId} error:`, error);
       return 'error';
     }
   };
@@ -1263,7 +1264,7 @@ export function FixturesTestPage() {
                     }, index * 100); // Stagger opening to avoid browser blocking
                   });
 
-                  console.log(
+                  debugLog(
                     `Opening ${availableFixtures.length} fixture tabs...`
                   );
                 }}
@@ -1445,7 +1446,7 @@ export function FixturesTestPage() {
                           ) {
                             e.preventDefault();
                           } else {
-                            console.log(
+                            debugLog(
                               `Testing fixture: ${fixture.name} (${fixture.id})`
                             );
                           }

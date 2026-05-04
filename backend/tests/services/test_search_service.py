@@ -9,6 +9,54 @@ import pytest
 from app.services.search_service import SearchService
 
 
+@pytest.mark.asyncio
+async def test_search_preserves_search_payload_and_adds_lightweight_timings():
+    """SearchService should not enrich each hit when the endpoint rebuilds final resources."""
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {
+            "data": [{"id": "1", "attributes": {"dct_title_s": "Test Resource"}}],
+            "meta": {"suggestions": ["test resource"]},
+            "queryTime": {"elasticsearch": "12ms", "postgresql": "8ms"},
+        }
+
+        result = await service.search(q="test", page=1, limit=10)
+
+    assert result["data"][0]["attributes"]["dct_title_s"] == "Test Resource"
+    assert "ui_thumbnail_url" not in result["data"][0]["attributes"]
+    assert "ui_citation" not in result["data"][0]["attributes"]
+    assert result["meta"]["spellingSuggestions"] == ["test resource"]
+    assert result["queryTime"]["elasticsearch"] == "12ms"
+    assert result["queryTime"]["postgresql"] == "8ms"
+    assert result["queryTime"]["resourceProcessing"]["total"] == "0ms"
+    assert "totalResponseTime" in result["queryTime"]
+
+
+@pytest.mark.asyncio
+async def test_search_forwards_hydrate_hits_flag():
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {"data": [], "meta": {}, "queryTime": {}}
+
+        await service.search(q="test", page=1, limit=10, hydrate_hits=False)
+
+    assert mock_search.call_args.kwargs["hydrate_hits"] is False
+
+
+@pytest.mark.asyncio
+async def test_search_can_skip_result_sanitization_for_internal_callers():
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {"data": [], "meta": {}, "queryTime": {}}
+
+        result = await service.search(q="test", page=1, limit=10, sanitize_response=False)
+
+    assert result is mock_search.return_value
+
+
 @pytest.mark.integration
 @pytest.mark.elasticsearch
 class TestSearchService:

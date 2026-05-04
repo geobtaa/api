@@ -20,6 +20,17 @@ from app.elasticsearch.search import (
 class TestElasticsearchSearch:
     """Test cases for Elasticsearch search functionality."""
 
+    @pytest.fixture(autouse=True)
+    def _disable_search_aggregation_cache(self, monkeypatch):
+        monkeypatch.setattr(
+            "app.elasticsearch.search._get_cached_search_aggregations",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            "app.elasticsearch.search._store_cached_search_aggregations",
+            AsyncMock(),
+        )
+
     def test_escape_query_string_brackets(self):
         """Literal [] in user queries should be escaped for query_string."""
         query = "Michigan Aquaculture Testing Veterinarians [Michigan]"
@@ -232,6 +243,66 @@ class TestElasticsearchSearch:
                     "Minnesota",
                     "Wisconsin",
                 ]
+
+    @pytest.mark.asyncio
+    async def test_search_resources_uses_precomputed_global_bucket_field(self):
+        """Search facets should use the indexed geo_or_near_global boolean."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(query="test", fq=None, skip=0, limit=10, sort=None)
+
+        aggs = mock_es.search.call_args.kwargs["aggs"]
+        assert aggs["global_bucket_agg"] == {"filter": {"term": {"geo_or_near_global": True}}}
+
+    @pytest.mark.asyncio
+    async def test_search_resources_uses_cached_aggregations_when_available(self):
+        """Cached facet blocks should avoid recomputing aggs on the ES request."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {
+                "total": {"value": 1},
+                "hits": [{"_source": {"id": "test-id"}, "_score": 1.25}],
+            },
+            "took": 7,
+        }
+        mock_es.search.return_value = mock_response
+
+        cached_aggs = {
+            "schema_provider_s": {
+                "buckets": [{"key": "Provider A", "doc_count": 1}],
+            },
+            "global_bucket_agg": {"doc_count": 1},
+        }
+
+        with patch(
+            "app.elasticsearch.search._get_cached_search_aggregations",
+            AsyncMock(return_value=cached_aggs),
+        ):
+            with patch("app.elasticsearch.search.es", mock_es):
+                result = await search_resources(
+                    query="test",
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                    hydrate_hits=False,
+                )
+
+        assert "aggs" not in mock_es.search.call_args.kwargs
+        assert result["meta"]["mapStats"]["globalCount"] == 1
+        assert any(item["id"] == "schema_provider_s" for item in result["included"])
 
     @pytest.mark.asyncio
     async def test_map_h3_aggregation_applies_adv_q_to_hexes_and_global_count(self):

@@ -99,6 +99,8 @@ export interface GeoDocument {
         download_type?: string;
       }>;
       relationships?: Record<string, unknown>;
+      relationship_counts?: Record<string, number>;
+      relationship_browse_links?: Record<string, string>;
       summaries?: unknown[];
       ai_summaries?: unknown[];
       suggest?: {

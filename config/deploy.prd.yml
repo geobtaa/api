@@ -7,15 +7,15 @@ servers:
       - lib-geoportal-prd-web-01.oit.umn.edu
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
     options:
-      cpus: 3
-      memory: 2560m
+      cpus: 5
+      memory: 3584m
 
   worker:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
     cmd: celery -A app.tasks.worker worker --loglevel=INFO
     options:
-      cpus: 1.5
+      cpus: 0.75
       memory: 1536m
 
   cron:
@@ -51,6 +51,8 @@ env:
     CACHE_DEBUG_HEADERS: "false"
     CACHE_LOG_EVENTS: "false"
     WEB_UVICORN_WORKERS: "3"
+    WEB_INTERNAL_UVICORN_WORKERS: "4"
+    WEB_SSR_WORKERS: "3"
 
 accessories:
   elasticsearch:

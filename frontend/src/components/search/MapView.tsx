@@ -6,6 +6,7 @@ import { useMap } from '../../context/MapContext';
 import { isValidGeoJsonForLeaflet } from '../../utils/geometryUtils';
 import { useSearchParams } from 'react-router';
 import { attachBasemapSwitcher } from '../../config/basemaps';
+import { debugLog } from '../../utils/logger';
 
 interface MapViewProps {
   results: GeoDocument[];
@@ -65,20 +66,20 @@ export function MapView({ results }: MapViewProps) {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const startTime = performance.now();
-    console.log(
+    debugLog(
       '🗺️ MapView useEffect triggered with',
       results?.length || 0,
       'results'
     );
 
     if (!mapContainer.current) {
-      console.log('⏭️ No map container, skipping');
+      debugLog('⏭️ No map container, skipping');
       return;
     }
 
     // Initialize map if it doesn't exist
     if (!mapRef.current) {
-      console.log('🏗️ Initializing new map...');
+      debugLog('🏗️ Initializing new map...');
       void (async () => {
         const L = await loadLeaflet();
         if (!mapContainer.current) return;
@@ -88,7 +89,7 @@ export function MapView({ results }: MapViewProps) {
           3
         );
         basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
-        console.log('✅ Map initialized');
+        debugLog('✅ Map initialized');
       })();
     }
 
@@ -100,7 +101,7 @@ export function MapView({ results }: MapViewProps) {
 
     // Always render if we have results
     if (results && results.length > 0) {
-      console.log('🎯 Rendering map with', results.length, 'results');
+      debugLog('🎯 Rendering map with', results.length, 'results');
 
       // Add GeoJSON features for each result
       const features = results
@@ -115,7 +116,7 @@ export function MapView({ results }: MapViewProps) {
         }));
 
       if (features.length > 0) {
-        console.log('📍 Adding', features.length, 'features to map...');
+        debugLog('📍 Adding', features.length, 'features to map...');
         void (async () => {
           const L = await loadLeaflet();
           if (!mapRef.current) return;
@@ -154,13 +155,13 @@ export function MapView({ results }: MapViewProps) {
           }
 
           const endTime = performance.now();
-          console.log(
+          debugLog(
             `✅ Map rendered in ${(endTime - startTime).toFixed(2)}ms with ${features.length} features`
           );
         })();
       }
     } else {
-      console.log('⏭️ No results to render');
+      debugLog('⏭️ No results to render');
     }
 
     return () => {

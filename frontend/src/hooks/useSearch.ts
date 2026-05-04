@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router';
 import { fetchSearchResults } from '../services/api';
 import { parseSearchParams } from '../utils/searchParams';
 import { useApi } from '../context/ApiContext';
+import { debugLog } from '../utils/logger';
 import type { JsonApiResponse } from '../types/api';
 import type { AdvancedClause, FacetFilter } from '../types/search';
 
@@ -14,13 +15,25 @@ export interface SearchState {
   sort?: string;
 }
 
-export function useSearch() {
+export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [results, setResults] = useState<JsonApiResponse | null>(null);
+  const [resultsKey, setResultsKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<string | null>(null);
   const { setLastApiUrl } = useApi();
   const sort = searchParams.get('sort') || 'relevance';
+  const view = searchParams.get('view') || 'list';
+  const perPageParam = searchParams.get('per_page');
+  const parsedPerPage = perPageParam ? parseInt(perPageParam, 10) : NaN;
+  const perPage = Number.isFinite(parsedPerPage)
+    ? parsedPerPage
+    : view === 'gallery'
+      ? 20
+      : 10;
+  const searchField = searchParams.get('search_field') || 'all_fields';
+  const searchParamsKey = searchParams.toString();
 
   // Parse search parameters and memoize facets to prevent infinite loops
   const {
@@ -43,15 +56,27 @@ export function useSearch() {
   );
 
   useEffect(() => {
-    console.log('🔍 useSearch useEffect triggered with:', {
+    let isCurrentRequest = true;
+
+    debugLog('🔍 useSearch useEffect triggered with:', {
+      enabled,
       query,
       page,
+      perPage,
       facetsLength: facets?.length,
       excludeLength: excludeFacets?.length,
       sort,
+      searchField,
       advancedClauses: advancedQuery.length,
       setLastApiUrl: typeof setLastApiUrl,
     });
+
+    if (!enabled) {
+      setIsLoading(false);
+      return () => {
+        isCurrentRequest = false;
+      };
+    }
 
     // Only fetch if we have a query parameter (even if empty) or facets
     if (
@@ -60,59 +85,85 @@ export function useSearch() {
       (!excludeFacets || excludeFacets.length === 0) &&
       (!advancedQuery || advancedQuery.length === 0)
     ) {
-      console.log('⏭️ Skipping search - no query or facets');
+      debugLog('⏭️ Skipping search - no query or facets');
       setResults(null);
-      return;
+      setResultsKey(null);
+      setError(null);
+      setErrorKey(null);
+      setIsLoading(false);
+      return () => {
+        isCurrentRequest = false;
+      };
     }
 
-    console.log('🚀 Starting search API call...');
+    debugLog('🚀 Starting search API call...');
     const startTime = performance.now();
+    const requestSearchParamsKey = searchParamsKey;
 
     const fetchResults = async () => {
       setIsLoading(true);
       setError(null);
+      setErrorKey(null);
 
       try {
         const searchResults = await fetchSearchResults(
           query || '', // Pass empty string if query is undefined
           page,
-          10,
+          perPage,
           facets,
           setLastApiUrl,
           sort,
           excludeFacets,
-          advancedQuery
+          advancedQuery,
+          undefined,
+          new URLSearchParams(requestSearchParamsKey)
         );
+
+        if (!isCurrentRequest) return;
 
         const endTime = performance.now();
-        console.log(
+        debugLog(
           `✅ Search completed in ${(endTime - startTime).toFixed(2)}ms`
         );
-        console.log(`📊 Results: ${searchResults?.data?.length || 0} items`);
+        debugLog(`📊 Results: ${searchResults?.data?.length || 0} items`);
 
         setResults(searchResults);
+        setResultsKey(requestSearchParamsKey);
       } catch (err) {
+        if (!isCurrentRequest) return;
+
         const endTime = performance.now();
         console.error(
           `❌ Search failed after ${(endTime - startTime).toFixed(2)}ms:`,
           err
         );
         setError(err instanceof Error ? err.message : 'An error occurred');
+        setErrorKey(requestSearchParamsKey);
         setResults(null);
+        setResultsKey(null);
       } finally {
+        if (!isCurrentRequest) return;
         setIsLoading(false);
       }
     };
 
     fetchResults();
+
+    return () => {
+      isCurrentRequest = false;
+    };
   }, [
     query,
     page,
+    perPage,
     facets,
     excludeFacets,
     advancedQuery,
     sort,
+    searchField,
+    searchParamsKey,
     hasQueryParam,
+    enabled,
     setLastApiUrl,
   ]);
 
@@ -205,10 +256,13 @@ export function useSearch() {
   return {
     query,
     results,
+    resultsKey,
+    searchParamsKey,
     isLoading,
     error,
+    errorKey,
     page: page || 1,
-    perPage: results?.meta?.perPage || 10,
+    perPage: results?.meta?.perPage || perPage,
     totalResults: results?.meta?.totalCount || 0,
     facets: facets || [],
     excludeFacets: excludeFacets || [],

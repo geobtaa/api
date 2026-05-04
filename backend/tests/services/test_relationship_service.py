@@ -11,6 +11,44 @@ class TestRelationshipService:
     """Test cases for RelationshipService functionality."""
 
     @pytest.mark.asyncio
+    async def test_get_resource_relationship_summaries_map_limits_and_counts(self, monkeypatch):
+        """Search relationship summaries expose previews, counts, and browse links."""
+
+        async def fake_fetch_relationship_rows(resource_ids, *, limit_per_predicate=None):
+            assert list(resource_ids) == ["01d-05"]
+            assert limit_per_predicate == 5
+            return [
+                {
+                    "subject_id": "01d-05",
+                    "predicate": "dct:hasPart",
+                    "object_id": f"part-{index}",
+                    "dct_title_s": f"Part {index}",
+                    "total_count": 10085,
+                }
+                for index in range(1, 6)
+            ]
+
+        monkeypatch.setattr(
+            RelationshipService,
+            "_fetch_relationship_rows",
+            staticmethod(fake_fetch_relationship_rows),
+        )
+
+        result = await RelationshipService.get_resource_relationship_summaries_map(["01d-05"])
+
+        summary = result["01d-05"]
+        assert len(summary["relationships"]["dct:hasPart"]) == 5
+        assert summary["counts"]["dct:hasPart"] == 10085
+        assert summary["browse_links"]["dct:hasPart"] == (
+            "/search?include_filters[dct_isPartOf_sm][]=01d-05"
+        )
+        assert summary["relationships"]["dct:hasPart"][0] == {
+            "resource_id": "part-1",
+            "resource_title": "Part 1",
+            "link": "/resources/part-1",
+        }
+
+    @pytest.mark.asyncio
     async def test_get_resource_relationships_with_real_database(self):
         """Test getting resource relationships using real database connection."""
         # Use real database connection - will handle connection errors gracefully

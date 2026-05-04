@@ -9,6 +9,7 @@ import {
 } from '../types/api';
 import { AdvancedClause, FacetFilter } from '../types/search';
 import { getActiveThemeConfig } from '../config/institution';
+import { debugLog, isDebugLoggingEnabled } from '../utils/logger';
 
 export class ApiError extends Error {
   constructor(
@@ -135,6 +136,24 @@ function appendForwardedSearchFilters(
     });
 }
 
+function getSearchResultsBasePath(): string {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/search/results`;
+  }
+
+  return `${getApiBasePath()}/search`;
+}
+
+function toPublicSearchApiUrl(url: URL): string {
+  if (url.pathname === '/search/results') {
+    const publicUrl = new URL(url.toString());
+    publicUrl.pathname = '/api/v1/search';
+    return publicUrl.toString();
+  }
+
+  return url.toString();
+}
+
 /**
  * Gets the API base URL path for the NGINX BFF proxy.
  * The BFF proxy handles API key authentication server-side.
@@ -181,20 +200,20 @@ function createApiUrl(baseUrl: string): URL {
 
 // Update the jsonp function to use the cache
 function jsonp<T>(url: string, callbackName: string = 'rui'): Promise<T> {
-  console.log('Starting JSONP request:', url);
+  debugLog('Starting JSONP request:', url);
 
   // Check if this URL is already being requested
   const cacheKey = url;
   const cached = requestCache[cacheKey] as Promise<T> | undefined;
   if (cached) {
-    console.log('Using cached JSONP request for:', url);
+    debugLog('Using cached JSONP request for:', url);
     return cached;
   }
 
   // Create a new promise for this request
   const requestPromise = new Promise<T>((resolve, reject) => {
     const uniqueCallback = `${callbackName}_${Date.now()}`;
-    console.log('Using callback name:', uniqueCallback);
+    debugLog('Using callback name:', uniqueCallback);
     let script: HTMLScriptElement | null = document.createElement('script');
     // Set timeout to prevent hanging requests
     const timeoutId = window.setTimeout(() => {
@@ -207,7 +226,7 @@ function jsonp<T>(url: string, callbackName: string = 'rui'): Promise<T> {
 
     // Cleanup function to remove script and callback
     const cleanup = () => {
-      console.log('Cleaning up JSONP request:', uniqueCallback);
+      debugLog('Cleaning up JSONP request:', uniqueCallback);
       if (script && script.parentNode) {
         script.parentNode.removeChild(script);
       }
@@ -220,7 +239,7 @@ function jsonp<T>(url: string, callbackName: string = 'rui'): Promise<T> {
     (window as unknown as Record<string, unknown>)[uniqueCallback] = (
       data: T | { detail: string; path: string; method: string }
     ) => {
-      console.log('JSONP callback received data:', data);
+      debugLog('JSONP callback received data:', data);
       cleanup();
 
       // Check if response is an error
@@ -246,7 +265,7 @@ function jsonp<T>(url: string, callbackName: string = 'rui'): Promise<T> {
       urlWithCallback.searchParams.set('format', 'json');
     }
 
-    console.log('Final JSONP URL:', urlWithCallback.toString());
+    debugLog('Final JSONP URL:', urlWithCallback.toString());
 
     if (script) {
       script.src = urlWithCallback.toString();
@@ -261,7 +280,7 @@ function jsonp<T>(url: string, callbackName: string = 'rui'): Promise<T> {
 
       // Only append the script to the document once
       document.head.appendChild(script);
-      console.log('JSONP script added to document');
+      debugLog('JSONP script added to document');
     }
   });
 
@@ -278,7 +297,7 @@ async function unifiedFetch<T>(
   url: string,
   options: FetchOptions = defaultFetchOptions
 ): Promise<T> {
-  console.log('unifiedFetch called with options:', {
+  debugLog('unifiedFetch called with options:', {
     url,
     useJsonp: options.useJsonp,
     envValue: import.meta.env.VITE_USE_JSONP,
@@ -301,13 +320,15 @@ async function unifiedFetch<T>(
 
   // Use absolute URL (all requests go directly to BFF proxy)
   const fetchUrl = urlObj.toString();
+  const isSameOriginBrowserRequest =
+    typeof window !== 'undefined' && urlObj.origin === window.location.origin;
 
   if (options.useJsonp) {
-    console.log('Using JSONP for request:', fetchUrl);
+    debugLog('Using JSONP for request:', fetchUrl);
     return jsonp<T>(fetchUrl);
   }
 
-  console.log('Using regular fetch:', fetchUrl);
+  debugLog('Using regular fetch:', fetchUrl);
 
   try {
     // De-dupe concurrent GETs to the same URL (e.g., StrictMode double-invoked effects).
@@ -318,7 +339,7 @@ async function unifiedFetch<T>(
       const response = await fetch(fetchUrl, {
         headers: buildApiHeaders(urlObj),
         mode: 'cors',
-        credentials: 'omit',
+        credentials: isSameOriginBrowserRequest ? 'same-origin' : 'omit',
         redirect: 'follow',
       });
 
@@ -404,7 +425,7 @@ export async function fetchSearchResults(
   sourceSearchParams?: URLSearchParams
 ): Promise<JsonApiResponse> {
   const startTime = performance.now();
-  console.log('🌐 fetchSearchResults called with:', {
+  debugLog('🌐 fetchSearchResults called with:', {
     query,
     page,
     perPage,
@@ -413,8 +434,7 @@ export async function fetchSearchResults(
     advancedClauses: advancedQuery.length,
   });
 
-  const apiBasePath = getApiBasePath();
-  const baseUrl = `${apiBasePath}/search`;
+  const baseUrl = getSearchResultsBasePath();
   const url = createApiUrl(baseUrl);
   const effectiveQuery = sourceSearchParams?.get('q') ?? query;
   const effectiveSort = sort ?? sourceSearchParams?.get('sort') ?? undefined;
@@ -432,6 +452,11 @@ export async function fetchSearchResults(
     const rawAdvancedQuery = sourceSearchParams.get('adv_q');
     if (rawAdvancedQuery) {
       url.searchParams.set('adv_q', rawAdvancedQuery);
+    }
+
+    const cacheBust = sourceSearchParams.get('k6cb');
+    if (cacheBust) {
+      url.searchParams.set('k6cb', cacheBust);
     }
   } else if (typeof window !== 'undefined') {
     // Read geo filters from current URL if they exist
@@ -520,15 +545,17 @@ export async function fetchSearchResults(
     }
   }
 
-  console.log('🔗 API URL:', url.toString());
+  const displayApiUrl = toPublicSearchApiUrl(url);
+
+  debugLog('🔗 API URL:', displayApiUrl);
 
   if (onApiCall) {
-    onApiCall(url.toString());
+    onApiCall(displayApiUrl);
   }
 
   try {
     const apiStartTime = performance.now();
-    console.log('📡 Making API request...');
+    debugLog('📡 Making API request...');
 
     const response = await unifiedFetch<JsonApiResponse>(
       url.toString(),
@@ -538,16 +565,16 @@ export async function fetchSearchResults(
     const apiEndTime = performance.now();
     const totalTime = performance.now() - startTime;
 
-    console.log(
+    debugLog(
       `⚡ API response received in ${(apiEndTime - apiStartTime).toFixed(2)}ms`
     );
-    console.log(`⏱️ Total fetchSearchResults time: ${totalTime.toFixed(2)}ms`);
-    console.log(`📦 Response data: ${response?.data?.length || 0} items`);
+    debugLog(`⏱️ Total fetchSearchResults time: ${totalTime.toFixed(2)}ms`);
+    debugLog(`📦 Response data: ${response?.data?.length || 0} items`);
 
     // Debug: Check if thumbnail_url is present in the raw API response
-    if (response?.data?.[0]) {
+    if (isDebugLoggingEnabled() && response?.data?.[0]) {
       const firstResult = response.data[0];
-      console.log('🔍 fetchSearchResults: First result meta structure:', {
+      debugLog('🔍 fetchSearchResults: First result meta structure:', {
         hasMeta: !!firstResult.meta,
         hasMetaUi: !!firstResult.meta?.ui,
         thumbnailUrl: firstResult.meta?.ui?.thumbnail_url,
@@ -636,7 +663,7 @@ export async function fetchFacetValues({
         });
       });
 
-    console.log('🔗 fetchFacetValues Proxy URL:', proxyUrl.toString());
+    debugLog('🔗 fetchFacetValues Proxy URL:', proxyUrl.toString());
 
     const response = await fetch(proxyUrl.toString(), {
       headers: {
@@ -653,7 +680,7 @@ export async function fetchFacetValues({
 
     const data = await response.json();
 
-    console.log('📦 fetchFacetValues response from proxy:', {
+    debugLog('📦 fetchFacetValues response from proxy:', {
       hasData: !!data.data,
       dataLength: data.data?.length || 0,
     });
@@ -702,12 +729,12 @@ export async function fetchFacetValues({
     url.searchParams.set('q_facet', qFacet);
   }
 
-  console.log('🔗 fetchFacetValues URL (SSR):', url.toString());
+  debugLog('🔗 fetchFacetValues URL (SSR):', url.toString());
   const response = await unifiedFetch<FacetValuesResponse>(
     url.toString(),
     options
   );
-  console.log('📦 fetchFacetValues response (SSR):', {
+  debugLog('📦 fetchFacetValues response (SSR):', {
     hasData: !!response.data,
     dataLength: response.data?.length || 0,
     hasMeta: !!response.meta,
@@ -1189,7 +1216,7 @@ export async function fetchNominatimSearch(
 
       // Debug logging for Colorado specifically
       if (result.name === 'Colorado' && result.type === 'administrative') {
-        console.log('🗺️ Colorado bbox from Nominatim:', {
+        debugLog('🗺️ Colorado bbox from Nominatim:', {
           raw_bbox: result.boundingbox,
           parsed: { minLat, maxLat, minLon, maxLon },
           name: result.name,

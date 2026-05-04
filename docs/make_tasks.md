@@ -17,6 +17,8 @@ This project uses a `Makefile` to wrap common developer/ops tasks.
 - `make test-fast`: fastest local tests (parallel, no coverage)
 - `make test-fresh-db`: drop/recreate `btaa_geospatial_api_test` (cloned from `btaa_geospatial_api`)
 - `make lint-test`: `lint-check` + `test`
+- `make k6-smoke`: run a one-iteration k6 smoke test against both the public frontend and the backend API. Defaults to `K6_BASE_URL=https://lib-btaageoapi-dev-app-01.oit.umn.edu`, auto-discovers a resource id from search results unless `K6_RESOURCE_ID` is provided, discovers live facet values from the same seed search, and writes `tmp/k6/smoke-summary.json`.
+- `make k6-stress`: run the concurrent k6 stress suite with separate frontend-page and direct-API scenarios. Defaults target `dev1`, ramp frontend traffic to `K6_FRONTEND_TARGET_VUS=4`, ramp API traffic to `K6_API_TARGET_VUS=8`, and write `tmp/k6/stress-summary.json`. The API side now includes direct faceted searches plus `/api/v1/search/facets/<facet_name>` calls, and the frontend side includes faceted `/search` page requests plus the hydrated `/search/results` JSON request through the keyed frontend BFF route. Useful overrides include `K6_QUERY`, `K6_RESOURCE_ID`, `K6_ENABLE_FRONTEND=0`, `K6_ENABLE_API=0`, `K6_CACHE_BUST_SEARCH=1` for uncached search/facet miss-path runs, `K6_ENDPOINT_BREAKDOWN=1` for per-endpoint p95/p99 summary rows, plus `K6_FRONTEND_*` and `K6_API_*`.
 
 Overrides:
 
@@ -82,7 +84,7 @@ Overrides:
 - `make kamal-network-sanity`: compare host-shell and app-container connectivity on a Kamal destination. It probes a few external URLs plus the server's own public hostname and exits nonzero if the container cannot reach something the host can. Defaults to `KAMAL_DEST=dev1`, role `web`, self URL `https://$(KAMAL_HOST)`, and external URLs `https://api.github.com https://raw.githubusercontent.com https://gin.btaa.org http://example.com`. Override with `KAMAL_DEST=prd`, `KAMAL_APP_ROLE=cron`, `KAMAL_NETWORK_SELF_URL=...`, or `KAMAL_NETWORK_EXTERNAL_URLS="..."`.
 - `make ingest`: ingest BTAA fixture JSON files into the DB (runs inside the `api` Docker container). Default: `data/fixtures/btaa_fixtures_data`. Override with `make ingest FIXTURES_DIR=btaa_featured_resources REPO_NAME=btaa_featured_resources`. After ingest, run `make reindex` to index into Elasticsearch.
 - `make ingest-featured`: ingest `data/fixtures/btaa_featured_resources` into the DB and then reindex into Elasticsearch (one-step for featured resources).
-- `make clear_cache`: flush Redis cache DB (`REDIS_DB`, requires `REDIS_PASSWORD`)
+- `make clear_cache`: flush Redis cache DB (`REDIS_DB`). The target reads `REDIS_PASSWORD` from the running Redis container so it matches the password Redis was started with and avoids passing the secret on the host command line.
 
 Analytics storage knobs live in `.env` / deploy env vars:
 

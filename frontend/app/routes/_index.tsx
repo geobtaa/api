@@ -1,5 +1,6 @@
 import { Navigate, useSearchParams } from "react-router";
 import { HomePage } from "../../src/pages/HomePage";
+import { buildSeoMeta, SITE_TITLE } from "../../src/config/seo";
 
 /**
  * Root route - redirects to search if there are search params, otherwise shows home page.
@@ -14,4 +15,8 @@ export default function Index() {
   }
 
   return <HomePage />;
+}
+
+export function meta() {
+  return buildSeoMeta({ title: SITE_TITLE, url: "/" });
 }

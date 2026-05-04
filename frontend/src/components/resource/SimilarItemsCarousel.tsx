@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { GeoDocument } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
+import { debugLog, debugWarn } from '../../utils/logger';
 import { ResultCardPill } from '../search/ResultCardPill';
 
 interface SimilarItemsCarouselProps {
@@ -39,7 +40,7 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
   // Debug logging for thumbnail URLs - must be before early return
   useEffect(() => {
     if (item?.id) {
-      console.log(`SimilarItemCard [${item.id}] thumbnail check:`, {
+      debugLog(`SimilarItemCard [${item.id}] thumbnail check:`, {
         'item.meta?.ui?.thumbnail_url': item.meta?.ui?.thumbnail_url,
         primaryImageUrl,
         imageError: imageError,
@@ -75,7 +76,7 @@ function SimilarItemCard({ item }: SimilarItemCardProps) {
                 setImageError(true);
               }}
               onLoad={() => {
-                console.log(
+                debugLog(
                   `Successfully loaded thumbnail for ${item.id}:`,
                   primaryImageUrl
                 );
@@ -128,7 +129,7 @@ export function SimilarItemsCarousel({
   // Debug logging
   useEffect(() => {
     if (similarItems) {
-      console.log('SimilarItemsCarousel - similarItems structure:', {
+      debugLog('SimilarItemsCarousel - similarItems structure:', {
         isArray: Array.isArray(similarItems),
         length: similarItems.length,
         firstItem: similarItems[0],
@@ -151,7 +152,7 @@ export function SimilarItemsCarousel({
   );
 
   if (validItems.length === 0) {
-    console.warn('SimilarItemsCarousel - No valid items found after filtering');
+    debugWarn('SimilarItemsCarousel - No valid items found after filtering');
     return null;
   }
 
@@ -209,9 +210,7 @@ export function SimilarItemsCarousel({
                 >
                   <span
                     className={`block w-2 h-2 rounded-full transition-colors ${
-                      i === currentPage
-                        ? 'bg-blue-600'
-                        : 'bg-gray-300'
+                      i === currentPage ? 'bg-blue-600' : 'bg-gray-300'
                     }`}
                     aria-hidden
                   />

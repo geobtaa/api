@@ -27,6 +27,15 @@ Cached endpoint responses use Redis as the hot L1 cache and Postgres
 On a Redis miss, the app can rehydrate Redis from Postgres before recomputing an
 expensive endpoint response.
 
+`/api/v1/search` also has a semantic response-core cache below the endpoint
+response cache. It stores the expensive request-independent core (`meta`, search
+`data`, and optional `included`) keyed by actual search inputs such as query,
+page, sort, fields, facets, legacy `fq`, include/exclude filters, and advanced
+query clauses. It intentionally excludes request URL noise such as cache-buster
+params, callback, and pagination-link host details, then rebuilds request-specific
+links for every caller. These entries are tagged as `search`, so the existing
+search-cache clear workflow invalidates them.
+
 Caching can be turned on/off globally via env.
 
 ---
@@ -65,6 +74,14 @@ CACHE_APP_VERSION=2026-01-07
 
 # Durable L2 response cache (Kamal enables this by default).
 API_RESPONSE_DURABLE_CACHE_STORE=database
+
+# Semantic search-result core cache below the endpoint cache.
+SEARCH_RESULT_CACHE=true
+SEARCH_RESULT_CACHE_TTL=3600
+SEARCH_RESULT_CACHE_VERSION=v1
+
+# Live search diagnostics; not stored in endpoint response-cache records.
+SEARCH_TIMING_HEADERS=true
 ```
 
 ---

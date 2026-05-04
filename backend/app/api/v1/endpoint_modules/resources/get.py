@@ -50,11 +50,11 @@ async def get_resource(
             if ui_profile == "homepage":
                 if fields:
                     resource_dict = filter_resource_fields(resource_dict, fields)
-                    logger.info(f"Filtered resource dict: {resource_dict}")
+                    logger.debug("Filtered resource dict: %s", resource_dict)
                 jsonapi_resource = await process_resource_homepage(resource_dict, session)
             elif fields:
                 resource_dict = filter_resource_fields(resource_dict, fields)
-                logger.info(f"Filtered resource dict: {resource_dict}")
+                logger.debug("Filtered resource dict: %s", resource_dict)
                 jsonapi_resource = await process_resource(resource_dict, session)
             else:
 

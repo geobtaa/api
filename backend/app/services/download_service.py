@@ -20,6 +20,57 @@ from db.models import resource_assets
 logger = logging.getLogger(__name__)
 
 
+async def fetch_bridge_asset_download_rows_map(
+    resource_ids: Iterable[str],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Fetch bridge-asset download rows for many resources in one query."""
+    ids = list(dict.fromkeys(str(resource_id) for resource_id in resource_ids if resource_id))
+    if not ids:
+        return {}
+
+    try:
+        if not database.is_connected:
+            await database.connect()
+
+        query = (
+            select(
+                resource_assets.c.resource_id,
+                resource_assets.c.label,
+                resource_assets.c.title,
+                resource_assets.c.file_url,
+                resource_assets.c.file_mime_type,
+                resource_assets.c.file_size,
+                resource_assets.c.position,
+                resource_assets.c.id,
+            )
+            .where(
+                resource_assets.c.resource_id.in_(ids),
+                resource_assets.c.dct_references_uri_key == "download",
+                resource_assets.c.file_url.is_not(None),
+            )
+            .order_by(
+                resource_assets.c.resource_id.asc(),
+                resource_assets.c.position.asc(),
+                resource_assets.c.id.asc(),
+            )
+        )
+
+        rows = await database.fetch_all(query)
+    except Exception:
+        logger.exception("Failed to fetch bridge asset downloads for resources %s", ids)
+        return {}
+
+    rows_by_id: Dict[str, List[Dict[str, Any]]] = {}
+    for row in rows:
+        mapping = dict(row._mapping) if hasattr(row, "_mapping") else dict(row)
+        resource_id = str(mapping.pop("resource_id", "") or "")
+        if not resource_id:
+            continue
+        rows_by_id.setdefault(resource_id, []).append(mapping)
+
+    return rows_by_id
+
+
 @dataclass
 class DownloadOption:
     """Represents a download option with its parameters."""
