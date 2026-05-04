@@ -1,9 +1,10 @@
-import type { LoaderFunctionArgs } from 'react-router';
+import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
 import { useLoaderData, useNavigation } from 'react-router';
 import { SearchPage } from '../../src/pages/SearchPage';
 import { useEffect } from 'react';
 import { useApi } from '../../src/context/ApiContext';
 import { getThemeConfigFromRequest } from '../lib/theme.server';
+import { buildSeoMeta } from '../../src/config/seo';
 
 /**
  * Loader function for the search page shell.
@@ -15,6 +16,7 @@ import { getThemeConfigFromRequest } from '../lib/theme.server';
 export async function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
   const apiParams = new URLSearchParams(url.searchParams);
+  const query = url.searchParams.get('q') || '';
 
   // Ensure required defaults for the API request.
   apiParams.set('format', 'json');
@@ -40,6 +42,8 @@ export async function loader({ request }: LoaderFunctionArgs) {
       searchResults: null,
       lastApiUrl: null,
       clientSearchEnabled: true,
+      query,
+      currentUrl: url.href,
     };
   }
 
@@ -62,8 +66,18 @@ export async function loader({ request }: LoaderFunctionArgs) {
     searchResults: null,
     lastApiUrl,
     clientSearchEnabled: true,
+    query,
+    currentUrl: url.href,
   };
 }
+
+export const meta: MetaFunction<typeof loader> = ({ data }) =>
+  buildSeoMeta({
+    title: data?.query ? `Search: ${data.query}` : 'Search Results',
+    description:
+      'Search existing resources in the Big Ten Academic Alliance Geoportal.',
+    url: data?.currentUrl,
+  });
 
 /**
  * Search page component.
