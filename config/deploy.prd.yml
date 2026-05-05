@@ -36,6 +36,9 @@ proxy:
 builder:
   args:
     VITE_API_BASE_URL: "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
+    VITE_TURNSTILE_ACTION: "<%= ENV.fetch('VITE_TURNSTILE_ACTION', 'geoportal_gate') %>"
+    VITE_TURNSTILE_ENABLED: "<%= ENV.fetch('VITE_TURNSTILE_ENABLED', 'false') %>"
+    VITE_TURNSTILE_SITE_KEY: "<%= ENV.fetch('VITE_TURNSTILE_SITE_KEY', '') %>"
 
 env:
   clear:

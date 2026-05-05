@@ -36,6 +36,7 @@ from app.api.ogc import router as ogc_router
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
 from app.middleware.rate_limit_middleware import RateLimitMiddleware
+from app.middleware.turnstile_middleware import TurnstileMiddleware
 from app.services.sitemap_service import (
     SITEMAP_ROOT_NAME,
     build_robots_txt,
@@ -210,12 +211,14 @@ app.add_middleware(
         "X-BTAA-Client-Version",
         "X-BTAA-Client-Channel",
         "X-BTAA-Client-Instance",
+        "X-Turnstile-Session",
     ],
     expose_headers=[
         "Content-Type",
         "Content-Length",
         "X-Total-Count",
         "Link",
+        "X-Turnstile-Required",
     ],
     max_age=3600,  # Cache preflight requests for 1 hour
 )
@@ -225,6 +228,9 @@ app.add_middleware(CrossOriginHeadersMiddleware)
 
 # Add rate limiting middleware
 app.add_middleware(RateLimitMiddleware)
+
+# Add Cloudflare Turnstile browser gate middleware
+app.add_middleware(TurnstileMiddleware)
 
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
