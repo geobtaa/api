@@ -9,6 +9,7 @@ import {
 import { AdvancedClause, FacetFilter } from '../types/search';
 import { getActiveThemeConfig } from '../config/institution';
 import { debugLog, isDebugLoggingEnabled } from '../utils/logger';
+import { getTurnstileSessionToken } from './turnstile';
 
 export class ApiError extends Error {
   constructor(
@@ -80,8 +81,14 @@ function buildApiHeaders(urlObj: URL): HeadersInit {
     }
   }
 
-  // Note: Content-Type and custom browser headers are intentionally omitted for
-  // cross-origin requests to avoid CORS preflight latency.
+  const turnstileSessionToken = getTurnstileSessionToken();
+  if (turnstileSessionToken) {
+    headers['X-Turnstile-Session'] = turnstileSessionToken;
+  }
+
+  // Note: Content-Type is intentionally omitted for cross-origin requests to
+  // avoid CORS preflight latency. When Turnstile is enabled, its session header
+  // is allowed to preflight because protected API requests need to carry it.
   return headers;
 }
 

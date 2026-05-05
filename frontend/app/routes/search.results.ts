@@ -18,6 +18,7 @@ const FORWARDED_REQUEST_HEADERS = [
   'x-btaa-client-channel',
   'x-btaa-client-version',
   'x-visit-token',
+  'x-turnstile-session',
 ] as const;
 
 function copyUpstreamHeaders(source: Headers): Headers {
@@ -42,6 +43,7 @@ function copyBrowserContextHeaders(source: Headers): Headers {
     const value = source.get(name);
     if (value) headers.set(name, value);
   });
+  headers.set('x-btaa-turnstile-gate', 'frontend-search');
 
   return headers;
 }

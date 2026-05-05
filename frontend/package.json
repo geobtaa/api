@@ -33,6 +33,7 @@
     "@appsignal/nodejs": "^3.0.0",
     "@geoblacklight/frontend": "5.1.0",
     "@hotwired/stimulus": "^3.2.2",
+    "@marsidev/react-turnstile": "^1.5.2",
     "@react-router/node": "^7.11.0",
     "@react-router/serve": "^7.11.0",
     "@supabase/supabase-js": "^2.91.0",
@@ -77,6 +78,9 @@
     "flatted": "^3.4.2",
     "defu": "^6.1.5",
     "brace-expansion": "^5.0.5",
+    "minimatch@3.1.5": {
+      "brace-expansion": "^1.1.12"
+    },
     "tar": "^7.5.11"
   },
   "devDependencies": {

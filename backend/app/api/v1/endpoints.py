@@ -18,6 +18,7 @@ from .endpoint_modules.search import router as search_router
 from .endpoint_modules.shapefiles import router as shapefiles_router
 from .endpoint_modules.static_maps import router as static_maps_router
 from .endpoint_modules.thumbnails import router as thumbnails_router
+from .endpoint_modules.turnstile import router as turnstile_router
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ router.include_router(resources_router, tags=["resources"])
 router.include_router(thumbnails_router, tags=["thumbnails"])
 router.include_router(static_maps_router, tags=["static-maps"])
 router.include_router(map_router, tags=["map"])
+router.include_router(turnstile_router, tags=["turnstile"], include_in_schema=False)
 router.include_router(mcp_router, tags=["mcp"])
 router.include_router(ogm_router, tags=["ogm"])
 # Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation
