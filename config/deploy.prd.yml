@@ -36,9 +36,9 @@ proxy:
 builder:
   args:
     VITE_API_BASE_URL: "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
-    VITE_TURNSTILE_ACTION: "<%= ENV.fetch('VITE_TURNSTILE_ACTION', 'geoportal_gate') %>"
-    VITE_TURNSTILE_ENABLED: "<%= ENV.fetch('VITE_TURNSTILE_ENABLED', 'false') %>"
-    VITE_TURNSTILE_SITE_KEY: "<%= ENV.fetch('VITE_TURNSTILE_SITE_KEY', '') %>"
+    VITE_TURNSTILE_ACTION: "geoportal_gate"
+    VITE_TURNSTILE_ENABLED: "true"
+    VITE_TURNSTILE_SITE_KEY: "0x4AAAAAADJqCBiv8czDm2ZG"
 
 env:
   clear:
@@ -51,6 +51,10 @@ env:
     SENDMAIL_ARGS: "-t -i"
     SEARCH_ENGINE_INDEXING_ENABLED: "false"
     RATE_LIMIT_ENABLED: "true"
+    TURNSTILE_ENABLED: "true"
+    TURNSTILE_ALLOWED_HOSTNAMES: lib-geoportal-prd-web-01.oit.umn.edu
+    TURNSTILE_COOKIE_SECURE: "true"
+    TURNSTILE_EXPECTED_ACTION: geoportal_gate
     CACHE_DEBUG_HEADERS: "false"
     CACHE_LOG_EVENTS: "false"
     WEB_UVICORN_WORKERS: "4"
