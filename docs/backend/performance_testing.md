@@ -201,17 +201,20 @@ frontend BFF traffic with:
 - `WEB_INTERNAL_UVICORN_WORKERS`: loopback-only FastAPI workers used by SSR/BFF
   fetches through `API_BASE_URL` and nginx's direct `/search/results` BFF proxy.
 
-On prd-sized hosts, the current baseline is:
+On the current 12-vCPU production host, the serving profile is:
 
-- Public API: `WEB_UVICORN_WORKERS=3`
-- Internal frontend API pool: `WEB_INTERNAL_UVICORN_WORKERS=4`
-- Frontend SSR/BFF: `WEB_SSR_WORKERS=3`
-- Web container ceiling: `cpus: 5`, `memory: 3584m`
+- Public API: `WEB_UVICORN_WORKERS=4`
+- Internal frontend API pool: `WEB_INTERNAL_UVICORN_WORKERS=6`
+- Frontend SSR/BFF: `WEB_SSR_WORKERS=4`
+- Web container ceiling: `cpus: 8`, `memory: 5120m`
 
-The worker container is capped at `cpus: 0.75` so web traffic has more headroom
-on the shared 8-vCPU hosts. The next validation step after changing these values
-is to rerun the mixed `18 API VUs + 6 frontend VUs` profile and compare API p95
-against the API-only baseline.
+The worker container is capped at `cpus: 1.75`, giving Celery more room for
+bridge syncs, cache warming, and maintenance while still reserving host CPU for
+Elasticsearch, Postgres, Redis, and the OS. The 8-vCPU dev hosts keep the
+smaller `3 / 4 / 3` web-worker profile with `web cpus: 5` unless a test run
+explicitly changes those destination overrides. The next validation step after
+changing these values is to rerun the mixed `18 API VUs + 6 frontend VUs`
+profile and compare API p95 against the API-only baseline.
 
 If the API pool remains healthy but frontend resource page tails stay high,
 check the SSR layer next. `WEB_SSR_WORKERS` controls how many local

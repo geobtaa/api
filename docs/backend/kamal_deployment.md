@@ -38,7 +38,7 @@ destination to a new VM.
 |-------------|------|-----|------|-------------|-------|
 | `dev1` | 8 | 31 GiB | 8 GiB | `208G` system disk plus `128G` secondary disk; `/var/lib` LVM volume currently `188G` | Original dev host |
 | `dev2` | 8 | 31 GiB | 4 GiB | `208G` system disk; `/var/lib` LVM volume currently `100G` | New dev host |
-| `prd` | 8 | 31 GiB | 4 GiB | `500G` system disk; `/var/lib` LVM volume currently `100G` | Same CPU/RAM class as dev, but larger disk and higher app/ES reservations |
+| `prd` | 12 | 31 GiB | 4 GiB | `500G` system disk; `/var/lib` LVM volume currently `100G` | Upsized production host; higher web and Celery CPU limits than dev |
 
 Quick refresh command pattern:
 
@@ -327,7 +327,7 @@ Current differences:
 
 - `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=4`, and `WEB_SSR_WORKERS=3`
 - `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`
-- `prd`: same performance profile as `dev1`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
+- `prd`: host `lib-geoportal-prd-web-01.oit.umn.edu`, 12-vCPU production performance profile with `web cpus: 8`, `worker cpus: 1.75`, `WEB_UVICORN_WORKERS=4`, `WEB_INTERNAL_UVICORN_WORKERS=6`, and `WEB_SSR_WORKERS=4`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 
 If a new destination needs a persistent behavior difference, put only that override in `config/deploy.<dest>.yml` and keep the shared behavior in `config/deploy.yml`.
 
