@@ -42,6 +42,7 @@ function enabledEnv(name, fallback = true) {
 export const config = Object.freeze({
   baseUrl: (__ENV.K6_BASE_URL || DEFAULT_BASE_URL).replace(/\/+$/, ""),
   query: __ENV.K6_QUERY || DEFAULT_QUERY,
+  apiKey: __ENV.K6_API_KEY || __ENV.BTAA_GEOSPATIAL_API_KEY || "",
   suggestQuery:
     __ENV.K6_SUGGEST_QUERY ||
     (__ENV.K6_QUERY || DEFAULT_QUERY).slice(0, 4) ||

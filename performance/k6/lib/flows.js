@@ -11,6 +11,7 @@ const HTML_HEADERS = {
 
 const JSON_HEADERS = {
   Accept: "application/vnd.api+json, application/json",
+  ...(config.apiKey ? { "X-API-Key": config.apiKey } : {}),
 };
 
 const ASSET_HEADERS = {

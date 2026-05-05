@@ -81,7 +81,7 @@ Summaries are written to:
 
 ```bash
 make k6-stress K6_BASE_URL=https://lib-btaageoapi-dev-app-01.oit.umn.edu
-make k6-stress K6_BASE_URL=https://geo.btaa.org
+make k6-stress K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu
 ```
 
 ### Change the query or pin a known resource
@@ -116,6 +116,7 @@ Available knobs:
 - `K6_QUERY`
 - `K6_SUGGEST_QUERY`
 - `K6_RESOURCE_ID`
+- `K6_API_KEY`
 - `K6_SEARCH_PER_PAGE`
 - `K6_CACHE_BUST_SEARCH`
 - `K6_CACHE_BUST_SEED`
@@ -129,6 +130,24 @@ requests, enable cache busting for search-like requests:
 
 ```bash
 make k6-stress K6_CACHE_BUST_SEARCH=1
+```
+
+On production-like environments with `RATE_LIMIT_ENABLED=true`, pass a
+service-tier key so the direct API scenario measures backend capacity instead
+of the anonymous 10 requests/minute throttle:
+
+```bash
+make k6-stress K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu K6_API_KEY=...
+```
+
+For local repeat runs, store a k6-only key in an ignored file such as
+`tmp/k6/prd-k6.env`:
+
+```bash
+set -a
+. tmp/k6/prd-k6.env
+set +a
+make k6-stress K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu
 ```
 
 This appends an ignored `k6cb=...` query param to:
