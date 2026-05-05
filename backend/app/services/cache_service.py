@@ -79,6 +79,28 @@ def _weak_etag_from_body(body: bytes) -> str:
     return f'W/"{digest}"'
 
 
+def _merge_vary_header(existing: str | None, required: Iterable[str]) -> str:
+    """Merge Vary header values while preserving first-seen casing/order."""
+    values: list[str] = []
+    seen: set[str] = set()
+    parts = []
+    if existing:
+        parts.extend(existing.split(","))
+    parts.extend(required)
+
+    for part in parts:
+        value = str(part).strip()
+        if not value:
+            continue
+        key = value.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        values.append(value)
+
+    return ", ".join(values)
+
+
 def weak_etag_from_body(body: bytes) -> str:
     """Public helper for computing weak ETags from response bytes."""
     return _weak_etag_from_body(body)
@@ -855,7 +877,10 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                             resp.headers["ETag"] = etag
                             resp.headers["Cache-Control"] = _cache_control_header(ttl_seconds=ttl)
                             # gzip middleware may be enabled; Accept affects representation too.
-                            resp.headers["Vary"] = "Accept-Encoding, Accept"
+                            resp.headers["Vary"] = _merge_vary_header(
+                                headers.get("vary"),
+                                ("Accept-Encoding", "Accept"),
+                            )
                             if CACHE_DEBUG_HEADERS:
                                 resp.headers["X-Cache"] = cache_state.upper()
                             return resp
@@ -866,7 +891,10 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                     if etag:
                         resp.headers["ETag"] = etag
                     resp.headers["Cache-Control"] = _cache_control_header(ttl_seconds=ttl)
-                    resp.headers["Vary"] = "Accept-Encoding, Accept"
+                    resp.headers["Vary"] = _merge_vary_header(
+                        headers.get("vary"),
+                        ("Accept-Encoding", "Accept"),
+                    )
                     if CACHE_DEBUG_HEADERS:
                         resp.headers["X-Cache"] = cache_state.upper()
                     return resp
@@ -895,7 +923,10 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                             if etag:
                                 resp.headers["ETag"] = etag
                             resp.headers["Cache-Control"] = _cache_control_header(ttl_seconds=ttl)
-                            resp.headers["Vary"] = "Accept-Encoding, Accept"
+                            resp.headers["Vary"] = _merge_vary_header(
+                                headers.get("vary"),
+                                ("Accept-Encoding", "Accept"),
+                            )
                             if CACHE_DEBUG_HEADERS:
                                 resp.headers["X-Cache"] = "WAIT_HIT"
                             _log_cache_event("wait_hit", namespace=namespace)
@@ -962,7 +993,10 @@ def cached_endpoint(ttl: int = DEFAULT_CACHE_TTL, *, tags: Optional[Iterable[str
                         # Add HTTP validators/semantics to the live response too.
                         result.headers["ETag"] = etag
                         result.headers["Cache-Control"] = _cache_control_header(ttl_seconds=ttl)
-                        result.headers["Vary"] = "Accept-Encoding, Accept"
+                        result.headers["Vary"] = _merge_vary_header(
+                            result.headers.get("Vary"),
+                            ("Accept-Encoding", "Accept"),
+                        )
                         if CACHE_DEBUG_HEADERS:
                             result.headers["X-Cache"] = "MISS"
                 return result

@@ -97,6 +97,7 @@ function SearchContent({
   const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
+  const skipDefaultQueryParamRef = useRef(false);
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
   const {
     query,
@@ -140,6 +141,10 @@ function SearchContent({
   // Ensure ?q= is present if no params are set to trigger default search
   useEffect(() => {
     if (Array.from(searchParams.keys()).length === 0) {
+      if (skipDefaultQueryParamRef.current) {
+        skipDefaultQueryParamRef.current = false;
+        return;
+      }
       setSearchParams({ q: '' }, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -499,15 +504,8 @@ function SearchContent({
   };
 
   const handleClearAll = () => {
-    const newParams = new URLSearchParams();
-    // Clear all search params including geo filters
-    setSearchParams(newParams);
-    updateSearch({
-      query: '',
-      facets: [],
-      excludeFacets: [],
-      advancedQuery: [],
-    });
+    skipDefaultQueryParamRef.current = true;
+    setSearchParams(new URLSearchParams());
   };
 
   const handleSortChange = (newSort: string) => {

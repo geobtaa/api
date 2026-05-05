@@ -4,7 +4,6 @@ import {
   FacetValuesResponse,
   FacetValuesSort,
   GazetteerResponse,
-  GazetteerPlace,
   HomeBlogPostsResponse,
 } from '../types/api';
 import { AdvancedClause, FacetFilter } from '../types/search';
@@ -1091,185 +1090,60 @@ export async function fetchMapH3(
   const raw = (await res.json()) as MapH3ResponseRaw;
   return normalizeMapH3Response(raw);
 }
-let lastNominatimRequest = 0;
-const NOMINATIM_RATE_LIMIT_MS = 1000;
 
-// Nominatim API function
+function emptyNominatimResponse(
+  query: string,
+  limit: number
+): GazetteerResponse {
+  return {
+    jsonapi: { version: '1.1', profile: [] },
+    links: { self: '' },
+    meta: {
+      totalCount: 0,
+      totalPages: 0,
+      currentPage: 1,
+      perPage: limit,
+      query,
+      offset: 0,
+      gazetteer: 'nominatim',
+    },
+    data: [],
+  };
+}
+
 export async function fetchNominatimSearch(
   query: string,
-  limit: number = 10
+  limit: number = 5
 ): Promise<GazetteerResponse> {
-  if (!query.trim()) {
-    return {
-      jsonapi: { version: '1.1', profile: [] },
-      links: { self: '' },
-      meta: {
-        totalCount: 0,
-        totalPages: 0,
-        currentPage: 1,
-        perPage: limit,
-        query: '',
-        offset: 0,
-        gazetteer: 'nominatim',
-      },
-      data: [],
-    };
+  const normalizedQuery = query.trim().replace(/\s+/g, ' ');
+  const normalizedLimit = Math.max(1, Math.min(limit, 5));
+
+  if (!normalizedQuery) {
+    return emptyNominatimResponse('', normalizedLimit);
   }
 
-  // Rate limiting: ensure at least 1 second between requests
-  const now = Date.now();
-  const timeSinceLastRequest = now - lastNominatimRequest;
-  if (timeSinceLastRequest < NOMINATIM_RATE_LIMIT_MS) {
-    await new Promise((resolve) =>
-      setTimeout(resolve, NOMINATIM_RATE_LIMIT_MS - timeSinceLastRequest)
-    );
-  }
-  lastNominatimRequest = Date.now();
-
-  const url = new URL('https://nominatim.openstreetmap.org/search');
-  url.searchParams.set('q', query.trim());
-  url.searchParams.set('format', 'json');
-  url.searchParams.set('limit', limit.toString());
-  url.searchParams.set('addressdetails', '1');
-  url.searchParams.set('extratags', '1');
-  url.searchParams.set('namedetails', '1');
+  const base =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}/places/suggest`
+      : 'http://localhost/places/suggest';
+  const url = new URL(base);
+  url.searchParams.set('q', normalizedQuery);
+  url.searchParams.set('limit', normalizedLimit.toString());
 
   try {
-    // Nominatim requires a User-Agent header per their usage policy
     const response = await fetch(url.toString(), {
-      headers: {
-        'User-Agent': 'BTAA-GeoBlacklight-Client/1.0 (https://geo.btaa.org)',
-        Accept: 'application/json',
-      },
-      mode: 'cors',
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
     });
 
     if (!response.ok) {
       throw new ApiError(
-        `Nominatim API error: ${response.status}`,
+        `Nominatim proxy error: ${response.status}`,
         response.status
       );
     }
 
-    const nominatimResults = (await response.json()) as Array<{
-      place_id: number;
-      lat: string;
-      lon: string;
-      name: string;
-      display_name: string;
-      boundingbox: [string, string, string, string];
-      class: string;
-      type: string;
-      importance: number;
-      [key: string]: unknown;
-    }>;
-
-    // Filter and sort results to prefer administrative boundaries over natural features
-    // This helps avoid selecting rivers, mountains, etc. when searching for places
-    const filteredResults = nominatimResults
-      .filter((result) => {
-        // Prefer administrative boundaries (states, counties, cities, etc.)
-        // Exclude natural features like rivers, mountains, etc. unless they're the only result
-        const isNaturalFeature =
-          result.class === 'waterway' ||
-          result.class === 'natural' ||
-          result.class === 'water';
-
-        // If we have administrative results, filter out natural features
-        const hasAdministrative = nominatimResults.some(
-          (r) =>
-            r.class === 'boundary' ||
-            r.class === 'place' ||
-            r.type === 'administrative'
-        );
-
-        if (hasAdministrative && isNaturalFeature) {
-          return false;
-        }
-
-        return true;
-      })
-      .sort((a, b) => {
-        // Sort by: administrative boundaries first, then by importance
-        const aIsAdmin =
-          a.class === 'boundary' ||
-          a.class === 'place' ||
-          a.type === 'administrative';
-        const bIsAdmin =
-          b.class === 'boundary' ||
-          b.class === 'place' ||
-          b.type === 'administrative';
-
-        if (aIsAdmin && !bIsAdmin) return -1;
-        if (!aIsAdmin && bIsAdmin) return 1;
-
-        // Both same type, sort by importance (higher is better)
-        return (b.importance || 0) - (a.importance || 0);
-      });
-
-    // Transform Nominatim results to GazetteerPlace format
-    const data: GazetteerPlace[] = filteredResults.map((result) => {
-      // Nominatim bbox format: [min_lat, max_lat, min_lon, max_lon]
-      const [minLat, maxLat, minLon, maxLon] = result.boundingbox.map(Number);
-      const lat = Number(result.lat);
-      const lon = Number(result.lon);
-
-      // Debug logging for Colorado specifically
-      if (result.name === 'Colorado' && result.type === 'administrative') {
-        debugLog('🗺️ Colorado bbox from Nominatim:', {
-          raw_bbox: result.boundingbox,
-          parsed: { minLat, maxLat, minLon, maxLon },
-          name: result.name,
-          type: result.type,
-        });
-      }
-
-      return {
-        id: `nominatim-${result.place_id}`,
-        type: 'gazetteer_place',
-        attributes: {
-          id: result.place_id,
-          wok_id: result.place_id,
-          parent_id: 0,
-          name: result.name || result.display_name,
-          placetype: result.type || result.class || 'place',
-          country: '', // Nominatim doesn't always provide this directly
-          repo: 'nominatim',
-          latitude: lat,
-          longitude: lon,
-          min_latitude: minLat,
-          min_longitude: minLon,
-          max_latitude: maxLat,
-          max_longitude: maxLon,
-          is_current: 1,
-          is_deprecated: 0,
-          is_ceased: 0,
-          is_superseded: 0,
-          is_superseding: 0,
-          superseded_by: null,
-          supersedes: null,
-          lastmodified: Date.now(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          display_name: result.display_name,
-        },
-      };
-    });
-
-    return {
-      jsonapi: { version: '1.1', profile: [] },
-      links: { self: url.toString() },
-      meta: {
-        totalCount: data.length,
-        totalPages: 1,
-        currentPage: 1,
-        perPage: limit,
-        query: query.trim(),
-        offset: 0,
-        gazetteer: 'nominatim',
-      },
-      data,
-    };
+    return (await response.json()) as GazetteerResponse;
   } catch (error) {
     console.error('Error fetching Nominatim search:', error);
     if (error instanceof ApiError) {

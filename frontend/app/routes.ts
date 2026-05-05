@@ -32,6 +32,7 @@ export default [
   route("iiif/manifest", "routes/iiif.manifest.ts"),
   route("robots.txt", "routes/robots-txt.ts"),
   route("suggest", "routes/suggest.ts"),
+  route("places/suggest", "routes/places.suggest.ts"),
   route("search/facets/:facetName", "routes/api.search.facets.ts"),
   route("map/h3", "routes/api.map.h3.ts"),
   route("home/blog-posts", "routes/api.home.blog-posts.ts"),

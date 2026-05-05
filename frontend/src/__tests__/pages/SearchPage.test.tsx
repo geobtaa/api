@@ -311,6 +311,33 @@ describe('SearchPage Logic', () => {
     expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
   });
 
+  it('drops every search param when Clear All is clicked', async () => {
+    const bboxGalleryUrl =
+      '/search?q=' +
+      '&include_filters%5Bgeo%5D%5Btype%5D=bbox' +
+      '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
+      '&include_filters%5Bgeo%5D%5Brelation%5D=intersects' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=49.3844722' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=-97.2392619' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=43.4994288' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=-89.483385' +
+      '&view=gallery&per_page=20';
+
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    const { router } = renderWithRouter(bboxGalleryUrl, results, {
+      returnRouter: true,
+    });
+
+    await act(async () => {
+      screen.getByRole('button', { name: /clear all/i }).click();
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/search');
+      expect(router.state.location.search).toBe('');
+    });
+  });
+
   it('displays correct pagination text for initial gallery load', async () => {
     const results = createMockApiResponse(mockResults.slice(0, 20), 100, 1);
     renderWithRouter('/search?view=gallery', results);
