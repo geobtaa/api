@@ -1,4 +1,5 @@
 import { ChevronDown } from 'lucide-react';
+import type { Dispatch, SetStateAction } from 'react';
 import { useSearchParams } from 'react-router';
 import { GeospatialFilterMap } from './GeospatialFilterMap';
 import type { FacetAccordionState } from '../../hooks/useFacetAccordion';
@@ -16,24 +17,19 @@ function hasGeoBbox(searchParams: URLSearchParams): boolean {
   const bottomRightLon = searchParams.get(
     'include_filters[geo][bottom_right][lon]'
   );
-  return !!(
-    topLeftLat &&
-    topLeftLon &&
-    bottomRightLat &&
-    bottomRightLon
-  );
+  return !!(topLeftLat && topLeftLon && bottomRightLat && bottomRightLon);
 }
 
 interface LocationFacetCollapsibleProps {
   accordion: FacetAccordionState;
-  setAccordion: React.Dispatch<
-    React.SetStateAction<FacetAccordionState>
-  >;
+  setAccordion: Dispatch<SetStateAction<FacetAccordionState>>;
+  showMap?: boolean;
 }
 
 export function LocationFacetCollapsible({
   accordion,
   setAccordion,
+  showMap = true,
 }: LocationFacetCollapsibleProps) {
   const [searchParams] = useSearchParams();
   const currentView = searchParams.get('view') || 'list';
@@ -60,7 +56,7 @@ export function LocationFacetCollapsible({
             closed.delete(GEO_FACET_ID);
           } else {
             opened.delete(GEO_FACET_ID);
-            if (DEFAULT_OPEN_FACET_IDS.has(GEO_FACET_ID)) {
+            if (isDefaultOpen) {
               closed.add(GEO_FACET_ID);
             } else {
               closed.delete(GEO_FACET_ID);
@@ -81,7 +77,13 @@ export function LocationFacetCollapsible({
       </summary>
       {isOpen ? (
         <div className="pt-2">
-          <GeospatialFilterMap hideHeading />
+          {showMap ? (
+            <GeospatialFilterMap hideHeading />
+          ) : (
+            <p className="rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-500">
+              No result locations to map.
+            </p>
+          )}
         </div>
       ) : null}
     </details>
