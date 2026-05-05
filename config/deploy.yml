@@ -18,6 +18,8 @@ builder:
     VITE_TURNSTILE_ACTION: "<%= ENV.fetch('VITE_TURNSTILE_ACTION', 'geoportal_gate') %>"
     VITE_TURNSTILE_ENABLED: "<%= ENV.fetch('VITE_TURNSTILE_ENABLED', 'false') %>"
     VITE_TURNSTILE_SITE_KEY: "<%= ENV.fetch('VITE_TURNSTILE_SITE_KEY', '') %>"
+    VITE_GTM_ID: ""
+    VITE_KAMAL_DEST: ""
 
 # Bridge hashed frontend assets across deploys so open pages can continue
 # loading the old chunk set while the new release comes up.

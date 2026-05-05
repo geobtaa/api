@@ -3,6 +3,11 @@ import os
 
 import pytest
 
+# Keep local/prod `.env` browser gates from changing normal API endpoint tests.
+# Turnstile-specific tests monkeypatch this back on when they need the protected path.
+os.environ.setdefault("APP_ENV", "test")
+os.environ["TURNSTILE_ENABLED"] = "false"
+
 
 def _load_dotenv_if_available(path: str) -> None:
     try:

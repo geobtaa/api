@@ -1,6 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -105,30 +106,36 @@ def test_viewer_endpoint_structure():
 @pytest.mark.database
 def test_ogm_endpoint_404_handling():
     """Test that the metadata endpoint returns 404 for non-existent resources."""
-    # Test with a non-existent resource ID
-    response = client.get("/api/v1/resources/non-existent-id/metadata")
+    mock_session = MagicMock()
+    mock_result = MagicMock()
+    mock_result.fetchone.return_value = None
+    mock_session.execute = AsyncMock(return_value=mock_result)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=None)
 
-    # Should return 404 or 500 (if database connection fails in test environment)
-    assert response.status_code in [404, 500]
+    missing_resource_id = f"missing-resource-{uuid4()}"
+    with patch(
+        "app.api.v1.endpoint_modules.resources.metadata.get_async_session",
+        return_value=mock_session,
+    ):
+        response = client.get(f"/api/v1/resources/{missing_resource_id}/metadata")
 
-    if response.status_code == 404:
-        data = response.json()
-        # The endpoint may return {"error": "..."}, {"message": "..."}, or {"detail": "..."} format
-        assert "error" in data or "message" in data or "detail" in data
-        if "error" in data:
-            assert data["error"] == "Resource not found"
-        elif "detail" in data:
-            assert data["detail"] == "Resource not found"
-    elif response.status_code == 500:
-        # Database connection issues are acceptable in test environment
-        data = response.json()
-        assert "error" in data or "detail" in data
+    assert response.status_code == 404
+
+    data = response.json()
+    # The endpoint may return {"error": "..."}, {"message": "..."}, or {"detail": "..."} format
+    assert "error" in data or "message" in data or "detail" in data
+    if "error" in data:
+        assert data["error"] == "Resource not found"
+    elif "detail" in data:
+        assert data["detail"] == "Resource not found"
 
 
 def test_viewer_endpoint_404_handling():
     """Test that the viewer endpoint returns 404 for non-existent resources."""
     # Test with a non-existent resource ID
-    response = client.get("/api/v1/resources/non-existent-id/viewer")
+    missing_resource_id = f"missing-resource-{uuid4()}"
+    response = client.get(f"/api/v1/resources/{missing_resource_id}/viewer")
 
     # Should return 404 or 500 (if database connection fails in test environment)
     assert response.status_code in [404, 500]

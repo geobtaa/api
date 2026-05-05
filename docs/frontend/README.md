@@ -15,6 +15,12 @@ This directory contains documentation for the Research University Interface (RUI
 ### Features
 - **[Homepage Map Visualization](homepage-map.md)** - H3 hex map, featured carousel, Allmaps georeferenced maps
 
+### Configuration
+- **Google Tag Manager** - The SSR root injects the standard GTM script and
+  noscript fallback only when `VITE_KAMAL_DEST=prd` and `VITE_GTM_ID` is present
+  and matches a GTM container ID. Kamal leaves this blank by default and sets
+  the `VITE_GTM_ID` only for the `prd` destination.
+
 ### Images
 - **rui.png** - Project logo/icon
 

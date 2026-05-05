@@ -39,6 +39,8 @@ builder:
     VITE_TURNSTILE_ACTION: "geoportal_gate"
     VITE_TURNSTILE_ENABLED: "true"
     VITE_TURNSTILE_SITE_KEY: "0x4AAAAAADJqCBiv8czDm2ZG"
+    VITE_GTM_ID: "GTM-K7S6976T"
+    VITE_KAMAL_DEST: "prd"
 
 env:
   clear:
