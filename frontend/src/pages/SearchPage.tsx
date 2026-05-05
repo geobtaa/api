@@ -17,6 +17,7 @@ import { GalleryView } from '../components/search/GalleryView';
 import { MapResultView } from '../components/search/MapResultView';
 import { AdvancedSearchBuilder } from '../components/search/AdvancedSearchBuilder';
 import { LocationFacetCollapsible } from '../components/search/LocationFacetCollapsible';
+import { NoResultsSearchHelp } from '../components/search/NoResultsSearchHelp';
 import { useFacetAccordion } from '../hooks/useFacetAccordion';
 import { useSearch } from '../hooks/useSearch';
 import {
@@ -97,6 +98,7 @@ function SearchContent({
   const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
+  const skipDefaultQueryParamRef = useRef(false);
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
   const {
     query,
@@ -140,6 +142,10 @@ function SearchContent({
   // Ensure ?q= is present if no params are set to trigger default search
   useEffect(() => {
     if (Array.from(searchParams.keys()).length === 0) {
+      if (skipDefaultQueryParamRef.current) {
+        skipDefaultQueryParamRef.current = false;
+        return;
+      }
       setSearchParams({ q: '' }, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -153,6 +159,20 @@ function SearchContent({
         : activeSearchResults?.meta?.perPage || 10;
   const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
   const totalPages = Math.ceil(searchTotalResults / perPage);
+  const hasNoSearchResults =
+    !activeIsLoading &&
+    Boolean(activeSearchResults) &&
+    searchTotalResults === 0;
+  const shouldShowLocationFacetMap =
+    !activeSearchResults || activeIsLoading || searchTotalResults > 0;
+  const advancedSearchHref = React.useMemo(() => {
+    const next = new URLSearchParams(searchParams);
+    if (!next.has('q')) {
+      next.set('q', normalizedQuery);
+    }
+    next.set('showAdvanced', 'true');
+    return `/search?${next.toString()}`;
+  }, [searchParams, normalizedQuery]);
 
   // For now, treat API errors as “no results” and let ErrorMessage show when needed.
   const resultError = (activeSearchResults as any)?.error
@@ -499,15 +519,8 @@ function SearchContent({
   };
 
   const handleClearAll = () => {
-    const newParams = new URLSearchParams();
-    // Clear all search params including geo filters
-    setSearchParams(newParams);
-    updateSearch({
-      query: '',
-      facets: [],
-      excludeFacets: [],
-      advancedQuery: [],
-    });
+    skipDefaultQueryParamRef.current = true;
+    setSearchParams(new URLSearchParams());
   };
 
   const handleSortChange = (newSort: string) => {
@@ -717,6 +730,7 @@ function SearchContent({
               <LocationFacetCollapsible
                 accordion={accordion}
                 setAccordion={setAccordion}
+                showMap={shouldShowLocationFacetMap}
               />
               {activeSearchResults?.included ? (
                 <FacetList
@@ -733,55 +747,62 @@ function SearchContent({
 
             {/* Right column: "Showing results" header + results list / gallery / map view */}
             <div className="lg:col-span-9 flex flex-col pt-0 mt-0">
-              <div className="mb-2 flex justify-between items-center">
-                {error ? (
-                  <h2 className="text-lg text-gray-600">Results</h2>
-                ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
-                  <h2 className="text-lg text-gray-600">Searching…</h2>
-                ) : (
-                  <h2 className="text-lg text-gray-600">
-                    Showing results{' '}
-                    {(() => {
-                      let start, end;
-                      if (shouldUseAccumulatedResults) {
-                        start = (accumulatedStartPage - 1) * perPage + 1;
-                        end = start + accumulatedResults.length - 1;
-                      } else {
-                        start = Math.min(
-                          (page - 1) * perPage + 1,
-                          searchTotalResults
-                        );
-                        end = Math.min(page * perPage, searchTotalResults);
-                      }
-                      return `${formatCount(start)}-${formatCount(end)}`;
-                    })()}{' '}
-                    of {formatCount(searchTotalResults)}
-                  </h2>
-                )}
-                {!error && (
-                  <div className="flex items-center gap-4">
-                    <ViewToggle
-                      currentView={currentView}
-                      onViewChange={handleViewChange}
-                    />
-                    <SortControl
-                      options={
-                        activeSearchResults?.included
-                          ?.filter((item) => item.type === 'sort')
-                          .map((sortOption) => ({
-                            id: sortOption.id,
-                            label: sortOption.attributes.label,
-                            url: sortOption.links?.self || '',
-                          })) || []
-                      }
-                      currentSort={sort || 'relevance'}
-                      onSortChange={handleSortChange}
-                    />
-                  </div>
-                )}
-              </div>
+              {!hasNoSearchResults && (
+                <div className="mb-2 flex justify-between items-center">
+                  {error ? (
+                    <h2 className="text-lg text-gray-600">Results</h2>
+                  ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
+                    <h2 className="text-lg text-gray-600">Searching…</h2>
+                  ) : (
+                    <h2 className="text-lg text-gray-600">
+                      Showing results{' '}
+                      {(() => {
+                        let start, end;
+                        if (shouldUseAccumulatedResults) {
+                          start = (accumulatedStartPage - 1) * perPage + 1;
+                          end = start + accumulatedResults.length - 1;
+                        } else {
+                          start = Math.min(
+                            (page - 1) * perPage + 1,
+                            searchTotalResults
+                          );
+                          end = Math.min(page * perPage, searchTotalResults);
+                        }
+                        return `${formatCount(start)}-${formatCount(end)}`;
+                      })()}{' '}
+                      of {formatCount(searchTotalResults)}
+                    </h2>
+                  )}
+                  {!error && (
+                    <div className="flex items-center gap-4">
+                      <ViewToggle
+                        currentView={currentView}
+                        onViewChange={handleViewChange}
+                      />
+                      <SortControl
+                        options={
+                          activeSearchResults?.included
+                            ?.filter((item) => item.type === 'sort')
+                            .map((sortOption) => ({
+                              id: sortOption.id,
+                              label: sortOption.attributes.label,
+                              url: sortOption.links?.self || '',
+                            })) || []
+                        }
+                        currentSort={sort || 'relevance'}
+                        onSortChange={handleSortChange}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               {error ? (
                 <ErrorMessage message={error} />
+              ) : hasNoSearchResults ? (
+                <NoResultsSearchHelp
+                  query={normalizedQuery}
+                  advancedSearchHref={advancedSearchHref}
+                />
               ) : (
                 <>
                   {currentView === 'list' && (

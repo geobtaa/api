@@ -5,8 +5,10 @@ import {
   fetchFacetValues,
   fetchHomeBlogPosts,
   fetchMapH3,
+  fetchNominatimSearch,
   fetchSearchResults,
 } from '../../services/api';
+import { loader as placesSuggestLoader } from '../../../app/routes/places.suggest';
 import type { FacetValuesResponse } from '../../types/api';
 
 // Mock fetch
@@ -14,6 +16,120 @@ global.fetch = vi.fn();
 
 // Unmock the API service to test the real implementation
 vi.unmock('../../services/api');
+
+describe('fetchNominatimSearch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+      },
+      writable: true,
+    });
+  });
+
+  it('requests place suggestions through the same-origin server cache', async () => {
+    const mockResponse = {
+      jsonapi: { version: '1.1', profile: [] },
+      links: { self: '' },
+      meta: {
+        totalCount: 1,
+        totalPages: 1,
+        currentPage: 1,
+        perPage: 5,
+        query: 'Milwaukee',
+        offset: 0,
+        gazetteer: 'nominatim',
+      },
+      data: [
+        {
+          id: 'nominatim-123',
+          type: 'gazetteer_place',
+          attributes: {
+            id: 123,
+            name: 'Milwaukee',
+          },
+        },
+      ],
+    };
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => mockResponse,
+    });
+    global.fetch = mockFetch;
+
+    const result = await fetchNominatimSearch(' Milwaukee ', 10);
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const url = new URL(mockFetch.mock.calls[0][0]);
+    expect(url.origin).toBe('https://example.com');
+    expect(url.pathname).toBe('/places/suggest');
+    expect(url.searchParams.get('q')).toBe('Milwaukee');
+    expect(url.searchParams.get('limit')).toBe('5');
+    expect(mockFetch.mock.calls[0][1]).toMatchObject({
+      credentials: 'same-origin',
+    });
+    expect(result.data[0].attributes.name).toBe('Milwaukee');
+  });
+});
+
+describe('placesSuggestLoader', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('proxies place suggestions through the cached backend endpoint', async () => {
+    const payload = {
+      data: [
+        {
+          id: 'nominatim-123',
+          type: 'gazetteer_place',
+          attributes: {
+            name: 'Milwaukee',
+          },
+        },
+      ],
+    };
+    const body = new TextEncoder().encode(JSON.stringify(payload));
+    const mockFetch = vi.fn().mockResolvedValue({
+      status: 200,
+      ok: true,
+      headers: new Headers({
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'public, max-age=0, s-maxage=2592000',
+        'content-encoding': 'gzip',
+      }),
+      arrayBuffer: async () => body.buffer,
+    });
+    global.fetch = mockFetch;
+
+    const response = (await placesSuggestLoader({
+      request: new Request(
+        'http://localhost/places/suggest?q=Milwaukee&limit=10',
+        {
+          headers: { 'accept-language': 'en-US,en;q=0.9' },
+        }
+      ),
+      params: {},
+      context: {},
+    })) as Response;
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const upstreamUrl = new URL(mockFetch.mock.calls[0][0]);
+    const upstreamHeaders = new Headers(mockFetch.mock.calls[0][1]?.headers);
+    expect(upstreamUrl.pathname).toBe('/api/v1/gazetteers/nominatim/search');
+    expect(upstreamUrl.searchParams.get('q')).toBe('Milwaukee');
+    expect(upstreamUrl.searchParams.get('limit')).toBe('5');
+    expect(upstreamHeaders.get('accept-language')).toBe('en-US,en;q=0.9');
+
+    expect(response.headers.get('content-encoding')).toBeNull();
+    expect(response.headers.get('cache-control')).toBe(
+      'public, max-age=0, s-maxage=2592000'
+    );
+    const json = await response.json();
+    expect(json.data[0].attributes.name).toBe('Milwaukee');
+  });
+});
 
 describe('fetchBookmarkedResources', () => {
   it('constructs bookmark URL without trailing slash redirect', async () => {

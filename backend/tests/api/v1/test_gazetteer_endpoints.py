@@ -160,6 +160,134 @@ def test_search_specific_gazetteer():
         assert response.status_code in [200, 500]  # Allow both success and database errors
 
 
+def test_search_nominatim_uses_backend_l1_l2_cache(monkeypatch):
+    """Nominatim suggestions should use the shared cached_endpoint stack."""
+    from app.services import cache_service, nominatim_service
+
+    store = {}
+    set_calls = []
+    upstream_calls = 0
+
+    async def fake_get_record(_self, key):
+        return store.get(key)
+
+    async def fake_set_record(
+        _self,
+        key,
+        record,
+        ttl_seconds,
+        *,
+        namespace=None,
+        tags=None,
+        write_durable=True,
+    ):
+        store[key] = record
+        set_calls.append(
+            {
+                "key": key,
+                "ttl_seconds": ttl_seconds,
+                "namespace": namespace,
+                "tags": set(tags or []),
+                "write_durable": write_durable,
+            }
+        )
+        return True
+
+    async def fake_acquire_lock(_self, _lock_key):
+        return True
+
+    async def fake_tag_cache_key(_self, _cache_key, _tags, ttl_seconds):
+        _ = ttl_seconds
+        return None
+
+    async def fake_fetch_raw_results(query, limit, accept_language):
+        nonlocal upstream_calls
+        upstream_calls += 1
+        assert query == "Milwaukee"
+        assert limit == 5
+        assert accept_language == "en-US"
+        return [
+            {
+                "place_id": 123,
+                "lat": "43.0389",
+                "lon": "-87.9065",
+                "name": "Milwaukee",
+                "addresstype": "city",
+                "display_name": "Milwaukee, Milwaukee County, Wisconsin, United States",
+                "boundingbox": ["42.818", "43.1947", "-88.0716", "-87.8639"],
+                "class": "boundary",
+                "type": "administrative",
+                "importance": 0.8,
+            }
+        ]
+
+    monkeypatch.setattr(cache_service, "ENDPOINT_CACHE", True)
+    monkeypatch.setattr(cache_service.CacheService, "get_record", fake_get_record)
+    monkeypatch.setattr(cache_service.CacheService, "set_record", fake_set_record)
+    monkeypatch.setattr(cache_service.CacheService, "acquire_lock", fake_acquire_lock)
+    monkeypatch.setattr(cache_service.CacheService, "tag_cache_key", fake_tag_cache_key)
+    monkeypatch.setattr(nominatim_service, "fetch_raw_nominatim_results", fake_fetch_raw_results)
+
+    headers = {"Accept-Language": "en-US"}
+    first = client.get("/api/v1/gazetteers/nominatim/search?q=Milwaukee&limit=5", headers=headers)
+    second = client.get(
+        "/api/v1/gazetteers/nominatim/search?q=Milwaukee&limit=5",
+        headers=headers,
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert upstream_calls == 1
+    assert first.json()["data"][0]["attributes"]["name"] == "Milwaukee"
+    assert first.json()["data"][0]["attributes"]["placetype"] == "city"
+    assert second.json()["data"][0]["attributes"]["name"] == "Milwaukee"
+    assert "Accept-Language" in first.headers["Vary"]
+    assert "Accept-Language" in second.headers["Vary"]
+    assert set_calls
+    assert set_calls[0]["namespace"] == "app.api.v1.endpoint_modules.gazetteer.search_nominatim"
+    assert set_calls[0]["write_durable"] is True
+    assert {"suggest", "gazetteer", "nominatim"}.issubset(set_calls[0]["tags"])
+
+
+def test_transform_nominatim_results_uses_addresstype_for_duplicate_area_names():
+    from app.services.nominatim_service import transform_nominatim_results
+
+    payload = transform_nominatim_results(
+        [
+            {
+                "place_id": 1,
+                "lat": "40.7128",
+                "lon": "-74.0060",
+                "name": "New York",
+                "addresstype": "city",
+                "display_name": "New York, United States",
+                "boundingbox": ["40.476578", "40.91763", "-74.258843", "-73.700233"],
+                "class": "boundary",
+                "type": "administrative",
+                "importance": 0.9,
+            },
+            {
+                "place_id": 2,
+                "lat": "43.1566",
+                "lon": "-75.8449",
+                "name": "New York",
+                "addresstype": "state",
+                "display_name": "New York, United States",
+                "boundingbox": ["40.476578", "45.0158611", "-79.7619758", "-71.790972"],
+                "class": "boundary",
+                "type": "administrative",
+                "importance": 0.8,
+            },
+        ],
+        query="New York",
+        limit=5,
+        self_url="http://testserver/api/v1/gazetteers/nominatim/search?q=New+York",
+    )
+
+    place_types = [item["attributes"]["placetype"] for item in payload["data"]]
+    assert place_types == ["city", "state"]
+
+
 class TestGazetteerEndpointsEnhanced:
     """Enhanced test cases for gazetteer endpoints with better coverage."""
 
@@ -178,6 +306,7 @@ class TestGazetteerEndpointsEnhanced:
         assert "/api/v1/gazetteers/geonames/search" in routes
         assert "/api/v1/gazetteers/wof/search" in routes
         assert "/api/v1/gazetteers/btaa/search" in routes
+        assert "/api/v1/gazetteers/nominatim/search" in routes
 
     @patch("app.api.v1.endpoint_modules.gazetteer.database")
     def test_list_gazetteers_success(self, mock_database):

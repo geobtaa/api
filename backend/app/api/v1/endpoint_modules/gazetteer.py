@@ -4,7 +4,7 @@ import os
 from typing import Optional
 
 from dotenv import load_dotenv
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import and_, func, or_, select
 
@@ -15,6 +15,13 @@ from app.api.v1.utils import (
     sanitize_for_json,
 )
 from app.services.cache_service import cached_endpoint
+from app.services.nominatim_service import (
+    NominatimError,
+    build_nominatim_search_response,
+    empty_nominatim_response,
+    normalize_nominatim_limit,
+    normalize_nominatim_query,
+)
 from db.database import database
 from db.models import (
     gazetteer_btaa,
@@ -34,6 +41,7 @@ logger = logging.getLogger(__name__)
 
 # Cache TTL for gazetteer endpoints (1 hour)
 GAZETTEER_CACHE_TTL = int(os.getenv("GAZETTEER_CACHE_TTL", 3600))
+NOMINATIM_CACHE_TTL = int(os.getenv("NOMINATIM_CACHE_TTL", 30 * 24 * 60 * 60))
 
 
 @router.get("/gazetteers")
@@ -167,6 +175,41 @@ async def search_all_gazetteers(
     except Exception as e:
         logger.error(f"Error searching all gazetteers: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to search gazetteers") from e
+
+
+@router.get("/gazetteers/nominatim/search")
+@cached_endpoint(ttl=NOMINATIM_CACHE_TTL, tags=["suggest", "gazetteer", "nominatim"])
+async def search_nominatim(
+    request: Request,
+    q: str = Query("", description="Place search query"),
+    limit: int = Query(5, description="Maximum number of results", ge=1, le=5),
+    accept_language: Optional[str] = Header(None),
+):
+    """Search Nominatim for place suggestions with Redis L1 and database L2 caching."""
+    normalized_query = normalize_nominatim_query(q)
+    normalized_limit = normalize_nominatim_limit(limit)
+    request_url = str(request.url) if request else ""
+
+    if not normalized_query:
+        response = JSONResponse(
+            content=empty_nominatim_response(normalized_query, normalized_limit, request_url)
+        )
+        response.headers["Vary"] = "Accept-Language"
+        return response
+
+    try:
+        payload = await build_nominatim_search_response(
+            query=normalized_query,
+            limit=normalized_limit,
+            accept_language=accept_language,
+            self_url=request_url,
+        )
+        response = JSONResponse(content=payload)
+        response.headers["Vary"] = "Accept-Language"
+        return response
+    except NominatimError as exc:
+        logger.warning("Nominatim search failed for query %r: %s", normalized_query, exc)
+        raise HTTPException(status_code=502, detail="Nominatim request failed") from exc
 
 
 @router.get("/gazetteers/btaa/search")

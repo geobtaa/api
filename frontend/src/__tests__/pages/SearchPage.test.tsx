@@ -5,7 +5,7 @@ import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { MapProvider } from '../../context/MapContext';
-import { fetchSearchResults } from '../../services/api';
+import { fetchNominatimSearch, fetchSearchResults } from '../../services/api';
 import {
   vi,
   describe,
@@ -15,7 +15,11 @@ import {
   afterEach,
   MockInstance,
 } from 'vitest';
-import type { GeoDocument, JsonApiResponse } from '../../types/api';
+import type {
+  GazetteerResponse,
+  GeoDocument,
+  JsonApiResponse,
+} from '../../types/api';
 
 vi.mock('../../services/analytics', () => ({
   scheduleAnalyticsBatch: vi.fn(),
@@ -28,6 +32,7 @@ vi.mock('../../services/api', async (importOriginal) => {
   return {
     ...actual,
     fetchSearchResults: vi.fn(),
+    fetchNominatimSearch: vi.fn(),
   };
 });
 
@@ -114,6 +119,21 @@ const createMockApiResponse = (
   included: [],
 });
 
+const createMockGazetteerResponse = (): GazetteerResponse => ({
+  jsonapi: { version: '1.1', profile: [] },
+  links: { self: '' },
+  meta: {
+    totalCount: 0,
+    totalPages: 0,
+    currentPage: 1,
+    perPage: 5,
+    query: '',
+    offset: 0,
+    gazetteer: 'nominatim',
+  },
+  data: [],
+});
+
 const createMockResult = (id: string, title: string): GeoDocument => ({
   type: 'file',
   id,
@@ -133,6 +153,13 @@ describe('SearchPage Logic', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(fetchSearchResults).mockReset();
+    vi.mocked(fetchNominatimSearch).mockResolvedValue(
+      createMockGazetteerResponse()
+    );
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [] }),
+    }) as unknown as typeof fetch;
     localStorage.clear();
     sessionStorage.clear();
     getItemSpy = vi.spyOn(sessionStorage, 'getItem');
@@ -196,6 +223,29 @@ describe('SearchPage Logic', () => {
     renderWithRouter('/search?view=map', results);
 
     expect(screen.getByTestId('geo-filter-map')).toBeInTheDocument();
+  });
+
+  it('shows zero-result help and suppresses the location map when no results are available', async () => {
+    const results = createMockApiResponse([], 0);
+    renderWithRouter('/search?q=grassland&view=map', results);
+
+    expect(screen.queryByTestId('geo-filter-map')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/Showing results 0-0 of 0/i)
+    ).not.toBeInTheDocument();
+    expect(screen.getByText('No result locations to map.')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'No search results found'
+    );
+    expect(
+      screen.getByRole('link', { name: /advanced search/i })
+    ).toHaveAttribute('href', expect.stringContaining('showAdvanced=true'));
+    expect(
+      await screen.findByText('No close keyword suggestions found.')
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText('No matching geographic areas found.')
+    ).toBeInTheDocument();
   });
 
   it('renders List View by default', async () => {
@@ -309,6 +359,33 @@ describe('SearchPage Logic', () => {
     expect(params.get('include_filters[geo][top_left][lat]')).toBe('41.28');
     expect(params.get('include_filters[geo][bottom_right][lat]')).toBe('34.59');
     expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
+  });
+
+  it('drops every search param when Clear All is clicked', async () => {
+    const bboxGalleryUrl =
+      '/search?q=' +
+      '&include_filters%5Bgeo%5D%5Btype%5D=bbox' +
+      '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
+      '&include_filters%5Bgeo%5D%5Brelation%5D=intersects' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=49.3844722' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=-97.2392619' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=43.4994288' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=-89.483385' +
+      '&view=gallery&per_page=20';
+
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    const { router } = renderWithRouter(bboxGalleryUrl, results, {
+      returnRouter: true,
+    });
+
+    await act(async () => {
+      screen.getByRole('button', { name: /clear all/i }).click();
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/search');
+      expect(router.state.location.search).toBe('');
+    });
   });
 
   it('displays correct pagination text for initial gallery load', async () => {

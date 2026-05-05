@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Settings, X, MapPin, ChevronDown } from 'lucide-react';
+import { Search, Settings, X, MapPin } from 'lucide-react';
 import { fetchNominatimSearch } from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router';
 import type { GazetteerPlace } from '../types/api';
@@ -36,18 +36,43 @@ interface GeoBBoxParams {
 }
 
 type SearchSuggestion = { text: string };
+type SearchSuggestionResponseItem = {
+  attributes?: {
+    text?: string;
+  };
+};
 
 type ScopeSuggestion = {
   kind: 'scope';
   id: string;
-  searchField: 'dct_title_s' | 'dct_subject_sm';
+  searchField: 'dct_title_s' | 'dct_subject_sm,dcat_theme_sm';
   label: string;
 };
 
 type KeywordSuggestionItem =
   | ScopeSuggestion
+  | { kind: 'place'; id: string; place: GazetteerPlace }
+  | { kind: 'place_loading'; id: string }
   | { kind: 'suggestion'; id: string; suggestion: SearchSuggestion }
   | { kind: 'see_all'; id: string };
+
+type KeywordSuggestionGroup = 'scope' | 'place' | 'suggestion' | 'see_all';
+
+const NOMINATIM_SUGGESTION_LIMIT = 5;
+
+const PLACE_TYPE_LABELS: Record<string, string> = {
+  city: 'City',
+  town: 'Town',
+  village: 'Village',
+  hamlet: 'Hamlet',
+  municipality: 'Municipality',
+  county: 'County',
+  state: 'State',
+  region: 'Region',
+  province: 'Province',
+  country: 'Country',
+  administrative: 'Administrative Area',
+};
 
 const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
   {
@@ -58,9 +83,9 @@ const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
   },
   {
     kind: 'scope',
-    id: 'scope-subject',
-    searchField: 'dct_subject_sm',
-    label: 'Subject',
+    id: 'scope-subject-theme',
+    searchField: 'dct_subject_sm,dcat_theme_sm',
+    label: 'Subject/Theme',
   },
 ];
 
@@ -78,6 +103,15 @@ function setGeoBBoxParams(
   params.set('include_filters[geo][bottom_right][lon]', bbox.bottomRightLon);
 }
 
+function formatPlaceTypeLabel(placeType: string | null | undefined) {
+  const normalized = (placeType || '').trim().replace(/_/g, ' ').toLowerCase();
+  if (!normalized) return null;
+  return (
+    PLACE_TYPE_LABELS[normalized] ||
+    normalized.replace(/\b\w/g, (char) => char.toUpperCase())
+  );
+}
+
 export function SearchField({
   onSearch: _onSearch, // eslint-disable-line @typescript-eslint/no-unused-vars
   placeholder = 'Search...',
@@ -93,22 +127,16 @@ export function SearchField({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   // Placename autocomplete state
   const [selectedPlace, setSelectedPlace] = useState<GazetteerPlace | null>(
     null
   );
-  const [placeQuery, setPlaceQuery] = useState('');
   const [placeSuggestions, setPlaceSuggestions] = useState<GazetteerPlace[]>(
     []
   );
-  const [showPlaceSuggestions, setShowPlaceSuggestions] = useState(false);
-  const [placeSelectedIndex, setPlaceSelectedIndex] = useState(-1);
   const [isLoadingPlaces, setIsLoadingPlaces] = useState(false);
-  const placeInputRef = useRef<HTMLInputElement>(null);
-  const placeSuggestionsRef = useRef<HTMLDivElement>(null);
-  const [isPlaceInputFocused, setIsPlaceInputFocused] = useState(false);
   const [isKeywordInputFocused, setIsKeywordInputFocused] = useState(false);
 
   const isXlOrLarger = useMediaQuery('(min-width: 1280px)');
@@ -152,57 +180,100 @@ export function SearchField({
 
   // Fetch keyword suggestions
   useEffect(() => {
+    let isCurrent = true;
+    if (!query.trim()) {
+      setSuggestions([]);
+      return () => {
+        isCurrent = false;
+      };
+    }
+    if (!isKeywordInputFocused) {
+      return () => {
+        isCurrent = false;
+      };
+    }
+
     const fetchSuggestionsDebounced = setTimeout(async () => {
-      if (query.trim() && !isPlaceInputFocused && isKeywordInputFocused) {
-        try {
-          // IMPORTANT: Do not call the API directly from the browser when rate limiting is enabled.
-          // `/suggest` is served by the SSR server, which injects the API key server-side.
-          const res = await fetch(
-            `/suggest?q=${encodeURIComponent(query.trim())}`,
-            {
-              headers: { Accept: 'application/json' },
-            }
-          );
-          const json = await res.json();
-          const data = Array.isArray(json?.data) ? json.data : [];
-          setSuggestions(
-            data.map((r: any) => ({
-              text: r?.attributes?.text ?? '',
+      try {
+        // IMPORTANT: Do not call the API directly from the browser when rate limiting is enabled.
+        // `/suggest` is served by the SSR server, which injects the API key server-side.
+        const res = await fetch(
+          `/suggest?q=${encodeURIComponent(query.trim())}`,
+          {
+            headers: { Accept: 'application/json' },
+          }
+        );
+        const json = await res.json();
+        const data: SearchSuggestionResponseItem[] = Array.isArray(json?.data)
+          ? json.data
+          : [];
+        if (!isCurrent) return;
+        setSuggestions(
+          data
+            .map((r) => ({
+              text: r.attributes?.text ?? '',
             }))
-          );
-        } catch (error) {
-          console.error('Error fetching keyword suggestions:', error);
+            .filter((suggestion) => suggestion.text)
+        );
+      } catch (error) {
+        console.error('Error fetching keyword suggestions:', error);
+        if (isCurrent) {
           setSuggestions([]);
         }
-      } else {
-        setSuggestions([]);
       }
     }, 300);
 
-    return () => clearTimeout(fetchSuggestionsDebounced);
-  }, [query, isPlaceInputFocused]);
+    return () => {
+      isCurrent = false;
+      clearTimeout(fetchSuggestionsDebounced);
+    };
+  }, [query, isKeywordInputFocused]);
 
   // Fetch placename suggestions
   useEffect(() => {
+    let isCurrent = true;
+    if (!query.trim()) {
+      setPlaceSuggestions([]);
+      setIsLoadingPlaces(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+    if (!isKeywordInputFocused) {
+      setIsLoadingPlaces(false);
+      return () => {
+        isCurrent = false;
+      };
+    }
+
     const fetchPlaceSuggestionsDebounced = setTimeout(async () => {
-      if (placeQuery.trim() && isPlaceInputFocused) {
-        setIsLoadingPlaces(true);
-        try {
-          const response = await fetchNominatimSearch(placeQuery.trim(), 10);
-          setPlaceSuggestions(response.data || []);
-        } catch (error) {
-          console.error('Error fetching placename suggestions:', error);
+      setIsLoadingPlaces(true);
+      try {
+        const response = await fetchNominatimSearch(
+          query.trim(),
+          NOMINATIM_SUGGESTION_LIMIT
+        );
+        if (!isCurrent) return;
+        setPlaceSuggestions(
+          (response.data || []).slice(0, NOMINATIM_SUGGESTION_LIMIT)
+        );
+      } catch (error) {
+        console.error('Error fetching placename suggestions:', error);
+        if (isCurrent) {
           setPlaceSuggestions([]);
-        } finally {
+        }
+      } finally {
+        if (isCurrent) {
           setIsLoadingPlaces(false);
         }
-      } else {
-        setPlaceSuggestions([]);
       }
     }, 500); // Longer debounce for Nominatim rate limiting
 
-    return () => clearTimeout(fetchPlaceSuggestionsDebounced);
-  }, [placeQuery, isPlaceInputFocused]);
+    return () => {
+      isCurrent = false;
+      clearTimeout(fetchPlaceSuggestionsDebounced);
+    };
+  }, [query, isKeywordInputFocused]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -210,13 +281,9 @@ export function SearchField({
       const clickedKeywordField =
         suggestionsRef.current?.contains(target) ||
         inputRef.current?.contains(target);
-      const clickedPlaceField =
-        placeSuggestionsRef.current?.contains(target) ||
-        placeInputRef.current?.contains(target);
 
-      if (!clickedKeywordField && !clickedPlaceField) {
+      if (!clickedKeywordField) {
         setShowSuggestions(false);
-        setShowPlaceSuggestions(false);
       }
     };
 
@@ -228,17 +295,19 @@ export function SearchField({
     const attrs = place.attributes;
 
     setSelectedPlace(place);
-    setPlaceQuery('');
-    setShowPlaceSuggestions(false);
-    setIsPlaceInputFocused(false);
+    setSuggestions([]);
+    setPlaceSuggestions([]);
+    setShowSuggestions(false);
+    setSelectedIndex(-1);
 
     // Create bbox from min/max lat/lng
     const newParams = new URLSearchParams(searchParams);
 
-    // Preserve keyword query if present
-    const currentQuery = query.trim() || searchParams.get('q') || '';
-    if (currentQuery) {
-      newParams.set('q', currentQuery);
+    const submittedQuery = query.trim();
+    newParams.set('q', submittedQuery);
+    setQuery(submittedQuery);
+    if (!submittedQuery) {
+      newParams.delete('search_field');
     }
 
     // Remove existing geo filters
@@ -266,22 +335,13 @@ export function SearchField({
     // Reset to page 1 when bbox changes
     newParams.delete('page');
 
-    // Update URL params without navigating (this prevents auto-submit)
-    // The search will only happen when the user explicitly submits the form
-    setSearchParams(newParams);
-
-    // Focus back on keyword input so user can enter their search query
-    // Use setTimeout to ensure state updates complete before focusing
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
+    navigate(`/search?${newParams.toString()}`);
   };
 
   const handleClearPlace = (e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedPlace(null);
-    setPlaceQuery('');
-    setShowPlaceSuggestions(false);
+    setPlaceSuggestions([]);
 
     // Remove geo filters but preserve keyword query and other filters
     const newParams = new URLSearchParams(searchParams);
@@ -297,27 +357,22 @@ export function SearchField({
       .filter((key) => key.startsWith('include_filters[geo]'))
       .forEach((key) => newParams.delete(key));
 
-    // Preserve category filters
-    const categoryFilters = searchParams.getAll(
-      'include_filters[gbl_resourceClass_sm][]'
-    );
-    const legacyCategoryFilters = searchParams.getAll(
-      'fq[gbl_resourceClass_sm][]'
-    );
-
-    if (categoryFilters.length > 0) {
-      categoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    } else if (legacyCategoryFilters.length > 0) {
-      legacyCategoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    }
-
     newParams.delete('page');
 
     // Navigate to update URL
+    navigate(`/search?${newParams.toString()}`);
+  };
+
+  const handleClearSearchField = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const newParams = new URLSearchParams(searchParams);
+    const currentQuery = query.trim() || searchParams.get('q') || '';
+    newParams.set('q', currentQuery);
+    newParams.delete('search_field');
+    newParams.delete('page');
+
     navigate(`/search?${newParams.toString()}`);
   };
 
@@ -326,7 +381,6 @@ export function SearchField({
     const newParams = buildSearchNavigationParams(query.trim());
     navigate(`/search?${newParams.toString()}`);
     setShowSuggestions(false);
-    setShowPlaceSuggestions(false);
   };
 
   const buildSearchNavigationParams = (
@@ -413,9 +467,13 @@ export function SearchField({
     setShowSuggestions(false);
   };
 
+  const keepSuggestionClickActive = (e: React.MouseEvent) => {
+    e.preventDefault();
+  };
+
   const renderSuggestionText = (text: string) => {
     const trimmedQuery = query.trim().toLowerCase();
-    if (!trimmedQuery || !text.startsWith(trimmedQuery)) {
+    if (!trimmedQuery || !text.toLowerCase().startsWith(trimmedQuery)) {
       return <span>{text}</span>;
     }
 
@@ -432,37 +490,6 @@ export function SearchField({
     );
   };
 
-  const handlePlaceKeyDown = (e: React.KeyboardEvent) => {
-    // Handle keyboard navigation for place suggestions
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      setPlaceSelectedIndex((prev) =>
-        prev < placeSuggestions.length - 1 ? prev + 1 : prev
-      );
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      setPlaceSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
-    } else if (e.key === 'Enter') {
-      e.preventDefault(); // Always prevent form submission from place input
-      if (placeSelectedIndex >= 0) {
-        // Select the highlighted suggestion
-        handleSelectPlace(placeSuggestions[placeSelectedIndex]);
-      } else {
-        // No suggestion selected - just move focus to keyword input
-        setIsPlaceInputFocused(false);
-        inputRef.current?.focus();
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      setShowPlaceSuggestions(false);
-      setIsPlaceInputFocused(false);
-      inputRef.current?.focus();
-    } else if (e.key === 'Tab' && !e.shiftKey) {
-      // Allow tab to move to keyword input
-      setIsPlaceInputFocused(false);
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Handle keyboard navigation for keyword suggestions
     if (e.key === 'ArrowDown') {
@@ -473,15 +500,6 @@ export function SearchField({
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
       setSelectedIndex((prev) => (prev > -1 ? prev - 1 : -1));
-    } else if (e.key === 'Tab' && e.shiftKey) {
-      // Back-tab: move focus to place input for accessibility
-      e.preventDefault();
-      setIsKeywordInputFocused(false);
-      setIsPlaceInputFocused(true);
-      setPlaceQuery('');
-      setTimeout(() => {
-        placeInputRef.current?.focus();
-      }, 0);
     } else if (e.key === 'Enter') {
       // Always handle Enter in keyword input: prevent native form submit (which can cause
       // full-page navigation to current URL and leave user on homepage). Either run
@@ -495,6 +513,10 @@ export function SearchField({
           });
         } else if (selectedItem.kind === 'suggestion') {
           runKeywordSearch(selectedItem.suggestion.text);
+        } else if (selectedItem.kind === 'place') {
+          handleSelectPlace(selectedItem.place);
+        } else if (selectedItem.kind === 'place_loading') {
+          return;
         } else {
           runKeywordSearch(query.trim(), { searchField: 'all_fields' });
         }
@@ -539,32 +561,73 @@ export function SearchField({
   const isAdvancedSearchOpen = searchParams.get('showAdvanced') === 'true';
   const hasGeoFilter =
     searchParams.get('include_filters[geo][type]') === 'bbox';
-  const placeDisplayValue = selectedPlace
+  const locationFilterLabel = selectedPlace
     ? selectedPlace.attributes.name || selectedPlace.attributes.display_name
     : hasGeoFilter
       ? 'Custom area'
-      : 'Add a place';
-  const canClearPlace = selectedPlace || hasGeoFilter;
+      : null;
+  const canClearPlace = selectedPlace !== null || hasGeoFilter;
   const activeSearchField = getActiveSearchField();
   const activeSearchFieldLabel =
     activeSearchField === 'dct_title_s'
       ? 'Title only'
-      : activeSearchField === 'dct_subject_sm'
-        ? 'Subject only'
+      : activeSearchField === 'dct_subject_sm,dcat_theme_sm'
+        ? 'Subject/Theme'
         : null;
 
   const trimmedQuery = query.trim();
+  const placeLoadingItems: KeywordSuggestionItem[] =
+    isLoadingPlaces && placeSuggestions.length === 0
+      ? [{ kind: 'place_loading', id: 'place-loading' }]
+      : [];
   const keywordMenuItems: KeywordSuggestionItem[] = trimmedQuery
     ? [
-        ...SCOPED_SEARCH_OPTIONS,
         ...suggestions.map((suggestion) => ({
           kind: 'suggestion' as const,
           id: `suggestion-${suggestion.text}`,
           suggestion,
         })),
+        ...SCOPED_SEARCH_OPTIONS,
+        ...placeLoadingItems,
+        ...placeSuggestions.map((place) => ({
+          kind: 'place' as const,
+          id: `place-${place.id}`,
+          place,
+        })),
         { kind: 'see_all' as const, id: 'see-all' },
       ]
     : [];
+
+  const getKeywordSuggestionGroup = (
+    item: KeywordSuggestionItem
+  ): KeywordSuggestionGroup => {
+    if (item.kind === 'scope') return 'scope';
+    if (item.kind === 'place' || item.kind === 'place_loading') return 'place';
+    if (item.kind === 'suggestion') return 'suggestion';
+    return 'see_all';
+  };
+
+  const getKeywordSuggestionHeading = (group: KeywordSuggestionGroup) => {
+    if (group === 'scope') return 'Search only in';
+    if (group === 'place') return 'Geographic Areas';
+    if (group === 'suggestion') return 'Suggestions';
+    return null;
+  };
+
+  const renderKeywordSuggestionHeading = (
+    heading: string,
+    group: KeywordSuggestionGroup,
+    className: string
+  ) => (
+    <div className={className}>
+      <span>{heading}</span>
+      {group === 'place' && (
+        <span className="ml-2 normal-case tracking-normal text-gray-400">
+          Via OpenStreetMap
+        </span>
+      )}
+    </div>
+  );
 
   return (
     <div className="relative">
@@ -575,155 +638,9 @@ export function SearchField({
         aria-label="Search"
       >
         <div className="flex w-full items-stretch rounded-lg border border-gray-300 bg-white shadow-sm">
-          <div className="relative min-w-0 w-[11.5rem] shrink-0 border-r border-gray-300 sm:w-[13.5rem] md:w-[15rem] xl:w-[16rem]">
-            {isPlaceInputFocused ? (
-              <div className="flex h-full items-center gap-2 rounded-l-lg px-3 py-2.5 ring-2 ring-blue-500 ring-inset">
-                <MapPin
-                  className="h-4 w-4 shrink-0 text-gray-400"
-                  aria-hidden="true"
-                />
-                <span className="shrink-0 text-sm font-medium text-gray-500">
-                  Location
-                </span>
-                <input
-                  id="search-field-place"
-                  ref={placeInputRef}
-                  type="text"
-                  value={placeQuery}
-                  onChange={(e) => {
-                    setPlaceQuery(e.target.value);
-                    setShowPlaceSuggestions(true);
-                    setPlaceSelectedIndex(-1);
-                  }}
-                  onFocus={() => {
-                    setIsPlaceInputFocused(true);
-                    setIsKeywordInputFocused(false);
-                    if (placeQuery.trim() || placeSuggestions.length > 0) {
-                      setShowPlaceSuggestions(true);
-                    }
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => {
-                      if (
-                        !placeSuggestionsRef.current?.contains(
-                          document.activeElement
-                        )
-                      ) {
-                        setIsPlaceInputFocused(false);
-                        setShowPlaceSuggestions(false);
-                        if (!placeQuery.trim() && !selectedPlace) {
-                          setPlaceQuery('');
-                        }
-                      }
-                    }, 200);
-                  }}
-                  onKeyDown={handlePlaceKeyDown}
-                  placeholder="Add a place"
-                  aria-label="Location: search for a place to limit your search"
-                  className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none"
-                />
-              </div>
-            ) : (
-              <div className="relative h-full">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsPlaceInputFocused(true);
-                    setPlaceQuery('');
-                    setShowPlaceSuggestions(false);
-                    setTimeout(() => placeInputRef.current?.focus(), 0);
-                  }}
-                  onFocus={() => {
-                    setIsPlaceInputFocused(true);
-                    setPlaceQuery('');
-                    setShowPlaceSuggestions(false);
-                    setTimeout(() => placeInputRef.current?.focus(), 0);
-                  }}
-                  className="flex h-full w-full items-center gap-2 rounded-l-lg px-3 py-2.5 text-left hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-inset"
-                  aria-label={`Place (location filter): ${placeDisplayValue}. Click to search by location.`}
-                  title={`Location: ${placeDisplayValue}. Click to limit search to a location.`}
-                >
-                  <MapPin
-                    className="h-4 w-4 shrink-0 text-gray-400"
-                    aria-hidden="true"
-                  />
-                  <span className="shrink-0 text-sm font-medium text-gray-500">
-                    Location
-                  </span>
-                  <span
-                    className={`min-w-0 flex-1 truncate text-sm ${
-                      canClearPlace
-                        ? 'font-medium text-gray-900'
-                        : 'text-gray-400'
-                    }`}
-                  >
-                    {placeDisplayValue}
-                  </span>
-                  {!canClearPlace && (
-                    <ChevronDown
-                      className="h-4 w-4 shrink-0 text-gray-400"
-                      aria-hidden="true"
-                    />
-                  )}
-                </button>
-                {canClearPlace && (
-                  <button
-                    type="button"
-                    onClick={handleClearPlace}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    aria-label="Clear location"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {showPlaceSuggestions &&
-              (placeSuggestions.length > 0 || isLoadingPlaces) &&
-              isPlaceInputFocused && (
-                <div
-                  ref={placeSuggestionsRef}
-                  className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-20 max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-                >
-                  {isLoadingPlaces ? (
-                    <div className="px-4 py-2 text-sm text-gray-500">
-                      Searching...
-                    </div>
-                  ) : placeSuggestions.length === 0 ? (
-                    <div className="px-4 py-2 text-sm text-gray-500">
-                      No places found
-                    </div>
-                  ) : (
-                    placeSuggestions.map((place, index) => (
-                      <button
-                        key={place.id}
-                        type="button"
-                        className={`w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
-                          index === placeSelectedIndex ? 'bg-gray-50' : ''
-                        }`}
-                        onClick={() => handleSelectPlace(place)}
-                        onMouseEnter={() => setPlaceSelectedIndex(index)}
-                      >
-                        <div className="text-sm font-medium text-gray-900">
-                          {place.attributes.name}{' '}
-                          {place.attributes.placetype &&
-                            `(${place.attributes.placetype})`}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {place.attributes.display_name ||
-                            place.attributes.name}
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
-              )}
-          </div>
-
           <div className="relative min-w-0 flex-1">
             <div
-              className={`flex h-full items-center gap-2 px-3 py-2.5 ${
+              className={`flex h-full items-center gap-2 rounded-l-lg px-3 py-2.5 ${
                 isKeywordInputFocused ? 'ring-2 ring-blue-500 ring-inset' : ''
               }`}
             >
@@ -731,9 +648,6 @@ export function SearchField({
                 className="h-4 w-4 shrink-0 text-gray-400"
                 aria-hidden="true"
               />
-              <span className="hidden shrink-0 text-sm font-medium text-gray-500 sm:inline">
-                Keywords
-              </span>
               <input
                 ref={inputRef}
                 type="search"
@@ -744,9 +658,12 @@ export function SearchField({
                   setSelectedIndex(-1);
                 }}
                 onFocus={() => {
-                  setIsPlaceInputFocused(false);
                   setIsKeywordInputFocused(true);
-                  if (query.trim() || suggestions.length > 0) {
+                  if (
+                    query.trim() ||
+                    suggestions.length > 0 ||
+                    placeSuggestions.length > 0
+                  ) {
                     setShowSuggestions(true);
                   }
                 }}
@@ -768,107 +685,205 @@ export function SearchField({
                 className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none"
               />
               {activeSearchFieldLabel && (
-                <span className="hidden shrink-0 text-xs text-gray-500 lg:inline">
+                <button
+                  type="button"
+                  onClick={handleClearSearchField}
+                  className="hidden shrink-0 items-center gap-1 px-1 text-xs font-medium text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 lg:inline-flex"
+                  aria-label={`Clear fielded search: ${activeSearchFieldLabel}`}
+                  title={`Clear fielded search: ${activeSearchFieldLabel}`}
+                >
+                  <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                   {activeSearchFieldLabel}
-                </span>
+                </button>
+              )}
+              {canClearPlace && locationFilterLabel && (
+                <button
+                  type="button"
+                  onClick={handleClearPlace}
+                  className="inline-flex max-w-[10rem] shrink-0 items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label={`Clear location filter: ${locationFilterLabel}`}
+                  title={`Location filter: ${locationFilterLabel}`}
+                >
+                  <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                  <span className="hidden truncate sm:inline">
+                    {locationFilterLabel}
+                  </span>
+                  <X className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                </button>
               )}
             </div>
 
-            {showSuggestions &&
-              keywordMenuItems.length > 0 &&
-              !isPlaceInputFocused && (
-                <div
-                  ref={suggestionsRef}
-                  className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-10 max-h-96 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
-                >
-                  <div className="py-1">
-                    {keywordMenuItems.map((item, index) => {
-                      const isSelected = index === selectedIndex;
-                      const baseClass = `w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
-                        isSelected ? 'bg-gray-50' : ''
-                      }`;
+            {showSuggestions && keywordMenuItems.length > 0 && (
+              <div
+                ref={suggestionsRef}
+                className="absolute left-0 right-0 top-[calc(100%+0.25rem)] z-10 max-h-96 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"
+              >
+                <div className="py-1">
+                  {keywordMenuItems.map((item, index) => {
+                    const isSelected = index === selectedIndex;
+                    const group = getKeywordSuggestionGroup(item);
+                    const previousGroup =
+                      index > 0
+                        ? getKeywordSuggestionGroup(keywordMenuItems[index - 1])
+                        : null;
+                    const heading =
+                      group !== previousGroup
+                        ? getKeywordSuggestionHeading(group)
+                        : null;
+                    const baseClass = `w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
+                      isSelected ? 'bg-gray-50' : ''
+                    }`;
 
-                      if (item.kind === 'scope') {
-                        return (
-                          <div key={item.id}>
-                            {index === 0 && (
-                              <div className="px-4 pb-1 pt-1 text-xs font-medium uppercase tracking-wide text-gray-500">
-                                Search only in
-                              </div>
-                            )}
-                            <button
-                              type="button"
-                              className={baseClass}
-                              onClick={() =>
-                                runKeywordSearch(trimmedQuery, {
-                                  searchField: item.searchField,
-                                })
-                              }
-                              onMouseEnter={() => setSelectedIndex(index)}
-                            >
-                              <div className="text-sm text-gray-700">
-                                <span>{trimmedQuery}</span>{' '}
-                                <span className="text-gray-500">in</span>{' '}
-                                <span className="font-medium text-gray-900">
-                                  {item.label}
-                                </span>
-                              </div>
-                            </button>
-                          </div>
-                        );
-                      }
-
-                      if (item.kind === 'see_all') {
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className={`${baseClass} mt-1 border-t border-gray-200 pt-3`}
-                            onClick={() =>
-                              runKeywordSearch(trimmedQuery, {
-                                searchField: 'all_fields',
-                              })
-                            }
-                            onMouseEnter={() => setSelectedIndex(index)}
-                          >
-                            <div className="text-sm font-medium text-gray-800">
-                              See all results for{' '}
-                              <span className="text-blue-700 underline underline-offset-2">
-                                {trimmedQuery}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      }
-
+                    if (item.kind === 'scope') {
                       return (
                         <div key={item.id}>
-                          {index === SCOPED_SEARCH_OPTIONS.length && (
-                            <div className="px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-500">
-                              Suggestions
+                          {heading && (
+                            <div
+                              className={`px-4 pb-1 text-xs font-medium uppercase tracking-wide text-gray-500 ${
+                                index === 0 ? 'pt-1' : 'pt-3'
+                              }`}
+                            >
+                              {heading}
                             </div>
                           )}
                           <button
                             type="button"
                             className={baseClass}
+                            onMouseDown={keepSuggestionClickActive}
                             onClick={() =>
-                              runKeywordSearch(item.suggestion.text)
+                              runKeywordSearch(trimmedQuery, {
+                                searchField: item.searchField,
+                              })
                             }
                             onMouseEnter={() => setSelectedIndex(index)}
                           >
-                            <div className="text-sm text-gray-900">
-                              {renderSuggestionText(item.suggestion.text)}
+                            <div className="text-sm text-gray-700">
+                              <span>{trimmedQuery}</span>{' '}
+                              <span className="text-gray-500">in</span>{' '}
+                              <span className="font-medium text-gray-900">
+                                {item.label}
+                              </span>
                             </div>
                           </button>
                         </div>
                       );
-                    })}
-                  </div>
+                    }
+
+                    if (item.kind === 'place_loading') {
+                      return (
+                        <div key={item.id}>
+                          {heading &&
+                            renderKeywordSuggestionHeading(
+                              heading,
+                              group,
+                              'px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-500'
+                            )}
+                          <div className="px-4 py-2 text-sm text-gray-500">
+                            Searching places...
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    if (item.kind === 'place') {
+                      const attrs = item.place.attributes;
+                      const placeName = attrs.name || attrs.display_name;
+                      const placeTypeLabel = formatPlaceTypeLabel(
+                        attrs.placetype
+                      );
+
+                      return (
+                        <div key={item.id}>
+                          {heading &&
+                            renderKeywordSuggestionHeading(
+                              heading,
+                              group,
+                              'px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-500'
+                            )}
+                          <button
+                            type="button"
+                            className={baseClass}
+                            onMouseDown={keepSuggestionClickActive}
+                            onClick={() => handleSelectPlace(item.place)}
+                            onMouseEnter={() => setSelectedIndex(index)}
+                          >
+                            <div className="flex items-start gap-2">
+                              <MapPin
+                                className="mt-0.5 h-4 w-4 shrink-0 text-gray-400"
+                                aria-hidden="true"
+                              />
+                              <div className="min-w-0">
+                                <div className="text-sm text-gray-900">
+                                  <span className="font-medium">
+                                    {placeName}
+                                  </span>{' '}
+                                  {placeTypeLabel && (
+                                    <span className="text-gray-500">
+                                      ({placeTypeLabel})
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="truncate text-xs text-gray-500">
+                                  {attrs.display_name || placeName}
+                                </div>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      );
+                    }
+
+                    if (item.kind === 'see_all') {
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`${baseClass} mt-1 border-t border-gray-200 pt-3`}
+                          onMouseDown={keepSuggestionClickActive}
+                          onClick={() =>
+                            runKeywordSearch(trimmedQuery, {
+                              searchField: 'all_fields',
+                            })
+                          }
+                          onMouseEnter={() => setSelectedIndex(index)}
+                        >
+                          <div className="text-sm font-medium text-gray-800">
+                            See all results for{' '}
+                            <span className="text-blue-700 underline underline-offset-2">
+                              {trimmedQuery}
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div key={item.id}>
+                        {heading && (
+                          <div className="px-4 pb-1 pt-3 text-xs font-medium uppercase tracking-wide text-gray-500">
+                            {heading}
+                          </div>
+                        )}
+                        <button
+                          type="button"
+                          className={baseClass}
+                          onMouseDown={keepSuggestionClickActive}
+                          onClick={() => runKeywordSearch(item.suggestion.text)}
+                          onMouseEnter={() => setSelectedIndex(index)}
+                        >
+                          <div className="text-sm text-gray-900">
+                            {renderSuggestionText(item.suggestion.text)}
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
+            )}
           </div>
 
-          <div className="flex shrink-0 items-center border-l border-gray-300 px-1">
+          <div className="flex shrink-0 items-center p-1">
             <div className="inline-flex overflow-hidden rounded-md bg-brand text-white">
               <button
                 type="submit"
