@@ -126,6 +126,11 @@ describe('NoResultsSearchHelp', () => {
       'href',
       expect.stringContaining('include_filters%5Bgeo%5D%5Btype%5D=bbox')
     );
+    expect(placeLink).toHaveAttribute('href', expect.stringContaining('q='));
+    expect(placeLink).toHaveAttribute(
+      'href',
+      expect.not.stringContaining('search_field')
+    );
     expect(placeLink).toHaveAttribute(
       'href',
       expect.stringContaining(

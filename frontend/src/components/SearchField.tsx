@@ -303,12 +303,9 @@ export function SearchField({
     // Create bbox from min/max lat/lng
     const newParams = new URLSearchParams(searchParams);
 
-    const submittedQuery = query.trim();
-    newParams.set('q', submittedQuery);
-    setQuery(submittedQuery);
-    if (!submittedQuery) {
-      newParams.delete('search_field');
-    }
+    newParams.set('q', '');
+    newParams.delete('search_field');
+    setQuery('');
 
     // Remove existing geo filters
     Array.from(newParams.keys())

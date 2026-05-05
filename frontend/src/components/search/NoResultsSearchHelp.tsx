@@ -92,13 +92,12 @@ function buildKeywordSearchHref(
 
 function buildPlaceSearchHref(
   currentParams: URLSearchParams,
-  query: string,
   place: GazetteerPlace
 ) {
   const attrs = place.attributes;
   const params = buildBaseSearchParams(currentParams);
 
-  params.set('q', query);
+  params.set('q', '');
   params.set('include_filters[geo][type]', 'bbox');
   params.set('include_filters[geo][field]', 'dcat_bbox');
   params.set('include_filters[geo][relation]', 'intersects');
@@ -357,11 +356,7 @@ export function NoResultsSearchHelp({
                   return (
                     <Link
                       key={place.id}
-                      to={buildPlaceSearchHref(
-                        searchParams,
-                        trimmedQuery,
-                        place
-                      )}
+                      to={buildPlaceSearchHref(searchParams, place)}
                       className="flex items-start gap-2 px-4 py-2 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
                     >
                       <MapPin

@@ -52,7 +52,7 @@ describe('SearchField', () => {
     });
   });
 
-  it('defaults header place bbox searches to overlap', async () => {
+  it('applies only a bbox filter when selecting a place suggestion', async () => {
     fetchNominatimSearchMock.mockResolvedValue({
       data: [
         {
@@ -131,11 +131,11 @@ describe('SearchField', () => {
       expect(params.get('include_filters[geo][type]')).toBe('bbox');
       expect(params.get('include_filters[geo][field]')).toBe('dcat_bbox');
       expect(params.get('include_filters[geo][relation]')).toBe('intersects');
-      expect(params.get('q')).toBe('Illinois');
+      expect(params.get('q')).toBe('');
     });
   });
 
-  it('submits the typed query when selecting a place suggestion from existing results', async () => {
+  it('clears keyword and fielded search when selecting a place suggestion from existing results', async () => {
     const user = userEvent.setup();
     fetchNominatimSearchMock.mockResolvedValue({
       data: [
@@ -175,6 +175,7 @@ describe('SearchField', () => {
 
     const currentResultsUrl =
       '/search?q=New+york&view=gallery&per_page=20' +
+      '&search_field=dct_subject_sm%2Cdcat_theme_sm' +
       '&include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Maps' +
       '&include_filters%5Bgeo%5D%5Btype%5D=bbox' +
       '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
@@ -224,7 +225,8 @@ describe('SearchField', () => {
       const params = new URLSearchParams(
         probe.getAttribute('data-search') ?? ''
       );
-      expect(params.get('q')).toBe('Milwaukee');
+      expect(params.get('q')).toBe('');
+      expect(params.get('search_field')).toBeNull();
       expect(params.get('page')).toBeNull();
       expect(params.get('view')).toBe('gallery');
       expect(params.get('per_page')).toBe('20');
