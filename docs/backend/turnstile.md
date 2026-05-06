@@ -22,9 +22,12 @@ By default the protected backend paths are:
 
 API-key requests bypass the Turnstile middleware unless they are explicitly
 marked as frontend gate traffic. The single-host nginx `/search/results` BFF
-route and the React Router `/search/results` loader both add that marker, so
-frontend search traffic is still protected even though it uses the server-side
-API key.
+route and the React Router `/search/results` loader add that marker for normal
+browser traffic, so frontend search traffic is still protected even though it
+uses the server-side API key. When a caller supplies its own `X-API-Key`, the
+BFF path treats the request as API-client traffic instead: it forwards that key
+and does not add the frontend gate marker. This keeps k6 and other keyed clients
+testable without opening the browser path to anonymous traffic.
 
 ## Configuration
 

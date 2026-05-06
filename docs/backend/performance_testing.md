@@ -94,6 +94,15 @@ make k6-stress K6_RESOURCE_ID=p16022coll206:283
 If `K6_RESOURCE_ID` is not provided, the suite discovers one from the first
 search result for `K6_QUERY`.
 
+For varied-query stress runs, pass a comma- or pipe-separated query pool. The
+seed search still uses `K6_QUERY` to discover a stable resource id and facet
+values, while each frontend/API iteration rotates the actual search and suggest
+terms through `K6_QUERY_POOL`:
+
+```bash
+make k6-stress K6_QUERY_POOL="minnesota|chicago|water|roads|imagery"
+```
+
 ### Tune frontend and API pressure separately
 
 ```bash
@@ -108,12 +117,17 @@ Available knobs:
 - `K6_FRONTEND_HOLD`
 - `K6_FRONTEND_RAMP_DOWN`
 - `K6_FRONTEND_THINK_TIME_SECONDS`
+- `K6_FRONTEND_P95_THRESHOLD_MS`
+- `K6_FRONTEND_P99_THRESHOLD_MS`
 - `K6_API_TARGET_VUS`
 - `K6_API_RAMP_UP`
 - `K6_API_HOLD`
 - `K6_API_RAMP_DOWN`
 - `K6_API_THINK_TIME_SECONDS`
+- `K6_API_P95_THRESHOLD_MS`
+- `K6_API_P99_THRESHOLD_MS`
 - `K6_QUERY`
+- `K6_QUERY_POOL`
 - `K6_SUGGEST_QUERY`
 - `K6_RESOURCE_ID`
 - `K6_API_KEY`
@@ -122,6 +136,41 @@ Available knobs:
 - `K6_CACHE_BUST_SEED`
 - `K6_ENDPOINT_BREAKDOWN`
 - `K6_SEARCH_DIAGNOSTICS`
+
+### Test one endpoint at a fixed request rate
+
+Use `make k6-endpoint-capacity` when you need a defensible endpoint p95 at a
+known request rate instead of a blended scenario p95 from VU-based stress. The
+target endpoint is exercised with k6's `constant-arrival-rate` executor, so
+`K6_REQUEST_RATE=50` means k6 tries to start 50 iterations per second for that
+single endpoint:
+
+```bash
+make k6-endpoint-capacity \
+  K6_ENDPOINT_TARGET=frontend_search_results_api \
+  K6_REQUEST_RATE=50 \
+  K6_ENDPOINT_DURATION=3m \
+  K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu \
+  K6_API_KEY=...
+```
+
+Supported `K6_ENDPOINT_TARGET` values:
+
+- `frontend_search_results_api`
+- `frontend_faceted_search_results_api`
+- `frontend_resource_page`
+- `api_search`
+- `api_faceted_search`
+
+Useful fixed-rate knobs:
+
+- `K6_REQUEST_RATE`
+- `K6_RATE_TIME_UNIT`
+- `K6_ENDPOINT_DURATION`
+- `K6_PRE_ALLOCATED_VUS`
+- `K6_MAX_VUS`
+- `K6_ENDPOINT_P95_THRESHOLD_MS`
+- `K6_ENDPOINT_P99_THRESHOLD_MS`
 
 ### Force search miss-path traffic
 
@@ -149,6 +198,24 @@ set -a
 set +a
 make k6-stress K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu
 ```
+
+`dev2` is the rate-limiting capacity proving ground. It keeps rate limiting
+enabled and caps per-worker database pools so k6 can exercise the production
+API-key path without using production traffic:
+
+```bash
+make k6-stress K6_BASE_URL=https://lib-geoportal-dev-web-01.oit.umn.edu K6_API_KEY=...
+```
+
+The relevant server-side knobs are:
+
+- `API_KEY_TIER_CACHE_TTL_SECONDS`: short process-local cache for successful
+  API-key/tier lookups.
+- `API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS`: minimum interval between
+  `api_keys.last_used_at` writes per key/process.
+- `DB_POOL_MAX`: cap for the shared `databases` pool in each API worker.
+- `SQLALCHEMY_ASYNC_POOL_SIZE` and `SQLALCHEMY_ASYNC_MAX_OVERFLOW`: caps for
+  SQLAlchemy async engine pools used by search/resource/cache helpers.
 
 This appends an ignored `k6cb=...` query param to:
 
@@ -207,7 +274,10 @@ search payload. In Kamal single-host deployments, nginx handles the exact
 `/search/results` JSON route directly: it injects the server-side API key and
 proxies to the internal FastAPI pool. That keeps the browser/API-key contract
 intact while avoiding the React Router worker queue for facet-heavy result
-payloads.
+payloads. For keyed k6 runs, `/search/results` preserves the caller's
+`X-API-Key` and does not add the frontend Turnstile gate markers, so mixed tests
+can exercise the frontend JSON route without needing a Cloudflare browser
+challenge session.
 
 ## Mixed-load worker isolation
 
@@ -234,6 +304,20 @@ smaller `3 / 4 / 3` web-worker profile with `web cpus: 5` unless a test run
 explicitly changes those destination overrides. The next validation step after
 changing these values is to rerun the mixed `18 API VUs + 6 frontend VUs`
 profile and compare API p95 against the API-only baseline.
+
+The production Postgres accessory currently has `max_connections=100`, so each
+Kamal destination must keep per-process DB pools bounded. Production uses:
+
+- `DB_POOL_MAX=2` for the shared `databases` async pool.
+- `SQLALCHEMY_ASYNC_POOL_SIZE=1` and `SQLALCHEMY_ASYNC_MAX_OVERFLOW=0` for
+  SQLAlchemy async engines.
+- `SQLALCHEMY_SYNC_POOL_SIZE=1` and `SQLALCHEMY_SYNC_MAX_OVERFLOW=0` for sync
+  SQLAlchemy engines used by request-path thumbnail/visual-asset helpers.
+
+These caps intentionally trade some request queueing inside each app process
+for a hard ceiling on database connections. If p95 rises under load, increase
+Postgres `max_connections` or add a pooler before raising these per-process
+pool values.
 
 If the API pool remains healthy but frontend resource page tails stay high,
 check the SSR layer next. `WEB_SSR_WORKERS` controls how many local

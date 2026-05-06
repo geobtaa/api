@@ -4,9 +4,10 @@ from typing import Optional
 
 from dotenv import load_dotenv
 from fastapi import APIRouter
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 
 # Load environment variables from .env file
@@ -18,15 +19,8 @@ router = APIRouter()
 # Logger
 logger = logging.getLogger(__name__)
 
-# Create async engine and session with connection pool settings
-engine = create_async_engine(
-    DATABASE_URL,
-    pool_size=5,
-    max_overflow=10,
-    pool_timeout=30,
-    pool_recycle=1800,  # Recycle connections after 30 minutes
-    pool_pre_ping=True,  # Verify connections before using them
-)
+# Create async engine and session with env-controlled connection pool settings
+engine = create_app_async_engine(DATABASE_URL)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

@@ -1,33 +1,135 @@
 import hashlib
 import logging
 import os
+import time
 import uuid
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 from db.models import api_keys, api_service_tiers
 
 logger = logging.getLogger(__name__)
 API_KEY_HASH_ITERATIONS = 600_000
 DEFAULT_API_KEY_HASH_SECRET = "btaa-api-key-hash-v2"
+API_KEY_TIER_CACHE_TTL_SECONDS = float(os.getenv("API_KEY_TIER_CACHE_TTL_SECONDS", "60"))
+API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS = float(
+    os.getenv("API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS", "60")
+)
+API_KEY_TIER_CACHE_MAX_ENTRIES = int(os.getenv("API_KEY_TIER_CACHE_MAX_ENTRIES", "2048"))
+
+_tier_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
+_anonymous_tier_cache: tuple[float, Dict[str, Any]] | None = None
+_last_used_updates: dict[int, float] = {}
 
 # Dedicated async engine/session for API key operations.
-# Use NullPool to avoid sharing connections across event loops
-# (e.g., TestClient threads/xdist workers), which can otherwise trigger
-# "Future attached to a different loop" errors.
-
-engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
+engine = create_app_async_engine(DATABASE_URL)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 class APIKeyService:
     """Service to handle API key operations (keys + tiers)."""
+
+    @staticmethod
+    def clear_cache() -> None:
+        """Clear process-local tier caches.
+
+        Other worker processes naturally refresh when their short TTLs expire.
+        """
+        global _anonymous_tier_cache
+        _tier_cache.clear()
+        _last_used_updates.clear()
+        _anonymous_tier_cache = None
+
+    @staticmethod
+    def _cache_lookup_key(key: str) -> str:
+        """Build a non-secret cache key without running the expensive PBKDF2 hash."""
+        return APIKeyService.legacy_hash_api_key(key)
+
+    @staticmethod
+    def _request_ip_allowed(allowed_ips: Any, request_ip: Optional[str]) -> bool:
+        if allowed_ips and request_ip:
+            if isinstance(allowed_ips, list):
+                if request_ip not in allowed_ips:
+                    logger.warning(
+                        "API key rejected because the request IP is not in the configured whitelist"
+                    )
+                    return False
+            else:
+                logger.warning("API key has an invalid allowed_ips format")
+        return True
+
+    @staticmethod
+    def _get_cached_tier(cache_key: str, request_ip: Optional[str]) -> Optional[Dict[str, Any]]:
+        if API_KEY_TIER_CACHE_TTL_SECONDS <= 0:
+            return None
+        cached = _tier_cache.get(cache_key)
+        if cached is None:
+            return None
+
+        expires_at, tier_info = cached
+        if expires_at <= time.monotonic():
+            _tier_cache.pop(cache_key, None)
+            return None
+        if not APIKeyService._request_ip_allowed(tier_info.get("allowed_ips"), request_ip):
+            return None
+        return dict(tier_info)
+
+    @staticmethod
+    def _set_cached_tier(cache_key: str, tier_info: Dict[str, Any]) -> None:
+        if API_KEY_TIER_CACHE_TTL_SECONDS <= 0:
+            return
+
+        now = time.monotonic()
+        for key, (expires_at, _) in list(_tier_cache.items()):
+            if expires_at <= now:
+                _tier_cache.pop(key, None)
+
+        max_entries = max(API_KEY_TIER_CACHE_MAX_ENTRIES, 1)
+        while len(_tier_cache) >= max_entries:
+            oldest_key = next(iter(_tier_cache))
+            _tier_cache.pop(oldest_key, None)
+
+        _tier_cache[cache_key] = (now + API_KEY_TIER_CACHE_TTL_SECONDS, dict(tier_info))
+
+    @staticmethod
+    def _get_cached_anonymous_tier() -> Optional[Dict[str, Any]]:
+        if API_KEY_TIER_CACHE_TTL_SECONDS <= 0 or _anonymous_tier_cache is None:
+            return None
+
+        expires_at, tier_info = _anonymous_tier_cache
+        if expires_at <= time.monotonic():
+            APIKeyService.clear_cache()
+            return None
+        return dict(tier_info)
+
+    @staticmethod
+    def _set_cached_anonymous_tier(tier_info: Dict[str, Any]) -> None:
+        global _anonymous_tier_cache
+        if API_KEY_TIER_CACHE_TTL_SECONDS <= 0:
+            return
+        _anonymous_tier_cache = (
+            time.monotonic() + API_KEY_TIER_CACHE_TTL_SECONDS,
+            dict(tier_info),
+        )
+
+    @staticmethod
+    def _last_used_update_due(api_key_id: int) -> bool:
+        if API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS <= 0:
+            return True
+
+        now = time.monotonic()
+        last_update = _last_used_updates.get(api_key_id)
+        return last_update is None or now - last_update >= API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS
+
+    @staticmethod
+    def _remember_last_used_update(api_key_id: int) -> None:
+        _last_used_updates[api_key_id] = time.monotonic()
 
     @staticmethod
     def generate_api_key() -> str:
@@ -68,6 +170,11 @@ class APIKeyService:
             A dict with tier info if valid, None otherwise.
             Returns None if key is invalid, inactive, or if IP restriction fails.
         """
+        cache_key = self._cache_lookup_key(key)
+        cached_tier = self._get_cached_tier(cache_key, request_ip)
+        if cached_tier is not None:
+            return cached_tier
+
         key_hash = self.hash_api_key(key)
         legacy_key_hash = self.legacy_hash_api_key(key)
         candidate_hashes = [key_hash]
@@ -94,18 +201,8 @@ class APIKeyService:
                 stored_key_hash = m[api_keys.c.key_hash]
 
                 # Check IP whitelist if configured
-                if allowed_ips and request_ip:
-                    # allowed_ips is a JSON array of IP strings
-                    if isinstance(allowed_ips, list):
-                        if request_ip not in allowed_ips:
-                            logger.warning(
-                                "API key rejected because the request IP is not in the "
-                                "configured whitelist"
-                            )
-                            return None
-                    else:
-                        # Handle case where it might be stored as a different format
-                        logger.warning("API key has an invalid allowed_ips format")
+                if not self._request_ip_allowed(allowed_ips, request_ip):
+                    return None
 
                 tier_info = {
                     "tier_id": m[api_service_tiers.c.id],
@@ -114,17 +211,23 @@ class APIKeyService:
                     "requests_per_minute": m[api_service_tiers.c.requests_per_minute],
                     "api_key_id": api_key_id,
                     "key_hash": key_hash,
+                    "allowed_ips": allowed_ips,
                 }
 
                 update_values = {"last_used_at": datetime.utcnow()}
                 if stored_key_hash == legacy_key_hash and stored_key_hash != key_hash:
                     update_values["key_hash"] = key_hash
+                elif not self._last_used_update_due(api_key_id):
+                    update_values = {}
 
-                await session.execute(
-                    api_keys.update().where(api_keys.c.id == api_key_id).values(**update_values)
-                )
-                await session.commit()
+                if update_values:
+                    await session.execute(
+                        api_keys.update().where(api_keys.c.id == api_key_id).values(**update_values)
+                    )
+                    await session.commit()
+                    self._remember_last_used_update(api_key_id)
 
+                self._set_cached_tier(cache_key, tier_info)
                 return tier_info
 
             except Exception as e:
@@ -223,6 +326,7 @@ class APIKeyService:
                 await session.commit()
 
                 logger.info(f"Created API key with ID {key_id} for tier {tier_name}")
+                self.clear_cache()
 
                 return {
                     "api_key": api_key,  # Only shown once!
@@ -248,6 +352,7 @@ class APIKeyService:
                 result = await session.execute(stmt)
                 await session.commit()
 
+                self.clear_cache()
                 return result.rowcount > 0
 
             except Exception as e:
@@ -278,6 +383,10 @@ class APIKeyService:
 
         Returns a dict with tier info if found, None otherwise.
         """
+        cached_tier = self._get_cached_anonymous_tier()
+        if cached_tier is not None:
+            return cached_tier
+
         async with async_session() as session:
             try:
                 stmt = select(
@@ -292,12 +401,14 @@ class APIKeyService:
                 if row is None:
                     return None
 
-                return {
+                tier_info = {
                     "tier_id": row[0],
                     "tier_name": row[1],
                     "display_name": row[2],
                     "requests_per_minute": row[3],
                 }
+                self._set_cached_anonymous_tier(tier_info)
+                return tier_info
 
             except Exception as e:
                 logger.error(f"Error getting anonymous tier: {e}", exc_info=True)
@@ -425,6 +536,7 @@ class APIKeyService:
                 )
                 await session.execute(update_stmt)
                 await session.commit()
+                self.clear_cache()
                 return True
             except Exception as e:
                 logger.error(f"Error updating API key id={key_id}: {e}", exc_info=True)

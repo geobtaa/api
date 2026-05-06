@@ -104,11 +104,14 @@ React Router SSR/BFF traffic is also horizontally fanned out behind an nginx
 `react-router-serve` processes are started on ports `3000+`; nginx uses
 `least_conn` to distribute `/`, resource pages, and other frontend HTML routes
 across them. The exact `/search/results` JSON route is handled by nginx instead:
-the startup script writes an uncommitted `/etc/nginx/frontend-api-key.conf`
+the startup script writes an uncommitted `/etc/nginx/frontend-api-key-map.conf`
 include from `BTAA_GEOSPATIAL_API_KEY`, and nginx proxies directly to
 `127.0.0.1:8002/api/v1/search`. This preserves server-side API key injection
 and API-key throttling while keeping facet-heavy search data traffic out of the
-Node worker queue.
+Node worker queue. If a caller supplies its own `X-API-Key` to
+`/search/results`, nginx forwards that key and omits the frontend Turnstile gate
+markers so keyed k6/API-client traffic can be measured separately from normal
+browser traffic.
 
 The health check path is:
 
@@ -326,7 +329,7 @@ The base config in `config/deploy.yml` is shared across all destinations. The de
 Current differences:
 
 - `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=4`, and `WEB_SSR_WORKERS=3`
-- `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`
+- `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`, with `RATE_LIMIT_ENABLED=true` and bounded DB pool settings for production-like k6 capacity tests
 - `prd`: host `lib-geoportal-prd-web-01.oit.umn.edu`, 12-vCPU production performance profile with `web cpus: 8`, `worker cpus: 1.75`, `WEB_UVICORN_WORKERS=4`, `WEB_INTERNAL_UVICORN_WORKERS=6`, and `WEB_SSR_WORKERS=4`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 
 If a new destination needs a persistent behavior difference, put only that override in `config/deploy.<dest>.yml` and keep the shared behavior in `config/deploy.yml`.

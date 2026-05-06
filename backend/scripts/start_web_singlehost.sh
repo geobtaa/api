@@ -43,15 +43,42 @@ echo "[start_web_singlehost] configuring nginx SSR upstream for ${WEB_SSR_WORKER
   echo "}"
 } > /etc/nginx/ssr-upstream.conf
 
-echo "[start_web_singlehost] configuring nginx frontend API key include"
+echo "[start_web_singlehost] configuring nginx frontend API key map"
 if [ -n "${BTAA_GEOSPATIAL_API_KEY:-}" ]; then
   ESCAPED_API_KEY="$(printf '%s' "${BTAA_GEOSPATIAL_API_KEY}" | sed 's/[$\\"]/\\&/g')"
-  printf 'proxy_set_header X-API-Key "%s";\n' "${ESCAPED_API_KEY}" > /etc/nginx/frontend-api-key.conf
+  {
+    echo "map \$http_x_api_key \$btaa_search_results_api_key {"
+    echo "    default \$http_x_api_key;"
+    printf '    "" "%s";\n' "${ESCAPED_API_KEY}"
+    echo "}"
+    echo
+    echo "map \$http_x_api_key \$btaa_search_results_turnstile_gate {"
+    echo '    default "";'
+    echo '    "" "frontend-search";'
+    echo "}"
+    echo
+    echo "map \$http_x_api_key \$btaa_search_results_client_channel {"
+    echo '    default "";'
+    echo '    "" "browser";'
+    echo "}"
+  } > /etc/nginx/frontend-api-key-map.conf
 else
   {
-    echo "# BTAA_GEOSPATIAL_API_KEY is not set."
-    echo "# Frontend BFF proxy requests will be forwarded without X-API-Key."
-  } > /etc/nginx/frontend-api-key.conf
+    echo "map \$http_x_api_key \$btaa_search_results_api_key {"
+    echo "    default \$http_x_api_key;"
+    echo '    "" "";'
+    echo "}"
+    echo
+    echo "map \$http_x_api_key \$btaa_search_results_turnstile_gate {"
+    echo '    default "";'
+    echo '    "" "frontend-search";'
+    echo "}"
+    echo
+    echo "map \$http_x_api_key \$btaa_search_results_client_channel {"
+    echo '    default "";'
+    echo '    "" "browser";'
+    echo "}"
+  } > /etc/nginx/frontend-api-key-map.conf
 fi
 
 echo "[start_web_singlehost] starting ${WEB_SSR_WORKERS} SSR worker(s) (react-router-serve)"

@@ -130,9 +130,119 @@ function withSearchCacheBust(url, label) {
   return `${url}${separator}k6cb=${token}`;
 }
 
+function activeQuery() {
+  const queries =
+    config.queryPool.length > 0 ? config.queryPool : [config.query];
+  const vuId = exec.vu.idInTest || 0;
+  const iteration = exec.scenario.iterationInTest || 0;
+
+  return queries[(vuId + iteration) % queries.length];
+}
+
+function suggestQueryFor(query) {
+  return config.suggestQuery || query.slice(0, 4) || "minn";
+}
+
 function buildFrontendSearchResultsUrl(encodedQuery, facetQueryString = "") {
   const filters = facetQueryString ? `&${facetQueryString}` : "";
   return `${config.baseUrl}/search/results?format=json&search_field=all_fields&q=${encodedQuery}&page=1&per_page=${config.searchPerPage}${filters}`;
+}
+
+export function requestFrontendSearchResultsApi(seed) {
+  const encodedQuery = encodeURIComponent(activeQuery());
+  const searchResultsResponse = http.get(
+    withSearchCacheBust(
+      buildFrontendSearchResultsUrl(encodedQuery),
+      "frontend-search-results-api",
+    ),
+    {
+      headers: JSON_HEADERS,
+      tags: { name: "frontend_search_results_api", surface: "frontend" },
+    },
+  );
+  recordSearchDiagnostics(searchResultsResponse, "frontend_search_results_api");
+  checkJson(searchResultsResponse, "frontend search results api");
+}
+
+export function requestFrontendFacetedSearchResultsApi(seed) {
+  const facetQueryString = buildFacetQueryString(seed);
+  if (!facetQueryString) {
+    fail("Unable to build faceted frontend search URL from seed facets");
+  }
+
+  const encodedQuery = encodeURIComponent(activeQuery());
+  const facetedSearchResultsResponse = http.get(
+    withSearchCacheBust(
+      buildFrontendSearchResultsUrl(encodedQuery, facetQueryString),
+      "frontend-faceted-search-results-api",
+    ),
+    {
+      headers: JSON_HEADERS,
+      tags: {
+        name: "frontend_faceted_search_results_api",
+        surface: "frontend",
+      },
+    },
+  );
+  recordSearchDiagnostics(
+    facetedSearchResultsResponse,
+    "frontend_faceted_search_results_api",
+  );
+  checkJson(facetedSearchResultsResponse, "frontend faceted search results api");
+}
+
+export function requestFrontendResourcePage(seed) {
+  const resourcePageResponse = http.get(
+    `${config.baseUrl}/resources/${seed.encodedResourceId}`,
+    {
+      headers: HTML_HEADERS,
+      tags: { name: "frontend_resource_page", surface: "frontend" },
+    },
+  );
+  checkHtml(resourcePageResponse, "frontend resource page");
+}
+
+export function requestApiSearch(seed) {
+  const encodedQuery = encodeURIComponent(activeQuery());
+  const searchResponse = http.get(
+    withSearchCacheBust(
+      `${config.baseUrl}/api/v1/search?per_page=${config.searchPerPage}&q=${encodedQuery}`,
+      "api-search",
+    ),
+    {
+      headers: JSON_HEADERS,
+      tags: { name: "api_search", surface: "api" },
+    },
+  );
+  recordSearchDiagnostics(searchResponse, "api_search");
+  checkJson(searchResponse, "api search");
+  check(searchResponse, {
+    "api search returned data array": (res) => {
+      const payload = res.json();
+      return Boolean(payload && Array.isArray(payload.data));
+    },
+  });
+}
+
+export function requestApiFacetedSearch(seed) {
+  const facetQueryString = buildFacetQueryString(seed);
+  if (!facetQueryString) {
+    fail("Unable to build faceted API search URL from seed facets");
+  }
+
+  const encodedQuery = encodeURIComponent(activeQuery());
+  const facetedSearchResponse = http.get(
+    withSearchCacheBust(
+      `${config.baseUrl}/api/v1/search?per_page=${config.searchPerPage}&q=${encodedQuery}&${facetQueryString}`,
+      "api-faceted-search",
+    ),
+    {
+      headers: JSON_HEADERS,
+      tags: { name: "api_faceted_search", surface: "api" },
+    },
+  );
+  recordSearchDiagnostics(facetedSearchResponse, "api_faceted_search");
+  checkJson(facetedSearchResponse, "api faceted search");
 }
 
 export function setupSeed() {
@@ -170,7 +280,7 @@ export function setupSeed() {
 }
 
 export function frontendFlow(seed) {
-  const encodedQuery = encodeURIComponent(config.query);
+  const encodedQuery = encodeURIComponent(activeQuery());
   const facetQueryString = buildFacetQueryString(seed);
   const homeResponse = http.get(`${config.baseUrl}/`, {
     headers: HTML_HEADERS,
@@ -275,8 +385,9 @@ export function frontendFlow(seed) {
 }
 
 export function apiFlow(seed) {
-  const encodedQuery = encodeURIComponent(config.query);
-  const encodedSuggestQuery = encodeURIComponent(config.suggestQuery);
+  const query = activeQuery();
+  const encodedQuery = encodeURIComponent(query);
+  const encodedSuggestQuery = encodeURIComponent(suggestQueryFor(query));
   const facetQueryString = buildFacetQueryString(seed);
 
   const searchResponse = http.get(

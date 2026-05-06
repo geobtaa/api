@@ -44,8 +44,8 @@ if (config.enableFrontend) {
     tags: { surface: 'frontend' },
   };
   thresholds['http_req_duration{scenario:frontend_pages}'] = [
-    'p(95)<2500',
-    'p(99)<5000',
+    `p(95)<${config.frontendP95ThresholdMs}`,
+    `p(99)<${config.frontendP99ThresholdMs}`,
   ];
 }
 
@@ -64,8 +64,8 @@ if (config.enableApi) {
     tags: { surface: 'api' },
   };
   thresholds['http_req_duration{scenario:api_endpoints}'] = [
-    'p(95)<1500',
-    'p(99)<3000',
+    `p(95)<${config.apiP95ThresholdMs}`,
+    `p(99)<${config.apiP99ThresholdMs}`,
   ];
 }
 
