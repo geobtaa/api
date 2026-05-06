@@ -14,6 +14,7 @@ Progress is shown with a tqdm progress bar, including ETA.
 Examples:
   python scripts/prime_thumbnail_cache.py
   python scripts/prime_thumbnail_cache.py --limit 250 --concurrency 4
+  python scripts/prime_thumbnail_cache.py --limit 250 --hydrate-assets
   python scripts/prime_thumbnail_cache.py --force b1g_PJxxfKgpqpUT b1g_abc123
 """
 
@@ -125,11 +126,13 @@ def _store_image_bytes(
     content_type: str,
     *,
     resource_id: str | None = None,
+    hydrate_assets: bool = True,
 ) -> bool:
-    """Store image bytes and MIME metadata in Redis."""
+    """Store image bytes in durable storage and optionally hydrate Redis."""
     try:
-        cache_visual_asset(redis_client, f"image:{image_hash}", image_bytes)
-        cache_visual_asset(redis_client, f"image_type:{image_hash}", content_type)
+        if hydrate_assets:
+            cache_visual_asset(redis_client, f"image:{image_hash}", image_bytes)
+            cache_visual_asset(redis_client, f"image_type:{image_hash}", content_type)
         store_durable_visual_asset(
             image_hash,
             asset_kind="thumbnail",
@@ -164,6 +167,7 @@ def _prime_cog_thumbnail(
     image_hash: str,
     *,
     resource_id: str | None = None,
+    hydrate_assets: bool = True,
 ) -> bool:
     with provider_request_slot(source_url, action="thumbnail prime (COG)"):
         image_bytes = _generate_cog_thumbnail_bytes(source_url)
@@ -172,7 +176,13 @@ def _prime_cog_thumbnail(
     is_valid, _ = _validate_image_content(image_bytes, "image/png")
     if not is_valid:
         return False
-    return _store_image_bytes(image_hash, image_bytes, "image/png", resource_id=resource_id)
+    return _store_image_bytes(
+        image_hash,
+        image_bytes,
+        "image/png",
+        resource_id=resource_id,
+        hydrate_assets=hydrate_assets,
+    )
 
 
 def _prime_pmtiles_thumbnail(
@@ -180,6 +190,7 @@ def _prime_pmtiles_thumbnail(
     image_hash: str,
     *,
     resource_id: str | None = None,
+    hydrate_assets: bool = True,
 ) -> tuple[bool, bool]:
     """
     Prime PMTiles thumbnail cache.
@@ -202,6 +213,7 @@ def _prime_pmtiles_thumbnail(
             image_bytes,
             content_type or "image/png",
             resource_id=resource_id,
+            hydrate_assets=hydrate_assets,
         ),
         False,
     )
@@ -212,6 +224,7 @@ def _prime_remote_thumbnail(
     source_url: str,
     *,
     resource_id: str | None = None,
+    hydrate_assets: bool = True,
 ) -> tuple[str, str]:
     resolved_url = _resolve_image_url(source_url)
     cooldown_remaining = provider_origin_cooldown_remaining(resolved_url)
@@ -304,6 +317,7 @@ def _prime_remote_thumbnail(
         response.content,
         detected_type or "image/jpeg",
         resource_id=resource_id,
+        hydrate_assets=hydrate_assets,
     ):
         record_provider_success(resolved_url)
         return ("generated", "remote")
@@ -386,6 +400,7 @@ async def _prime_thumbnail_for_resource(
     retry_failures: bool = False,
     retry_placeheld: bool = False,
     existing_state: dict[str, Any] | None = None,
+    hydrate_assets: bool = True,
 ) -> tuple[str, str, str]:
     resource_id = str(resource_dict["id"])
 
@@ -439,17 +454,12 @@ async def _prime_thumbnail_for_resource(
             cached_image = await image_service.get_cached_image(image_hash)
             if cached_image:
                 _valid, cached_content_type = _validate_image_content(cached_image, None)
-                store_durable_visual_asset(
+                _store_image_bytes(
                     image_hash,
-                    asset_kind="thumbnail",
-                    content_type=cached_content_type or "application/octet-stream",
-                    body=cached_image,
-                )
-                store_durable_visual_asset_link(
-                    resource_id,
-                    asset_hash=image_hash,
-                    asset_kind="thumbnail",
-                    source_signature=image_hash,
+                    cached_image,
+                    cached_content_type or "application/octet-stream",
+                    resource_id=resource_id,
+                    hydrate_assets=hydrate_assets,
                 )
                 await safe_record_thumbnail_state(
                     ThumbnailStatePayload(
@@ -483,6 +493,7 @@ async def _prime_thumbnail_for_resource(
                 source_url,
                 image_hash,
                 resource_id=resource_id,
+                hydrate_assets=hydrate_assets,
             )
             await safe_record_thumbnail_state(
                 ThumbnailStatePayload(
@@ -503,6 +514,7 @@ async def _prime_thumbnail_for_resource(
                 source_url,
                 image_hash,
                 resource_id=resource_id,
+                hydrate_assets=hydrate_assets,
             )
             if ok:
                 await safe_record_thumbnail_state(
@@ -546,6 +558,7 @@ async def _prime_thumbnail_for_resource(
             image_hash,
             source_url,
             resource_id=resource_id,
+            hydrate_assets=hydrate_assets,
         )
         if remote_status == "deprioritized":
             return ("deprioritized", resource_id, remote_detail)
@@ -586,6 +599,7 @@ async def _process_batch(
     force: bool,
     retry_failures: bool,
     retry_placeheld: bool,
+    hydrate_assets: bool,
     counters: Counter[str],
     progress: tqdm,
     failures: list[str],
@@ -601,6 +615,7 @@ async def _process_batch(
                 retry_failures=retry_failures,
                 retry_placeheld=retry_placeheld,
                 existing_state=state_map.get(str(resource_dict["id"])),
+                hydrate_assets=hydrate_assets,
             )
 
     tasks = [asyncio.create_task(_run(resource_dict)) for resource_dict in batch]
@@ -634,6 +649,28 @@ async def _run(args: argparse.Namespace) -> int:
         logger.info("No resources matched the request.")
         return 0
 
+    if (
+        args.hydrate_assets
+        and not args.allow_full_hydration
+        and args.limit is None
+        and not resource_ids
+    ):
+        logger.error(
+            "Refusing full-corpus Redis asset-body hydration. Use --limit or explicit "
+            "resource IDs for hotsets, or pass --allow-full-hydration if the host is "
+            "sized for a full Redis DB 1 image-body cache."
+        )
+        return 2
+
+    if args.hydrate_assets:
+        logger.info("Redis thumbnail-body hydration is enabled for this priming run.")
+    else:
+        logger.info(
+            "Redis thumbnail-body hydration is disabled; priming durable assets, links, "
+            "and thumbnail state. Use --hydrate-assets for small hotset runs that "
+            "should load image bodies into Redis."
+        )
+
     counters: Counter[str] = Counter()
     failures: list[str] = []
 
@@ -657,6 +694,7 @@ async def _run(args: argparse.Namespace) -> int:
                     force=args.force,
                     retry_failures=args.retry_failures,
                     retry_placeheld=args.retry_placeheld,
+                    hydrate_assets=args.hydrate_assets,
                     counters=counters,
                     progress=progress,
                     failures=failures,
@@ -675,6 +713,7 @@ async def _run(args: argparse.Namespace) -> int:
                     force=args.force,
                     retry_failures=args.retry_failures,
                     retry_placeheld=args.retry_placeheld,
+                    hydrate_assets=args.hydrate_assets,
                     counters=counters,
                     progress=progress,
                     failures=failures,
@@ -735,6 +774,23 @@ def _parse_args() -> argparse.Namespace:
         "--strict-failures",
         action="store_true",
         help="Exit nonzero when any thumbnail fails; default logs failures and continues",
+    )
+    parser.add_argument(
+        "--hydrate-assets",
+        action="store_true",
+        help=(
+            "Load/reload immutable thumbnail asset bodies into Redis DB 1. Default "
+            "warms durable assets, links, and thumbnail state only to avoid exhausting "
+            "Redis memory on full-corpus runs."
+        ),
+    )
+    parser.add_argument(
+        "--allow-full-hydration",
+        action="store_true",
+        help=(
+            "Allow --hydrate-assets without --limit or explicit resource IDs. Use only "
+            "on hosts sized for a full Redis DB 1 thumbnail image-body cache."
+        ),
     )
     return parser.parse_args()
 
