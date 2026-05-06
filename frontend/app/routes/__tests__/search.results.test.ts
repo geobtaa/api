@@ -115,6 +115,36 @@ describe('search results proxy loader', () => {
     expect(headers.get('x-btaa-client-channel')).toBeNull();
   });
 
+  it('forwards only the Turnstile cookie when browser storage lacks the session header', async () => {
+    const request = {
+      url: 'https://example.com/search/results?q=maps',
+      headers: new Headers({
+        cookie:
+          'rui.theme=btaa; btaa_turnstile_session=session-123; other=skip',
+        'X-BTAA-Client-Channel': 'browser',
+      }),
+    } as Request;
+
+    vi.mocked(serverFetchWithTheme).mockResolvedValue(
+      new Response(JSON.stringify(mockSearchResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
+
+    await loader({
+      request,
+      params: {},
+    } as unknown as LoaderFunctionArgs);
+
+    const [, , options] = vi.mocked(serverFetchWithTheme).mock.calls[0];
+    const headers = options?.headers as Headers;
+
+    expect(headers.get('x-btaa-turnstile-gate')).toBe('frontend-search');
+    expect(headers.get('cookie')).toBe('btaa_turnstile_session=session-123');
+  });
+
   it('returns 500 when upstream fetch fails', async () => {
     const request = new Request('https://example.com/search/results?q=maps');
     vi.mocked(serverFetchWithTheme).mockRejectedValue(new Error('nope'));

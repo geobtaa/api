@@ -23,6 +23,8 @@ const FORWARDED_REQUEST_HEADERS = [
   'x-turnstile-session',
 ] as const;
 
+const TURNSTILE_COOKIE_NAME = 'btaa_turnstile_session';
+
 function copyUpstreamHeaders(source: Headers): Headers {
   const headers = new Headers();
 
@@ -51,12 +53,37 @@ function copyBrowserContextHeaders(source: Headers): Headers {
 
   if (!hasClientApiKey) {
     headers.set('x-btaa-turnstile-gate', 'frontend-search');
+    if (!headers.has('x-turnstile-session')) {
+      const turnstileCookie = extractCookie(
+        source.get('cookie'),
+        TURNSTILE_COOKIE_NAME
+      );
+      if (turnstileCookie) {
+        headers.set('cookie', `${TURNSTILE_COOKIE_NAME}=${turnstileCookie}`);
+      }
+    }
   } else {
     headers.delete('x-btaa-turnstile-gate');
     headers.delete('x-btaa-client-channel');
+    headers.delete('cookie');
   }
 
   return headers;
+}
+
+function extractCookie(
+  cookieHeader: string | null,
+  cookieName: string
+): string | null {
+  if (!cookieHeader) return null;
+
+  const prefix = `${cookieName}=`;
+  const cookie = cookieHeader
+    .split(';')
+    .map((part) => part.trim())
+    .find((part) => part.startsWith(prefix));
+
+  return cookie ? cookie.slice(prefix.length) : null;
 }
 
 /**
