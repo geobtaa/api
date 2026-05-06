@@ -452,84 +452,28 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
       }
 
       // For iiif_image, we synthesize a Presentation manifest via a local SSR route.
-      // Because Mirador runs in a sandboxed iframe with an opaque origin, we MUST use
-      // absolute URLs (no relative `/path`), and the manifest route must send CORS headers.
+      // Mirador runs in a sandboxed iframe, so use absolute URLs for both real and
+      // synthesized manifests.
       const pageOrigin = window.location.origin;
       const manifestUrl =
         protocol === 'iiif_image'
           ? `${pageOrigin}/iiif/manifest?image_service=${encodeURIComponent(endpoint)}`
-          : endpoint;
+          : new URL(endpoint, pageOrigin).toString();
 
-      const miradorVersion = '3.4.3';
-
-      // NOTE: srcDoc runs in an isolated document. We inject Mirador from a pinned CDN
-      // and mount it into a local container. `manifestUrl` is JSON-stringified so it
-      // can't break out of the inline script.
-      const srcDoc = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      html, body { height: 100%; margin: 0; }
-      #mirador-root { height: 100vh; width: 100vw; }
-    </style>
-    <script defer src="https://unpkg.com/mirador@${miradorVersion}/dist/mirador.min.js"></script>
-  </head>
-  <body>
-    <div id="mirador-root"></div>
-    <script>
-      (function () {
-        var manifestUrl = ${JSON.stringify(manifestUrl)};
-        function boot() {
-          var Mirador = window.Mirador;
-          if (!Mirador || typeof Mirador.viewer !== "function") {
-            console.error("Mirador global not available");
-            return;
-          }
-          if (!manifestUrl) {
-            console.error("Missing manifestUrl");
-            return;
-          }
-          Mirador.viewer({
-            id: "mirador-root",
-            windows: [{ manifestId: manifestUrl, thumbnailNavigationPosition: "far-bottom" }],
-            window: {
-              hideSearchPanel: false,
-              hideWindowTitle: true,
-              hideAnnotationsPanel: true,
-              allowClose: false,
-              allowMaximize: false,
-              allowFullscreen: true
-            },
-            workspace: { showZoomControls: true },
-            workspaceControlPanel: { enabled: false }
-          });
-        }
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", function () {
-            // Give the deferred script a beat to execute
-            setTimeout(boot, 0);
-          });
-        } else {
-          setTimeout(boot, 0);
-        }
-      })();
-    </script>
-  </body>
-</html>`;
+      const miradorUrl = new URL('/mirador', pageOrigin);
+      miradorUrl.searchParams.set('manifest', manifestUrl);
 
       return (
         <iframe
           key={viewerInstanceKey}
           title="Mirador viewer"
           className="viewer h-[600px] w-full border-0"
-          // Allow scripts so Mirador can run. Keep it isolated from the parent page.
-          sandbox="allow-scripts"
-          // Required for Fullscreen API inside sandboxed iframes (Mirador's fullscreen button).
+          // Keep Mirador isolated in its own document while allowing local module scripts and plugin downloads.
+          sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads"
+          // Required for Fullscreen API inside sandboxed iframes.
           allow="fullscreen"
           allowFullScreen
-          srcDoc={srcDoc}
+          src={miradorUrl.toString()}
         />
       );
     }
