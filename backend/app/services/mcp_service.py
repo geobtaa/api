@@ -49,6 +49,61 @@ def get_async_session():
         raise
 
 
+def _api_request_error_type(error: Exception) -> str:
+    """Classify public API request failures for stable MCP error payloads."""
+    error_text = str(error).lower()
+    connection_terms = (
+        "cannot connect",
+        "connect call failed",
+        "connection",
+        "nodename",
+        "operation not permitted",
+        "servname",
+        "timed out",
+        "timeout",
+    )
+    if isinstance(
+        error,
+        (
+            aiohttp.ClientConnectionError,
+            aiohttp.ClientConnectorError,
+            OSError,
+            TimeoutError,
+        ),
+    ) or any(term in error_text for term in connection_terms):
+        return "connection"
+    if isinstance(error, aiohttp.ClientResponseError):
+        return "http"
+    return "request"
+
+
+def _api_response_error_type(payload: dict[str, Any]) -> str:
+    """Classify structured public API error responses."""
+    status_code = payload.get("status_code")
+    try:
+        payload_text = json.dumps(payload, default=str).lower()
+    except Exception:
+        payload_text = str(payload).lower()
+
+    if status_code in (502, 503, 504) or any(
+        term in payload_text
+        for term in (
+            "cannot connect",
+            "connection",
+            "connection refused",
+            "operation not permitted",
+            "service unavailable",
+            "timeout",
+        )
+    ):
+        return "connection"
+    if "elasticsearch" in payload_text or "search failed" in payload_text:
+        return "elasticsearch"
+    if status_code in (401, 403):
+        return "authentication"
+    return "http"
+
+
 class OGMMCPService:
     """MCP service for GeoBTAA API endpoints."""
 
@@ -380,6 +435,7 @@ class OGMMCPService:
 
             if payload["status_code"] >= 400:
                 payload["query"] = query
+                payload.setdefault("error_type", _api_response_error_type(payload))
                 return await self._tool_result_json(payload, is_error=True)
 
             return await self._tool_result_json(
@@ -406,6 +462,7 @@ class OGMMCPService:
             return await self._tool_result_json(
                 {
                     "error": "Search request failed",
+                    "error_type": _api_request_error_type(e),
                     "detail": str(e),
                     "query": query,
                     "page": page,
@@ -692,8 +749,17 @@ class OGMMCPService:
         """Call the public API and return a structured response."""
         url = f"{self._public_api_base()}/api/v1{path}"
         timeout = aiohttp.ClientTimeout(total=30)
+        headers = {}
+        api_key = os.getenv("BTAA_GEOSPATIAL_API_KEY")
+        if api_key:
+            headers["X-API-Key"] = api_key
         async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.get(url, params=params, allow_redirects=allow_redirects) as response:
+            async with session.get(
+                url,
+                params=params,
+                allow_redirects=allow_redirects,
+                headers=headers or None,
+            ) as response:
                 result: dict[str, Any] = {
                     "status_code": response.status,
                     "url": str(response.url),

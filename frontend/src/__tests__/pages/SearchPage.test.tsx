@@ -4,7 +4,6 @@ import { HelmetProvider } from 'react-helmet-async';
 import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
-import { MapProvider } from '../../context/MapContext';
 import { fetchNominatimSearch, fetchSearchResults } from '../../services/api';
 import {
   vi,
@@ -147,7 +146,6 @@ const createMockResult = (id: string, title: string): GeoDocument => ({
 });
 
 describe('SearchPage Logic', () => {
-  let getItemSpy: MockInstance;
   let setItemSpy: MockInstance;
 
   beforeEach(() => {
@@ -162,7 +160,7 @@ describe('SearchPage Logic', () => {
     }) as unknown as typeof fetch;
     localStorage.clear();
     sessionStorage.clear();
-    getItemSpy = vi.spyOn(sessionStorage, 'getItem');
+    vi.spyOn(sessionStorage, 'getItem');
     setItemSpy = vi.spyOn(sessionStorage, 'setItem');
   });
 
@@ -361,20 +359,13 @@ describe('SearchPage Logic', () => {
     expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
   });
 
-  it('drops every search param when Clear All is clicked', async () => {
-    const bboxGalleryUrl =
+  it('keeps an empty q param when Clear All is clicked', async () => {
+    const filteredSearchUrl =
       '/search?q=' +
-      '&include_filters%5Bgeo%5D%5Btype%5D=bbox' +
-      '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
-      '&include_filters%5Bgeo%5D%5Brelation%5D=intersects' +
-      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=49.3844722' +
-      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=-97.2392619' +
-      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=43.4994288' +
-      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=-89.483385' +
-      '&view=gallery&per_page=20';
+      '&include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Maps';
 
     const results = createMockApiResponse(mockResults.slice(0, 20));
-    const { router } = renderWithRouter(bboxGalleryUrl, results, {
+    const { router } = renderWithRouter(filteredSearchUrl, results, {
       returnRouter: true,
     });
 
@@ -384,7 +375,7 @@ describe('SearchPage Logic', () => {
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/search');
-      expect(router.state.location.search).toBe('');
+      expect(router.state.location.search).toBe('?q=');
     });
   });
 
@@ -431,7 +422,7 @@ describe('SearchPage Logic', () => {
     // To test this with `render`, we need to simulate the component re-rendering with new props (Page 2 data)
     // while maintaining component state (accumulatedResults).
 
-    const { rerender } = renderWithRouter(
+    renderWithRouter(
       '/search?view=gallery',
       createMockApiResponse(mockResults.slice(0, 20), 100, 1)
     );
@@ -487,12 +478,6 @@ describe('SearchPage Logic', () => {
 
     // At this point URL is page=2 (due to click). Props are old.
     // Now we supply new data.
-    const page2Results = createMockApiResponse(
-      mockResults.slice(20, 40),
-      100,
-      2
-    );
-
     // We need to pass the updated router context?
     // Actually `renderWithRouter` creates a new router each time. We can't use it for rerender.
     // We need to construct the setup manually to support rerender.

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, describe, it, expect, vi, beforeEach } from 'vitest';
 import type { LoaderFunctionArgs } from 'react-router';
 import { loader } from '../search.results';
 import { serverFetchWithTheme } from '../../lib/server-api';
@@ -23,6 +23,10 @@ describe('search results proxy loader', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('forwards search params to upstream search with the request context', async () => {
@@ -113,6 +117,70 @@ describe('search results proxy loader', () => {
     expect(headers.get('x-api-key')).toBe('client-k6-key');
     expect(headers.get('x-btaa-turnstile-gate')).toBeNull();
     expect(headers.get('x-btaa-client-channel')).toBeNull();
+  });
+
+  it('treats localhost browser search as API-client traffic unless local Turnstile is opted in', async () => {
+    const request = new Request(
+      'http://localhost:3000/search/results?q=chicago&view=gallery&per_page=20',
+      {
+        headers: {
+          Accept: 'application/vnd.api+json, application/json',
+          'X-BTAA-Client-Channel': 'browser',
+          'X-Visit-Token': 'visit-123',
+        },
+      }
+    );
+
+    vi.mocked(serverFetchWithTheme).mockResolvedValue(
+      new Response(JSON.stringify(mockSearchResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
+
+    await loader({
+      request,
+      params: {},
+    } as unknown as LoaderFunctionArgs);
+
+    const [, , options] = vi.mocked(serverFetchWithTheme).mock.calls[0];
+    const headers = options?.headers as Headers;
+
+    expect(headers.get('x-btaa-turnstile-gate')).toBeNull();
+    expect(headers.get('x-btaa-client-channel')).toBeNull();
+    expect(headers.get('x-visit-token')).toBeNull();
+  });
+
+  it('keeps the frontend Turnstile marker on localhost when local Turnstile is opted in', async () => {
+    vi.stubEnv('VITE_TURNSTILE_ENABLE_LOCAL', 'true');
+
+    const request = new Request('http://localhost:3000/search/results?q=maps', {
+      headers: {
+        'X-BTAA-Client-Channel': 'browser',
+        'X-Visit-Token': 'visit-123',
+      },
+    });
+
+    vi.mocked(serverFetchWithTheme).mockResolvedValue(
+      new Response(JSON.stringify(mockSearchResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
+
+    await loader({
+      request,
+      params: {},
+    } as unknown as LoaderFunctionArgs);
+
+    const [, , options] = vi.mocked(serverFetchWithTheme).mock.calls[0];
+    const headers = options?.headers as Headers;
+
+    expect(headers.get('x-btaa-turnstile-gate')).toBe('frontend-search');
+    expect(headers.get('x-btaa-client-channel')).toBe('browser');
+    expect(headers.get('x-visit-token')).toBe('visit-123');
   });
 
   it('forwards only the Turnstile cookie when browser storage lacks the session header', async () => {

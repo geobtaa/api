@@ -155,13 +155,13 @@ export function SearchField({
   const getActiveSearchField = () =>
     searchParams.get('search_field') || 'all_fields';
 
-  // Sync query with URL params (e.g., when Clear All is clicked)
+  // Sync query with URL params (e.g., when Clear All sets q to empty)
   useEffect(() => {
     const urlQuery = searchParams.has('q')
       ? searchParams.get('q') || ''
       : initialQuery;
     // Only update if the URL value is different from current state
-    // This handles cases where Clear All removes the 'q' param
+    // This handles cases where the URL changes outside this field.
     // Note: We don't include 'query' in deps to avoid resetting while user types
     if (urlQuery !== query) {
       setQuery(urlQuery);

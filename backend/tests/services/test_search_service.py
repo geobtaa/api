@@ -161,7 +161,24 @@ class TestSearchService:
             assert "message" in result
             assert "error" in result
             assert result["message"] == "Search operation failed"
+            assert result["error_type"] == "elasticsearch"
             assert "Elasticsearch error" in result["error"]
+
+    @pytest.mark.asyncio
+    async def test_search_classifies_returned_dependency_errors(self):
+        """Search should tag error payloads returned by the Elasticsearch layer."""
+        service = SearchService()
+
+        with patch("app.services.search_service.search_resources") as mock_search:
+            mock_search.return_value = {
+                "error": "500: {'message': 'Elasticsearch query failed', 'status_code': 503}",
+            }
+
+            result = await service.search(q="test", page=1, limit=10)
+
+            assert result["message"] == "Search operation failed"
+            assert result["error_type"] == "connection"
+            assert "queryTime" in result
 
     def test_extract_filter_queries(self):
         """Test the extract_filter_queries method."""
