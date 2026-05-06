@@ -98,7 +98,6 @@ function SearchContent({
   const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
-  const skipDefaultQueryParamRef = useRef(false);
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
   const {
     query,
@@ -142,10 +141,6 @@ function SearchContent({
   // Ensure ?q= is present if no params are set to trigger default search
   useEffect(() => {
     if (Array.from(searchParams.keys()).length === 0) {
-      if (skipDefaultQueryParamRef.current) {
-        skipDefaultQueryParamRef.current = false;
-        return;
-      }
       setSearchParams({ q: '' }, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -175,9 +170,11 @@ function SearchContent({
   }, [searchParams, normalizedQuery]);
 
   // For now, treat API errors as “no results” and let ErrorMessage show when needed.
-  const resultError = (activeSearchResults as any)?.error
-    ? String((activeSearchResults as any).error)
-    : null;
+  const activeSearchError =
+    activeSearchResults && 'error' in activeSearchResults
+      ? activeSearchResults.error
+      : null;
+  const resultError = activeSearchError ? String(activeSearchError) : null;
   const error =
     resultError ||
     (shouldFetchClientSearch ? hasCurrentClientError || null : null);
@@ -519,8 +516,9 @@ function SearchContent({
   };
 
   const handleClearAll = () => {
-    skipDefaultQueryParamRef.current = true;
-    setSearchParams(new URLSearchParams());
+    const next = new URLSearchParams();
+    next.set('q', '');
+    setSearchParams(next);
   };
 
   const handleSortChange = (newSort: string) => {

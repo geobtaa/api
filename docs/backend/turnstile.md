@@ -5,8 +5,9 @@ This does not require Cloudflare WAF or proxying the site through Cloudflare.
 
 ## Flow
 
-1. The React app renders a Turnstile widget when `VITE_TURNSTILE_SITE_KEY` is set
-   and `VITE_TURNSTILE_ENABLED` is not `false`.
+1. The React app renders a Turnstile widget when `VITE_TURNSTILE_SITE_KEY` is set,
+   `VITE_TURNSTILE_ENABLED` is not `false`, and the frontend is not running in
+   local dev/test mode.
 2. The browser posts the widget token to `POST /api/v1/turnstile/verify`.
 3. FastAPI validates the single-use token with Cloudflare Siteverify.
 4. On success, FastAPI creates an opaque Redis-backed browser session, returns
@@ -58,15 +59,22 @@ only be present in backend runtime secrets.
 
 ## Local Development
 
-Turnstile is off by default. To test locally, use Cloudflare's Turnstile test
-keys or a local widget configured for `localhost`, then set:
+Turnstile is off by default. Vite dev/test builds also bypass the browser gate
+even if production-like Turnstile values leak into the local environment. To
+test Turnstile locally, use Cloudflare's Turnstile test keys or a local widget
+configured for `localhost`, then opt back in:
 
 ```bash
 TURNSTILE_ENABLED=true
 TURNSTILE_COOKIE_SECURE=false
 TURNSTILE_ALLOWED_HOSTNAMES=localhost,127.0.0.1
 VITE_TURNSTILE_ENABLED=true
+VITE_TURNSTILE_ENABLE_LOCAL=true
 ```
+
+When local Turnstile is not opted in, the React Router `/search/results` proxy
+also strips frontend gate markers before calling FastAPI so local search traffic
+can still use the server-side API key without receiving `turnstile_required`.
 
 The frontend stores the returned session token in `sessionStorage` so local
 cross-origin dev traffic from `localhost:3000` to `localhost:8000` can carry

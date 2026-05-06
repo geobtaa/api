@@ -20,6 +20,8 @@ type TurnstileVerifyResponse = {
 };
 
 export function isTurnstileConfigured(): boolean {
+  if (shouldBypassTurnstileInLocalDev()) return false;
+
   return (
     !isDisabledFlag(import.meta.env.VITE_TURNSTILE_ENABLED) &&
     Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY)
@@ -156,5 +158,21 @@ function isDisabledFlag(value: string | undefined): boolean {
     String(value || '')
       .trim()
       .toLowerCase()
+  );
+}
+
+function isEnabledFlag(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(value || '')
+      .trim()
+      .toLowerCase()
+  );
+}
+
+function shouldBypassTurnstileInLocalDev(): boolean {
+  const isDevOrTest = import.meta.env.DEV || import.meta.env.MODE === 'test';
+  return (
+    isDevOrTest &&
+    !isEnabledFlag(import.meta.env.VITE_TURNSTILE_ENABLE_LOCAL)
   );
 }

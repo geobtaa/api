@@ -1,6 +1,9 @@
 import type { LoaderFunctionArgs } from 'react-router';
 import { serverFetchWithTheme } from '../lib/server-api';
 
+// Minimal Node-ish env typing without pulling in @types/node.
+declare const process: { env: Record<string, string | undefined> };
+
 const FORWARDED_RESPONSE_HEADERS = [
   'cache-control',
   'content-type',
@@ -40,18 +43,20 @@ function copyUpstreamHeaders(source: Headers): Headers {
   return headers;
 }
 
-function copyBrowserContextHeaders(source: Headers): Headers {
+function copyBrowserContextHeaders(source: Headers, requestUrl: URL): Headers {
   const headers = new Headers();
   const authHeader = source.get('authorization') || '';
   const hasClientApiKey =
     Boolean(source.get('x-api-key')) || authHeader.startsWith('Bearer ');
+  const shouldUseFrontendGate =
+    !hasClientApiKey && !shouldBypassLocalTurnstileGate(requestUrl);
 
   FORWARDED_REQUEST_HEADERS.forEach((name) => {
     const value = source.get(name);
     if (value) headers.set(name, value);
   });
 
-  if (!hasClientApiKey) {
+  if (shouldUseFrontendGate) {
     headers.set('x-btaa-turnstile-gate', 'frontend-search');
     if (!headers.has('x-turnstile-session')) {
       const turnstileCookie = extractCookie(
@@ -63,12 +68,47 @@ function copyBrowserContextHeaders(source: Headers): Headers {
       }
     }
   } else {
-    headers.delete('x-btaa-turnstile-gate');
-    headers.delete('x-btaa-client-channel');
-    headers.delete('cookie');
+    stripFrontendGateMarkers(headers);
   }
 
   return headers;
+}
+
+function stripFrontendGateMarkers(headers: Headers) {
+  headers.delete('x-btaa-turnstile-gate');
+  headers.delete('x-btaa-client-channel');
+  headers.delete('x-visit-token');
+  headers.delete('cookie');
+}
+
+function shouldBypassLocalTurnstileGate(requestUrl: URL): boolean {
+  if (isLocalTurnstileEnabled()) return false;
+
+  return isLocalHostname(requestUrl.hostname);
+}
+
+function isLocalTurnstileEnabled(): boolean {
+  return (
+    isEnabledFlag(process.env.VITE_TURNSTILE_ENABLE_LOCAL) ||
+    isEnabledFlag(import.meta.env.VITE_TURNSTILE_ENABLE_LOCAL)
+  );
+}
+
+function isLocalHostname(hostname: string): boolean {
+  return (
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname === '::1' ||
+    hostname === '[::1]'
+  );
+}
+
+function isEnabledFlag(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes(
+    String(value || '')
+      .trim()
+      .toLowerCase()
+  );
 }
 
 function extractCookie(
@@ -105,7 +145,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   try {
     const pathAndQuery = `${upstreamPath}${upstreamUrl.search}`;
     const upstreamResponse = await serverFetchWithTheme(request, pathAndQuery, {
-      headers: copyBrowserContextHeaders(request.headers),
+      headers: copyBrowserContextHeaders(request.headers, url),
     });
 
     return new Response(upstreamResponse.body, {

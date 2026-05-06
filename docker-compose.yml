@@ -74,6 +74,7 @@ services:
       - VITE_USE_JSONP=false
       - VITE_ENFORCE_HTTPS=false
       - VITE_TURNSTILE_ENABLED=${VITE_TURNSTILE_ENABLED:-false}
+      - VITE_TURNSTILE_ENABLE_LOCAL=${VITE_TURNSTILE_ENABLE_LOCAL:-false}
       - VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY:-}
       - VITE_TURNSTILE_ACTION=${VITE_TURNSTILE_ACTION:-geoportal_gate}
       # React Router server-side loaders in dev (runs inside this container)
