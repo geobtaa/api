@@ -116,6 +116,7 @@ class TestOGMMCPService:
         assert result.isError
         payload = json.loads(result.content[0].text)
         assert payload["status_code"] == 500
+        assert payload["error_type"] == "elasticsearch"
         assert payload["query"] == "palestine"
         assert payload["data"]["error"] == "Elasticsearch search failed"
 
@@ -132,6 +133,7 @@ class TestOGMMCPService:
         assert result.isError
         payload = json.loads(result.content[0].text)
         assert payload["error"] == "Search request failed"
+        assert payload["error_type"] == "connection"
         assert payload["detail"] == "connection refused"
         assert payload["query"] == "palestine"
         assert payload["page"] == 3

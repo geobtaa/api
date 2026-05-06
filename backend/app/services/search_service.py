@@ -25,6 +25,78 @@ from db.database import database
 logger = logging.getLogger(__name__)
 
 
+def _search_error_text(error: object) -> str:
+    """Serialize nested framework/client errors for classification."""
+    if isinstance(error, BaseException):
+        parts = [str(error)]
+        detail = getattr(error, "detail", None)
+        if detail is not None:
+            parts.append(_search_error_text(detail))
+        return " ".join(parts)
+
+    if isinstance(error, dict):
+        try:
+            return json.dumps(sanitize_for_json(error), default=str)
+        except Exception:
+            return str(error)
+
+    return str(error)
+
+
+def _search_error_status(error: object) -> int | None:
+    if isinstance(error, BaseException):
+        status_code = getattr(error, "status_code", None)
+        if isinstance(status_code, int):
+            return status_code
+        detail = getattr(error, "detail", None)
+        if detail is not None:
+            return _search_error_status(detail)
+        return None
+
+    if isinstance(error, dict):
+        for key in ("status_code", "status"):
+            status_code = error.get(key)
+            if isinstance(status_code, int):
+                return status_code
+        for key in ("detail", "info"):
+            nested = error.get(key)
+            if isinstance(nested, dict):
+                nested_status = _search_error_status(nested)
+                if nested_status is not None:
+                    return nested_status
+
+    return None
+
+
+def _search_error_type(error: object) -> str:
+    """Classify search dependency failures for stable caller payloads."""
+    status_code = _search_error_status(error)
+    error_text = _search_error_text(error).lower()
+    connection_terms = (
+        '"status": 503',
+        '"status_code": 503',
+        "'status': 503",
+        "'status_code': 503",
+        "apierror(503",
+        "cannot connect",
+        "connect call failed",
+        "connection",
+        "connection refused",
+        "nodename",
+        "operation not permitted",
+        "service unavailable",
+        "servname",
+        "timed out",
+        "timeout",
+    )
+
+    if status_code == 503 or any(term in error_text for term in connection_terms):
+        return "connection"
+    if "elasticsearch" in error_text:
+        return "elasticsearch"
+    return "unknown"
+
+
 class SearchService:
     def __init__(self):
         self.index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
@@ -112,6 +184,9 @@ class SearchService:
             # Defensive: ensure results is a dict
             if not isinstance(results, dict):
                 results = {}
+            if "error" in results:
+                results.setdefault("message", "Search operation failed")
+                results.setdefault("error_type", _search_error_type(results))
 
             total_time = time.time() - start_time
             query_timings = results.get("queryTime", {})
@@ -146,6 +221,7 @@ class SearchService:
             return {
                 "message": "Search operation failed",
                 "error": str(e),
+                "error_type": _search_error_type(e),
                 "query": q,
                 "filters": filter_query if "filter_query" in locals() else None,
                 "sort": sort,
@@ -169,7 +245,10 @@ class SearchService:
                 raise HTTPException(status_code=404, detail="Resource not found") from None
             except Exception as e:
                 logger.error("Elasticsearch error getting resource %s", id, exc_info=True)
-                raise HTTPException(status_code=500, detail=str(e)) from e
+                detail = str(e)
+                if _search_error_type(e) == "connection":
+                    detail = f"Elasticsearch connection/unavailable error: {detail}"
+                raise HTTPException(status_code=500, detail=detail) from e
 
             source_data = result["_source"]
             references = source_data.get("dct_references_s")
