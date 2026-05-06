@@ -14,6 +14,8 @@ const FORWARDED_RESPONSE_HEADERS = [
 
 const FORWARDED_REQUEST_HEADERS = [
   'accept',
+  'authorization',
+  'x-api-key',
   'x-btaa-client-name',
   'x-btaa-client-channel',
   'x-btaa-client-version',
@@ -38,12 +40,21 @@ function copyUpstreamHeaders(source: Headers): Headers {
 
 function copyBrowserContextHeaders(source: Headers): Headers {
   const headers = new Headers();
+  const authHeader = source.get('authorization') || '';
+  const hasClientApiKey =
+    Boolean(source.get('x-api-key')) || authHeader.startsWith('Bearer ');
 
   FORWARDED_REQUEST_HEADERS.forEach((name) => {
     const value = source.get(name);
     if (value) headers.set(name, value);
   });
-  headers.set('x-btaa-turnstile-gate', 'frontend-search');
+
+  if (!hasClientApiKey) {
+    headers.set('x-btaa-turnstile-gate', 'frontend-search');
+  } else {
+    headers.delete('x-btaa-turnstile-gate');
+    headers.delete('x-btaa-client-channel');
+  }
 
   return headers;
 }

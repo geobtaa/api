@@ -50,7 +50,7 @@ export async function serverFetch(
     headers.set("Accept", "application/vnd.api+json, application/json");
   }
 
-  if (API_KEY) {
+  if (API_KEY && !headers.has("X-API-Key")) {
     headers.set("X-API-Key", API_KEY);
   }
 

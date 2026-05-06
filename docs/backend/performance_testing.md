@@ -225,7 +225,10 @@ search payload. In Kamal single-host deployments, nginx handles the exact
 `/search/results` JSON route directly: it injects the server-side API key and
 proxies to the internal FastAPI pool. That keeps the browser/API-key contract
 intact while avoiding the React Router worker queue for facet-heavy result
-payloads.
+payloads. For keyed k6 runs, `/search/results` preserves the caller's
+`X-API-Key` and does not add the frontend Turnstile gate markers, so mixed tests
+can exercise the frontend JSON route without needing a Cloudflare browser
+challenge session.
 
 ## Mixed-load worker isolation
 

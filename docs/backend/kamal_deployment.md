@@ -104,11 +104,14 @@ React Router SSR/BFF traffic is also horizontally fanned out behind an nginx
 `react-router-serve` processes are started on ports `3000+`; nginx uses
 `least_conn` to distribute `/`, resource pages, and other frontend HTML routes
 across them. The exact `/search/results` JSON route is handled by nginx instead:
-the startup script writes an uncommitted `/etc/nginx/frontend-api-key.conf`
+the startup script writes an uncommitted `/etc/nginx/frontend-api-key-map.conf`
 include from `BTAA_GEOSPATIAL_API_KEY`, and nginx proxies directly to
 `127.0.0.1:8002/api/v1/search`. This preserves server-side API key injection
 and API-key throttling while keeping facet-heavy search data traffic out of the
-Node worker queue.
+Node worker queue. If a caller supplies its own `X-API-Key` to
+`/search/results`, nginx forwards that key and omits the frontend Turnstile gate
+markers so keyed k6/API-client traffic can be measured separately from normal
+browser traffic.
 
 The health check path is:
 

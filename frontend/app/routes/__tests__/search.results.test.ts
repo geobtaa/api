@@ -70,12 +70,49 @@ describe('search results proxy loader', () => {
     expect((options?.headers as Headers).get('x-visit-token')).toBe(
       'visit-123'
     );
+    expect((options?.headers as Headers).get('x-btaa-turnstile-gate')).toBe(
+      'frontend-search'
+    );
 
     expect(response.headers.get('content-type')).toContain('application/json');
     expect(response.headers.get('server-timing')).toContain('total;dur=4.2');
     expect(response.headers.get('x-cache')).toBe('HIT');
     expect(response.headers.get('x-search-semantic-cache')).toBe('HIT');
     expect(await response.json()).toEqual(mockSearchResponse);
+  });
+
+  it('uses a client-supplied API key as API-client traffic', async () => {
+    const request = new Request(
+      'https://example.com/search/results?q=maps&page=2&per_page=10',
+      {
+        headers: {
+          Accept: 'application/vnd.api+json, application/json',
+          'X-API-Key': 'client-k6-key',
+          'X-BTAA-Client-Channel': 'browser',
+          'X-Visit-Token': 'visit-123',
+        },
+      }
+    );
+
+    vi.mocked(serverFetchWithTheme).mockResolvedValue(
+      new Response(JSON.stringify(mockSearchResponse), {
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+        },
+      })
+    );
+
+    await loader({
+      request,
+      params: {},
+    } as unknown as LoaderFunctionArgs);
+
+    const [, , options] = vi.mocked(serverFetchWithTheme).mock.calls[0];
+    const headers = options?.headers as Headers;
+
+    expect(headers.get('x-api-key')).toBe('client-k6-key');
+    expect(headers.get('x-btaa-turnstile-gate')).toBeNull();
+    expect(headers.get('x-btaa-client-channel')).toBeNull();
   });
 
   it('returns 500 when upstream fetch fails', async () => {
