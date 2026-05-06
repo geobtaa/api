@@ -58,6 +58,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 export default function Root() {
   const { themeId } = useLoaderData<typeof loader>();
   const location = useLocation();
+  const isMiradorRoute = location.pathname === '/mirador';
   return (
     <html lang="en" data-theme={themeId}>
       <head>
@@ -70,7 +71,7 @@ export default function Root() {
         <Links />
       </head>
       <body>
-        {isGoogleTagManagerEnabled && (
+        {isGoogleTagManagerEnabled && !isMiradorRoute && (
           <noscript>
             <iframe
               src={`https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(
@@ -84,19 +85,25 @@ export default function Root() {
           </noscript>
         )}
         <AppErrorBoundary>
-          <Providers initialThemeId={themeId} locationKey={location.key}>
+          {isMiradorRoute ? (
             <Outlet />
-          </Providers>
+          ) : (
+            <Providers initialThemeId={themeId} locationKey={location.key}>
+              <Outlet />
+            </Providers>
+          )}
         </AppErrorBoundary>
 
         {/* GeoBlacklight expects a Blacklight modal container (#blacklight-modal).
             Without it, the metadata_download initializer throws and prevents all other
             GeoBlacklight initializers from running (tooltips/truncation/etc). */}
-        <div id="blacklight-modal" className="hidden" aria-hidden="true" />
+        {!isMiradorRoute && (
+          <div id="blacklight-modal" className="hidden" aria-hidden="true" />
+        )}
 
         <ScrollRestoration />
         <Scripts />
-        {isGoogleTagManagerEnabled && (
+        {isGoogleTagManagerEnabled && !isMiradorRoute && (
           <GoogleTagManagerClient containerId={GOOGLE_TAG_MANAGER_ID} />
         )}
         {/* Keep this path stable so existing browsers upgrade onto the minimal

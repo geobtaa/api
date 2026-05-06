@@ -6,6 +6,7 @@ export default [
   route("search", "routes/search.tsx"),
   route("search/results", "routes/search.results.ts"),
   route("resources/:id", "routes/resources.$id.tsx"),
+  route("mirador", "routes/mirador.tsx"),
   // Resource routes (return non-HTML responses via loaders)
   route("resources/:id/static-map", "routes/resources.$id.static-map.ts"),
   route("static-maps/:id", "routes/static-maps.$id.ts"),

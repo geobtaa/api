@@ -255,6 +255,30 @@ const secondWmsDataWithGeometry = {
   },
 } as Parameters<typeof ResourceViewer>[0]['data'];
 
+const iiifManifestData = {
+  attributes: { dct_references_s: {} },
+  meta: {
+    ui: {
+      viewer: {
+        protocol: 'iiif_manifest',
+        endpoint: 'https://example.com/iiif/manifest.json',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-88.0, 41.7],
+              [-88.0, 42.0],
+              [-87.5, 42.0],
+              [-87.5, 41.7],
+              [-88.0, 41.7],
+            ],
+          ],
+        },
+      },
+    },
+  },
+} as Parameters<typeof ResourceViewer>[0]['data'];
+
 describe('ResourceViewer', () => {
   let rectSpy: ReturnType<typeof vi.spyOn>;
 
@@ -365,6 +389,52 @@ describe('ResourceViewer', () => {
       expect(secondViewer?.getAttribute('data-leaflet-viewer-url-value')).toBe(
         'https://example.com/cook-county/services/zoning/MapServer/WMSServer'
       );
+    });
+  });
+
+  describe('Mirador viewer iframe', () => {
+    it('loads the local Mirador route with the manifest URL and download-safe sandbox permissions', async () => {
+      const happyDOM = (
+        window as typeof window & {
+          happyDOM?: {
+            settings: {
+              fetch: {
+                interceptor: unknown;
+              };
+            };
+          };
+        }
+      ).happyDOM;
+      const previousInterceptor = happyDOM?.settings.fetch.interceptor;
+      if (happyDOM) {
+        happyDOM.settings.fetch.interceptor = {
+          beforeAsyncRequest: async () =>
+            new window.Response('<!doctype html><html><body></body></html>', {
+              headers: { 'Content-Type': 'text/html' },
+            }),
+        };
+      }
+
+      const { container } = render(
+        <ResourceViewer data={iiifManifestData} pageValue="SHOW" />
+      );
+
+      await act(async () => {});
+
+      const iframe = container.querySelector('iframe[title="Mirador viewer"]');
+      expect(iframe).not.toBeNull();
+
+      const src = iframe?.getAttribute('src');
+      expect(src).toContain('/mirador?');
+      expect(new URL(src ?? '').searchParams.get('manifest')).toBe(
+        'https://example.com/iiif/manifest.json'
+      );
+      expect(iframe?.getAttribute('sandbox')).toContain('allow-downloads');
+      expect(iframe?.getAttribute('sandbox')).toContain('allow-popups');
+
+      if (happyDOM) {
+        happyDOM.settings.fetch.interceptor = previousInterceptor;
+      }
     });
   });
 });
