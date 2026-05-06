@@ -10,9 +10,7 @@ import {
   applyThemeToDom,
   getActiveThemeId,
   getDefaultThemeId,
-  getAvailableThemes,
   getThemeConfig,
-  setActiveThemeId,
   subscribeToThemeChanges,
   type ThemeConfig,
   type ThemeId,
@@ -21,13 +19,9 @@ import {
 export interface ThemeContextValue {
   themeId: ThemeId;
   theme: ThemeConfig;
-  themes: Array<{ id: ThemeId; label: string }>;
-  setThemeId: (id: ThemeId) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
-
-const AVAILABLE_THEMES = getAvailableThemes();
 
 export function ThemeProvider({
   children,
@@ -50,17 +44,6 @@ export function ThemeProvider({
     () => initial
   );
 
-  // After hydration, if localStorage has a valid theme that differs from the SSR theme,
-  // promote it via setActiveThemeId so cookies stay in sync and subscribers update.
-  useEffect(() => {
-    if (!hydrated) return;
-    const stored = getActiveThemeId();
-    if (stored && stored !== themeId) {
-      setActiveThemeId(stored);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
-
   // Ensure the DOM reflects the current theme even on first load.
   // Use useEffect (not useLayoutEffect) so SSR doesn't warn; theme is already set
   // on <html data-theme> from the server, so this just syncs client state.
@@ -74,8 +57,6 @@ export function ThemeProvider({
     () => ({
       themeId,
       theme,
-      themes: AVAILABLE_THEMES,
-      setThemeId: (id: ThemeId) => setActiveThemeId(id),
     }),
     [themeId, theme]
   );
@@ -94,7 +75,5 @@ export function useThemeContext(): ThemeContextValue {
   return {
     themeId: fallbackId,
     theme: getThemeConfig(fallbackId),
-    themes: getAvailableThemes(),
-    setThemeId: () => {},
   };
 }

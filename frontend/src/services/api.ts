@@ -198,7 +198,6 @@ function createApiUrl(baseUrl: string): URL {
   url.searchParams.set('format', 'json');
 
   // Apply always-on query params from the active theme config (theme.yaml).
-  // This is how institution themes (e.g., NYU) scope search results.
   const theme = getActiveThemeConfig();
   applyDefaultQueryParams(url, theme?.api?.default_query_params);
   return url;

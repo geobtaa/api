@@ -6,7 +6,6 @@ colors:
   primary: "#003C5B"
   primary-hover: "#002F49"
   primary-dark: "#002A41"
-  primary-strong: "#004D73"
   active: "#2563EB"
   active-hover: "#1D4ED8"
   active-soft: "#EFF6FF"
@@ -36,10 +35,6 @@ colors:
   map-blue-700: "#2563EB"
   map-blue-800: "#1D4ED8"
   map-blue-900: "#1E40AF"
-  uw-primary: "#C5050C"
-  uw-active: "#9B0000"
-  nyu-primary: "#57068C"
-  nyu-active: "#8900E1"
 typography:
   headline-lg:
     fontFamily: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Helvetica, Arial, sans-serif
@@ -119,6 +114,12 @@ components:
     textColor: "{colors.on-primary}"
     typography: "{typography.body-sm}"
     rounded: "{rounded.none}"
+  footer-utility-panel:
+    backgroundColor: "{colors.primary-dark}"
+    textColor: "{colors.on-primary}"
+    typography: "{typography.metadata-mono}"
+    rounded: "{rounded.lg}"
+    padding: 12px
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
@@ -141,11 +142,24 @@ components:
     typography: "{typography.body-sm}"
     rounded: "{rounded.md}"
     padding: 12px
+  link-primary:
+    textColor: "{colors.active}"
+    typography: "{typography.label-md}"
+  link-primary-hover:
+    textColor: "{colors.active-hover}"
+    typography: "{typography.label-md}"
   result-card:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-primary}"
     typography: "{typography.body-md}"
     rounded: "{rounded.lg}"
+    padding: 24px
+  page-background:
+    backgroundColor: "{colors.surface-muted}"
+  featured-row:
+    backgroundColor: "{colors.surface-subtle}"
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.body-md}"
     padding: 24px
   facet-row:
     backgroundColor: "{colors.surface}"
@@ -153,6 +167,25 @@ components:
     typography: "{typography.body-sm}"
     rounded: "{rounded.none}"
     padding: 8px
+  facet-row-active:
+    backgroundColor: "{colors.active-soft}"
+    textColor: "{colors.active}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: 4px
+  active-light-surface:
+    backgroundColor: "{colors.active-light}"
+    rounded: "{rounded.md}"
+  facet-divider:
+    backgroundColor: "{colors.border}"
+    rounded: "{rounded.none}"
+  input-border:
+    backgroundColor: "{colors.border-strong}"
+    rounded: "{rounded.sm}"
+  metadata-muted:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-muted}"
+    typography: "{typography.body-sm}"
   chip-subject:
     backgroundColor: "{colors.tag-subject-bg}"
     textColor: "{colors.tag-subject-text}"
@@ -171,13 +204,53 @@ components:
     typography: "{typography.label-caps}"
     rounded: "{rounded.sm}"
     padding: 4px
+  danger-exclude:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.danger}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.md}"
+    padding: 4px
+  danger-soft-surface:
+    backgroundColor: "{colors.danger-soft}"
+    rounded: "{rounded.md}"
+  warning-highlight:
+    backgroundColor: "{colors.warning}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body-sm}"
+    rounded: "{rounded.full}"
   map-hex-high:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
     rounded: "{rounded.none}"
+  map-hex-100:
+    backgroundColor: "{colors.map-blue-100}"
+    rounded: "{rounded.none}"
+  map-hex-200:
+    backgroundColor: "{colors.map-blue-200}"
+    rounded: "{rounded.none}"
+  map-hex-300:
+    backgroundColor: "{colors.map-blue-300}"
+    rounded: "{rounded.none}"
+  map-hex-400:
+    backgroundColor: "{colors.map-blue-400}"
+    rounded: "{rounded.none}"
+  map-hex-500:
+    backgroundColor: "{colors.map-blue-500}"
+    rounded: "{rounded.none}"
+  map-hex-600:
+    backgroundColor: "{colors.map-blue-600}"
+    rounded: "{rounded.none}"
+  map-hex-700:
+    backgroundColor: "{colors.map-blue-700}"
+    rounded: "{rounded.none}"
+  map-hex-800:
+    backgroundColor: "{colors.map-blue-800}"
+    rounded: "{rounded.none}"
+  map-hex-900:
+    backgroundColor: "{colors.map-blue-900}"
+    rounded: "{rounded.none}"
   map-hex-selected:
     backgroundColor: "{colors.map-blue-600}"
-    textColor: "{colors.on-primary}"
     rounded: "{rounded.none}"
 ---
 
@@ -187,7 +260,7 @@ components:
 
 BTAA Geoportal is a research and discovery interface for geospatial resources. It should feel institutional, clear, map-forward, and fast to scan. The visual system is practical: a deep BTAA blue anchors navigation and calls to action; white and cool gray surfaces carry dense metadata; maps, thumbnails, and partner logos provide most of the visual richness.
 
-The frontend is built with React and Tailwind. The active brand color is exposed as `brand` and `brand-active` in Tailwind, backed by CSS variables in `frontend/src/config/theme.css` and values from `frontend/theme.yaml`. The default theme is BTAA, with UW-Madison and NYU variants. New UI should preserve this structure and avoid hard-coding a new brand system unless a component genuinely needs a one-off data visualization color.
+The frontend is built with React and Tailwind. The active brand color is exposed as `brand` and `brand-active` in Tailwind, backed by CSS variables in `frontend/src/config/theme.css` and values from the BTAA entry in `frontend/theme.yaml`. New UI should preserve this structure and avoid hard-coding a new brand system unless a component genuinely needs a one-off data visualization color.
 
 Design for repeated research workflows rather than marketing. Users need to search, filter, compare, preview, map, and inspect records. Interfaces should be information-dense but orderly, with predictable controls, stable dimensions, and accessible focus states.
 
@@ -202,12 +275,6 @@ The primary palette is anchored in BTAA blue:
 - **Surface (#FFFFFF), muted surfaces (#F9FAFB, #F8FAFC):** Page sections, cards, result rows, empty/loading states.
 - **Text (#111827, #4B5563, #6B7280):** High-contrast headings, secondary body copy, and metadata.
 - **Borders (#E5E7EB, #D1D5DB):** Structure comes mostly from borders and tonal contrast, not heavy decoration.
-
-Institution themes:
-
-- **BTAA:** `primary #003C5B`, `active #2563EB`.
-- **UW-Madison:** `primary #C5050C`, `active #9B0000`.
-- **NYU:** `primary #57068C`, `active #8900E1`.
 
 Maps use data colors, but they should still harmonize with the product. H3 hex density uses a light-to-dark blue ramp ending at BTAA blue. Boundary/selection overlays commonly use `#2563EB` strokes with `#3B82F6` fill at low opacity. Use warm ramps only where the existing regional/county choropleth code already does.
 
@@ -268,7 +335,6 @@ The shape language is modest and utility-focused.
 - Default header logo: `/btaa-logo.png` (651 x 383) with a "Geoportal" lockup.
 - App/fav/PWA mark: `/logo.svg`, `/favicon.ico`, `/pwa-64x64.png`, `/pwa-192x192.png`, `/pwa-512x512.png`.
 - Footer BTAA-GIN logo: `/gin-white.png` (580 x 160) on BTAA blue.
-- Theme logos: `/uw-madison-logo.svg` and `/nyu-logo.svg`, both white marks intended for colored headers.
 - Partner/provider logos live in `/icons/*.svg`. On partner tiles they are often inverted to white over BTAA blue/map imagery unless a specific asset is marked non-monochrome.
 
 **Icons**
@@ -306,7 +372,7 @@ The public MkDocs site has its own Material theme configuration and extra CSS un
 ## Do's and Don'ts
 
 - Do use `brand` and `brand-active` Tailwind colors for application chrome and primary actions.
-- Do keep BTAA blue as the default theme anchor, while respecting UW-Madison and NYU theme values from `frontend/theme.yaml`.
+- Do keep BTAA blue as the default brand anchor and source shared color values from `frontend/theme.yaml` or `frontend/src/config/theme.css`.
 - Do use lucide icons for interface actions and existing `/icons/*.svg` assets for institutions/providers.
 - Do keep research workflows dense, scannable, and stable across responsive breakpoints.
 - Do use white/gray surfaces with borders and modest shadows for hierarchy.

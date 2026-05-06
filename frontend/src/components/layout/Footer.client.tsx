@@ -1,7 +1,5 @@
-import React from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useApi } from '../../context/ApiContext';
-import { useTheme } from '../../hooks/useTheme';
 
 interface FooterProps {
   id?: string;
@@ -9,7 +7,6 @@ interface FooterProps {
 
 function BtaaFooter({ id }: FooterProps) {
   const { lastApiUrl } = useApi();
-  const { themeId, themes, setThemeId } = useTheme();
   const footerLinkClass = 'text-white/85 hover:text-white hover:underline';
 
   return (
@@ -109,26 +106,17 @@ function BtaaFooter({ id }: FooterProps) {
               <h3 className="font-bold text-lg mb-3 text-white">Sponsors</h3>
               <ul className="space-y-2">
                 <li>
-                  <a
-                    href="https://btaa.org/"
-                    className={footerLinkClass}
-                  >
+                  <a href="https://btaa.org/" className={footerLinkClass}>
                     Big Ten Academic Alliance
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="https://gin.btaa.org/"
-                    className={footerLinkClass}
-                  >
+                  <a href="https://gin.btaa.org/" className={footerLinkClass}>
                     BTAA Geospatial Information Network
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="https://lib.umn.edu/"
-                    className={footerLinkClass}
-                  >
+                  <a href="https://lib.umn.edu/" className={footerLinkClass}>
                     University of Minnesota Libraries
                   </a>
                 </li>
@@ -165,7 +153,7 @@ function BtaaFooter({ id }: FooterProps) {
         {/* Divider */}
         <hr className="border-white/20 my-10" />
 
-        {/* Bottom Section: App Controls & Copyright */}
+        {/* Bottom Section: API Info & Contextual Links */}
         <div className="flex flex-col md:flex-row justify-between items-start gap-8 text-sm">
           {/* Copyright & API Info */}
           <div className="flex flex-col gap-4 w-full md:w-auto">
@@ -202,154 +190,17 @@ function BtaaFooter({ id }: FooterProps) {
             )}
           </div>
 
-          {/* App Tools (Theme) */}
-          <div className="flex flex-wrap items-center gap-6 bg-[#002a41] px-4 py-3 rounded-lg border border-white/15">
-            {/* Theme Selector */}
-            <div className="flex items-center gap-2">
-              <label
-                className="text-xs text-white/70 uppercase font-semibold tracking-wider"
-                htmlFor="theme-select"
-              >
-                Theme:
-              </label>
-              <select
-                id="theme-select"
-                value={themeId}
-                onChange={(e) => {
-                  const next = e.target.value;
-                  if (next === themeId) return;
-                  setThemeId(next);
-                  window.location.reload();
-                }}
-                className="text-xs bg-[#004d73] border border-blue-700 text-white rounded px-2 py-1 focus:ring-1 focus:ring-white outline-none"
-              >
-                {themes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* View in Portal Link (Contextual) */}
-            {id && (
-              <>
-                <div className="h-4 w-px bg-white/25"></div>
-                <a
-                  href={`https://geo.btaa.org/catalog/${id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-white/75 hover:text-white transition-colors flex items-center gap-1 uppercase font-semibold tracking-wider"
-                >
-                  View Original
-                  <ExternalLink size={10} />
-                </a>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
-function DefaultFooter({ id }: FooterProps) {
-  const { lastApiUrl } = useApi();
-  const { themeId, themes, setThemeId } = useTheme();
-
-  return (
-    <footer className="bg-white shadow-sm print:hidden">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
-        <div className="flex flex-col space-y-4">
-          {/* Links Row */}
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="text-sm text-gray-500">
-              © {new Date().getFullYear()} Big Ten Academic Alliance. All rights
-              reserved.
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-4">
-              <div className="flex items-center gap-2">
-                <label
-                  className="text-sm text-gray-500"
-                  htmlFor="theme-select-default"
-                >
-                  Theme
-                </label>
-                <select
-                  id="theme-select-default"
-                  value={themeId}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    if (next === themeId) return;
-                    setThemeId(next);
-                    window.location.reload();
-                  }}
-                  className="text-sm border border-gray-300 rounded px-2 py-1"
-                >
-                  {themes.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {id && (
-                <a
-                  href={`https://geo.btaa.org/catalog/${id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-gray-500 hover:text-gray-900 flex items-center gap-1"
-                >
-                  View in BTAA Geoportal
-                  <ExternalLink size={14} />
-                </a>
-              )}
+          {id && (
+            <div className="flex flex-wrap items-center gap-6 bg-[#002a41] px-4 py-3 rounded-lg border border-white/15">
               <a
-                href="https://gin.btaa.org/"
+                href={`https://geo.btaa.org/catalog/${id}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-gray-900"
+                className="text-xs text-white/75 hover:text-white transition-colors flex items-center gap-1 uppercase font-semibold tracking-wider"
               >
-                About
+                View Original
+                <ExternalLink size={10} />
               </a>
-              <a
-                href="https://geo.btaa.org/docs"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-gray-500 hover:text-gray-900"
-              >
-                Documentation
-              </a>
-            </div>
-          </div>
-
-          {/* API URL Row */}
-          {lastApiUrl ? (
-            <div className="text-sm text-gray-500">
-              <p className="mb-2">Last API Request:</p>
-              <a
-                href={lastApiUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group block"
-              >
-                <div className="flex items-center gap-2 p-2 bg-gray-50 rounded border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all">
-                  <code className="flex-1 overflow-x-auto text-blue-600">
-                    {lastApiUrl}
-                  </code>
-                  <ExternalLink
-                    size={14}
-                    className="text-gray-400 group-hover:text-blue-500"
-                  />
-                </div>
-              </a>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-400">
-              <p className="mb-2">Last API Request:</p>
-              <div className="p-2 bg-gray-50 rounded border border-gray-200">
-                <code className="block overflow-x-auto">None yet</code>
-              </div>
             </div>
           )}
         </div>
@@ -359,13 +210,7 @@ function DefaultFooter({ id }: FooterProps) {
 }
 
 export function Footer({ id }: FooterProps) {
-  const { themeId } = useTheme();
-
-  if (themeId === 'btaa') {
-    return <BtaaFooter id={id} />;
-  }
-
-  return <DefaultFooter id={id} />;
+  return <BtaaFooter id={id} />;
 }
 
 export default Footer;
