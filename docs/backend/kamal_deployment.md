@@ -113,6 +113,12 @@ Node worker queue. If a caller supplies its own `X-API-Key` to
 markers so keyed k6/API-client traffic can be measured separately from normal
 browser traffic.
 
+The backend also treats the configured `BTAA_GEOSPATIAL_API_KEY` as the
+server-injected frontend key and assigns it the unlimited `btaa_primary` tier
+before consulting destination-local `api_keys` rows. This keeps SSR/BFF traffic
+unlimited after DB syncs, secret rotations, or destination-local API key table
+drift.
+
 The health check path is:
 
 ```text

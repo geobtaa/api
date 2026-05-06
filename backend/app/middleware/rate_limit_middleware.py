@@ -165,7 +165,15 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             tier_id = tier_info.get("tier_id")
 
             if tier_id is None:
-                logger.warning("No tier_id found while logging API usage for %s", request.url.path)
+                if tier_info.get("source") == "env:BTAA_GEOSPATIAL_API_KEY":
+                    logger.debug(
+                        "Skipping API usage logging for configured server API key on %s",
+                        request.url.path,
+                    )
+                else:
+                    logger.warning(
+                        "No tier_id found while logging API usage for %s", request.url.path
+                    )
             else:
                 logger.info("Attempting to log API usage for a completed request")
                 await self.usage_log_service.log_request(

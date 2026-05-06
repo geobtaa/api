@@ -114,6 +114,44 @@ def rate_limited_client(monkeypatch):
     return TestClient(app)
 
 
+@pytest.fixture
+def unlimited_key_client(monkeypatch):
+    """Return a TestClient where one API key resolves to an unlimited tier."""
+
+    dummy_rate_limit = DummyRateLimitService()
+
+    monkeypatch.setattr(
+        "app.middleware.rate_limit_middleware.RateLimitService",
+        lambda: dummy_rate_limit,
+    )
+
+    async def fake_get_tier_info(self, api_key, request_ip):  # pragma: no cover - small shim
+        if api_key == "frontend-server-key":
+            return {
+                "tier_id": None,
+                "tier_name": "btaa_primary",
+                "display_name": "BTAA Geoportal Frontend",
+                "requests_per_minute": None,
+                "api_key_id": None,
+                "key_hash": "frontend-server-key-hash",
+            }
+
+        return {
+            "tier_id": 1,
+            "tier_name": "anonymous",
+            "display_name": "Anonymous",
+            "requests_per_minute": 1,
+        }
+
+    monkeypatch.setattr(
+        "app.middleware.rate_limit_middleware.RateLimitMiddleware._get_tier_info",
+        fake_get_tier_info,
+    )
+
+    app = _create_app()
+    return TestClient(app)
+
+
 class TestRateLimitMiddlewareIntegration:
     """Integration-style tests for rate limit middleware."""
 
@@ -149,3 +187,16 @@ class TestRateLimitMiddlewareIntegration:
         assert first.status_code == 200
         assert second.status_code == 200
         assert "X-RateLimit-Limit" not in first.headers
+
+    def test_unlimited_key_never_returns_429(self, unlimited_key_client):
+        """Unlimited tiers must bypass counters and report unlimited headers."""
+
+        headers = {"X-API-Key": "frontend-server-key"}
+
+        first = unlimited_key_client.get("/api/v1/test-endpoint", headers=headers)
+        second = unlimited_key_client.get("/api/v1/test-endpoint", headers=headers)
+
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.headers["X-RateLimit-Limit"] == "unlimited"
+        assert second.headers["X-RateLimit-Remaining"] == "unlimited"

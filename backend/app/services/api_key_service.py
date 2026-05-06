@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import logging
 import os
 import time
@@ -50,6 +51,44 @@ class APIKeyService:
     def _cache_lookup_key(key: str) -> str:
         """Build a non-secret cache key without running the expensive PBKDF2 hash."""
         return APIKeyService.legacy_hash_api_key(key)
+
+    @staticmethod
+    def _configured_server_api_keys() -> List[str]:
+        """Return server-injected API keys configured through the environment.
+
+        `BTAA_GEOSPATIAL_API_KEY` is injected into React Router SSR and nginx BFF
+        requests. It must remain unlimited even if a destination-local API key
+        table is stale after a DB sync or secret rotation.
+        """
+        raw_values = [
+            os.getenv("BTAA_GEOSPATIAL_API_KEY", ""),
+            os.getenv("BTAA_GEOSPATIAL_API_KEYS", ""),
+        ]
+
+        keys: List[str] = []
+        for raw_value in raw_values:
+            for candidate in raw_value.split(","):
+                candidate = candidate.strip()
+                if candidate:
+                    keys.append(candidate)
+        return keys
+
+    @staticmethod
+    def _configured_server_key_tier(key: str) -> Optional[Dict[str, Any]]:
+        """Return the implicit unlimited tier for a server-injected frontend key."""
+        for configured_key in APIKeyService._configured_server_api_keys():
+            if hmac.compare_digest(key, configured_key):
+                return {
+                    "tier_id": None,
+                    "tier_name": "btaa_primary",
+                    "display_name": "BTAA Geoportal Frontend",
+                    "requests_per_minute": None,
+                    "api_key_id": None,
+                    "key_hash": APIKeyService.legacy_hash_api_key(key),
+                    "allowed_ips": None,
+                    "source": "env:BTAA_GEOSPATIAL_API_KEY",
+                }
+        return None
 
     @staticmethod
     def _request_ip_allowed(allowed_ips: Any, request_ip: Optional[str]) -> bool:
@@ -170,6 +209,10 @@ class APIKeyService:
             A dict with tier info if valid, None otherwise.
             Returns None if key is invalid, inactive, or if IP restriction fails.
         """
+        configured_server_tier = self._configured_server_key_tier(key)
+        if configured_server_tier is not None:
+            return configured_server_tier
+
         cache_key = self._cache_lookup_key(key)
         cached_tier = self._get_cached_tier(cache_key, request_ip)
         if cached_tier is not None:

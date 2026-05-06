@@ -80,6 +80,31 @@ class TestAPIKeyService:
         assert "secret-api-key" not in lookup_key
         assert lookup_key == api_key_service.legacy_hash_api_key("secret-api-key")
 
+    @pytest.mark.asyncio
+    async def test_configured_server_api_key_is_unlimited_without_database(
+        self, api_key_service, monkeypatch
+    ):
+        """The deployment frontend key should not depend on destination-local DB rows."""
+        monkeypatch.setenv("BTAA_GEOSPATIAL_API_KEY", "frontend-server-key")
+
+        class ExplodingSessionFactory:
+            def __call__(self):
+                raise AssertionError("configured server key should not query the database")
+
+        monkeypatch.setattr(api_key_service_module, "async_session", ExplodingSessionFactory())
+
+        tier = await api_key_service.validate_api_key(
+            "frontend-server-key",
+            request_ip="203.0.113.10",
+        )
+
+        assert tier is not None
+        assert tier["tier_name"] == "btaa_primary"
+        assert tier["display_name"] == "BTAA Geoportal Frontend"
+        assert tier["requests_per_minute"] is None
+        assert tier["api_key_id"] is None
+        assert tier["key_hash"] == api_key_service.legacy_hash_api_key("frontend-server-key")
+
     def test_cached_tier_returns_copy_and_expires(self, api_key_service, monkeypatch):
         """Cached tier data should be short-lived and isolated from caller mutation."""
         now = 1000.0
