@@ -94,6 +94,15 @@ make k6-stress K6_RESOURCE_ID=p16022coll206:283
 If `K6_RESOURCE_ID` is not provided, the suite discovers one from the first
 search result for `K6_QUERY`.
 
+For varied-query stress runs, pass a comma- or pipe-separated query pool. The
+seed search still uses `K6_QUERY` to discover a stable resource id and facet
+values, while each frontend/API iteration rotates the actual search and suggest
+terms through `K6_QUERY_POOL`:
+
+```bash
+make k6-stress K6_QUERY_POOL="minnesota|chicago|water|roads|imagery"
+```
+
 ### Tune frontend and API pressure separately
 
 ```bash
@@ -108,12 +117,17 @@ Available knobs:
 - `K6_FRONTEND_HOLD`
 - `K6_FRONTEND_RAMP_DOWN`
 - `K6_FRONTEND_THINK_TIME_SECONDS`
+- `K6_FRONTEND_P95_THRESHOLD_MS`
+- `K6_FRONTEND_P99_THRESHOLD_MS`
 - `K6_API_TARGET_VUS`
 - `K6_API_RAMP_UP`
 - `K6_API_HOLD`
 - `K6_API_RAMP_DOWN`
 - `K6_API_THINK_TIME_SECONDS`
+- `K6_API_P95_THRESHOLD_MS`
+- `K6_API_P99_THRESHOLD_MS`
 - `K6_QUERY`
+- `K6_QUERY_POOL`
 - `K6_SUGGEST_QUERY`
 - `K6_RESOURCE_ID`
 - `K6_API_KEY`

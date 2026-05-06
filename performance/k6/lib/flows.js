@@ -130,6 +130,19 @@ function withSearchCacheBust(url, label) {
   return `${url}${separator}k6cb=${token}`;
 }
 
+function activeQuery() {
+  const queries =
+    config.queryPool.length > 0 ? config.queryPool : [config.query];
+  const vuId = exec.vu.idInTest || 0;
+  const iteration = exec.scenario.iterationInTest || 0;
+
+  return queries[(vuId + iteration) % queries.length];
+}
+
+function suggestQueryFor(query) {
+  return config.suggestQuery || query.slice(0, 4) || "minn";
+}
+
 function buildFrontendSearchResultsUrl(encodedQuery, facetQueryString = "") {
   const filters = facetQueryString ? `&${facetQueryString}` : "";
   return `${config.baseUrl}/search/results?format=json&search_field=all_fields&q=${encodedQuery}&page=1&per_page=${config.searchPerPage}${filters}`;
@@ -170,7 +183,7 @@ export function setupSeed() {
 }
 
 export function frontendFlow(seed) {
-  const encodedQuery = encodeURIComponent(config.query);
+  const encodedQuery = encodeURIComponent(activeQuery());
   const facetQueryString = buildFacetQueryString(seed);
   const homeResponse = http.get(`${config.baseUrl}/`, {
     headers: HTML_HEADERS,
@@ -275,8 +288,9 @@ export function frontendFlow(seed) {
 }
 
 export function apiFlow(seed) {
-  const encodedQuery = encodeURIComponent(config.query);
-  const encodedSuggestQuery = encodeURIComponent(config.suggestQuery);
+  const query = activeQuery();
+  const encodedQuery = encodeURIComponent(query);
+  const encodedSuggestQuery = encodeURIComponent(suggestQueryFor(query));
   const facetQueryString = buildFacetQueryString(seed);
 
   const searchResponse = http.get(
