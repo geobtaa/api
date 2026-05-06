@@ -81,6 +81,15 @@ export const config = Object.freeze({
   apiThinkTimeSeconds: floatEnv("K6_API_THINK_TIME_SECONDS", 0.25),
   apiP95ThresholdMs: intEnv("K6_API_P95_THRESHOLD_MS", 1500),
   apiP99ThresholdMs: intEnv("K6_API_P99_THRESHOLD_MS", 3000),
+  endpointTarget:
+    __ENV.K6_ENDPOINT_TARGET || "frontend_search_results_api",
+  requestRate: intEnv("K6_REQUEST_RATE", 50),
+  rateTimeUnit: __ENV.K6_RATE_TIME_UNIT || "1s",
+  endpointDuration: __ENV.K6_ENDPOINT_DURATION || "3m",
+  preAllocatedVus: intEnv("K6_PRE_ALLOCATED_VUS", 50),
+  maxVus: intEnv("K6_MAX_VUS", 200),
+  endpointP95ThresholdMs: intEnv("K6_ENDPOINT_P95_THRESHOLD_MS", 3000),
+  endpointP99ThresholdMs: intEnv("K6_ENDPOINT_P99_THRESHOLD_MS", 6000),
   smokeVus: intEnv("K6_SMOKE_VUS", 1),
   smokeIterations: intEnv("K6_SMOKE_ITERATIONS", 1),
 });

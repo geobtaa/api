@@ -137,6 +137,41 @@ Available knobs:
 - `K6_ENDPOINT_BREAKDOWN`
 - `K6_SEARCH_DIAGNOSTICS`
 
+### Test one endpoint at a fixed request rate
+
+Use `make k6-endpoint-capacity` when you need a defensible endpoint p95 at a
+known request rate instead of a blended scenario p95 from VU-based stress. The
+target endpoint is exercised with k6's `constant-arrival-rate` executor, so
+`K6_REQUEST_RATE=50` means k6 tries to start 50 iterations per second for that
+single endpoint:
+
+```bash
+make k6-endpoint-capacity \
+  K6_ENDPOINT_TARGET=frontend_search_results_api \
+  K6_REQUEST_RATE=50 \
+  K6_ENDPOINT_DURATION=3m \
+  K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu \
+  K6_API_KEY=...
+```
+
+Supported `K6_ENDPOINT_TARGET` values:
+
+- `frontend_search_results_api`
+- `frontend_faceted_search_results_api`
+- `frontend_resource_page`
+- `api_search`
+- `api_faceted_search`
+
+Useful fixed-rate knobs:
+
+- `K6_REQUEST_RATE`
+- `K6_RATE_TIME_UNIT`
+- `K6_ENDPOINT_DURATION`
+- `K6_PRE_ALLOCATED_VUS`
+- `K6_MAX_VUS`
+- `K6_ENDPOINT_P95_THRESHOLD_MS`
+- `K6_ENDPOINT_P99_THRESHOLD_MS`
+
 ### Force search miss-path traffic
 
 When you want to bypass the URL-level endpoint response cache for search/facet
@@ -269,6 +304,20 @@ smaller `3 / 4 / 3` web-worker profile with `web cpus: 5` unless a test run
 explicitly changes those destination overrides. The next validation step after
 changing these values is to rerun the mixed `18 API VUs + 6 frontend VUs`
 profile and compare API p95 against the API-only baseline.
+
+The production Postgres accessory currently has `max_connections=100`, so each
+Kamal destination must keep per-process DB pools bounded. Production uses:
+
+- `DB_POOL_MAX=2` for the shared `databases` async pool.
+- `SQLALCHEMY_ASYNC_POOL_SIZE=1` and `SQLALCHEMY_ASYNC_MAX_OVERFLOW=0` for
+  SQLAlchemy async engines.
+- `SQLALCHEMY_SYNC_POOL_SIZE=1` and `SQLALCHEMY_SYNC_MAX_OVERFLOW=0` for sync
+  SQLAlchemy engines used by request-path thumbnail/visual-asset helpers.
+
+These caps intentionally trade some request queueing inside each app process
+for a hard ceiling on database connections. If p95 rises under load, increase
+Postgres `max_connections` or add a pooler before raising these per-process
+pool values.
 
 If the API pool remains healthy but frontend resource page tails stay high,
 check the SSR layer next. `WEB_SSR_WORKERS` controls how many local

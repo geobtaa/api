@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-api-response-cache-init kamal-api-response-cache-prune clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -143,6 +143,14 @@ K6_API_RAMP_DOWN ?= 30s
 K6_API_THINK_TIME_SECONDS ?= 0.25
 K6_API_P95_THRESHOLD_MS ?= 1500
 K6_API_P99_THRESHOLD_MS ?= 3000
+K6_ENDPOINT_TARGET ?= frontend_search_results_api
+K6_REQUEST_RATE ?= 50
+K6_RATE_TIME_UNIT ?= 1s
+K6_ENDPOINT_DURATION ?= 3m
+K6_PRE_ALLOCATED_VUS ?= 50
+K6_MAX_VUS ?= 200
+K6_ENDPOINT_P95_THRESHOLD_MS ?= 3000
+K6_ENDPOINT_P99_THRESHOLD_MS ?= 6000
 K6_SMOKE_VUS ?= 1
 K6_SMOKE_ITERATIONS ?= 1
 K6_DOCKER_IMAGE ?= grafana/k6:latest
@@ -330,6 +338,14 @@ k6-run: ## Internal helper for k6 targets (set K6_ENTRY=...)
 		K6_API_THINK_TIME_SECONDS="$(K6_API_THINK_TIME_SECONDS)" \
 		K6_API_P95_THRESHOLD_MS="$(K6_API_P95_THRESHOLD_MS)" \
 		K6_API_P99_THRESHOLD_MS="$(K6_API_P99_THRESHOLD_MS)" \
+		K6_ENDPOINT_TARGET="$(K6_ENDPOINT_TARGET)" \
+		K6_REQUEST_RATE="$(K6_REQUEST_RATE)" \
+		K6_RATE_TIME_UNIT="$(K6_RATE_TIME_UNIT)" \
+		K6_ENDPOINT_DURATION="$(K6_ENDPOINT_DURATION)" \
+		K6_PRE_ALLOCATED_VUS="$(K6_PRE_ALLOCATED_VUS)" \
+		K6_MAX_VUS="$(K6_MAX_VUS)" \
+		K6_ENDPOINT_P95_THRESHOLD_MS="$(K6_ENDPOINT_P95_THRESHOLD_MS)" \
+		K6_ENDPOINT_P99_THRESHOLD_MS="$(K6_ENDPOINT_P99_THRESHOLD_MS)" \
 		K6_SMOKE_VUS="$(K6_SMOKE_VUS)" \
 		K6_SMOKE_ITERATIONS="$(K6_SMOKE_ITERATIONS)" \
 		k6 run --summary-export "$(K6_SUMMARY_EXPORT)" "$(K6_SCRIPT_DIR)/$(K6_ENTRY)"; \
@@ -369,6 +385,14 @@ k6-run: ## Internal helper for k6 targets (set K6_ENTRY=...)
 			-e K6_API_THINK_TIME_SECONDS="$(K6_API_THINK_TIME_SECONDS)" \
 			-e K6_API_P95_THRESHOLD_MS="$(K6_API_P95_THRESHOLD_MS)" \
 			-e K6_API_P99_THRESHOLD_MS="$(K6_API_P99_THRESHOLD_MS)" \
+			-e K6_ENDPOINT_TARGET="$(K6_ENDPOINT_TARGET)" \
+			-e K6_REQUEST_RATE="$(K6_REQUEST_RATE)" \
+			-e K6_RATE_TIME_UNIT="$(K6_RATE_TIME_UNIT)" \
+			-e K6_ENDPOINT_DURATION="$(K6_ENDPOINT_DURATION)" \
+			-e K6_PRE_ALLOCATED_VUS="$(K6_PRE_ALLOCATED_VUS)" \
+			-e K6_MAX_VUS="$(K6_MAX_VUS)" \
+			-e K6_ENDPOINT_P95_THRESHOLD_MS="$(K6_ENDPOINT_P95_THRESHOLD_MS)" \
+			-e K6_ENDPOINT_P99_THRESHOLD_MS="$(K6_ENDPOINT_P99_THRESHOLD_MS)" \
 			-e K6_SMOKE_VUS="$(K6_SMOKE_VUS)" \
 			-e K6_SMOKE_ITERATIONS="$(K6_SMOKE_ITERATIONS)" \
 			"$(K6_DOCKER_IMAGE)" \
@@ -385,6 +409,11 @@ k6-stress: ## Run concurrent frontend + API k6 stress test
 	@$(MAKE) --no-print-directory k6-run \
 		K6_ENTRY=stress.js \
 		K6_SUMMARY_EXPORT=$(K6_OUTPUT_DIR)/stress-summary.json
+
+k6-endpoint-capacity: ## Run a fixed-request-rate k6 capacity test for one endpoint
+	@$(MAKE) --no-print-directory k6-run \
+		K6_ENTRY=endpoint_capacity.js \
+		K6_SUMMARY_EXPORT=$(K6_OUTPUT_DIR)/endpoint-capacity-summary.json
 
 # Clear cached thumbnail for a resource (PMTiles/COG) so it can be regenerated.
 # Usage: make clear-thumbnail-cache RESOURCE_ID=b1g_PJxxfKgpqpUT
