@@ -6,16 +6,14 @@ from typing import Dict, Iterable, List, Optional, Sequence
 
 from sqlalchemy import Select, select
 from sqlalchemy.engine import Row
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import NullPool
 
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 from db.models import distribution_types, resource_distributions
 
-# Use a non-pooling engine to avoid sharing connections with other async DB clients
-# (e.g., the `databases` library) which can lead to "another operation is in progress".
-engine = create_async_engine(DATABASE_URL, poolclass=NullPool)
+engine = create_app_async_engine(DATABASE_URL)
 async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

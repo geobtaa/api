@@ -8,7 +8,7 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.api.v1.advanced_search_utils import validate_adv_q
@@ -46,6 +46,7 @@ from app.services.resource_representation_cache import (
 )
 from app.services.search_service import SearchService
 from app.services.viewer_service import create_viewer_attributes
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -70,7 +71,7 @@ SEARCH_TIMING_HEADERS = os.getenv("SEARCH_TIMING_HEADERS", "true").lower() == "t
 SEARCH_RESULT_RELATIONSHIP_LIMIT = int(os.getenv("SEARCH_RESULT_RELATIONSHIP_LIMIT", "5"))
 
 # Create async engine and session for search results processing
-engine = create_async_engine(DATABASE_URL)
+engine = create_app_async_engine(DATABASE_URL)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 

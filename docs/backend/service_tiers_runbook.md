@@ -144,6 +144,16 @@ When onboarding a new API client:
   - **Missing tiers or keys**:
     - Re-run `scripts/run_migrations.py` to ensure tables & seed tiers exist.
     - Use `GET /api/v1/admin/api-tiers` to verify tier configuration.
+  - **Postgres connection pressure under keyed load**:
+    - Keep `API_KEY_TIER_CACHE_TTL_SECONDS` enabled so repeated requests with
+      the same key do not need a database lookup before the unlimited-tier
+      rate-limit skip can happen.
+    - Keep `API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS` above zero so
+      `api_keys.last_used_at` is not updated on every request.
+    - Use `DB_POOL_MAX`, `SQLALCHEMY_ASYNC_POOL_SIZE`, and
+      `SQLALCHEMY_ASYNC_MAX_OVERFLOW` to budget database clients across all
+      API worker processes before increasing `WEB_UVICORN_WORKERS` or
+      `WEB_INTERNAL_UVICORN_WORKERS`.
 
 ### 6. Changing tier policies
 

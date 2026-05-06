@@ -150,6 +150,24 @@ set +a
 make k6-stress K6_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu
 ```
 
+`dev2` is the rate-limiting capacity proving ground. It keeps rate limiting
+enabled and caps per-worker database pools so k6 can exercise the production
+API-key path without using production traffic:
+
+```bash
+make k6-stress K6_BASE_URL=https://lib-geoportal-dev-web-01.oit.umn.edu K6_API_KEY=...
+```
+
+The relevant server-side knobs are:
+
+- `API_KEY_TIER_CACHE_TTL_SECONDS`: short process-local cache for successful
+  API-key/tier lookups.
+- `API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS`: minimum interval between
+  `api_keys.last_used_at` writes per key/process.
+- `DB_POOL_MAX`: cap for the shared `databases` pool in each API worker.
+- `SQLALCHEMY_ASYNC_POOL_SIZE` and `SQLALCHEMY_ASYNC_MAX_OVERFLOW`: caps for
+  SQLAlchemy async engine pools used by search/resource/cache helpers.
+
 This appends an ignored `k6cb=...` query param to:
 
 - `/search`
