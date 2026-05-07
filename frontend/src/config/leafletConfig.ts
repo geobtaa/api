@@ -1,6 +1,9 @@
 // src/config/leafletConfig.ts
 export const leafletViewerOptions = {
-  MAP: {},
+  MAP: {
+    gestureHandling: true,
+    scrollWheelZoom: true,
+  },
   BOUNDSOVERLAY: {
     INDEX: { color: '#3388ff' },
     SHOW: { color: '#3388ff' },
@@ -8,13 +11,7 @@ export const leafletViewerOptions = {
   },
   SELECTED_COLOR: '#2C7FB8',
   SLEEP: {
-    SLEEP: true,
-    MARGIN_DISTANCE: 100,
-    SLEEPTIME: 750,
-    WAKETIME: 750,
-    HOVERTOWAKE: false,
-    MESSAGE: 'Click to Wake',
-    BACKGROUND: 'rgba(214, 214, 214, .7)',
+    SLEEP: false,
   },
   LAYERS: {
     DETECT_RETINA: true,
