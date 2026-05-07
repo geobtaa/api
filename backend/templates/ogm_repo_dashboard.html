@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title }}</title>
+  <link rel="icon" href="/static/favicon.ico" />
+  <link rel="stylesheet" href="/static/brand.css?v=4" />
+</head>
+<body class="institutional ogm-monitor">
+  <header class="docs-header" aria-label="Primary">
+    <div id="application-header" class="container-fluid">
+      <nav id="header-navbar" class="navbar navbar-expand-md navbar-dark topbar" role="navigation">
+        <div id="b1g-header-navbar" aria-hidden="true"></div>
+        <h1><a class="navbar-brand" href="/api/v1/ogm/repos/dashboard">OGM Repository Monitor</a></h1>
+        <button class="navbar-toggler navbar-toggler-right" type="button" data-toggle="collapse" data-target="#user-util-collapse" aria-controls="user-util-collapse" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-md-end" id="user-util-collapse">
+          <ul class="navbar-nav">
+            <li class="nav-item"><a class="nav-link" href="/api/docs">API Docs</a></li>
+            <li class="nav-item"><a class="nav-link" href="https://github.com/OpenGeoMetadata">OGM GitHub</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main class="docs-wrap">
+    <section class="monitor-hero">
+      <p class="eyebrow">OpenGeoMetadata Harvest Monitor</p>
+      <h2>Repository health, harvest freshness, and API availability in one place.</h2>
+      <p class="lede">
+        This page tracks every repository discovered in the OpenGeoMetadata GitHub organization,
+        whether it exposes a <code>metadata-aardvark/</code> directory, when it last changed on GitHub,
+        when this app last harvested it, and how many records are currently harvested versus published
+        through this API.
+      </p>
+      <p class="meta-note">Generated {{ generated_at }}. Times shown in UTC.</p>
+    </section>
+
+    <section class="monitor-summary" aria-label="Repository summary">
+      <article class="summary-card">
+        <p class="summary-label">Tracked Repositories</p>
+        <p class="summary-value">{{ summary.repo_count }}</p>
+      </article>
+      <article class="summary-card">
+        <p class="summary-label">With Aardvark Metadata</p>
+        <p class="summary-value">{{ summary.repos_with_aardvark_count }}</p>
+      </article>
+      <article class="summary-card">
+        <p class="summary-label">Nightly Enabled</p>
+        <p class="summary-value">{{ summary.enabled_repo_count }}</p>
+      </article>
+      <article class="summary-card">
+        <p class="summary-label">Current Harvested Records</p>
+        <p class="summary-value">{{ "{:,}".format(summary.harvested_record_count) }}</p>
+      </article>
+      <article class="summary-card">
+        <p class="summary-label">Published in This API</p>
+        <p class="summary-value">{{ "{:,}".format(summary.available_record_count) }}</p>
+      </article>
+      <article class="summary-card">
+        <p class="summary-label">Never Harvested Here</p>
+        <p class="summary-value">{{ summary.never_harvested_count }}</p>
+      </article>
+    </section>
+
+    <section class="monitor-table-wrap" aria-label="Repository table">
+      <div class="monitor-table-head">
+        <div>
+          <h3>Repositories</h3>
+          <p class="meta-note">JSON source: <a href="/api/v1/ogm/repos"><code>/api/v1/ogm/repos</code></a></p>
+        </div>
+      </div>
+
+      <div class="monitor-table-scroll">
+        <table class="monitor-table">
+          <thead>
+            <tr>
+              <th scope="col">Repository</th>
+              <th scope="col">Last Commit</th>
+              <th scope="col">Last Harvest</th>
+              <th scope="col">Aardvark</th>
+              <th scope="col">Harvest Status</th>
+              <th scope="col">Harvested Records</th>
+              <th scope="col">Available in API</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for repo in repos %}
+            <tr>
+              <td>
+                <div class="repo-cell">
+                  <a href="{{ repo.ogm_github_url }}" target="_blank" rel="noreferrer">{{ repo.ogm_repo_name }}</a>
+                  <p class="repo-subtitle">{{ repo.ogm_repo_full_name or repo.ogm_repo_name }}</p>
+                  <p class="repo-subtitle">
+                    mode: <code>{{ repo.ogm_watch_mode or "manual" }}</code>
+                    {% if repo.last_commit_sha %}
+                    <span>· sha <code>{{ repo.last_commit_sha[:12] }}</code></span>
+                    {% endif %}
+                  </p>
+                </div>
+              </td>
+              <td>
+                {{ repo.display_last_commit_at or "Never observed" }}
+              </td>
+              <td>
+                {% if repo.display_last_harvest_at %}
+                <div>{{ repo.display_last_harvest_at }}</div>
+                {% if repo.display_last_harvest_started_at and repo.display_last_harvest_started_at != repo.display_last_harvest_at %}
+                <p class="repo-subtitle">started {{ repo.display_last_harvest_started_at }}</p>
+                {% endif %}
+                {% else %}
+                Never harvested
+                {% endif %}
+              </td>
+              <td>
+                {% if repo.ogm_has_aardvark %}
+                <span class="status-pill status-ok">Present</span>
+                {% else %}
+                <span class="status-pill status-muted">Missing</span>
+                {% endif %}
+              </td>
+              <td>
+                {% set crawl_status = (repo.last_crawl_status or "unknown")|lower %}
+                {% if crawl_status == "success" %}
+                <span class="status-pill status-ok">Success</span>
+                {% elif crawl_status == "running" %}
+                <span class="status-pill status-run">Running</span>
+                {% elif crawl_status == "failed" %}
+                <span class="status-pill status-bad">Failed</span>
+                {% else %}
+                <span class="status-pill status-muted">{{ repo.last_crawl_status or "Unknown" }}</span>
+                {% endif %}
+                {% if repo.harvested_failure_count %}
+                <p class="repo-subtitle">{{ "{:,}".format(repo.harvested_failure_count) }} recent import errors</p>
+                {% endif %}
+              </td>
+              <td>
+                <div>{{ "{:,}".format(repo.harvested_record_count) }}</div>
+                {% if repo.harvested_success_count %}
+                <p class="repo-subtitle">last run imported {{ "{:,}".format(repo.harvested_success_count) }}</p>
+                {% endif %}
+              </td>
+              <td>
+                <div>{{ "{:,}".format(repo.available_record_count) }}</div>
+                {% if repo.harvest_gap_count %}
+                <p class="repo-subtitle">{{ "{:,}".format(repo.harvest_gap_count) }} not yet published</p>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="inst-footer">
+    <section id="footer-app" aria-label="Application Footer">
+      <div class="container-fluid">
+        <div class="row">
+          <div class="col-xs-12 col-lg-12" id="footer-title">
+            <h2 class="mt-3">OpenGeoMetadata API</h2>
+          </div>
+          <div class="col-xs-12 col-lg-6">
+            <h3 class="mt-3">Monitor Links</h3>
+            <ul class="list-unstyled">
+              <li><a href="/api/v1/ogm/repos">Repository JSON</a></li>
+              <li><a href="/api/v1/ogm/harvest/failures">Recent Harvest Failures</a></li>
+              <li><a href="/api/docs">API Docs</a></li>
+            </ul>
+          </div>
+          <div class="col-xs-12 col-lg-6">
+            <h3 class="mt-3">Notes</h3>
+            <ul class="list-unstyled">
+              <li>Harvested record counts reflect current OGM repo state tracked in <code>ogm_resource_state</code>.</li>
+              <li>Available counts reflect published, unsuppressed resources exposed through this API.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const toggler = document.querySelector('.navbar-toggler');
+      const collapse = document.querySelector('.navbar-collapse');
+
+      if (toggler && collapse) {
+        toggler.addEventListener('click', function() {
+          collapse.classList.toggle('show');
+          const isExpanded = collapse.classList.contains('show');
+          toggler.setAttribute('aria-expanded', isExpanded);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

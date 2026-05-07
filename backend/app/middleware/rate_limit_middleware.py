@@ -32,6 +32,13 @@ IMMUTABLE_STATIC_MAP_PATH_RE = re.compile(
     r"^/api/v1/static-map-assets/[0-9a-f]{64}$",
     re.IGNORECASE,
 )
+HEALTHCHECK_BYPASS_PATHS = {
+    "/api/docs",
+    "/api/openapi.json",
+    "/api/redoc",
+}
+ANALYTICS_EVENTS_PATH = "/api/v1/analytics/events"
+DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE = 120
 
 
 def _is_immutable_asset_route(path: str) -> bool:
@@ -39,6 +46,43 @@ def _is_immutable_asset_route(path: str) -> bool:
     return bool(
         IMMUTABLE_THUMBNAIL_PATH_RE.fullmatch(path) or IMMUTABLE_STATIC_MAP_PATH_RE.fullmatch(path)
     )
+
+
+def _is_healthcheck_route(path: str) -> bool:
+    """Return True for lightweight health/documentation routes used by deploy tooling."""
+    return path in HEALTHCHECK_BYPASS_PATHS
+
+
+def _is_analytics_events_route(path: str) -> bool:
+    """Return True for the lightweight frontend analytics ingestion endpoint."""
+    return path == ANALYTICS_EVENTS_PATH
+
+
+def _analytics_events_requests_per_minute() -> Optional[int]:
+    """Return the analytics-event throttle, independent from API service tiers."""
+    raw_value = os.getenv(
+        "ANALYTICS_EVENTS_REQUESTS_PER_MINUTE",
+        str(DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE),
+    ).strip()
+    if raw_value.lower() in {"", "none", "unlimited", "false", "off"}:
+        return None
+    try:
+        limit = int(raw_value)
+    except ValueError:
+        logger.warning(
+            "Invalid ANALYTICS_EVENTS_REQUESTS_PER_MINUTE=%r; using default %s",
+            raw_value,
+            DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE,
+        )
+        return DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE
+    if limit < 0:
+        logger.warning(
+            "Invalid negative ANALYTICS_EVENTS_REQUESTS_PER_MINUTE=%r; using default %s",
+            raw_value,
+            DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE,
+        )
+        return DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE
+    return limit
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -58,6 +102,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             logger.debug("Rate limiting bypassed for tests (DISABLE_RATE_LIMIT_FOR_TESTS=true)")
             return await call_next(request)
 
+        # CORS preflights do not carry Authorization headers, so charging them
+        # against anonymous quota causes authenticated browser clients to 429
+        # before their real request can be sent.
+        if request.method == "OPTIONS":
+            logger.debug("Skipping rate limiting for %s (CORS preflight)", request.url.path)
+            return await call_next(request)
+
         # Extract API key from header or query parameter
         api_key = self._extract_api_key(request)
 
@@ -67,6 +118,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         skip_rate_limit_reason = None
         if not _rate_limit_enabled():
             skip_rate_limit_reason = "rate limiting disabled"
+        elif _is_healthcheck_route(request.url.path):
+            skip_rate_limit_reason = "healthcheck route"
         elif request.url.path.startswith("/api/v1/admin"):
             skip_rate_limit_reason = "admin endpoint"
         elif _is_immutable_asset_route(request.url.path):
@@ -93,12 +146,23 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # Get identifier (key hash for authenticated, IP for anonymous)
         identifier = self._get_identifier(request, api_key, tier_info)
 
+        rate_limit_tier_name = tier_name
+        rate_limit_identifier = identifier
+        rate_limit_requests_per_minute = requests_per_minute
+        if skip_rate_limit_reason is None and _is_analytics_events_route(request.url.path):
+            analytics_limit = _analytics_events_requests_per_minute()
+            rate_limit_tier_name = "analytics_events"
+            rate_limit_identifier = self._get_analytics_identifier(request)
+            rate_limit_requests_per_minute = analytics_limit
+
         # Check rate limit (skip check for unlimited tiers)
         remaining = None
         reset_time = None
-        if skip_rate_limit_reason is None and requests_per_minute is not None:
+        if skip_rate_limit_reason is None and rate_limit_requests_per_minute is not None:
             allowed, remaining, reset_time = await self.rate_limit_service.check_rate_limit(
-                tier_name, identifier, requests_per_minute
+                rate_limit_tier_name,
+                rate_limit_identifier,
+                rate_limit_requests_per_minute,
             )
 
             if not allowed:
@@ -121,13 +185,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                     content={
                         "error": "Rate limit exceeded",
                         "message": (
-                            f"Rate limit of {requests_per_minute} requests per minute exceeded"
+                            f"Rate limit of {rate_limit_requests_per_minute} "
+                            "requests per minute exceeded"
                         ),
                         "retry_after": reset_time,
                     },
                 )
                 # Add rate limit headers
-                response.headers["X-RateLimit-Limit"] = str(requests_per_minute)
+                response.headers["X-RateLimit-Limit"] = str(rate_limit_requests_per_minute)
                 response.headers["X-RateLimit-Remaining"] = "0"
                 response.headers["X-RateLimit-Reset"] = str(reset_time)
                 response.headers["Retry-After"] = str(reset_time)
@@ -144,20 +209,25 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         # Add rate limit headers only when throttling is active for this request.
         if skip_rate_limit_reason is None:
-            if requests_per_minute is not None:
+            if rate_limit_requests_per_minute is not None:
                 headers = await self.rate_limit_service.get_rate_limit_headers(
-                    tier_name,
-                    identifier,
-                    requests_per_minute,
+                    rate_limit_tier_name,
+                    rate_limit_identifier,
+                    rate_limit_requests_per_minute,
                     remaining=remaining,
                     reset_time=reset_time,
                 )
             else:
                 headers = await self.rate_limit_service.get_rate_limit_headers(
-                    tier_name, identifier, requests_per_minute
+                    rate_limit_tier_name,
+                    rate_limit_identifier,
+                    rate_limit_requests_per_minute,
                 )
             for header_name, header_value in headers.items():
                 response.headers[header_name] = header_value
+
+        if skip_rate_limit_reason == "healthcheck route":
+            return response
 
         # Log API usage (fire-and-forget, won't block response).
         try:
@@ -255,4 +325,14 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return ip_address
 
         # Last resort: use a default identifier
+        return "unknown"
+
+    def _get_analytics_identifier(self, request: Request) -> str:
+        """Use a per-client identifier for analytics event throttling."""
+        ip_address = self._extract_ip_address(request)
+        if ip_address:
+            return f"ip:{ip_address}"
+        origin = request.headers.get("Origin")
+        if origin:
+            return f"origin:{origin}"
         return "unknown"

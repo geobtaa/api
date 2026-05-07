@@ -291,6 +291,17 @@ The cron container currently runs:
 - daily sitemap generation at `4:15 AM America/Chicago`
 - daily analytics storage maintenance at `4:45 AM America/Chicago`
 
+OpenGeoMetadata repository discovery and harvest enqueueing is handled by
+`.github/workflows/ogm-nightly-sync.yml`. The workflow SSHes to production, finds a running
+app container, and runs:
+
+```bash
+python /app/backend/scripts/trigger_ogm_nightly_sync.py
+```
+
+Configure `OGM_KAMAL_SSH_HOST`, `OGM_KAMAL_SSH_PORT`, `OGM_KAMAL_SSH_USER`, and
+`OGM_KAMAL_SSH_PRIVATE_KEY` as GitHub Actions secrets before relying on the workflow.
+
 Cron now sets `CRON_TZ=America/Chicago` in the crontab, and bridge delta windows are
 computed from the previous America/Chicago day before converting to UTC for the bridge
 API. Each cron shell also loads `/app/scripts/cron_env.sh` via `BASH_ENV`, which restores

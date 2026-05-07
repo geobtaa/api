@@ -126,9 +126,9 @@ def build_repo_row(repo: Dict[str, Any], *, has_aardvark: bool) -> Dict[str, Any
 
     # Policy:
     # - if no aardvark directory, disable by default (so it won't be harvested)
-    # - otherwise enable and default to weekly (can be edited via admin endpoint)
+    # - otherwise enable and default to nightly (can be edited via admin endpoint)
     ogm_enabled = bool(has_aardvark and not archived)
-    ogm_watch_mode = "weekly" if ogm_enabled else "manual"
+    ogm_watch_mode = "nightly" if ogm_enabled else "manual"
 
     return {
         "ogm_repo_name": name,

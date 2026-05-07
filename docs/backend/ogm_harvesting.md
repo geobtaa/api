@@ -22,6 +22,11 @@ During harvest, imported records now update three local DB surfaces automaticall
   - `ogm_harvest_repo(repo_name, trigger)`
   - `ogm_harvest_all(trigger)`
 
+- **Public monitor**:
+  - `GET /api/v1/ogm/repos`
+  - `GET /api/v1/ogm/repos/dashboard`
+  - `GET /api/v1/ogm/harvest/failures`
+
 - **Admin endpoints** (Basic Auth protected under `/api/v1/admin/*`):
   - `GET /api/v1/admin/ogm/repos`
   - `PATCH /api/v1/admin/ogm/repos/{repo_name}`
@@ -90,11 +95,11 @@ Ensure the backend image includes `git` (the project `Dockerfile` installs it).
 curl -u admin:changeme -X PATCH \
   "http://localhost:8000/api/v1/admin/ogm/repos/edu.stanford.purl" \
   -H "Content-Type: application/json" \
-  -d '{"ogm_enabled":true,"ogm_watch_mode":"weekly"}'
+  -d '{"ogm_enabled":true,"ogm_watch_mode":"nightly"}'
 ```
 
 Supported `ogm_watch_mode` values:
-- `weekly`, `webhook`, `both`, `manual`
+- `nightly`, `weekly`, `webhook`, `both`, `manual`
 
 ### 1a) Populate `ogm_repos` from GitHub (bulk)
 
@@ -105,7 +110,42 @@ docker compose exec api bash -lc "cd /app/backend && python scripts/populate_ogm
 ```
 
 Notes:
-- This script checks whether each repo has a `metadata-aardvark/` directory.\n+  - If **missing**, it sets `ogm_enabled=false` and flags it via `ogm_tags.ogm_missing_aardvark=true`.\n+  - If **present**, it sets `ogm_enabled=true` and `ogm_watch_mode=weekly`.\n+- For better GitHub rate limits, pass a token:\n+  - `GITHUB_TOKEN=... python scripts/populate_ogm_repos.py`
+- This script checks whether each repo has a `metadata-aardvark/` directory.
+- If metadata is missing, it sets `ogm_enabled=false` and flags the repo with `ogm_tags.ogm_missing_aardvark=true`.
+- If metadata is present, it sets `ogm_enabled=true` and `ogm_watch_mode=nightly`.
+- For better GitHub rate limits, pass a token:
+  - `GITHUB_TOKEN=... python scripts/populate_ogm_repos.py`
+
+### 1b) Nightly discovery and harvest enqueue
+
+The helper script `scripts/trigger_ogm_nightly_sync.py` refreshes the repository watch list
+from the `OpenGeoMetadata` GitHub organization and then enqueues `ogm_harvest_all` with
+`trigger="nightly"`.
+
+```bash
+docker compose exec api bash -lc "cd /app/backend && python scripts/trigger_ogm_nightly_sync.py"
+```
+
+Use `--dry-run` to inspect discovery without writing repo rows or enqueueing harvest work,
+and `--skip-harvest` to refresh `ogm_repos` without enqueueing the harvest task.
+
+The repository also includes `.github/workflows/ogm-nightly-sync.yml`, which can run the
+same script on production through SSH. Configure these GitHub Actions secrets before
+enabling the workflow:
+
+- `OGM_KAMAL_SSH_HOST`
+- `OGM_KAMAL_SSH_PORT` (optional, defaults to `22`)
+- `OGM_KAMAL_SSH_USER`
+- `OGM_KAMAL_SSH_PRIVATE_KEY`
+
+### 1c) Monitor repo health
+
+Use the dashboard to inspect discovered repositories, Aardvark availability, harvest
+freshness, and published API counts:
+
+```text
+GET /api/v1/ogm/repos/dashboard
+```
 
 ### 2) Trigger a harvest
 
@@ -121,13 +161,13 @@ curl -u admin:changeme -X POST \
 This updates Postgres immediately, including distributions and relationship rows for the touched records.
 If you need local Elasticsearch/search results to reflect the new or changed records right away, run `make reindex` after the harvest completes.
 
-All enabled weekly repos:
+All enabled scheduled repos:
 
 ```bash
 curl -u admin:changeme -X POST \
   "http://localhost:8000/api/v1/admin/ogm/harvest" \
   -H "Content-Type: application/json" \
-  -d '{"ogm_all":true,"ogm_trigger":"weekly"}'
+  -d '{"ogm_all":true,"ogm_trigger":"nightly"}'
 ```
 
 ### 3) Query by repo (multi-select)

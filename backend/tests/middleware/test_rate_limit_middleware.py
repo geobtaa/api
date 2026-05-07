@@ -9,7 +9,11 @@ import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from app.middleware.rate_limit_middleware import RateLimitMiddleware, _is_immutable_asset_route
+from app.middleware.rate_limit_middleware import (
+    DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE,
+    RateLimitMiddleware,
+    _is_immutable_asset_route,
+)
 
 
 class TestRateLimitMiddleware:
@@ -209,6 +213,7 @@ class TestRateLimitMiddleware:
     async def test_dispatch_rate_limit_disabled(self, middleware):
         """Requests should still log even when throttling is disabled."""
         request = MagicMock(spec=Request)
+        request.method = "GET"
         request.url = MagicMock()
         request.url.path = "/api/v1/search"
         request.headers.get = MagicMock(return_value=None)
@@ -249,6 +254,7 @@ class TestRateLimitMiddleware:
     async def test_dispatch_admin_endpoint_skipped(self, middleware):
         """Admin requests should bypass throttling but still log usage."""
         request = MagicMock(spec=Request)
+        request.method = "POST"
         request.url = MagicMock()
         request.url.path = "/api/v1/admin/cache/clear"
         request.headers.get = MagicMock(return_value=None)
@@ -285,6 +291,7 @@ class TestRateLimitMiddleware:
     async def test_dispatch_immutable_thumbnail_asset_skipped(self, middleware):
         """Immutable cached thumbnail assets should bypass throttling but still log."""
         request = MagicMock(spec=Request)
+        request.method = "GET"
         request.url = MagicMock()
         request.url.path = (
             "/api/v1/thumbnails/e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
@@ -320,9 +327,89 @@ class TestRateLimitMiddleware:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_dispatch_options_preflight_skipped_without_logging(self, middleware):
+        """CORS preflights should not consume quota or create usage-log writes."""
+        request = MagicMock(spec=Request)
+        request.method = "OPTIONS"
+        request.url = MagicMock()
+        request.url.path = "/api/v1/search"
+        request.headers.get = MagicMock(return_value=None)
+        request.query_params.get = MagicMock(return_value=None)
+        request.client = MagicMock()
+        request.client.host = "192.168.1.1"
+
+        middleware.usage_log_service.log_request = AsyncMock()
+        middleware.rate_limit_service.check_rate_limit = AsyncMock()
+        middleware.api_key_service.get_anonymous_tier = AsyncMock()
+        call_next = AsyncMock(return_value=JSONResponse(content={}, status_code=200))
+
+        response = await middleware.dispatch(request, call_next)
+
+        call_next.assert_called_once_with(request)
+        middleware.api_key_service.get_anonymous_tier.assert_not_called()
+        middleware.rate_limit_service.check_rate_limit.assert_not_called()
+        middleware.usage_log_service.log_request.assert_not_called()
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_dispatch_analytics_uses_separate_ip_bucket(self, middleware):
+        """Analytics events should not spend the normal anonymous/API-key quota."""
+        request = MagicMock(spec=Request)
+        request.method = "POST"
+        request.url = MagicMock()
+        request.url.path = "/api/v1/analytics/events"
+        request.headers.get = MagicMock(return_value=None)
+        request.query_params.get = MagicMock(return_value=None)
+        request.client = MagicMock()
+        request.client.host = "192.168.1.1"
+
+        tier_info = {
+            "tier_id": 6,
+            "tier_name": "anonymous",
+            "display_name": "Anonymous",
+            "requests_per_minute": 10,
+        }
+        middleware.api_key_service.get_anonymous_tier = AsyncMock(return_value=tier_info)
+        middleware.rate_limit_service.check_rate_limit = AsyncMock(
+            return_value=(True, DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE - 1, 1234567890)
+        )
+        middleware.rate_limit_service.get_rate_limit_headers = AsyncMock(
+            return_value={
+                "X-RateLimit-Limit": str(DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE),
+                "X-RateLimit-Remaining": str(DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE - 1),
+                "X-RateLimit-Reset": "1234567890",
+            }
+        )
+        middleware.usage_log_service.log_request = AsyncMock()
+        call_next = AsyncMock(return_value=JSONResponse(content={}, status_code=202))
+
+        with patch.dict(
+            os.environ,
+            {
+                "RATE_LIMIT_ENABLED": "true",
+                "DISABLE_RATE_LIMIT_FOR_TESTS": "false",
+            },
+            clear=False,
+        ):
+            response = await middleware.dispatch(request, call_next)
+
+        middleware.rate_limit_service.check_rate_limit.assert_called_once_with(
+            "analytics_events",
+            "ip:192.168.1.1",
+            DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE,
+        )
+        call_next.assert_called_once_with(request)
+        middleware.usage_log_service.log_request.assert_called_once()
+        assert response.status_code == 202
+        assert response.headers["X-RateLimit-Limit"] == str(
+            DEFAULT_ANALYTICS_EVENTS_REQUESTS_PER_MINUTE
+        )
+
+    @pytest.mark.asyncio
     async def test_dispatch_rate_limit_exceeded(self, middleware):
         """Test that middleware returns 429 when rate limit exceeded."""
         request = MagicMock(spec=Request)
+        request.method = "GET"
         request.url = MagicMock()
         request.url.path = "/api/v1/search"
         request.headers.get = MagicMock(return_value=None)
@@ -366,6 +453,7 @@ class TestRateLimitMiddleware:
     async def test_dispatch_unlimited_tier(self, middleware):
         """Test that middleware allows unlimited tier requests."""
         request = MagicMock(spec=Request)
+        request.method = "GET"
         request.url = MagicMock()
         request.url.path = "/api/v1/search"
         request.headers.get = MagicMock(return_value="test-api-key")
