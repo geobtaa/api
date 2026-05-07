@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { MapProvider } from '../../../context/MapContext';
 import { MapResultView } from '../../../components/search/MapResultView.client';
@@ -19,9 +19,21 @@ vi.mock('leaflet/dist/leaflet.css', () => ({}));
 vi.mock('react-leaflet', () => ({
   MapContainer: ({
     children,
+    gestureHandling,
+    scrollWheelZoom,
   }: {
     children: React.ReactNode;
-  }) => <div data-testid="map-container">{children}</div>,
+    gestureHandling?: boolean;
+    scrollWheelZoom?: boolean;
+  }) => (
+    <div
+      data-testid="map-container"
+      data-gesture-handling={String(gestureHandling)}
+      data-scroll-wheel-zoom={String(scrollWheelZoom)}
+    >
+      {children}
+    </div>
+  ),
   GeoJSON: () => null,
   useMap: () => mockMap,
 }));
@@ -138,8 +150,20 @@ describe('MapResultView', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByTestId('map-container')).toBeInTheDocument();
-      expect(screen.getByTestId('basemap-switcher')).toBeInTheDocument();
+      expect(await screen.findByTestId('map-container')).toBeInTheDocument();
+      expect(await screen.findByTestId('basemap-switcher')).toBeInTheDocument();
+    });
+
+    it('enables command/control gesture handling for scroll zoom', async () => {
+      render(
+        <TestWrapper>
+          <MapResultView results={mockResultsWithCentroid} />
+        </TestWrapper>
+      );
+
+      const map = await screen.findByTestId('map-container');
+      expect(map).toHaveAttribute('data-gesture-handling', 'true');
+      expect(map).toHaveAttribute('data-scroll-wheel-zoom', 'true');
     });
 
     it('shows "No mappable results" when no pins', () => {
@@ -167,7 +191,7 @@ describe('MapResultView', () => {
       ).toBeInTheDocument();
     });
 
-    it('accepts resultStartIndex for numbered pins', () => {
+    it('accepts resultStartIndex for numbered pins', async () => {
       render(
         <TestWrapper>
           <MapResultView
@@ -177,10 +201,10 @@ describe('MapResultView', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByTestId('map-container')).toBeInTheDocument();
+      expect(await screen.findByTestId('map-container')).toBeInTheDocument();
     });
 
-    it('accepts highlightedResourceId and highlightedGeometry', () => {
+    it('accepts highlightedResourceId and highlightedGeometry', async () => {
       render(
         <TestWrapper>
           <MapResultView
@@ -191,14 +215,22 @@ describe('MapResultView', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByTestId('map-container')).toBeInTheDocument();
+      expect(await screen.findByTestId('map-container')).toBeInTheDocument();
     });
 
-    it('adds dashed extent overlay for MultiPolygon (same as resource view LocationMap)', () => {
+    it('adds dashed extent overlay for MultiPolygon (same as resource view LocationMap)', async () => {
       const multiPolygonJson = JSON.stringify({
         type: 'MultiPolygon',
         coordinates: [
-          [[[-75.6, 39.8], [-75.8, 39.7], [-80.5, 39.7], [-80.5, 42.3], [-75.6, 39.8]]],
+          [
+            [
+              [-75.6, 39.8],
+              [-75.8, 39.7],
+              [-80.5, 39.7],
+              [-80.5, 42.3],
+              [-75.6, 39.8],
+            ],
+          ],
         ],
       });
       render(
@@ -212,20 +244,23 @@ describe('MapResultView', () => {
       );
 
       // HighlightOverlayController adds geoJSON layer + dashed rectangle for MultiPolygon
-      const addLayerCalls = mockMap.addLayer.mock.calls.length;
-      expect(addLayerCalls).toBeGreaterThanOrEqual(2);
+      await waitFor(() => {
+        expect(mockMap.addLayer.mock.calls.length).toBeGreaterThanOrEqual(2);
+      });
     });
   });
 
   describe('map refit on results change', () => {
-    it('refits map when search results change (e.g. facet filter applied)', () => {
+    it('refits map when search results change (e.g. facet filter applied)', async () => {
       const { rerender } = render(
         <TestWrapper>
           <MapResultView results={mockResultsFrance} />
         </TestWrapper>
       );
 
-      expect(mockFlyToBounds).toHaveBeenCalledTimes(1);
+      await waitFor(() => {
+        expect(mockFlyToBounds).toHaveBeenCalledTimes(1);
+      });
 
       rerender(
         <TestWrapper>
@@ -234,30 +269,32 @@ describe('MapResultView', () => {
       );
 
       // Should refit again when results change
-      expect(mockFlyToBounds).toHaveBeenCalledTimes(2);
+      await waitFor(() => {
+        expect(mockFlyToBounds).toHaveBeenCalledTimes(2);
+      });
     });
   });
 
   describe('centroid resolution', () => {
-    it('renders pins for results with dcat_centroid', () => {
+    it('renders pins for results with dcat_centroid', async () => {
       render(
         <TestWrapper>
           <MapResultView results={mockResultsWithCentroid} />
         </TestWrapper>
       );
 
-      expect(screen.getByTestId('map-container')).toBeInTheDocument();
+      expect(await screen.findByTestId('map-container')).toBeInTheDocument();
       expect(screen.queryByText('No mappable results')).not.toBeInTheDocument();
     });
 
-    it('renders pins for results with geometry fallback (no centroid)', () => {
+    it('renders pins for results with geometry fallback (no centroid)', async () => {
       render(
         <TestWrapper>
           <MapResultView results={mockResultsWithGeometryOnly} />
         </TestWrapper>
       );
 
-      expect(screen.getByTestId('map-container')).toBeInTheDocument();
+      expect(await screen.findByTestId('map-container')).toBeInTheDocument();
       expect(screen.queryByText('No mappable results')).not.toBeInTheDocument();
     });
   });

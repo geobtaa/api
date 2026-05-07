@@ -435,11 +435,11 @@ export function HomePage() {
                 <button
                   type="button"
                   onClick={() => setShowHeroDescription(false)}
-                  className="absolute right-3 top-3 z-30 inline-flex h-8 w-8 cursor-pointer items-center justify-center border border-gray-300 bg-white/90 text-gray-600 transition-colors hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active"
+                  className="pointer-events-auto absolute right-2 top-2 z-50 inline-flex h-9 w-9 cursor-pointer touch-manipulation items-center justify-center border border-gray-300 bg-white/90 text-gray-600 transition-colors hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active"
                   aria-label="Hide map description"
                   title="Hide"
                 >
-                  <X className="pointer-events-none h-4 w-4" aria-hidden />
+                  <X className="h-4 w-4" aria-hidden />
                 </button>
                 <div className="relative z-10 pr-12">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">

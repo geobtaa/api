@@ -11,6 +11,10 @@ import {
 import L from 'leaflet';
 import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfier';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
+import { leafletGestureMapOptions } from '../../config/leafletConfig';
+import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+
+registerLeafletGestureHandling(L);
 
 interface MapResultViewProps {
   results: GeoDocument[];
@@ -48,7 +52,10 @@ function parseBbox(bbox: string | undefined): Bounds | null {
     const maxy = parseFloat(envMatch[3]);
     const miny = parseFloat(envMatch[4]);
     if (!isNaN(minx + maxx + maxy + miny)) {
-      return [[miny, minx], [maxy, maxx]];
+      return [
+        [miny, minx],
+        [maxy, maxx],
+      ];
     }
   }
 
@@ -56,7 +63,10 @@ function parseBbox(bbox: string | undefined): Bounds | null {
   const parts = s.split(',').map((p) => parseFloat(p.trim()));
   if (parts.length >= 4 && parts.every((n) => !isNaN(n))) {
     const [minx, miny, maxx, maxy] = parts;
-    return [[miny, minx], [maxy, maxx]];
+    return [
+      [miny, minx],
+      [maxy, maxx],
+    ];
   }
 
   return null;
@@ -77,7 +87,10 @@ const HighlightOverlayController: React.FC<{
       for (const ref of [geoJsonRef, rectRef]) {
         if (!ref.current) continue;
         try {
-          if (typeof map?.hasLayer === 'function' && map.hasLayer(ref.current)) {
+          if (
+            typeof map?.hasLayer === 'function' &&
+            map.hasLayer(ref.current)
+          ) {
             map.removeLayer(ref.current);
           }
         } catch {
@@ -99,15 +112,18 @@ const HighlightOverlayController: React.FC<{
       if (features.length === 0) return;
 
       // Same Feature format as LocationMap; try-catch handles any Leaflet errors
-      const geoJsonLayer = L.geoJSON({ type: 'FeatureCollection', features }, {
-        style: {
-          color: '#f59e0b',
-          weight: 3,
-          opacity: 1,
-          fillOpacity: 0.25,
-          fillColor: '#f59e0b',
-        },
-      });
+      const geoJsonLayer = L.geoJSON(
+        { type: 'FeatureCollection', features },
+        {
+          style: {
+            color: '#f59e0b',
+            weight: 3,
+            opacity: 1,
+            fillOpacity: 0.25,
+            fillColor: '#f59e0b',
+          },
+        }
+      );
       geoJsonLayer.addTo(map);
       geoJsonRef.current = geoJsonLayer;
 
@@ -166,13 +182,13 @@ const MapInitialFitController: React.FC<{
     const valid = bounds.filter(
       ([[minLat, minLon], [maxLat, maxLon]]) =>
         !isNaN(minLat + minLon + maxLat + maxLon) &&
-        minLat >= -90 && maxLat <= 90 &&
-        minLon >= -180 && maxLon <= 180
+        minLat >= -90 &&
+        maxLat <= 90 &&
+        minLon >= -180 &&
+        maxLon <= 180
     );
     if (valid.length === 0) return;
-    const group = L.featureGroup(
-      valid.map((b) => L.rectangle(b))
-    );
+    const group = L.featureGroup(valid.map((b) => L.rectangle(b)));
     if (group.getBounds().isValid()) {
       map.flyToBounds(group.getBounds(), { padding: [50, 50], duration: 0.5 });
     }
@@ -215,11 +231,17 @@ interface MarkerEntry {
 
 /** Renders numbered markers with OverlappingMarkerSpiderfier for overlapping pins */
 const SpiderfiedMarkers: React.FC<{
-  pins: { resource: GeoDocument; position: [number, number]; resultNumber: number }[];
+  pins: {
+    resource: GeoDocument;
+    position: [number, number];
+    resultNumber: number;
+  }[];
   highlightedResourceId: string | null;
 }> = ({ pins, highlightedResourceId }) => {
   const map = useMap();
-  const omsRef = useRef<InstanceType<typeof OverlappingMarkerSpiderfier> | null>(null);
+  const omsRef = useRef<InstanceType<
+    typeof OverlappingMarkerSpiderfier
+  > | null>(null);
   const entriesRef = useRef<MarkerEntry[]>([]);
 
   useEffect(() => {
@@ -232,13 +254,16 @@ const SpiderfiedMarkers: React.FC<{
     omsRef.current = oms;
 
     const popup = L.popup();
-    oms.addListener('click', (marker: L.Marker & { _popupContent?: HTMLElement }) => {
-      if (marker._popupContent) {
-        popup.setContent(marker._popupContent);
-        popup.setLatLng(marker.getLatLng());
-        map.openPopup(popup);
+    oms.addListener(
+      'click',
+      (marker: L.Marker & { _popupContent?: HTMLElement }) => {
+        if (marker._popupContent) {
+          popup.setContent(marker._popupContent);
+          popup.setLatLng(marker.getLatLng());
+          map.openPopup(popup);
+        }
       }
-    });
+    );
 
     const entries: MarkerEntry[] = [];
     pins.forEach((p) => {
@@ -266,10 +291,15 @@ const SpiderfiedMarkers: React.FC<{
       detailsLink.textContent = 'View Details';
 
       container.append(resultLabel, title, idLabel, detailsLink);
-      (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent = container;
+      (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent =
+        container;
       marker.addTo(map);
       oms.addMarker(marker);
-      entries.push({ marker, resourceId: p.resource.id, resultNumber: p.resultNumber });
+      entries.push({
+        marker,
+        resourceId: p.resource.id,
+        resultNumber: p.resultNumber,
+      });
     });
     entriesRef.current = entries;
 
@@ -352,8 +382,7 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
         b = getBboxFromGeometry(geom ?? undefined) ?? null;
       }
       if (!b) {
-        const centroid =
-          ogm?.dcat_centroid ?? ogm?.dcat_centroid_original;
+        const centroid = ogm?.dcat_centroid ?? ogm?.dcat_centroid_original;
         let pos = parseCentroid(centroid);
         if (!pos) {
           const geom =
@@ -365,7 +394,10 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
         if (pos) {
           const [lat, lon] = pos;
           const ε = 0.01;
-          b = [[lat - ε, lon - ε], [lat + ε, lon + ε]];
+          b = [
+            [lat - ε, lon - ε],
+            [lat + ε, lon + ε],
+          ];
         }
       }
       if (b) out.push(b);
@@ -388,7 +420,7 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
         center={[0, 0]}
         zoom={2}
         className="h-full w-full"
-        scrollWheelZoom={true}
+        {...leafletGestureMapOptions}
       >
         <BasemapSwitcherControl />
 

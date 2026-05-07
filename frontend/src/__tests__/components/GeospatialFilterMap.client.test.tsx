@@ -1,8 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { GeospatialFilterMap } from '../../components/search/GeospatialFilterMap.client';
 import { fetchMapH3 } from '../../services/api';
+import L from 'leaflet';
 
 const mockControl = { addTo: vi.fn(), remove: vi.fn() };
 const mockMapInstance = {
@@ -29,6 +36,21 @@ const mockMapInstance = {
 vi.mock('leaflet', () => {
   return {
     default: {
+      Handler: {
+        extend: vi.fn((definition) => definition),
+      },
+      Map: {
+        addInitHook: vi.fn(),
+      },
+      DomEvent: {
+        on: vi.fn(),
+        off: vi.fn(),
+        preventDefault: vi.fn(),
+      },
+      DomUtil: {
+        addClass: vi.fn(),
+        removeClass: vi.fn(),
+      },
       map: vi.fn(() => mockMapInstance),
       tileLayer: vi.fn(() => ({ addTo: vi.fn() })),
       rectangle: vi.fn(() => ({ addTo: vi.fn() })),
@@ -104,6 +126,26 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
+  it('enables command/control gesture handling for scroll zoom', async () => {
+    render(
+      <MemoryRouter initialEntries={['/search?q=chicago&view=gallery']}>
+        <Routes>
+          <Route path="/search" element={<GeospatialFilterMap />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(L.map).toHaveBeenCalledWith(
+        expect.any(HTMLDivElement),
+        expect.objectContaining({
+          gestureHandling: true,
+          scrollWheelZoom: true,
+        })
+      );
+    });
+  });
+
   it('waits until window load before issuing the initial hex request', async () => {
     vi.useFakeTimers();
 
@@ -120,6 +162,14 @@ describe('GeospatialFilterMap client', () => {
         </Routes>
       </MemoryRouter>
     );
+
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(L.map).toHaveBeenCalled();
 
     act(() => {
       vi.advanceTimersByTime(2000);
@@ -168,19 +218,24 @@ describe('GeospatialFilterMap client', () => {
     );
 
     await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(L.map).toHaveBeenCalled();
+
+    await act(async () => {
       vi.advanceTimersByTime(250);
       await Promise.resolve();
       await Promise.resolve();
     });
 
     expect(fetchMapH3).toHaveBeenCalledTimes(1);
-    expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(
-      expect.anything(),
-      {
-        padding: [24, 24],
-        maxZoom: 14,
-      }
-    );
+    expect(mockMapInstance.fitBounds).toHaveBeenCalledWith(expect.anything(), {
+      padding: [24, 24],
+      maxZoom: 14,
+    });
 
     Object.defineProperty(document, 'readyState', {
       configurable: true,

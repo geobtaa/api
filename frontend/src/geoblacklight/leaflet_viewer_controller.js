@@ -3,12 +3,12 @@ import BaseLeafletViewerController from '@geoblacklight/frontend/app/javascript/
 import Sleep from 'geoblacklight/leaflet/controls/sleep';
 import { registerLeafletGestureHandling } from '../config/leafletGestureHandling';
 
-registerLeafletGestureHandling(Leaflet);
-
 export default class LeafletViewerController extends BaseLeafletViewerController {
   // Keep the GeoBlacklight controller behavior, but let local MAP options reach L.map.
   async loadMap() {
     if (this.map) return;
+
+    registerLeafletGestureHandling(Leaflet);
 
     const sleepSettings = this.optionsValue.SLEEP || { SLEEP: false };
     const mapSettings = this.optionsValue.MAP || {};

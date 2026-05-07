@@ -2,6 +2,21 @@
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
 vi.mock('leaflet', () => ({
   default: {
+    Handler: {
+      extend: vi.fn((definition) => definition),
+    },
+    Map: {
+      addInitHook: vi.fn(),
+    },
+    DomEvent: {
+      on: vi.fn(),
+      off: vi.fn(),
+      preventDefault: vi.fn(),
+    },
+    DomUtil: {
+      addClass: vi.fn(),
+      removeClass: vi.fn(),
+    },
     map: vi.fn(() => ({
       setView: vi.fn().mockReturnThis(),
       eachLayer: vi.fn(),
