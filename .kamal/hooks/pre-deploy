@@ -1,0 +1,119 @@
+#!/bin/sh
+
+set -u
+
+destination="${KAMAL_DESTINATION:-}"
+command="${KAMAL_COMMAND:-}"
+
+if [ "$destination" != "prd" ]; then
+  exit 0
+fi
+
+if [ "$command" = "rollback" ]; then
+  exit 0
+fi
+
+error() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+prompt_for_ref() {
+  if [ -n "${PRD_DEPLOY_REF:-}" ]; then
+    ref="$PRD_DEPLOY_REF"
+    return 0
+  fi
+
+  if [ -n "${KAMAL_DEPLOY_REF:-}" ]; then
+    ref="$KAMAL_DEPLOY_REF"
+    return 0
+  fi
+
+  if [ -r /dev/tty ] && [ -w /dev/tty ]; then
+    printf "Production deploy ref (tag or branch, e.g. v0.6.0 or main): " > /dev/tty
+    IFS= read -r ref < /dev/tty
+    return 0
+  fi
+
+  return 1
+}
+
+ref=""
+prompt_for_ref \
+  || error "Production deploys require PRD_DEPLOY_REF=<tag-or-branch> or KAMAL_DEPLOY_REF=<tag-or-branch>."
+
+if [ -z "$ref" ]; then
+  error "Production deploy ref cannot be empty."
+fi
+
+case "$ref" in
+  -*)
+    error "Production deploy ref must be a tag or branch name, not an option-like value: $ref"
+    ;;
+esac
+
+if git show-ref --verify --quiet "refs/tags/$ref"; then
+  ref_kind="tag"
+  resolved_ref="refs/tags/$ref"
+  selected_commit="$(git rev-parse --verify --quiet "$resolved_ref^{commit}")" \
+    || error "Could not resolve tag '$ref' to a commit."
+
+  remote_tag_output="$(git ls-remote --exit-code --tags origin "refs/tags/$ref" 2>&1)"
+  remote_tag_status=$?
+
+  if [ "$remote_tag_status" -eq 2 ]; then
+    error "Tag '$ref' was not found on origin. Push it before deploying prd."
+  fi
+
+  if [ "$remote_tag_status" -ne 0 ]; then
+    error "Could not verify tag '$ref' on origin: $remote_tag_output"
+  fi
+elif git show-ref --verify --quiet "refs/heads/$ref"; then
+  ref_kind="branch"
+  branch_name="$ref"
+  resolved_ref="refs/heads/$ref"
+  selected_commit="$(git rev-parse --verify --quiet "$resolved_ref^{commit}")" \
+    || error "Could not resolve branch '$ref' to a commit."
+elif git show-ref --verify --quiet "refs/remotes/$ref"; then
+  ref_kind="branch"
+  branch_name="${ref#origin/}"
+  resolved_ref="refs/remotes/$ref"
+  selected_commit="$(git rev-parse --verify --quiet "$resolved_ref^{commit}")" \
+    || error "Could not resolve remote branch '$ref' to a commit."
+else
+  error "'$ref' is not a local tag or branch. Fetch or check it out before deploying prd."
+fi
+
+if [ "$ref_kind" = "branch" ]; then
+  remote_branch_output="$(git ls-remote --exit-code --heads origin "$branch_name" 2>&1)"
+  remote_branch_status=$?
+
+  if [ "$remote_branch_status" -eq 2 ]; then
+    error "Branch '$branch_name' was not found on origin. Push it before deploying prd."
+  fi
+
+  if [ "$remote_branch_status" -ne 0 ]; then
+    error "Could not verify branch '$branch_name' on origin: $remote_branch_output"
+  fi
+
+  remote_commit="$(printf "%s\n" "$remote_branch_output" | awk 'NR == 1 { print $1 }')"
+
+  if [ "$selected_commit" != "$remote_commit" ]; then
+    error "Branch '$branch_name' resolves to $selected_commit locally, but origin has $remote_commit. Push or fetch before deploying prd."
+  fi
+fi
+
+version_commit="$(git rev-parse --verify --quiet "${KAMAL_VERSION:-}^{commit}")" \
+  || error "KAMAL_VERSION='${KAMAL_VERSION:-}' is not a resolvable commit."
+head_commit="$(git rev-parse --verify --quiet "HEAD^{commit}")" \
+  || error "Could not resolve HEAD."
+
+if [ "$selected_commit" != "$version_commit" ]; then
+  error "Selected $ref_kind '$ref' resolves to $selected_commit, but Kamal is about to deploy $version_commit. Check out '$ref' or pass the matching --version before deploying prd."
+fi
+
+if [ "$head_commit" != "$selected_commit" ]; then
+  error "Current checkout is $head_commit, but selected $ref_kind '$ref' resolves to $selected_commit. Check out '$ref' before deploying prd."
+fi
+
+echo "Production deploy ref confirmed: $ref_kind '$ref' -> $selected_commit"
