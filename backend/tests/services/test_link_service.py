@@ -6,6 +6,7 @@ import json
 
 import pytest
 
+from app.services import link_service as link_service_module
 from app.services.link_service import LinkService
 
 
@@ -211,6 +212,47 @@ class TestLinkServiceWebServicesLinks:
         assert {"label": "Web Feature Service (WFS)", "url": "http://example.com/wfs"} in links
         assert {"label": "Web Coverage Service (WCS)", "url": "http://example.com/wcs"} in links
         assert {"label": "Web Map Tile Service (WMTS)", "url": "http://example.com/wmts"} in links
+
+    def test_get_web_services_links_ogc_services_include_wxs_identifier(self):
+        """Test OGC service links include the layer identifier when present."""
+        resource_dict = {
+            "gbl_wxsIdentifier_s": "druid:ff131yz1610",
+            "dcat_bbox": "ENVELOPE(-124,-122,39,38)",
+            "dct_references_s": json.dumps(
+                {
+                    "http://www.opengis.net/def/serviceType/ogc/wms": "http://example.com/wms",
+                    "http://www.opengis.net/def/serviceType/ogc/wfs": "http://example.com/wfs",
+                }
+            ),
+        }
+
+        service = LinkService(resource_dict)
+        links = service._get_web_services_links()
+
+        assert links == [
+            {
+                "label": "Web Mapping Service (WMS)",
+                "url": "http://example.com/wms",
+                "wxs_identifier": "druid:ff131yz1610",
+                "request_url": (
+                    "http://example.com/wms?SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&"
+                    "LAYERS=druid%3Aff131yz1610&STYLES=&BBOX=-124%2C38%2C-122%2C39&"
+                    "WIDTH=1024&HEIGHT=768&SRS=EPSG%3A4326&FORMAT=image%2Fpng&"
+                    "TRANSPARENT=true&EXCEPTIONS=application%2Fvnd.ogc.se_inimage"
+                ),
+                "request_label": "Open map preview",
+            },
+            {
+                "label": "Web Feature Service (WFS)",
+                "url": "http://example.com/wfs",
+                "wxs_identifier": "druid:ff131yz1610",
+                "request_url": (
+                    "http://example.com/wfs?SERVICE=WFS&VERSION=1.1.0&"
+                    "REQUEST=DescribeFeatureType&TYPENAME=druid%3Aff131yz1610"
+                ),
+                "request_label": "Open layer schema",
+            },
+        ]
 
     def test_get_web_services_links_tile_services(self):
         """Test getting tile service links."""
@@ -653,6 +695,24 @@ class TestLinkServiceGetLinks:
 
 class TestLinkServiceStaticMethod:
     """Test cases for the static get_resource_links method."""
+
+    @pytest.mark.asyncio
+    async def test_get_resource_links_queries_mixed_case_wxs_identifier(self, monkeypatch):
+        """The resources table stores the Aardvark WxS column with mixed case."""
+        captured = {}
+
+        async def fake_fetch_one(query, values):
+            captured["query"] = query
+            captured["values"] = values
+            return None
+
+        monkeypatch.setattr(link_service_module.database, "fetch_one", fake_fetch_one)
+
+        result = await LinkService.get_resource_links("stanford-bs024ty5255")
+
+        assert result == {}
+        assert '"gbl_wxsIdentifier_s"' in captured["query"]
+        assert captured["values"] == {"resource_id": "stanford-bs024ty5255"}
 
     @pytest.mark.asyncio
     async def test_get_resource_links_with_real_database(self):

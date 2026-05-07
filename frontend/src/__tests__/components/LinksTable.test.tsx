@@ -86,6 +86,43 @@ describe('LinksTable', () => {
     expect(screen.getByText('WFS Service')).toBeInTheDocument();
   });
 
+  it('shows WxS identifiers in the Web Services lightbox', () => {
+    render(
+      <LinksTable
+        links={{
+          'Web Services': [
+            {
+              label: 'Web Mapping Service (WMS)',
+              url: 'https://geowebservices.stanford.edu/geoserver/wms',
+              wxs_identifier: 'druid:ff131yz1610',
+              request_url:
+                'https://geowebservices.stanford.edu/geoserver/wms?SERVICE=WMS&REQUEST=GetMap',
+              request_label: 'Open map preview',
+            },
+          ],
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Web Services' }));
+
+    expect(screen.getByText('Service URL')).toBeInTheDocument();
+    expect(screen.getByText('WxS Identifier')).toBeInTheDocument();
+    expect(screen.getByText('druid:ff131yz1610')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy service URL' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Copy WxS identifier' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Open map preview' })
+    ).toHaveAttribute(
+      'href',
+      'https://geowebservices.stanford.edu/geoserver/wms?SERVICE=WMS&REQUEST=GetMap'
+    );
+  });
+
   it('portals the lightbox outside its render container', () => {
     render(
       <div data-testid="sticky-sidebar">
