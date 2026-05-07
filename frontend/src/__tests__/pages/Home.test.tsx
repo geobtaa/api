@@ -31,7 +31,7 @@ describe('Home Page', () => {
   };
 
   it('renders the search input', async () => {
-    const { container } = renderHome();
+    renderHome();
     await waitFor(() => {
       expect(
         screen.getByRole('heading', { name: /partner institutions/i })
@@ -90,6 +90,19 @@ describe('Home Page', () => {
       // The suggestions dropdown should appear with the mocked suggestion
       expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
     });
+  });
+
+  it('hides the hero description when the close button is clicked', async () => {
+    renderHome();
+
+    const closeButton = screen.getByRole('button', {
+      name: /hide map description/i,
+    });
+    await userEvent.click(closeButton);
+
+    expect(
+      screen.queryByRole('button', { name: /hide map description/i })
+    ).not.toBeInTheDocument();
   });
 
   it('opens the BTAA video lightbox when the BTAA tile is clicked', async () => {
