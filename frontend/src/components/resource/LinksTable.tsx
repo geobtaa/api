@@ -12,6 +12,8 @@ import {
   MapPin,
   Loader2,
   Download,
+  Clipboard,
+  Check,
 } from 'lucide-react';
 import { getApiBasePath } from '../../services/api';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
@@ -20,6 +22,9 @@ interface LinkItem {
   label: string;
   url: string;
   format?: 'iso' | 'fgdc' | 'html';
+  wxs_identifier?: string;
+  request_url?: string;
+  request_label?: string;
 }
 
 interface LinksTableProps {
@@ -41,6 +46,7 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
   const [metadataHtml, setMetadataHtml] = useState<string | null>(null);
   const [metadataLoading, setMetadataLoading] = useState(false);
   const [metadataError, setMetadataError] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const transformableMetadataItems =
     lightboxContent?.category.toLowerCase().includes('metadata') && resourceId
@@ -146,7 +152,11 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
     return 'outbound_link_click';
   };
 
-  const trackLinkClick = (category: string, item: LinkItem) => {
+  const trackLinkClick = (
+    category: string,
+    item: LinkItem,
+    destinationUrl = item.url
+  ) => {
     scheduleAnalyticsBatch({
       events: [
         {
@@ -154,16 +164,60 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
           search_id: searchId,
           resource_id: resourceId,
           label: item.label,
-          destination_url: item.url,
+          destination_url: destinationUrl,
           source_component: 'LinksTable',
           properties: {
             category,
             format: item.format,
+            wxs_identifier: item.wxs_identifier,
           },
         },
       ],
     });
   };
+
+  const copyToClipboard = async (value: string, key: string) => {
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = value;
+        textArea.setAttribute('readonly', '');
+        textArea.style.position = 'absolute';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedKey(key);
+      window.setTimeout(() => {
+        setCopiedKey((current) => (current === key ? null : current));
+      }, 1500);
+    } catch {
+      setCopiedKey(null);
+    }
+  };
+
+  const renderCopyButton = (value: string, key: string, label: string) => (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.stopPropagation();
+        void copyToClipboard(value, key);
+      }}
+      className="shrink-0 inline-flex h-8 w-8 items-center justify-center rounded border border-gray-200 text-gray-500 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-600"
+      aria-label={`Copy ${label}`}
+      title={`Copy ${label}`}
+    >
+      {copiedKey === key ? (
+        <Check className="h-4 w-4" />
+      ) : (
+        <Clipboard className="h-4 w-4" />
+      )}
+    </button>
+  );
 
   const getCategoryIcon = (category: string) => {
     const categoryLower = category.toLowerCase();
@@ -337,28 +391,96 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
               </>
             ) : (
               <div className="space-y-3">
-                {lightboxContent.items.map((link, index) => (
-                  <a
-                    key={index}
-                    href={link.url}
-                    onClick={() =>
-                      trackLinkClick(lightboxContent.category, link)
-                    }
-                    className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
-                        {link.label}
+                {lightboxContent.items.map((link, index) => {
+                  if (link.wxs_identifier) {
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-start gap-3 p-3 border border-gray-200 rounded-lg"
+                      >
+                        <Code className="w-5 h-5 mt-0.5 text-gray-400" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm font-medium text-gray-900">
+                            {link.label}
+                          </div>
+                          <div className="mt-2 space-y-2">
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-medium uppercase text-gray-500">
+                                  Service URL
+                                </div>
+                                <div className="text-xs text-gray-600 break-all">
+                                  {link.url}
+                                </div>
+                              </div>
+                              {renderCopyButton(
+                                link.url,
+                                `${index}-service-url`,
+                                'service URL'
+                              )}
+                            </div>
+                            <div className="flex items-start gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] font-medium uppercase text-gray-500">
+                                  WxS Identifier
+                                </div>
+                                <code className="text-xs font-mono text-gray-900 break-all">
+                                  {link.wxs_identifier}
+                                </code>
+                              </div>
+                              {renderCopyButton(
+                                link.wxs_identifier,
+                                `${index}-wxs-identifier`,
+                                'WxS identifier'
+                              )}
+                            </div>
+                            {link.request_url && (
+                              <a
+                                href={link.request_url}
+                                onClick={() =>
+                                  trackLinkClick(
+                                    lightboxContent.category,
+                                    link,
+                                    link.request_url
+                                  )
+                                }
+                                className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                <ExternalLink className="h-4 w-4" />
+                                {link.request_label ?? 'Open layer request'}
+                              </a>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500 mt-1 break-all">
-                        {link.url}
+                    );
+                  }
+
+                  return (
+                    <a
+                      key={index}
+                      href={link.url}
+                      onClick={() =>
+                        trackLinkClick(lightboxContent.category, link)
+                      }
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 hover:border-blue-300 transition-colors group"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="w-5 h-5 text-gray-400 group-hover:text-blue-500" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-blue-600">
+                          {link.label}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1 break-all">
+                          {link.url}
+                        </div>
                       </div>
-                    </div>
-                  </a>
-                ))}
+                    </a>
+                  );
+                })}
               </div>
             )}
           </div>

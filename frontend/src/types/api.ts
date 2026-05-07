@@ -98,6 +98,17 @@ export interface GeoDocument {
         generation_path?: string;
         download_type?: string;
       }>;
+      links?: Record<
+        string,
+        Array<{
+          label: string;
+          url: string;
+          format?: 'iso' | 'fgdc' | 'html';
+          wxs_identifier?: string;
+          request_url?: string;
+          request_label?: string;
+        }>
+      >;
       relationships?: Record<string, unknown>;
       relationship_counts?: Record<string, number>;
       relationship_browse_links?: Record<string, string>;

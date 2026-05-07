@@ -67,7 +67,17 @@ interface ResourceData extends GeoDocument {
       citation?: string;
       thumbnail_url?: string;
       static_map?: string;
-      links?: Record<string, Array<{ label: string; url: string }>>;
+      links?: Record<
+        string,
+        Array<{
+          label: string;
+          url: string;
+          format?: 'iso' | 'fgdc' | 'html';
+          wxs_identifier?: string;
+          request_url?: string;
+          request_label?: string;
+        }>
+      >;
       relationships?: Record<string, unknown>;
       similar_items?: Array<{
         id: string;
