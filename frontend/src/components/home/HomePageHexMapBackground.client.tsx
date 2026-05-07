@@ -9,6 +9,7 @@ import { cellArea, UNITS } from 'h3-js';
 import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
+import { leafletGestureMapOptions } from '../../config/leafletConfig';
 import { HOME_PAGE_MAP_CENTER, DEFAULT_US_ZOOM } from '../../config/mapView';
 import { FEATURED_ITEMS } from '../../config/featured';
 import { fetchFeaturedResourcePreview } from '../../services/api';
@@ -67,7 +68,8 @@ function toSsrThumbnailUrl(url: string | undefined): string {
     return url;
   } catch {
     if (url.includes('/api/v1/thumbnails/')) {
-      if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url)) return toBrowserApiAssetUrl(url);
+      if (IMMUTABLE_THUMBNAIL_PATH_RE.test(url))
+        return toBrowserApiAssetUrl(url);
       return url.replace('/api/v1/thumbnails/', '/thumbnails/');
     }
     if (url.includes('/api/v1/resources/') && url.endsWith('/thumbnail'))
@@ -497,14 +499,12 @@ export function HomePageHexMapBackground() {
           className="homepage-map h-full w-full"
           zoomControl={false}
           dragging={true}
-          scrollWheelZoom={true}
           doubleClickZoom={true}
           touchZoom={true}
           keyboard={true}
           attributionControl={true}
           zoomAnimationThreshold={1}
-          // @ts-expect-error - gestureHandling is a leaflet-gesture-handling plugin option
-          gestureHandling={true}
+          {...leafletGestureMapOptions}
         >
           <ZoomControl position="topleft" />
           <MapGeosearchControl />

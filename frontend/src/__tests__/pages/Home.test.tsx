@@ -31,7 +31,7 @@ describe('Home Page', () => {
   };
 
   it('renders the search input', async () => {
-    const { container } = renderHome();
+    renderHome();
     await waitFor(() => {
       expect(
         screen.getByRole('heading', { name: /partner institutions/i })
@@ -42,9 +42,7 @@ describe('Home Page', () => {
       screen.getByRole('link', { name: /read gin news & stories/i })
     ).toBeInTheDocument();
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: /theme/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /theme/i })).toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: /creator/i })
     ).not.toBeInTheDocument();
@@ -59,12 +57,16 @@ describe('Home Page', () => {
     expect(
       screen.getByRole('heading', { name: /urban base layers collection/i })
     ).toBeInTheDocument();
-    expect(screen.getByAltText(/logo for indiana university/i)).toBeInTheDocument();
+    expect(
+      screen.getByAltText(/logo for indiana university/i)
+    ).toBeInTheDocument();
     expect(
       screen.getByAltText(/logo for university of washington/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /search resources near indiana university/i })
+      screen.getByRole('link', {
+        name: /search resources near indiana university/i,
+      })
     ).toHaveAttribute(
       'href',
       getPartnerInstitutionSearchHref({
@@ -92,11 +94,31 @@ describe('Home Page', () => {
     });
   });
 
+  it('hides the hero description when the close button is clicked', async () => {
+    renderHome();
+
+    const closeButton = screen.getByRole('button', {
+      name: /hide map description/i,
+    });
+    expect(closeButton).toHaveClass('pointer-events-auto', 'h-9', 'w-9');
+    expect(closeButton.querySelector('svg')).not.toHaveClass(
+      'pointer-events-none'
+    );
+
+    await userEvent.click(closeButton);
+
+    expect(
+      screen.queryByRole('button', { name: /hide map description/i })
+    ).not.toBeInTheDocument();
+  });
+
   it('opens the BTAA video lightbox when the BTAA tile is clicked', async () => {
     renderHome();
 
     await userEvent.click(
-      screen.getByRole('button', { name: /open big ten academic alliance video/i })
+      screen.getByRole('button', {
+        name: /open big ten academic alliance video/i,
+      })
     );
 
     expect(

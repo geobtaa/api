@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { Link } from 'react-router';
 import { Seo } from '../components/Seo';
 import { MapContainer } from 'react-leaflet';
+import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
@@ -20,9 +21,13 @@ import { SelectedFeaturePanel } from '../components/map/SelectedFeaturePanel';
 import { StatsBar } from '../components/map/StatsBar';
 import { BasemapSwitcherControl } from '../components/map/BasemapSwitcherControl';
 import { formatCount } from '../utils/formatNumber';
+import { leafletGestureMapOptions } from '../config/leafletConfig';
+import { registerLeafletGestureHandling } from '../config/leafletGestureHandling';
 import { DEFAULT_US_CENTER, DEFAULT_US_ZOOM } from '../config/mapView';
 import type { ZoomLevel } from '../types/map';
 import type { MapFeatureClickPayload } from '../types/map';
+
+registerLeafletGestureHandling(L);
 
 export function MapPage() {
   // Local UI state: selected feature popup, current search query, and zoom level tab
@@ -161,7 +166,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-full w-full"
-                  scrollWheelZoom
+                  {...leafletGestureMapOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdaterHex
@@ -269,6 +274,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
+                  {...leafletGestureMapOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdater
@@ -285,6 +291,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
+                  {...leafletGestureMapOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdater
@@ -301,6 +308,7 @@ export function MapPage() {
                   center={DEFAULT_US_CENTER}
                   zoom={DEFAULT_US_ZOOM}
                   className="h-80 w-full rounded-lg"
+                  {...leafletGestureMapOptions}
                 >
                   <BasemapSwitcherControl />
                   <MapUpdater

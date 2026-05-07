@@ -7,6 +7,8 @@ import { fetchMapH3 } from '../../services/api';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
 import { attachBasemapSwitcher } from '../../config/basemaps';
+import { leafletGestureMapOptions } from '../../config/leafletConfig';
+import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
 import {
   getSavedHexLayerEnabled,
   saveHexLayerEnabled,
@@ -145,22 +147,34 @@ export function GeospatialFilterMap({
     }
     return null;
   }, [searchParams]);
+  const getBBoxFromParamsRef = useRef(getBBoxFromParams);
+
+  useEffect(() => {
+    getBBoxFromParamsRef.current = getBBoxFromParams;
+  }, [getBBoxFromParams]);
 
   // Initialize map
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    if (!mapRef.current) {
+    let cancelled = false;
+
+    const initializeMap = () => {
+      if (!mapContainerRef.current || mapRef.current) return;
+      registerLeafletGestureHandling(L);
+      if (cancelled || !mapContainerRef.current || mapRef.current) return;
+
       mapRef.current = L.map(mapContainerRef.current, {
         zoomControl: true,
         attributionControl: false,
         minZoom: 1,
+        ...leafletGestureMapOptions,
       });
       setMapInstance(mapRef.current);
       basemapCleanupRef.current = attachBasemapSwitcher(mapRef.current, L);
 
       // Set initial view: if URL has a location bbox, fit to it; otherwise world
-      const initialBbox = getBBoxFromParams();
+      const initialBbox = getBBoxFromParamsRef.current();
       if (initialBbox) {
         const bounds = L.latLngBounds(
           [initialBbox.bottomRight.lat, initialBbox.topLeft.lon],
@@ -192,7 +206,7 @@ export function GeospatialFilterMap({
             if (rect.width > 0 && rect.height > 0) {
               mapRef.current.invalidateSize();
               // If we have a bbox in URL, re-fit so bounds are correct after layout
-              const bbox = getBBoxFromParams();
+              const bbox = getBBoxFromParamsRef.current();
               if (bbox) {
                 const bounds = L.latLngBounds(
                   [bbox.bottomRight.lat, bbox.topLeft.lon],
@@ -256,9 +270,12 @@ export function GeospatialFilterMap({
 
       mapRef.current.on('moveend', handleMapMoveEnd);
       mapRef.current.on('zoomend', handleMapMoveEnd);
-    }
+    };
+
+    initializeMap();
 
     return () => {
+      cancelled = true;
       setMapInstance(null);
       basemapCleanupRef.current?.();
       basemapCleanupRef.current = null;
@@ -267,7 +284,7 @@ export function GeospatialFilterMap({
         mapRef.current = null;
       }
     };
-  }, [setSearchParams]);
+  }, []);
 
   // Update map view from URL params
   // This handles cases where bbox params are set programmatically (e.g., from autocomplete)
@@ -428,7 +445,7 @@ export function GeospatialFilterMap({
 
   // H3 hex layer: fetch hexes for current view and add GeoJSON layer; fit to hex cluster when search changes
   useEffect(() => {
-    const map = mapRef.current;
+    const map = mapInstance;
     if (!map) return;
 
     if (!hexLayerEnabled) {
@@ -591,7 +608,7 @@ export function GeospatialFilterMap({
         hexLayerRef.current = null;
       }
     };
-  }, [searchParams, hexLayerEnabled]);
+  }, [searchParams, hexLayerEnabled, mapInstance, getBBoxFromParams]);
 
   const handleSearchHere = () => {
     if (!mapRef.current) return;
