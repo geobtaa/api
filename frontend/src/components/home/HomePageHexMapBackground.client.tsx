@@ -3,12 +3,9 @@ import { Link, useNavigate } from 'react-router';
 import { ChevronLeft, ChevronRight, Home, Pause, Play } from 'lucide-react';
 import { MapContainer, Rectangle, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
-import { GestureHandling } from 'leaflet-gesture-handling';
 import 'leaflet/dist/leaflet.css';
-import 'leaflet-gesture-handling/dist/leaflet-gesture-handling.css';
+import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
 import { cellArea, UNITS } from 'h3-js';
-
-L.Map.addInitHook('addHandler', 'gestureHandling', GestureHandling);
 import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
@@ -29,6 +26,8 @@ import { FeaturedMapController } from './FeaturedMapController';
 import { FeaturedItemPreviewLayer } from './FeaturedItemPreviewLayer';
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
+
+registerLeafletGestureHandling(L);
 
 /** Route API thumbnail URLs through app paths for SSR/relative requests. */
 const IMMUTABLE_THUMBNAIL_PATH_RE = /^\/api\/v1\/thumbnails\/[0-9a-f]{64}$/i;

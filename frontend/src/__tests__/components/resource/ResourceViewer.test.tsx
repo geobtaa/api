@@ -373,6 +373,19 @@ describe('ResourceViewer', () => {
       expect(
         firstViewer?.getAttribute('data-leaflet-viewer-layer-id-value')
       ).toBe('Contours');
+      expect(
+        JSON.parse(
+          firstViewer?.getAttribute('data-leaflet-viewer-options-value') ?? '{}'
+        )
+      ).toMatchObject({
+        MAP: {
+          gestureHandling: true,
+          scrollWheelZoom: true,
+        },
+        SLEEP: {
+          SLEEP: false,
+        },
+      });
 
       rerender(
         <ResourceViewer data={secondWmsDataWithGeometry} pageValue="SHOW" />
