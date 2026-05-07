@@ -10,10 +10,17 @@ vi.mock('../../services/analytics', () => ({
 
 // Mock fetch for metadata display endpoint
 const mockFetch = vi.fn();
+const originalFetch = globalThis.fetch;
 
 describe('LinksTable', () => {
   beforeEach(() => {
     vi.resetAllMocks();
+    globalThis.fetch = mockFetch as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    document.body.style.overflow = '';
   });
 
   const mockLinks = {
@@ -79,6 +86,23 @@ describe('LinksTable', () => {
     expect(screen.getByText('WFS Service')).toBeInTheDocument();
   });
 
+  it('portals the lightbox outside its render container', () => {
+    render(
+      <div data-testid="sticky-sidebar">
+        <LinksTable links={mockLinks} />
+      </div>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Web Services' }));
+
+    const sidebar = screen.getByTestId('sticky-sidebar');
+    const dialog = screen.getByRole('dialog', { name: 'Web Services' });
+    const overlay = screen.getByTestId('links-table-lightbox-overlay');
+
+    expect(sidebar).not.toContainElement(dialog);
+    expect(overlay.parentElement).toBe(document.body);
+  });
+
   it('closes lightbox when close button is clicked', () => {
     render(<LinksTable links={mockLinks} />);
     const webServicesButton = screen.getByRole('button', {
@@ -123,8 +147,6 @@ describe('LinksTable', () => {
 
   describe('Metadata lightbox with transformable formats', () => {
     it('opens Metadata lightbox and fetches transformed content when resourceId and format provided', async () => {
-      const originalFetch = global.fetch;
-      global.fetch = mockFetch;
       mockFetch.mockResolvedValueOnce({
         ok: true,
         text: () =>
@@ -148,8 +170,6 @@ describe('LinksTable', () => {
       await waitFor(() => {
         expect(screen.getByTitle('ISO 19115 XML')).toBeInTheDocument();
       });
-
-      global.fetch = originalFetch;
     });
 
     it('shows Download button when viewing transformed metadata', async () => {
