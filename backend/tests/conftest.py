@@ -9,6 +9,21 @@ os.environ.setdefault("APP_ENV", "test")
 os.environ["TURNSTILE_ENABLED"] = "false"
 
 
+def _ensure_async_database_url() -> None:
+    database_url = os.getenv("DATABASE_URL", "").strip()
+    if database_url.startswith("postgresql://"):
+        os.environ["DATABASE_URL"] = database_url.replace(
+            "postgresql://",
+            "postgresql+asyncpg://",
+            1,
+        )
+    elif not database_url:
+        os.environ["DATABASE_URL"] = "postgresql+asyncpg://postgres:postgres@localhost/testdb"
+
+
+_ensure_async_database_url()
+
+
 def _load_dotenv_if_available(path: str) -> None:
     try:
         from dotenv import load_dotenv  # type: ignore

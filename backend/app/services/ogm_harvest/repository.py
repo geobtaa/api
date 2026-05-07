@@ -7,7 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db.database import database
-from db.models import ogm_harvest_runs, ogm_repos, ogm_resource_state
+from db.models import ogm_harvest_runs, ogm_repos, ogm_resource_state, resources
 
 
 class OGMHarvestRepository:
@@ -26,8 +26,11 @@ class OGMHarvestRepository:
         """
         Public-facing OGM repo summaries.
 
-        For each configured OGM repo, return the latest crawl status and the
-        latest run's imported/error counts (when available).
+        For each configured OGM repo, return:
+        - repo metadata discovered from GitHub
+        - latest crawl status in this app
+        - latest run's imported/error counts (when available)
+        - current harvested resource counts and API-available record counts
         """
         latest_run_ids = (
             select(
@@ -36,6 +39,35 @@ class OGMHarvestRepository:
             )
             .group_by(ogm_harvest_runs.c.ogm_repo_name)
             .subquery()
+        )
+        harvested_record_count = (
+            select(func.count())
+            .select_from(ogm_resource_state)
+            .where(ogm_resource_state.c.ogm_repo_name == ogm_repos.c.ogm_repo_name)
+            .where(ogm_resource_state.c.ogm_missing_since.is_(None))
+            .scalar_subquery()
+        )
+        published_available_record_count = (
+            select(func.count())
+            .select_from(resources)
+            .where(resources.c.b1g_adminTags_sm.is_not(None))
+            .where(
+                resources.c.b1g_adminTags_sm.any(
+                    func.concat("ogm_repo:", ogm_repos.c.ogm_repo_name)
+                )
+            )
+            .where(func.coalesce(resources.c.gbl_suppressed_b, False).is_(False))
+            .where(
+                func.lower(
+                    func.coalesce(
+                        func.nullif(resources.c.b1g_publication_state_s, ""),
+                        func.nullif(resources.c.publication_state, ""),
+                        "published",
+                    )
+                )
+                == "published"
+            )
+            .scalar_subquery()
         )
 
         q = (
@@ -46,11 +78,15 @@ class OGMHarvestRepository:
                 ogm_repos.c.ogm_last_harvest_started_at,
                 ogm_repos.c.ogm_last_harvest_completed_at,
                 ogm_repos.c.ogm_last_harvest_status,
+                ogm_repos.c.ogm_last_commit_sha,
+                ogm_repos.c.ogm_tags,
                 ogm_harvest_runs.c.ogm_id.label("last_run_id"),
                 ogm_harvest_runs.c.ogm_started_at.label("last_run_started_at"),
                 ogm_harvest_runs.c.ogm_completed_at.label("last_run_completed_at"),
                 ogm_harvest_runs.c.ogm_status.label("last_run_status"),
                 ogm_harvest_runs.c.ogm_stats_json.label("last_run_stats_json"),
+                harvested_record_count.label("harvested_record_count"),
+                published_available_record_count.label("available_record_count"),
             )
             .select_from(
                 ogm_repos.outerjoin(
@@ -73,6 +109,7 @@ class OGMHarvestRepository:
         for row in rows:
             item = dict(row)
             stats = item.get("last_run_stats_json") or {}
+            tags = item.get("ogm_tags") or {}
             latest_status = item.get("last_run_status") or item.get("ogm_last_harvest_status")
             latest_started_at = item.get("last_run_started_at") or item.get(
                 "ogm_last_harvest_started_at"
@@ -80,17 +117,32 @@ class OGMHarvestRepository:
             latest_completed_at = item.get("last_run_completed_at") or item.get(
                 "ogm_last_harvest_completed_at"
             )
+            repo_full_name = tags.get("ogm_repo_full_name") or item.get("ogm_repo_name")
+            has_aardvark = tags.get("ogm_has_aardvark")
+            if has_aardvark is None:
+                has_aardvark = not bool(tags.get("ogm_missing_aardvark"))
             summaries.append(
                 {
                     "ogm_repo_name": item.get("ogm_repo_name"),
+                    "ogm_repo_full_name": repo_full_name,
+                    "ogm_github_url": (
+                        f"https://github.com/{repo_full_name}" if repo_full_name else None
+                    ),
                     "ogm_enabled": item.get("ogm_enabled"),
                     "ogm_watch_mode": item.get("ogm_watch_mode"),
+                    "ogm_has_aardvark": bool(has_aardvark),
+                    "ogm_default_branch": tags.get("ogm_default_branch"),
+                    "ogm_archived": bool(tags.get("ogm_archived", False)),
+                    "last_commit_at": tags.get("ogm_pushed_at"),
+                    "last_commit_sha": item.get("ogm_last_commit_sha"),
                     "last_crawl_started_at": latest_started_at,
                     "last_crawl_completed_at": latest_completed_at,
                     "last_crawl_status": latest_status,
                     "last_run_id": item.get("last_run_id"),
                     "harvested_success_count": _to_int(stats.get("imported")),
                     "harvested_failure_count": _to_int(stats.get("errors")),
+                    "harvested_record_count": _to_int(item.get("harvested_record_count")),
+                    "available_record_count": _to_int(item.get("available_record_count")),
                     "harvest_failure_samples": list(stats.get("error_samples") or [])[:5],
                 }
             )
@@ -107,7 +159,7 @@ class OGMHarvestRepository:
         self,
         ogm_repo_name: str,
         ogm_enabled: bool = True,
-        ogm_watch_mode: str = "weekly",
+        ogm_watch_mode: str = "nightly",
         ogm_notes: Optional[str] = None,
         ogm_tags: Optional[Dict[str, Any]] = None,
     ) -> None:

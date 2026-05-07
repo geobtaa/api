@@ -816,5 +816,214 @@ section#footer-app #footer-title a:hover {
 }
 
 /* ==========================================================================
+   OGM Repository Monitor
+   ========================================================================== */
+
+.monitor-hero,
+.monitor-summary,
+.monitor-table-wrap {
+  width: var(--docs-page-inline);
+  max-width: var(--docs-page-width);
+  margin-right: auto;
+  margin-left: auto;
+}
+
+.monitor-hero {
+  display: grid;
+  gap: 12px;
+  padding-bottom: calc(var(--docs-unit) * 2);
+  border-bottom: var(--docs-rule);
+}
+
+.eyebrow,
+.summary-label,
+.meta-note,
+.repo-subtitle {
+  margin: 0;
+  color: var(--docs-muted);
+  font-family: var(--docs-mono);
+  font-size: 12px;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+.monitor-hero h2 {
+  max-width: 16ch;
+  font-size: clamp(40px, 5vw, 72px);
+  line-height: 0.95;
+  text-transform: uppercase;
+}
+
+.lede {
+  max-width: 70ch;
+  margin: 0;
+  font-size: 18px;
+}
+
+.monitor-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0;
+  margin-top: calc(var(--docs-unit) * 2);
+  border: var(--docs-rule);
+}
+
+.summary-card {
+  min-height: calc(var(--docs-unit) * 5);
+  padding: 18px;
+  border-right: var(--docs-rule);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.summary-card:last-child {
+  border-right: 0;
+}
+
+.summary-value {
+  margin: 10px 0 0;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 900;
+  line-height: 1;
+}
+
+.monitor-table-wrap {
+  margin-top: calc(var(--docs-unit) * 2);
+  border: var(--docs-rule);
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.monitor-table-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--docs-unit);
+  padding: 18px 18px 0;
+}
+
+.monitor-table-head h3 {
+  font-size: 28px;
+  text-transform: uppercase;
+}
+
+.monitor-table-scroll {
+  overflow-x: auto;
+  padding: 18px;
+}
+
+.monitor-table {
+  width: 100%;
+  min-width: 980px;
+  border-collapse: collapse;
+}
+
+.monitor-table th,
+.monitor-table td {
+  padding: 14px 12px;
+  border-top: var(--docs-rule);
+  vertical-align: top;
+  text-align: left;
+}
+
+.monitor-table th {
+  font-family: var(--docs-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.monitor-table tbody tr:hover {
+  background: rgba(215, 25, 32, 0.04);
+}
+
+.repo-cell {
+  display: grid;
+  gap: 6px;
+}
+
+.repo-cell a {
+  font-size: 18px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border: var(--docs-rule);
+  font-family: var(--docs-mono);
+  font-size: 12px;
+  font-weight: 900;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.status-ok {
+  color: var(--docs-white);
+  background: var(--docs-black);
+}
+
+.status-run {
+  color: var(--docs-black);
+  background: #ffe27a;
+}
+
+.status-bad {
+  color: var(--docs-white);
+  background: var(--docs-red);
+}
+
+.status-muted {
+  color: var(--docs-black);
+  background: #ecece7;
+}
+
+@media (max-width: 1200px) {
+  .monitor-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .summary-card:nth-child(3n) {
+    border-right: 0;
+  }
+
+  .summary-card:nth-child(n + 4) {
+    border-top: var(--docs-rule);
+  }
+}
+
+@media (max-width: 767px) {
+  .monitor-hero h2 {
+    max-width: none;
+    font-size: 36px;
+  }
+
+  .lede {
+    font-size: 16px;
+  }
+
+  .monitor-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .summary-card,
+  .summary-card:last-child {
+    border-right: 0;
+    border-top: var(--docs-rule);
+  }
+
+  .summary-card:first-child {
+    border-top: 0;
+  }
+
+  .monitor-table-head {
+    align-items: start;
+    padding-bottom: 0;
+  }
+}
+
+/* ==========================================================================
    End of BTAA Geoportal Brand CSS
    ========================================================================== */

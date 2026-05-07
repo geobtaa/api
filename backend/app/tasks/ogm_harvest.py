@@ -10,6 +10,8 @@ from db.database import database
 logger = logging.getLogger(__name__)
 
 _loop: Optional[asyncio.AbstractEventLoop] = None
+SCHEDULED_OGM_TRIGGERS = {"nightly", "weekly", "scheduled"}
+SCHEDULED_OGM_WATCH_MODES = {"nightly", "weekly", "scheduled", "both"}
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
@@ -56,8 +58,8 @@ async def _ogm_harvest_repo_async(repo_name: str, trigger: str) -> Dict[str, Any
     soft_time_limit=10 * 60,  # 10 minutes
     time_limit=15 * 60,  # 15 minutes
 )
-def ogm_harvest_all(self, trigger: str = "weekly") -> Dict[str, Any]:
-    """Enqueue harvest jobs for all enabled repos (watch_mode weekly/both)."""
+def ogm_harvest_all(self, trigger: str = "nightly") -> Dict[str, Any]:
+    """Enqueue harvest jobs for all enabled repos in the scheduled watch set."""
     return _run(_ogm_harvest_all_async(trigger=trigger))
 
 
@@ -72,7 +74,7 @@ async def _ogm_harvest_all_async(trigger: str) -> Dict[str, Any]:
         if not r.get("ogm_enabled", True):
             continue
         mode = (r.get("ogm_watch_mode") or "").lower()
-        if trigger == "weekly" and mode not in {"weekly", "both"}:
+        if trigger.lower() in SCHEDULED_OGM_TRIGGERS and mode not in SCHEDULED_OGM_WATCH_MODES:
             continue
         selected.append(r["ogm_repo_name"])
 

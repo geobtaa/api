@@ -41,6 +41,7 @@ Then open:
 
 - **Website**: `http://localhost:3000`
 - **API docs (for technical staff)**: `http://localhost:8000/api/docs`
+- **OGM repository dashboard**: `http://localhost:8000/api/v1/ogm/repos/dashboard`
 
 To stop everything later:
 
@@ -149,6 +150,7 @@ All documentation is now in the top-level `docs/` folder:
 - **Codebase overview / executive architecture summary**: `docs/backend/codebase_overview.md`
 - **Caching**: `docs/backend/caching.md`
 - **Search**: `docs/backend/search.md`
+- **OpenGeoMetadata harvesting**: `docs/backend/ogm_harvesting.md`
 - **Service tiers / API keys / rate limiting**: `docs/backend/service_tiers_runbook.md`
 - **Scripts (Python utilities)**: `docs/backend/scripts.md`
 - **MCP / Claude Desktop**: `docs/mcp/`

@@ -24,6 +24,10 @@ def _create_app() -> FastAPI:
     async def thumbnail_asset(image_hash: str):
         return JSONResponse({"image_hash": image_hash})
 
+    @app.post("/api/v1/analytics/events")
+    async def analytics_events():
+        return JSONResponse({"status": "accepted"}, status_code=202)
+
     app.add_middleware(RateLimitMiddleware)
     return app
 
@@ -200,3 +204,26 @@ class TestRateLimitMiddlewareIntegration:
         assert second.status_code == 200
         assert second.headers["X-RateLimit-Limit"] == "unlimited"
         assert second.headers["X-RateLimit-Remaining"] == "unlimited"
+
+    def test_options_preflight_bypasses_rate_limit(self, rate_limited_client):
+        """Preflight requests should not consume the following real request's quota."""
+
+        options = rate_limited_client.options("/api/v1/test-endpoint")
+        first_get = rate_limited_client.get("/api/v1/test-endpoint")
+        second_get = rate_limited_client.get("/api/v1/test-endpoint")
+
+        assert options.status_code != 429
+        assert first_get.status_code == 200
+        assert second_get.status_code == 429
+
+    def test_analytics_events_use_separate_rate_limit_bucket(self, rate_limited_client):
+        """Analytics event ingestion should not consume the normal API request bucket."""
+
+        analytics = rate_limited_client.post("/api/v1/analytics/events", json={"events": []})
+        first_get = rate_limited_client.get("/api/v1/test-endpoint")
+        second_get = rate_limited_client.get("/api/v1/test-endpoint")
+
+        assert analytics.status_code == 202
+        assert analytics.headers["X-RateLimit-Limit"] == "120"
+        assert first_get.status_code == 200
+        assert second_get.status_code == 429

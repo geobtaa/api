@@ -85,7 +85,7 @@ class UpdateAPIKeyRequest(BaseModel):
 
 class UpdateOGMRepoRequest(BaseModel):
     ogm_enabled: Optional[bool] = None
-    ogm_watch_mode: Optional[str] = None  # weekly|webhook|both|manual
+    ogm_watch_mode: Optional[str] = None  # nightly|weekly|webhook|both|manual
     ogm_notes: Optional[str] = None
     ogm_tags: Optional[dict] = None
 
@@ -393,12 +393,12 @@ async def update_ogm_repo(repo_name: str, body: UpdateOGMRepoRequest):
     """Create or update a repo watch entry."""
     if body.ogm_watch_mode is not None:
         mode = body.ogm_watch_mode.lower().strip()
-        if mode not in {"weekly", "webhook", "both", "manual"}:
+        if mode not in {"nightly", "weekly", "webhook", "both", "manual"}:
             raise HTTPException(status_code=400, detail="Invalid ogm_watch_mode")
     await ogm_repo.upsert_repo(
         ogm_repo_name=repo_name,
         ogm_enabled=body.ogm_enabled if body.ogm_enabled is not None else True,
-        ogm_watch_mode=body.ogm_watch_mode or "weekly",
+        ogm_watch_mode=body.ogm_watch_mode or "nightly",
         ogm_notes=body.ogm_notes,
         ogm_tags=body.ogm_tags,
     )
