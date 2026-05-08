@@ -4,6 +4,7 @@ import { AlertCircle, ArrowRight, MapPin, Search } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import { fetchNominatimSearch } from '../../services/api';
 import type { GazetteerPlace } from '../../types/api';
+import { SEARCH_RESULTS_PER_PAGE } from '../../constants/search';
 
 type SearchSuggestion = { text: string };
 type SearchSuggestionResponseItem = {
@@ -52,7 +53,7 @@ function buildBaseSearchParams(currentParams: URLSearchParams) {
     params.set('view', view);
   }
   if (perPage) {
-    params.set('per_page', perPage);
+    params.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
   }
 
   return params;

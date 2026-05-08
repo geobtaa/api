@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useSearchParams } from 'react-router';
 import { SearchResults } from '../components/SearchResults';
@@ -20,59 +20,21 @@ import { LocationFacetCollapsible } from '../components/search/LocationFacetColl
 import { NoResultsSearchHelp } from '../components/search/NoResultsSearchHelp';
 import { useFacetAccordion } from '../hooks/useFacetAccordion';
 import { useSearch } from '../hooks/useSearch';
+import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 import {
   parseSearchParams,
   normalizeFacetValueForUrl,
 } from '../utils/searchParams';
 import { formatCount } from '../utils/formatNumber';
-import type { JsonApiResponse, GeoDocument } from '../types/api';
-import { useState, useEffect, useRef } from 'react';
-import {
-  consumeGalleryStateRestoreRequest,
-  GALLERY_STATE_STORAGE_KEY,
-} from '../utils/galleryState';
+import type { JsonApiResponse } from '../types/api';
 import {
   generateAnalyticsId,
   scheduleAnalyticsBatch,
   serializeSearchParams,
 } from '../services/analytics';
 
-const isQuotaExceededError = (error: unknown): boolean => {
-  if (error instanceof DOMException) {
-    return (
-      error.name === 'QuotaExceededError' ||
-      error.name === 'NS_ERROR_DOM_QUOTA_REACHED'
-    );
-  }
-  return false;
-};
-
-const persistGalleryState = (state: {
-  context: string;
-  results: GeoDocument[];
-  startPage: number;
-}) => {
-  try {
-    sessionStorage.setItem(GALLERY_STATE_STORAGE_KEY, JSON.stringify(state));
-  } catch (error) {
-    if (isQuotaExceededError(error)) {
-      // Avoid crashing the page when gallery payload exceeds browser storage quota.
-      try {
-        sessionStorage.removeItem(GALLERY_STATE_STORAGE_KEY);
-      } catch {
-        // ignore cleanup errors
-      }
-      console.warn(
-        'Gallery state cache exceeded session storage quota; skipping persistence.'
-      );
-      return;
-    }
-    throw error;
-  }
-};
-
-// Stable search identity for gallery accumulation. Page and per_page are excluded
-// so infinite scroll can keep already-loaded cards while the next page loads.
+// Stable search identity for analytics. Page and per_page are excluded so a
+// paged result set remains part of the same search session.
 const getSearchContext = (params: URLSearchParams) => {
   const keys = Array.from(params.keys())
     .filter((k) => k !== 'page' && k !== 'per_page')
@@ -145,13 +107,7 @@ function SearchContent({
     }
   }, [searchParams, setSearchParams]);
 
-  const perPageParam = searchParams.get('per_page');
-  const perPage =
-    currentView === 'gallery'
-      ? 20
-      : perPageParam
-        ? parseInt(perPageParam)
-        : activeSearchResults?.meta?.perPage || 10;
+  const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
   const totalPages = Math.ceil(searchTotalResults / perPage);
   const hasNoSearchResults =
@@ -179,24 +135,9 @@ function SearchContent({
     resultError ||
     (shouldFetchClientSearch ? hasCurrentClientError || null : null);
 
-  // Infinite Scroll State for Gallery View
-  // Initialize with server data to prevent hydration mismatch
-  const [accumulatedResults, setAccumulatedResults] = useState<GeoDocument[]>(
-    activeSearchResults?.data || []
-  );
-
-  // Track the starting page of the accumulated results (for deep links)
-  const [accumulatedStartPage, setAccumulatedStartPage] =
-    useState<number>(page);
-  const [accumulatedContext, setAccumulatedContext] = useState(currentContext);
-
-  const prevContextRef = useRef(currentContext); // Initialize with current
   const searchContextRef = useRef(currentContext);
   const trackedAnalyticsKeysRef = useRef<Set<string>>(new Set());
   const [searchId, setSearchId] = useState(() => generateAnalyticsId('search'));
-
-  // Track if restoration has been attempted
-  const [hasRestored, setHasRestored] = useState(false);
 
   useEffect(() => {
     if (searchContextRef.current === currentContext) return;
@@ -204,128 +145,6 @@ function SearchContent({
     trackedAnalyticsKeysRef.current = new Set();
     setSearchId(generateAnalyticsId('search'));
   }, [currentContext]);
-
-  // Restore state from session storage on mount (Client-side only)
-  useEffect(() => {
-    const shouldRestore =
-      currentView === 'gallery' && consumeGalleryStateRestoreRequest();
-
-    if (!shouldRestore) {
-      setHasRestored(true);
-      return;
-    }
-
-    try {
-      const cached = sessionStorage.getItem(GALLERY_STATE_STORAGE_KEY);
-      if (cached) {
-        const { context, results, startPage } = JSON.parse(cached);
-
-        if (context === currentContext) {
-          setAccumulatedResults(results);
-          setAccumulatedContext(context);
-          if (startPage) setAccumulatedStartPage(startPage);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to restore gallery state:', e);
-    } finally {
-      setHasRestored(true);
-    }
-  }, []); // Run once on mount
-
-  // Persist state to session storage
-  useEffect(() => {
-    // Only persist if we have finished checking for a restore (hasRestored is true)
-    if (
-      hasRestored &&
-      currentView === 'gallery' &&
-      accumulatedContext === currentContext &&
-      accumulatedResults.length > 0
-    ) {
-      const state = {
-        context: accumulatedContext,
-        results: accumulatedResults,
-        startPage: accumulatedStartPage,
-      };
-      persistGalleryState(state);
-    }
-  }, [
-    accumulatedResults,
-    accumulatedStartPage,
-    accumulatedContext,
-    currentContext,
-    currentView,
-    hasRestored,
-  ]);
-
-  // Effect to manage accumulated results
-  useEffect(() => {
-    if (!hasRestored) return;
-
-    const prevContext = prevContextRef.current;
-
-    // If context changed (query, filters, view, sort) OR view is not gallery
-    // We strictly compare the stable context string.
-    if (currentContext !== prevContext || currentView !== 'gallery') {
-      // Context changed: Reset everything
-      setAccumulatedResults(activeSearchResults?.data || []);
-      setAccumulatedStartPage(page);
-      setAccumulatedContext(currentContext);
-      // Clear cache for new context (optional, but good for cleanup)
-      sessionStorage.removeItem(GALLERY_STATE_STORAGE_KEY);
-    } else {
-      // Context is SAME. Check page.
-      if (page === 1) {
-        // If page is 1, we USUALLY reset, but check if we have more cached data
-        // If we have cached data covering page 1, we might want to keep it?
-        // Actually, explicit page 1 navigation usually implies "Start Over".
-        // BUT, if we just came back from ResourceView (via Back button), we might be at page 1.
-
-        // HOWEVER, logic: If user hits Reload at Page 1, we fetch Page 1.
-        // If accumulatedResults has 60 items (P1-P3), and we are at P1.
-        // We probably want to keep the 60 items so scroll position is reliable?
-        // But if user performs a NEW search that results in Page 1... context would change.
-
-        // So: If Context is SAME, and Page is 1.
-        // If we already have results starting at 1, and length > 20, keep them?
-        if (
-          accumulatedResults.length >
-            (activeSearchResults?.data?.length || 0) &&
-          accumulatedStartPage === 1
-        ) {
-          // Do nothing, keep accumulated results
-        } else {
-          setAccumulatedResults(activeSearchResults?.data || []);
-          setAccumulatedStartPage(1);
-          setAccumulatedContext(currentContext);
-        }
-      } else {
-        // Page > 1 and Same Context -> Append
-        if (activeSearchResults?.data && activeSearchResults.data.length > 0) {
-          setAccumulatedContext(currentContext);
-          setAccumulatedResults((prev) => {
-            const existingIds = new Set(prev.map((r) => r.id));
-            const newItems = (activeSearchResults?.data || []).filter(
-              (r) => !existingIds.has(r.id)
-            );
-            if (newItems.length === 0) return prev;
-            return [...prev, ...newItems];
-          });
-          // Preserve accumulatedStartPage (it remains whatever it was: 1, or startPage of deep link)
-        }
-      }
-    }
-
-    prevContextRef.current = currentContext;
-  }, [
-    activeSearchResults,
-    currentContext,
-    page,
-    currentView,
-    accumulatedResults.length,
-    accumulatedStartPage,
-    hasRestored,
-  ]);
 
   const shouldShowSearchingPlaceholder =
     !error && hasAnySearchCriteria && !activeSearchResults && !activeIsLoading;
@@ -344,15 +163,19 @@ function SearchContent({
 
     if (savedView === 'gallery' || savedView === 'map') {
       next.set('view', savedView);
-      if (savedView === 'gallery') next.set('per_page', '20');
-      else next.delete('per_page');
+      if (next.has('per_page')) {
+        next.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
+      }
       setSearchParams(next, { replace: true });
       return;
     }
 
     // savedView === 'list' should behave as explicit default.
-    if (next.has('per_page')) {
-      next.delete('per_page');
+    if (
+      next.has('per_page') &&
+      next.get('per_page') !== String(SEARCH_RESULTS_PER_PAGE)
+    ) {
+      next.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -400,28 +223,16 @@ function SearchContent({
 
       if (view !== 'list') {
         newParams.set('view', view);
-        // Set per_page=20 for gallery view
-        if (view === 'gallery') {
-          newParams.set('per_page', '20');
-        } else {
-          // For map view, arguably we also want 20? But user specifically said "The 'Gallery' view...".
-          // Let's stick to default for map unless requested.
-          newParams.delete('per_page');
-        }
       } else {
         newParams.delete('view');
-        newParams.delete('per_page');
       }
-    } else {
-      // If updating other params but staying on gallery, ensure per_page=20 is preserved?
-      // Actually URL params persist, so we don't need to re-set it unless we are blindly recreating/clearing params.
-      // But updateSearch generally modifies existing searchParams (init'd from hook).
-      // However, if we enter gallery via view change, we set it.
+      newParams.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
     }
 
     if (perPage !== undefined) {
-      if (perPage !== 10) newParams.set('per_page', perPage.toString());
-      else newParams.delete('per_page');
+      newParams.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
+    } else if (newParams.has('per_page')) {
+      newParams.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
     }
 
     if (facets !== undefined) {
@@ -465,17 +276,11 @@ function SearchContent({
       newParams.delete('page');
     }
 
-    // Prevent scroll reset for infinite scroll in Gallery view
-    const isGallery =
-      view === 'gallery' || (!view && searchParams.get('view') === 'gallery');
-
-    setSearchParams(newParams, {
-      preventScrollReset: isGallery,
-    });
+    setSearchParams(newParams);
   };
 
   const handleViewChange = (newView: ViewMode) => {
-    updateSearch({ view: newView, page: 1 }); // Reset to page 1 to allow fresh infinite scroll start or clean switch
+    updateSearch({ view: newView, page: 1 });
   };
 
   const handlePageChange = (newPage: number) => updateSearch({ page: newPage });
@@ -642,17 +447,6 @@ function SearchContent({
     return suggestion && typeof suggestion === 'object' && 'text' in suggestion;
   };
 
-  const shouldUseAccumulatedResults =
-    currentView === 'gallery' &&
-    accumulatedContext === currentContext &&
-    accumulatedResults.length > 0;
-  const galleryResults = shouldUseAccumulatedResults
-    ? accumulatedResults
-    : activeSearchResults?.data || [];
-  const galleryStartPage = shouldUseAccumulatedResults
-    ? accumulatedStartPage
-    : page;
-
   return (
     <div className="min-h-screen flex flex-col">
       <Seo
@@ -755,17 +549,14 @@ function SearchContent({
                     <h2 className="text-lg text-gray-600">
                       Showing results{' '}
                       {(() => {
-                        let start, end;
-                        if (shouldUseAccumulatedResults) {
-                          start = (accumulatedStartPage - 1) * perPage + 1;
-                          end = start + accumulatedResults.length - 1;
-                        } else {
-                          start = Math.min(
-                            (page - 1) * perPage + 1,
-                            searchTotalResults
-                          );
-                          end = Math.min(page * perPage, searchTotalResults);
-                        }
+                        const start = Math.min(
+                          (page - 1) * perPage + 1,
+                          searchTotalResults
+                        );
+                        const end = Math.min(
+                          page * perPage,
+                          searchTotalResults
+                        );
                         return `${formatCount(start)}-${formatCount(end)}`;
                       })()}{' '}
                       of {formatCount(searchTotalResults)}
@@ -817,14 +608,11 @@ function SearchContent({
 
                   {currentView === 'gallery' && (
                     <GalleryView
-                      results={galleryResults}
+                      results={activeSearchResults?.data || []}
                       isLoading={activeIsLoading}
                       totalResults={searchTotalResults}
                       currentPage={page}
-                      startPage={galleryStartPage}
                       perPage={perPage}
-                      hasMore={page < totalPages}
-                      onLoadMore={() => handlePageChange(page + 1)}
                       searchId={searchId}
                     />
                   )}
@@ -867,10 +655,10 @@ function SearchContent({
                     </div>
                   )}
 
-                  {/* Pagination for List view (bottom of page) */}
+                  {/* Pagination for List and Grid views (bottom of page) */}
                   {!activeIsLoading &&
                     totalPages > 1 &&
-                    currentView === 'list' && (
+                    (currentView === 'list' || currentView === 'gallery') && (
                       <Pagination
                         currentPage={page}
                         totalPages={totalPages}

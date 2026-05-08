@@ -4,6 +4,7 @@ import { fetchSearchResults } from '../services/api';
 import { parseSearchParams } from '../utils/searchParams';
 import { useApi } from '../context/ApiContext';
 import { debugLog } from '../utils/logger';
+import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 import type { JsonApiResponse } from '../types/api';
 import type { AdvancedClause, FacetFilter } from '../types/search';
 
@@ -24,14 +25,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const { setLastApiUrl } = useApi();
   const sort = searchParams.get('sort') || 'relevance';
-  const view = searchParams.get('view') || 'list';
-  const perPageParam = searchParams.get('per_page');
-  const parsedPerPage = perPageParam ? parseInt(perPageParam, 10) : NaN;
-  const perPage = Number.isFinite(parsedPerPage)
-    ? parsedPerPage
-    : view === 'gallery'
-      ? 20
-      : 10;
+  const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchField = searchParams.get('search_field') || 'all_fields';
   const searchParamsKey = searchParams.toString();
 
@@ -142,8 +136,9 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
         setResults(null);
         setResultsKey(null);
       } finally {
-        if (!isCurrentRequest) return;
-        setIsLoading(false);
+        if (isCurrentRequest) {
+          setIsLoading(false);
+        }
       }
     };
 
@@ -262,7 +257,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
     error,
     errorKey,
     page: page || 1,
-    perPage: results?.meta?.perPage || perPage,
+    perPage,
     totalResults: results?.meta?.totalCount || 0,
     facets: facets || [],
     excludeFacets: excludeFacets || [],

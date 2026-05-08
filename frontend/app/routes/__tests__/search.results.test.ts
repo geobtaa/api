@@ -15,7 +15,7 @@ describe('search results proxy loader', () => {
       totalCount: 0,
       totalPages: 0,
       currentPage: 1,
-      perPage: 10,
+      perPage: 20,
       query: 'maps',
     },
     included: [],
@@ -67,7 +67,7 @@ describe('search results proxy loader', () => {
     expect(pathAndQuery).toContain('/search?');
     expect(pathAndQuery).toContain('q=maps');
     expect(pathAndQuery).toContain('page=2');
-    expect(pathAndQuery).toContain('per_page=10');
+    expect(pathAndQuery).toContain('per_page=20');
     expect((options?.headers as Headers).get('x-btaa-client-name')).toBe(
       'geoportal-web'
     );

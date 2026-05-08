@@ -27,6 +27,7 @@ import { DisplayNotes } from '../components/resource/DisplayNotes';
 import { DataDictionariesSection } from '../components/resource/DataDictionariesSection';
 import { LightboxModal } from '../components/ui/LightboxModal';
 import { scheduleAnalyticsBatch } from '../services/analytics';
+import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 
 // Define types for search results
 interface SearchResult {
@@ -167,8 +168,7 @@ export function ResourceView({
   const { setLastApiUrl } = useApi();
   const trackedResourceViewRef = useRef<string | null>(null);
 
-  // Get configured perPage or default to 10
-  const perPage = searchState?.perPage || 10;
+  const perPage = SEARCH_RESULTS_PER_PAGE;
 
   // Calculate pagination state
   const isLastInCurrentSet =

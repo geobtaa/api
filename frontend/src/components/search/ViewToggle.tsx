@@ -32,7 +32,7 @@ export function ViewToggle({ currentView, onViewChange }: ViewToggleProps) {
               ? 'bg-blue-50 text-blue-700 border-blue-200'
               : 'bg-white text-gray-900 border-gray-200 hover:text-blue-700'
           }`}
-          title="Gallery View"
+          title="Grid View"
         >
           <Grid className="w-4 h-4" />
         </button>

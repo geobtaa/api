@@ -8,6 +8,7 @@ import {
 } from '../types/api';
 import { AdvancedClause, FacetFilter } from '../types/search';
 import { getActiveThemeConfig } from '../config/institution';
+import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 import { debugLog, isDebugLoggingEnabled } from '../utils/logger';
 import { getTurnstileSessionToken } from './turnstile';
 
@@ -420,7 +421,7 @@ async function unifiedFetch<T>(
 export async function fetchSearchResults(
   query: string,
   page: number = 1,
-  perPage: number = 10,
+  perPage: number = SEARCH_RESULTS_PER_PAGE,
   facets: FacetFilter[] = [],
   onApiCall?: (url: string) => void,
   sort?: string,
@@ -430,10 +431,12 @@ export async function fetchSearchResults(
   sourceSearchParams?: URLSearchParams
 ): Promise<JsonApiResponse> {
   const startTime = performance.now();
+  const resultPerPage = SEARCH_RESULTS_PER_PAGE;
   debugLog('🌐 fetchSearchResults called with:', {
     query,
     page,
-    perPage,
+    perPage: resultPerPage,
+    requestedPerPage: perPage,
     facets: facets.length,
     sort,
     advancedClauses: advancedQuery.length,
@@ -449,7 +452,7 @@ export async function fetchSearchResults(
   url.searchParams.set('search_field', effectiveSearchField);
   url.searchParams.set('q', effectiveQuery);
   url.searchParams.set('page', page.toString());
-  url.searchParams.set('per_page', perPage.toString());
+  url.searchParams.set('per_page', resultPerPage.toString());
 
   if (sourceSearchParams) {
     appendForwardedSearchFilters(url.searchParams, sourceSearchParams);

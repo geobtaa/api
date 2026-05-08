@@ -19,7 +19,7 @@ vi.mock('./services/api', () => ({
       totalCount: 0,
       totalPages: 0,
       currentPage: 1,
-      perPage: 10,
+      perPage: 20,
       query: '',
     },
     data: [],

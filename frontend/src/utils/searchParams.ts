@@ -1,4 +1,5 @@
 import { AdvancedClause, SearchParams } from '../types/search';
+import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 
 /** Boolean facet fields must send "true"/"false" to the API, not "1"/"0". */
 const BOOLEAN_FACET_FIELDS = ['gbl_georeferenced_b'];
@@ -105,7 +106,7 @@ export function buildSearchParams(params: SearchParams): URLSearchParams {
     searchParams.set('page', params.page.toString());
   }
 
-  if (params.perPage !== 10) {
+  if (params.perPage !== SEARCH_RESULTS_PER_PAGE) {
     searchParams.set('per_page', params.perPage.toString());
   }
 

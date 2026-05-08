@@ -12,7 +12,6 @@ import {
   expect,
   beforeEach,
   afterEach,
-  MockInstance,
 } from 'vitest';
 import type {
   GazetteerResponse,
@@ -56,26 +55,24 @@ vi.mock('../../components/SearchResults', () => ({
   ),
 }));
 
-// Mock GalleryView specifically to test interaction or simply use real one?
-// Using real one allows us to test the composition, but mocking it makes testing SearchPage's state passing easier.
-// Let's use REAL GalleryView if possible, or a mock that exposes props.
-// Actually, for deep logic testing (infinite scroll callback), mocking is often cleaner.
-// But we want to test that SearchPage *passes* the right props.
 vi.mock('../../components/search/GalleryView', () => ({
   GalleryView: ({
     results,
-    onLoadMore,
+    currentPage,
+    perPage,
   }: {
     results: GeoDocument[];
-    onLoadMore: () => void;
+    currentPage: number;
+    perPage: number;
   }) => (
-    <div data-testid="gallery-view">
+    <div
+      data-testid="gallery-view"
+      data-current-page={currentPage}
+      data-per-page={perPage}
+    >
       {results.map((r) => (
         <div key={r.id}>Gallery Result {r.attributes.ogm.dct_title_s}</div>
       ))}
-      <button onClick={onLoadMore} data-testid="load-more-btn">
-        Load More
-      </button>
     </div>
   ),
 }));
@@ -146,8 +143,6 @@ const createMockResult = (id: string, title: string): GeoDocument => ({
 });
 
 describe('SearchPage Logic', () => {
-  let setItemSpy: MockInstance;
-
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(fetchSearchResults).mockReset();
@@ -161,7 +156,6 @@ describe('SearchPage Logic', () => {
     localStorage.clear();
     sessionStorage.clear();
     vi.spyOn(sessionStorage, 'getItem');
-    setItemSpy = vi.spyOn(sessionStorage, 'setItem');
   });
 
   afterEach(() => {
@@ -236,7 +230,7 @@ describe('SearchPage Logic', () => {
       'No search results found'
     );
     expect(
-      screen.getByRole('link', { name: /advanced search/i })
+      screen.getAllByRole('link', { name: /advanced search/i })[0]
     ).toHaveAttribute('href', expect.stringContaining('showAdvanced=true'));
     expect(
       await screen.findByText('No close keyword suggestions found.')
@@ -389,145 +383,14 @@ describe('SearchPage Logic', () => {
     ).toBeInTheDocument();
   });
 
-  it('does not crash when gallery session cache exceeds quota', async () => {
-    const results = createMockApiResponse(mockResults.slice(0, 20), 100, 1);
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-    setItemSpy.mockImplementation(() => {
-      throw new DOMException(
-        'Setting the value exceeded the quota.',
-        'QuotaExceededError'
-      );
-    });
-
-    renderWithRouter('/search?view=gallery', results);
-
-    await waitFor(() => {
-      expect(screen.getByTestId('gallery-view')).toBeInTheDocument();
-    });
-
-    expect(warnSpy).toHaveBeenCalledWith(
-      'Gallery state cache exceeded session storage quota; skipping persistence.'
-    );
-  });
-
-  it('appends results when Load More is clicked (simulating infinite scroll)', async () => {
-    // Initial load: Page 1 (items 1-20)
-    // We simulate the router/loader response updating. In a real integration test we'd update the router state or mock the loader.
-    // However, SearchPage receives `searchResults` prop.
-    // BUT! SearchPage handles `setAccumulatedResults`.
-    // Wait, `onLoadMore` calls `handlePageChange` which updates URL.
-    // The *parent* (loader) usually fetches new data and re-renders SearchPage with new `searchResults`.
-
-    // To test this with `render`, we need to simulate the component re-rendering with new props (Page 2 data)
-    // while maintaining component state (accumulatedResults).
-
-    renderWithRouter(
-      '/search?view=gallery',
-      createMockApiResponse(mockResults.slice(0, 20), 100, 1)
-    );
-
-    // Check initial state
-    expect(screen.getAllByText(/Gallery Result/)).toHaveLength(20);
-
-    // Click load more -> updates URL to page=2.
-    // In our test, we manually trigger the prop update that the loader would produce.
-    // The component *must* detect that page changed (via props/URL) and context is same, and append.
-
-    // Update router simulated? No, we pass props.
-    // Note: SearchPage uses `useSearchParams`. We need to make sure the URL updates too.
-    // Clicking "Load More" triggers `setSearchParams({ page: 2 })`.
-    // This updates the URL.
-    // The TEST runner (MemoryRouter) handles the URL update.
-    // BUT we need to feed the *new data* corresponding to that URL.
-    // Since we are not using a real loader, `searchResults` prop won't automatically update unless we wrap the test component or use a specialized helper.
-
-    // Actually, `SearchPage` uses `useSearchParams`. The `searchResults` prop comes from the loader.
-    // If we just change the URL, `searchResults` prop won't change in this test setup.
-    // We need to re-render the component with the NEW `searchResults` when the URL changes.
-    // Vitest doesn't easily support "smart" loader mocking out of the box with `createMemoryRouter` unless we define a loader.
-
-    // ALTERNATIVE: We can test the *logic* of aggregation by purely updating props with same URL context but different data?
-    // No, `useEffect` depends on `page` from URL.
-
-    // Let's rely on the fact that `accumulatedResults` logic is:
-    // 1. Initial render -> 20 items.
-    // 2. Props update with Page 2 data -> Append.
-
-    // We can simulate this by re-rendering with updated Router (to provide new Page param) AND updated props.
-    // But `rerender` replaces the component. Does it preserve state? Yes.
-
-    // Manually force a re-render sequence:
-    // 1. Render P1.
-    // 2. Rerender with P2 props. (We invoke rerender with the SAME component structure but new props).
-    // Note: To change the Page param in `useSearchParams`, we might need to rely on the button click logic OR just force it via initialEntries?
-    // No, we want to test the TRANSITION.
-
-    // Limitation: We can't easily sync the internal Router state change with our external `searchResults` prop update in one go.
-    // However, the `useEffect` listens to `page` from URL.
-    // Valid Test Strategy:
-    // 1. Render.
-    // 2. Click Load More. (Updates URL param to page=2).
-    // 3. This triggers a re-render. `searchResults` is STILL Page 1 data (old props).
-    // 4. We then `rerender` with Page 2 data. The component sees Page 2 in URL + Page 2 in Props.
-    // 5. It should append.
-
-    await act(async () => {
-      screen.getByTestId('load-more-btn').click();
-    });
-
-    // At this point URL is page=2 (due to click). Props are old.
-    // Now we supply new data.
-    // We need to pass the updated router context?
-    // Actually `renderWithRouter` creates a new router each time. We can't use it for rerender.
-    // We need to construct the setup manually to support rerender.
-
-    // Refactored setup for this specific test
-  });
-});
-
-describe('SearchPage Integration', () => {
-  it('restores gallery state from session storage', async () => {
-    // Mock session storage with pre-existing state
-    const storedState = {
-      context: 'view=gallery',
-      results: mockResults.slice(0, 40), // 40 items
-      startPage: 1,
-    };
-    sessionStorage.setItem('b1g_gallery_state', JSON.stringify(storedState));
-    sessionStorage.setItem('b1g_gallery_restore_requested', '1');
-
-    // Initial render with SERVER data (Page 1 only - 20 items)
-    const serverResults = createMockApiResponse(
-      mockResults.slice(0, 20),
-      100,
-      1
-    );
-
-    // We use view=gallery
-    const { unmount } = renderWithRouter('/search?view=gallery', serverResults);
-
-    // Should INITIALIZE with server data (20 items) but then EFFECT restores 40 items.
-    // Wait for restoration.
-    await waitFor(() => {
-      // Check that we display 40 items (restored from session)
-      expect(screen.getAllByText(/Gallery Result/)).toHaveLength(40);
-    });
-
-    expect(
-      screen.getByText(/Showing results 1-40 of 100/i)
-    ).toBeInTheDocument();
-
-    unmount();
-  });
-
-  it('does not restore gallery state without an explicit restore request', async () => {
+  it('ignores stale gallery state and keeps Grid paginated', async () => {
     const storedState = {
       context: 'view=gallery',
       results: mockResults.slice(0, 40),
       startPage: 1,
     };
     sessionStorage.setItem('b1g_gallery_state', JSON.stringify(storedState));
+    sessionStorage.setItem('b1g_gallery_restore_requested', '1');
 
     const serverResults = createMockApiResponse(
       mockResults.slice(0, 20),
@@ -544,32 +407,8 @@ describe('SearchPage Integration', () => {
     expect(
       screen.getByText(/Showing results 1-20 of 100/i)
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /next page/i })
+    ).toBeInTheDocument();
   });
-
-  // Helper must be defined in scope or imported
-  const renderWithRouter = (
-    initialUrl = '/search',
-    searchResults: JsonApiResponse | null = null
-  ) => {
-    const routes = [
-      {
-        path: '/search',
-        element: (
-          <HelmetProvider>
-            <ApiProvider>
-              <DebugProvider>
-                <SearchPage searchResults={searchResults} isLoading={false} />
-              </DebugProvider>
-            </ApiProvider>
-          </HelmetProvider>
-        ),
-      },
-    ];
-
-    const router = createMemoryRouter(routes, {
-      initialEntries: [initialUrl],
-    });
-
-    return render(<RouterProvider router={router} />);
-  };
 });

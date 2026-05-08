@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { useApi } from '../../src/context/ApiContext';
 import { getThemeConfigFromRequest } from '../lib/theme.server';
 import { buildSeoMeta } from '../../src/config/seo';
+import { SEARCH_RESULTS_PER_PAGE } from '../../src/constants/search';
 
 /**
  * Loader function for the search page shell.
@@ -20,8 +21,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
   // Ensure required defaults for the API request.
   apiParams.set('format', 'json');
-  const defaultPerPage = apiParams.get('view') === 'gallery' ? '20' : '10';
-  apiParams.set('per_page', apiParams.get('per_page') || defaultPerPage);
+  apiParams.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
   apiParams.set('search_field', apiParams.get('search_field') || 'all_fields');
 
   // Fetch when we have any search criteria: q (even empty = "show all"), adv_q, or filters.

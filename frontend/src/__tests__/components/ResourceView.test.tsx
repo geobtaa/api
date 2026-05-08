@@ -750,7 +750,7 @@ describe('ResourceView Component', () => {
       expect(fetchSearchResults).toHaveBeenCalledWith(
         'chicago',
         2,
-        10,
+        20,
         [],
         expect.any(Function),
         undefined,
@@ -762,7 +762,7 @@ describe('ResourceView Component', () => {
 
       const paginationCall = fetchSearchResults.mock.calls.find(
         (call) =>
-          call[1] === 2 && call[2] === 10 && call[9] instanceof URLSearchParams
+          call[1] === 2 && call[2] === 20 && call[9] instanceof URLSearchParams
       );
       expect(paginationCall).toBeDefined();
 
