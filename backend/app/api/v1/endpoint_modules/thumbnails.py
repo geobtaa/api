@@ -115,19 +115,16 @@ def _detect_image_type(image_data: bytes) -> str:
 
 @router.get("/thumbnails/placeholder")
 async def get_placeholder_thumbnail():
-    """Serve a placeholder thumbnail image for resources that don't have cached thumbnails yet."""
-    # Create a simple SVG placeholder image
+    """Serve a neutral thumbnail placeholder image."""
     placeholder_svg = """
-    <svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">
-        <rect width="200" height="200" fill="#f0f0f0" stroke="#cccccc" stroke-width="1"/>
-        <text x="100" y="100" font-family="Arial, sans-serif" font-size="14" 
-              text-anchor="middle" fill="#666666">
-            Thumbnail
-        </text>
-        <text x="100" y="120" font-family="Arial, sans-serif" font-size="12" 
-              text-anchor="middle" fill="#999999">
-            Processing...
-        </text>
+    <svg width="200" height="200" viewBox="0 0 200 200"
+         xmlns="http://www.w3.org/2000/svg" role="img"
+         aria-label="Thumbnail placeholder">
+        <title>Thumbnail placeholder</title>
+        <rect width="200" height="200" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1"/>
+        <rect x="54" y="58" width="92" height="84" rx="8" fill="#e2e8f0"/>
+        <path d="M68 122L88 96L104 114L116 100L134 122H68Z" fill="#94a3b8"/>
+        <circle cx="122" cy="82" r="10" fill="#94a3b8"/>
     </svg>
     """.strip()
 

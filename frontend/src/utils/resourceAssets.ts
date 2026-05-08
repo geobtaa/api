@@ -189,15 +189,17 @@ export function getResultPrimaryImageUrl(
 
   // Route generic thumbnail endpoints and bridge-backed assets through the
   // generated thumbnail pipeline for non-gallery contexts. Gallery first paint
-  // is especially sensitive: if the immutable thumbnail is not hot yet, prefer
-  // the cheap generated class icon instead of blocking on thumbnail generation.
+  // is especially sensitive: if the immutable thumbnail is not hot yet, use the
+  // resource-class-on-static-map fallback instead of thumbnail generation.
   if (
     normalized &&
     (isGenericResourceThumbnailUrl(normalized) ||
       isBridgeThumbnailAssetUrl(extracted))
   ) {
     if (view === 'gallery') {
-      return galleryResourceClassIconUrl;
+      return (
+        galleryResourceClassIconUrl ?? getThumbnailFallbackUrl(result.id, view)
+      );
     }
     return getGeneratedThumbnailUrl(result.id, view);
   }
@@ -211,7 +213,7 @@ export function getResultPrimaryImageUrl(
   }
 
   if (view === 'gallery') {
-    return undefined;
+    return getThumbnailFallbackUrl(result.id, view);
   }
 
   return getThumbnailFallbackUrl(result.id, view);

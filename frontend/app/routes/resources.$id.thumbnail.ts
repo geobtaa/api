@@ -24,7 +24,7 @@ function toBrowserThumbnailLocation(requestUrl: URL, location: string): string {
  * The SSR server fetches from the API using the server-only API key and returns image bytes.
  * This endpoint may return:
  * - A redirect to /api/v1/thumbnails/{hash} if thumbnail is ready
- * - An SVG placeholder if thumbnail is not ready yet
+ * - A resource-class fallback image if thumbnail generation is pending
  * - The actual image if the endpoint returns it directly
  */
 export async function loader({ params, request }: LoaderFunctionArgs) {
