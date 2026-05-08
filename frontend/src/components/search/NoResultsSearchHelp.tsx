@@ -49,7 +49,7 @@ function buildBaseSearchParams(currentParams: URLSearchParams) {
   const view = currentParams.get('view');
   const perPage = currentParams.get('per_page');
 
-  if (view && view !== 'list') {
+  if (view && view !== 'map') {
     params.set('view', view);
   }
   if (perPage) {

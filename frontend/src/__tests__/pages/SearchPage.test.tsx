@@ -5,14 +5,7 @@ import { SearchPage } from '../../pages/SearchPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { fetchNominatimSearch, fetchSearchResults } from '../../services/api';
-import {
-  vi,
-  describe,
-  it,
-  expect,
-  beforeEach,
-  afterEach,
-} from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type {
   GazetteerResponse,
   GeoDocument,
@@ -240,11 +233,11 @@ describe('SearchPage Logic', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders List View by default', async () => {
+  it('renders Map View by default', async () => {
     const results = createMockApiResponse(mockResults.slice(0, 20));
     renderWithRouter('/search', results);
 
-    expect(screen.getByTestId('search-results-list')).toBeInTheDocument();
+    expect(screen.getByTestId('map-result-view')).toBeInTheDocument();
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
   });
 
@@ -323,6 +316,18 @@ describe('SearchPage Logic', () => {
     expect(screen.queryByTestId('map-result-view')).not.toBeInTheDocument();
   });
 
+  it('restores saved list view preference when URL has no view param', async () => {
+    localStorage.setItem('b1g_view_preference', 'list');
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?q=', results);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('search-results-list')).toBeInTheDocument();
+      expect(screen.queryByTestId('map-result-view')).not.toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
+  });
+
   it('preserves bbox filter when removing facet from search constraints', async () => {
     const bboxAndMapsUrl =
       '/search?q=&view=map' +
@@ -355,8 +360,7 @@ describe('SearchPage Logic', () => {
 
   it('keeps an empty q param when Clear All is clicked', async () => {
     const filteredSearchUrl =
-      '/search?q=' +
-      '&include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Maps';
+      '/search?q=' + '&include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Maps';
 
     const results = createMockApiResponse(mockResults.slice(0, 20));
     const { router } = renderWithRouter(filteredSearchUrl, results, {

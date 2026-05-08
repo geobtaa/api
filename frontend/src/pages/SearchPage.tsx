@@ -42,6 +42,12 @@ const getSearchContext = (params: URLSearchParams) => {
   return keys.map((k) => `${k}=${params.getAll(k).sort().join(',')}`).join('&');
 };
 
+const DEFAULT_VIEW: ViewMode = 'map';
+
+function isViewMode(value: string | null): value is ViewMode {
+  return value === 'map' || value === 'list' || value === 'gallery';
+}
+
 type SearchPageProps = {
   // Loader-provided results (SSR/server-side).
   searchResults?: JsonApiResponse | null;
@@ -70,7 +76,8 @@ function SearchContent({
   } = parseSearchParams(searchParams);
   const sort = searchParams.get('sort') || 'relevance';
   const searchField = searchParams.get('search_field') || 'all_fields';
-  const currentView = (searchParams.get('view') as ViewMode) || 'list';
+  const viewParam = searchParams.get('view');
+  const currentView = isViewMode(viewParam) ? viewParam : DEFAULT_VIEW;
   const normalizedQuery = query || '';
   const currentSearchParamsKey = searchParams.toString();
   const currentContext = getSearchContext(searchParams);
@@ -157,25 +164,27 @@ function SearchContent({
     const savedView = localStorage.getItem(
       'b1g_view_preference'
     ) as ViewMode | null;
-    if (!savedView) return;
+    if (!isViewMode(savedView)) return;
 
     const next = new URLSearchParams(searchParams);
-
-    if (savedView === 'gallery' || savedView === 'map') {
-      next.set('view', savedView);
-      if (next.has('per_page')) {
-        next.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
-      }
-      setSearchParams(next, { replace: true });
-      return;
+    if (Array.from(next.keys()).length === 0) {
+      next.set('q', '');
     }
 
-    // savedView === 'list' should behave as explicit default.
+    if (savedView !== DEFAULT_VIEW) {
+      next.set('view', savedView);
+    } else {
+      next.delete('view');
+    }
+
     if (
       next.has('per_page') &&
       next.get('per_page') !== String(SEARCH_RESULTS_PER_PAGE)
     ) {
       next.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
+    }
+
+    if (next.toString() !== searchParams.toString()) {
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -221,7 +230,7 @@ function SearchContent({
       // Save preference
       localStorage.setItem('b1g_view_preference', view);
 
-      if (view !== 'list') {
+      if (view !== DEFAULT_VIEW) {
         newParams.set('view', view);
       } else {
         newParams.delete('view');
