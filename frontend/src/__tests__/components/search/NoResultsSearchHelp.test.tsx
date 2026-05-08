@@ -71,7 +71,7 @@ describe('NoResultsSearchHelp', () => {
     );
   });
 
-  it('shows keyword, fielded, and OpenStreetMap suggestions for the failed query', async () => {
+  it('shows geographic, keyword, and advanced search suggestions for the failed query', async () => {
     render(
       <MemoryRouter
         initialEntries={[
@@ -89,10 +89,17 @@ describe('NoResultsSearchHelp', () => {
       'No search results found'
     );
     expect(await screen.findByText('grassland maps')).toBeInTheDocument();
-    expect(screen.getByText('Suggestions')).toBeInTheDocument();
-    expect(screen.getByText('Search Only In')).toBeInTheDocument();
     expect(screen.getByText('Geographic Areas')).toBeInTheDocument();
+    expect(screen.getByText('Suggestions')).toBeInTheDocument();
     expect(screen.getByText('Via OpenStreetMap')).toBeInTheDocument();
+    expect(screen.queryByText('Search Only In')).not.toBeInTheDocument();
+
+    const geographicAreasHeading = screen.getByText('Geographic Areas');
+    const suggestionsHeading = screen.getByText('Suggestions');
+    expect(
+      geographicAreasHeading.compareDocumentPosition(suggestionsHeading) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
 
     const keywordLink = screen.getByRole('link', {
       name: /grassland maps/i,
@@ -107,17 +114,11 @@ describe('NoResultsSearchHelp', () => {
     );
 
     expect(
-      screen.getByRole('link', { name: /grassland in title/i })
-    ).toHaveAttribute(
-      'href',
-      expect.stringContaining('search_field=dct_title_s')
-    );
+      screen.queryByRole('link', { name: /grassland in title/i })
+    ).toBeNull();
     expect(
-      screen.getByRole('link', { name: /grassland in subject\/theme/i })
-    ).toHaveAttribute(
-      'href',
-      expect.stringContaining('dct_subject_sm%2Cdcat_theme_sm')
-    );
+      screen.queryByRole('link', { name: /grassland in subject\/theme/i })
+    ).toBeNull();
 
     const placeLink = await screen.findByRole('link', {
       name: /madison \(city\)/i,
@@ -138,7 +139,7 @@ describe('NoResultsSearchHelp', () => {
       )
     );
     expect(
-      screen.getByRole('link', { name: /advanced search/i })
+      screen.getAllByRole('link', { name: /advanced search/i })[0]
     ).toHaveAttribute('href', '/search?q=grassland&showAdvanced=true');
 
     await waitFor(() => {

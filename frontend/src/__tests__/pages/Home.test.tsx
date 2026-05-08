@@ -9,7 +9,9 @@ import { vi } from 'vitest';
 import { getPartnerInstitutionSearchHref } from '../../constants/partnerInstitutions';
 
 vi.mock('../../components/SearchField', () => ({
-  SearchField: () => <input placeholder="Search for maps, data, imagery..." />,
+  SearchField: () => (
+    <input placeholder="Search for locations, maps, data, imagery..." />
+  ),
 }));
 vi.mock('../../components/home/HomePageHexMapBackground.client', () => ({
   HomePageHexMapBackground: () => null,

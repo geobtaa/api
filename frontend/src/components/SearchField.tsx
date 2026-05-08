@@ -42,21 +42,13 @@ type SearchSuggestionResponseItem = {
   };
 };
 
-type ScopeSuggestion = {
-  kind: 'scope';
-  id: string;
-  searchField: 'dct_title_s' | 'dct_subject_sm,dcat_theme_sm';
-  label: string;
-};
-
 type KeywordSuggestionItem =
-  | ScopeSuggestion
   | { kind: 'place'; id: string; place: GazetteerPlace }
   | { kind: 'place_loading'; id: string }
   | { kind: 'suggestion'; id: string; suggestion: SearchSuggestion }
   | { kind: 'see_all'; id: string };
 
-type KeywordSuggestionGroup = 'scope' | 'place' | 'suggestion' | 'see_all';
+type KeywordSuggestionGroup = 'place' | 'suggestion' | 'see_all';
 
 const NOMINATIM_SUGGESTION_LIMIT = 5;
 
@@ -73,21 +65,6 @@ const PLACE_TYPE_LABELS: Record<string, string> = {
   country: 'Country',
   administrative: 'Administrative Area',
 };
-
-const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
-  {
-    kind: 'scope',
-    id: 'scope-title',
-    searchField: 'dct_title_s',
-    label: 'Title',
-  },
-  {
-    kind: 'scope',
-    id: 'scope-subject-theme',
-    searchField: 'dct_subject_sm,dcat_theme_sm',
-    label: 'Subject/Theme',
-  },
-];
 
 function setGeoBBoxParams(
   params: URLSearchParams,
@@ -504,11 +481,7 @@ export function SearchField({
       if (selectedIndex >= 0) {
         e.preventDefault();
         const selectedItem = keywordMenuItems[selectedIndex];
-        if (selectedItem.kind === 'scope') {
-          runKeywordSearch(query.trim(), {
-            searchField: selectedItem.searchField,
-          });
-        } else if (selectedItem.kind === 'suggestion') {
+        if (selectedItem.kind === 'suggestion') {
           runKeywordSearch(selectedItem.suggestion.text);
         } else if (selectedItem.kind === 'place') {
           handleSelectPlace(selectedItem.place);
@@ -528,6 +501,7 @@ export function SearchField({
 
   const handleAdvancedSearchClick = (e: React.MouseEvent) => {
     e.preventDefault();
+    setShowSuggestions(false);
     if (onAdvancedSearchClick) {
       onAdvancedSearchClick();
     } else {
@@ -579,17 +553,16 @@ export function SearchField({
       : [];
   const keywordMenuItems: KeywordSuggestionItem[] = trimmedQuery
     ? [
-        ...suggestions.map((suggestion) => ({
-          kind: 'suggestion' as const,
-          id: `suggestion-${suggestion.text}`,
-          suggestion,
-        })),
-        ...SCOPED_SEARCH_OPTIONS,
         ...placeLoadingItems,
         ...placeSuggestions.map((place) => ({
           kind: 'place' as const,
           id: `place-${place.id}`,
           place,
+        })),
+        ...suggestions.map((suggestion) => ({
+          kind: 'suggestion' as const,
+          id: `suggestion-${suggestion.text}`,
+          suggestion,
         })),
         { kind: 'see_all' as const, id: 'see-all' },
       ]
@@ -598,14 +571,12 @@ export function SearchField({
   const getKeywordSuggestionGroup = (
     item: KeywordSuggestionItem
   ): KeywordSuggestionGroup => {
-    if (item.kind === 'scope') return 'scope';
     if (item.kind === 'place' || item.kind === 'place_loading') return 'place';
     if (item.kind === 'suggestion') return 'suggestion';
     return 'see_all';
   };
 
   const getKeywordSuggestionHeading = (group: KeywordSuggestionGroup) => {
-    if (group === 'scope') return 'Search only in';
     if (group === 'place') return 'Geographic Areas';
     if (group === 'suggestion') return 'Suggestions';
     return null;
@@ -679,7 +650,7 @@ export function SearchField({
                 autoFocus={autoFocus}
                 aria-label="Search input"
                 aria-describedby="search-description"
-                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-gray-900 placeholder:text-gray-400 focus:outline-none"
+                className="min-w-0 flex-1 border-0 bg-transparent p-0 text-sm font-medium text-gray-900 placeholder:font-semibold placeholder:text-gray-500 focus:outline-none"
               />
               {activeSearchFieldLabel && (
                 <button
@@ -730,41 +701,6 @@ export function SearchField({
                     const baseClass = `w-full px-4 py-2 text-left hover:bg-gray-50 focus:bg-gray-50 focus:outline-none ${
                       isSelected ? 'bg-gray-50' : ''
                     }`;
-
-                    if (item.kind === 'scope') {
-                      return (
-                        <div key={item.id}>
-                          {heading && (
-                            <div
-                              className={`px-4 pb-1 text-xs font-medium uppercase tracking-wide text-gray-500 ${
-                                index === 0 ? 'pt-1' : 'pt-3'
-                              }`}
-                            >
-                              {heading}
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            className={baseClass}
-                            onMouseDown={keepSuggestionClickActive}
-                            onClick={() =>
-                              runKeywordSearch(trimmedQuery, {
-                                searchField: item.searchField,
-                              })
-                            }
-                            onMouseEnter={() => setSelectedIndex(index)}
-                          >
-                            <div className="text-sm text-gray-700">
-                              <span>{trimmedQuery}</span>{' '}
-                              <span className="text-gray-500">in</span>{' '}
-                              <span className="font-medium text-gray-900">
-                                {item.label}
-                              </span>
-                            </div>
-                          </button>
-                        </div>
-                      );
-                    }
 
                     if (item.kind === 'place_loading') {
                       return (
@@ -832,25 +768,40 @@ export function SearchField({
 
                     if (item.kind === 'see_all') {
                       return (
-                        <button
+                        <div
                           key={item.id}
-                          type="button"
-                          className={`${baseClass} mt-1 border-t border-gray-200 pt-3`}
-                          onMouseDown={keepSuggestionClickActive}
-                          onClick={() =>
-                            runKeywordSearch(trimmedQuery, {
-                              searchField: 'all_fields',
-                            })
-                          }
-                          onMouseEnter={() => setSelectedIndex(index)}
+                          className={`mt-1 flex items-stretch border-t border-gray-200 ${
+                            isSelected ? 'bg-gray-50' : ''
+                          }`}
                         >
-                          <div className="text-sm font-medium text-gray-800">
-                            See all results for{' '}
-                            <span className="text-blue-700 underline underline-offset-2">
-                              {trimmedQuery}
-                            </span>
-                          </div>
-                        </button>
+                          <button
+                            type="button"
+                            className="min-w-0 flex-1 px-4 py-3 text-left hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                            onMouseDown={keepSuggestionClickActive}
+                            onClick={() =>
+                              runKeywordSearch(trimmedQuery, {
+                                searchField: 'all_fields',
+                              })
+                            }
+                            onMouseEnter={() => setSelectedIndex(index)}
+                          >
+                            <div className="truncate text-sm font-medium text-gray-800">
+                              See all results for{' '}
+                              <span className="text-blue-700 underline underline-offset-2">
+                                {trimmedQuery}
+                              </span>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            className="shrink-0 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+                            onMouseDown={keepSuggestionClickActive}
+                            onClick={handleAdvancedSearchClick}
+                            onMouseEnter={() => setSelectedIndex(index)}
+                          >
+                            Advanced Search
+                          </button>
+                        </div>
                       );
                     }
 

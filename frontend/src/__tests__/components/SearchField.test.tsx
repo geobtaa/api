@@ -248,7 +248,7 @@ describe('SearchField', () => {
     });
   });
 
-  it('shows grouped autosuggest actions and supports scoped title search', async () => {
+  it('shows geographic areas first and links to advanced search in autosuggest actions', async () => {
     fetchNominatimSearchMock.mockResolvedValue({
       data: [
         {
@@ -321,11 +321,11 @@ describe('SearchField', () => {
     await waitFor(
       () => {
         expect(
-          screen.getByRole('button', { name: /chicago in title/i })
-        ).toBeInTheDocument();
+          screen.queryByRole('button', { name: /chicago in title/i })
+        ).not.toBeInTheDocument();
         expect(
-          screen.getByRole('button', { name: /chicago in subject\/theme/i })
-        ).toBeInTheDocument();
+          screen.queryByRole('button', { name: /chicago in subject\/theme/i })
+        ).not.toBeInTheDocument();
         expect(
           screen.queryByRole('button', { name: /^chicago in subject$/i })
         ).not.toBeInTheDocument();
@@ -334,22 +334,20 @@ describe('SearchField', () => {
             name: /see all results for chicago/i,
           })
         ).toBeInTheDocument();
+        expect(
+          screen.getByRole('button', { name: /advanced search/i })
+        ).toBeInTheDocument();
       },
       { timeout: 1500 }
     );
 
     await waitFor(
       () => {
-        const suggestionsHeading = screen.getByText('Suggestions');
-        const searchOnlyInHeading = screen.getByText('Search only in');
         const geographicAreasHeading = screen.getByText('Geographic Areas');
+        const suggestionsHeading = screen.getByText('Suggestions');
 
         expect(
-          suggestionsHeading.compareDocumentPosition(searchOnlyInHeading) &
-            Node.DOCUMENT_POSITION_FOLLOWING
-        ).toBeTruthy();
-        expect(
-          searchOnlyInHeading.compareDocumentPosition(geographicAreasHeading) &
+          geographicAreasHeading.compareDocumentPosition(suggestionsHeading) &
             Node.DOCUMENT_POSITION_FOLLOWING
         ).toBeTruthy();
         expect(screen.getByText('Geographic Areas')).toBeInTheDocument();
@@ -368,7 +366,7 @@ describe('SearchField', () => {
       });
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /chicago in title/i }));
+    fireEvent.click(screen.getByRole('button', { name: /advanced search/i }));
 
     await waitFor(() => {
       const probe = screen.getByTestId('location-probe');
@@ -378,48 +376,7 @@ describe('SearchField', () => {
         probe.getAttribute('data-search') ?? ''
       );
       expect(params.get('q')).toBe('chicago');
-      expect(params.get('search_field')).toBe('dct_title_s');
-    });
-  });
-
-  it('supports scoped Subject/Theme search across both fields', async () => {
-    render(
-      <MemoryRouter initialEntries={['/']}>
-        <Routes>
-          <Route
-            path="*"
-            element={
-              <>
-                <SearchField />
-                <LocationProbe />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>
-    );
-
-    const searchInput = screen.getByRole('searchbox', { name: 'Search input' });
-    fireEvent.focus(searchInput);
-    fireEvent.change(searchInput, {
-      target: { value: 'philadelphia' },
-    });
-
-    fireEvent.click(
-      await screen.findByRole('button', {
-        name: /philadelphia in subject\/theme/i,
-      })
-    );
-
-    await waitFor(() => {
-      const probe = screen.getByTestId('location-probe');
-      expect(probe).toHaveAttribute('data-pathname', '/search');
-
-      const params = new URLSearchParams(
-        probe.getAttribute('data-search') ?? ''
-      );
-      expect(params.get('q')).toBe('philadelphia');
-      expect(params.get('search_field')).toBe('dct_subject_sm,dcat_theme_sm');
+      expect(params.get('showAdvanced')).toBe('true');
     });
   });
 
