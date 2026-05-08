@@ -83,7 +83,7 @@ These schemas work alongside JSON-LD contexts to provide both structural validat
   "b1g_dct_accrualMethod_s": "manual",
   "b1g_dateAccessioned_s": "2024-01-15",
   "b1g_publication_state_s": "published",
-  "b1g_language_sm": ["en"]
+  "b1g_language_sm": ["English"]
 }
 ```
 
@@ -119,4 +119,4 @@ All schemas are registered with their canonical URIs:
 
 - `https://gin.btaa.org/ld/schemas/resource.json`
 
-These URIs can be referenced in `$schema` fields for IDE support and validation. 
+These URIs can be referenced in `$schema` fields for IDE support and validation.

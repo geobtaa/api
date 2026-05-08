@@ -67,6 +67,7 @@ describe('AdvancedSearchBuilder', () => {
       { value: 'dct_accessRights_s', label: 'Access Rights' },
       { value: 'dct_creator_sm', label: 'Creator' },
       { value: 'dct_description_sm', label: 'Description' },
+      { value: 'b1g_language_sm', label: 'Language' },
       {
         value: 'b1g_localCollectionLabel_sm',
         label: 'Local Collection',

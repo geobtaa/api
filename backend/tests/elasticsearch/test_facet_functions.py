@@ -29,6 +29,7 @@ class TestGetFacetAggregationConfig:
             "gbl_resourceClass_sm",
             "gbl_resourceType_sm",
             "gbl_indexYear_im",
+            "b1g_language_sm",
             "dct_language_sm",
             "dct_creator_sm",
             "dct_publisher_sm",
@@ -79,6 +80,10 @@ class TestGetFacetAggregationConfig:
         """Test that keyword-mapped fields can facet without a .keyword suffix."""
         config = get_facet_aggregation_config("b1g_code_s")
         assert config["field"] == "b1g_code_s"
+        assert ".keyword" not in config["field"]
+
+        config = get_facet_aggregation_config("b1g_language_sm")
+        assert config["field"] == "b1g_language_sm"
         assert ".keyword" not in config["field"]
 
 

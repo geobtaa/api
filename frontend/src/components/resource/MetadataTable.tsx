@@ -4,11 +4,14 @@ import React from 'react';
 
 // Define types for the metadata structure
 interface MetadataAttributes {
+  ogm?: Record<string, string | string[] | undefined>;
+  b1g?: Record<string, string | string[] | undefined>;
   dct_description_sm?: string | string[];
   dct_spatial_sm?: string | string[];
   dct_temporal_sm?: string | string[];
   dct_issued_s?: string;
   dct_language_sm?: string | string[];
+  b1g_language_sm?: string | string[];
   dct_format_s?: string;
   schema_provider_s?: string;
   dct_accessRights_s?: string;
@@ -16,7 +19,11 @@ interface MetadataAttributes {
   dc_subject_sm?: string | string[];
   gbl_resourceType_sm?: string | string[];
   gbl_resourceClass_sm?: string | string[];
-  [key: string]: string | string[] | undefined;
+  [key: string]:
+    | string
+    | string[]
+    | Record<string, string | string[] | undefined>
+    | undefined;
 }
 
 interface MetadataTableProps {
@@ -28,7 +35,22 @@ interface MetadataTableProps {
 }
 
 export function MetadataTable({ data }: MetadataTableProps) {
-  const attributes = data?.data?.attributes || {};
+  const rawAttributes = data?.data?.attributes || {};
+  const attributes = {
+    ...(rawAttributes.ogm || {}),
+    ...(rawAttributes.b1g || {}),
+    ...rawAttributes,
+  };
+
+  const getValue = (key: string): string | string[] | undefined => {
+    const value =
+      key === 'b1g_language_sm'
+        ? attributes.b1g_language_sm || attributes.dct_language_sm
+        : attributes[key];
+    return typeof value === 'string' || Array.isArray(value)
+      ? value
+      : undefined;
+  };
 
   // Helper function to check if a value is empty
   const hasValue = (value: string | string[] | undefined): boolean => {
@@ -51,7 +73,7 @@ export function MetadataTable({ data }: MetadataTableProps) {
 
   // Helper function to determine if a value is singular or plural
   const getLabel = (key: string, label: string): string => {
-    const value = attributes[key];
+    const value = getValue(key);
     if (Array.isArray(value) && value.length === 1) {
       return label.replace('(s)', '');
     }
@@ -74,7 +96,7 @@ export function MetadataTable({ data }: MetadataTableProps) {
       cells: [
         { key: 'dct_temporal_sm', label: 'Temporal Coverage' },
         { key: 'dct_issued_s', label: 'Date Issued' },
-        { key: 'dct_language_sm', label: 'Language' },
+        { key: 'b1g_language_sm', label: 'Language' },
       ],
     },
     {
@@ -114,7 +136,7 @@ export function MetadataTable({ data }: MetadataTableProps) {
             if (field.type === 'combined') {
               // Handle the special combined row
               const hasAnyValue = field.cells.some((cell) =>
-                hasValue(attributes[cell.key])
+                hasValue(getValue(cell.key))
               );
               if (!hasAnyValue) return null;
 
@@ -126,7 +148,7 @@ export function MetadataTable({ data }: MetadataTableProps) {
                         {cell.label}
                       </div>
                       <div className="text-sm text-gray-900">
-                        {formatValue(attributes[cell.key])}
+                        {formatValue(getValue(cell.key))}
                       </div>
                     </td>
                   ))}
@@ -135,7 +157,7 @@ export function MetadataTable({ data }: MetadataTableProps) {
             }
 
             // Handle regular rows
-            const value = attributes[field.key];
+            const value = getValue(field.key);
             if (!hasValue(value)) return null;
 
             return (

@@ -9,7 +9,11 @@ import pytest
 from fastapi import Request
 from fastapi.responses import JSONResponse
 
-from app.middleware.rate_limit_middleware import RateLimitMiddleware, _is_immutable_asset_route
+from app.middleware.rate_limit_middleware import (
+    RateLimitMiddleware,
+    _is_documentation_route,
+    _is_immutable_asset_route,
+)
 
 
 class TestRateLimitMiddleware:
@@ -159,6 +163,28 @@ class TestRateLimitMiddleware:
     def test_is_immutable_asset_route(self, path, expected):
         """Only content-hash thumbnail assets should bypass the limiter."""
         assert _is_immutable_asset_route(path) is expected
+
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("/api/docs", True),
+            ("/api/docs/", True),
+            ("/api/docs/oauth2-redirect", True),
+            ("/api/openapi.json", True),
+            ("/api/redoc", True),
+            ("/static/brand.css", True),
+            ("/static/btaa-logo-white.png", True),
+            ("/static/btaa-gin-white.png", True),
+            ("/static/favicon.ico", True),
+            ("/api/v1/search", False),
+            ("/api/v1/resources", False),
+            ("/api/docs/try-it-out", False),
+            ("/static/maps/stanford-fc944xn1421.png", False),
+        ],
+    )
+    def test_is_documentation_route(self, path, expected):
+        """Documentation shell and schema requests should bypass throttling."""
+        assert _is_documentation_route(path) is expected
 
     @pytest.mark.asyncio
     async def test_get_tier_info_with_ip_whitelist_allowed(self, middleware):

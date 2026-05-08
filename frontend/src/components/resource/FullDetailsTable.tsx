@@ -70,7 +70,8 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
   };
   const uiRelationships = data?.meta?.ui?.relationships || {};
   const relationshipCounts = data?.meta?.ui?.relationship_counts || {};
-  const relationshipBrowseLinks = data?.meta?.ui?.relationship_browse_links || {};
+  const relationshipBrowseLinks =
+    data?.meta?.ui?.relationship_browse_links || {};
   const [isPlaceExpanded, setIsPlaceExpanded] = useState(false);
 
   // Reset expanded state when data changes
@@ -85,7 +86,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     'dct_creator_sm',
     'dct_issued_s',
     'dct_temporal_sm',
-    'dct_language_sm',
+    'b1g_language_sm',
     'b1g_dct_conformsTo_sm',
     'b1g_dcat_spatialResolutionInMeters_sm',
     'b1g_geodcat_spatialResolutionAsText_sm',
@@ -139,7 +140,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     b1g_dct_accrualMethod_s: 'Accrual Method',
     b1g_dateAccessioned_dt: 'Date Accessioned',
     b1g_publication_state_s: 'Publication State',
-    b1g_language_sm: 'BTAA Language',
+    b1g_language_sm: 'Language',
 
     // Additional BTAA fields
     gbl_mdModified_dt: 'Metadata Modified',
@@ -304,7 +305,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     }
 
     // Special formatting for specific fields
-    if (key === 'dct_language_sm') {
+    if (key === 'dct_language_sm' || key === 'b1g_language_sm') {
       const languageMap: { [key: string]: string } = {
         eng: 'English',
         English: 'English',

@@ -13,6 +13,7 @@ from app.services.distribution_sync import (
     sync_distributions_for_batch,
     sync_distributions_for_resource,
 )
+from app.services.language_service import ensure_b1g_language
 from app.services.ogm_harvest.aardvark_reader import extract_record_id
 from app.services.ogm_harvest.repository import OGMHarvestRepository
 from app.services.relationship_sync import (
@@ -193,6 +194,8 @@ class OGMResourceImporter:
         if "b1g_harvestWorkflow_s" in out and isinstance(out["b1g_harvestWorkflow_s"], list):
             workflow_list = [str(v).strip() for v in out["b1g_harvestWorkflow_s"] if str(v).strip()]
             out["b1g_harvestWorkflow_s"] = workflow_list[0] if workflow_list else None
+
+        ensure_b1g_language(out)
 
         publication_state = _normalize_scalar_string(out.get("publication_state"))
         b1g_publication_state = _normalize_scalar_string(out.get("b1g_publication_state_s"))
