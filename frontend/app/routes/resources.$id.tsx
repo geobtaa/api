@@ -1,11 +1,13 @@
-import type { LoaderFunctionArgs, MetaFunction } from "react-router";
-import { useLoaderData } from "react-router";
-import { ResourceView } from "../../src/pages/ResourceView";
-import { serverFetchJson } from "../lib/server-api";
-import type { GeoDocumentDetails } from "../../src/types/api";
-import { useEffect } from "react";
-import { useApi } from "../../src/context/ApiContext";
-import { buildSeoMeta } from "../../src/config/seo";
+import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
+import { useLoaderData } from 'react-router';
+import { ResourceView } from '../../src/pages/ResourceView';
+import { serverFetchJson } from '../lib/server-api';
+import type { GeoDocumentDetails } from '../../src/types/api';
+import { useEffect } from 'react';
+import { useApi } from '../../src/context/ApiContext';
+import { buildSeoMeta } from '../../src/config/seo';
+import { GeoportalRouteErrorBoundary } from '../../src/pages/ErrorPage';
+import { isGeoportalErrorStatus } from '../../src/pages/errorPageContent';
 
 /**
  * Loader function that runs server-side to fetch resource details.
@@ -16,7 +18,7 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   const { id } = params;
 
   if (!id) {
-    throw new Response("Resource ID is required", { status: 400 });
+    throw new Response('Resource ID is required', { status: 400 });
   }
 
   // Get the full URL for Open Graph tags
@@ -40,8 +42,8 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
       currentUrl,
     };
   } catch (error) {
-    console.error("Resource loader error:", error);
-    if (error instanceof Response && error.status === 404) {
+    console.error('Resource loader error:', error);
+    if (error instanceof Response && isGeoportalErrorStatus(error.status)) {
       throw error;
     }
     // Allow ResourceView to handle its own errors for now
@@ -50,19 +52,23 @@ export async function loader({ params, request }: LoaderFunctionArgs) {
   }
 }
 
+export function ErrorBoundary() {
+  return <GeoportalRouteErrorBoundary />;
+}
+
 function resourceDescription(resource: GeoDocumentDetails | null) {
   const desc = resource?.attributes?.ogm?.dct_description_sm;
   if (Array.isArray(desc)) {
-    return desc[0] ?? "";
+    return desc[0] ?? '';
   }
-  return typeof desc === "string" ? desc : "";
+  return typeof desc === 'string' ? desc : '';
 }
 
 function resourceOgImage(resource: GeoDocumentDetails | null) {
   const thumbnailUrl = resource?.meta?.ui?.thumbnail_url;
   const isPlaceholderThumbnail =
     !thumbnailUrl ||
-    (typeof thumbnailUrl === "string" && thumbnailUrl.includes("placeholder"));
+    (typeof thumbnailUrl === 'string' && thumbnailUrl.includes('placeholder'));
   const hasStaticMap = Boolean(resource?.meta?.ui?.static_map && resource?.id);
 
   if (!isPlaceholderThumbnail) {
@@ -79,16 +85,16 @@ function resourceOgImage(resource: GeoDocumentDetails | null) {
 export const meta: MetaFunction<typeof loader> = ({ data }) => {
   const resource = data?.resource ?? null;
   const descriptors = buildSeoMeta({
-    title: resource?.attributes?.ogm?.dct_title_s || "Resource",
+    title: resource?.attributes?.ogm?.dct_title_s || 'Resource',
     description: resourceDescription(resource),
     image: resourceOgImage(resource),
     url: data?.currentUrl,
-    type: "article",
+    type: 'article',
   });
 
   if (data?.jsonLd) {
     descriptors.push({
-      "script:ld+json": data.jsonLd as Record<string, unknown> as never,
+      'script:ld+json': data.jsonLd as Record<string, unknown> as never,
     });
   }
 

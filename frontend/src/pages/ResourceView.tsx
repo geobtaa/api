@@ -9,6 +9,8 @@ import {
 } from '../services/api';
 import type { GeoDocument, GeoDocumentDetails } from '../types/api';
 import { ErrorMessage } from '../components/ErrorMessage';
+import { GeoportalErrorPage } from './ErrorPage';
+import { isGeoportalErrorStatus } from './errorPageContent';
 import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import { useApi } from '../context/ApiContext';
@@ -163,6 +165,7 @@ export function ResourceView({
     return true;
   });
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [isDataDictionaryModalOpen, setIsDataDictionaryModalOpen] =
     useState(false);
   const { setLastApiUrl } = useApi();
@@ -354,6 +357,7 @@ export function ResourceView({
     // If the route provided prefetched data for this id, use it and skip client fetch.
     if (prefetchedResource && id && prefetchedResource.id === id) {
       setError(null);
+      setErrorStatus(null);
       setData(prefetchedResource as unknown as ResourceData);
       setIsLoading(false);
       return () => {
@@ -366,6 +370,7 @@ export function ResourceView({
 
       setIsLoading(true);
       setError(null);
+      setErrorStatus(null);
       try {
         // Use a local function to avoid dependency on setLastApiUrl
         const jsonData = await fetchResourceDetails(id, (url) => {
@@ -385,6 +390,7 @@ export function ResourceView({
             err instanceof ApiError
               ? err.message
               : 'An unexpected error occurred while fetching item details';
+          setErrorStatus(err instanceof ApiError ? (err.status ?? null) : null);
           setError(message);
           setIsLoading(false);
         }
@@ -442,6 +448,15 @@ export function ResourceView({
   }
 
   if (error) {
+    if (isGeoportalErrorStatus(errorStatus)) {
+      return (
+        <GeoportalErrorPage
+          status={errorStatus}
+          details={import.meta.env.DEV ? error : undefined}
+        />
+      );
+    }
+
     return <ErrorMessage message={error} />;
   }
 
