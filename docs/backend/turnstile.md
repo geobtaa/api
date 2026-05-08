@@ -1,7 +1,8 @@
 # Cloudflare Turnstile
 
-The geoportal can use Cloudflare Turnstile as an application-layer browser gate.
-This does not require Cloudflare WAF or proxying the site through Cloudflare.
+The BTAA Geoportal can use Cloudflare Turnstile as an application-layer browser
+gate. This does not require Cloudflare WAF or proxying the site through
+Cloudflare.
 
 ## Flow
 
@@ -84,3 +85,14 @@ The frontend stores the returned session token in `sessionStorage` so local
 cross-origin dev traffic from `localhost:3000` to `localhost:8000` can carry
 `X-Turnstile-Session` without relying on cross-origin cookies. Production
 same-origin traffic also receives an HttpOnly cookie.
+
+To review the branded gate shell without Cloudflare keys or backend Turnstile
+verification, run the Vite dev server and open:
+
+```text
+http://localhost:3000/turnstile-preview
+```
+
+This route only works in Vite dev mode. It renders the same BTAA Geoportal gate
+layout with a mock local verification control, then sends the browser back to
+the homepage.

@@ -59,6 +59,8 @@ export default function Root() {
   const { themeId } = useLoaderData<typeof loader>();
   const location = useLocation();
   const isMiradorRoute = location.pathname === '/mirador';
+  const turnstilePreview =
+    import.meta.env.DEV && location.pathname === '/turnstile-preview';
   return (
     <html lang="en" data-theme={themeId}>
       <head>
@@ -88,7 +90,11 @@ export default function Root() {
           {isMiradorRoute ? (
             <Outlet />
           ) : (
-            <Providers initialThemeId={themeId} locationKey={location.key}>
+            <Providers
+              initialThemeId={themeId}
+              locationKey={location.key}
+              turnstilePreview={turnstilePreview}
+            >
               <Outlet />
             </Providers>
           )}
