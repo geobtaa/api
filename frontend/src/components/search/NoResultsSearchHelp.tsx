@@ -4,18 +4,13 @@ import { AlertCircle, ArrowRight, MapPin, Search } from 'lucide-react';
 import { Link, useSearchParams } from 'react-router';
 import { fetchNominatimSearch } from '../../services/api';
 import type { GazetteerPlace } from '../../types/api';
+import { SEARCH_RESULTS_PER_PAGE } from '../../constants/search';
 
 type SearchSuggestion = { text: string };
 type SearchSuggestionResponseItem = {
   attributes?: {
     text?: string;
   };
-};
-
-type ScopeSuggestion = {
-  id: string;
-  searchField: 'dct_title_s' | 'dct_subject_sm,dcat_theme_sm';
-  label: string;
 };
 
 interface NoResultsSearchHelpProps {
@@ -40,19 +35,6 @@ const PLACE_TYPE_LABELS: Record<string, string> = {
   administrative: 'Administrative Area',
 };
 
-const SCOPED_SEARCH_OPTIONS: ScopeSuggestion[] = [
-  {
-    id: 'scope-title',
-    searchField: 'dct_title_s',
-    label: 'Title',
-  },
-  {
-    id: 'scope-subject-theme',
-    searchField: 'dct_subject_sm,dcat_theme_sm',
-    label: 'Subject/Theme',
-  },
-];
-
 function formatPlaceTypeLabel(placeType: string | null | undefined) {
   const normalized = (placeType || '').trim().replace(/_/g, ' ').toLowerCase();
   if (!normalized) return null;
@@ -67,26 +49,19 @@ function buildBaseSearchParams(currentParams: URLSearchParams) {
   const view = currentParams.get('view');
   const perPage = currentParams.get('per_page');
 
-  if (view && view !== 'list') {
+  if (view && view !== 'map') {
     params.set('view', view);
   }
   if (perPage) {
-    params.set('per_page', perPage);
+    params.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
   }
 
   return params;
 }
 
-function buildKeywordSearchHref(
-  currentParams: URLSearchParams,
-  query: string,
-  searchField?: ScopeSuggestion['searchField']
-) {
+function buildKeywordSearchHref(currentParams: URLSearchParams, query: string) {
   const params = buildBaseSearchParams(currentParams);
   params.set('q', query);
-  if (searchField) {
-    params.set('search_field', searchField);
-  }
   return `/search?${params.toString()}`;
 }
 
@@ -267,7 +242,7 @@ export function NoResultsSearchHelp({
   }, [trimmedQuery]);
 
   const bannerMessage = trimmedQuery
-    ? 'Try a suggested search, a broader fielded search, or Advanced Search.'
+    ? 'Try a suggested search, a geographic area, or Advanced Search.'
     : 'Try clearing filters or building a more precise query in Advanced Search.';
 
   return (
@@ -294,52 +269,6 @@ export function NoResultsSearchHelp({
             className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm"
             aria-label="Search suggestions"
           >
-            <SuggestionGroup title="Suggestions">
-              {isLoadingKeywords ? (
-                <EmptySuggestionRow>
-                  Searching suggestions...
-                </EmptySuggestionRow>
-              ) : keywordSuggestions.length > 0 ? (
-                keywordSuggestions.map((suggestion) => (
-                  <Link
-                    key={suggestion.text}
-                    to={buildKeywordSearchHref(searchParams, suggestion.text)}
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-900 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
-                  >
-                    <Search
-                      className="h-4 w-4 shrink-0 text-gray-400"
-                      aria-hidden="true"
-                    />
-                    <span>{suggestion.text}</span>
-                  </Link>
-                ))
-              ) : (
-                <EmptySuggestionRow>
-                  No close keyword suggestions found.
-                </EmptySuggestionRow>
-              )}
-            </SuggestionGroup>
-
-            <SuggestionGroup title="Search Only In">
-              {SCOPED_SEARCH_OPTIONS.map((option) => (
-                <Link
-                  key={option.id}
-                  to={buildKeywordSearchHref(
-                    searchParams,
-                    trimmedQuery,
-                    option.searchField
-                  )}
-                  className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
-                >
-                  <span>{trimmedQuery}</span>{' '}
-                  <span className="text-gray-500">in</span>{' '}
-                  <span className="font-medium text-gray-900">
-                    {option.label}
-                  </span>
-                </Link>
-              ))}
-            </SuggestionGroup>
-
             <SuggestionGroup
               title="Geographic Areas"
               attribution="Via OpenStreetMap"
@@ -386,13 +315,49 @@ export function NoResultsSearchHelp({
               )}
             </SuggestionGroup>
 
-            <Link
-              to={buildKeywordSearchHref(searchParams, trimmedQuery)}
-              className="mt-1 flex items-center justify-between border-t border-gray-200 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
-            >
-              <span>See all results for {trimmedQuery}</span>
-              <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-            </Link>
+            <SuggestionGroup title="Suggestions">
+              {isLoadingKeywords ? (
+                <EmptySuggestionRow>
+                  Searching suggestions...
+                </EmptySuggestionRow>
+              ) : keywordSuggestions.length > 0 ? (
+                keywordSuggestions.map((suggestion) => (
+                  <Link
+                    key={suggestion.text}
+                    to={buildKeywordSearchHref(searchParams, suggestion.text)}
+                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-900 hover:bg-gray-50 focus:bg-gray-50 focus:outline-none"
+                  >
+                    <Search
+                      className="h-4 w-4 shrink-0 text-gray-400"
+                      aria-hidden="true"
+                    />
+                    <span>{suggestion.text}</span>
+                  </Link>
+                ))
+              ) : (
+                <EmptySuggestionRow>
+                  No close keyword suggestions found.
+                </EmptySuggestionRow>
+              )}
+            </SuggestionGroup>
+
+            <div className="mt-1 flex items-stretch border-t border-gray-200">
+              <Link
+                to={buildKeywordSearchHref(searchParams, trimmedQuery)}
+                className="flex min-w-0 flex-1 items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+              >
+                <span className="truncate">
+                  See all results for {trimmedQuery}
+                </span>
+                <ArrowRight className="h-4 w-4 shrink-0" aria-hidden="true" />
+              </Link>
+              <Link
+                to={advancedSearchHref}
+                className="shrink-0 px-4 py-3 text-sm font-medium text-blue-700 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none"
+              >
+                Advanced Search
+              </Link>
+            </div>
           </div>
         )}
 

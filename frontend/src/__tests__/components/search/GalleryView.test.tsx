@@ -9,10 +9,7 @@ import { GalleryView } from '../../../components/search/GalleryView';
 import { BrowserRouter } from 'react-router';
 import { vi, describe, it, expect } from 'vitest';
 import type { GeoDocument } from '../../../types/api';
-
-// Mock IntersectionObserver
-const observeMock = vi.fn();
-const unobserveMock = vi.fn();
+import type { ComponentProps } from 'react';
 
 // Mock BookmarkButton to avoid context provider requirement
 vi.mock('../../../components/BookmarkButton', () => ({
@@ -25,14 +22,6 @@ vi.mock('../../../context/BookmarkContext', () => ({
     isBookmarked: () => false, // Default to false for tests
   }),
 }));
-
-beforeAll(() => {
-  global.IntersectionObserver = vi.fn().mockImplementation(() => ({
-    observe: observeMock,
-    unobserve: unobserveMock,
-    disconnect: vi.fn(),
-  }));
-});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -51,12 +40,14 @@ const mockResults: GeoDocument[] = Array.from({ length: 25 }, (_, i) => ({
   links: { self: '#' },
 }));
 
+type GalleryViewProps = ComponentProps<typeof GalleryView>;
+
 describe('GalleryView', () => {
   beforeEach(() => {
     vi.useRealTimers();
   });
 
-  const renderGallery = (props: any = {}) => {
+  const renderGallery = (props: Partial<GalleryViewProps> = {}) => {
     return render(
       <BrowserRouter>
         <GalleryView
@@ -76,16 +67,20 @@ describe('GalleryView', () => {
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
   });
 
-  it('uses the inline resource icon when a result has no real thumbnail', () => {
+  it('uses the resource-class static-map fallback when a result has no real thumbnail', () => {
     const { container } = renderGallery({
       results: [mockResults[0]],
       totalResults: 1,
     });
 
-    expect(container.querySelector('img')).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('gallery-thumbnail-placeholder-0')
+      container.querySelector(
+        'img[src="/static-maps/result-1/resource-class-icon"]'
+      )
     ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('gallery-thumbnail-placeholder-0')
+    ).not.toBeInTheDocument();
   });
 
   it('prefers a hot immutable resource-class icon asset when one is provided', () => {
@@ -115,7 +110,7 @@ describe('GalleryView', () => {
     expect(legacyIcon).not.toBeInTheDocument();
   });
 
-  it('shows the inline resource icon immediately for cold fallback items', () => {
+  it('renders the static-map fallback immediately for cold fallback items', () => {
     const completeSpy = vi
       .spyOn(HTMLImageElement.prototype, 'complete', 'get')
       .mockReturnValue(false);
@@ -127,14 +122,19 @@ describe('GalleryView', () => {
       });
 
       expect(
-        screen.getByTestId('gallery-thumbnail-placeholder-0')
+        document.querySelector(
+          'img[src="/static-maps/result-1/resource-class-icon"]'
+        )
       ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('gallery-thumbnail-placeholder-0')
+      ).not.toBeInTheDocument();
     } finally {
       completeSpy.mockRestore();
     }
   });
 
-  it('uses the inline fallback for cold generic resource thumbnail endpoints', () => {
+  it('uses the static-map fallback for cold generic resource thumbnail endpoints', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -150,13 +150,17 @@ describe('GalleryView', () => {
       totalResults: 1,
     });
 
-    expect(container.querySelector('img')).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('gallery-thumbnail-placeholder-0')
+      container.querySelector(
+        'img[src="/static-maps/result-1/resource-class-icon"]'
+      )
     ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('gallery-thumbnail-placeholder-0')
+    ).not.toBeInTheDocument();
   });
 
-  it('uses the inline fallback for raw bridge thumbnail assets in gallery view', () => {
+  it('uses the static-map fallback for raw bridge thumbnail assets in gallery view', () => {
     const resultWithBridgeThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -172,10 +176,33 @@ describe('GalleryView', () => {
       totalResults: 1,
     });
 
-    expect(container.querySelector('img')).not.toBeInTheDocument();
     expect(
-      screen.getByTestId('gallery-thumbnail-placeholder-0')
+      container.querySelector(
+        'img[src="/static-maps/result-1/resource-class-icon"]'
+      )
     ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('gallery-thumbnail-placeholder-0')
+    ).not.toBeInTheDocument();
+  });
+
+  it('uses a larger inline icon only after the fallback asset fails', () => {
+    const { container } = renderGallery({
+      results: [mockResults[0]],
+      totalResults: 1,
+    });
+
+    const fallbackImage = container.querySelector(
+      'img[src="/static-maps/result-1/resource-class-icon"]'
+    );
+    expect(fallbackImage).toBeInTheDocument();
+
+    fireEvent.error(fallbackImage as HTMLImageElement);
+
+    const placeholder = screen.getByTestId('gallery-thumbnail-placeholder-0');
+    const icon = placeholder.querySelector('svg');
+    expect(placeholder).toBeInTheDocument();
+    expect(icon).toHaveClass('h-36', 'w-36');
   });
 
   it('hides the placeholder immediately for already-cached thumbnails', async () => {
@@ -293,32 +320,6 @@ describe('GalleryView', () => {
     // Or strictly trust the structure.
     // Ideally we inspect the Virtual DOM props, but testing-library discourages that.
     // We will assume basic rendering is fine, but we can verify the TEXT of the debug overlay if it was enabled (it's not usually).
-  });
-
-  it('triggers onLoadMore when intersection occurs', () => {
-    const onLoadMore = vi.fn();
-    renderGallery({ onLoadMore, hasMore: true });
-
-    expect(global.IntersectionObserver).toHaveBeenCalled();
-
-    // Simulate intersection
-    const observerCallback = (global.IntersectionObserver as any).mock
-      .calls[0][0];
-    const entry = { isIntersecting: true };
-    observerCallback([entry]);
-
-    expect(onLoadMore).toHaveBeenCalled();
-  });
-
-  it('does not trigger onLoadMore if isLoading is true', () => {
-    const onLoadMore = vi.fn();
-    renderGallery({ onLoadMore, hasMore: true, isLoading: true });
-
-    const observerCallback = (global.IntersectionObserver as any).mock
-      .calls[0][0];
-    observerCallback([{ isIntersecting: true }]);
-
-    expect(onLoadMore).not.toHaveBeenCalled();
   });
 
   it('renders year and resource class in conjoined pill', () => {

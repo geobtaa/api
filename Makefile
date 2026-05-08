@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-api-response-cache-init kamal-api-response-cache-prune clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity
 
 # Load environment variables from .env file if it exists
@@ -1006,6 +1006,39 @@ api-response-cache-prune: ## Prune expired durable generated API response cache 
 	@echo "Pruning expired durable generated API response cache rows..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python scripts/prune_generated_api_response_cache.py'
 
+# Purge and rehydrate caches for selected resources.
+# Dry-run by default. Set REFRESH_APPLY=1 to mutate caches.
+# Selection options:
+#   RESOURCE_IDS="id1 id2"              explicit IDs
+#   RESOURCE_IDS_FILE=/app/backend/tmp/ids.txt
+#   RESOURCE_WHERE_FILE=/app/backend/tmp/resource_where.sql
+#   RESOURCE_QUERY_FILE=/app/backend/tmp/resource_ids.sql
+#   RESOURCE_ALL=1
+# Usage:
+#   make refresh-resource-caches RESOURCE_IDS="stanford-fd113yz1610"
+#   make refresh-resource-caches RESOURCE_IDS="stanford-fd113yz1610" REFRESH_APPLY=1
+#   make refresh-resource-caches RESOURCE_WHERE_FILE=/app/backend/tmp/resource_where.sql REFRESH_APPLY=1
+#   make refresh-resource-caches RESOURCE_QUERY_FILE=/app/backend/tmp/resource_ids.sql REFRESH_APPLY=1
+refresh-resource-caches: wait-local-db resource-cache-init ## Purge and rehydrate selected resource/API caches (REFRESH_APPLY=1)
+	@echo "Refreshing selected resource caches locally (dry-run unless REFRESH_APPLY=1)..."
+	@$(DOCKER_COMPOSE) exec -T api bash -lc '\
+		cd /app/backend; \
+		ARGS=(); \
+		case "$(REFRESH_APPLY)" in 1|true|TRUE|yes|YES) ARGS+=("--apply") ;; esac; \
+		case "$(RESOURCE_ALL)" in 1|true|TRUE|yes|YES) ARGS+=("--all") ;; esac; \
+		if [ -n "$(RESOURCE_IDS_FILE)" ]; then ARGS+=("--ids-file" "$(RESOURCE_IDS_FILE)"); fi; \
+		if [ -n "$(RESOURCE_WHERE_FILE)" ]; then ARGS+=("--where-file" "$(RESOURCE_WHERE_FILE)"); fi; \
+		if [ -n "$(RESOURCE_QUERY_FILE)" ]; then ARGS+=("--query-file" "$(RESOURCE_QUERY_FILE)"); fi; \
+		if [ -n "$(RESOURCE_LIMIT)" ]; then ARGS+=("--limit" "$(RESOURCE_LIMIT)"); fi; \
+		if [ -n "$(REFRESH_BATCH_SIZE)" ]; then ARGS+=("--batch-size" "$(REFRESH_BATCH_SIZE)"); fi; \
+		if [ -n "$(REFRESH_CONCURRENCY)" ]; then ARGS+=("--concurrency" "$(REFRESH_CONCURRENCY)"); fi; \
+		if [ -n "$(REFRESH_MAX_WARM_PATHS)" ]; then ARGS+=("--max-warm-paths" "$(REFRESH_MAX_WARM_PATHS)"); fi; \
+		case "$(REFRESH_SKIP_REHYDRATE)" in 1|true|TRUE|yes|YES) ARGS+=("--skip-rehydrate") ;; esac; \
+		case "$(REFRESH_SKIP_ENDPOINT_WARM)" in 1|true|TRUE|yes|YES) ARGS+=("--skip-endpoint-warm") ;; esac; \
+		case "$(REFRESH_WARM_TAGGED_PATHS)" in 1|true|TRUE|yes|YES) ARGS+=("--warm-tagged-paths") ;; esac; \
+		case "$(REFRESH_VERBOSE)" in 1|true|TRUE|yes|YES) ARGS+=("--verbose") ;; esac; \
+		python scripts/refresh_resource_caches.py "$${ARGS[@]}" $(RESOURCE_IDS)'
+
 # Populate dct_references_s/resource_distributions/resource_downloads/resource_assets from legacy GBL Admin data.
 # Uses the latest restored geoportal_production_* DB if OLD_DB_NAME is unset.
 populate-distributions: resource-aux-init ## Rebuild legacy references, distributions, downloads, and assets
@@ -1690,6 +1723,37 @@ kamal-api-response-cache-prune: ## Prune expired durable generated API response 
 		exit 1; \
 	fi
 	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prune_generated_api_response_cache.py'"
+
+# Purge and rehydrate caches for selected resources on Kamal.
+# Dry-run by default. Set REFRESH_APPLY=1 to mutate caches.
+# Usage:
+#   make kamal-refresh-resource-caches KAMAL_DEST=dev1 RESOURCE_IDS="stanford-fd113yz1610"
+#   make kamal-refresh-resource-caches KAMAL_DEST=dev1 RESOURCE_IDS="stanford-fd113yz1610" REFRESH_APPLY=1
+#   make kamal-refresh-resource-caches KAMAL_DEST=dev1 RESOURCE_WHERE_FILE=/app/backend/tmp/resource_where.sql REFRESH_APPLY=1
+#   make kamal-refresh-resource-caches KAMAL_DEST=dev1 RESOURCE_QUERY_FILE=/app/backend/tmp/resource_ids.sql REFRESH_APPLY=1
+kamal-refresh-resource-caches: ## Purge and rehydrate selected resource/API caches on Kamal (REFRESH_APPLY=1)
+	@echo "Refreshing selected resource caches on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE); dry-run unless REFRESH_APPLY=1)..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_resource_representations_table.py && $(KAMAL_PYTHON) db/migrations/create_generated_api_responses_table.py'"
+	@ARGS=""; \
+	case "$(REFRESH_APPLY)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --apply" ;; esac; \
+	case "$(RESOURCE_ALL)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --all" ;; esac; \
+	if [ -n "$(RESOURCE_IDS_FILE)" ]; then ARGS="$$ARGS --ids-file $(RESOURCE_IDS_FILE)"; fi; \
+	if [ -n "$(RESOURCE_WHERE_FILE)" ]; then ARGS="$$ARGS --where-file $(RESOURCE_WHERE_FILE)"; fi; \
+	if [ -n "$(RESOURCE_QUERY_FILE)" ]; then ARGS="$$ARGS --query-file $(RESOURCE_QUERY_FILE)"; fi; \
+	if [ -n "$(RESOURCE_LIMIT)" ]; then ARGS="$$ARGS --limit $(RESOURCE_LIMIT)"; fi; \
+	if [ -n "$(REFRESH_BATCH_SIZE)" ]; then ARGS="$$ARGS --batch-size $(REFRESH_BATCH_SIZE)"; fi; \
+	if [ -n "$(REFRESH_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(REFRESH_CONCURRENCY)"; fi; \
+	if [ -n "$(REFRESH_MAX_WARM_PATHS)" ]; then ARGS="$$ARGS --max-warm-paths $(REFRESH_MAX_WARM_PATHS)"; fi; \
+	case "$(REFRESH_SKIP_REHYDRATE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --skip-rehydrate" ;; esac; \
+	case "$(REFRESH_SKIP_ENDPOINT_WARM)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --skip-endpoint-warm" ;; esac; \
+	case "$(REFRESH_WARM_TAGGED_PATHS)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --warm-tagged-paths" ;; esac; \
+	case "$(REFRESH_VERBOSE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --verbose" ;; esac; \
+	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/refresh_resource_caches.py $$ARGS $(RESOURCE_IDS)'"
 
 # (Old index_missing_resources target removed; resilient reindex handles verification/repair)
 

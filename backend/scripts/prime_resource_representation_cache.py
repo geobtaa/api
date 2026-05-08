@@ -71,6 +71,11 @@ class ResourceBatchContext:
     data_dictionaries: dict[str, list[dict[str, Any]]]
 
 
+def _chunks(values: list[str], batch_size: int) -> list[list[str]]:
+    size = max(1, batch_size)
+    return [values[index : index + size] for index in range(0, len(values), size)]
+
+
 def configure_logging(*, verbose: bool = False) -> None:
     """Keep bulk priming output readable unless verbose diagnostics are requested."""
     level = logging.INFO if verbose else logging.WARNING
@@ -476,19 +481,21 @@ async def prime_resource_representation_cache(
             total=total, desc="Priming resource representations", unit="resource"
         ) as progress:
             if resource_ids:
-                batch = await _fetch_resources_by_ids(resource_ids, limit)
-                counters.update(
-                    await _prime_batch(
-                        batch,
-                        force=force,
-                        concurrency=concurrency,
-                        progress=progress,
+                selected_ids = resource_ids[:limit] if limit else resource_ids
+                for resource_id_batch in _chunks(selected_ids, batch_size):
+                    batch = await _fetch_resources_by_ids(resource_id_batch, None)
+                    counters.update(
+                        await _prime_batch(
+                            batch,
+                            force=force,
+                            concurrency=concurrency,
+                            progress=progress,
+                        )
                     )
-                )
-                missing = total - len(batch)
-                if missing > 0:
-                    counters["missing"] += missing
-                    progress.update(missing)
+                    missing = len(resource_id_batch) - len(batch)
+                    if missing > 0:
+                        counters["missing"] += missing
+                        progress.update(missing)
                 return counters
 
             last_id = None

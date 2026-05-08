@@ -191,10 +191,10 @@ class TestResourceThumbnailCogFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_cog_queues_generate_task_returns_placeholder(
+    def test_cog_queues_generate_task_returns_resource_class_fallback(
         self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
-        """When source is COG and not cached, queue task and return placeholder."""
+        """When source is COG and not cached, queue task and return resource-class fallback."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
 
@@ -228,7 +228,9 @@ class TestResourceThumbnailCogFlow:
             resp = client.get("/resources/utaustin_121171/thumbnail")
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "image/svg+xml"
-            assert "Generating thumbnail" in resp.text
+            assert "MAPS thumbnail fallback" in resp.text
+            assert "Generating thumbnail" not in resp.text
+            assert "Please try again shortly" not in resp.text
             mock_task.delay.assert_called_once_with(cog_url, "utaustin_121171")
             payload = patch_thumbnail_side_effects["state"].await_args.args[0]
             assert payload.state == "queued"
@@ -376,10 +378,10 @@ class TestResourceThumbnailPmtilesFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_pmtiles_queues_generate_task_returns_placeholder(
+    def test_pmtiles_queues_generate_task_returns_resource_class_fallback(
         self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
-        """When source is PMTiles and not cached, queue task and return placeholder."""
+        """When source is PMTiles and not cached, queue task and return resource-class fallback."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
 
@@ -414,7 +416,9 @@ class TestResourceThumbnailPmtilesFlow:
             resp = client.get("/resources/b1g_PJxxfKgpqpUT/thumbnail")
             assert resp.status_code == 200
             assert resp.headers["content-type"] == "image/svg+xml"
-            assert "Generating thumbnail" in resp.text
+            assert "MAPS thumbnail fallback" in resp.text
+            assert "Generating thumbnail" not in resp.text
+            assert "Please try again shortly" not in resp.text
             mock_task.delay.assert_called_once_with(pmtiles_url, "b1g_PJxxfKgpqpUT")
             payload = patch_thumbnail_side_effects["state"].await_args.args[0]
             assert payload.state == "queued"

@@ -24,6 +24,14 @@ def _create_app() -> FastAPI:
     async def thumbnail_asset(image_hash: str):
         return JSONResponse({"image_hash": image_hash})
 
+    @app.get("/api/docs")
+    async def docs():
+        return JSONResponse({"docs": True})
+
+    @app.get("/api/openapi.json")
+    async def openapi_schema():
+        return JSONResponse({"openapi": "3.1.0"})
+
     app.add_middleware(RateLimitMiddleware)
     return app
 
@@ -187,6 +195,21 @@ class TestRateLimitMiddlewareIntegration:
         assert first.status_code == 200
         assert second.status_code == 200
         assert "X-RateLimit-Limit" not in first.headers
+
+    def test_documentation_routes_bypass_rate_limit(self, rate_limited_client):
+        """Docs and OpenAPI schema should not consume the interactive API quota."""
+
+        docs = rate_limited_client.get("/api/docs")
+        schema = rate_limited_client.get("/api/openapi.json")
+        first_api_call = rate_limited_client.get("/api/v1/test-endpoint")
+        second_api_call = rate_limited_client.get("/api/v1/test-endpoint")
+
+        assert docs.status_code == 200
+        assert schema.status_code == 200
+        assert "X-RateLimit-Limit" not in docs.headers
+        assert "X-RateLimit-Limit" not in schema.headers
+        assert first_api_call.status_code == 200
+        assert second_api_call.status_code == 429
 
     def test_unlimited_key_never_returns_429(self, unlimited_key_client):
         """Unlimited tiers must bypass counters and report unlimited headers."""

@@ -30,6 +30,7 @@ const ADVANCED_SEARCH_FIELD_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'dct_accessRights_s', label: 'Access Rights' },
   { value: 'dct_creator_sm', label: 'Creator' },
   { value: 'dct_description_sm', label: 'Description' },
+  { value: 'b1g_language_sm', label: 'Language' },
   { value: 'b1g_localCollectionLabel_sm', label: 'Local Collection' },
   { value: 'dct_spatial_sm', label: 'Place' },
   { value: 'schema_provider_s', label: 'Provider' },

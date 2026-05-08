@@ -689,7 +689,7 @@ class TestSearchService:
         assert result["gbl_resourceType_sm"] == ["Dataset"]
         assert result["gbl_resourceClass_sm"] == ["Dataset"]
         assert result["gbl_indexYear_im"] == ["2023"]
-        assert result["dct_language_sm"] == ["English"]
+        assert result["b1g_language_sm"] == ["English"]
         assert result["dct_creator_sm"] == ["Test Creator"]
         assert result["schema_provider_s"] == ["Test Provider"]
         assert result["b1g_code_s"] == ["BTAA"]

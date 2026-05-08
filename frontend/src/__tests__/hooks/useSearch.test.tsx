@@ -89,7 +89,7 @@ describe('useSearch', () => {
       meta: {
         totalCount: 1,
         page: 1,
-        perPage: 10,
+        perPage: 20,
       },
       included: [],
     });
@@ -156,7 +156,7 @@ describe('useSearch', () => {
           enabled: true,
           query: 'test',
           page: 2,
-          perPage: 10,
+          perPage: 20,
           facetsLength: 0,
           excludeLength: 0,
           sort: 'relevance',
@@ -176,7 +176,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           'geospatial data',
           1,
-          10,
+          20,
           [],
           expect.any(Function),
           'relevance',
@@ -204,7 +204,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           '',
           1,
-          10,
+          20,
           [{ field: 'dc_publisher_sm', value: 'MIT Libraries' }],
           expect.any(Function),
           'relevance',
@@ -240,7 +240,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           'test',
           1,
-          10,
+          20,
           [],
           expect.any(Function),
           'date',
@@ -261,7 +261,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           'test',
           3,
-          10,
+          20,
           [],
           expect.any(Function),
           'relevance',
@@ -285,7 +285,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           '',
           1,
-          10,
+          20,
           [],
           expect.any(Function),
           'relevance',
@@ -362,7 +362,7 @@ describe('useSearch', () => {
       // Then, trigger a successful search by updating the query
       mockFetchSearchResults.mockResolvedValueOnce({
         data: [],
-        meta: { totalCount: 0, page: 1, perPage: 10 },
+        meta: { totalCount: 0, page: 1, perPage: 20 },
         included: [],
       });
 
@@ -526,7 +526,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenLastCalledWith(
           'test',
           1,
-          10,
+          20,
           [],
           expect.any(Function),
           'relevance',
@@ -591,7 +591,7 @@ describe('useSearch', () => {
   });
 
   describe('Return Values', () => {
-    it('returns correct perPage value from results', async () => {
+    it('keeps the fixed result-view perPage', async () => {
       mockFetchSearchResults.mockResolvedValueOnce({
         data: [],
         meta: { totalCount: 0, page: 1, perPage: 25 },
@@ -601,20 +601,20 @@ describe('useSearch', () => {
       const { result } = renderUseSearch('q=test');
 
       await waitFor(() => {
-        expect(result.current.perPage).toBe(25);
+        expect(result.current.perPage).toBe(20);
       });
     });
 
     it('returns default perPage when no results', () => {
       const { result } = renderUseSearch('');
 
-      expect(result.current.perPage).toBe(10);
+      expect(result.current.perPage).toBe(20);
     });
 
     it('returns correct totalResults from results', async () => {
       mockFetchSearchResults.mockResolvedValueOnce({
         data: [],
-        meta: { totalCount: 42, page: 1, perPage: 10 },
+        meta: { totalCount: 42, page: 1, perPage: 20 },
         included: [],
       });
 
@@ -662,7 +662,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           'geographic information systems & remote sensing',
           1,
-          10,
+          20,
           [],
           expect.any(Function),
           'relevance',
@@ -683,7 +683,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           'test',
           1,
-          10,
+          20,
           [
             { field: 'dc_publisher_sm', value: 'MIT Libraries' },
             { field: 'dc_publisher_sm', value: 'Harvard University' },
@@ -719,7 +719,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           longQuery,
           1,
-          10,
+          20,
           [],
           expect.any(Function),
           'relevance',
@@ -766,7 +766,7 @@ describe('useSearch', () => {
         expect(mockFetchSearchResults).toHaveBeenCalledWith(
           'geospatial data',
           2,
-          10,
+          20,
           [
             { field: 'dc_publisher_sm', value: 'MIT Libraries' },
             { field: 'gbl_resourceClass_sm', value: 'Dataset' },

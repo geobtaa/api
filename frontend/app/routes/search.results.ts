@@ -1,5 +1,6 @@
 import type { LoaderFunctionArgs } from 'react-router';
 import { serverFetchWithTheme } from '../lib/server-api';
+import { SEARCH_RESULTS_PER_PAGE } from '../../src/constants/search';
 
 // Minimal Node-ish env typing without pulling in @types/node.
 declare const process: { env: Record<string, string | undefined> };
@@ -141,6 +142,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   url.searchParams.forEach((value, key) => {
     upstreamUrl.searchParams.append(key, value);
   });
+  upstreamUrl.searchParams.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
 
   try {
     const pathAndQuery = `${upstreamPath}${upstreamUrl.search}`;

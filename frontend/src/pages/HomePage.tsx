@@ -435,23 +435,25 @@ export function HomePage() {
                 <button
                   type="button"
                   onClick={() => setShowHeroDescription(false)}
-                  className="absolute right-3 top-3 z-10 inline-flex h-7 w-7 items-center justify-center border border-gray-300 bg-white/90 text-gray-600 transition-colors hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active"
+                  className="pointer-events-auto absolute right-2 top-2 z-50 inline-flex h-9 w-9 cursor-pointer touch-manipulation items-center justify-center border border-gray-300 bg-white/90 text-gray-600 transition-colors hover:bg-white hover:text-gray-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active"
                   aria-label="Hide map description"
                   title="Hide"
                 >
-                  <X className="h-4 w-4" />
+                  <X className="h-4 w-4" aria-hidden />
                 </button>
-                <p className="relative z-10 text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">
-                  BTAA Geoportal
-                </p>
-                <p className="relative z-10 mt-1 text-xl lg:text-2xl font-semibold text-gray-800">
-                  {theme.institution.hero_text ||
-                    'Search geospatial resources from Big Ten Academic Alliance institutions'}
-                </p>
-                <p className="relative z-10 text-sm text-gray-600 mt-2">
-                  {theme.institution.hero_description ||
-                    'Browse and download GIS data, maps, and other geospatial resources.'}
-                </p>
+                <div className="relative z-10 pr-12">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">
+                    BTAA Geoportal
+                  </p>
+                  <p className="mt-1 text-xl lg:text-2xl font-semibold text-gray-800">
+                    {theme.institution.hero_text ||
+                      'Search geospatial resources from Big Ten Academic Alliance institutions'}
+                  </p>
+                  <p className="text-sm text-gray-600 mt-2">
+                    {theme.institution.hero_description ||
+                      'Browse and download GIS data, maps, and other geospatial resources.'}
+                  </p>
+                </div>
               </div>
             </div>
           )}

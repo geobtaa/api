@@ -28,7 +28,7 @@ from db.models import resources
 logger = logging.getLogger(__name__)
 
 MCP_SERVICE_NAME = "btaa-geospatial-api"
-MCP_SERVICE_VERSION = "0.6.0"
+MCP_SERVICE_VERSION = "0.7.0"
 MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
 # Lazy initialization of database engine and session

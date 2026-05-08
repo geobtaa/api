@@ -47,7 +47,7 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `fq[resource_type_agg][]`   | string[] | No       | Filter by resource type (maps to `gbl_resourceType_sm`)                                          | `fq[resource_type_agg][]=Map`                     |
 | `fq[resource_class_agg][]`  | string[] | No       | Filter by resource class (maps to `gbl_resourceClass_sm`)                                        | `fq[resource_class_agg][]=Datasets`               |
 | `fq[index_year_agg][]`      | string[] | No       | Filter by index year (maps to `gbl_indexYear_im`)                                                | `fq[index_year_agg][]=2020`                       |
-| `fq[language_agg][]`        | string[] | No       | Filter by language (maps to `dct_language_sm`)                                                   | `fq[language_agg][]=English`                      |
+| `fq[language_agg][]`        | string[] | No       | Filter by human-readable language (maps to `b1g_language_sm`)                                     | `fq[language_agg][]=English`                      |
 | `fq[creator_agg][]`         | string[] | No       | Filter by creator (maps to `dct_creator_sm`)                                                     | `fq[creator_agg][]=University of Minnesota`        |
 | `fq[provider_agg][]`        | string[] | No       | Filter by provider (maps to `schema_provider_s`)                                                 | `fq[provider_agg][]=Test Provider`                |
 | `fq[access_rights_agg][]`   | string[] | No       | Filter by access rights (maps to `dct_accessRights_s`)                                           | `fq[access_rights_agg][]=Public`                  |

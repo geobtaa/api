@@ -1,9 +1,18 @@
 // src/config/leafletConfig.ts
+import type * as Leaflet from 'leaflet';
+
+export type LeafletGestureMapOptions = Leaflet.MapOptions & {
+  gestureHandling: true;
+  scrollWheelZoom: true;
+};
+
+export const leafletGestureMapOptions: LeafletGestureMapOptions = {
+  gestureHandling: true,
+  scrollWheelZoom: true,
+};
+
 export const leafletViewerOptions = {
-  MAP: {
-    gestureHandling: true,
-    scrollWheelZoom: true,
-  },
+  MAP: leafletGestureMapOptions,
   BOUNDSOVERLAY: {
     INDEX: { color: '#3388ff' },
     SHOW: { color: '#3388ff' },

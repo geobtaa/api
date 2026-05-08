@@ -1,6 +1,7 @@
 import logging
+import re
 from typing import Any, Dict, List, Optional
-from urllib.parse import quote
+from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
 from app.services.distribution_repository import (
     DistributionContext,
@@ -10,6 +11,10 @@ from app.services.distribution_repository import (
 from db.database import database
 
 logger = logging.getLogger(__name__)
+BBOX_ENVELOPE_RE = re.compile(
+    r"ENVELOPE\(\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^,]+)\s*,\s*([^)]+)\s*\)",
+    re.IGNORECASE,
+)
 
 
 class LinkService:
@@ -33,7 +38,7 @@ class LinkService:
         self.by_uri = distribution_context.by_uri
         self._legacy_refs_cache: Optional[Dict[str, Any]] = None
 
-    def get_links(self) -> Dict[str, List[Dict[str, str]]]:
+    def get_links(self) -> Dict[str, List[Dict[str, Any]]]:
         """
         Get all links for a resource organized by category.
 
@@ -83,7 +88,7 @@ class LinkService:
 
         return links
 
-    def _get_web_services_links(self) -> List[Dict[str, str]]:
+    def _get_web_services_links(self) -> List[Dict[str, Any]]:
         """Get the “Web Services” links derived from resource distributions."""
         links = []
         try:
@@ -102,14 +107,33 @@ class LinkService:
 
             # OGC Services
             service_map = {
-                "http://www.opengis.net/def/serviceType/ogc/wms": "Web Mapping Service (WMS)",
-                "http://www.opengis.net/def/serviceType/ogc/wfs": "Web Feature Service (WFS)",
-                "http://www.opengis.net/def/serviceType/ogc/wcs": "Web Coverage Service (WCS)",
-                "http://www.opengis.net/def/serviceType/ogc/wmts": "Web Map Tile Service (WMTS)",
+                "http://www.opengis.net/def/serviceType/ogc/wms": (
+                    "Web Mapping Service (WMS)",
+                    "WMS",
+                ),
+                "http://www.opengis.net/def/serviceType/ogc/wfs": (
+                    "Web Feature Service (WFS)",
+                    "WFS",
+                ),
+                "http://www.opengis.net/def/serviceType/ogc/wcs": (
+                    "Web Coverage Service (WCS)",
+                    "WCS",
+                ),
+                "http://www.opengis.net/def/serviceType/ogc/wmts": (
+                    "Web Map Tile Service (WMTS)",
+                    "WMTS",
+                ),
             }
-            for uri, label in service_map.items():
+            for uri, (label, service_type) in service_map.items():
                 if url := self._first_url(uri):
-                    links.append({"label": label, "url": url})
+                    links.append(
+                        self._web_service_link(
+                            label,
+                            url,
+                            service_type=service_type,
+                            include_wxs_identifier=True,
+                        )
+                    )
 
             # Tile Services
             tile_map = {
@@ -229,7 +253,7 @@ class LinkService:
         return links
 
     @staticmethod
-    async def get_resource_links(resource_id: str) -> Dict[str, List[Dict[str, str]]]:
+    async def get_resource_links(resource_id: str) -> Dict[str, List[Dict[str, Any]]]:
         """
         Get all links for a resource by its ID organized by category.
 
@@ -242,7 +266,7 @@ class LinkService:
         try:
             # Fetch the resource from the database
             resource_query = """
-                SELECT id, dct_title_s
+                SELECT id, dct_title_s, dct_references_s, "gbl_wxsIdentifier_s", dcat_bbox
                 FROM resources
                 WHERE id = :resource_id
             """
@@ -260,6 +284,131 @@ class LinkService:
         except Exception as e:
             logger.error(f"Error getting resource links for {resource_id}: {e}", exc_info=True)
             return {}
+
+    def _web_service_link(
+        self,
+        label: str,
+        url: str,
+        *,
+        service_type: Optional[str] = None,
+        include_wxs_identifier: bool = False,
+    ) -> Dict[str, Any]:
+        link: Dict[str, Any] = {"label": label, "url": url}
+        wxs_identifier = None
+        if include_wxs_identifier:
+            wxs_identifier = self._wxs_identifier()
+            if wxs_identifier:
+                link["wxs_identifier"] = wxs_identifier
+        if wxs_identifier and service_type:
+            request = self._ogc_layer_request(
+                url,
+                service_type=service_type,
+                wxs_identifier=wxs_identifier,
+            )
+            if request:
+                link.update(request)
+        return link
+
+    def _ogc_layer_request(
+        self,
+        service_url: str,
+        *,
+        service_type: str,
+        wxs_identifier: str,
+    ) -> Optional[Dict[str, str]]:
+        service_type = service_type.upper()
+        if service_type == "WMS":
+            bbox = self._wms_bbox()
+            if not bbox:
+                return None
+            request_url = self._url_with_query(
+                service_url,
+                {
+                    "SERVICE": "WMS",
+                    "VERSION": "1.1.1",
+                    "REQUEST": "GetMap",
+                    "LAYERS": wxs_identifier,
+                    "STYLES": "",
+                    "BBOX": bbox,
+                    "WIDTH": "1024",
+                    "HEIGHT": "768",
+                    "SRS": "EPSG:4326",
+                    "FORMAT": "image/png",
+                    "TRANSPARENT": "true",
+                    "EXCEPTIONS": "application/vnd.ogc.se_inimage",
+                },
+            )
+            return {"request_url": request_url, "request_label": "Open map preview"}
+        if service_type == "WFS":
+            request_url = self._url_with_query(
+                service_url,
+                {
+                    "SERVICE": "WFS",
+                    "VERSION": "1.1.0",
+                    "REQUEST": "DescribeFeatureType",
+                    "TYPENAME": wxs_identifier,
+                },
+            )
+            return {"request_url": request_url, "request_label": "Open layer schema"}
+        if service_type == "WCS":
+            request_url = self._url_with_query(
+                service_url,
+                {
+                    "SERVICE": "WCS",
+                    "VERSION": "2.0.1",
+                    "REQUEST": "DescribeCoverage",
+                    "COVERAGEID": wxs_identifier,
+                },
+            )
+            return {"request_url": request_url, "request_label": "Open coverage description"}
+        return None
+
+    @staticmethod
+    def _url_with_query(url: str, params: Dict[str, str]) -> str:
+        parts = urlsplit(url)
+        query = dict(parse_qsl(parts.query, keep_blank_values=True))
+        query.update(params)
+        return urlunsplit(
+            (
+                parts.scheme,
+                parts.netloc,
+                parts.path,
+                urlencode(query),
+                parts.fragment,
+            )
+        )
+
+    def _wms_bbox(self) -> Optional[str]:
+        bbox = self.resource_dict.get("dcat_bbox")
+        if not isinstance(bbox, str):
+            return None
+        match = BBOX_ENVELOPE_RE.search(bbox)
+        if match:
+            try:
+                min_x, max_x, max_y, min_y = (float(value.strip()) for value in match.groups())
+            except ValueError:
+                return None
+            return f"{min_x:g},{min_y:g},{max_x:g},{max_y:g}"
+
+        parts = [part.strip() for part in bbox.split(",")]
+        if len(parts) != 4:
+            return None
+        try:
+            min_x, min_y, max_x, max_y = (float(value) for value in parts)
+        except ValueError:
+            return None
+        return f"{min_x:g},{min_y:g},{max_x:g},{max_y:g}"
+
+    def _wxs_identifier(self) -> Optional[str]:
+        for key in ("gbl_wxsIdentifier_s", "gbl_wxsidentifier_s"):
+            value = self.resource_dict.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+            if isinstance(value, list):
+                for item in value:
+                    if isinstance(item, str) and item.strip():
+                        return item.strip()
+        return None
 
     def _first_url(self, uri: str) -> Optional[str]:
         # Prefer distribution context if available

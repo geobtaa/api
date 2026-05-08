@@ -13,6 +13,7 @@ import { fetchResourceDetails } from '../services/api';
 import { scheduleAnalyticsBatch } from '../services/analytics';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
+import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 
 interface SearchResultsProps {
   results: GeoDocument[];
@@ -30,7 +31,7 @@ export function SearchResults({
   isLoading,
   totalResults,
   currentPage,
-  perPage = 10,
+  perPage = SEARCH_RESULTS_PER_PAGE,
   variant = 'default',
   searchId,
   searchView = 'list',
@@ -146,7 +147,7 @@ export function SearchResults({
                         decoding="async"
                         fetchPriority={index < 2 ? 'high' : 'low'}
                         className={`${isCompact ? 'h-24 w-24' : 'h-48 w-48'} object-cover rounded-l-lg`}
-                        onError={(e) => {
+                        onError={() => {
                           setImageErrors((prev) =>
                             new Set(prev).add(result.id)
                           );

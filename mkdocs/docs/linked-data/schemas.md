@@ -153,7 +153,7 @@ data = {
     "b1g_dct_accrualMethod_s": "manual",
     "b1g_dateAccessioned_s": "2024-01-15",
     "b1g_publication_state_s": "published",
-    "b1g_language_sm": ["en"]
+    "b1g_language_sm": ["English"]
 }
 
 is_valid, error = validate_resource(data)

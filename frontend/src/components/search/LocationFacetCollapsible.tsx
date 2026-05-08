@@ -32,7 +32,7 @@ export function LocationFacetCollapsible({
   showMap = true,
 }: LocationFacetCollapsibleProps) {
   const [searchParams] = useSearchParams();
-  const currentView = searchParams.get('view') || 'list';
+  const currentView = searchParams.get('view') || 'map';
   const isForcedOpen = hasGeoBbox(searchParams);
   const isDefaultOpen = currentView === 'map';
   const isOpen =

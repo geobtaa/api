@@ -2,10 +2,17 @@
  * Behavior tests for the Featured resources carousel on the homepage.
  * Covers: thumbnail selection (no auto-start), Play/Pause, animation from selected item.
  */
-import { render, screen, waitFor, act } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  act,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import Cookies from 'js-cookie';
 import * as api from '../../../services/api';
 import { FEATURED_RESOURCE_IDS } from '../../../config/featured';
 import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
@@ -95,7 +102,7 @@ vi.mock('../../../components/map/H3HexDataTable', () => ({
   H3HexDataTable: () => <div data-testid="h3-hex-table">Hex table</div>,
 }));
 
-function makeMockDetail(id: string, title: string) {
+function makeMockDetail(id: string, title: string, thumbnailUrl?: string) {
   return {
     id,
     type: 'resource',
@@ -111,7 +118,7 @@ function makeMockDetail(id: string, title: string) {
     },
     meta: {
       ui: {
-        thumbnail_url: null,
+        thumbnail_url: thumbnailUrl ?? null,
         viewer: {
           geometry: {
             type: 'Point',
@@ -127,24 +134,31 @@ const MOCK_DETAILS = FEATURED_RESOURCE_IDS.map((id, i) =>
   makeMockDetail(id, `Featured Item ${i + 1}`)
 );
 
+const FEATURED_CAROUSEL_HIDDEN_COOKIE = 'btaa_home_featured_carousel_hidden';
+
 describe('HomePageHexMapBackground – Featured carousel behavior', () => {
   const user = userEvent.setup({ delay: null });
 
   beforeEach(() => {
     vi.useRealTimers();
     localStorage.clear();
-    vi.mocked(api.fetchFeaturedResourcePreview).mockImplementation((id: string) => {
-      const idx = FEATURED_RESOURCE_IDS.indexOf(id);
-      return Promise.resolve(
-        MOCK_DETAILS[idx >= 0 ? idx : 0] as Awaited<
-          ReturnType<typeof api.fetchFeaturedResourcePreview>
-        >
-      );
-    });
+    vi.clearAllMocks();
+    Cookies.remove(FEATURED_CAROUSEL_HIDDEN_COOKIE, { path: '/' });
+    vi.mocked(api.fetchFeaturedResourcePreview).mockImplementation(
+      (id: string) => {
+        const idx = FEATURED_RESOURCE_IDS.indexOf(id);
+        return Promise.resolve(
+          MOCK_DETAILS[idx >= 0 ? idx : 0] as Awaited<
+            ReturnType<typeof api.fetchFeaturedResourcePreview>
+          >
+        );
+      }
+    );
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    Cookies.remove(FEATURED_CAROUSEL_HIDDEN_COOKIE, { path: '/' });
   });
 
   const renderCarousel = () => {
@@ -179,6 +193,57 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     expect(carousel).toBeInTheDocument();
     expect(carousel).toHaveAttribute('aria-roledescription', 'carousel');
     expect(getPlayPauseButton()).toBeInTheDocument();
+  });
+
+  it('hides and restores the featured carousel preference with a cookie', async () => {
+    renderCarousel();
+
+    expect(
+      await screen.findByText(/BTAA Collection Highlights/i)
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole('button', { name: /Hide featured highlights/i })
+    );
+
+    expect(
+      screen.queryByRole('region', { name: /Featured resources/i })
+    ).not.toBeInTheDocument();
+    expect(Cookies.get(FEATURED_CAROUSEL_HIDDEN_COOKIE)).toBe('1');
+
+    await user.click(
+      screen.getByRole('button', { name: /Show featured highlights/i })
+    );
+
+    expect(
+      screen.getByRole('region', { name: /Featured resources/i })
+    ).toBeInTheDocument();
+    expect(Cookies.get(FEATURED_CAROUSEL_HIDDEN_COOKIE)).toBe('0');
+  });
+
+  it('starts hidden when the featured carousel cookie is set', async () => {
+    Cookies.set(FEATURED_CAROUSEL_HIDDEN_COOKIE, '1', { path: '/' });
+
+    renderCarousel();
+
+    expect(
+      screen.queryByRole('region', { name: /Featured resources/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Show featured highlights/i })
+    ).toBeInTheDocument();
+    expect(api.fetchFeaturedResourcePreview).not.toHaveBeenCalled();
+
+    await user.click(
+      screen.getByRole('button', { name: /Show featured highlights/i })
+    );
+
+    expect(
+      await screen.findByRole('region', { name: /Featured resources/i })
+    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(api.fetchFeaturedResourcePreview).toHaveBeenCalled();
+    });
   });
 
   it('restores and persists homepage hex layer preference via localStorage', async () => {
@@ -223,5 +288,34 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     vi.useRealTimers();
 
     expect(getProgressBar()).toHaveAttribute('aria-valuenow', '100');
+  });
+
+  it('shows the resource placeholder when a featured thumbnail image fails', async () => {
+    const brokenThumbnailUrl =
+      '/api/v1/thumbnails/d9af9d2371367fd4554cedea467e4d3798ebd2f77c6b13e5e7fcb5b3fc634708';
+    vi.mocked(api.fetchFeaturedResourcePreview).mockImplementation(
+      (id: string) => {
+        const idx = FEATURED_RESOURCE_IDS.indexOf(id);
+        return Promise.resolve(
+          makeMockDetail(
+            id,
+            `Featured Item ${idx + 1}`,
+            idx === 0 ? brokenThumbnailUrl : undefined
+          ) as Awaited<ReturnType<typeof api.fetchFeaturedResourcePreview>>
+        );
+      }
+    );
+
+    renderCarousel();
+
+    const image = await screen.findByTestId('featured-thumbnail-image-0');
+    fireEvent.error(image);
+
+    expect(
+      screen.getByTestId('featured-thumbnail-placeholder-0')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('featured-thumbnail-image-0')
+    ).not.toBeInTheDocument();
   });
 });

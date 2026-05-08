@@ -284,7 +284,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'test query',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [],
       };
 
@@ -299,7 +299,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'test query',
         page: 3,
-        perPage: 10,
+        perPage: 20,
         facets: [],
       };
 
@@ -327,7 +327,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'geospatial data',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [
           { field: 'dc_publisher_sm', value: 'MIT Libraries' },
           { field: 'gbl_resourceClass_sm', value: 'Dataset' },
@@ -349,7 +349,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'maps',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [
           { field: 'dc_publisher_sm', value: 'MIT Libraries' },
           { field: 'dc_publisher_sm', value: 'Harvard University' },
@@ -369,7 +369,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: '',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [],
       };
 
@@ -382,7 +382,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'geographic data',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [
           { field: 'dct_temporal_sm', value: '2020' },
           { field: 'dc_subject_sm', value: 'Geographic Information Systems' },
@@ -402,7 +402,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'test',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [
           { field: 'dc_publisher_sm', value: 'MIT Libraries & Archives' },
           { field: 'dc_subject_sm', value: 'GIS & Remote Sensing' },
@@ -424,7 +424,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'geographic information systems',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [{ field: 'dc_publisher_sm', value: 'MIT Libraries' }],
       };
 
@@ -440,7 +440,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'maps',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [],
         advancedQuery: [
           { op: 'AND', field: 'dct_title_s', q: 'Iowa' },
@@ -461,7 +461,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'maps',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [],
         advancedQuery: [],
       };
@@ -476,7 +476,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: longQuery,
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [],
       };
 
@@ -489,7 +489,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'test',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [
           { field: 'dct_temporal_sm', value: '2023' },
           { field: 'gbl_resourceClass_sm', value: 'Dataset' },
@@ -508,7 +508,7 @@ describe('searchParams', () => {
       const params: SearchParams = {
         query: 'test',
         page: 1,
-        perPage: 10,
+        perPage: 20,
         facets: [
           { field: 'dc_publisher_sm', value: '' },
           { field: 'gbl_resourceClass_sm', value: 'Dataset' },
@@ -573,7 +573,7 @@ describe('searchParams', () => {
         {
           query: 'maps',
           page: 1,
-          perPage: 10,
+          perPage: 20,
           facets: [{ field: 'dc_publisher_sm', value: 'MIT Libraries' }],
         },
         {
@@ -588,7 +588,7 @@ describe('searchParams', () => {
         {
           query: 'remote sensing',
           page: 1,
-          perPage: 10,
+          perPage: 20,
           facets: [
             { field: 'dc_subject_sm', value: 'Remote Sensing' },
             { field: 'dc_publisher_sm', value: 'Stanford University' },
@@ -617,7 +617,7 @@ describe('searchParams', () => {
         {
           query: 'test',
           page: 1,
-          perPage: 10,
+          perPage: 20,
           facets: [
             { field: '', value: 'empty field' },
             { field: 'valid_field', value: '' },

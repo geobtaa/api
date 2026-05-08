@@ -98,7 +98,7 @@ async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse |
 async def _probe_thumbnail_url(url: str) -> bool:
     """
     Try to fetch the thumbnail URL; return True if we get a valid image response.
-    Used to avoid showing "Generating thumbnail" forever when the source is 404 or invalid.
+    Used to avoid serving a queued-thumbnail fallback when the source is 404 or invalid.
     """
     try:
         headers = {"User-Agent": "BTAA-Geospatial-Data-API/1.0 (https://geo.btaa.org/)"}
@@ -549,7 +549,7 @@ async def _get_resource_thumbnail_response(
             return await _svg_icon_for_resource(resource_dict, variant=variant)
 
     # For direct (non-manifest, non-COG, non-PMTiles) thumbnail URLs: probe once
-    # so we don't stick on "Generating thumbnail" when source returns 404 or
+    # so we don't serve a queued-work fallback when source returns 404 or
     # non-image (e.g. ArcGIS /info/thumbnail, dead b1g_image_ss URLs). If probe
     # fails and resource has geometry, serve static map. (COG/PMTiles URLs are
     # processed server-side; skip probe.)
@@ -659,8 +659,8 @@ async def _get_resource_thumbnail_response(
             )
         )
 
-    # Return a placeholder image while the thumbnail is being generated (never JSON to <img>).
-    return _svg_placeholder(title="Generating thumbnail", subtitle="Please try again shortly")
+    # Thumbnail work has been queued; users should still see the normal resource-class fallback.
+    return await _svg_icon_for_resource(resource_dict, variant=variant)
 
 
 @router.get("/resources/{id}/thumbnail")
@@ -679,11 +679,11 @@ async def get_resource_thumbnail(
     Follows the same pattern as static-maps:
     - Checks if thumbnail is cached
     - If cached: redirects to /api/v1/thumbnails/{image_hash} (serving endpoint)
-    - If not cached: queues background job and returns SVG placeholder
+    - If not cached: queues background job and returns the resource-class fallback
 
     Returns:
         - Redirect to serving endpoint if thumbnail is ready
-        - SVG placeholder if thumbnail is not ready yet (queues background job)
+        - SVG resource-class fallback if thumbnail is not ready yet (queues background job)
     """
     try:
         fast_redirect = await _fast_thumbnail_alias_redirect(id)

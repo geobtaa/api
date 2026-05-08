@@ -209,7 +209,7 @@ export function Header() {
           <div className="col-span-12 xl:col-span-6 flex items-center justify-center order-3 xl:order-none min-w-0">
             <div className="w-full relative top-0 xl:top-4">
               <SearchField
-                placeholder="Search for maps, data, imagery..."
+                placeholder="Search for locations, maps, data, imagery..."
                 onSearch={handleSearch}
                 showAdvancedButton={true}
                 onAdvancedSearchClick={handleAdvancedSearchClick}

@@ -39,6 +39,7 @@ export default [
   route("home/blog-posts", "routes/api.home.blog-posts.ts"),
   route("bookmarks", "routes/bookmarks.tsx"),
   route("map", "routes/map.tsx"),
+  route("turnstile-preview", "routes/turnstile-preview.tsx"),
   route("test", "routes/test.tsx"),
   route("test/fixtures", "routes/test.fixtures.tsx"),
   route("test/fixtures/providers", "routes/test.fixtures.providers.tsx"),

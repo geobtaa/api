@@ -6,8 +6,8 @@ import { getResultPrimaryImageUrl } from '../../utils/resourceAssets';
 import { ResultCardPill } from './ResultCardPill';
 import { BookmarkButton } from '../BookmarkButton';
 import { useBookmarks } from '../../context/BookmarkContext';
-import { requestGalleryStateRestore } from '../../utils/galleryState';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
+import { SEARCH_RESULTS_PER_PAGE } from '../../constants/search';
 
 interface GalleryViewProps {
   results: GeoDocument[];
@@ -16,8 +16,6 @@ interface GalleryViewProps {
   currentPage: number;
   startPage?: number;
   perPage?: number;
-  onLoadMore?: () => void;
-  hasMore?: boolean;
   searchId?: string;
 }
 
@@ -179,7 +177,7 @@ function GalleryThumbnail({
           data-testid={`gallery-thumbnail-placeholder-${index}`}
           className="absolute inset-0 flex items-center justify-center text-gray-400"
         >
-          {getResourceIcon(resourceClass)}
+          {getResourceIcon(resourceClass, { className: 'h-36 w-36' })}
         </div>
       ) : null}
 
@@ -194,13 +192,10 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
   totalResults,
   currentPage,
   startPage,
-  perPage = 20,
-  onLoadMore,
-  hasMore,
+  perPage = SEARCH_RESULTS_PER_PAGE,
   searchId,
 }) => {
   const { isBookmarked } = useBookmarks();
-  const observerTarget = useRef<HTMLDivElement>(null);
   const location = useLocation();
 
   // Calculate absolute index in full result set (1-based)
@@ -244,30 +239,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
         },
       ],
     });
-    requestGalleryStateRestore();
   };
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !isLoading) {
-          onLoadMore?.();
-        }
-      },
-      { threshold: 0.1, rootMargin: '100px' }
-    );
-
-    const currentTarget = observerTarget.current;
-    if (currentTarget) {
-      observer.observe(currentTarget);
-    }
-
-    return () => {
-      if (currentTarget) {
-        observer.unobserve(currentTarget);
-      }
-    };
-  }, [hasMore, onLoadMore, isLoading]);
 
   if (isLoading && results.length === 0) {
     return (
@@ -373,8 +345,6 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           );
         })}
       </div>
-      {/* Sentinel for infinite scroll */}
-      {hasMore && <div ref={observerTarget} className="h-10 w-full" />}
       {isLoading && results.length > 0 && (
         <div className="flex justify-center py-8 w-full">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>

@@ -58,10 +58,10 @@ class TestThumbnailEndpoints:
         assert "<svg" in content
         assert 'width="200"' in content
         assert 'height="200"' in content
-        assert "Thumbnail" in content
-        assert "Processing..." in content
-        assert 'fill="#f0f0f0"' in content
-        assert 'stroke="#cccccc"' in content
+        assert "Thumbnail placeholder" in content
+        assert "Processing" not in content
+        assert 'fill="#f8fafc"' in content
+        assert 'stroke="#e5e7eb"' in content
 
     def test_get_placeholder_thumbnail_svg_structure(self, client):
         """Test that placeholder thumbnail has correct SVG structure."""
@@ -72,10 +72,11 @@ class TestThumbnailEndpoints:
 
         # Check for essential SVG elements
         assert "<rect" in content
-        assert "<text" in content
+        assert "<path" in content
+        assert "<circle" in content
         assert 'xmlns="http://www.w3.org/2000/svg"' in content
-        assert 'font-family="Arial, sans-serif"' in content
-        assert 'text-anchor="middle"' in content
+        assert 'role="img"' in content
+        assert 'aria-label="Thumbnail placeholder"' in content
 
     def test_get_placeholder_thumbnail_caching_headers(self, client):
         """Test that placeholder thumbnail has proper caching headers."""
@@ -190,8 +191,8 @@ class TestThumbnailEndpoints:
             assert response.status_code == 404
             assert "Resource not found" in response.json()["detail"]
 
-    def test_get_thumbnail_missing_hash_returns_404(self, client):
-        """Missing immutable asset hashes should fail fast instead of resolving as resource ids."""
+    def test_get_thumbnail_missing_hash_returns_placeholder(self, client):
+        """Missing immutable asset hashes should return the thumbnail placeholder."""
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
@@ -201,8 +202,11 @@ class TestThumbnailEndpoints:
 
             response = client.get(f"/thumbnails/{image_hash}")
 
-            assert response.status_code == 404
-            assert response.json()["detail"] == "Thumbnail asset not found"
+            assert response.status_code == 200
+            assert response.headers["content-type"] == "image/svg+xml"
+            assert response.headers["cache-control"] == "no-store"
+            assert response.headers["x-placeholder"] == "true"
+            assert "Thumbnail placeholder" in response.text
             mock_service.get_cached_image.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_resource_asset_fallback(self, client):
@@ -538,23 +542,21 @@ class TestThumbnailEndpoints:
 
         # Verify the exact structure
         # Check SVG opening tag
-        assert '<svg width="200" height="200" xmlns="http://www.w3.org/2000/svg">' in content
+        assert '<svg width="200" height="200" viewBox="0 0 200 200"' in content
+        assert 'xmlns="http://www.w3.org/2000/svg"' in content
+        assert 'role="img"' in content
+        assert 'aria-label="Thumbnail placeholder"' in content
 
         # Check rectangle element
         assert (
-            'rect width="200" height="200" fill="#f0f0f0" stroke="#cccccc" stroke-width="1"'
+            'rect width="200" height="200" fill="#f8fafc" stroke="#e5e7eb" stroke-width="1"'
             in content
         )
 
-        # Check first text element (Thumbnail) - more flexible matching
-        assert 'text x="100" y="100"' in content
-        assert 'font-size="14"' in content
-        assert "Thumbnail" in content
-
-        # Check second text element (Processing...) - more flexible matching
-        assert 'text x="100" y="120"' in content
-        assert 'font-size="12"' in content
-        assert "Processing..." in content
+        assert "<title>Thumbnail placeholder</title>" in content
+        assert 'rect x="54" y="58" width="92" height="84" rx="8"' in content
+        assert 'circle cx="122" cy="82" r="10"' in content
+        assert "Processing" not in content
 
         # Check SVG closing tag - more flexible matching
         assert "</svg>" in content
@@ -567,14 +569,14 @@ class TestThumbnailEndpoints:
         content = response.text
 
         # Verify color scheme
-        assert "#f0f0f0" in content  # Light gray background
-        assert "#cccccc" in content  # Border color
-        assert "#666666" in content  # Main text color
-        assert "#999999" in content  # Secondary text color
+        assert "#f8fafc" in content  # Light gray background
+        assert "#e5e7eb" in content  # Border color
+        assert "#e2e8f0" in content  # Icon panel color
+        assert "#94a3b8" in content  # Icon glyph color
 
         # Verify font styling
-        assert 'font-family="Arial, sans-serif"' in content
-        assert 'text-anchor="middle"' in content
+        assert 'role="img"' in content
+        assert 'aria-label="Thumbnail placeholder"' in content
 
     def test_get_thumbnail_content_type_validation(self, client):
         """Test that thumbnails return correct content types."""
@@ -654,6 +656,6 @@ class TestThumbnailEndpoints:
         assert 'width="200"' in content  # Explicit dimensions
         assert 'height="200"' in content
 
-        # Verify text is readable
-        assert "Thumbnail" in content
-        assert "Processing..." in content
+        # Verify the placeholder has an accessible label without visible processing text
+        assert "Thumbnail placeholder" in content
+        assert "Processing" not in content

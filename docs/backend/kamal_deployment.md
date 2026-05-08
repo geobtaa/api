@@ -26,6 +26,12 @@ kamal deploy -d dev2
 kamal deploy -d prd
 ```
 
+Production deploys also require an explicit tag or branch name. The
+`.kamal/hooks/pre-deploy` hook prompts for it during interactive `prd` deploys
+and aborts non-interactive deploys unless `PRD_DEPLOY_REF` or
+`KAMAL_DEPLOY_REF` is set. The selected ref must exist locally, be pushed to
+`origin`, and resolve to the commit Kamal is about to deploy.
+
 ## Current Host Inventory
 
 Snapshot date: `2026-05-01`
@@ -196,6 +202,24 @@ source .kamal/secrets.prd
 set +a
 
 kamal deploy -d prd
+```
+
+When prompted, enter the tag or branch you intend to deploy, for example
+`v0.7.0` or `main`.
+
+For non-interactive shells, pass the ref explicitly:
+
+```bash
+PRD_DEPLOY_REF=v0.7.0 kamal deploy -d prd
+```
+
+The production deploy hook verifies that the selected ref matches both the
+current checkout and `KAMAL_VERSION`. To deploy an older tag, check it out first:
+
+```bash
+git switch --detach v0.7.0
+PRD_DEPLOY_REF=v0.7.0 kamal deploy -d prd
+git switch main
 ```
 
 Useful variants:

@@ -19,10 +19,12 @@ export function Providers({
   children,
   initialThemeId,
   locationKey,
+  turnstilePreview = false,
 }: {
   children: React.ReactNode;
   initialThemeId?: ThemeId;
   locationKey?: string;
+  turnstilePreview?: boolean;
 }) {
   useEffect(() => {
     // Only runs in the browser
@@ -89,7 +91,7 @@ export function Providers({
 
   return (
     <ThemeProvider initialThemeId={initialThemeId}>
-      <TurnstileGate>
+      <TurnstileGate devPreview={turnstilePreview}>
         <ApiProvider>
           <BookmarkProvider>
             <DebugProvider>

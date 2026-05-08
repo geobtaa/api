@@ -8,10 +8,13 @@ import {
   ScrollRestoration,
 } from 'react-router';
 import { useEffect } from 'react';
+import type { ReactNode } from 'react';
 import type { LoaderFunctionArgs } from 'react-router';
 import { AppErrorBoundary } from './AppErrorBoundary';
 import { Providers } from './providers';
 import { getThemeIdFromRequest } from './lib/theme.server';
+import { getDefaultThemeId, type ThemeId } from '../src/config/institution';
+import { GeoportalRouteErrorBoundary } from '../src/pages/ErrorPage';
 import '../src/index.css';
 import '../src/styles/leaflet.css';
 
@@ -55,10 +58,15 @@ export async function loader({ request }: LoaderFunctionArgs) {
   return { themeId };
 }
 
-export default function Root() {
-  const { themeId } = useLoaderData<typeof loader>();
-  const location = useLocation();
-  const isMiradorRoute = location.pathname === '/mirador';
+function RootDocument({
+  children,
+  isMiradorRoute = false,
+  themeId,
+}: {
+  children: ReactNode;
+  isMiradorRoute?: boolean;
+  themeId: ThemeId;
+}) {
   return (
     <html lang="en" data-theme={themeId}>
       <head>
@@ -84,15 +92,8 @@ export default function Root() {
             />
           </noscript>
         )}
-        <AppErrorBoundary>
-          {isMiradorRoute ? (
-            <Outlet />
-          ) : (
-            <Providers initialThemeId={themeId} locationKey={location.key}>
-              <Outlet />
-            </Providers>
-          )}
-        </AppErrorBoundary>
+
+        {children}
 
         {/* GeoBlacklight expects a Blacklight modal container (#blacklight-modal).
             Without it, the metadata_download initializer throws and prevents all other
@@ -111,5 +112,42 @@ export default function Root() {
         {!import.meta.env.DEV && <script src="/registerSW.js" />}
       </body>
     </html>
+  );
+}
+
+export default function Root() {
+  const { themeId } = useLoaderData<typeof loader>();
+  const location = useLocation();
+  const isMiradorRoute = location.pathname === '/mirador';
+  const turnstilePreview =
+    import.meta.env.DEV && location.pathname === '/turnstile-preview';
+  return (
+    <RootDocument themeId={themeId} isMiradorRoute={isMiradorRoute}>
+      <AppErrorBoundary>
+        {isMiradorRoute ? (
+          <Outlet />
+        ) : (
+          <Providers
+            initialThemeId={themeId}
+            locationKey={location.key}
+            turnstilePreview={turnstilePreview}
+          >
+            <Outlet />
+          </Providers>
+        )}
+      </AppErrorBoundary>
+    </RootDocument>
+  );
+}
+
+export function ErrorBoundary() {
+  const location = useLocation();
+  return (
+    <RootDocument
+      themeId={getDefaultThemeId()}
+      isMiradorRoute={location.pathname === '/mirador'}
+    >
+      <GeoportalRouteErrorBoundary />
+    </RootDocument>
   );
 }

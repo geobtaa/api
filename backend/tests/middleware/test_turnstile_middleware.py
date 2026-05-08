@@ -45,6 +45,44 @@ def test_turnstile_middleware_blocks_protected_requests_without_session(monkeypa
     assert response.headers["X-Turnstile-Required"] == "true"
 
 
+def test_turnstile_middleware_bypasses_localhost_when_local_turnstile_not_enabled(
+    monkeypatch,
+):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.delenv("TURNSTILE_ENABLE_LOCAL", raising=False)
+    monkeypatch.delenv("VITE_TURNSTILE_ENABLE_LOCAL", raising=False)
+
+    async def session_invalid(self, request):
+        raise AssertionError("Local dev requests should bypass Turnstile sessions")
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app(), base_url="http://localhost")
+    response = client.get("/api/v1/search")
+
+    assert response.status_code == 200
+
+
+def test_turnstile_middleware_challenges_localhost_when_local_turnstile_enabled(
+    monkeypatch,
+):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+    monkeypatch.setenv("APP_ENV", "development")
+    monkeypatch.setenv("TURNSTILE_ENABLE_LOCAL", "true")
+
+    async def session_invalid(self, request):
+        return False
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app(), base_url="http://localhost")
+    response = client.get("/api/v1/search")
+
+    assert response.status_code == 403
+    assert response.json()["error"] == "turnstile_required"
+
+
 def test_turnstile_middleware_allows_verified_session(monkeypatch):
     monkeypatch.setenv("TURNSTILE_ENABLED", "true")
 

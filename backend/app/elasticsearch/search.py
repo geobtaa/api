@@ -111,6 +111,7 @@ KEYWORD_FILTER_FIELDS = {
 DIRECT_FILTER_FIELDS = {
     # BTAA code is mapped as a keyword already, so filters should target the field directly.
     "b1g_code_s",
+    "b1g_language_sm",
 }
 
 
@@ -159,6 +160,10 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
         },
         "dct_language_sm": {
             "field": "dct_language_sm.keyword",
+            "size": DEFAULT_FACET_SIZE,
+        },
+        "b1g_language_sm": {
+            "field": "b1g_language_sm",
             "size": DEFAULT_FACET_SIZE,
         },
         "dct_creator_sm": {
@@ -256,9 +261,7 @@ def _build_search_aggregations() -> dict:
             }
         },
         "time_period": {"terms": {"field": "time_period.keyword", "size": DEFAULT_FACET_SIZE}},
-        "dct_language_sm": {
-            "terms": {"field": "dct_language_sm.keyword", "size": DEFAULT_FACET_SIZE}
-        },
+        "b1g_language_sm": {"terms": {"field": "b1g_language_sm", "size": DEFAULT_FACET_SIZE}},
         "dct_creator_sm": {
             "terms": {"field": "dct_creator_sm.keyword", "size": DEFAULT_FACET_SIZE}
         },
@@ -2213,6 +2216,8 @@ def process_aggregations(aggregations, search_context: dict):
         "resource_type_agg": "Resource Type",
         "index_year_agg": "Index Year",
         "time_period": "Time Period",
+        "b1g_language_sm": "Language",
+        "dct_language_sm": "Language",
         "language_agg": "Language",
         "creator_agg": "Creator",
         "dct_publisher_sm": "Publisher",

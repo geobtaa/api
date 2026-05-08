@@ -7,6 +7,8 @@ and proper OGM Aardvark field names for BTAA flavored records.
 
 from typing import Any, Dict
 
+from app.services.language_service import ensure_b1g_language
+
 
 class OGMFieldMapper:
     """
@@ -83,7 +85,7 @@ class OGMFieldMapper:
             ogm_field = cls.FIELD_MAPPING.get(db_field, db_field)
             mapped_dict[ogm_field] = value
 
-        return mapped_dict
+        return ensure_b1g_language(mapped_dict)
 
     @classmethod
     def get_required_fields(cls) -> list:

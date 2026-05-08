@@ -22,12 +22,22 @@ describe('getResultPrimaryImageUrl', () => {
     );
   });
 
-  it('uses the inline gallery fallback when no hot icon exists', () => {
+  it('uses the resource-class static-map fallback when no hot icon exists', () => {
     const result = resultWithUi({
       thumbnail_url: '/api/v1/resources/resource-1/thumbnail',
     });
 
-    expect(getResultPrimaryImageUrl(result, 'gallery')).toBeUndefined();
+    expect(getResultPrimaryImageUrl(result, 'gallery')).toBe(
+      '/static-maps/resource-1/resource-class-icon'
+    );
+  });
+
+  it('uses the resource-class static-map fallback when gallery has no thumbnail URL', () => {
+    const result = resultWithUi({});
+
+    expect(getResultPrimaryImageUrl(result, 'gallery')).toBe(
+      '/static-maps/resource-1/resource-class-icon'
+    );
   });
 
   it('uses the resource-class icon for bridge-backed gallery thumbnail assets', () => {

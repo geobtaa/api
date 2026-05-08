@@ -672,7 +672,7 @@ describe('fetchSearchResults', () => {
     const requestUrl = new URL(onApiCall.mock.calls[0][0]);
     expect(requestUrl.searchParams.get('q')).toBe('chicago');
     expect(requestUrl.searchParams.get('page')).toBe('2');
-    expect(requestUrl.searchParams.get('per_page')).toBe('10');
+    expect(requestUrl.searchParams.get('per_page')).toBe('20');
     expect(requestUrl.searchParams.get('sort')).toBe('year_desc');
     expect(requestUrl.searchParams.get('adv_q')).toBe(advQuery);
     expect(

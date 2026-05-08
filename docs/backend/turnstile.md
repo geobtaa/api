@@ -1,7 +1,8 @@
 # Cloudflare Turnstile
 
-The geoportal can use Cloudflare Turnstile as an application-layer browser gate.
-This does not require Cloudflare WAF or proxying the site through Cloudflare.
+The BTAA Geoportal can use Cloudflare Turnstile as an application-layer browser
+gate. This does not require Cloudflare WAF or proxying the site through
+Cloudflare.
 
 ## Flow
 
@@ -66,17 +67,32 @@ configured for `localhost`, then opt back in:
 
 ```bash
 TURNSTILE_ENABLED=true
+TURNSTILE_ENABLE_LOCAL=true
 TURNSTILE_COOKIE_SECURE=false
 TURNSTILE_ALLOWED_HOSTNAMES=localhost,127.0.0.1
 VITE_TURNSTILE_ENABLED=true
 VITE_TURNSTILE_ENABLE_LOCAL=true
 ```
 
-When local Turnstile is not opted in, the React Router `/search/results` proxy
-also strips frontend gate markers before calling FastAPI so local search traffic
-can still use the server-side API key without receiving `turnstile_required`.
+When local Turnstile is not opted in, FastAPI bypasses the browser gate for
+local `localhost`, `127.0.0.1`, `::1`, and `0.0.0.0` requests when the app is
+not running in a production/Kamal context. The React Router `/search/results`
+proxy also strips frontend gate markers before calling FastAPI so local search
+traffic can still use the server-side API key without receiving
+`turnstile_required`.
 
 The frontend stores the returned session token in `sessionStorage` so local
 cross-origin dev traffic from `localhost:3000` to `localhost:8000` can carry
 `X-Turnstile-Session` without relying on cross-origin cookies. Production
 same-origin traffic also receives an HttpOnly cookie.
+
+To review the branded gate shell without Cloudflare keys or backend Turnstile
+verification, run the Vite dev server and open:
+
+```text
+http://localhost:3000/turnstile-preview
+```
+
+This route only works in Vite dev mode. It renders the same BTAA Geoportal gate
+layout with a mock local verification control, then sends the browser back to
+the homepage.
