@@ -5,7 +5,7 @@ from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.services.turnstile_service import TurnstileService, turnstile_enabled
+from app.services.turnstile_service import TurnstileService, env_flag, turnstile_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +14,8 @@ DEFAULT_PROTECTED_PATHS = (
     "/api/v1/suggest",
     "/api/v1/map/h3",
 )
+LOCAL_DEV_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+LOCAL_APP_ENV_VALUES = {"development", "dev", "local", "test"}
 
 
 def _split_csv(value: str) -> list[str]:
@@ -45,6 +47,36 @@ def _is_frontend_gate_request(request: Request) -> bool:
     return bool(request.headers.get("X-Visit-Token"))
 
 
+def _local_turnstile_enabled() -> bool:
+    return env_flag("TURNSTILE_ENABLE_LOCAL") or env_flag("VITE_TURNSTILE_ENABLE_LOCAL")
+
+
+def _runs_in_local_context() -> bool:
+    app_env = os.getenv("APP_ENV", "").strip().lower()
+    app_mode = os.getenv("APP_MODE", "").strip().lower()
+
+    if app_env in LOCAL_APP_ENV_VALUES:
+        return True
+    if app_env == "production" or app_mode == "production" or os.getenv("KAMAL_DEST"):
+        return False
+
+    return True
+
+
+def _is_local_hostname(hostname: str | None) -> bool:
+    if not hostname:
+        return False
+    normalized = hostname.strip().strip("[]").lower()
+    return normalized in LOCAL_DEV_HOSTNAMES
+
+
+def _should_bypass_local_turnstile(request: Request) -> bool:
+    if _local_turnstile_enabled() or not _runs_in_local_context():
+        return False
+
+    return _is_local_hostname(request.url.hostname)
+
+
 class TurnstileMiddleware(BaseHTTPMiddleware):
     """Require a verified Turnstile browser session on configured hot paths."""
 
@@ -57,6 +89,9 @@ class TurnstileMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
 
         if not self._should_require_turnstile(request):
+            return await call_next(request)
+
+        if _should_bypass_local_turnstile(request):
             return await call_next(request)
 
         if await self.turnstile_service.is_session_valid(request):

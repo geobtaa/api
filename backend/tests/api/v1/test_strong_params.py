@@ -36,7 +36,7 @@ class TestStrongParams:
         assert "fq[dct_spatial_sm][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[gbl_indexYear_im][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[dct_language_sm][]" in SEARCH_ALLOWED_PARAMS
-        assert "fq[dct_language_sm][]" in SEARCH_ALLOWED_PARAMS
+        assert "fq[b1g_language_sm][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[dct_creator_sm][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[dct_publisher_sm][]" in SEARCH_ALLOWED_PARAMS
         assert "fq[schema_provider_s][]" in SEARCH_ALLOWED_PARAMS

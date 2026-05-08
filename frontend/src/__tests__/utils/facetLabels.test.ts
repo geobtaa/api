@@ -27,6 +27,7 @@ describe('facetLabels', () => {
       expect(getFacetLabel('gbl_resourceClass_sm')).toBe('Resource Class');
       expect(getFacetLabel('schema_provider_s')).toBe('Provider');
       expect(getFacetLabel('dct_publisher_sm')).toBe('Publisher');
+      expect(getFacetLabel('b1g_language_sm')).toBe('Language');
     });
 
     it('returns normalized field when no label is defined', () => {
@@ -46,6 +47,7 @@ describe('facetLabels', () => {
         'gbl_resourceClass_sm'
       );
       expect(normalizeFacetId('publisher_agg')).toBe('dct_publisher_sm');
+      expect(normalizeFacetId('language_agg')).toBe('b1g_language_sm');
     });
 
     it('returns field name unchanged when not in map', () => {
@@ -57,6 +59,7 @@ describe('facetLabels', () => {
     it('maps field names to legacy agg IDs where defined', () => {
       expect(getLegacyFacetName('dct_spatial_sm')).toBe('spatial_agg');
       expect(getLegacyFacetName('dct_publisher_sm')).toBe('publisher_agg');
+      expect(getLegacyFacetName('b1g_language_sm')).toBe('language_agg');
     });
 
     it('returns field name unchanged when no legacy mapping', () => {

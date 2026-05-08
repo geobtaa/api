@@ -74,6 +74,7 @@ export interface GeoDocument {
       b1g_code_s?: string;
       b1g_dct_accrualMethod_s?: string;
       b1g_dct_provenanceStatement_sm?: string[];
+      b1g_language_sm?: string[];
       date_created_dtsi?: string;
       geomg_id_s?: string;
       publication_state?: string;

@@ -16,6 +16,7 @@ except ImportError:
 from shapely import wkt as shapely_wkt
 from shapely.geometry import mapping as shapely_mapping
 
+from app.services.language_service import ensure_b1g_language
 from db.database import database
 from db.models import resources
 
@@ -286,6 +287,8 @@ async def process_resource(resource_dict):
                         processed_dict[key] = None
         else:
             processed_dict[key] = value
+
+    ensure_b1g_language(processed_dict)
 
     # Derive OGM repo facet/filter field from admin tags.
     # Source-of-truth tag format stored in Postgres: "ogm_repo:<repo_name>"

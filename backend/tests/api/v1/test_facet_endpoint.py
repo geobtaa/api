@@ -481,7 +481,7 @@ class TestFacetEndpointSuccess:
             "dct_spatial_sm",
             "gbl_resourceClass_sm",
             "gbl_resourceType_sm",
-            "dct_language_sm",
+            "b1g_language_sm",
             "dct_creator_sm",
             "dct_publisher_sm",
             "schema_provider_s",

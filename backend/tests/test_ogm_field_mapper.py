@@ -98,7 +98,7 @@ class TestOGMFieldMapper:
             "b1g_image_ss": "https://example.com/image.jpg",
             "b1g_geonames_sm": ["https://sws.geonames.org/12345/"],
             "b1g_publication_state_s": "published",
-            "b1g_language_sm": ["eng"],
+            "b1g_language_sm": ["English"],
             "b1g_creatorID_sm": ["https://orcid.org/0000-0000-0000-0000"],
             "b1g_dct_conformsTo_sm": ["https://example.com/schema"],
             "b1g_dcat_spatialResolutionInMeters_sm": ["30"],

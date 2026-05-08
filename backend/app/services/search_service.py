@@ -420,7 +420,7 @@ class SearchService:
             "resource_type_agg": "gbl_resourceType_sm",
             "resource_class_agg": "gbl_resourceClass_sm",
             "index_year_agg": "gbl_indexYear_im",
-            "language_agg": "dct_language_sm",
+            "language_agg": "b1g_language_sm",
             "creator_agg": "dct_creator_sm",
             "publisher_agg": "dct_publisher_sm",
             "provider_agg": "schema_provider_s",

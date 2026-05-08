@@ -224,6 +224,11 @@ Several scripts require specific environment variables:
 
 Rate limiting for the public API is enforced by middleware backed by Redis:
 
+- Documentation shell routes (`/api/docs`, `/api/redoc`, `/api/openapi.json`,
+  and docs branding assets) bypass throttling so users can always load the API
+  reference. Interactive requests made from those docs still hit the normal API
+  endpoints and remain rate limited.
+
 - Tables and seed data are created by the standard migration script:
 
   ```bash

@@ -520,7 +520,7 @@ export async function fetchSearchResults(
     access_rights_agg: 'dct_accessRights_s',
     access_agg: 'dct_accessRights_s',
     index_year_agg: 'gbl_indexyear_im',
-    language_agg: 'dct_language_sm',
+    language_agg: 'b1g_language_sm',
     subject_agg: 'dct_subject_sm',
     institution_agg: 'schema_provider_s',
     format_agg: 'dct_format_s',

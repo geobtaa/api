@@ -32,6 +32,18 @@ IMMUTABLE_STATIC_MAP_PATH_RE = re.compile(
     r"^/api/v1/static-map-assets/[0-9a-f]{64}$",
     re.IGNORECASE,
 )
+DOCUMENTATION_PATHS = {
+    "/api/docs",
+    "/api/docs/oauth2-redirect",
+    "/api/openapi.json",
+    "/api/redoc",
+}
+DOCUMENTATION_ASSET_PATHS = {
+    "/static/brand.css",
+    "/static/btaa-gin-white.png",
+    "/static/btaa-logo-white.png",
+    "/static/favicon.ico",
+}
 
 
 def _is_immutable_asset_route(path: str) -> bool:
@@ -39,6 +51,12 @@ def _is_immutable_asset_route(path: str) -> bool:
     return bool(
         IMMUTABLE_THUMBNAIL_PATH_RE.fullmatch(path) or IMMUTABLE_STATIC_MAP_PATH_RE.fullmatch(path)
     )
+
+
+def _is_documentation_route(path: str) -> bool:
+    """Return True for documentation shell and schema assets."""
+    normalized_path = path.rstrip("/") or "/"
+    return normalized_path in DOCUMENTATION_PATHS or normalized_path in DOCUMENTATION_ASSET_PATHS
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -69,6 +87,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             skip_rate_limit_reason = "rate limiting disabled"
         elif request.url.path.startswith("/api/v1/admin"):
             skip_rate_limit_reason = "admin endpoint"
+        elif _is_documentation_route(request.url.path):
+            skip_rate_limit_reason = "documentation route"
         elif _is_immutable_asset_route(request.url.path):
             skip_rate_limit_reason = "immutable asset route"
 
