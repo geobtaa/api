@@ -24,6 +24,9 @@ RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE = "search-result"
 RESOURCE_REPRESENTATION_DURABLE_STORE = os.getenv(
     "RESOURCE_REPRESENTATION_DURABLE_STORE", "database"
 ).lower()
+RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE = int(
+    os.getenv("RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE", "250")
+)
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +44,15 @@ def resource_representation_cache_key(resource_id: str, *, profile: str) -> str:
 
 def _copy_resource(resource: dict[str, Any]) -> dict[str, Any]:
     return copy.deepcopy(resource)
+
+
+def _chunk_dict(
+    values: dict[str, dict[str, Any]], batch_size: int
+) -> Iterable[dict[str, dict[str, Any]]]:
+    items = list(values.items())
+    size = max(1, batch_size)
+    for index in range(0, len(items), size):
+        yield dict(items[index : index + size])
 
 
 def durable_resource_representations_enabled() -> bool:
@@ -233,7 +245,7 @@ async def store_durable_resource_representations(
     if not durable_resource_representations_enabled():
         return False
 
-    rows = []
+    rows: list[dict[str, Any]] = []
     source_updated_at_by_id = source_updated_at_by_id or {}
     for resource_id, resource in resources_by_id.items():
         if not resource_id or not isinstance(resource, dict):
@@ -254,22 +266,24 @@ async def store_durable_resource_representations(
     if not rows:
         return False
 
-    stmt = pg_insert(generated_resource_representations).values(rows)
-    stmt = stmt.on_conflict_do_update(
-        constraint="uq_generated_resource_representations_identity",
-        set_={
-            "payload": stmt.excluded.payload,
-            "payload_hash": stmt.excluded.payload_hash,
-            "payload_byte_size": stmt.excluded.payload_byte_size,
-            "source_updated_at": stmt.excluded.source_updated_at,
-            "generated_at": func.now(),
-        },
-    )
-
     try:
         async with async_session_factory() as session:
             async with session.begin():
-                await session.execute(stmt)
+                size = max(1, RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE)
+                for index in range(0, len(rows), size):
+                    row_batch = rows[index : index + size]
+                    stmt = pg_insert(generated_resource_representations).values(row_batch)
+                    stmt = stmt.on_conflict_do_update(
+                        constraint="uq_generated_resource_representations_identity",
+                        set_={
+                            "payload": stmt.excluded.payload,
+                            "payload_hash": stmt.excluded.payload_hash,
+                            "payload_byte_size": stmt.excluded.payload_byte_size,
+                            "source_updated_at": stmt.excluded.source_updated_at,
+                            "generated_at": func.now(),
+                        },
+                    )
+                    await session.execute(stmt)
         return True
     except Exception as exc:
         logger.warning("Failed to bulk persist durable resource representations: %s", exc)
@@ -402,18 +416,26 @@ async def store_resource_representations(
         return
 
     cache_service = cache_service or CacheService()
-    if write_durable:
-        await store_durable_resource_representations(
-            valid_payloads,
+    for payload_batch in _chunk_dict(
+        valid_payloads, RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE
+    ):
+        if write_durable:
+            batch_source_updated_at = {
+                resource_id: source_updated_at
+                for resource_id, source_updated_at in (source_updated_at_by_id or {}).items()
+                if resource_id in payload_batch
+            }
+            await store_durable_resource_representations(
+                payload_batch,
+                profile=profile,
+                source_updated_at_by_id=batch_source_updated_at,
+            )
+        await _store_redis_resource_representations(
+            payload_batch,
             profile=profile,
-            source_updated_at_by_id=source_updated_at_by_id,
+            cache_service=cache_service,
+            ttl=ttl,
         )
-    await _store_redis_resource_representations(
-        valid_payloads,
-        profile=profile,
-        cache_service=cache_service,
-        ttl=ttl,
-    )
 
 
 async def get_or_build_resource_representation(
