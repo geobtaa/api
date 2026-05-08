@@ -157,7 +157,7 @@ async def get_thumbnail(resource_id: str, request: Request):
 
     if not image_data:
         if is_thumbnail_hash(resource_id):
-            raise HTTPException(status_code=404, detail="Thumbnail asset not found")
+            return await get_placeholder_thumbnail()
 
         from app.api.v1.endpoint_modules.resources.thumbnail import (
             _get_resource_thumbnail_response,
