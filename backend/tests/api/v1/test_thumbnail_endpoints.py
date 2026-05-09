@@ -123,6 +123,10 @@ class TestThumbnailEndpoints:
                 new=AsyncMock(return_value=image_hash),
             ),
             patch(
+                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=True),
+            ),
+            patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
                 new=AsyncMock(return_value=image_hash),
             ) as mock_current_hash,
@@ -149,6 +153,10 @@ class TestThumbnailEndpoints:
                 new=AsyncMock(return_value=True),
             ) as mock_set_hash,
             patch(
+                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=True),
+            ),
+            patch(
                 "app.api.v1.endpoint_modules.thumbnails.thumbnail_state_service.get_state",
                 new=AsyncMock(
                     return_value={
@@ -168,6 +176,45 @@ class TestThumbnailEndpoints:
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             mock_set_hash.assert_awaited_once_with(resource_id, image_hash)
             mock_current_hash.assert_not_awaited()
+
+    def test_get_thumbnail_stale_resource_alias_falls_through_to_resolver(self, client):
+        """Resource-id aliases with missing image bytes should not redirect to placeholders."""
+        resource_id = "nyu-2451-34564"
+        stale_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
+                new=AsyncMock(return_value=stale_hash),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.delete",
+                new=AsyncMock(return_value=True),
+            ) as mock_delete_alias,
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=False),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails.thumbnail_state_service.get_state",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
+                new=AsyncMock(return_value=Response(content=b"resolved")),
+            ) as mock_resolve,
+        ):
+            mock_service = MagicMock()
+            mock_service.get_cached_image = AsyncMock(return_value=None)
+            mock_service_class.return_value = mock_service
+
+            response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
+
+            assert response.status_code == 200
+            assert response.content == b"resolved"
+            mock_delete_alias.assert_awaited_once_with(resource_id)
+            mock_resolve.assert_awaited_once()
 
     def test_get_thumbnail_not_found(self, client):
         """Test thumbnail retrieval when image is not found."""
@@ -191,8 +238,8 @@ class TestThumbnailEndpoints:
             assert response.status_code == 404
             assert "Resource not found" in response.json()["detail"]
 
-    def test_get_thumbnail_missing_hash_returns_placeholder(self, client):
-        """Missing immutable asset hashes should return the thumbnail placeholder."""
+    def test_get_thumbnail_missing_hash_returns_404(self, client):
+        """Missing immutable asset hashes should let clients fall back by image error."""
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
@@ -202,11 +249,8 @@ class TestThumbnailEndpoints:
 
             response = client.get(f"/thumbnails/{image_hash}")
 
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "image/svg+xml"
+            assert response.status_code == 404
             assert response.headers["cache-control"] == "no-store"
-            assert response.headers["x-placeholder"] == "true"
-            assert "Thumbnail placeholder" in response.text
             mock_service.get_cached_image.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_resource_asset_fallback(self, client):

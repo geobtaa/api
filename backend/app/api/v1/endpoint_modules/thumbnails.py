@@ -26,6 +26,11 @@ ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
     """Redirect resource-id requests to a hot immutable asset when possible."""
     image_hash = await thumbnail_alias_service.get_hash(resource_id)
+    if image_hash:
+        if not await _thumbnail_hash_has_cached_image(image_hash):
+            await thumbnail_alias_service.delete(resource_id)
+            image_hash = None
+
     if not image_hash:
         state = await thumbnail_state_service.get_state(resource_id)
         if not state:
@@ -40,6 +45,8 @@ async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
             return None
 
         image_hash = str(state_hash)
+        if not await _thumbnail_hash_has_cached_image(image_hash):
+            return None
         await thumbnail_alias_service.set_hash(resource_id, image_hash)
 
     return Response(
@@ -49,6 +56,17 @@ async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
             "Cache-Control": alias_redirect_cache_control_header(),
         },
     )
+
+
+async def _thumbnail_hash_has_cached_image(image_hash: str) -> bool:
+    """Return True only when an immutable thumbnail hash resolves to image bytes."""
+    if not is_thumbnail_hash(image_hash):
+        return False
+    try:
+        return await ImageService({}).has_cached_image(image_hash)
+    except Exception as exc:
+        logger.debug("Failed checking thumbnail hash %s: %s", image_hash, exc)
+        return False
 
 
 def _detect_image_type(image_data: bytes) -> str:
@@ -141,7 +159,7 @@ async def get_placeholder_thumbnail():
 
 @router.get("/thumbnails/{resource_id}")
 async def get_thumbnail(resource_id: str, request: Request):
-    """Serve a resource thumbnail asset with a guaranteed image fallback."""
+    """Serve a thumbnail asset or resolve a resource-id thumbnail fallback."""
     if not is_thumbnail_hash(resource_id):
         redirect = await _get_resource_alias_redirect(resource_id)
         if redirect is not None:
@@ -157,7 +175,7 @@ async def get_thumbnail(resource_id: str, request: Request):
 
     if not image_data:
         if is_thumbnail_hash(resource_id):
-            return await get_placeholder_thumbnail()
+            return Response(status_code=404, headers={"Cache-Control": "no-store"})
 
         from app.api.v1.endpoint_modules.resources.thumbnail import (
             _get_resource_thumbnail_response,

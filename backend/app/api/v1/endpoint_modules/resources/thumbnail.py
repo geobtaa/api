@@ -56,6 +56,17 @@ def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
     )
 
 
+async def _thumbnail_hash_has_cached_image(image_hash: str) -> bool:
+    """Return True only when an immutable thumbnail hash resolves to image bytes."""
+    if not is_thumbnail_hash(image_hash):
+        return False
+    try:
+        return await ImageService({}).has_cached_image(image_hash)
+    except Exception as exc:
+        logger.debug("Failed checking thumbnail hash %s: %s", image_hash, exc)
+        return False
+
+
 async def _current_hot_thumbnail_hash_for_resource(
     resource_id: str,
     *,
@@ -77,7 +88,9 @@ async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse |
     """Resolve a hot resource_id request through the alias cache before heavy work."""
     image_hash = await thumbnail_alias_service.get_hash(resource_id)
     if image_hash:
-        return _thumbnail_asset_redirect(image_hash)
+        if await _thumbnail_hash_has_cached_image(image_hash):
+            return _thumbnail_asset_redirect(image_hash)
+        await thumbnail_alias_service.delete(resource_id)
 
     state = await thumbnail_state_service.get_state(resource_id)
     if not state:
@@ -89,6 +102,9 @@ async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse |
         or not state_hash
         or not is_thumbnail_hash(str(state_hash))
     ):
+        return None
+
+    if not await _thumbnail_hash_has_cached_image(str(state_hash)):
         return None
 
     await thumbnail_alias_service.set_hash(resource_id, str(state_hash))

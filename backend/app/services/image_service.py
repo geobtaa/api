@@ -702,7 +702,7 @@ class ImageService:
         if b1g_image_url:
             return b1g_image_url
 
-        # Check for direct thumbnail URL first (support http and https keys)
+        # Check for direct thumbnail URL first (support http and https keys).
         for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):
             if url := self._first_url(thumb_key, references=references):
                 return url
@@ -756,6 +756,13 @@ class ImageService:
         pmtiles_uri = "https://github.com/protomaps/PMTiles"
         if pmtiles_url := self._first_url(pmtiles_uri, references=references):
             return pmtiles_url
+
+        # Some GeoBlacklight records use schema.org/image as a curated gallery
+        # preview rather than schema.org/thumbnailUrl. Use it as a direct-image
+        # fallback after richer/generated map sources such as COG and PMTiles.
+        for image_key in ("http://schema.org/image", "https://schema.org/image"):
+            if url := self._first_url(image_key, references=references):
+                return url
 
         # Return None when no thumbnail source is found
         # This allows the frontend to show a default icon based on resource class
