@@ -12,7 +12,7 @@ from sqlalchemy import select
 from app.api.v1.utils import sanitize_for_json
 from app.services.cache_service import ENDPOINT_CACHE, CacheService
 from app.services.distribution_repository import async_session_factory
-from app.services.resource_representation_cache import delete_durable_resource_representations
+from app.services.resource_representation_cache import delete_resource_representations
 from db.models import resources
 
 logger = logging.getLogger(__name__)
@@ -289,7 +289,10 @@ async def refresh_cache_for_changed_resources(
         ]
     )[:max_warm_urls]
 
-    durable_deleted = await delete_durable_resource_representations(changed_ids)
+    representation_delete_stats = await delete_resource_representations(
+        changed_ids,
+        cache_service=cache,
+    )
     invalidated = await cache.invalidate_tags(tags)
     generated_assets = await _warm_generated_assets_for_changed_resources(changed_ids)
 
@@ -326,7 +329,7 @@ async def refresh_cache_for_changed_resources(
         "resource_ids": len(changed_ids),
         "tagged_records": len(tagged_records),
         "warm_urls": len(warm_paths),
-        "durable_resource_representations_deleted": durable_deleted,
+        "resource_representations_deleted": representation_delete_stats,
         "generated_assets": generated_assets,
         "invalidated": invalidated,
         "warmed": warmed,

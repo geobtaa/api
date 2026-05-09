@@ -191,6 +191,28 @@ def _build_semantic_search_cache_key(
     )
 
 
+def _resource_tags_from_response_core(response_core: dict) -> set[str]:
+    """Return resource tags for the cached search core payload."""
+    data = response_core.get("data")
+    if isinstance(data, dict):
+        data = [data]
+    if not isinstance(data, list):
+        return set()
+
+    tags: set[str] = set()
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        resource_id = item.get("id")
+        if not resource_id:
+            attributes = item.get("attributes")
+            if isinstance(attributes, dict):
+                resource_id = attributes.get("id")
+        if resource_id:
+            tags.add(f"resource:{resource_id}")
+    return tags
+
+
 async def _get_cached_search_response_core(
     *,
     cache_service: CacheService,
@@ -243,7 +265,11 @@ async def _store_cached_search_response_core(
     if stored:
         await cache_service.tag_cache_key(
             cache_key,
-            {"search", SEARCH_RESULT_CACHE_NAMESPACE},
+            {
+                "search",
+                SEARCH_RESULT_CACHE_NAMESPACE,
+                *_resource_tags_from_response_core(response_core),
+            },
             ttl_seconds=SEARCH_RESULT_CACHE_TTL,
         )
 

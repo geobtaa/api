@@ -10,7 +10,7 @@ from typing import Any
 from sqlalchemy import delete, func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
-from app.services.cache_service import CacheService
+from app.services.cache_service import CACHE_ROOT, CacheService, _redis_call
 from app.services.distribution_repository import async_session_factory
 from db.models import generated_resource_representations
 
@@ -21,6 +21,10 @@ RESOURCE_REPRESENTATION_CACHE_TTL = int(
 RESOURCE_REPRESENTATION_NAMESPACE = "resource_representation"
 RESOURCE_REPRESENTATION_PROFILE = "api-full"
 RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE = "search-result"
+RESOURCE_REPRESENTATION_PROFILES = (
+    RESOURCE_REPRESENTATION_PROFILE,
+    RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
+)
 RESOURCE_REPRESENTATION_DURABLE_STORE = os.getenv(
     "RESOURCE_REPRESENTATION_DURABLE_STORE", "database"
 ).lower()
@@ -321,6 +325,64 @@ async def delete_durable_resource_representations(
         return False
 
 
+async def delete_redis_resource_representations(
+    resource_ids: Iterable[str] | None = None,
+    *,
+    profile: str | None = None,
+    cache_service: CacheService | None = None,
+) -> int:
+    """Delete Redis resource representations, including older untagged entries."""
+    cache_service = cache_service or CacheService()
+    if not getattr(cache_service, "_redis_client", None):
+        return 0
+
+    profiles = (profile,) if profile else RESOURCE_REPRESENTATION_PROFILES
+    ids = list(
+        dict.fromkeys(str(resource_id) for resource_id in (resource_ids or []) if resource_id)
+    )
+
+    deleted = 0
+    try:
+        if ids:
+            for resource_id in ids:
+                for profile_name in profiles:
+                    key = resource_representation_cache_key(resource_id, profile=profile_name)
+                    deleted += int(await _redis_call(cache_service._redis_client.delete(key)))
+            return deleted
+
+        pattern = f"{CACHE_ROOT}:{RESOURCE_REPRESENTATION_NAMESPACE}:*"
+        async for key in cache_service._redis_client.scan_iter(match=pattern, count=500):
+            deleted += int(await _redis_call(cache_service._redis_client.delete(key)))
+        return deleted
+    except Exception as exc:
+        logger.warning("Failed to delete Redis resource representations: %s", exc)
+        return deleted
+
+
+async def delete_resource_representations(
+    resource_ids: Iterable[str] | None = None,
+    *,
+    profile: str | None = None,
+    version: str | None = None,
+    cache_service: CacheService | None = None,
+) -> dict[str, Any]:
+    """Delete durable and Redis resource representation caches."""
+    durable_deleted = await delete_durable_resource_representations(
+        resource_ids,
+        profile=profile,
+        version=version,
+    )
+    redis_deleted = await delete_redis_resource_representations(
+        resource_ids,
+        profile=profile,
+        cache_service=cache_service,
+    )
+    return {
+        "durable_deleted": durable_deleted,
+        "redis_deleted": redis_deleted,
+    }
+
+
 async def get_cached_resource_representations(
     resource_ids: Iterable[str],
     *,
@@ -416,9 +478,7 @@ async def store_resource_representations(
         return
 
     cache_service = cache_service or CacheService()
-    for payload_batch in _chunk_dict(
-        valid_payloads, RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE
-    ):
+    for payload_batch in _chunk_dict(valid_payloads, RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE):
         if write_durable:
             batch_source_updated_at = {
                 resource_id: source_updated_at

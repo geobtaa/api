@@ -5,6 +5,7 @@ import pytest
 import app.services.resource_representation_cache as resource_cache
 from app.services.resource_representation_cache import (
     delete_durable_resource_representations,
+    delete_redis_resource_representations,
     get_cached_resource_representations,
     get_or_build_resource_representation,
     resource_representation_cache_key,
@@ -35,6 +36,15 @@ class FakeCacheService:
 
     async def tag_cache_key(self, key, tags, ttl_seconds):
         self.tag_calls.append((key, set(tags), ttl_seconds))
+
+
+class FakeRedis:
+    def __init__(self):
+        self.deleted = []
+
+    async def delete(self, key):
+        self.deleted.append(key)
+        return 1
 
 
 @pytest.mark.asyncio
@@ -190,3 +200,20 @@ async def test_delete_durable_resource_representations_noops_when_disabled(monke
     result = await delete_durable_resource_representations()
 
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_delete_redis_resource_representations_deletes_known_profiles():
+    cache_service = FakeCacheService()
+    cache_service._redis_client = FakeRedis()
+
+    deleted = await delete_redis_resource_representations(
+        ["r1"],
+        cache_service=cache_service,
+    )
+
+    assert deleted == 2
+    assert cache_service._redis_client.deleted == [
+        resource_representation_cache_key("r1", profile="api-full"),
+        resource_representation_cache_key("r1", profile="search-result"),
+    ]

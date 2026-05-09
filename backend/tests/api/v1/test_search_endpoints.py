@@ -444,6 +444,7 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
     assert first.headers["x-search-semantic-cache"] == "MISS"
     assert second.headers["x-search-semantic-cache"] == "HIT"
     assert any("search" in tags for _, tags, _ in FakeSemanticCache.tagged)
+    assert any("resource:test-doc" in tags for _, tags, _ in FakeSemanticCache.tagged)
 
     first_payload = json.loads(first.body)
     second_payload = json.loads(second.body)

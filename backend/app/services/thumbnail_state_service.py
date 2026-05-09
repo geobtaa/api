@@ -166,8 +166,13 @@ class ThumbnailStateService:
             return
         try:
             from app.services.cache_service import CacheService
+            from app.services.resource_representation_cache import (
+                delete_resource_representations,
+            )
 
-            deleted = await CacheService().invalidate_tags([f"resource:{payload.resource_id}"])
+            cache = CacheService()
+            await delete_resource_representations([payload.resource_id], cache_service=cache)
+            deleted = await cache.invalidate_tags([f"resource:{payload.resource_id}"])
             if deleted:
                 logger.info(
                     "Invalidated %s cached response(s) for thumbnail success on %s",

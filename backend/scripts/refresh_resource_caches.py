@@ -175,7 +175,7 @@ async def purge_resource_caches(
 ) -> dict[str, Any]:
     from app.services.cache_service import CacheService
     from app.services.resource_representation_cache import (
-        delete_durable_resource_representations,
+        delete_resource_representations,
     )
 
     cache = CacheService()
@@ -185,15 +185,16 @@ async def purge_resource_caches(
         path for path in (_warm_path_from_record(record) for record in tagged_records) if path
     ]
 
-    durable_resource_representations_cleared = await delete_durable_resource_representations(
-        resource_ids
+    representation_delete_stats = await delete_resource_representations(
+        resource_ids,
+        cache_service=cache,
     )
     tagged_cache_entries_deleted = await cache.invalidate_tags(tags)
 
     return {
         "tagged_records": len(tagged_records),
         "tagged_paths": tagged_paths,
-        "durable_resource_representations_cleared": durable_resource_representations_cleared,
+        "resource_representations_cleared": representation_delete_stats,
         "tagged_cache_entries_deleted": tagged_cache_entries_deleted,
     }
 
