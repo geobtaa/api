@@ -134,7 +134,7 @@ describe('GalleryView', () => {
     }
   });
 
-  it('uses the static-map fallback for cold generic resource thumbnail endpoints', () => {
+  it('uses the canonical resolver for generic resource thumbnail endpoints', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -151,16 +151,14 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-1/resource-class-icon"]'
-      )
+      container.querySelector('img[src="/resources/result-1/thumbnail"]')
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId('gallery-thumbnail-placeholder-0')
     ).not.toBeInTheDocument();
   });
 
-  it('uses the static-map fallback for raw bridge thumbnail assets in gallery view', () => {
+  it('routes raw bridge thumbnail assets through the canonical resolver in gallery view', () => {
     const resultWithBridgeThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -177,9 +175,7 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-1/resource-class-icon"]'
-      )
+      container.querySelector('img[src="/resources/result-1/thumbnail"]')
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId('gallery-thumbnail-placeholder-0')

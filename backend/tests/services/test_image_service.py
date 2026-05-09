@@ -8,7 +8,12 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.image_service import ImageService
+from app.services.image_service import (
+    COG_THUMBNAIL_PREFIX,
+    PMTILES_THUMBNAIL_PREFIX,
+    REMOTE_THUMBNAIL_PREFIX,
+    ImageService,
+)
 from app.services.thumbnail_state_service import ThumbnailState
 
 
@@ -203,6 +208,54 @@ class TestImageServiceThumbnailSourceURL:
             references = {"http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg"}
             result = service._get_thumbnail_source_url(references)
             assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_resolve_thumbnail_source_url_uses_bridge_asset_as_last_resort(self):
+        """Bridge thumbnail assets are only used when intrinsic sources are absent."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            assert (
+                service.resolve_thumbnail_source_url(
+                    thumbnail_asset_url="https://assets.example.edu/thumb.png"
+                )
+                == "https://assets.example.edu/thumb.png"
+            )
+
+            service_with_source = ImageService(
+                {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+            )
+            assert (
+                service_with_source.resolve_thumbnail_source_url(
+                    thumbnail_asset_url="https://assets.example.edu/thumb.png"
+                )
+                == "https://curated.example.com/thumb.jpg"
+            )
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_thumbnail_image_hash_for_source_uses_worker_hash_conventions(self):
+        """Hash calculation should match worker prefixes for remote, COG, and PMTiles sources."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            remote = "https://example.com/thumb.jpg"
+            cog = "https://example.com/raster.tif"
+            pmtiles = "https://example.com/tiles.pmtiles"
+
+            assert (
+                service.thumbnail_image_hash_for_source_sync(remote)
+                == hashlib.sha256(f"{REMOTE_THUMBNAIL_PREFIX}{remote}".encode()).hexdigest()
+            )
+            assert (
+                service.thumbnail_image_hash_for_source_sync(cog)
+                == hashlib.sha256(f"{COG_THUMBNAIL_PREFIX}{cog}".encode()).hexdigest()
+            )
+            assert (
+                service.thumbnail_image_hash_for_source_sync(pmtiles)
+                == hashlib.sha256(f"{PMTILES_THUMBNAIL_PREFIX}{pmtiles}".encode()).hexdigest()
+            )
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 

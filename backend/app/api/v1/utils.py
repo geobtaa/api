@@ -308,6 +308,37 @@ def _build_resource_thumbnail_url(resource_id: str) -> str:
     return f"{application_url}/api/v1/resources/{resource_id}/thumbnail"
 
 
+def _build_thumbnail_asset_url(image_hash: str) -> str:
+    """Return the immutable API thumbnail asset URL for a cached image hash."""
+    return f"{_application_url()}/api/v1/thumbnails/{image_hash}"
+
+
+def _hot_thumbnail_url_for_resource(
+    resource_dict: Dict[str, Any],
+    *,
+    distribution_context: DistributionContext | None = None,
+    thumbnail_asset_url: str | None = None,
+) -> Optional[str]:
+    """Return an immutable thumbnail URL for the current source when bytes exist."""
+    resource_id = resource_dict.get("id")
+    if not resource_id:
+        return None
+
+    try:
+        from app.services.image_service import ImageService
+
+        if distribution_context is None:
+            distribution_context = build_distribution_context(str(resource_id), [])
+        image_service = ImageService(resource_dict, distribution_context=distribution_context)
+        image_hash = image_service.current_thumbnail_hash_with_asset_sync(
+            thumbnail_asset_url=thumbnail_asset_url
+        )
+        return _build_thumbnail_asset_url(image_hash) if image_hash else None
+    except Exception as exc:
+        logger.debug("Failed resolving hot thumbnail for %s: %s", resource_id, exc)
+        return None
+
+
 def create_jsonapi_response(data, request_url=None, callback=None):
     """
     Create a JSON:API compliant response.
@@ -833,9 +864,16 @@ async def process_resource(
     )
     current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
     if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
+        hot_thumbnail_url = _hot_thumbnail_url_for_resource(
+            resource_dict,
+            distribution_context=distribution_context,
+            thumbnail_asset_url=thumb_asset_url,
+        )
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
+        resource["meta"]["ui"]["thumbnail_url"] = (
+            hot_thumbnail_url or _build_resource_thumbnail_url(resource_dict["id"])
+        )
 
     # Add Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:
@@ -909,9 +947,16 @@ async def process_resource_homepage(resource_dict, session, apply_field_mapping=
     thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
     current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
     if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
+        hot_thumbnail_url = _hot_thumbnail_url_for_resource(
+            resource_dict,
+            distribution_context=distribution_context,
+            thumbnail_asset_url=thumb_asset_url,
+        )
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
+        resource["meta"]["ui"]["thumbnail_url"] = (
+            hot_thumbnail_url or _build_resource_thumbnail_url(resource_dict["id"])
+        )
 
     if allmaps_attributes:
         resource.setdefault("meta", {})
@@ -1019,14 +1064,20 @@ async def process_resource_optimized(
     # Prefer the stable thumbnail endpoint when a bridge-synced thumbnail asset exists.
     thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
     current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
-    if (
-        thumb_asset_url
-        and not hot_only_thumbnail_url
-        and not _is_immutable_thumbnail_url(current_thumbnail_url)
-    ):
+    if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
+        hot_thumbnail_url = _hot_thumbnail_url_for_resource(
+            resource_dict,
+            distribution_context=distribution_context,
+            thumbnail_asset_url=thumb_asset_url,
+        )
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
+        if hot_thumbnail_url:
+            resource["meta"]["ui"]["thumbnail_url"] = hot_thumbnail_url
+        elif not hot_only_thumbnail_url:
+            resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(
+                resource_dict["id"]
+            )
 
     # Add pre-fetched Allmaps attributes to meta.ui.allmaps section
     if allmaps_attributes:

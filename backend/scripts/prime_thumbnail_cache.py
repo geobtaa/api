@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import json
 import logging
 import os
 import sys
@@ -68,11 +67,8 @@ from app.services.visual_asset_cache import (  # noqa: E402
     store_durable_visual_asset_link,
 )
 from app.tasks.worker import (  # noqa: E402
-    _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
-    _pmtiles_thumbnail_image_hash,
-    _remote_thumbnail_image_hash,
     _resolve_image_url,
     _validate_image_content,
     redis_client,
@@ -91,32 +87,10 @@ def _thumbnail_fetch_timeout() -> int:
 
 def _compute_thumbnail_image_hash(image_service: ImageService, source_url: str) -> str | None:
     """Mirror the thumbnail hash logic used by the API and worker."""
-    if image_service._is_cog_url(source_url):
-        return _cog_thumbnail_image_hash(source_url)
-    if image_service._is_pmtiles_url(source_url):
-        return _pmtiles_thumbnail_image_hash(source_url)
-    if image_service._is_manifest_url(source_url):
-        manifest_cache_key = f"manifest:{source_url}"
-        try:
-            cached = image_service.cache.get(manifest_cache_key)
-            if cached:
-                manifest_json = json.loads(cached)
-                resolved = image_service._extract_thumbnail_from_manifest_json(
-                    manifest_json, source_url
-                )
-                if resolved:
-                    resolved = image_service._standardize_iiif_url(resolved)
-                    return _remote_thumbnail_image_hash(resolved)
-        except Exception as exc:
-            logger.debug("Manifest cache read failed for %s: %s", source_url, exc)
-
-        resolved_url = _resolve_image_url(source_url)
-        if resolved_url != source_url:
-            return _remote_thumbnail_image_hash(resolved_url)
-        return None
-
-    standardized = image_service._standardize_iiif_url(source_url)
-    return _remote_thumbnail_image_hash(standardized)
+    return image_service.thumbnail_image_hash_for_source_sync(
+        source_url,
+        resolve_manifest=True,
+    )
 
 
 def _store_image_bytes(
@@ -403,10 +377,9 @@ async def _prime_thumbnail_for_resource(
 
     distribution_context = await fetch_distribution_context(resource_id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
-    source_url = image_service._get_thumbnail_source_url()
-
-    if not source_url:
-        source_url = await _get_thumbnail_asset_url(resource_id)
+    source_url = image_service.resolve_thumbnail_source_url(
+        thumbnail_asset_url=await _get_thumbnail_asset_url(resource_id)
+    )
 
     if not source_url:
         await safe_record_thumbnail_state(

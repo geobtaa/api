@@ -156,14 +156,8 @@ function isBridgeThumbnailAssetUrl(url: string | undefined): boolean {
   }
 }
 
-function getGeneratedThumbnailUrl(
-  resourceId: string,
-  view: SearchResultAssetView
-): string {
-  if (view === 'gallery') {
-    return `/resources/${resourceId}/thumbnail`;
-  }
-  return `/thumbnails/${resourceId}`;
+function getGeneratedThumbnailUrl(resourceId: string): string {
+  return `/resources/${resourceId}/thumbnail`;
 }
 
 export function getThumbnailFallbackUrl(
@@ -173,7 +167,7 @@ export function getThumbnailFallbackUrl(
   if (view === 'gallery') {
     return `/static-maps/${resourceId}/resource-class-icon`;
   }
-  return `/thumbnails/${resourceId}`;
+  return getGeneratedThumbnailUrl(resourceId);
 }
 
 export function getResultPrimaryImageUrl(
@@ -188,20 +182,14 @@ export function getResultPrimaryImageUrl(
       : undefined;
 
   // Route generic thumbnail endpoints and bridge-backed assets through the
-  // generated thumbnail pipeline for non-gallery contexts. Gallery first paint
-  // is especially sensitive: if the immutable thumbnail is not hot yet, use the
-  // resource-class-on-static-map fallback instead of thumbnail generation.
+  // canonical resource thumbnail resolver. It decides whether to redirect to
+  // hot immutable bytes or return the resource-class placeholder.
   if (
     normalized &&
     (isGenericResourceThumbnailUrl(normalized) ||
       isBridgeThumbnailAssetUrl(extracted))
   ) {
-    if (view === 'gallery') {
-      return (
-        galleryResourceClassIconUrl ?? getThumbnailFallbackUrl(result.id, view)
-      );
-    }
-    return getGeneratedThumbnailUrl(result.id, view);
+    return getGeneratedThumbnailUrl(result.id);
   }
 
   if (normalized) {
@@ -216,7 +204,7 @@ export function getResultPrimaryImageUrl(
     return getThumbnailFallbackUrl(result.id, view);
   }
 
-  return getThumbnailFallbackUrl(result.id, view);
+  return getGeneratedThumbnailUrl(result.id);
 }
 
 export function getStaticMapUrl(
