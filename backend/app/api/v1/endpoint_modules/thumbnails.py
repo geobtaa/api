@@ -13,8 +13,7 @@ from app.services.cache_service import (
     weak_etag_from_body,
 )
 from app.services.image_service import ImageService
-from app.services.thumbnail_alias_service import is_thumbnail_hash, thumbnail_alias_service
-from app.services.thumbnail_state_service import ThumbnailState, thumbnail_state_service
+from app.services.thumbnail_alias_service import is_thumbnail_hash
 
 logger = logging.getLogger(__name__)
 
@@ -24,30 +23,18 @@ ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 
 
 async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
-    """Redirect resource-id requests to a hot immutable asset when possible."""
-    image_hash = await thumbnail_alias_service.get_hash(resource_id)
-    if image_hash:
-        if not await _thumbnail_hash_has_cached_image(image_hash):
-            await thumbnail_alias_service.delete(resource_id)
-            image_hash = None
+    """Redirect resource-id requests to a current hot immutable asset when possible."""
+    from app.api.v1.endpoint_modules.resources.thumbnail import (
+        _current_hot_thumbnail_hash_for_resource,
+    )
 
+    try:
+        image_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
+    except Exception as exc:
+        logger.debug("Unable to resolve thumbnail alias for %s: %s", resource_id, exc)
+        return None
     if not image_hash:
-        state = await thumbnail_state_service.get_state(resource_id)
-        if not state:
-            return None
-
-        state_hash = state.get("source_hash")
-        if (
-            state.get("state") != ThumbnailState.SUCCESS
-            or not state_hash
-            or not is_thumbnail_hash(str(state_hash))
-        ):
-            return None
-
-        image_hash = str(state_hash)
-        if not await _thumbnail_hash_has_cached_image(image_hash):
-            return None
-        await thumbnail_alias_service.set_hash(resource_id, image_hash)
+        return None
 
     return Response(
         status_code=302,

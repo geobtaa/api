@@ -385,6 +385,72 @@ class TestProcessResourceOptimized:
         assert resource["meta"]["ui"].get("thumbnail_url") is None
         assert resource["meta"]["ui"]["resource_class_icon_url"] == icon_asset_url
 
+    @pytest.mark.asyncio
+    async def test_process_resource_optimized_hot_only_uses_hot_bridge_thumbnail_asset(self):
+        """Gallery-mode processing should expose hot Bridge thumbnails as immutable assets."""
+        thumbnail_asset_url = f"http://localhost:8000/api/v1/thumbnails/{'d' * 64}"
+        resource_dict = {
+            "id": "test-123",
+            "dct_title_s": "Test Item",
+            "schema_provider_s": "Test Provider",
+        }
+
+        with (
+            patch(
+                "app.api.v1.utils.fetch_distribution_context",
+                new=AsyncMock(return_value=SimpleNamespace(legacy_reference_payload={}, by_uri={})),
+            ),
+            patch(
+                "app.api.v1.utils.add_thumbnail_url",
+                side_effect=lambda item, distribution_context=None, hot_only=False: {
+                    **item,
+                    "ui_thumbnail_url": None,
+                },
+            ) as mock_add_thumbnail_url,
+            patch(
+                "app.api.v1.utils._hot_resource_class_icon_url",
+                return_value="http://localhost:8000/api/v1/static-map-assets/icon?kind=resource-class-icon",
+            ),
+            patch(
+                "app.api.v1.utils._get_thumbnail_asset_url",
+                new=AsyncMock(return_value="https://assets.example.edu/thumb.jpg"),
+            ),
+            patch(
+                "app.api.v1.utils._hot_thumbnail_url_for_resource",
+                return_value=thumbnail_asset_url,
+            ) as mock_hot_thumbnail_url,
+            patch(
+                "app.services.citation_service.CitationService.get_all_citations",
+                return_value={"apa": "APA", "mla": "MLA", "chicago": "Chicago"},
+            ),
+            patch(
+                "app.services.viewer_service.ViewerService.get_viewer_attributes",
+                return_value={},
+            ),
+            patch(
+                "app.services.download_service.DownloadService.get_download_options_with_bridge_asset_downloads",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.link_service.LinkService.get_links",
+                return_value={},
+            ),
+            patch(
+                "app.services.relationship_service.RelationshipService.get_resource_relationships",
+                new=AsyncMock(return_value={}),
+            ),
+        ):
+            resource = await process_resource_optimized(
+                resource_dict,
+                {},
+                apply_field_mapping=False,
+                hot_only_thumbnail_url=True,
+            )
+
+        assert mock_add_thumbnail_url.call_args.kwargs["hot_only"] is True
+        mock_hot_thumbnail_url.assert_called_once()
+        assert resource["meta"]["ui"]["thumbnail_url"] == thumbnail_asset_url
+
 
 class TestAddCitations:
     """Test cases for add_citations function."""

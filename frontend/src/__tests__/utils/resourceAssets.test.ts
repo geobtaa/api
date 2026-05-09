@@ -10,7 +10,7 @@ function resultWithUi(ui: Record<string, string | undefined>) {
 }
 
 describe('getResultPrimaryImageUrl', () => {
-  it('uses the resource-class icon for cold generic gallery thumbnails', () => {
+  it('uses the canonical resolver for generic gallery thumbnails', () => {
     const result = resultWithUi({
       thumbnail_url: '/api/v1/resources/resource-1/thumbnail',
       resource_class_icon_url:
@@ -18,17 +18,17 @@ describe('getResultPrimaryImageUrl', () => {
     });
 
     expect(getResultPrimaryImageUrl(result, 'gallery')).toBe(
-      '/static-maps/resource-1/resource-class-icon'
+      '/resources/resource-1/thumbnail'
     );
   });
 
-  it('uses the resource-class static-map fallback when no hot icon exists', () => {
+  it('uses the canonical resolver when no hot icon exists', () => {
     const result = resultWithUi({
       thumbnail_url: '/api/v1/resources/resource-1/thumbnail',
     });
 
     expect(getResultPrimaryImageUrl(result, 'gallery')).toBe(
-      '/static-maps/resource-1/resource-class-icon'
+      '/resources/resource-1/thumbnail'
     );
   });
 
@@ -40,7 +40,7 @@ describe('getResultPrimaryImageUrl', () => {
     );
   });
 
-  it('uses the resource-class icon for bridge-backed gallery thumbnail assets', () => {
+  it('routes bridge-backed gallery thumbnail assets through the canonical resolver', () => {
     const result = resultWithUi({
       thumbnail_url:
         'https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/example/thumb.jpg',
@@ -49,11 +49,11 @@ describe('getResultPrimaryImageUrl', () => {
     });
 
     expect(getResultPrimaryImageUrl(result, 'gallery')).toBe(
-      '/static-maps/resource-1/resource-class-icon'
+      '/resources/resource-1/thumbnail'
     );
   });
 
-  it('keeps generic thumbnail generation for non-gallery contexts', () => {
+  it('uses generic thumbnail generation for non-gallery contexts', () => {
     const result = resultWithUi({
       thumbnail_url: '/api/v1/resources/resource-1/thumbnail',
       resource_class_icon_url:
@@ -61,7 +61,10 @@ describe('getResultPrimaryImageUrl', () => {
     });
 
     expect(getResultPrimaryImageUrl(result, 'list')).toBe(
-      '/thumbnails/resource-1'
+      '/resources/resource-1/thumbnail'
+    );
+    expect(getResultPrimaryImageUrl(result, 'map')).toBe(
+      '/resources/resource-1/thumbnail'
     );
   });
 

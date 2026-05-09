@@ -117,88 +117,41 @@ class TestThumbnailEndpoints:
         resource_id = "nyu-2451-34564"
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
-        with (
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
-                new=AsyncMock(return_value=image_hash),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
-                new=AsyncMock(return_value=True),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
-                new=AsyncMock(return_value=image_hash),
-            ) as mock_current_hash,
-        ):
+        with patch(
+            "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+            new=AsyncMock(return_value=image_hash),
+        ) as mock_current_hash:
             response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             assert "max-age=3600" in response.headers["cache-control"]
-            mock_current_hash.assert_not_awaited()
+            mock_current_hash.assert_awaited_once_with(resource_id)
 
     def test_get_thumbnail_success_state_rehydrates_alias_redirect(self, client):
-        """Cold Redis aliases should rehydrate from persisted success state."""
+        """Resource-id requests should redirect when the canonical source is hot."""
         resource_id = "nyu-2451-34564"
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
-        with (
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
-                new=AsyncMock(return_value=None),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.set_hash",
-                new=AsyncMock(return_value=True),
-            ) as mock_set_hash,
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
-                new=AsyncMock(return_value=True),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_state_service.get_state",
-                new=AsyncMock(
-                    return_value={
-                        "state": "success",
-                        "source_hash": image_hash,
-                    }
-                ),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
-                new=AsyncMock(return_value=None),
-            ) as mock_current_hash,
-        ):
+        with patch(
+            "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+            new=AsyncMock(return_value=image_hash),
+        ) as mock_current_hash:
             response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
-            mock_set_hash.assert_awaited_once_with(resource_id, image_hash)
-            mock_current_hash.assert_not_awaited()
+            mock_current_hash.assert_awaited_once_with(resource_id)
 
     def test_get_thumbnail_stale_resource_alias_falls_through_to_resolver(self, client):
         """Resource-id aliases with missing image bytes should not redirect to placeholders."""
         resource_id = "nyu-2451-34564"
-        stale_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
         with (
             patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
-                new=AsyncMock(return_value=stale_hash),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.delete",
-                new=AsyncMock(return_value=True),
-            ) as mock_delete_alias,
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
-                new=AsyncMock(return_value=False),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_state_service.get_state",
+                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
                 new=AsyncMock(return_value=None),
-            ),
+            ) as mock_current_hash,
             patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class,
             patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
@@ -213,7 +166,7 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 200
             assert response.content == b"resolved"
-            mock_delete_alias.assert_awaited_once_with(resource_id)
+            mock_current_hash.assert_awaited_once_with(resource_id)
             mock_resolve.assert_awaited_once()
 
     def test_get_thumbnail_not_found(self, client):
@@ -337,7 +290,18 @@ class TestThumbnailEndpoints:
             mock_session_instance.execute = AsyncMock(return_value=mock_result)
 
             mock_resource_service = MagicMock()
-            mock_resource_service._get_thumbnail_source_url.return_value = None
+            mock_resource_service.resolve_thumbnail_source_url.return_value = (
+                "https://example.com/missing-thumbnail.jpg"
+            )
+            mock_resource_service.current_thumbnail_hash_for_source_sync.return_value = None
+            mock_resource_service.thumbnail_image_hash_for_source_sync.return_value = (
+                _remote_thumbnail_image_hash("https://example.com/missing-thumbnail.jpg")
+            )
+            mock_resource_service.get_cached_image = AsyncMock(return_value=None)
+            mock_resource_service._standardize_iiif_url.side_effect = lambda url: url
+            mock_resource_service._is_cog_url.return_value = False
+            mock_resource_service._is_pmtiles_url.return_value = False
+            mock_resource_service._is_manifest_url.return_value = False
             mock_resource_service_class.return_value = mock_resource_service
 
             response = client.get(f"/thumbnails/{resource_id}")
@@ -403,7 +367,9 @@ class TestThumbnailEndpoints:
 
             mock_resource_service = MagicMock()
             mock_resource_service.get_cached_image = AsyncMock(return_value=test_image_data)
-            mock_resource_service._get_thumbnail_source_url.return_value = None
+            mock_resource_service.resolve_thumbnail_source_url.return_value = asset_url
+            mock_resource_service.current_thumbnail_hash_for_source_sync.return_value = None
+            mock_resource_service.thumbnail_image_hash_for_source_sync.return_value = image_hash
             mock_resource_service._standardize_iiif_url.side_effect = lambda url: url
             mock_resource_service._is_cog_url.return_value = False
             mock_resource_service._is_pmtiles_url.return_value = False
@@ -414,9 +380,11 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
-            mock_probe.assert_awaited_once_with(asset_url)
+            mock_probe.assert_not_awaited()
             mock_resource_service.get_cached_image.assert_awaited_once_with(image_hash)
-            mock_resource_service._get_thumbnail_source_url.assert_called_once_with()
+            mock_resource_service.resolve_thumbnail_source_url.assert_called_with(
+                thumbnail_asset_url=asset_url
+            )
 
     def test_get_thumbnail_service_error(self, client):
         """Test thumbnail retrieval with service error."""

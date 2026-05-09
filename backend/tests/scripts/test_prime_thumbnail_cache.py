@@ -21,6 +21,7 @@ async def test_prime_thumbnail_no_source_records_placeheld():
     ):
         service = MagicMock()
         service._get_thumbnail_source_url.return_value = None
+        service.resolve_thumbnail_source_url.return_value = None
         mock_service_cls.return_value = service
 
         result = await prime_thumbnail_cache._prime_thumbnail_for_resource(resource, force=False)
@@ -45,6 +46,7 @@ async def test_prime_thumbnail_cached_remote_records_success():
     ):
         service = MagicMock()
         service._get_thumbnail_source_url.return_value = source_url
+        service.resolve_thumbnail_source_url.return_value = source_url
         service._is_cog_url.return_value = False
         service._is_pmtiles_url.return_value = False
         service._is_manifest_url.return_value = False
@@ -62,8 +64,50 @@ async def test_prime_thumbnail_cached_remote_records_success():
 
         assert result == ("cached", "resource-cached", "thumbnail already cached")
         payload = mock_state.await_args.args[0]
-        assert payload.state == "success"
-        assert payload.source_hash == "abc123"
+    assert payload.state == "success"
+    assert payload.source_hash == "abc123"
+
+
+@pytest.mark.asyncio
+async def test_prime_thumbnail_uses_bridge_asset_when_no_intrinsic_source():
+    resource = {"id": "resource-bridge", "dct_accessrights_s": "Public"}
+    asset_url = "https://assets.example.edu/thumb.png"
+
+    with (
+        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
+        patch.object(
+            prime_thumbnail_cache, "_get_thumbnail_asset_url", AsyncMock(return_value=asset_url)
+        ),
+        patch.object(
+            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
+        ) as mock_state,
+        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
+        patch.object(
+            prime_thumbnail_cache,
+            "_compute_thumbnail_image_hash",
+            return_value="abc123",
+        ),
+        patch.object(
+            prime_thumbnail_cache,
+            "_prime_remote_thumbnail",
+            return_value=("generated", "remote"),
+        ),
+    ):
+        service = MagicMock()
+        service.resolve_thumbnail_source_url.return_value = asset_url
+        service._is_cog_url.return_value = False
+        service._is_pmtiles_url.return_value = False
+        service._is_manifest_url.return_value = False
+        service.get_cached_image = AsyncMock(return_value=None)
+        mock_service_cls.return_value = service
+
+        result = await prime_thumbnail_cache._prime_thumbnail_for_resource(resource, force=False)
+
+    assert result == ("generated", "resource-bridge", "remote")
+    payload = mock_state.await_args.args[0]
+    assert payload.state == "success"
+    assert payload.source_url == asset_url
+    assert payload.source_hash == "abc123"
 
 
 @pytest.mark.asyncio
@@ -90,6 +134,7 @@ async def test_prime_thumbnail_deprioritized_remote_provider_skips_without_state
     ):
         service = MagicMock()
         service._get_thumbnail_source_url.return_value = source_url
+        service.resolve_thumbnail_source_url.return_value = source_url
         service._is_cog_url.return_value = False
         service._is_pmtiles_url.return_value = False
         service._is_manifest_url.return_value = False
@@ -125,6 +170,7 @@ async def test_prime_thumbnail_resume_rechecks_prior_success_and_rehydrates_cach
     ):
         service = MagicMock()
         service._get_thumbnail_source_url.return_value = source_url
+        service.resolve_thumbnail_source_url.return_value = source_url
         service._is_cog_url.return_value = False
         service._is_pmtiles_url.return_value = False
         service._is_manifest_url.return_value = False
@@ -169,6 +215,7 @@ async def test_prime_thumbnail_retry_failures_allows_work():
     ):
         service = MagicMock()
         service._get_thumbnail_source_url.return_value = source_url
+        service.resolve_thumbnail_source_url.return_value = source_url
         service._is_cog_url.return_value = False
         service._is_pmtiles_url.return_value = False
         service._is_manifest_url.return_value = False

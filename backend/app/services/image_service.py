@@ -371,6 +371,76 @@ class ImageService:
             return url.strip()
         return None
 
+    def _clean_external_thumbnail_url(self, url: Optional[str]) -> Optional[str]:
+        if not isinstance(url, str):
+            return None
+        cleaned = url.strip()
+        if cleaned.startswith(("http://", "https://")):
+            return cleaned
+        return None
+
+    def resolve_thumbnail_source_url(
+        self,
+        *,
+        thumbnail_asset_url: Optional[str] = None,
+    ) -> Optional[str]:
+        """
+        Return the preferred thumbnail source URL for this resource.
+
+        Intrinsic metadata/distribution sources win. Bridge thumbnail assets are
+        a fallback source for resources that do not expose a stronger IIIF,
+        direct-image, service, COG, PMTiles, or schema.org image source.
+        """
+        source_url = self._get_thumbnail_source_url()
+        if source_url:
+            return source_url
+        return self._clean_external_thumbnail_url(thumbnail_asset_url)
+
+    def thumbnail_image_hash_for_source_sync(
+        self,
+        source_url: str,
+        *,
+        resolve_manifest: bool = False,
+    ) -> Optional[str]:
+        """Return the immutable thumbnail hash implied by a preferred source URL."""
+        if not source_url:
+            return None
+
+        try:
+            if self._is_cog_url(source_url):
+                return hashlib.sha256((COG_THUMBNAIL_PREFIX + source_url).encode()).hexdigest()
+            if self._is_pmtiles_url(source_url):
+                return hashlib.sha256((PMTILES_THUMBNAIL_PREFIX + source_url).encode()).hexdigest()
+            if self._is_manifest_url(source_url):
+                manifest_cache_key = f"manifest:{source_url}"
+                cached_manifest_data = self.cache.get(manifest_cache_key)
+                if cached_manifest_data:
+                    manifest_json = json.loads(cached_manifest_data)
+                    resolved_url = self._extract_thumbnail_from_manifest_json(
+                        manifest_json, source_url
+                    )
+                    if resolved_url:
+                        standardized_url = self._standardize_iiif_url(resolved_url)
+                        return hashlib.sha256(
+                            (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
+                        ).hexdigest()
+
+                if resolve_manifest:
+                    from app.tasks.worker import _resolve_image_url
+
+                    resolved_url = _resolve_image_url(source_url)
+                    if resolved_url and resolved_url != source_url:
+                        return hashlib.sha256(
+                            (REMOTE_THUMBNAIL_PREFIX + resolved_url).encode()
+                        ).hexdigest()
+                return None
+
+            standardized_url = self._standardize_iiif_url(source_url)
+            return hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()).hexdigest()
+        except Exception as e:
+            self.logger.debug("Error resolving thumbnail hash for %s: %s", source_url, e)
+            return None
+
     def _current_thumbnail_hash_sync(
         self,
         doc_id: str,
@@ -438,14 +508,36 @@ class ImageService:
         doc_id = self.metadata.get("id")
         if not doc_id:
             return None
-        source_url = self._get_thumbnail_source_url()
+        source_url = self.resolve_thumbnail_source_url()
+        return self._current_thumbnail_hash_sync(doc_id, source_url=source_url)
+
+    def current_thumbnail_hash_for_source_sync(
+        self,
+        source_url: Optional[str],
+    ) -> Optional[str]:
+        """Return the hot immutable hash for a specific current source URL."""
+        doc_id = self.metadata.get("id")
+        if not doc_id:
+            return None
+        return self._current_thumbnail_hash_sync(doc_id, source_url=source_url)
+
+    def current_thumbnail_hash_with_asset_sync(
+        self,
+        *,
+        thumbnail_asset_url: Optional[str] = None,
+    ) -> Optional[str]:
+        """Return a hot hash, allowing Bridge thumbnail assets as a fallback source."""
+        doc_id = self.metadata.get("id")
+        if not doc_id:
+            return None
+        source_url = self.resolve_thumbnail_source_url(thumbnail_asset_url=thumbnail_asset_url)
         return self._current_thumbnail_hash_sync(doc_id, source_url=source_url)
 
     async def current_thumbnail_hash(self) -> Optional[str]:
         """Async wrapper for current_thumbnail_hash_sync."""
         return await asyncio.to_thread(self.current_thumbnail_hash_sync)
 
-    def get_thumbnail_url(self) -> Optional[str]:
+    def get_thumbnail_url(self, *, thumbnail_asset_url: Optional[str] = None) -> Optional[str]:
         """
         Get the thumbnail URL for a resource.
         Returns the resource thumbnail endpoint only when the resource has a real
@@ -465,8 +557,8 @@ class ImageService:
                 return None
 
             api_base_url = self._api_v1_base_url()
-            source_url = self._get_thumbnail_source_url()
-            image_hash = self.current_thumbnail_hash_sync()
+            source_url = self.resolve_thumbnail_source_url(thumbnail_asset_url=thumbnail_asset_url)
+            image_hash = self.current_thumbnail_hash_for_source_sync(source_url)
             if image_hash:
                 return f"{api_base_url}/thumbnails/{image_hash}"
 
@@ -480,7 +572,11 @@ class ImageService:
             logger.error(f"Error getting thumbnail URL: {str(e)}")
             return None
 
-    def get_hot_thumbnail_url(self) -> Optional[str]:
+    def get_hot_thumbnail_url(
+        self,
+        *,
+        thumbnail_asset_url: Optional[str] = None,
+    ) -> Optional[str]:
         """
         Return only a hot immutable thumbnail asset URL.
 
@@ -497,7 +593,9 @@ class ImageService:
                 return None
 
             api_base_url = self._api_v1_base_url()
-            image_hash = self.current_thumbnail_hash_sync()
+            image_hash = self.current_thumbnail_hash_with_asset_sync(
+                thumbnail_asset_url=thumbnail_asset_url
+            )
             return f"{api_base_url}/thumbnails/{image_hash}" if image_hash else None
         except Exception as e:
             logger.error(f"Error getting hot thumbnail URL: {str(e)}")
@@ -516,34 +614,7 @@ class ImageService:
     def _candidate_cached_thumbnail_hash_sync(self, source_url: str) -> Optional[str]:
         """Return the immutable thumbnail hash for a cached source URL, if known."""
         try:
-            image_hash = None
-
-            if self._is_cog_url(source_url):
-                image_hash = hashlib.sha256(
-                    (COG_THUMBNAIL_PREFIX + source_url).encode()
-                ).hexdigest()
-            elif self._is_pmtiles_url(source_url):
-                image_hash = hashlib.sha256(
-                    (PMTILES_THUMBNAIL_PREFIX + source_url).encode()
-                ).hexdigest()
-            elif self._is_manifest_url(source_url):
-                manifest_cache_key = f"manifest:{source_url}"
-                cached_manifest_data = self.cache.get(manifest_cache_key)
-                if cached_manifest_data:
-                    manifest_json = json.loads(cached_manifest_data)
-                    resolved_url = self._extract_thumbnail_from_manifest_json(
-                        manifest_json, source_url
-                    )
-                    if resolved_url:
-                        standardized_url = self._standardize_iiif_url(resolved_url)
-                        image_hash = hashlib.sha256(
-                            (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
-                        ).hexdigest()
-            else:
-                standardized_url = self._standardize_iiif_url(source_url)
-                image_hash = hashlib.sha256(
-                    (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
-                ).hexdigest()
+            image_hash = self.thumbnail_image_hash_for_source_sync(source_url)
 
             if image_hash and self.has_cached_image_sync(image_hash):
                 return image_hash

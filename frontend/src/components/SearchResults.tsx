@@ -132,7 +132,7 @@ export function SearchResults({
                 {(() => {
                   const primaryImageUrl = getResultPrimaryImageUrl(
                     result,
-                    'list'
+                    searchView
                   );
                   const hasThumbnail = !imageErrors.has(result.id);
 

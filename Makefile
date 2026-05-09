@@ -1,4 +1,4 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache thumbnail-completeness-report prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-thumbnail-completeness-report kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity
 
 # Load environment variables from .env file if it exists
@@ -424,6 +424,16 @@ clear-thumbnail-cache: ## Clear thumbnail cache for RESOURCE_ID
 		exit 1; \
 	fi
 	@$(DOCKER_COMPOSE) exec -T api bash -lc 'cd /app/backend && python scripts/clear_thumbnail_cache.py "$(RESOURCE_ID)"'
+
+thumbnail-completeness-report: wait-local-db resource-aux-init ## Report thumbnail completeness (THUMBNAIL_REPORT_SCOPE/FORMAT)
+	@$(DOCKER_COMPOSE) exec -T api bash -lc '\
+		cd /app/backend; \
+		ARGS=(); \
+		if [ -n "$(THUMBNAIL_REPORT_SCOPE)" ]; then ARGS+=("--scope" "$(THUMBNAIL_REPORT_SCOPE)"); fi; \
+		if [ -n "$(THUMBNAIL_REPORT_FORMAT)" ]; then ARGS+=("--format" "$(THUMBNAIL_REPORT_FORMAT)"); fi; \
+		if [ -n "$(THUMBNAIL_REPORT_SHOW_MISSING)" ]; then ARGS+=("--show-missing" "$(THUMBNAIL_REPORT_SHOW_MISSING)"); fi; \
+		if [ -n "$(THUMBNAIL_REPORT_FAIL_UNDER)" ]; then ARGS+=("--fail-under" "$(THUMBNAIL_REPORT_FAIL_UNDER)"); fi; \
+		python scripts/report_thumbnail_completeness.py "$${ARGS[@]}"'
 
 # Wait until local ParadeDB accepts SQL against the app database.
 wait-local-db: ## Wait for local ParadeDB to accept SQL
@@ -990,6 +1000,7 @@ resource-aux-init: ## Ensure resource auxiliary tables exist
 	@echo "Ensuring resource auxiliary tables exist..."
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_resource_aux_tables.py'
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_visual_assets_table.py'
+	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_resource_thumbnail_state_table.py'
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_resource_representations_table.py'
 	@docker compose exec -T api bash -lc 'cd /app/backend && python db/migrations/create_generated_api_responses_table.py'
 
@@ -1705,6 +1716,21 @@ kamal-prime-resource-cache: ## Prime shared API resource representation cache on
 	if [ -n "$(PRIME_RESOURCE_CONCURRENCY)" ]; then ARGS="$$ARGS --concurrency $(PRIME_RESOURCE_CONCURRENCY)"; fi; \
 	case "$(PRIME_FORCE)" in 1|true|TRUE|yes|YES) ARGS="$$ARGS --force" ;; esac; \
 	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/prime_resource_representation_cache.py $$ARGS $(RESOURCE_IDS)'"
+
+kamal-thumbnail-completeness-report: ## Report thumbnail completeness on Kamal
+	@echo "Reporting thumbnail completeness on Kamal (dest: $(KAMAL_DEST), role: $(KAMAL_APP_ROLE))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) db/migrations/create_generated_visual_assets_table.py && $(KAMAL_PYTHON) db/migrations/create_resource_thumbnail_state_table.py'"
+	@ARGS=""; \
+	if [ -n "$(THUMBNAIL_REPORT_SCOPE)" ]; then ARGS="$$ARGS --scope $(THUMBNAIL_REPORT_SCOPE)"; fi; \
+	if [ -n "$(THUMBNAIL_REPORT_FORMAT)" ]; then ARGS="$$ARGS --format $(THUMBNAIL_REPORT_FORMAT)"; fi; \
+	if [ -n "$(THUMBNAIL_REPORT_SHOW_MISSING)" ]; then ARGS="$$ARGS --show-missing $(THUMBNAIL_REPORT_SHOW_MISSING)"; fi; \
+	if [ -n "$(THUMBNAIL_REPORT_FAIL_UNDER)" ]; then ARGS="$$ARGS --fail-under $(THUMBNAIL_REPORT_FAIL_UNDER)"; fi; \
+	kamal app exec -d $(KAMAL_DEST) -i --roles $(KAMAL_APP_ROLE) "bash -lc 'cd /app/backend && $(KAMAL_PYTHON) scripts/report_thumbnail_completeness.py $$ARGS'"
 
 kamal-api-response-cache-init: ## Ensure durable generated API response cache tables on Kamal
 	@echo "Ensuring durable generated API response cache tables on Kamal (dest: $(KAMAL_DEST))..."
