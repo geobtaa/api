@@ -246,7 +246,8 @@ Rate limiting for the public API is enforced by middleware backed by Redis:
   - `analytics_daily_api_usage_metrics`, `analytics_daily_search_metrics`, `analytics_daily_resource_metrics` – compact daily rollups
   - `analytics_maintenance_state` – rollup checkpoint state
 
-- Runtime configuration is controlled via environment variables (see also `README.md`):
+- Runtime configuration is controlled via environment variables (see also
+  [../development.md](../development.md)):
 
   ```bash
   RATE_LIMIT_ENABLED=true

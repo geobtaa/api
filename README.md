@@ -1,158 +1,71 @@
 # BTAA Geospatial API
 
-This project powers a Big Ten Academic Alliance geospatial catalog. If you're a librarian or non-technical user, the goal here is simple:
+This repository is the application platform for the Big Ten Academic Alliance
+geospatial discovery experience. It brings together a public search interface,
+a standards-oriented API, catalog metadata pipelines, generated map and
+thumbnail assets, analytics, MCP access, and client tools for people working
+with geospatial library collections.
 
-- Start the project on your computer
-- Open the website in your browser
-- Search and view records
+The work here is centered on a simple idea: make consortium-scale geospatial
+metadata easier to discover, reuse, preserve, and connect to other research and
+library systems. The website is one expression of that work, but the repository
+also supports API consumers, GIS users, campus integrations, operational
+workflows, and future agent-facing discovery tools.
 
-You do **not** need to know Python, databases, or Docker internals to use it.
+## What This System Does
 
-## What you get
+- Serves a public Geoportal web application for searching and viewing BTAA
+  geospatial resources.
+- Exposes resource, search, facet, map, citation, download, metadata, analytics,
+  and administration APIs.
+- Stores canonical resource records in Postgres/ParadeDB and indexes discovery
+  documents into Elasticsearch.
+- Harvests and normalizes metadata from OpenGeoMetadata, legacy GBL Admin data,
+  bridge services, fixtures, and related upstream systems.
+- Generates and caches thumbnails, static maps, icons, resource representations,
+  and API responses so discovery stays fast.
+- Provides MCP bridge support so search and resource retrieval can be used from
+  Claude Desktop and other Model Context Protocol clients.
+- Includes a QGIS plugin and command-line client for users who want access
+  outside the browser.
 
-- **The website (frontend)**: where you browse and search (runs at `http://localhost:3000`)
-- **The API (backend)**: the "data service" the website talks to (runs at `http://localhost:8000`)
-- **The QGIS plugin**: a desktop tool to search the catalog and load spatial datasets directly within QGIS
+## Repository Map
 
-## Quick start (Docker - recommended)
+- `backend/`: FastAPI application, service layer, database models, migrations,
+  Celery tasks, ingest/index scripts, fixtures, and backend tests.
+- `frontend/`: React/TypeScript Geoportal interface, Vite/React Router app
+  code, frontend tests, and browser-facing assets.
+- `cli/`: Python command-line client for searching the API, reading schemas,
+  and fetching resource records.
+- `qgis-plugin/`: QGIS desktop plugin for searching the catalog and loading
+  spatial resources into a map canvas.
+- `mcp/`: Local MCP stdio, HTTP, and WebSocket bridge helpers plus desktop client
+  configuration templates.
+- `docs/`: Internal development, architecture, operations, testing, deployment,
+  and runbook documentation.
+- `mkdocs/`: Public documentation site for API specifications, linked data,
+  tutorials, and external-facing reference material.
+- `config/`: Deployment and runtime configuration, including Kamal and cron
+  assets.
+- `performance/`: k6 and related performance testing assets.
+- `scripts/`: Repository-level utility scripts.
+- `data/`: Local data volumes and development data artifacts.
+- `docker-compose.yml`: Local application stack for the API, frontend dev
+  server, Postgres/ParadeDB, Elasticsearch, Redis, Celery, and Flower.
+- `Makefile`: Main developer/operator entry point for linting, tests, ingest,
+  reindexing, cache work, docs, and deployment-support tasks.
 
-This is the easiest way to run the project. All dependencies are handled automatically.
+## Documentation
 
-### Prerequisites
+Setup, development, and operations notes live in `docs/`:
 
-1. Install **Docker Desktop** for your operating system and make sure it's running.
-2. Make a local settings file:
+- Local setup and development: [docs/development.md](docs/development.md)
+- Codebase overview: [docs/backend/codebase_overview.md](docs/backend/codebase_overview.md)
+- Backend testing: [docs/backend/testing.md](docs/backend/testing.md)
+- Frontend docs: [docs/frontend/README.md](docs/frontend/README.md)
+- Make tasks: [docs/make_tasks.md](docs/make_tasks.md)
+- OpenGeoMetadata harvesting: [docs/backend/ogm_harvesting.md](docs/backend/ogm_harvesting.md)
+- MCP / Claude Desktop: [docs/mcp/README.md](docs/mcp/README.md)
+- QGIS plugin testing: [qgis-plugin/docs/testing.md](qgis-plugin/docs/testing.md)
 
-```bash
-cp .env.example .env
-```
-
-If you already have a `.env`, you can keep using it.
-
-### Start the project
-
-This starts the full stack (API + website + database services):
-
-```bash
-docker compose up -d
-```
-
-Then open:
-
-- **Website**: `http://localhost:3000`
-- **API docs (for technical staff)**: `http://localhost:8000/api/docs`
-
-To stop everything later:
-
-```bash
-docker compose down
-```
-
-### Frontend development mode (`frontend-dev`)
-
-If you are actively changing the website code, use `frontend-dev`. It updates instantly as files change.
-
-Important: `frontend-dev` uses **the same port (3000)** as the normal website container, so you can run **one or the other**.
-
-```bash
-# Start backend services
-docker compose up -d api paradedb elasticsearch redis celery_worker flower
-
-# Stop the normal website container (port 3000)
-docker compose stop frontend
-
-# Start the dev website (profile "dev")
-docker compose --profile dev up -d frontend-dev
-```
-
-## Local development setup (for developers)
-
-If you're developing the code locally (not using Docker), you'll need to install prerequisites and set up dependencies manually.
-
-### Prerequisites
-
-- **Node.js 20** or later
-- **Python 3.11** or later
-- **UV** (Python package manager) - install from https://github.com/astral-sh/uv
-
-### Setup
-
-1. Make a local settings file:
-
-```bash
-cp .env.example .env
-```
-
-2. Install backend dependencies:
-
-```bash
-cd backend
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-uv pip install -e '.[dev]'
-```
-
-This installs the package in editable mode with development dependencies.
-
-3. Install frontend dependencies:
-
-```bash
-cd ../frontend
-npm install
-```
-
-4. Set up services:
-
-You'll need to set up the database, Elasticsearch, Redis, and other services. You can use Docker Compose for just the services:
-
-```bash
-docker compose up -d paradedb elasticsearch redis celery_worker flower
-```
-
-Or consult the documentation in `docs/` for manual setup details.
-
-## Troubleshooting (quick)
-
-- **The website won't load**: wait ~60–120 seconds after `docker compose up -d` (databases need time to start, and Redis may need extra time to replay its local append-only cache)
-- **Docker Desktop says `redis` is unhealthy right after start**: that usually means Redis is still replaying persisted local cache data. Wait a minute, then run `docker compose up -d` again.
-- **Port 3000 is busy**: stop whichever frontend container is running: `docker compose stop frontend frontend-dev`
-- **Start fresh** (wipes local containers; keeps your project files):
-
-```bash
-docker compose down
-docker compose up -d
-```
-
-## QGIS Plugin
-
-In addition to the website and API, this repository contains a **QGIS Plugin** that connects to the Geoportal API. It allows users to search the catalog and load spatial data directly into their map canvas.
-
-- **Source code**: Located in the `qgis-plugin/` directory.
-- **Testing & Development**: See `qgis-plugin/docs/testing.md` for instructions on running tests and linting.
-
-## Claude Desktop / MCP
-
-This repository now includes the same MCP bridge layer that existed in the older `ogm-api` project:
-
-- `mcp/run_mcp_service.py` runs the stdio MCP server from the repo root
-- `mcp/mcp_http_bridge.js` forwards stdio MCP traffic to `POST /api/v1/mcp`
-- `mcp/mcp_websocket_bridge.js` forwards stdio MCP traffic to `/api/v1/mcp/ws`
-- `mcp/run_mcp_websocket_bridge.py` launches the WebSocket bridge with Node 18+ automatically
-- `mcp/claude_mcp_config.json` is a Claude Desktop template (`cwd` = your clone root; see `docs/mcp/`)
-
-More detail is in `docs/mcp/README.md` and `docs/mcp/claude_desktop.md`.
-
-## Documentation (for staff who want details)
-
-All documentation is now in the top-level `docs/` folder:
-
-- **Codebase overview / executive architecture summary**: `docs/backend/codebase_overview.md`
-- **Caching**: `docs/backend/caching.md`
-- **Search**: `docs/backend/search.md`
-- **Service tiers / API keys / rate limiting**: `docs/backend/service_tiers_runbook.md`
-- **Scripts (Python utilities)**: `docs/backend/scripts.md`
-- **MCP / Claude Desktop**: `docs/mcp/`
-- **Frontend docs**: `docs/frontend/`
-- **QGIS plugin docs**: `qgis-plugin/docs/`
-- **Developer Make tasks**: `docs/make_tasks.md`
-- **Old prod migration runbook (GBL Admin -> API -> reindex)**: `docs/make_tasks.md` (section: "GBL Admin migration runbook (old prod -> reindex)")
+The public documentation site is maintained separately under `mkdocs/`.

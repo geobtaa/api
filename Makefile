@@ -1800,10 +1800,10 @@ kamal-refresh-resource-caches: ## Purge and rehydrate selected resource/API cach
 
 # Frontend (Docker dev): clear Vite cache and restart dev server.
 # Use after changing optimizeDeps or when seeing "Failed to fetch dynamically imported module".
-frontend-reset: ## Clear Vite cache and restart frontend-dev
-	@echo "Clearing Vite cache in frontend-dev and restarting..."
-	@docker compose exec -T frontend-dev rm -rf /app/node_modules/.vite 2>/dev/null || true
-	@docker compose restart frontend-dev
+frontend-reset: ## Clear Vite cache and restart frontend
+	@echo "Clearing Vite cache in frontend and restarting..."
+	@docker compose exec -T frontend rm -rf /app/node_modules/.vite 2>/dev/null || true
+	@docker compose restart frontend
 	@echo "Frontend dev server restarted."
 
 # Cache management

@@ -81,4 +81,4 @@ For questions about testing or development:
 1. Check the [Testing Guide](testing.md) for detailed information
 2. Use the [Testing Quick Reference](testing-quick-reference.md) for common patterns
 3. Review existing test files for examples
-4. Check the main project README for general setup instructions
+4. Check [../development.md](../development.md) for general setup instructions

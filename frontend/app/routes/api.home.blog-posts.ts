@@ -38,7 +38,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
     if (!headers.get("content-type")) {
       headers.set("content-type", "application/json");
     }
-    // This proxy route is primarily a local frontend-dev fallback.
+    // This proxy route is primarily a local frontend fallback.
     // Avoid letting it become an extra shared-cache layer that can drift
     // from the canonical same-origin API route.
     headers.set("cache-control", "no-store");

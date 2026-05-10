@@ -835,7 +835,7 @@ export async function fetchHomeBlogPosts(params?: {
       ? Array.from(
           new Set([
             '/api/v1/home/blog-posts', // Same-origin API path when app served from API host
-            '/home/blog-posts', // SSR proxy route fallback (frontend-dev :3000)
+            '/home/blog-posts', // SSR proxy route fallback (frontend :3000)
             apiBase, // Absolute/configured API base fallback (e.g. localhost:8000)
           ])
         )

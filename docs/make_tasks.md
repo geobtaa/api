@@ -2,7 +2,8 @@
 
 This project uses a `Makefile` to wrap common developer/ops tasks.
 
-> If you’re not a developer: you can ignore this file. The main `README.md` is written for non-technical users.
+> If you’re not a developer: you can ignore this file. Local setup notes are in
+> [development.md](development.md).
 
 ## Code quality
 
@@ -107,7 +108,7 @@ Analytics storage knobs live in `.env` / deploy env vars:
 
 ## Frontend (Docker)
 
-- `make frontend-reset`: clear Vite cache in `frontend-dev` and restart the dev server. Use after changing `optimizeDeps` or when seeing "Failed to fetch dynamically imported module" or 504 "Outdated Optimize Dep". **After running it, do a hard refresh** (Ctrl+Shift+R or Cmd+Shift+R) or open the app in an incognito window—otherwise the browser may keep requesting old chunk URLs and still get 504s.
+- `make frontend-reset`: clear Vite cache in `frontend` and restart the dev server. Use after changing `optimizeDeps` or when seeing "Failed to fetch dynamically imported module" or 504 "Outdated Optimize Dep". **After running it, do a hard refresh** (Ctrl+Shift+R or Cmd+Shift+R) or open the app in an incognito window—otherwise the browser may keep requesting old chunk URLs and still get 504s.
 - `make db-export`: export local DB → `tmp/btaa_geospatial_api_export.sql.gz`, and also build the `db-sync` import archive used by `db-import`
 - `make db-import`: import the `db-sync` archive to remote via Kamal. By default this preserves destination-local tables listed in `DB_SYNC_PRESERVE_TABLES` (`api_service_tiers`, `api_keys`, `analytics_api_usage_logs`, `analytics_searches`, `analytics_search_impressions`, `analytics_events`) and their owned sequences listed in `DB_SYNC_PRESERVE_SEQUENCES`. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. To force a full overwrite, run `make db-export DB_SYNC_PRESERVE_LOCAL_TABLES=false` and then `make db-import DB_SYNC_PRESERVE_LOCAL_TABLES=false ...`.
 - `make db-sync`: `db-export` + `db-import` with destination-local table preservation enabled by default

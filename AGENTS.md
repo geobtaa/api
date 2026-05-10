@@ -40,7 +40,7 @@ Frontend lint/format config: `frontend/eslint.config.js`, Prettier defaults. See
 | Service         | Container name                    | Purpose                          |
 |----------------|------------------------------------|----------------------------------|
 | `api`          | btaa-geospatial-api-app           | FastAPI app (port 8000)          |
-| `frontend-dev` | btaa-geospatial-api-frontend-dev  | Vite dev server (port 3000)      |
+| `frontend`     | btaa-geospatial-api-frontend      | Vite dev server (port 3000)      |
 | `elasticsearch`| btaa-geospatial-api-elasticsearch | Elasticsearch 9 (port 9200)      |
 | `paradedb`     | btaa-geospatial-api-paradedb      | PostgreSQL (ParadeDB)             |
 | `redis`        | btaa-geospatial-api-redis         | Redis (cache + Celery broker)    |
@@ -70,7 +70,7 @@ Or rebuild and start in one step:
 docker compose up -d --build api
 ```
 
-Examples: `api`, `frontend-dev`, `celery_worker`, `flower` (all use the project Dockerfile where applicable). `elasticsearch`, `paradedb`, `redis` are image-based and usually don’t need a local rebuild.
+Examples: `api`, `frontend`, `celery_worker`, `flower` (all use the project Dockerfile where applicable). `elasticsearch`, `paradedb`, `redis` are image-based and usually don’t need a local rebuild.
 
 ### Restart a single service
 
@@ -79,10 +79,10 @@ Restart without rebuilding (e.g. after code or env changes that are mounted):
 ```bash
 docker compose restart api
 docker compose restart celery_worker
-docker compose restart frontend-dev
+docker compose restart frontend
 ```
 
-After changing frontend deps or Vite config, use `make frontend-reset` to clear the Vite cache and restart `frontend-dev`; then hard-refresh the browser.
+After changing frontend deps or Vite config, use `make frontend-reset` to clear the Vite cache and restart `frontend`; then hard-refresh the browser.
 
 ---
 
@@ -111,7 +111,7 @@ Run from the **project root**. Key targets:
 | `make resource-aux-init` | Ensure `resource_downloads`, `resource_licensed_accesses`, and `resource_assets` tables exist. |
 | `make bridge-sync`     | Trigger bridge sync; supports `RESOURCE_ID=...` / `BRIDGE_RESOURCE_ID=...` for one-record syncs. |
 | `make populate-distributions` | Rebuild legacy references, distributions, downloads, and assets; supports `RESOURCE_ID=...` / `GBL_ADMIN_RESOURCE_ID=...`. |
-| `make frontend-reset`  | Clear Vite cache and restart frontend-dev. |
+| `make frontend-reset`  | Clear Vite cache and restart frontend. |
 | `make db-export`       | Export ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz` and build the `db-sync` import archive. |
 | `make db-import`       | Import the `db-sync` archive to remote (Kamal). By default, preserves destination-local `api_service_tiers`, `api_keys`, `analytics_api_usage_logs`, `analytics_searches`, `analytics_search_impressions`, and `analytics_events`, plus their owned `*_id_seq` sequences. Use `KAMAL_DEST=<destination>` such as `dev1`, `dev2`, or `prd` to target a server. |
 | `make db-sync`         | `db-export` then `db-import`, preserving destination-local API tables and owned sequences by default. |
