@@ -17,6 +17,10 @@ DEFAULT_PROTECTED_PATHS = (
 LOCAL_DEV_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 LOCAL_APP_ENV_VALUES = {"development", "dev", "local", "test"}
 API_CLIENT_CHANNELS = {"cli", "desktop", "mcp", "server", "script"}
+API_CLIENT_USER_AGENT_PREFIXES = (
+    "BTAA-Geo-API-CLI/",
+    "BTAA-QGIS-Plugin/",
+)
 
 
 def _split_csv(value: str) -> list[str]:
@@ -50,7 +54,11 @@ def _is_frontend_gate_request(request: Request) -> bool:
 
 def _is_api_client_request(request: Request) -> bool:
     channel = request.headers.get("X-BTAA-Client-Channel", "").strip().lower()
-    return channel in API_CLIENT_CHANNELS
+    if channel in API_CLIENT_CHANNELS:
+        return True
+
+    user_agent = request.headers.get("User-Agent", "").strip()
+    return any(user_agent.startswith(prefix) for prefix in API_CLIENT_USER_AGENT_PREFIXES)
 
 
 def _local_turnstile_enabled() -> bool:

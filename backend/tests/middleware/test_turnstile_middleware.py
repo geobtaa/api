@@ -131,6 +131,40 @@ def test_turnstile_middleware_bypasses_cli_requests_without_api_key(monkeypatch)
     assert response.status_code == 200
 
 
+def test_turnstile_middleware_bypasses_cli_user_agent_without_api_key(monkeypatch):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+
+    async def session_invalid(self, request):
+        raise AssertionError("CLI user-agent requests should fall through to API rate limiting")
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app())
+    response = client.get(
+        "/api/v1/search",
+        headers={"User-Agent": "BTAA-Geo-API-CLI/0.1.0"},
+    )
+
+    assert response.status_code == 200
+
+
+def test_turnstile_middleware_bypasses_qgis_user_agent_without_api_key(monkeypatch):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+
+    async def session_invalid(self, request):
+        raise AssertionError("Desktop user-agent requests should fall through to API rate limiting")
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app())
+    response = client.get(
+        "/api/v1/search",
+        headers={"User-Agent": "BTAA-QGIS-Plugin/0.1.0"},
+    )
+
+    assert response.status_code == 200
+
+
 def test_turnstile_middleware_challenges_frontend_bff_even_with_api_key(monkeypatch):
     monkeypatch.setenv("TURNSTILE_ENABLED", "true")
 
