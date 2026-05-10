@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache thumbnail-completeness-report prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-thumbnail-completeness-report kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity cli-test cli-lint cli-format cli-build cli-man
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -715,6 +715,21 @@ test-pmtiles-network: ## Run PMTiles raster thumbnail integration test (network)
 
 # Run linting and then tests (for CI)
 lint-test: lint-check test ## Lint-check then test
+
+cli-test: ## Run the CLI test suite
+	$(MAKE) -C cli test
+
+cli-lint: ## Run CLI lint and format checks
+	$(MAKE) -C cli lint
+
+cli-format: ## Format CLI code
+	$(MAKE) -C cli format
+
+cli-build: ## Build the CLI package
+	$(MAKE) -C cli build
+
+cli-man: ## Generate CLI man pages
+	$(MAKE) -C cli man
 
 # Database export/import tasks
 # ─────────────────────────────────────────────────────────────────────────

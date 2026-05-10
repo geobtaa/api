@@ -16,6 +16,7 @@ DEFAULT_PROTECTED_PATHS = (
 )
 LOCAL_DEV_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 LOCAL_APP_ENV_VALUES = {"development", "dev", "local", "test"}
+API_CLIENT_CHANNELS = {"cli", "desktop", "mcp", "server", "script"}
 
 
 def _split_csv(value: str) -> list[str]:
@@ -45,6 +46,11 @@ def _is_frontend_gate_request(request: Request) -> bool:
     if request.headers.get("X-BTAA-Client-Channel", "").lower() == "browser":
         return True
     return bool(request.headers.get("X-Visit-Token"))
+
+
+def _is_api_client_request(request: Request) -> bool:
+    channel = request.headers.get("X-BTAA-Client-Channel", "").strip().lower()
+    return channel in API_CLIENT_CHANNELS
 
 
 def _local_turnstile_enabled() -> bool:
@@ -113,6 +119,9 @@ class TurnstileMiddleware(BaseHTTPMiddleware):
             return False
 
         if _has_api_key(request) and not _is_frontend_gate_request(request):
+            return False
+
+        if _is_api_client_request(request) and not _is_frontend_gate_request(request):
             return False
 
         return True

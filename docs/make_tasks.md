@@ -9,6 +9,8 @@ This project uses a `Makefile` to wrap common developer/ops tasks.
 - `make lint`: run Ruff lint on backend code
 - `make format`: format + auto-fix with Ruff
 - `make lint-check`: CI-style formatting + lint checks (no modifications)
+- `make cli-lint`: run CLI formatting and lint checks
+- `make cli-format`: format the CLI package
 
 ## Tests
 
@@ -17,6 +19,9 @@ This project uses a `Makefile` to wrap common developer/ops tasks.
 - `make test-fast`: fastest local tests (parallel, no coverage)
 - `make test-fresh-db`: drop/recreate `btaa_geospatial_api_test` (cloned from `btaa_geospatial_api`)
 - `make lint-test`: `lint-check` + `test`
+- `make cli-test`: run the full CLI pytest suite from `cli/`
+- `make cli-build`: build the CLI source and wheel distributions
+- `make cli-man`: generate CLI man page artifacts from `cli/docs/*.1.md`
 - `make k6-smoke`: run a one-iteration k6 smoke test against both the public frontend and the backend API. Defaults to `K6_BASE_URL=https://lib-btaageoapi-dev-app-01.oit.umn.edu`, auto-discovers a resource id from search results unless `K6_RESOURCE_ID` is provided, discovers live facet values from the same seed search, and writes `tmp/k6/smoke-summary.json`.
 - `make k6-stress`: run the concurrent k6 stress suite with separate frontend-page and direct-API scenarios. Defaults target `dev1`, ramp frontend traffic to `K6_FRONTEND_TARGET_VUS=4`, ramp API traffic to `K6_API_TARGET_VUS=8`, and write `tmp/k6/stress-summary.json`. The API side now includes direct faceted searches plus `/api/v1/search/facets/<facet_name>` calls, and the frontend side includes faceted `/search` page requests plus the hydrated `/search/results` JSON request through the keyed frontend BFF route. Useful overrides include `K6_QUERY`, `K6_QUERY_POOL` for varied real query terms, `K6_RESOURCE_ID`, `K6_API_KEY` for production-like rate-limited environments, `K6_ENABLE_FRONTEND=0`, `K6_ENABLE_API=0`, `K6_CACHE_BUST_SEARCH=1` for uncached search/facet miss-path runs, `K6_ENDPOINT_BREAKDOWN=1` for per-endpoint p95/p99 summary rows, `K6_FRONTEND_P95_THRESHOLD_MS` / `K6_API_P95_THRESHOLD_MS` for capacity hunts, plus `K6_FRONTEND_*` and `K6_API_*`.
 - `make k6-endpoint-capacity`: run one endpoint with k6's fixed `constant-arrival-rate` executor so p95 can be tied to an explicit request rate instead of a blended VU scenario. Defaults to `K6_ENDPOINT_TARGET=frontend_search_results_api`, `K6_REQUEST_RATE=50`, `K6_ENDPOINT_DURATION=3m`, and writes `tmp/k6/endpoint-capacity-summary.json`. Supported targets are `frontend_search_results_api`, `frontend_faceted_search_results_api`, `frontend_resource_page`, `api_search`, and `api_faceted_search`; tune with `K6_RATE_TIME_UNIT`, `K6_PRE_ALLOCATED_VUS`, `K6_MAX_VUS`, `K6_ENDPOINT_P95_THRESHOLD_MS`, and `K6_ENDPOINT_P99_THRESHOLD_MS`.
