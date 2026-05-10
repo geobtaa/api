@@ -25,7 +25,7 @@ btaa-geo-api get b1g_example --output json
 The CLI reads configuration from flags, environment variables, and its user config file.
 
 ```bash
-BTAA_GEO_API_BASE_URL=https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1
+BTAA_GEO_API_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1
 BTAA_GEO_API_KEY=your-key
 BTAA_GEO_API_ANALYTICS=0
 ```

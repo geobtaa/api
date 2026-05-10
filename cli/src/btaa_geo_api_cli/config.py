@@ -9,7 +9,7 @@ from typing import Any
 
 from platformdirs import user_config_dir
 
-DEFAULT_BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+DEFAULT_BASE_URL = "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
 APP_NAME = "btaa-geo-api-cli"
 
 

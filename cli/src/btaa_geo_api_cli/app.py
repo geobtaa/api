@@ -58,8 +58,9 @@ def main() -> None:
         typer.echo(f"API error: {exc}", err=True)
         if exc.error_code == "turnstile_required":
             typer.echo(
-                "This API endpoint requires either an API key or a local/dev server with "
-                "Turnstile disabled. Try setting BTAA_GEO_API_KEY or "
+                "This API endpoint requires either an API key, the production API, or a "
+                "local/dev server with Turnstile disabled. Try setting BTAA_GEO_API_KEY, "
+                "BTAA_GEO_API_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1, or "
                 "BTAA_GEO_API_BASE_URL=http://localhost:8000/api/v1.",
                 err=True,
             )
