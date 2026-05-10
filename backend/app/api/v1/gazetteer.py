@@ -437,9 +437,11 @@ async def search_wof(
             # Sort ancestors by placetype priority
             sorted_ancestors = sorted(
                 ancestors,
-                key=lambda a: hierarchy_placetypes.index(a.get("ancestor_placetype", ""))
-                if a.get("ancestor_placetype") in hierarchy_placetypes
-                else 999,
+                key=lambda a: (
+                    hierarchy_placetypes.index(a.get("ancestor_placetype", ""))
+                    if a.get("ancestor_placetype") in hierarchy_placetypes
+                    else 999
+                ),
             )
 
             for ancestor in sorted_ancestors:
