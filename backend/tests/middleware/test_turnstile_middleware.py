@@ -111,6 +111,26 @@ def test_turnstile_middleware_bypasses_api_key_requests(monkeypatch):
     assert response.status_code == 200
 
 
+def test_turnstile_middleware_bypasses_cli_requests_without_api_key(monkeypatch):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+
+    async def session_invalid(self, request):
+        raise AssertionError("CLI requests should fall through to API rate limiting")
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app())
+    response = client.get(
+        "/api/v1/search",
+        headers={
+            "X-BTAA-Client-Name": "btaa-geo-api-cli",
+            "X-BTAA-Client-Channel": "cli",
+        },
+    )
+
+    assert response.status_code == 200
+
+
 def test_turnstile_middleware_challenges_frontend_bff_even_with_api_key(monkeypatch):
     monkeypatch.setenv("TURNSTILE_ENABLED", "true")
 
