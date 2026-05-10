@@ -203,6 +203,44 @@ async def test_delete_durable_resource_representations_noops_when_disabled(monke
 
 
 @pytest.mark.asyncio
+async def test_delete_durable_resource_representations_chunks_large_id_lists(monkeypatch):
+    class FakeTransaction:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class FakeSession:
+        def __init__(self):
+            self.batches = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def begin(self):
+            return FakeTransaction()
+
+        async def execute(self, stmt):
+            params = stmt.compile().params
+            batch = next(value for value in params.values() if isinstance(value, list))
+            self.batches.append(batch)
+
+    fake_session = FakeSession()
+    monkeypatch.setattr(resource_cache, "RESOURCE_REPRESENTATION_DURABLE_STORE", "database")
+    monkeypatch.setattr(resource_cache, "RESOURCE_REPRESENTATION_DELETE_BATCH_SIZE", 2)
+    monkeypatch.setattr(resource_cache, "async_session_factory", lambda: fake_session)
+
+    result = await delete_durable_resource_representations(["r1", "r2", "r3"])
+
+    assert result is True
+    assert fake_session.batches == [["r1", "r2"], ["r3"]]
+
+
+@pytest.mark.asyncio
 async def test_delete_redis_resource_representations_deletes_known_profiles():
     cache_service = FakeCacheService()
     cache_service._redis_client = FakeRedis()

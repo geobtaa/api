@@ -31,6 +31,9 @@ RESOURCE_REPRESENTATION_DURABLE_STORE = os.getenv(
 RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE = int(
     os.getenv("RESOURCE_REPRESENTATION_BULK_STORE_BATCH_SIZE", "250")
 )
+RESOURCE_REPRESENTATION_DELETE_BATCH_SIZE = int(
+    os.getenv("RESOURCE_REPRESENTATION_DELETE_BATCH_SIZE", "10000")
+)
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +60,12 @@ def _chunk_dict(
     size = max(1, batch_size)
     for index in range(0, len(items), size):
         yield dict(items[index : index + size])
+
+
+def _chunk_list(values: list[str], batch_size: int) -> Iterable[list[str]]:
+    size = max(1, batch_size)
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
 
 
 def durable_resource_representations_enabled() -> bool:
@@ -304,21 +313,28 @@ async def delete_durable_resource_representations(
     if not durable_resource_representations_enabled():
         return False
 
-    stmt = delete(generated_resource_representations)
     ids = list(
         dict.fromkeys(str(resource_id) for resource_id in (resource_ids or []) if resource_id)
     )
-    if ids:
-        stmt = stmt.where(generated_resource_representations.c.resource_id.in_(ids))
-    if profile:
-        stmt = stmt.where(generated_resource_representations.c.profile == profile)
-    if version:
-        stmt = stmt.where(generated_resource_representations.c.version == version)
+
+    def delete_stmt(batch_ids: list[str] | None = None):
+        stmt = delete(generated_resource_representations)
+        if batch_ids:
+            stmt = stmt.where(generated_resource_representations.c.resource_id.in_(batch_ids))
+        if profile:
+            stmt = stmt.where(generated_resource_representations.c.profile == profile)
+        if version:
+            stmt = stmt.where(generated_resource_representations.c.version == version)
+        return stmt
 
     try:
         async with async_session_factory() as session:
             async with session.begin():
-                await session.execute(stmt)
+                if ids:
+                    for batch_ids in _chunk_list(ids, RESOURCE_REPRESENTATION_DELETE_BATCH_SIZE):
+                        await session.execute(delete_stmt(batch_ids))
+                else:
+                    await session.execute(delete_stmt())
         return True
     except Exception as exc:
         logger.warning("Failed to delete durable resource representations: %s", exc)
