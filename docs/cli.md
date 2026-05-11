@@ -6,6 +6,12 @@ The BTAA Geo API CLI provides terminal access to the same API contracts used by 
 btaa-geo-api
 ```
 
+The package also installs a shorter alias:
+
+```bash
+btaa
+```
+
 ## Development Install
 
 ```bash
@@ -41,6 +47,27 @@ JSON output:
 
 ```bash
 btaa-geo-api search "water" --output json
+```
+
+Stream every result page as JSON Lines:
+
+```bash
+btaa-geo-api search "water" --all --output jsonl
+btaa-geo-api search "water" --stream
+```
+
+Print IDs or one dotted field path for shell pipelines:
+
+```bash
+btaa-geo-api search "water" --ids-only
+btaa-geo-api search "water" --field attributes.ogm.dct_title_s
+```
+
+Read search input from stdin:
+
+```bash
+printf "water\n" | btaa-geo-api search - --ids-only
+cat places.txt | btaa-geo-api search --each --output jsonl
 ```
 
 Field-directed search:
@@ -95,6 +122,16 @@ btaa-geo-api facets dct_spatial_sm --q "water"
 btaa-geo-api facets schema_provider_s --include dct_accessRights_s=Public
 ```
 
+## Grep-Style Search
+
+`grep` is a Unix-friendly alias for resource discovery. It defaults to JSON Lines so it composes cleanly with `jq`, `xargs`, and other shell tools.
+
+```bash
+btaa-geo-api grep "railroad"
+btaa-geo-api grep "soil survey" --state Iowa
+btaa-geo-api grep "plat map" --ids-only | btaa-geo-api download --ids - --best --out ./data
+```
+
 ## Resources, Metadata, Citations, And Downloads
 
 ```bash
@@ -103,7 +140,58 @@ btaa-geo-api metadata RESOURCE_ID --format ogm
 btaa-geo-api cite RESOURCE_ID --format bibtex
 btaa-geo-api downloads RESOURCE_ID
 btaa-geo-api download RESOURCE_ID --best --out ./data
+btaa-geo-api search "plat map" --ids-only | btaa-geo-api download --ids - --best --out ./data
+btaa-geo-api thumbnail RESOURCE_ID --out thumbnail.png
+btaa-geo-api static-map RESOURCE_ID --out static_map.png
 ```
+
+## Research Context
+
+Generate compact Markdown or JSON context for notebooks, AI tools, and quick literature/resource scans:
+
+```bash
+btaa-geo-api context "Mississippi River maps"
+btaa-geo-api context "University Avenue streetcar history" --format json
+```
+
+## Aardvark Validation And Crosswalks
+
+Validate an OGM Aardvark JSON record before sharing or ingesting it:
+
+```bash
+btaa-geo-api validate record.json --output table
+```
+
+Crosswalk ISO 19139 or FGDC XML into Aardvark JSON:
+
+```bash
+btaa-geo-api crosswalk iso19139.xml --from iso --validate
+btaa-geo-api crosswalk fgdc.xml --from fgdc --validate
+```
+
+Inspect the supported crosswalk table:
+
+```bash
+btaa-geo-api crosswalks --from iso
+btaa-geo-api crosswalks --from fgdc
+```
+
+The crosswalks are modeled on GeoCombine's metadata transformation approach:
+`isoAardvark.xsl`, `iso2geoBL.xsl`, and `fgdc2geoBL.xsl` map the same core
+source families into discovery metadata fields, including title, abstract,
+creators, publishers, provider, rights, resource class/type, subjects, places,
+issued dates, bounding boxes, and references.
+
+## Open Resource URLs
+
+Print the resource URL, or resolve the first search result for a query:
+
+```bash
+btaa-geo-api open RESOURCE_ID
+btaa-geo-api open "dakota county parcels"
+```
+
+Use `--browser` to launch the URL with the operating system browser.
 
 ## OGC API
 
@@ -138,6 +226,15 @@ Man page sources live in `cli/docs/*.1.md`, and generated man artifacts live in 
 ```bash
 make -C cli man
 man cli/man/btaa-geo-api.1
+```
+
+## Shell Completion
+
+Typer provides shell completion for bash, zsh, fish, and PowerShell:
+
+```bash
+btaa-geo-api --show-completion zsh
+btaa-geo-api --install-completion zsh
 ```
 
 ## Testing

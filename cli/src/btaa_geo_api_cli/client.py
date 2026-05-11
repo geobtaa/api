@@ -117,6 +117,9 @@ class BtaaApiClient:
             raise BtaaApiError(f"Download failed: {exc}") from exc
         return bytes_written, content_type
 
+    def resource_url(self, path: str) -> str:
+        return f"{self.base_url}{path if path.startswith('/') else f'/{path}'}"
+
 
 def _error_detail(response: httpx.Response) -> tuple[str, str | None]:
     try:

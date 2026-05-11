@@ -28,6 +28,34 @@ def print_data(data: Any, *, output: str = "json") -> None:
         print(json.dumps(data, indent=2, default=str))
 
 
+def print_jsonl_item(data: Any) -> None:
+    print(json.dumps(data, default=str), flush=True)
+
+
+def extract_field(data: Any, field: str) -> Any:
+    current = data
+    for part in field.split("."):
+        if isinstance(current, dict):
+            current = current.get(part)
+        elif isinstance(current, list):
+            try:
+                current = current[int(part)]
+            except (ValueError, IndexError):
+                return None
+        else:
+            return None
+    return current
+
+
+def print_field_values(rows: Iterable[dict[str, Any]], field: str) -> None:
+    for row in rows:
+        value = extract_field(row, field)
+        if isinstance(value, (dict, list)):
+            print(json.dumps(value, default=str))
+        elif value is not None:
+            print(value)
+
+
 def print_rows(rows: Iterable[dict[str, Any]], *, output: str, columns: list[str]) -> None:
     row_list = list(rows)
     if output == "json":

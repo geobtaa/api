@@ -72,5 +72,5 @@ def mock_client(monkeypatch: pytest.MonkeyPatch):
     return install
 
 
-def invoke(runner: CliRunner, args: list[str]):
-    return runner.invoke(app, args)
+def invoke(runner: CliRunner, args: list[str], input: str | None = None):
+    return runner.invoke(app, args, input=input)

@@ -7,7 +7,7 @@ import typer
 
 from .analytics import CommandAnalytics
 from .client import BtaaApiClient, BtaaApiError
-from .commands import admin, config_cmd, facets, ogc, resources, schema, search
+from .commands import aardvark, admin, config_cmd, facets, ogc, resources, schema, search
 from .config import load_config
 from .runtime import Runtime
 
@@ -17,13 +17,22 @@ app.add_typer(schema.app, name="schema")
 app.add_typer(ogc.app, name="ogc")
 app.add_typer(config_cmd.app, name="config")
 app.add_typer(admin.app, name="admin")
+app.add_typer(aardvark.app, name="aardvark")
 app.command("search")(search.search)
+app.command("grep")(search.grep)
+app.command("context")(search.context)
+app.command("validate")(aardvark.validate)
+app.command("crosswalk")(aardvark.crosswalk_cmd)
+app.command("crosswalks")(aardvark.crosswalks)
 app.command("facets")(facets.facets)
 app.command("get")(resources.get_resource)
 app.command("metadata")(resources.metadata)
 app.command("cite")(resources.cite)
 app.command("downloads")(resources.downloads)
 app.command("download")(resources.download)
+app.command("thumbnail")(resources.thumbnail)
+app.command("static-map")(resources.static_map)
+app.command("open")(resources.open_resource)
 
 
 @app.callback()

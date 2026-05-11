@@ -39,6 +39,65 @@ def test_search_sends_include_and_exclude_filters(runner, mock_client, sample_se
     assert params["exclude_filters[gbl_resourceType_sm][]"] == "Websites"
 
 
+def test_search_ids_only_prints_one_id_per_line(runner, mock_client, sample_search_payload):
+    mock_client({"/api/v1/search": sample_search_payload})
+
+    result = invoke(runner, ["--no-analytics", "search", "water", "--ids-only"])
+
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == "b1g_test"
+
+
+def test_search_reads_query_from_stdin(runner, mock_client, sample_search_payload):
+    recorder = mock_client({"/api/v1/search": sample_search_payload})
+
+    result = invoke(
+        runner,
+        ["--no-analytics", "search", "-", "--ids-only"],
+        input="water\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    params = dict(recorder.requests[0].url.params.multi_items())
+    assert params["q"] == "water"
+
+
+def test_search_each_streams_jsonl_from_stdin(runner, mock_client, sample_search_payload):
+    recorder = mock_client({"/api/v1/search": sample_search_payload})
+
+    result = invoke(
+        runner,
+        ["--no-analytics", "search", "--each", "--output", "jsonl"],
+        input="water\nroads\n",
+    )
+
+    assert result.exit_code == 0, result.output
+    assert len([line for line in result.output.splitlines() if line.startswith("{")]) == 2
+    queries = [dict(request.url.params.multi_items())["q"] for request in recorder.requests]
+    assert queries[:2] == ["water", "roads"]
+
+
+def test_grep_state_shortcut_adds_spatial_filter(runner, mock_client, sample_search_payload):
+    recorder = mock_client({"/api/v1/search": sample_search_payload})
+
+    result = invoke(runner, ["--no-analytics", "grep", "soil", "--state", "Iowa", "--ids-only"])
+
+    assert result.exit_code == 0, result.output
+    assert ("include_filters[dct_spatial_sm][]", "Iowa") in recorder.requests[
+        0
+    ].url.params.multi_items()
+
+
+def test_context_outputs_markdown(runner, mock_client, sample_search_payload):
+    mock_client({"/api/v1/search": sample_search_payload})
+
+    result = invoke(runner, ["--no-analytics", "context", "water"])
+
+    assert result.exit_code == 0, result.output
+    assert "# BTAA Geospatial Context: water" in result.output
+    assert "Water Test" in result.output
+
+
 def test_search_rejects_bad_advanced_query(runner, mock_client):
     mock_client({})
 
