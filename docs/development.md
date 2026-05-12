@@ -2,6 +2,7 @@
 
 This page collects the practical notes for running and working on the BTAA
 Geospatial API repository. For a broader architectural tour, see
+[README.md](README.md) and
 [backend/codebase_overview.md](backend/codebase_overview.md).
 
 ## Quick Start With Docker
@@ -149,6 +150,11 @@ make clear_cache
 OpenGeoMetadata harvests and local reindexing are described in
 [backend/ogm_harvesting.md](backend/ogm_harvesting.md). The full Makefile
 reference is in [make_tasks.md](make_tasks.md).
+
+When changing ingest, indexing, cache, Docker, or deployment workflows, update
+the corresponding docs in the same change. At minimum, keep
+[make_tasks.md](make_tasks.md), [backend/scripts.md](backend/scripts.md), and
+the domain runbook aligned with the code.
 
 ## MCP, CLI, Slack, and QGIS
 

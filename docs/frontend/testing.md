@@ -1,6 +1,7 @@
 # Testing Documentation
 
-This document provides comprehensive information about the test suite and coverage for the RUI (Research University Interface) project.
+This document provides comprehensive information about the frontend test suite
+and coverage for the BTAA Geoportal interface.
 
 ## Overview
 

@@ -60,6 +60,7 @@ workflows, and future agent-facing discovery tools.
 
 Setup, development, and operations notes live in `docs/`:
 
+- Internal documentation handbook: [docs/README.md](docs/README.md)
 - Local setup and development: [docs/development.md](docs/development.md)
 - Codebase overview: [docs/backend/codebase_overview.md](docs/backend/codebase_overview.md)
 - Backend testing: [docs/backend/testing.md](docs/backend/testing.md)

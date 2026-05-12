@@ -187,7 +187,7 @@ If the client sends `If-None-Match: <etag>`, the API will return **304 Not Modif
 This repo has two *image asset* families that are backed by Redis object caches and
 durable database storage:
 
-- Thumbnails: `GET /api/v1/thumbnails/{image_hash}`
+- Thumbnails: `GET /api/v1/thumbnails/{resource_id}`
 - Static maps: `GET /api/v1/static-maps/{resource_id}`
 
 Generated thumbnail/static-map bytes are persisted in `generated_visual_assets`;

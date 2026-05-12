@@ -7,8 +7,17 @@ import * as turnstileService from '../../../services/turnstile';
 vi.mock('@marsidev/react-turnstile', async () => {
   const { forwardRef } = await import('react');
   return {
-    Turnstile: forwardRef<HTMLDivElement>(function MockTurnstile() {
-      return <div data-testid="turnstile-widget" />;
+    Turnstile: forwardRef<
+      HTMLDivElement,
+      { options?: { appearance?: string } }
+    >(function MockTurnstile({ options }, ref) {
+      return (
+        <div
+          ref={ref}
+          data-appearance={options?.appearance}
+          data-testid="turnstile-widget"
+        />
+      );
     }),
   };
 });
@@ -79,7 +88,10 @@ describe('TurnstileGate', () => {
     expect(
       screen.queryByText(/maps, datasets, imagery, and geospatial records/i)
     ).not.toBeInTheDocument();
-    expect(await screen.findByTestId('turnstile-widget')).toBeInTheDocument();
+    expect(await screen.findByTestId('turnstile-widget')).toHaveAttribute(
+      'data-appearance',
+      'always'
+    );
     expect(screen.queryByText('Geoportal app')).not.toBeInTheDocument();
   });
 
