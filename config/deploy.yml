@@ -121,6 +121,7 @@ env:
     TURNSTILE_ALLOWED_HOSTNAMES: "<%= ENV.fetch('TURNSTILE_ALLOWED_HOSTNAMES', ENV['KAMAL_HOST']) %>"
     TURNSTILE_PROTECTED_PATHS: "<%= ENV.fetch('TURNSTILE_PROTECTED_PATHS', '/api/v1/search,/api/v1/suggest,/api/v1/map/h3') %>"
     TURNSTILE_COOKIE_SECURE: "<%= ENV.fetch('TURNSTILE_COOKIE_SECURE', 'true') %>"
+    SLACK_BOT_COMMAND:     "<%= ENV.fetch('SLACK_BOT_COMMAND', '/btaa') %>"
     WEB_UVICORN_WORKERS:   "<%= ENV.fetch('WEB_UVICORN_WORKERS', '2') %>"
     # Loopback-only FastAPI pool used by SSR/BFF fetches. This keeps frontend
     # traffic from occupying the public /api worker queue used by QGIS, MCP,
@@ -148,6 +149,7 @@ env:
     - ADMIN_USERNAME
     - ADMIN_PASSWORD
     - BTAA_GEOSPATIAL_API_KEY
+    - SLACK_SIGNING_SECRET
     - TURNSTILE_SECRET_KEY
     - APPSIGNAL_PUSH_API_KEY
 

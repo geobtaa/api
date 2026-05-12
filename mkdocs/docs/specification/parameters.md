@@ -42,7 +42,7 @@ Applies to `GET /api/v1/search` unless noted otherwise.
 | `limit` | integer | `/resources/`, `/ogm/harvest/failures`, `/home/blog-posts` | Max rows/items returned. |
 | `debug` | boolean | `/resources/{id}/spatial-facets` | Include overlap-ratio diagnostics. |
 | `embed` | boolean | `/resources/{id}/ogm-viewer` | Embed mode for iframe-friendly OGM viewer output. |
-| `variant` | string | `/resources/{id}/thumbnail` | Placeholder variant (`icon-basemap` default, `icon-gradient`). |
+| `variant` | string | `/resources/{id}/thumbnail`, `/resources/{id}/thumbnail/no-cache` | Placeholder variant (`icon-basemap` default, `icon-gradient`). |
 | `theme` | string | `/home/blog-posts` | Theme ID from frontend theme registry. |
 | `tag` | string | `/home/blog-posts` | Filter home blog posts by tag (case-insensitive exact match). |
 | `repo_name` | string | `/ogm/harvest/failures` | Filter failures to one OGM repository. |
@@ -55,7 +55,7 @@ Applies to `GET /api/v1/search` unless noted otherwise.
 | :---- | :---- | :---- | :---- |
 | `id` | string | `/resources/{id}*` | Canonical resource identifier. |
 | `facet_name` | string | `/search/facets/{facet_name}` | Facet field (e.g. `gbl_resourceClass_sm`). |
-| `resource_id` | string | `/static-maps/{resource_id}` | Resource ID for cached static-map image serving. |
+| `resource_id` | string | `/static-maps/{resource_id}`, `/thumbnails/{resource_id}` | Resource ID for static-map and thumbnail serving. |
 | `map_id` | string | `/static-maps/institutions/{map_id}` | Institution map identifier. |
-| `image_hash` | string | `/thumbnails/{image_hash}` | Cache/image key for generated thumbnails. |
+| `map_hash` | string | `/static-map-assets/{map_hash}` | Cache key for generated static-map assets. |
 | `recordId` | string | `/api/v1/ogc/collections/btaa-records/items/{recordId}` | OGC single-item identifier. |

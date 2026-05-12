@@ -1,84 +1,88 @@
-# RUI Documentation
+# Frontend Documentation
 
-This directory contains documentation for the Research University Interface (RUI) project.
+The frontend is the React/TypeScript public Geoportal interface for this
+repository. It runs locally as the `frontend` Docker Compose service on port
+3000, or directly with npm from `frontend/`.
 
 ## Available Documentation
 
-### Testing
-- **[Testing Guide](testing.md)** - Comprehensive guide to the test suite, coverage, and best practices
-- **[Testing Quick Reference](testing-quick-reference.md)** - Quick reference for common testing patterns and commands
+Testing:
 
-### Code Quality
-- **[Linting and Formatting](linting-and-formatting.md)** - Guide to ESLint, Prettier, and code quality tools
-- **[Linting Quick Reference](linting-quick-reference.md)** - Quick reference for linting commands and common issues
+- [Testing Guide](testing.md) - test suite, coverage, accessibility checks, and
+  test-writing patterns.
+- [Testing Quick Reference](testing-quick-reference.md) - common testing
+  commands and snippets.
 
-### Features
-- **[Homepage Map Visualization](homepage-map.md)** - H3 hex map, featured carousel, Allmaps georeferenced maps
+Code quality:
 
-### Configuration
-- **Google Tag Manager** - The SSR root injects the standard GTM script and
-  noscript fallback only when `VITE_KAMAL_DEST=prd` and `VITE_GTM_ID` is present
-  and matches a GTM container ID. Kamal leaves this blank by default and sets
-  the `VITE_GTM_ID` only for the `prd` destination.
+- [Linting and Formatting](linting-and-formatting.md) - ESLint, Prettier, and
+  local workflow.
+- [Linting Quick Reference](linting-quick-reference.md) - short command and
+  troubleshooting reference.
 
-### Images
-- **rui.png** - Project logo/icon
+Features:
 
-## Getting Started
+- [Homepage Map Visualization](homepage-map.md) - H3 hex map, featured carousel,
+  preview layers, and Allmaps behavior.
 
-### For Developers
-1. Read the [Testing Guide](testing.md) to understand the test suite
-2. Use the [Testing Quick Reference](testing-quick-reference.md) for day-to-day testing tasks
-3. Run `npm run test:coverage` to see current test coverage
+Configuration:
 
-### For Contributors
-1. Ensure all tests pass: `npm test`
-2. Maintain coverage above 80%: `npm run test:coverage`
-3. Follow testing best practices outlined in the documentation
+- Google Tag Manager is injected by the SSR root only when
+  `VITE_KAMAL_DEST=prd` and `VITE_GTM_ID` is present and matches a GTM
+  container ID. Kamal leaves this blank by default and sets `VITE_GTM_ID` only
+  for the `prd` destination.
 
 ## Project Overview
 
-The RUI project is a React-based interface for research data discovery and visualization. It uses:
+The frontend stack currently uses:
 
-- **Frontend**: React + TypeScript + Vite
-- **Testing**: Vitest + Testing Library
-- **Styling**: Tailwind CSS
-- **Maps**: Leaflet
-- **State Management**: React Context
+- React 19 and React DOM 19.
+- React Router 7 for routing, loaders, SSR, build, and production serving.
+- TypeScript, Vite 7, and React Router dev tooling.
+- Vitest 3, Testing Library, `happy-dom`, axe, and pa11y for tests and
+  accessibility checks.
+- Material UI 7, Tailwind, Leaflet, GeoBlacklight frontend components, Allmaps,
+  H3, Recharts, and Lucide icons.
 
 ## Quick Commands
 
+Run from `frontend/`:
+
 ```bash
-# Development
-npm run dev          # Start development server
-npm run build        # Build for production
+# Development and production build checks
+npm run dev
+npm run build
+npm run start
 
 # Testing
-npm test             # Run tests
-npm run test:watch   # Run tests in watch mode
-npm run test:coverage # Run tests with coverage
+npm test
+npm run test:watch
+npm run test:coverage
+npm run test:a11y
 
-# Code Quality
-npm run lint         # Run ESLint
-npm run lint:fix     # Fix ESLint issues
-npm run format       # Format code with Prettier
-npm run format:check # Check code formatting
+# Code quality
+npm run lint
+npm run lint:fix
+npm run format
+npm run format:check
 ```
 
-## Contributing
+Run from the repository root after frontend dependency or Vite config changes:
 
-When contributing to this project:
+```bash
+make frontend-reset
+```
 
-1. **Write Tests**: Add tests for new features and bug fixes
-2. **Maintain Coverage**: Keep test coverage above 80%
-3. **Follow Patterns**: Use the established testing patterns and component structure
-4. **Document Changes**: Update documentation when adding new features
+Then hard-refresh the browser or use a private/incognito window to avoid stale
+chunk URLs.
 
-## Support
+## Maintenance Checklist
 
-For questions about testing or development:
-
-1. Check the [Testing Guide](testing.md) for detailed information
-2. Use the [Testing Quick Reference](testing-quick-reference.md) for common patterns
-3. Review existing test files for examples
-4. Check [../development.md](../development.md) for general setup instructions
+- Update this file when `frontend/package.json` scripts or major dependencies
+  change.
+- Update testing docs when Vitest, Testing Library, axe, pa11y, or test setup
+  changes.
+- Update feature docs when homepage map, featured resource, preview-layer, or
+  Allmaps behavior changes.
+- Run `npm run lint`, `npm run format:check`, and `npm test` before merging
+  frontend behavior changes.

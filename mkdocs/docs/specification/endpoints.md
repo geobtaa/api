@@ -133,9 +133,12 @@ The tables below enumerate all current non-admin endpoints exposed by the API.
 | :---- | :---- | :---- |
 | GET | `/api/v1/map/h3` | H3 map tile/geometry data |
 | GET | `/api/v1/static-maps/institutions/{map_id}` | Institution static map |
+| GET | `/api/v1/static-map-assets/{map_hash}` | Generated static-map asset by hash |
+| GET | `/api/v1/static-maps/{resource_id}/geometry` | Resource geometry for static-map rendering |
+| GET | `/api/v1/static-maps/{resource_id}/resource-class-icon` | Resource-class icon used by static-map rendering |
 | GET | `/api/v1/static-maps/{resource_id}` | Resource static map |
 | GET | `/api/v1/thumbnails/placeholder` | Placeholder thumbnail |
-| GET | `/api/v1/thumbnails/{image_hash}` | Thumbnail by hash |
+| GET | `/api/v1/thumbnails/{resource_id}` | Thumbnail by resource ID |
 
 ### OGM and Harvest Status
 
@@ -162,6 +165,7 @@ The tables below enumerate all current non-admin endpoints exposed by the API.
 | Method | Path | Notes |
 | :---- | :---- | :---- |
 | GET | `/api/v1/mcp` | Model Context Protocol endpoint |
+| POST | `/api/v1/mcp` | Streamable HTTP MCP transport |
 
 ## Root Endpoint
 
@@ -557,9 +561,12 @@ Supports map geometry helpers and image retrieval endpoints used by frontend map
 | :---- | :---- | :---- |
 | GET | `/api/v1/map/h3` | H3 map tile/geometry data |
 | GET | `/api/v1/static-maps/institutions/{map_id}` | Institution static map |
+| GET | `/api/v1/static-map-assets/{map_hash}` | Generated static-map asset by hash |
+| GET | `/api/v1/static-maps/{resource_id}/geometry` | Resource geometry for static-map rendering |
+| GET | `/api/v1/static-maps/{resource_id}/resource-class-icon` | Resource-class icon used by static-map rendering |
 | GET | `/api/v1/static-maps/{resource_id}` | Resource static map |
 | GET | `/api/v1/thumbnails/placeholder` | Placeholder thumbnail |
-| GET | `/api/v1/thumbnails/{image_hash}` | Thumbnail by hash |
+| GET | `/api/v1/thumbnails/{resource_id}` | Thumbnail by resource ID |
 
 #### Interactive Example: Placeholder Thumbnail
 
@@ -570,8 +577,8 @@ Supports map geometry helpers and image retrieval endpoints used by frontend map
 | Name | Type | Req? | Description |
 | :---- | :---- | :---- | :---- |
 | `map_id` | string | endpoint-specific | Institution map identifier for `/static-maps/institutions/{map_id}` |
-| `resource_id` | string | endpoint-specific | Resource identifier for `/static-maps/{resource_id}` |
-| `image_hash` | string | endpoint-specific | Cache key/hash for `/thumbnails/{image_hash}` |
+| `resource_id` | string | endpoint-specific | Resource identifier for `/static-maps/{resource_id}` and `/thumbnails/{resource_id}` |
+| `map_hash` | string | endpoint-specific | Cache key/hash for `/static-map-assets/{map_hash}` |
 
 ## OGM and Harvest Status Endpoints
 

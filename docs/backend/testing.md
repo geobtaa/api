@@ -71,28 +71,35 @@ This runs pytest (optionally in parallel) with a **wall-clock timeout** so the s
 
 ## Running Individual Tests
 
-You can run specific test files or even individual test functions using `pytest` arguments.
+Run targeted tests from `backend/` with Python's pytest module, or from the
+repository root with the Makefile for standard full-suite behavior.
 
-*   **Run a specific test file:**
-    ```bash
-    pytest tests/api/test_example.py
-    ```
+```bash
+cd backend
+python -m pytest tests/api/v1/test_search_endpoints.py
+python -m pytest tests/services/ -k search
+python -m pytest -m <marker_name>
+```
 
-*   **Run tests in a specific directory:**
-    ```bash
-    pytest tests/services/
-    ```
+If Docker services are required for the test you are running, start them first:
 
-*   **Run a specific test function using the `-k` flag (keyword expression):**
-    ```bash
-    pytest -k test_example
-    ```
-
-*   **Run tests matching a specific marker (if you define markers later):**
-    ```bash
-    pytest -m <marker_name>
-    ```
+```bash
+docker compose up -d paradedb elasticsearch redis
+```
 
 ## Test Coverage
 
-Coverage is automatically calculated when running `pytest` (as configured in `pytest.ini`). The report showing missing lines will be printed to the terminal. 
+`make test` runs pytest with coverage and enforces `COVERAGE_THRESHOLD`
+(default `50`). `make test-no-coverage` and `make test-fast` skip coverage for
+debugging speed. HTML coverage output is written under `backend/htmlcov/` when
+coverage is enabled.
+
+## Quarterly Test Maintenance
+
+- Re-run the full backend suite with `make test`.
+- Review slow or flaky tests and update timeout/concurrency guidance if needed.
+- Confirm Docker test database setup still matches the Makefile.
+- Add regression tests for any production incidents or runbook changes from the
+  quarter.
+- Keep this file and [../make_tasks.md](../make_tasks.md) aligned with new test
+  targets or environment variables.

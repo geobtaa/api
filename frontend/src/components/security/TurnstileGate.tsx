@@ -167,7 +167,7 @@ export function TurnstileGate({
                     onTimeout={handleRecoverableWidgetIssue}
                     options={{
                       action,
-                      appearance: 'interaction-only',
+                      appearance: 'always',
                       refreshExpired: 'auto',
                       refreshTimeout: 'auto',
                       size: 'flexible',
