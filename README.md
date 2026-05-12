@@ -26,8 +26,8 @@ workflows, and future agent-facing discovery tools.
   and API responses so discovery stays fast.
 - Provides MCP bridge support so search and resource retrieval can be used from
   Claude Desktop and other Model Context Protocol clients.
-- Includes a QGIS plugin and command-line client for users who want access
-  outside the browser.
+- Includes a QGIS plugin, command-line client, and Slack slash command for users
+  who want access outside the browser.
 
 ## Repository Map
 
@@ -41,6 +41,7 @@ workflows, and future agent-facing discovery tools.
   spatial resources into a map canvas.
 - `mcp/`: Local MCP stdio, HTTP, and WebSocket bridge helpers plus desktop client
   configuration templates.
+- `docs/slack/`: Slackbot setup and slash-command notes.
 - `docs/`: Internal development, architecture, operations, testing, deployment,
   and runbook documentation.
 - `mkdocs/`: Public documentation site for API specifications, linked data,
@@ -66,6 +67,7 @@ Setup, development, and operations notes live in `docs/`:
 - Make tasks: [docs/make_tasks.md](docs/make_tasks.md)
 - OpenGeoMetadata harvesting: [docs/backend/ogm_harvesting.md](docs/backend/ogm_harvesting.md)
 - MCP / Claude Desktop: [docs/mcp/README.md](docs/mcp/README.md)
+- Slackbot: [docs/slack/README.md](docs/slack/README.md)
 - QGIS plugin testing: [qgis-plugin/docs/testing.md](qgis-plugin/docs/testing.md)
 
 The public documentation site is maintained separately under `mkdocs/`.
