@@ -241,6 +241,32 @@ describe('SearchPage Logic', () => {
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
   });
 
+  it('keeps filters in a mobile drawer until toggled', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?view=list', results);
+
+    const panel = document.getElementById('search-filters-panel');
+    expect(panel).toHaveClass('hidden');
+
+    const filtersButton = screen.getByRole('button', { name: /^filters$/i });
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'false');
+
+    await act(async () => {
+      filtersButton.click();
+    });
+
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'true');
+    expect(panel).toHaveClass('block');
+    expect(panel).not.toHaveClass('hidden');
+
+    await act(async () => {
+      screen.getAllByRole('button', { name: /close filters/i })[0].click();
+    });
+
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'false');
+    expect(panel).toHaveClass('hidden');
+  });
+
   it('hides stale client results while a new query is loading', async () => {
     const mockFetchSearchResults = vi.mocked(fetchSearchResults);
     const oldResults = createMockApiResponse(
