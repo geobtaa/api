@@ -157,6 +157,10 @@ The exact shared secret set is defined by `config/deploy.yml`:
 
 Treat `config/deploy.yml` as the source of truth so the docs do not drift from the config.
 
+Destination `env.secret` lists replace the shared list rather than appending to
+it. If a destination needs an extra secret, repeat the full shared secret set in
+that destination file and add the destination-only secret at the end.
+
 Before running direct `kamal` commands in a shell, source the secrets:
 
 ```bash

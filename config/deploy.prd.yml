@@ -76,6 +76,19 @@ env:
     WEB_INTERNAL_UVICORN_WORKERS: "6"
     WEB_SSR_WORKERS: "4"
   secret:
+    # Destination secret lists replace the base list rather than appending.
+    # Keep this in sync with config/deploy.yml when adding prod-only secrets.
+    - REDIS_PASSWORD
+    - POSTGRES_PASSWORD
+    - DATABASE_URL
+    - KITHE_BRIDGE_TOKEN
+    - OPENAI_API_KEY
+    - OPENAI_MODEL
+    - ADMIN_USERNAME
+    - ADMIN_PASSWORD
+    - BTAA_GEOSPATIAL_API_KEY
+    - TURNSTILE_SECRET_KEY
+    - APPSIGNAL_PUSH_API_KEY
     - SLACK_SIGNING_SECRET
 
 accessories:
