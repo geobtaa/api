@@ -14,7 +14,8 @@ Cloudflare.
 4. On success, FastAPI creates an opaque Redis-backed browser session, returns
    the session token for frontend fetches, and sets an HttpOnly cookie for
    same-origin production traffic.
-5. `TurnstileMiddleware` requires that verified session on configured hot paths.
+5. `TurnstileMiddleware` requires that verified session only when a request to
+   a configured hot path is explicitly marked as frontend browser gate traffic.
 
 By default the protected backend paths are:
 
@@ -22,14 +23,18 @@ By default the protected backend paths are:
 - `/api/v1/suggest`
 - `/api/v1/map/h3`
 
-API-key requests bypass the Turnstile middleware unless they are explicitly
-marked as frontend gate traffic. The single-host nginx `/search/results` BFF
-route and the React Router `/search/results` loader add that marker for normal
-browser traffic, so frontend search traffic is still protected even though it
-uses the server-side API key. When a caller supplies its own `X-API-Key`, the
-BFF path treats the request as API-client traffic instead: it forwards that key
-and does not add the frontend gate marker. This keeps k6 and other keyed clients
-testable without opening the browser path to anonymous traffic.
+Anonymous direct API requests bypass the Turnstile middleware. This includes
+normal browser-origin requests to public API endpoints, such as examples running
+from the MkDocs site. Turnstile is not an API authentication layer and must not
+interfere with public direct API access.
+
+The single-host nginx `/search/results` BFF route and the React Router
+`/search/results` loader add a frontend gate marker for normal browser traffic,
+so frontend search traffic is still protected. When a caller supplies its own
+`X-API-Key`, the BFF path treats the request as API-client traffic instead: it
+forwards that key and does not add the frontend gate marker. This keeps k6 and
+other keyed clients testable without opening the browser path to anonymous
+traffic.
 
 ## Configuration
 

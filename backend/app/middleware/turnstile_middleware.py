@@ -16,11 +16,6 @@ DEFAULT_PROTECTED_PATHS = (
 )
 LOCAL_DEV_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 LOCAL_APP_ENV_VALUES = {"development", "dev", "local", "test"}
-API_CLIENT_CHANNELS = {"cli", "desktop", "mcp", "server", "script"}
-API_CLIENT_USER_AGENT_PREFIXES = (
-    "BTAA-Geo-API-CLI/",
-    "BTAA-QGIS-Plugin/",
-)
 
 
 def _split_csv(value: str) -> list[str]:
@@ -37,28 +32,12 @@ def _path_matches(path: str, protected_path: str) -> bool:
     return path == protected_path or path.startswith(f"{protected_path}/")
 
 
-def _has_api_key(request: Request) -> bool:
-    if request.headers.get("X-API-Key"):
-        return True
-    auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ") or bool(request.query_params.get("api_key"))
-
-
 def _is_frontend_gate_request(request: Request) -> bool:
     if request.headers.get("X-BTAA-Turnstile-Gate"):
         return True
     if request.headers.get("X-BTAA-Client-Channel", "").lower() == "browser":
         return True
     return bool(request.headers.get("X-Visit-Token"))
-
-
-def _is_api_client_request(request: Request) -> bool:
-    channel = request.headers.get("X-BTAA-Client-Channel", "").strip().lower()
-    if channel in API_CLIENT_CHANNELS:
-        return True
-
-    user_agent = request.headers.get("User-Agent", "").strip()
-    return any(user_agent.startswith(prefix) for prefix in API_CLIENT_USER_AGENT_PREFIXES)
 
 
 def _local_turnstile_enabled() -> bool:
@@ -92,7 +71,7 @@ def _should_bypass_local_turnstile(request: Request) -> bool:
 
 
 class TurnstileMiddleware(BaseHTTPMiddleware):
-    """Require a verified Turnstile browser session on configured hot paths."""
+    """Require a verified Turnstile session only for explicit frontend gate traffic."""
 
     def __init__(self, app):
         super().__init__(app)
@@ -126,10 +105,7 @@ class TurnstileMiddleware(BaseHTTPMiddleware):
         if not any(_path_matches(path, protected_path) for protected_path in _protected_paths()):
             return False
 
-        if _has_api_key(request) and not _is_frontend_gate_request(request):
-            return False
-
-        if _is_api_client_request(request) and not _is_frontend_gate_request(request):
+        if not _is_frontend_gate_request(request):
             return False
 
         return True

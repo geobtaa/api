@@ -3,7 +3,7 @@ import json
 import argparse
 import sys
 
-BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+BASE_URL = "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
 
 def example_1():
     """1. Simple Search"""

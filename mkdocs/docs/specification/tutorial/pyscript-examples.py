@@ -4,7 +4,7 @@ import pyodide_http
 pyodide_http.patch_all()
 import requests
 
-BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
+BASE_URL = "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
 
 def print_to_output(output_id, text):
     """Helper to append text to output area"""

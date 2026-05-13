@@ -125,6 +125,12 @@ _HB_CURRENT_WHEN: str | None = None
 _HB_STOP = threading.Event()
 _HB_THREAD: threading.Thread | None = None
 _HB_PATH: Path | None = None
+SKIP_TEST_DATABASE = os.getenv("BTAA_SKIP_TEST_DB", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # The `databases`/asyncpg pool is bound to the event loop that created it.
 # Under pytest-asyncio, it's possible for a session-scoped connect to run on a different
@@ -278,6 +284,10 @@ def pytest_runtest_logfinish(nodeid, location):
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_test_database():
     """Ensure test DB exists on primary ParadeDB and run needed migrations."""
+    if SKIP_TEST_DATABASE:
+        yield
+        return
+
     # Ensure the test database exists by connecting to the default 'postgres' DB
     admin_dsn = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres"
     try:
@@ -326,6 +336,10 @@ async def setup_test_database():
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def db_connection():
     """Session-scoped database connection that stays open for all tests."""
+    if SKIP_TEST_DATABASE:
+        yield None
+        return
+
     from db.database import database
 
     # Connect once for the entire test session
@@ -354,6 +368,10 @@ async def db_transaction(db_connection):
     by running in separate database transactions when using pytest-xdist with
     separate database connections per worker.
     """
+    if SKIP_TEST_DATABASE:
+        yield None
+        return
+
     import uuid
 
     from db.database import database

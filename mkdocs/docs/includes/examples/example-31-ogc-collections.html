@@ -17,7 +17,7 @@
         <pre><code id="code-31" class="language-python">import requests
 import json
 
-BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu"
+BASE_URL = "https://lib-geoportal-prd-web-01.oit.umn.edu"
 
 response = requests.get(f"{BASE_URL}/api/v1/ogc/collections")
 data = response.json()
@@ -47,7 +47,7 @@ import pyodide_http
 pyodide_http.patch_all()
 import requests
 
-BASE_URL = "https://lib-btaageoapi-dev-app-01.oit.umn.edu"
+BASE_URL = "https://lib-geoportal-prd-web-01.oit.umn.edu"
 
 def print_to_output(output_id, text, is_html=False):
     output = document.getElementById(output_id)

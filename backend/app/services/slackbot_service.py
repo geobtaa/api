@@ -85,10 +85,7 @@ async def handle_slack_command(form_data: dict[str, Any]) -> dict[str, Any]:
 
 def help_response() -> dict[str, Any]:
     command = os.getenv("SLACK_BOT_COMMAND", "/btaa")
-    text = (
-        f"Try `{command} search minnesota lakes`, `{command} sanborn maps`, "
-        f"or `{command} help`."
-    )
+    text = f"Try `{command} search minnesota lakes`, `{command} sanborn maps`, or `{command} help`."
     return {
         "response_type": "ephemeral",
         "text": text,
