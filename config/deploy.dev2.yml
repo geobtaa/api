@@ -31,11 +31,11 @@ servers:
     cmd: celery -A app.tasks.worker flower --port=5555
 
 proxy:
-  host: lib-geoportal-dev-web-01.oit.umn.edu
+  host: geodev.btaa.org,lib-geoportal-dev-web-01.oit.umn.edu
 
 builder:
   args:
-    VITE_API_BASE_URL: "https://lib-geoportal-dev-web-01.oit.umn.edu/api/v1"
+    VITE_API_BASE_URL: "https://geodev.btaa.org/api/v1"
     VITE_TURNSTILE_ACTION: "geoportal_gate"
     VITE_TURNSTILE_ENABLED: "true"
     VITE_TURNSTILE_SITE_KEY: "0x4AAAAAADJqCBiv8czDm2ZG"
@@ -43,10 +43,10 @@ builder:
 
 env:
   clear:
-    APPLICATION_URL: https://lib-geoportal-dev-web-01.oit.umn.edu
+    APPLICATION_URL: https://geodev.btaa.org
     KAMAL_DEST: dev2
     TURNSTILE_ENABLED: "true"
-    TURNSTILE_ALLOWED_HOSTNAMES: lib-geoportal-dev-web-01.oit.umn.edu
+    TURNSTILE_ALLOWED_HOSTNAMES: geodev.btaa.org,lib-geoportal-dev-web-01.oit.umn.edu
     TURNSTILE_COOKIE_SECURE: "true"
     TURNSTILE_EXPECTED_ACTION: geoportal_gate
     RATE_LIMIT_ENABLED: "true"

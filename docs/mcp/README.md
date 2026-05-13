@@ -98,7 +98,7 @@ The short version:
 For Kamal deployments such as `dev1` and `dev2`, the base URL should be the public HTTPS origin:
 
 - `https://lib-btaageoapi-dev-app-01.oit.umn.edu`
-- `https://lib-geoportal-dev-web-01.oit.umn.edu`
+- `https://geodev.btaa.org`
 
 The WebSocket bridge derives:
 

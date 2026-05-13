@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { TurnstileGate } from '../../../components/security/TurnstileGate';
@@ -23,6 +23,7 @@ vi.mock('@marsidev/react-turnstile', async () => {
 });
 
 vi.mock('../../../services/turnstile', () => ({
+  TURNSTILE_REQUIRED_EVENT: 'btaa:turnstile-required',
   clearTurnstileSessionToken: vi.fn(),
   fetchTurnstileStatus: vi.fn(),
   getTurnstileAction: vi.fn(),
@@ -92,6 +93,33 @@ describe('TurnstileGate', () => {
       'data-appearance',
       'always'
     );
+    expect(screen.queryByText('Geoportal app')).not.toBeInTheDocument();
+  });
+
+  it('reopens the gate when a later API request requires verification', async () => {
+    vi.mocked(turnstileService.isTurnstileConfigured).mockReturnValue(true);
+    vi.mocked(turnstileService.fetchTurnstileStatus).mockResolvedValue(true);
+
+    render(
+      <TurnstileGate>
+        <div>Geoportal app</div>
+      </TurnstileGate>
+    );
+
+    expect(await screen.findByText('Geoportal app')).toBeInTheDocument();
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(turnstileService.TURNSTILE_REQUIRED_EVENT)
+      );
+    });
+
+    expect(turnstileService.clearTurnstileSessionToken).toHaveBeenCalled();
+    expect(
+      screen.getByRole('heading', {
+        name: /before entering the btaa geoportal/i,
+      })
+    ).toBeInTheDocument();
     expect(screen.queryByText('Geoportal app')).not.toBeInTheDocument();
   });
 

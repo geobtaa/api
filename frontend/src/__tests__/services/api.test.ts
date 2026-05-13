@@ -8,6 +8,7 @@ import {
   fetchNominatimSearch,
   fetchSearchResults,
 } from '../../services/api';
+import { TURNSTILE_REQUIRED_EVENT } from '../../services/turnstile';
 import { loader as placesSuggestLoader } from '../../../app/routes/places.suggest';
 import type { FacetValuesResponse } from '../../types/api';
 
@@ -589,6 +590,10 @@ describe('fetchSearchResults', () => {
     vi.clearAllMocks();
   });
 
+  afterEach(() => {
+    window.sessionStorage.clear();
+  });
+
   it('uses the keyed frontend search-results proxy in the browser', async () => {
     Object.defineProperty(window, 'location', {
       value: {
@@ -612,6 +617,53 @@ describe('fetchSearchResults', () => {
 
     const displayedApiUrl = new URL(onApiCall.mock.calls[0][0]);
     expect(displayedApiUrl.pathname).toBe('/api/v1/search');
+  });
+
+  it('signals the Turnstile gate when the search session has expired', async () => {
+    Object.defineProperty(window, 'location', {
+      value: {
+        origin: 'https://example.com',
+        href: 'https://example.com/search?q=maps',
+      },
+      writable: true,
+    });
+
+    window.sessionStorage.setItem(
+      'btaa_turnstile_session',
+      'expired-session'
+    );
+    const turnstileRequired = vi.fn();
+    window.addEventListener(TURNSTILE_REQUIRED_EVENT, turnstileRequired);
+
+    const mockFetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      statusText: 'Forbidden',
+      headers: new Headers({ 'X-Turnstile-Required': 'true' }),
+      text: async () =>
+        JSON.stringify({
+          error: 'turnstile_required',
+          message: 'A verified browser session is required for this request.',
+        }),
+    });
+    global.fetch = mockFetch;
+
+    try {
+      await expect(fetchSearchResults('maps', 1, 10, [])).rejects.toMatchObject(
+        {
+          status: 403,
+          code: 'turnstile_required',
+          message: 'A verified browser session is required for this request.',
+        }
+      );
+
+      expect(
+        window.sessionStorage.getItem('btaa_turnstile_session')
+      ).toBeNull();
+      expect(turnstileRequired).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(TURNSTILE_REQUIRED_EVENT, turnstileRequired);
+    }
   });
 
   it('replays source search params when paginating from a resource page', async () => {

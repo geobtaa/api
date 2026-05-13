@@ -204,7 +204,7 @@ enabled and caps per-worker database pools so k6 can exercise the production
 API-key path without using production traffic:
 
 ```bash
-make k6-stress K6_BASE_URL=https://lib-geoportal-dev-web-01.oit.umn.edu K6_API_KEY=...
+make k6-stress K6_BASE_URL=https://geodev.btaa.org K6_API_KEY=...
 ```
 
 The relevant server-side knobs are:

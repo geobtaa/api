@@ -14,6 +14,7 @@ const FORWARDED_RESPONSE_HEADERS = [
   'vary',
   'x-cache',
   'x-search-semantic-cache',
+  'x-turnstile-required',
 ] as const;
 
 const FORWARDED_REQUEST_HEADERS = [

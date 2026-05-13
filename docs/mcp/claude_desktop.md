@@ -114,7 +114,7 @@ Use this if you want Claude Desktop to talk to `dev1` over HTTP JSON-RPC instead
       "args": ["mcp/run_mcp_websocket_bridge.py"],
       "cwd": "/path/to/data-api",
       "env": {
-        "BTAA_GEOSPATIAL_API_BASE_URL": "https://lib-geoportal-dev-web-01.oit.umn.edu"
+        "BTAA_GEOSPATIAL_API_BASE_URL": "https://geodev.btaa.org"
       }
     }
   }
@@ -147,7 +147,7 @@ Use this if you want Claude Desktop to talk to `dev1` over HTTP JSON-RPC instead
       "args": ["mcp/run_mcp_websocket_bridge.py"],
       "cwd": "/path/to/data-api",
       "env": {
-        "BTAA_GEOSPATIAL_API_BASE_URL": "https://lib-geoportal-dev-web-01.oit.umn.edu"
+        "BTAA_GEOSPATIAL_API_BASE_URL": "https://geodev.btaa.org"
       }
     }
   }

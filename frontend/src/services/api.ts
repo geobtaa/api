@@ -10,12 +10,17 @@ import { AdvancedClause, FacetFilter } from '../types/search';
 import { getActiveThemeConfig } from '../config/institution';
 import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 import { debugLog, isDebugLoggingEnabled } from '../utils/logger';
-import { getTurnstileSessionToken } from './turnstile';
+import {
+  getTurnstileSessionToken,
+  isTurnstileRequiredResponse,
+  signalTurnstileRequired,
+} from './turnstile';
 
 export class ApiError extends Error {
   constructor(
     message: string,
-    public status?: number
+    public status?: number,
+    public code?: string
   ) {
     super(message);
     this.name = 'ApiError';
@@ -299,6 +304,45 @@ interface FetchOptions {
   useJsonp?: boolean;
 }
 
+function parseApiErrorPayload(
+  errorText: string
+): { message?: string; code?: string } {
+  if (!errorText) return {};
+
+  try {
+    const payload = JSON.parse(errorText) as Record<string, unknown>;
+
+    const detail =
+      typeof payload.detail === 'string' ? payload.detail : undefined;
+    const message =
+      typeof payload.message === 'string' ? payload.message : undefined;
+    const code = typeof payload.error === 'string' ? payload.error : undefined;
+    const errors = Array.isArray(payload.errors) ? payload.errors : [];
+    const firstError = errors.find(
+      (item): item is Record<string, unknown> =>
+        item !== null && typeof item === 'object'
+    );
+    const firstErrorDetail =
+      typeof firstError?.detail === 'string' ? firstError.detail : undefined;
+    const firstErrorCode =
+      typeof firstError?.code === 'string' ? firstError.code : undefined;
+
+    return {
+      message: detail || message || firstErrorDetail,
+      code: code || firstErrorCode,
+    };
+  } catch {
+    return {};
+  }
+}
+
+function formatHttpErrorMessage(response: Response, errorText: string): string {
+  const statusText = response.statusText ? ` ${response.statusText}` : '';
+  return errorText
+    ? `HTTP error ${response.status}${statusText}: ${errorText}`
+    : `HTTP error ${response.status}${statusText}`;
+}
+
 async function unifiedFetch<T>(
   url: string,
   options: FetchOptions = defaultFetchOptions
@@ -352,19 +396,26 @@ async function unifiedFetch<T>(
       if (!response.ok) {
         const errorText = await response.text();
         console.error('API Error response:', errorText);
-        try {
-          const errorJson = JSON.parse(errorText);
+        const parsedError = parseApiErrorPayload(errorText);
+
+        if (isTurnstileRequiredResponse(response, errorText)) {
+          signalTurnstileRequired({
+            responseStatus: response.status,
+            url: fetchUrl,
+          });
           throw new ApiError(
-            errorJson.detail || 'API request failed',
-            response.status
-          );
-        } catch (e) {
-          console.error('Error parsing API error response:', e);
-          throw new ApiError(
-            `HTTP error ${response.status}: ${errorText}`,
-            response.status
+            parsedError.message ||
+              'Browser verification is required before continuing.',
+            response.status,
+            parsedError.code || 'turnstile_required'
           );
         }
+
+        throw new ApiError(
+          parsedError.message || formatHttpErrorMessage(response, errorText),
+          response.status,
+          parsedError.code
+        );
       }
 
       const jsonData = await response.json();

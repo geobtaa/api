@@ -16,6 +16,9 @@ Cloudflare.
    same-origin production traffic.
 5. `TurnstileMiddleware` requires that verified session only when a request to
    a configured hot path is explicitly marked as frontend browser gate traffic.
+6. If a browser tab stays open after that session expires, protected frontend
+   requests return `403` with `X-Turnstile-Required: true`; the React API client
+   clears its stale session token and reopens the global Turnstile gate in place.
 
 By default the protected backend paths are:
 
