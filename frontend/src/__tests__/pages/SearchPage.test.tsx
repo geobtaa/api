@@ -319,6 +319,34 @@ describe('SearchPage Logic', () => {
     ).toBeInTheDocument();
   });
 
+  it('loads client results for a bbox-only gallery URL', async () => {
+    const mockFetchSearchResults = vi.mocked(fetchSearchResults);
+    const results = createMockApiResponse(
+      [createMockResult('bbox-result', 'Bbox result')],
+      1,
+      1
+    );
+    mockFetchSearchResults.mockResolvedValueOnce(results);
+
+    const bboxOnlyUrl =
+      '/search?include_filters%5Bgeo%5D%5Btype%5D=bbox' +
+      '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
+      '&include_filters%5Bgeo%5D%5Brelation%5D=intersects' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=55.557474095314596' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=11.440001986920835' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=50.96285728506949' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=16.164123080670837' +
+      '&view=gallery';
+
+    renderWithRouter(bboxOnlyUrl, null, { clientSearchEnabled: true });
+
+    expect(
+      await screen.findByText('Gallery Result Bbox result')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Searching/i)).not.toBeInTheDocument();
+    expect(mockFetchSearchResults).toHaveBeenCalledTimes(1);
+  });
+
   it('restores saved map view preference when URL has no view param', async () => {
     localStorage.setItem('b1g_view_preference', 'map');
     const results = createMockApiResponse(mockResults.slice(0, 20));
