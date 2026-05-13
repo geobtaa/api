@@ -28,9 +28,10 @@ GET /api/v1/slack
   `APPLICATION_URL`, `BTAA_GEOSPATIAL_API_BASE_URL`, then
   `https://geoportal.btaa.org`.
 
-For Kamal deployments, `SLACK_SIGNING_SECRET` is listed as a secret-backed value
-in `config/deploy.yml`; set it in the destination secrets file before enabling
-the Slack app.
+For Kamal deployments, add `SLACK_SIGNING_SECRET` under `env.secret` in the
+destination config before enabling the Slack app, then set it in that
+destination's secrets file. Production currently does this in
+`config/deploy.prd.yml`; dev destinations leave Slack unconfigured.
 
 ## Commands
 

@@ -75,6 +75,8 @@ env:
     WEB_UVICORN_WORKERS: "4"
     WEB_INTERNAL_UVICORN_WORKERS: "6"
     WEB_SSR_WORKERS: "4"
+  secret:
+    - SLACK_SIGNING_SECRET
 
 accessories:
   elasticsearch:
