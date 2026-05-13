@@ -345,6 +345,30 @@ describe('SearchResults Component', () => {
       expect(screen.getByText('2.')).toBeInTheDocument();
     });
 
+    it('uses compact card elements for the default list on mobile widths', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={[mockFixtureData[0]]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const title = screen.getByRole('heading', {
+        name: 'Nondigitized paper map with library catalog link',
+      });
+      expect(title).toHaveClass('text-sm', 'md:text-xl');
+
+      const mobilePillWrapper = screen
+        .getAllByTestId('result-card-pill')
+        .map((pill) => pill.closest('div'))
+        .find((element) => element?.className.includes('md:mt-0'));
+      expect(mobilePillWrapper).toBeTruthy();
+    });
+
     it('uses viewer geometry for hover display (not bbox) when available', () => {
       const polygonCoords = [
         [-97, 49],
