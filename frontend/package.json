@@ -129,7 +129,7 @@
     "jsdom": "^27.0.0",
     "pa11y-ci": "^4.0.1",
     "pa11y-reporter-html": "^2.0.0",
-    "postcss": "^8.4.35",
+    "postcss": "^8.5.14",
     "prettier": "^3.5.1",
     "start-server-and-test": "^2.1.5",
     "tailwindcss": "^3.4.1",
