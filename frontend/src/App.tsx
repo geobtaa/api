@@ -12,6 +12,8 @@ import { ProviderPillsTestPage } from './pages/ProviderPillsTestPage';
 import { MapPage } from './pages/MapPage';
 import { TestPage } from './pages/TestPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { AboutPage } from './pages/AboutPage';
+import { HelpPage } from './pages/HelpPage';
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
@@ -32,6 +34,8 @@ function App() {
       <DebugProvider>
         <Routes>
           {/* More specific paths first so /search matches before / */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/help" element={<HelpPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/resources/:id" element={<ResourceView />} />
