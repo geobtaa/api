@@ -5,7 +5,9 @@
 import { render, screen } from '@testing-library/react';
 import { axeWithWCAG22 } from '../../../test-utils/axe';
 import { BrowserRouter } from 'react-router';
-import { vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
+import Cookies from 'js-cookie';
+import * as api from '../../../services/api';
 import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
@@ -81,7 +83,20 @@ vi.mock('react-router', async (importOriginal) => {
   };
 });
 
+const FEATURED_CAROUSEL_HIDDEN_COOKIE = 'btaa_home_featured_carousel_hidden';
+
 describe('HomePageHexMapBackground – Featured carousel accessibility', () => {
+  beforeEach(() => {
+    Cookies.set(FEATURED_CAROUSEL_HIDDEN_COOKIE, '0', { path: '/' });
+    vi.mocked(api.fetchFeaturedResourcePreview).mockImplementation(
+      () => new Promise(() => {})
+    );
+  });
+
+  afterEach(() => {
+    Cookies.remove(FEATURED_CAROUSEL_HIDDEN_COOKIE, { path: '/' });
+  });
+
   it('has no accessibility violations in carousel region', async () => {
     render(
       <BrowserRouter>

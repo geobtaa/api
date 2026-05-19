@@ -6,8 +6,7 @@ import Cookies from 'js-cookie';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
-import { cellArea, UNITS } from 'h3-js';
-import { MapUpdaterHex, type HexHoverData } from '../map/MapUpdaterHex';
+import { MapUpdaterHex, type HexBoundingBox } from '../map/MapUpdaterHex';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { BboxRectangleSelector } from '../map/BboxRectangleSelector';
 import { leafletGestureMapOptions } from '../../config/leafletConfig';
@@ -18,7 +17,6 @@ import { getApiBasePath } from '../../services/api';
 import type { GeoDocumentDetails } from '../../types/api';
 import { getResourceIcon } from '../../utils/resourceIcons';
 import { ResultCardPill } from '../search/ResultCardPill';
-import { formatCount } from '../../utils/formatNumber';
 import { parseBboxToLeafletBounds } from '../../utils/bbox';
 import {
   getSavedHexLayerEnabled,
@@ -112,9 +110,9 @@ const DARK_BIG_TEN_BLUE = '#003C5B';
 
 function getSavedFeaturedCarouselVisible(): boolean {
   try {
-    return Cookies.get(FEATURED_CAROUSEL_HIDDEN_COOKIE) !== '1';
+    return Cookies.get(FEATURED_CAROUSEL_HIDDEN_COOKIE) === '0';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -173,56 +171,16 @@ function FeaturedItemBoundsLayer({
   );
 }
 
-/** Format H3 cell area in km² for display (e.g. 0.25, 15.3, 1,234). */
-function formatAreaKm2(km2: number): string {
-  if (km2 >= 1000)
-    return km2.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  if (km2 >= 1)
-    return km2.toLocaleString('en-US', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 2,
-    });
-  return km2.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  });
-}
-
-function HexHoverCard({ hoveredHex }: { hoveredHex: HexHoverData }) {
-  let areaKm2: number | null = null;
-  try {
-    areaKm2 = cellArea(hoveredHex.h3, UNITS.km2);
-  } catch {
-    // Invalid H3 index or library error
-  }
-  return (
-    <div
-      data-hex-popover
-      className="absolute bottom-4 left-4 z-[1000] rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm p-3 min-w-[180px]"
-      role="status"
-      aria-live="polite"
-    >
-      <h3 className="text-sm font-semibold text-gray-900 mb-1">
-        H3 {hoveredHex.h3}
-      </h3>
-      <dl className="text-sm text-gray-600 space-y-1 mb-2">
-        <div className="flex justify-between gap-4">
-          <dt className="font-medium">Resources</dt>
-          <dd>{formatCount(hoveredHex.count)}</dd>
-        </div>
-        <div className="flex justify-between gap-4">
-          <dt className="font-medium">Resolution</dt>
-          <dd>Level {hoveredHex.resolution}</dd>
-        </div>
-        {areaKm2 != null && (
-          <div className="flex justify-between gap-4">
-            <dt className="font-medium">Area</dt>
-            <dd>{formatAreaKm2(areaKm2)} km²</dd>
-          </div>
-        )}
-      </dl>
-    </div>
-  );
+function buildBboxSearchUrl(bbox: HexBoundingBox, relation = 'intersects') {
+  const params = new URLSearchParams();
+  params.set('include_filters[geo][type]', 'bbox');
+  params.set('include_filters[geo][field]', 'dcat_bbox');
+  params.set('include_filters[geo][relation]', relation);
+  params.set('include_filters[geo][top_left][lat]', bbox.north.toString());
+  params.set('include_filters[geo][top_left][lon]', bbox.west.toString());
+  params.set('include_filters[geo][bottom_right][lat]', bbox.south.toString());
+  params.set('include_filters[geo][bottom_right][lon]', bbox.east.toString());
+  return `/search?${params.toString()}`;
 }
 
 /** One-time pan so Chicago (dense hex cluster) appears in the desired position on the homepage. Marks as programmatic so it is not counted as user engagement. */
@@ -281,29 +239,34 @@ function SearchHereControl() {
     const bounds = map.getBounds();
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
-    const params = new URLSearchParams();
-    params.set('include_filters[geo][type]', 'bbox');
-    params.set('include_filters[geo][field]', 'dcat_bbox');
-    params.set('include_filters[geo][relation]', 'intersects');
-    params.set('include_filters[geo][top_left][lat]', ne.lat.toString());
-    params.set('include_filters[geo][top_left][lon]', sw.lng.toString());
-    params.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
-    params.set('include_filters[geo][bottom_right][lon]', ne.lng.toString());
-    navigate(`/search?${params.toString()}`);
+    navigate(
+      buildBboxSearchUrl({
+        north: ne.lat,
+        west: sw.lng,
+        south: sw.lat,
+        east: ne.lng,
+      })
+    );
   };
 
   if (!showSearchButton) return null;
   return (
-    <div className="absolute top-2 right-2 z-[1000]">
-      <button
-        type="button"
-        onClick={handleSearchHere}
-        className="flex items-center rounded-lg border border-brand bg-brand px-3 py-2 text-sm font-medium text-white shadow-lg transition-colors hover:bg-[#002f49] focus:outline-none focus:ring-2 focus:ring-brand-active focus:ring-offset-2"
-        aria-label="Search in this area"
-      >
-        <span>Search here</span>
-      </button>
-    </div>
+    <>
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-[4px] z-[998] border-2 border-[#ff7a00] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_0_10px_rgba(255,122,0,0.32)]"
+      />
+      <div className="absolute top-2 right-2 z-[1000]">
+        <button
+          type="button"
+          onClick={handleSearchHere}
+          className="flex items-center rounded-lg bg-[#ff7a00] px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_8px_1px_rgba(0,166,255,0.22),0_3px_8px_rgba(0,80,150,0.1)] transition-colors hover:bg-[#ff8f1f] focus:outline-none focus:ring-2 focus:ring-[#003c5b] focus:ring-offset-2"
+          aria-label="Search in this area"
+        >
+          <span>Search here</span>
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -349,8 +312,8 @@ function HomeMapResetListener({
 /**
  * Non-interactive Leaflet hex map used as the background of the homepage.
  * Center is south of the US so North America appears just under the search form.
- * Hovering a hex shows a glowing blue border and popover at bottom-left.
- * Featured resources carousel at bottom; when an item is active, map flies to its bbox and a popup shows thumbnail and link.
+ * Hovering a hex shows a glowing blue border; clicking a hex searches its bbox.
+ * Featured resources carousel at bottom; when an item is active, map flies to its bbox and shows a preview card.
  */
 export function HomePageHexMapBackground() {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -384,10 +347,10 @@ export function HomePageHexMapBackground() {
     resolution: number;
     loading: boolean;
   }>({ hexes: [], resolution: 6, loading: false });
-  const [hoveredHex, setHoveredHex] = useState<HexHoverData | null>(null);
   const [hexLayerEnabled, setHexLayerEnabled] = useState(
     getSavedHexLayerEnabled
   );
+  const navigate = useNavigate();
   const initialHomeViewRef = useRef<{
     center: [number, number];
     zoom: number;
@@ -408,6 +371,13 @@ export function HomePageHexMapBackground() {
       });
     },
     []
+  );
+  const handleHexHover = useCallback(() => undefined, []);
+  const handleHexClick = useCallback(
+    ({ bbox }: { bbox: HexBoundingBox }) => {
+      navigate(buildBboxSearchUrl(bbox));
+    },
+    [navigate]
   );
 
   const [preCarouselProgress] = useState(1);
@@ -528,10 +498,6 @@ export function HomePageHexMapBackground() {
   return (
     <div className="absolute inset-0 z-0">
       <style>{`.hex-hover-glow { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.9)); }
-.map-hex-search-popup .leaflet-popup-content-wrapper { background: transparent; box-shadow: none; padding: 0; border-radius: 0; }
-.map-hex-search-popup .leaflet-popup-content { margin: 0; min-width: 0; }
-.map-hex-search-popup .leaflet-popup-tip-container { margin-top: -1px; }
-.map-hex-search-popup .leaflet-popup-tip { background: rgba(255, 255, 255, 0.95); box-shadow: none; }
 .homepage-map .leaflet-top.leaflet-left { top: 1rem; }`}</style>
       <p className="sr-only">
         For a list of hex data, use the hex table button in the bottom-left
@@ -570,9 +536,6 @@ export function HomePageHexMapBackground() {
             stackOrder="beforeBasemap"
             onToggle={(enabled) => {
               setHexLayerEnabled(enabled);
-              if (!enabled) {
-                setHoveredHex(null);
-              }
             }}
           />
           <MapPanner
@@ -590,13 +553,11 @@ export function HomePageHexMapBackground() {
           <SearchHereControl />
           {hexLayerEnabled && (
             <>
-              {hoveredHex && <HexHoverCard hoveredHex={hoveredHex} />}
               <MapUpdaterHex
                 searchQuery=""
                 onFeatureClick={() => {}}
-                enableSearchPopup
-                onHexHover={setHoveredHex}
-                hoveredHex={hoveredHex}
+                onHexClick={handleHexClick}
+                onHexHover={handleHexHover}
                 onHexData={handleHexData}
                 queryString={queryString}
               />
