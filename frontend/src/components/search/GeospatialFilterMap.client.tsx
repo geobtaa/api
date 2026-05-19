@@ -9,6 +9,7 @@ import { MapGeosearchControl } from '../map/MapGeosearchControl';
 import { attachBasemapSwitcher } from '../../config/basemaps';
 import { leafletGestureMapOptions } from '../../config/leafletConfig';
 import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import { normalizeBboxSearchEnvelope } from '../../utils/bbox';
 import {
   getSavedHexLayerEnabled,
   saveHexLayerEnabled,
@@ -232,12 +233,10 @@ export function GeospatialFilterMap({
         }, 100);
       });
 
-      // Handle map move/zoom events - show preview rectangle and "Search here" button
+      // Handle map move/zoom events - show the bbox frame and "Search here" button
       const handleMapMoveEnd = () => {
         if (isUpdatingFromParamsRef.current) return;
         if (!mapRef.current) return;
-
-        const bounds = mapRef.current.getBounds();
 
         // Clear place geometry when user manually moves the map
         if (selectedPlaceGeoJsonRef.current) {
@@ -250,19 +249,6 @@ export function GeospatialFilterMap({
           mapRef.current.removeLayer(previewRectangleRef.current);
           previewRectangleRef.current = null;
         }
-
-        // Add preview rectangle to show what area would be searched
-        // Use a different style to indicate it's a preview (not yet applied)
-        const previewRectangle = L.rectangle(bounds, {
-          color: '#3b82f6',
-          weight: 2,
-          opacity: 0.6,
-          fillColor: '#3b82f6',
-          fillOpacity: 0.15,
-          dashArray: '5, 5', // Dashed line to indicate preview
-        }).addTo(mapRef.current);
-
-        previewRectangleRef.current = previewRectangle;
 
         // Show the "Search here" button
         setShowSearchButton(true);
@@ -625,16 +611,30 @@ export function GeospatialFilterMap({
     // Add new bbox filter from current map bounds
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
+    const bbox = normalizeBboxSearchEnvelope(sw.lng, sw.lat, ne.lng, ne.lat);
+    if (!bbox) return;
 
     // Top-left is northwest corner (north = higher lat, west = lower lon)
     // Bottom-right is southeast corner (south = lower lat, east = higher lon)
     newParams.set('include_filters[geo][type]', 'bbox');
     newParams.set('include_filters[geo][field]', 'dcat_bbox');
     newParams.set('include_filters[geo][relation]', relation);
-    newParams.set('include_filters[geo][top_left][lat]', ne.lat.toString());
-    newParams.set('include_filters[geo][top_left][lon]', sw.lng.toString());
-    newParams.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
-    newParams.set('include_filters[geo][bottom_right][lon]', ne.lng.toString());
+    newParams.set(
+      'include_filters[geo][top_left][lat]',
+      bbox.topLeft.lat.toString()
+    );
+    newParams.set(
+      'include_filters[geo][top_left][lon]',
+      bbox.topLeft.lon.toString()
+    );
+    newParams.set(
+      'include_filters[geo][bottom_right][lat]',
+      bbox.bottomRight.lat.toString()
+    );
+    newParams.set(
+      'include_filters[geo][bottom_right][lon]',
+      bbox.bottomRight.lon.toString()
+    );
 
     // Reset to page 1 when bbox changes
     newParams.delete('page');
@@ -782,13 +782,20 @@ export function GeospatialFilterMap({
           />
           <MapGeosearchControl mapInstance={mapInstance} />
           {showSearchButton && (
-            <button
-              onClick={handleSearchHere}
-              className="absolute top-2 right-2 z-[1000] flex items-center px-3 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
-              aria-label="Search in this area"
-            >
-              <span>Search here</span>
-            </button>
+            <>
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-[4px] z-[999] rounded-[4px] border-2 border-[#ff7a00] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.7),0_0_10px_rgba(255,122,0,0.32)]"
+              />
+              <button
+                type="button"
+                onClick={handleSearchHere}
+                className="absolute top-2 right-2 z-[1000] flex items-center rounded-lg bg-[#ff7a00] px-4 py-2.5 text-sm font-bold text-white shadow-[0_0_8px_1px_rgba(0,166,255,0.22),0_3px_8px_rgba(0,80,150,0.1)] transition-colors hover:bg-[#ff8f1f] focus:outline-none focus:ring-2 focus:ring-[#003c5b] focus:ring-offset-2"
+                aria-label="Search in this area"
+              >
+                <span>Search here</span>
+              </button>
+            </>
           )}
         </div>
         <HexLayerToggleControl

@@ -400,19 +400,32 @@ export function HomePage() {
     <div className="min-h-screen flex flex-col">
       <Seo title="Big Ten Academic Alliance Geoportal" />
       {showAnnouncement && (
-        <div className="bg-white text-gray-800 px-4 sm:px-6 lg:px-8 py-2 text-sm border-b border-gray-200">
-          <p className="text-center">
-            {announcement.text}{' '}
-            <a
-              href={announcement.link_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-brand-active underline underline-offset-2 hover:no-underline"
+        <div className="bg-[#fff8df] text-gray-950 px-4 sm:px-6 lg:px-8 py-2 text-sm font-bold leading-5 border-b border-[#e6d08f]">
+          <div className="mx-auto flex max-w-5xl items-center justify-center gap-3">
+            <span
+              aria-hidden
+              className="relative hidden h-px max-w-sm flex-1 bg-[#c9a24a] sm:block"
             >
-              {announcement.link_label}
-              <ArrowRight className="w-4 h-4" aria-hidden />
-            </a>
-          </p>
+              <span className="absolute right-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 translate-x-1/2 rotate-45 bg-[#c9a24a]" />
+            </span>
+            <p className="shrink-0 text-center">
+              {announcement.text}{' '}
+              <a
+                href={announcement.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-gray-950 no-underline underline-offset-2 hover:underline hover:decoration-2"
+              >
+                {announcement.link_label}
+              </a>
+            </p>
+            <span
+              aria-hidden
+              className="relative hidden h-px max-w-sm flex-1 bg-[#c9a24a] sm:block"
+            >
+              <span className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#c9a24a]" />
+            </span>
+          </div>
         </div>
       )}
       <Header />
