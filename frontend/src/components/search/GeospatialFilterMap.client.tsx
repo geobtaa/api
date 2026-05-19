@@ -611,7 +611,13 @@ export function GeospatialFilterMap({
     // Add new bbox filter from current map bounds
     const ne = bounds.getNorthEast();
     const sw = bounds.getSouthWest();
-    const bbox = normalizeBboxSearchEnvelope(sw.lng, sw.lat, ne.lng, ne.lat);
+    const normalizeBbox =
+      typeof (normalizeBboxSearchEnvelope as unknown) === 'function'
+        ? normalizeBboxSearchEnvelope
+        : null;
+    if (!normalizeBbox) return;
+
+    const bbox = normalizeBbox(sw.lng, sw.lat, ne.lng, ne.lat);
     if (!bbox) return;
 
     // Top-left is northwest corner (north = higher lat, west = lower lon)
