@@ -120,6 +120,7 @@ COPY --from=frontend_prod_deps /frontend/node_modules ./frontend/node_modules
 
 # Copy only the backend runtime surface, not tests, fixture data, or local envs.
 COPY backend/pyproject.toml backend/uv.lock ./backend/
+COPY backend/__appsignal__.py ./backend/__appsignal__.py
 COPY backend/app ./backend/app
 COPY backend/db ./backend/db
 COPY backend/scripts ./scripts
@@ -157,10 +158,12 @@ EXPOSE 8000
 # HEALTHCHECK for all roles (web, cron, flower, worker). Each role runs different process:
 # Web: nginx on 8000 | Flower: Celery on 5555 | Cron: cron (PID 1) | Worker: celery, no HTTP
 HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=3 \
-  CMD curl -sf http://127.0.0.1:8000/api/docs -o /dev/null || \
-      curl -sf http://127.0.0.1:5555/ -o /dev/null || \
-      grep -q cron /proc/1/comm 2>/dev/null || \
-      kill -0 1 2>/dev/null || exit 1
+  CMD case "$KAMAL_CONTAINER_NAME" in \
+        *-web-*) curl -sf http://127.0.0.1:8000/api/docs -o /dev/null ;; \
+        *-flower-*) curl -sf http://127.0.0.1:5555/ -o /dev/null ;; \
+        *-cron-*) grep -q cron /proc/1/comm 2>/dev/null ;; \
+        *) kill -0 1 2>/dev/null ;; \
+      esac
 
 # Kamal will override this via servers.web.cmd, but keep a sensible default.
 CMD ["bash", "-lc", "/app/scripts/start_web_singlehost.sh"]
