@@ -49,9 +49,11 @@ coverage.xml
 
 # --- VCS & env files ---
 .git
+/.git/
 .gitignore
 .env
 .env.*
+/.kamal/
 
 # --- Databases & data dumps (can be huge) ---
 *.sqlite*
@@ -81,11 +83,15 @@ coverage.xml
 # --- Logs ---
 *.log
 logs/
+/logs/
+/test_logs/
+/tmp/
 
 # --- Local runtime data dirs (don’t bake into image) ---
 elasticsearch-data/
 paradedb-data/
 data/
+/data/
 backend/data/
 backend/logs/
 backend/tmp/
