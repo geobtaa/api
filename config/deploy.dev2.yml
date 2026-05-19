@@ -38,7 +38,7 @@ builder:
     VITE_API_BASE_URL: "https://geodev.btaa.org/api/v1"
     VITE_TURNSTILE_ACTION: "geoportal_gate"
     VITE_TURNSTILE_ENABLED: "true"
-    VITE_TURNSTILE_SITE_KEY: "0x4AAAAAADJqCBiv8czDm2ZG"
+    VITE_TURNSTILE_PUBLIC_SITE: "0x4AAAAAADJqCBiv8czDm2ZG"
     VITE_KAMAL_DEST: "dev2"
 
 env:

@@ -17,7 +17,7 @@ builder:
     VITE_ENFORCE_HTTPS: "true"
     VITE_TURNSTILE_ACTION: "<%= ENV.fetch('VITE_TURNSTILE_ACTION', 'geoportal_gate') %>"
     VITE_TURNSTILE_ENABLED: "<%= ENV.fetch('VITE_TURNSTILE_ENABLED', 'false') %>"
-    VITE_TURNSTILE_SITE_KEY: "<%= ENV.fetch('VITE_TURNSTILE_SITE_KEY', '') %>"
+    VITE_TURNSTILE_PUBLIC_SITE: "<%= ENV.fetch('VITE_TURNSTILE_SITE_KEY', '') %>"
     VITE_GTM_ID: ""
     VITE_KAMAL_DEST: ""
 

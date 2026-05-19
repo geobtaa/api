@@ -7,12 +7,18 @@
 
 # --- Python envs & builds ---
 .venv/
+**/.venv/
 env/
+**/env/
 venv/
+**/venv/
 dist/
+**/dist/
 build/
+**/build/
 .eggs/
 *.egg-info/
+**/*.egg-info/
 
 # --- Node/JS ---
 node_modules/
@@ -83,6 +89,21 @@ data/
 backend/data/
 backend/logs/
 backend/tmp/
+backend/coverage_html_report/
+backend/htmlcov/
+backend/test_logs/
+frontend/.git/
+frontend/.react-router/
+frontend/coverage/
+frontend/dist/
+
+# --- Top-level projects not needed in the Kamal app image ---
+/cli/
+/docs/
+/mkdocs/
+/performance/
+/qgis-plugin/
+/qgis-plugin.zip
 
 # --- Optional: keep small in-repo samples available to builds ---
 #!samples/**
