@@ -16,6 +16,57 @@ export interface BBoxSearchEnvelope {
   };
 }
 
+function clampSearchLatitude(latitude: number): number {
+  return Math.max(-90, Math.min(90, latitude));
+}
+
+export function normalizeSearchLongitude(longitude: number): number {
+  const normalized = ((((longitude + 180) % 360) + 360) % 360) - 180;
+  return normalized === -180 && longitude > 0 ? 180 : normalized;
+}
+
+export function normalizeBboxSearchEnvelope(
+  west: number,
+  south: number,
+  east: number,
+  north: number
+): BBoxSearchEnvelope | null {
+  if (![west, south, east, north].every(Number.isFinite)) return null;
+
+  const northLat = clampSearchLatitude(Math.max(south, north));
+  const southLat = clampSearchLatitude(Math.min(south, north));
+  if (northLat <= southLat) return null;
+
+  const rawLongitudeSpan = east - west;
+  let westLon: number;
+  let eastLon: number;
+
+  if (Math.abs(rawLongitudeSpan) >= 360) {
+    westLon = -180;
+    eastLon = 180;
+  } else {
+    westLon = normalizeSearchLongitude(west);
+    eastLon = normalizeSearchLongitude(east);
+  }
+
+  if (westLon === eastLon) {
+    if (rawLongitudeSpan === 0) return null;
+    westLon = -180;
+    eastLon = 180;
+  }
+
+  return {
+    topLeft: {
+      lat: northLat,
+      lon: westLon,
+    },
+    bottomRight: {
+      lat: southLat,
+      lon: eastLon,
+    },
+  };
+}
+
 export function parseBboxToLeafletBounds(
   bboxStr: string | undefined
 ): [[number, number], [number, number]] | null {
@@ -49,7 +100,10 @@ export function parseBboxToLeafletBounds(
 }
 
 function clampLatitude(latitude: number): number {
-  return Math.max(-WEB_MERCATOR_MAX_LAT, Math.min(WEB_MERCATOR_MAX_LAT, latitude));
+  return Math.max(
+    -WEB_MERCATOR_MAX_LAT,
+    Math.min(WEB_MERCATOR_MAX_LAT, latitude)
+  );
 }
 
 function longitudeToWorldX(longitude: number, scale: number): number {

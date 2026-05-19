@@ -1,5 +1,6 @@
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -37,6 +38,10 @@ DEFAULT_FACET_SIZE = int(os.getenv("DEFAULT_FACET_SIZE", "11"))
 NEAR_GLOBAL_DIAGONAL_KM = 15_000
 MIN_BBOX_IOU_OVERLAP_RATIO = float(os.getenv("MIN_BBOX_IOU_OVERLAP_RATIO", "0.001"))
 ALLOWED_GEO_RELATIONS = {"intersects", "within", "contains", "disjoint"}
+GEO_MIN_LON = -180.0
+GEO_MAX_LON = 180.0
+GEO_MIN_LAT = -90.0
+GEO_MAX_LAT = 90.0
 BBOX_CONTAINMENT_WEIGHT = float(os.getenv("BBOX_CONTAINMENT_WEIGHT", "0.7"))
 BBOX_IOU_WEIGHT = float(os.getenv("BBOX_IOU_WEIGHT", "0.3"))
 BBOX_SPATIAL_BOOST_WEIGHT = float(os.getenv("BBOX_SPATIAL_BOOST_WEIGHT", "0.8"))
@@ -588,6 +593,77 @@ def _normalize_geo_relation(relation: str | None, default: str = "intersects") -
     return normalized
 
 
+def _normalize_longitude(longitude: float) -> float:
+    normalized = ((longitude + 180.0) % 360.0) - 180.0
+    if normalized == -180.0 and longitude > 0:
+        return 180.0
+    return normalized
+
+
+def _normalize_geo_bbox_bounds(top_left: dict, bottom_right: dict) -> dict | None:
+    """Return bounded bbox coordinates safe for Elasticsearch geo queries.
+
+    Leaflet can report longitudes outside [-180, 180] when the map is panned into
+    wrapped world copies. Elasticsearch rejects those coordinates, so normalize
+    them here and split antimeridian-crossing ranges into two legal envelopes.
+    """
+    try:
+        west_raw = float(top_left["lon"])
+        east_raw = float(bottom_right["lon"])
+        north_raw = float(top_left["lat"])
+        south_raw = float(bottom_right["lat"])
+    except (KeyError, TypeError, ValueError):
+        logger.warning("Invalid bbox parameters: non-numeric lat/lon coordinates")
+        return None
+
+    if not all(math.isfinite(value) for value in (west_raw, east_raw, north_raw, south_raw)):
+        logger.warning("Invalid bbox parameters: non-finite lat/lon coordinates")
+        return None
+
+    north = min(GEO_MAX_LAT, max(GEO_MIN_LAT, max(north_raw, south_raw)))
+    south = min(GEO_MAX_LAT, max(GEO_MIN_LAT, min(north_raw, south_raw)))
+    if north <= south:
+        logger.warning("Invalid bbox parameters: zero-height latitude range")
+        return None
+
+    raw_lon_span = east_raw - west_raw
+    if abs(raw_lon_span) >= 360.0:
+        lon_ranges = [(GEO_MIN_LON, GEO_MAX_LON)]
+    else:
+        west = _normalize_longitude(west_raw)
+        east = _normalize_longitude(east_raw)
+        if west == east:
+            if raw_lon_span == 0:
+                logger.warning("Invalid bbox parameters: zero-width longitude range")
+                return None
+            lon_ranges = [(GEO_MIN_LON, GEO_MAX_LON)]
+        elif west < east:
+            lon_ranges = [(west, east)]
+        elif (
+            GEO_MIN_LON <= west_raw <= GEO_MAX_LON
+            and GEO_MIN_LON <= east_raw <= GEO_MAX_LON
+            and west - east <= 180.0
+        ):
+            lon_ranges = [(east, west)]
+        else:
+            lon_ranges = [(west, GEO_MAX_LON), (GEO_MIN_LON, east)]
+
+    normalized_ranges = [
+        (west, east)
+        for west, east in lon_ranges
+        if west >= GEO_MIN_LON and east <= GEO_MAX_LON and west < east
+    ]
+    if not normalized_ranges:
+        logger.warning("Invalid bbox parameters: no searchable longitude range")
+        return None
+
+    return {
+        "north": north,
+        "south": south,
+        "lon_ranges": normalized_ranges,
+    }
+
+
 def _normalize_min_overlap_ratio(raw: object) -> float:
     try:
         value = float(raw)
@@ -851,71 +927,79 @@ def _build_geospatial_filter(geo_params: dict) -> dict | None:
         top_left = geo_params.get("top_left", {})
         bottom_right = geo_params.get("bottom_right", {})
 
-        if not all(
-            [
+        if any(
+            coord is None
+            for coord in (
                 top_left.get("lat"),
                 top_left.get("lon"),
                 bottom_right.get("lat"),
                 bottom_right.get("lon"),
-            ]
+            )
         ):
             logger.warning("Invalid bbox parameters: missing lat/lon coordinates")
             return None
 
+        bbox_bounds = _normalize_geo_bbox_bounds(top_left, bottom_right)
+        if not bbox_bounds:
+            return None
+
+        north = bbox_bounds["north"]
+        south = bbox_bounds["south"]
+        lon_ranges = bbox_bounds["lon_ranges"]
+        relation = _normalize_geo_relation(geo_params.get("relation"))
+
         # Use geo_shape query for geo_shape fields (dcat_bbox, locn_geometry)
         # Use geo_bounding_box for geo_point fields (dcat_centroid)
         if geo_field in ["dcat_bbox", "locn_geometry"]:
-            # Use envelope type for bounding boxes (more efficient than polygon)
-            # Envelope format: [[min_lon, max_lat], [max_lon, min_lat]]
-            top_left_lon = float(top_left["lon"])
-            top_left_lat = float(top_left["lat"])
-            bottom_right_lon = float(bottom_right["lon"])
-            bottom_right_lat = float(bottom_right["lat"])
+            geo_filters = []
+            for west, east in lon_ranges:
+                # Use envelope type for bounding boxes (more efficient than polygon).
+                # Envelope format: [[west_lon, north_lat], [east_lon, south_lat]]
+                envelope_coords = [
+                    [west, north],
+                    [east, south],
+                ]
 
-            # Ensure we have min/max values (handle cases where bbox might be reversed)
-            min_lon = min(top_left_lon, bottom_right_lon)
-            max_lon = max(top_left_lon, bottom_right_lon)
-            min_lat = min(top_left_lat, bottom_right_lat)
-            max_lat = max(top_left_lat, bottom_right_lat)
-
-            # Envelope coordinates: [[min_lon, max_lat], [max_lon, min_lat]]
-            envelope_coords = [
-                [min_lon, max_lat],  # top-left corner
-                [max_lon, min_lat],  # bottom-right corner
-            ]
-
-            relation = _normalize_geo_relation(geo_params.get("relation"))
-            geo_filter = {
-                "geo_shape": {
-                    geo_field: {
-                        "shape": {
-                            "type": "envelope",
-                            "coordinates": envelope_coords,
-                        },
-                        "relation": relation,
+                geo_filters.append(
+                    {
+                        "geo_shape": {
+                            geo_field: {
+                                "shape": {
+                                    "type": "envelope",
+                                    "coordinates": envelope_coords,
+                                },
+                                "relation": relation,
+                            }
+                        }
                     }
-                }
-            }
+                )
 
-            logger.debug(
-                f"Geo filter for {geo_field}: envelope={envelope_coords}, "
-                f"bbox=({min_lon},{max_lat}) to ({max_lon},{min_lat})"
+            geo_filter = (
+                geo_filters[0]
+                if len(geo_filters) == 1
+                else {"bool": {"should": geo_filters, "minimum_should_match": 1}}
             )
 
+            logger.debug("Geo filter for %s: %s", geo_field, geo_filter)
             return geo_filter
         else:
             # Use geo_bounding_box for geo_point fields (dcat_centroid)
-            return {
-                "geo_bounding_box": {
-                    geo_field: {
-                        "top_left": {"lat": float(top_left["lat"]), "lon": float(top_left["lon"])},
-                        "bottom_right": {
-                            "lat": float(bottom_right["lat"]),
-                            "lon": float(bottom_right["lon"]),
-                        },
+            geo_filters = [
+                {
+                    "geo_bounding_box": {
+                        geo_field: {
+                            "top_left": {"lat": north, "lon": west},
+                            "bottom_right": {"lat": south, "lon": east},
+                        }
                     }
                 }
-            }
+                for west, east in lon_ranges
+            ]
+            return (
+                geo_filters[0]
+                if len(geo_filters) == 1
+                else {"bool": {"should": geo_filters, "minimum_should_match": 1}}
+            )
 
     elif geo_type == "distance":
         center = geo_params.get("center", {})
@@ -1063,12 +1147,16 @@ async def search_resources(
                             and values.get("top_left")
                             and values.get("bottom_right")
                         ):
-                            bbox_filter_info = {
-                                "top_left": values["top_left"],
-                                "bottom_right": values["bottom_right"],
-                                "field": values.get("field", "dcat_centroid"),
-                                "min_overlap_ratio": values.get("min_overlap_ratio"),
-                            }
+                            bbox_bounds = _normalize_geo_bbox_bounds(
+                                values["top_left"],
+                                values["bottom_right"],
+                            )
+                            if bbox_bounds and len(bbox_bounds["lon_ranges"]) == 1:
+                                bbox_filter_info = {
+                                    "bounds": bbox_bounds,
+                                    "field": values.get("field", "dcat_centroid"),
+                                    "min_overlap_ratio": values.get("min_overlap_ratio"),
+                                }
                     else:
                         logger.warning(f"Failed to build geo filter from values: {values}")
                 # Handle year range queries
@@ -1255,14 +1343,14 @@ async def search_resources(
         # extent similarity using numeric bbox_* fields, and does NOT use
         # centroids at all.
         if bbox_filter_info:
-            top_left = bbox_filter_info["top_left"]
-            bottom_right = bbox_filter_info["bottom_right"]
+            bbox_bounds = bbox_filter_info["bounds"]
+            west, east = bbox_bounds["lon_ranges"][0]
 
             # Query bbox bounds (x = lon, y = lat)
-            q_minx = min(float(top_left["lon"]), float(bottom_right["lon"]))
-            q_maxx = max(float(top_left["lon"]), float(bottom_right["lon"]))
-            q_miny = min(float(bottom_right["lat"]), float(top_left["lat"]))
-            q_maxy = max(float(bottom_right["lat"]), float(top_left["lat"]))
+            q_minx = west
+            q_maxx = east
+            q_miny = bbox_bounds["south"]
+            q_maxy = bbox_bounds["north"]
 
             containment_weight, overlap_weight = _normalized_spatial_weights()
 
