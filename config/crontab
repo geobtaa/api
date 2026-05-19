@@ -6,7 +6,9 @@
 # Notes:
 # - Cron strips most container env vars. `BASH_ENV` reloads the required ones
 #   from a startup snapshot before each job starts.
-# - `CRON_TZ` keeps the schedule pinned to America/Chicago, including DST.
+# - The cron container startup sets /etc/localtime before launching cron so
+#   the schedule stays pinned to America/Chicago, including DST. `CRON_TZ`
+#   remains here for cron implementations that support per-file timezones.
 # - The bridge sync delta crawl uses the previous America/Chicago day at
 #   00:00:00 and converts that to UTC for the bridge API.
 

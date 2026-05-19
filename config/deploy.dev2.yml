@@ -21,7 +21,7 @@ servers:
   cron:
     hosts:
       - lib-geoportal-dev-web-01.oit.umn.edu
-    cmd: bash -lc '/opt/venv/bin/python3 /app/scripts/render_cron_env.py /tmp/cron-container-env.sh && (printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-nightly_cron}"; cat config/crontab) | crontab - && cron -f'
+    cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
       user: root
 

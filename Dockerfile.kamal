@@ -51,6 +51,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev \
     python3-pip \
     cron \
+    tzdata \
     gcc \
     g++ \
     libjpeg-dev \
@@ -102,8 +103,8 @@ COPY backend/ ./backend/
 COPY backend/static ./static
 COPY backend/templates ./templates
 
-# Ensure entrypoint script is executable (git perms may not preserve +x)
-RUN chmod +x /app/scripts/start_web_singlehost.sh
+# Ensure entrypoint scripts are executable (git perms may not preserve +x)
+RUN chmod +x /app/scripts/start_web_singlehost.sh /app/scripts/start_cron.sh
 
 # Install Python deps into the venv (no --system)
 RUN uv pip install -e ./backend

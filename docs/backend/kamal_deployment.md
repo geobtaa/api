@@ -324,10 +324,15 @@ The cron container currently runs:
 - daily sitemap generation at `4:15 AM America/Chicago`
 - daily analytics storage maintenance at `4:45 AM America/Chicago`
 
-Cron now sets `CRON_TZ=America/Chicago` in the crontab, and bridge delta windows are
-computed from the previous America/Chicago day before converting to UTC for the bridge
-API. Each cron shell also loads `/app/scripts/cron_env.sh` via `BASH_ENV`, which restores
-the container's Redis, database, Python-path, and bridge settings before the job starts.
+The cron container starts through `/app/scripts/start_cron.sh`, which pins the
+container timezone to `America/Chicago` before launching `cron -f`; set
+`BRIDGE_SYNC_LOCAL_TIMEZONE` only if a destination intentionally needs a different local
+schedule. Startup fails if the requested zoneinfo file is unavailable, rather than falling
+back to UTC. `CRON_TZ` also remains in `config/crontab` for cron implementations that
+support per-file timezones. Bridge delta windows are computed from the previous
+America/Chicago day before converting to UTC for the bridge API. Each cron shell also loads
+`/app/scripts/cron_env.sh` via `BASH_ENV`, which restores the container's Redis, database,
+Python-path, and bridge settings before the job starts.
 Bridge/blog cron triggers enqueue Celery tasks with `apply_async(ignore_result=True)` so
 they do not depend on a result-backend subscription just to queue fire-and-forget work.
 
