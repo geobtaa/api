@@ -267,6 +267,21 @@ describe('SearchPage Logic', () => {
     expect(panel).toHaveClass('hidden');
   });
 
+  it('lets the desktop filter rail scroll with the page', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?view=list', results);
+
+    const panel = document.getElementById('search-filters-panel') as HTMLElement;
+    expect(panel).toHaveClass('z-50');
+    expect(panel).toHaveClass('lg:z-10');
+    expect(panel).toHaveClass('lg:top-40');
+    expect(panel).not.toHaveClass('lg:top-24');
+    expect(panel).toHaveClass('overflow-y-auto');
+    expect(panel).toHaveClass('lg:overflow-visible');
+    expect(panel).not.toHaveClass('lg:overflow-y-auto');
+    expect(panel.className).not.toContain('lg:max-h-');
+  });
+
   it('hides stale client results while a new query is loading', async () => {
     const mockFetchSearchResults = vi.mocked(fetchSearchResults);
     const oldResults = createMockApiResponse(
