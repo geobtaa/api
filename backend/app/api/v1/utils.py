@@ -19,6 +19,10 @@ from app.services.distribution_repository import (
     build_distribution_context,
     fetch_distribution_context,
 )
+from app.services.licensed_access_repository import (
+    fetch_resource_licensed_accesses,
+    serialize_resource_licensed_accesses,
+)
 from app.services.ogm_field_mapper import OGMFieldMapper
 from db.database import database
 from db.models import resource_assets
@@ -397,6 +401,7 @@ def create_jsonapi_resource(resource_data, request_url=None):
         "ui_citation",
         "ui_citations",
         "ui_downloads",
+        "ui_licensed_accesses",
         "ui_links",
         "ui_viewer_protocol",
         "ui_viewer_endpoint",
@@ -468,6 +473,8 @@ def create_jsonapi_resource(resource_data, request_url=None):
         restructured_ui["citations"] = ui_fields["ui_citations"]
     if "ui_downloads" in ui_fields:
         restructured_ui["downloads"] = ui_fields["ui_downloads"]
+    if "ui_licensed_accesses" in ui_fields:
+        restructured_ui["licensed_accesses"] = ui_fields["ui_licensed_accesses"]
     if "ui_links" in ui_fields:
         restructured_ui["links"] = ui_fields["ui_links"]
     if "ui_relationships" in ui_fields:
@@ -728,6 +735,7 @@ async def process_resource(
     distribution_context: DistributionContext | None = None,
     ui_downloads: list[dict[str, Any]] | None = None,
     bridge_asset_download_rows: Any = None,
+    licensed_accesses_payload: list[dict[str, Any]] | None | object = _UNSET,
     ui_relationships: dict[str, Any] | None = None,
     ui_relationship_counts: dict[str, int] | None = None,
     ui_relationship_browse_links: dict[str, str] | None = None,
@@ -838,6 +846,23 @@ async def process_resource(
     elif data_dictionaries_payload:
         attributes["data_dictionaries"] = sanitize_for_json(data_dictionaries_payload)
 
+    if licensed_accesses_payload is _UNSET:
+        try:
+            licensed_accesses = await fetch_resource_licensed_accesses(
+                resource_dict["id"], session=session
+            )
+            licensed_accesses_payload = serialize_resource_licensed_accesses(licensed_accesses)
+        except Exception as e:
+            logger.warning(
+                "Failed to load licensed accesses for resource %s: %s",
+                resource_dict.get("id"),
+                str(e),
+            )
+            licensed_accesses_payload = None
+
+    if licensed_accesses_payload:
+        attributes["ui_licensed_accesses"] = sanitize_for_json(licensed_accesses_payload)
+
     # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
     try:
         legacy_refs = distribution_context.legacy_reference_payload
@@ -902,6 +927,29 @@ async def process_resource(
 
     if include_similar_items:
         resource = await add_similar_items_to_resource(resource, resource_dict, session)
+
+    return resource
+
+
+async def add_licensed_accesses_to_resource(
+    resource: dict[str, Any],
+    resource_id: str,
+    session,
+) -> dict[str, Any]:
+    """Attach current licensed access rows to a JSON:API resource."""
+    try:
+        licensed_accesses = await fetch_resource_licensed_accesses(resource_id, session=session)
+        payload = sanitize_for_json(serialize_resource_licensed_accesses(licensed_accesses))
+    except Exception as e:
+        logger.warning("Failed to load licensed accesses for resource %s: %s", resource_id, str(e))
+        return resource
+
+    resource.setdefault("meta", {})
+    resource["meta"].setdefault("ui", {})
+    if payload:
+        resource["meta"]["ui"]["licensed_accesses"] = payload
+    else:
+        resource["meta"]["ui"].pop("licensed_accesses", None)
 
     return resource
 

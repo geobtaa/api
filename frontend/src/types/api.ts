@@ -99,6 +99,12 @@ export interface GeoDocument {
         generation_path?: string;
         download_type?: string;
       }>;
+      licensed_accesses?: Array<{
+        institution_code: string;
+        institution_name?: string | null;
+        access_url: string;
+        legacy_friendlier_id?: string | null;
+      }>;
       links?: Record<
         string,
         Array<{

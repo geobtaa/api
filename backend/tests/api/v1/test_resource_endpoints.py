@@ -648,10 +648,14 @@ class TestResourceEndpointsEnhanced:
     @patch("app.api.v1.utils.add_thumbnail_url")
     @patch("app.api.v1.utils.serialize_resource_data_dictionaries")
     @patch("app.api.v1.utils.fetch_resource_data_dictionaries", new_callable=AsyncMock)
+    @patch("app.api.v1.utils.serialize_resource_licensed_accesses")
+    @patch("app.api.v1.utils.fetch_resource_licensed_accesses", new_callable=AsyncMock)
     @patch("app.api.v1.endpoint_modules.resources.async_session")
     def test_get_resource_includes_json_safe_data_dictionaries(
         self,
         mock_session,
+        mock_fetch_resource_licensed_accesses,
+        mock_serialize_resource_licensed_accesses,
         mock_fetch_resource_data_dictionaries,
         mock_serialize_resource_data_dictionaries,
         mock_add_thumbnail_url,
@@ -718,17 +722,29 @@ class TestResourceEndpointsEnhanced:
                 ],
             }
         ]
+        mock_fetch_resource_licensed_accesses.return_value = [object()]
+        mock_serialize_resource_licensed_accesses.return_value = [
+            {
+                "institution_code": "01",
+                "institution_name": "Indiana University",
+                "access_url": "https://example.com/iu",
+                "legacy_friendlier_id": "test-resource-dictionaries",
+            }
+        ]
 
         response = client.get("/api/v1/resources/test-resource-dictionaries?cachebust=1")
         assert response.status_code == 200
 
         payload = response.json()
         dictionaries = payload["data"]["attributes"]["b1g"]["data_dictionaries"]
+        licensed_accesses = payload["data"]["meta"]["ui"]["licensed_accesses"]
         assert len(dictionaries) == 1
         assert dictionaries[0]["name"] == "Attributes"
         assert dictionaries[0]["created_at"] == "2026-01-01T00:00:00"
         assert dictionaries[0]["entries"][0]["resource_data_dictionary_id"] == 1
         assert dictionaries[0]["entries"][0]["created_at"] == "2026-01-03T00:00:00"
+        assert licensed_accesses[0]["institution_name"] == "Indiana University"
+        assert licensed_accesses[0]["access_url"] == "https://example.com/iu"
 
     @patch("app.api.v1.endpoint_modules.resources.async_session")
     def test_get_resource_not_found(self, mock_session):

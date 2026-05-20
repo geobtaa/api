@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
 from app.api.v1.utils import (
+    add_licensed_accesses_to_resource,
     add_similar_items_to_resource,
     create_jsonapi_response,
     process_resource,
@@ -72,6 +73,11 @@ async def get_resource(
                 jsonapi_resource = await add_similar_items_to_resource(
                     jsonapi_resource,
                     resource_dict,
+                    session,
+                )
+                jsonapi_resource = await add_licensed_accesses_to_resource(
+                    jsonapi_resource,
+                    id,
                     session,
                 )
 

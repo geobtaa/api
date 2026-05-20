@@ -38,6 +38,10 @@ from app.services.distribution_repository import (
     fetch_distribution_context_map,
 )
 from app.services.download_service import fetch_bridge_asset_download_rows_map
+from app.services.licensed_access_repository import (
+    fetch_resource_licensed_accesses_map,
+    serialize_resource_licensed_accesses,
+)
 from app.services.relationship_service import RelationshipService
 from app.services.resource_representation_cache import (
     RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE,
@@ -129,6 +133,17 @@ def _serialize_data_dictionaries_by_id(data_dictionaries_by_id: dict) -> dict[st
             continue
         payloads[str(resource_id)] = sanitize_for_json(
             serialize_resource_data_dictionaries(dictionaries)
+        )
+    return payloads
+
+
+def _serialize_licensed_accesses_by_id(licensed_accesses_by_id: dict) -> dict[str, list[dict]]:
+    payloads: dict[str, list[dict]] = {}
+    for resource_id, accesses in licensed_accesses_by_id.items():
+        if not accesses:
+            continue
+        payloads[str(resource_id)] = sanitize_for_json(
+            serialize_resource_licensed_accesses(accesses)
         )
     return payloads
 
@@ -541,6 +556,13 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 data_dictionary_payloads_by_id = _serialize_data_dictionaries_by_id(
                     data_dictionaries_by_id
                 )
+                licensed_accesses_by_id = await fetch_resource_licensed_accesses_map(
+                    missing_resource_ids,
+                    session=processing_session,
+                )
+                licensed_access_payloads_by_id = _serialize_licensed_accesses_by_id(
+                    licensed_accesses_by_id
+                )
                 relationship_summaries_by_id = (
                     await RelationshipService.get_resource_relationship_summaries_map(
                         missing_resource_ids,
@@ -572,6 +594,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                         ui_relationship_browse_links=relationship_summary.get("browse_links"),
                         allmaps_attributes=allmaps_attributes_by_id.get(resource_id),
                         data_dictionaries_payload=data_dictionary_payloads_by_id.get(resource_id),
+                        licensed_accesses_payload=licensed_access_payloads_by_id.get(resource_id),
                         thumbnail_asset_url=thumbnail_asset_urls_by_id.get(resource_id),
                     )
                 miss_build_ms = (time.perf_counter() - miss_build_started_at) * 1000
