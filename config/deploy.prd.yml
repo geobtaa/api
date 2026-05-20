@@ -75,9 +75,23 @@ env:
     WEB_UVICORN_WORKERS: "4"
     WEB_INTERNAL_UVICORN_WORKERS: "6"
     WEB_SSR_WORKERS: "4"
+    BACKUP_ENABLED: "<%= ENV.fetch('BACKUP_ENABLED', 'true') %>"
+    BACKUP_REQUIRED_DEST: prd
+    BACKUP_RETENTION_COUNT: "<%= ENV.fetch('BACKUP_RETENTION_COUNT', '3') %>"
+    BACKUP_S3_BUCKET: "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
+    BACKUP_S3_PREFIX: "<%= ENV.fetch('BACKUP_S3_PREFIX', 'btaa-geospatial-api') %>"
+    BACKUP_S3_REGION: "<%= ENV.fetch('BACKUP_S3_REGION', ENV.fetch('AWS_REGION', 'us-east-2')) %>"
+    AWS_REGION: "<%= ENV.fetch('AWS_REGION', ENV.fetch('BACKUP_S3_REGION', 'us-east-2')) %>"
+    AWS_DEFAULT_REGION: "<%= ENV.fetch('AWS_DEFAULT_REGION', ENV.fetch('AWS_REGION', ENV.fetch('BACKUP_S3_REGION', 'us-east-2'))) %>"
+    ELASTICSEARCH_SNAPSHOT_REPOSITORY: btaa_geoportal_snapshots
+    ELASTICSEARCH_SNAPSHOT_REPOSITORY_TYPE: s3
+    ELASTICSEARCH_SNAPSHOT_S3_BASE_PATH: "<%= ENV.fetch('ELASTICSEARCH_SNAPSHOT_S3_BASE_PATH', 'btaa-geospatial-api/prd/elasticsearch') %>"
+    ELASTICSEARCH_SNAPSHOT_S3_STORAGE_CLASS: "<%= ENV.fetch('ELASTICSEARCH_SNAPSHOT_S3_STORAGE_CLASS', '') %>"
+    ELASTICSEARCH_SNAPSHOT_S3_SERVER_SIDE_ENCRYPTION: "<%= ENV.fetch('ELASTICSEARCH_SNAPSHOT_S3_SERVER_SIDE_ENCRYPTION', 'true') %>"
   secret:
     # Destination secret lists replace the base list rather than appending.
-    # Keep this in sync with config/deploy.yml when adding prod-only secrets.
+    # Keep the shared entries in sync with config/deploy.yml; prod-only backup
+    # secrets are listed at the end.
     - REDIS_PASSWORD
     - POSTGRES_PASSWORD
     - DATABASE_URL
@@ -90,9 +104,14 @@ env:
     - TURNSTILE_SECRET_KEY
     - APPSIGNAL_PUSH_API_KEY
     - SLACK_SIGNING_SECRET
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
 
 accessories:
   elasticsearch:
     env:
       clear:
         ES_JAVA_OPTS: "-Xms4g -Xmx4g"
+      secret:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY

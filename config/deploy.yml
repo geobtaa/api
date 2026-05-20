@@ -138,6 +138,17 @@ env:
     SMTP_HOST:             "<%= ENV.fetch('SMTP_HOST', '') %>"
     SMTP_PORT:             "<%= ENV.fetch('SMTP_PORT', '587') %>"
     SMTP_STARTTLS:         "<%= ENV.fetch('SMTP_STARTTLS', 'true') %>"
+    BACKUP_ENABLED:        "false"
+    BACKUP_REQUIRED_DEST:  "prd"
+    BACKUP_RETENTION_COUNT: "3"
+    BACKUP_S3_BUCKET:      "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
+    BACKUP_S3_PREFIX:      "<%= ENV.fetch('BACKUP_S3_PREFIX', 'btaa-geospatial-api') %>"
+    BACKUP_S3_REGION:      "<%= ENV.fetch('BACKUP_S3_REGION', ENV.fetch('AWS_REGION', 'us-east-2')) %>"
+    AWS_REGION:            "<%= ENV.fetch('AWS_REGION', ENV.fetch('BACKUP_S3_REGION', 'us-east-2')) %>"
+    AWS_DEFAULT_REGION:    "<%= ENV.fetch('AWS_DEFAULT_REGION', ENV.fetch('AWS_REGION', ENV.fetch('BACKUP_S3_REGION', 'us-east-2'))) %>"
+    ELASTICSEARCH_SNAPSHOT_REPOSITORY: "btaa_geoportal_snapshots"
+    ELASTICSEARCH_SNAPSHOT_REPOSITORY_TYPE: "fs"
+    ELASTICSEARCH_SNAPSHOT_S3_CLIENT: "default"
 
   secret:
     - REDIS_PASSWORD
@@ -166,10 +177,12 @@ accessories:
         cluster.routing.allocation.disk.watermark.low: "85%"
         cluster.routing.allocation.disk.watermark.high: "90%"
         cluster.routing.allocation.disk.watermark.flood_stage: "95%"
+        path.repo: /usr/share/elasticsearch/backups
     # Optional: expose on host loopback for debugging from the VM
     port: "127.0.0.1:9200:9200"
     directories:
       - /var/lib/btaa-geospatial-api/elasticsearch:/usr/share/elasticsearch/data
+      - /var/lib/btaa-geospatial-api/elasticsearch-backups:/usr/share/elasticsearch/backups
 
   paradedb:
     image: paradedb/paradedb:0.18.11

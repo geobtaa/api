@@ -191,13 +191,25 @@ cluster.initial_master_nodes: ["node1", "node2", "node3"]
 
 ### Backup Strategy
 
-We use Elasticsearch snapshots for backups. The backup script is located at `scripts/backup_elasticsearch.py`.
+We use Elasticsearch snapshots for backups. The backup script is located at
+`scripts/backup_elasticsearch.py`.
+
+Production snapshots use the S3 repository configured by
+`ELASTICSEARCH_SNAPSHOT_REPOSITORY_TYPE=s3`, `BACKUP_S3_BUCKET`, and the
+`BACKUP_S3_PREFIX/prd/elasticsearch` base path. Local/dev environments keep the
+filesystem repository default for manual testing, but scheduled backups are
+gated by `BACKUP_ENABLED` and `KAMAL_DEST`. See
+[disaster_recovery.md](disaster_recovery.md) for the current production
+runbook.
 
 #### Creating Backups
 
 ```bash
 # Create a snapshot (auto-named with timestamp)
 python scripts/backup_elasticsearch.py --create
+
+# Create a scheduled production-gated snapshot and keep only the newest 3
+python scripts/backup_elasticsearch.py --scheduled --create --wait --retain-count 3
 
 # Create a named snapshot
 python scripts/backup_elasticsearch.py --create --name my_backup
@@ -241,12 +253,20 @@ python scripts/backup_elasticsearch.py --cleanup --keep-days 30
 
 ### Backup Repository
 
-The backup repository is automatically created on first use. It's configured as a filesystem repository at:
+The backup repository is automatically created on first use.
+
+For local/dev filesystem snapshots, it is configured as:
 - **Path**: `/usr/share/elasticsearch/backups` (inside container)
 - **Type**: Filesystem (fs)
 - **Compression**: Enabled
 
-**For Kamal deployments**, ensure the backup directory is persisted:
+For S3 snapshots in production:
+- **Bucket**: `BACKUP_S3_BUCKET`
+- **Base path**: `BACKUP_S3_PREFIX/prd/elasticsearch`
+- **Repository type**: `s3`
+- **Retention**: count-based via `--retain-count 3`
+
+**For filesystem Kamal testing**, ensure the backup directory is persisted:
 ```yaml
 directories:
   - esdata:/usr/share/elasticsearch/data
@@ -255,15 +275,13 @@ directories:
 
 ### Backup Schedule
 
-Recommended backup schedule:
-- **Daily**: Full snapshot (keep 7 days)
-- **Weekly**: Full snapshot (keep 4 weeks)
-- **Monthly**: Full snapshot (keep 12 months)
+Current production backup schedule:
+- **Daily**: Full snapshot at 5:45 AM America/Chicago.
+- **Retention**: keep the latest 3 managed snapshots.
 
-Example cron job (on server):
+Cron entry:
 ```bash
-# Daily backup at 2 AM
-0 2 * * * kamal app exec "python scripts/backup_elasticsearch.py --create"
+45 5 * * * /opt/venv/bin/python3 /app/scripts/backup_elasticsearch.py --scheduled --create --wait --retain-count ${BACKUP_RETENTION_COUNT:-3}
 ```
 
 ### Disaster Recovery Procedure
@@ -498,4 +516,3 @@ curl http://localhost:9200/btaa_geospatial_api/_settings?pretty
 - [Elasticsearch Snapshot and Restore](https://www.elastic.co/guide/en/elasticsearch/reference/current/snapshot-restore.html)
 - [Elasticsearch Index Settings](https://www.elastic.co/guide/en/elasticsearch/reference/current/index-modules.html)
 - [Elasticsearch Performance Tuning](https://www.elastic.co/guide/en/elasticsearch/reference/current/tune-for-search-speed.html)
-

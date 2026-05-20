@@ -185,7 +185,7 @@ Run Makefile targets from the repository root.
 | Blog/sitemap | `make blog-sync`, `make sitemap-generate`. |
 | Analytics | `make analytics-maintenance`, `make analytics-size-report`. |
 | Database sync | `make db-export`, `make db-import`, `make db-sync`, `make gbl-admin-db-*`. |
-| Kamal remote ops | `make kamal-reindex`, `make kamal-clear-cache`, `make kamal-verify-h3-index`, `make kamal-blog-sync`, `make kamal-purge-home-blog-cache`, `make kamal-bridge-sync-batched`, `make kamal-bridge-status`, `make kamal-cron-debug`, `make kamal-worker-logs`, `make kamal-network-sanity`, plus Kamal cache priming targets. |
+| Kamal remote ops | `make kamal-reindex`, `make kamal-clear-cache`, `make kamal-verify-h3-index`, `make kamal-blog-sync`, `make kamal-purge-home-blog-cache`, `make kamal-backup-postgres`, `make kamal-backup-elasticsearch`, `make kamal-bridge-sync-batched`, `make kamal-bridge-status`, `make kamal-cron-debug`, `make kamal-worker-logs`, `make kamal-network-sanity`, plus Kamal cache priming targets. |
 | Performance | `make k6-smoke`, `make k6-stress`, `make k6-endpoint-capacity`. |
 
 ## Kamal Deployment Model
@@ -343,6 +343,7 @@ Chapter 4, ingest, migration, and operations:
 Chapter 5, deployment and recovery:
 
 - [backend/kamal_deployment.md](backend/kamal_deployment.md)
+- [backend/disaster_recovery.md](backend/disaster_recovery.md)
 - [production_server_requirements.md](production_server_requirements.md)
 - [backend/vm_memory_recovery.md](backend/vm_memory_recovery.md)
 - [backend/IP_WHITELISTING_RECOMMENDATIONS.md](backend/IP_WHITELISTING_RECOMMENDATIONS.md)

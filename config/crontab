@@ -31,6 +31,12 @@ TZ=America/Chicago
 # Daily 4:45 AM: roll up analytics, create future partitions, and drop expired raw partitions.
 45 4 * * * /opt/venv/bin/python3 /app/backend/scripts/manage_analytics_storage.py --mode maintenance >> /proc/1/fd/1 2>> /proc/1/fd/2
 
+# Daily 5:30 AM: production-gated PostgreSQL/ParadeDB dump to S3.
+30 5 * * * /opt/venv/bin/python3 /app/scripts/backup_postgres_to_s3.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+
+# Daily 5:45 AM: production-gated Elasticsearch snapshot to S3.
+45 5 * * * /opt/venv/bin/python3 /app/scripts/backup_elasticsearch.py --scheduled --create --wait --retain-count ${BACKUP_RETENTION_COUNT:-3} >> /proc/1/fd/1 2>> /proc/1/fd/2
+
 # Hourly: prune expired durable API response cache rows so the Postgres L2 cache
 # stays bounded even if Redis is cold or search traffic is high.
 17 * * * * /opt/venv/bin/python3 /app/backend/scripts/prune_generated_api_response_cache.py >> /proc/1/fd/1 2>> /proc/1/fd/2

@@ -35,11 +35,13 @@ load_dotenv()
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 
-# Snapshot repository configuration
-REPOSITORY_NAME = "backup_repository"
-# Default backup location (inside ES container)
-# For Kamal, this should be mapped to a persistent volume
-REPOSITORY_PATH = "/usr/share/elasticsearch/backups"
+# Snapshot repository configuration. The historical default is a filesystem
+# repository; production can switch to an S3 repository through environment.
+REPOSITORY_NAME = os.getenv("ELASTICSEARCH_SNAPSHOT_REPOSITORY", "backup_repository")
+REPOSITORY_TYPE = os.getenv("ELASTICSEARCH_SNAPSHOT_REPOSITORY_TYPE", "fs").strip().lower()
+REPOSITORY_PATH = os.getenv("ELASTICSEARCH_SNAPSHOT_PATH", "/usr/share/elasticsearch/backups")
+BACKUP_REQUIRED_DEST = os.getenv("BACKUP_REQUIRED_DEST", "prd").strip()
+BACKUP_S3_PREFIX = os.getenv("BACKUP_S3_PREFIX", "btaa-geospatial-api").strip("/")
 
 # Add project root to path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -83,6 +85,89 @@ def print_info(text: str):
     print(f"{Colors.BLUE}ℹ{Colors.RESET} {text}")
 
 
+def env_bool(name: str, default: bool = False) -> bool:
+    """Read a boolean-ish environment variable."""
+    value = os.getenv(name)
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+
+
+def repository_body() -> Optional[Dict[str, Any]]:
+    """Build the Elasticsearch snapshot repository body."""
+    if REPOSITORY_TYPE == "fs":
+        return {
+            "type": "fs",
+            "settings": {
+                "location": REPOSITORY_PATH,
+                "compress": True,
+            },
+        }
+
+    if REPOSITORY_TYPE != "s3":
+        print_error(
+            "Unsupported ELASTICSEARCH_SNAPSHOT_REPOSITORY_TYPE="
+            f"{REPOSITORY_TYPE!r}; expected 'fs' or 's3'"
+        )
+        return None
+
+    bucket = os.getenv("ELASTICSEARCH_SNAPSHOT_S3_BUCKET") or os.getenv("BACKUP_S3_BUCKET")
+    if not bucket:
+        print_error(
+            "BACKUP_S3_BUCKET or ELASTICSEARCH_SNAPSHOT_S3_BUCKET is required "
+            "for S3 Elasticsearch snapshots"
+        )
+        return None
+
+    base_path = (
+        os.getenv("ELASTICSEARCH_SNAPSHOT_S3_BASE_PATH")
+        or f"{BACKUP_S3_PREFIX}/{os.getenv('KAMAL_DEST', 'unknown')}/elasticsearch"
+    ).strip("/")
+
+    settings: Dict[str, Any] = {
+        "bucket": bucket,
+        "base_path": base_path,
+        "client": os.getenv("ELASTICSEARCH_SNAPSHOT_S3_CLIENT", "default"),
+        "compress": True,
+    }
+
+    storage_class = os.getenv("ELASTICSEARCH_SNAPSHOT_S3_STORAGE_CLASS")
+    if storage_class:
+        settings["storage_class"] = storage_class
+
+    if env_bool("ELASTICSEARCH_SNAPSHOT_S3_SERVER_SIDE_ENCRYPTION", default=False):
+        settings["server_side_encryption"] = True
+
+    return {
+        "type": "s3",
+        "settings": settings,
+    }
+
+
+def scheduled_skip_reason() -> Optional[str]:
+    """Return why a scheduled backup should skip, or None when it should run."""
+    if not env_bool("BACKUP_ENABLED", default=False):
+        return "BACKUP_ENABLED is not true"
+
+    destination = os.getenv("KAMAL_DEST", "").strip()
+    if BACKUP_REQUIRED_DEST and destination != BACKUP_REQUIRED_DEST:
+        return (
+            f"KAMAL_DEST={destination or '(unset)'} does not match "
+            f"BACKUP_REQUIRED_DEST={BACKUP_REQUIRED_DEST}"
+        )
+
+    return None
+
+
+def managed_snapshot(snapshot: Dict[str, Any]) -> bool:
+    """Limit retention cleanup to snapshots produced by this script/index."""
+    name = str(snapshot.get("snapshot", ""))
+    metadata = snapshot.get("metadata") or {}
+    if isinstance(metadata, dict) and metadata.get("index") == INDEX_NAME:
+        return True
+    return name.startswith(f"{INDEX_NAME}_snapshot_")
+
+
 async def ensure_repository(client: AsyncElasticsearch) -> bool:
     """Ensure snapshot repository exists, create if it doesn't."""
     try:
@@ -92,24 +177,37 @@ async def ensure_repository(client: AsyncElasticsearch) -> bool:
         return True
     except NotFoundError:
         # Repository doesn't exist, create it
-        print_info(f"Creating repository '{REPOSITORY_NAME}' at {REPOSITORY_PATH}")
+        body = repository_body()
+        if body is None:
+            return False
+
+        if REPOSITORY_TYPE == "fs":
+            print_info(f"Creating repository '{REPOSITORY_NAME}' at {REPOSITORY_PATH}")
+        else:
+            settings = body["settings"]
+            print_info(
+                f"Creating S3 repository '{REPOSITORY_NAME}' at "
+                f"s3://{settings['bucket']}/{settings.get('base_path', '')}"
+            )
         try:
             await client.snapshot.create_repository(
                 name=REPOSITORY_NAME,
-                body={
-                    "type": "fs",
-                    "settings": {
-                        "location": REPOSITORY_PATH,
-                        "compress": True,
-                    },
-                },
+                body=body,
             )
             print_success(f"Repository '{REPOSITORY_NAME}' created successfully")
             return True
         except RequestError as e:
             print_error(f"Failed to create repository: {str(e)}")
-            print_warning("Note: The backup directory must exist and be writable by Elasticsearch")
-            print_warning(f"Ensure {REPOSITORY_PATH} exists in the ES container or is mounted")
+            if REPOSITORY_TYPE == "fs":
+                print_warning(
+                    "Note: The backup directory must exist and be writable by Elasticsearch"
+                )
+                print_warning(f"Ensure {REPOSITORY_PATH} exists in the ES container or is mounted")
+            else:
+                print_warning(
+                    "For S3 repositories, ensure repository-s3 support is available and "
+                    "S3 credentials are configured for the Elasticsearch node"
+                )
             return False
     except Exception as e:
         print_error(f"Error checking repository: {str(e)}")
@@ -140,6 +238,8 @@ async def create_snapshot(
                     "taken_by": "backup_script",
                     "taken_because": "scheduled_backup",
                     "index": INDEX_NAME,
+                    "destination": os.getenv("KAMAL_DEST", "unknown"),
+                    "repository_type": REPOSITORY_TYPE,
                 },
             },
             wait_for_completion=False,  # Don't wait, return immediately
@@ -254,7 +354,9 @@ async def cleanup_old_snapshots(client: AsyncElasticsearch, keep_days: int = 7) 
     cutoff_date = datetime.now() - timedelta(days=keep_days)
     cutoff_timestamp = int(cutoff_date.timestamp() * 1000)
 
-    snapshots = await list_snapshots(client)
+    snapshots = [
+        snapshot for snapshot in await list_snapshots(client) if managed_snapshot(snapshot)
+    ]
     deleted_count = 0
 
     for snapshot in snapshots:
@@ -274,6 +376,29 @@ async def cleanup_old_snapshots(client: AsyncElasticsearch, keep_days: int = 7) 
                 f"Keeping snapshot: {snapshot_name} "
                 f"(from {snapshot_date.strftime('%Y-%m-%d %H:%M:%S')})"
             )
+
+    return deleted_count
+
+
+async def cleanup_snapshots_by_count(client: AsyncElasticsearch, retain_count: int) -> int:
+    """Keep only the newest N completed snapshots produced by this script."""
+    if retain_count < 1:
+        raise ValueError("retain_count must be at least 1")
+
+    print_info(f"Keeping newest {retain_count} managed snapshot(s)")
+    snapshots = [
+        snapshot
+        for snapshot in await list_snapshots(client)
+        if managed_snapshot(snapshot) and snapshot.get("state") != "IN_PROGRESS"
+    ]
+    snapshots.sort(key=lambda x: x.get("start_time_in_millis", 0), reverse=True)
+
+    deleted_count = 0
+    for snapshot in snapshots[retain_count:]:
+        snapshot_name = snapshot.get("snapshot", "unknown")
+        print_info(f"Deleting snapshot outside retain-count window: {snapshot_name}")
+        if await delete_snapshot(client, snapshot_name):
+            deleted_count += 1
 
     return deleted_count
 
@@ -314,7 +439,7 @@ def format_snapshot_info(snapshot: Dict[str, Any]) -> str:
     )
 
 
-async def main():
+async def main() -> int:
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Elasticsearch backup and restore utility")
     parser.add_argument("--create", action="store_true", help="Create a new snapshot")
@@ -328,19 +453,45 @@ async def main():
     parser.add_argument(
         "--keep-days", type=int, default=7, help="Days to keep snapshots (default: 7)"
     )
+    parser.add_argument(
+        "--retain-count",
+        type=int,
+        help="Keep only the newest N managed snapshots after create/cleanup",
+    )
+    parser.add_argument(
+        "--scheduled",
+        action="store_true",
+        help="Apply BACKUP_ENABLED and KAMAL_DEST production guard before running",
+    )
     parser.add_argument("--wait", action="store_true", help="Wait for snapshot/restore to complete")
 
     args = parser.parse_args()
 
     # If no action specified, show help
-    if not any([args.create, args.list, args.status, args.restore, args.delete, args.cleanup]):
+    if not any(
+        [
+            args.create,
+            args.list,
+            args.status,
+            args.restore,
+            args.delete,
+            args.cleanup,
+            args.retain_count,
+        ]
+    ):
         parser.print_help()
-        return
+        return 0
+
+    if args.scheduled:
+        skip_reason = scheduled_skip_reason()
+        if skip_reason:
+            print_info(f"Skipping Elasticsearch snapshot: {skip_reason}")
+            return 0
 
     print_header("Elasticsearch Backup Utility")
     print_info(f"Elasticsearch URL: {ELASTICSEARCH_URL}")
     print_info(f"Index: {INDEX_NAME}")
-    print_info(f"Repository: {REPOSITORY_NAME}\n")
+    print_info(f"Repository: {REPOSITORY_NAME} ({REPOSITORY_TYPE})\n")
 
     client = AsyncElasticsearch(
         hosts=[ELASTICSEARCH_URL],
@@ -358,11 +509,14 @@ async def main():
         # Ensure repository exists (needed for most operations)
         if not await ensure_repository(client):
             print_error("Cannot proceed without repository")
-            return
+            return 1
 
         # Handle different operations
         if args.create:
             snapshot_name = await create_snapshot(client, args.name)
+            snapshot_finished_successfully = snapshot_name is not None and not args.wait
+            if snapshot_name is None:
+                return 1
             if snapshot_name and args.wait:
                 print_info("Waiting for snapshot to complete...")
                 # Poll for completion
@@ -370,20 +524,30 @@ async def main():
 
                 while True:
                     status = await get_snapshot_status(client, snapshot_name)
-                    if status:
-                        state = status.get("state", "UNKNOWN")
-                        if state == "SUCCESS":
-                            print_success("Snapshot completed successfully")
-                            break
-                        elif state == "FAILED":
-                            print_error("Snapshot failed")
-                            break
-                        elif state in ["IN_PROGRESS", "INIT"]:
-                            print_info(f"Snapshot in progress... ({state})")
-                            time.sleep(5)
-                        else:
-                            print_info(f"Snapshot state: {state}")
-                            time.sleep(5)
+                    if not status:
+                        snapshot_finished_successfully = False
+                        break
+                    state = status.get("state", "UNKNOWN")
+                    if state == "SUCCESS":
+                        print_success("Snapshot completed successfully")
+                        snapshot_finished_successfully = True
+                        break
+                    elif state == "FAILED":
+                        print_error("Snapshot failed")
+                        snapshot_finished_successfully = False
+                        break
+                    elif state in ["IN_PROGRESS", "INIT"]:
+                        print_info(f"Snapshot in progress... ({state})")
+                        time.sleep(5)
+                    else:
+                        print_info(f"Snapshot state: {state}")
+                        time.sleep(5)
+
+            if args.retain_count and snapshot_finished_successfully:
+                deleted = await cleanup_snapshots_by_count(client, args.retain_count)
+                print_success(f"Retain-count cleanup deleted {deleted} old snapshot(s)")
+            elif args.wait and not snapshot_finished_successfully:
+                return 1
 
         elif args.list:
             print_header("Available Snapshots")
@@ -405,25 +569,39 @@ async def main():
 
         elif args.restore:
             restore_index = args.restore_to if args.restore_to else None
-            await restore_snapshot(
+            restored = await restore_snapshot(
                 client, args.restore, rename_index=restore_index, wait_for_completion=args.wait
             )
+            if not restored:
+                return 1
 
         elif args.delete:
-            await delete_snapshot(client, args.delete)
+            deleted = await delete_snapshot(client, args.delete)
+            if not deleted:
+                return 1
 
         elif args.cleanup:
-            deleted = await cleanup_old_snapshots(client, args.keep_days)
+            if args.retain_count:
+                deleted = await cleanup_snapshots_by_count(client, args.retain_count)
+            else:
+                deleted = await cleanup_old_snapshots(client, args.keep_days)
             print_success(f"Cleaned up {deleted} old snapshot(s)")
+
+        elif args.retain_count:
+            deleted = await cleanup_snapshots_by_count(client, args.retain_count)
+            print_success(f"Retain-count cleanup deleted {deleted} old snapshot(s)")
+
+        return 0
 
     except Exception as e:
         print_error(f"Unexpected error: {str(e)}")
         import traceback
 
         traceback.print_exc()
+        return 1
     finally:
         await client.close()
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    raise SystemExit(asyncio.run(main()))
