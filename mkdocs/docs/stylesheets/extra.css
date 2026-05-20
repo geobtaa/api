@@ -103,6 +103,14 @@ label[for="__drawer"] {
 }
 
 /* Tutorial-specific styles */
+.tutorial-slide-wrapper {
+    margin: 1rem 0;
+    padding: 1rem 1.25rem;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
 .example-block {
     background-color: #f9f9f9;
     border: 1px solid #ddd;
@@ -119,8 +127,9 @@ label[for="__drawer"] {
 }
 
 .badge {
-    background-color: #000000;
-    color: #0088CE;
+    background-color: #f7fafc;
+    color: #1a202c;
+    border: 1px solid #2d3748;
     padding: 0.2rem 0.6rem;
     border-radius: 12px;
     font-size: 0.8rem;
@@ -155,7 +164,7 @@ label[for="__drawer"] {
     color: #d4d4d4;
     padding: 15px;
     border-radius: 4px;
-    margin-top: 0px;
+    margin-top: 0;
     font-family: 'Courier New', monospace;
     font-size: 12px;
     max-height: 300px;
@@ -191,6 +200,11 @@ label[for="__drawer"] {
 
 .copy-btn:active {
     transform: scale(0.95);
+}
+
+.tutorial-slide-wrapper .tab-content .md-code__nav,
+.tutorial-slide-wrapper .tab-content .md-clipboard {
+    display: none !important;
 }
 
 /* Tab styles */
@@ -257,11 +271,13 @@ label[for="__drawer"] {
 /* Slide styles for tutorial */
 #slide-container {
     position: relative;
-    min-height: 600px;
+    min-height: min(520px, 58vh);
+    padding: 0.25rem 0 0.75rem;
 }
 
 .slide {
     display: none;
+    width: 100%;
 }
 
 .slide.active {
@@ -276,6 +292,18 @@ label[for="__drawer"] {
     to {
         opacity: 1;
     }
+}
+
+.slide h2 {
+    color: #005E8E;
+    border-bottom: 2px solid #005E8E;
+    padding-bottom: 0.5rem;
+    margin-top: 0;
+}
+
+.slide h3 {
+    color: #772424;
+    margin-top: 1.5rem;
 }
 
 /* Controls */
@@ -322,6 +350,82 @@ label[for="__drawer"] {
     font-weight: 600;
     min-width: 120px;
     text-align: center;
+}
+
+.slide-select {
+    padding: 10px;
+    border-radius: 5px;
+    border: none;
+    background: rgba(255, 255, 255, 0.95);
+    color: #4a5568;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    max-width: 250px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.slide-indicator-hidden {
+    display: none;
+}
+
+.tutorial-intro-note {
+    margin-top: 30px;
+    color: #718096;
+}
+
+/* Fullscreen styles - hide site header/footer only in fullscreen */
+html:fullscreen body.tutorial-fullscreen {
+    background: #1a202c;
+}
+
+html:fullscreen body.tutorial-fullscreen .md-header,
+html:fullscreen body.tutorial-fullscreen .md-tabs,
+html:fullscreen body.tutorial-fullscreen .md-footer {
+    display: none !important;
+}
+
+html:fullscreen body.tutorial-fullscreen .md-main {
+    margin-top: 0 !important;
+}
+
+html:fullscreen body.tutorial-fullscreen .md-main__inner {
+    max-width: 100%;
+    padding: 40px;
+    margin-top: 0;
+}
+
+html:fullscreen body.tutorial-fullscreen .tutorial-slide-wrapper {
+    margin: 0;
+    padding: 40px;
+    box-shadow: none;
+    border-radius: 0;
+    background: #1a202c;
+    color: #fff;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+html:fullscreen body.tutorial-fullscreen .slide {
+    font-size: 1.2em;
+    color: #fff;
+}
+
+html:fullscreen body.tutorial-fullscreen .slide h2,
+html:fullscreen body.tutorial-fullscreen .slide h3 {
+    color: #fff;
+    border-bottom-color: rgba(255, 255, 255, 0.3);
+}
+
+html:fullscreen body.tutorial-fullscreen .controls {
+    margin-top: auto;
+}
+
+html:fullscreen body.tutorial-fullscreen .example-block {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.2);
 }
 
 /* Collapsible example sections */
