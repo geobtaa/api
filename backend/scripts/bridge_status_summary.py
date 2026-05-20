@@ -47,6 +47,9 @@ def _stats_for_run(run: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _scope_for_stats(stats: Dict[str, Any]) -> str:
+    if stats.get("scope") == "batched_full":
+        resource_scope = str(stats.get("resource_scope") or "all").strip() or "all"
+        return f"batched:{resource_scope}"
     resource_id = (stats.get("resource_id") or "").strip()
     if resource_id:
         return f"single:{resource_id}"
@@ -157,6 +160,9 @@ def summarize_run(
     matched_page_size = _coerce_int(stats.get("matched_page_size"))
     missing = _coerce_int(stats.get("missing"))
     retired = _coerce_int(stats.get("retired"))
+    batches_completed = _coerce_int(stats.get("batches_completed"))
+    batches_failed = _coerce_int(stats.get("batches_failed"))
+    total_batches = _coerce_int(stats.get("total_batches"))
     started_at = run.get("bridge_started_at")
     elapsed_seconds = _elapsed_seconds(run, now)
     rate = (
@@ -170,7 +176,7 @@ def summarize_run(
     eta_seconds: Optional[float] = None
     if (
         status.lower() == "running"
-        and scope == "full"
+        and (scope == "full" or scope.startswith("batched:"))
         and estimated_total
         and estimated_total > 0
         and processed > 0
@@ -212,6 +218,11 @@ def summarize_run(
         parts.append(f"missing={missing}")
     if retired is not None:
         parts.append(f"retired={retired}")
+    if total_batches is not None:
+        batches_done = (batches_completed or 0) + (batches_failed or 0)
+        parts.append(f"batches={batches_done}/{total_batches}")
+    if batches_failed:
+        parts.append(f"batch_failures={batches_failed}")
     if estimated_total is not None and estimated_total > 0:
         parts.append(f"est_total~={estimated_total}")
     if progress_pct is not None:

@@ -8,6 +8,10 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.services.bridge_sync.batched import (
+    queue_batched_bridge_sync,
+    sync_bridge_resource_batch,
+)
 from app.services.bridge_sync.client import BridgePage
 from app.services.bridge_sync.harvest import sync_bridge
 from app.services.bridge_sync.importer import BridgeResourceImporter
@@ -53,6 +57,184 @@ class TestBridgeSyncService:
         os.environ["BRIDGE_CACHE_REFRESH_ENABLED"] = "false"
         create_bridge_sync_tables()
         create_resource_aux_tables()
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_queue_batched_bridge_sync_creates_parent_run_and_batch_jobs(self):
+        repo = BridgeSyncRepository()
+        resource_ids = [
+            "bridge-batched-queue-a",
+            "bridge-batched-queue-b",
+            "bridge-batched-queue-c",
+        ]
+
+        if not database.is_connected:
+            await database.connect()
+
+        queued_batches = []
+
+        def enqueue_batch(**kwargs):
+            queued_batches.append(kwargs)
+            return f"task-{kwargs['batch_number']}"
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(bridge_resource_state))
+            await database.execute(
+                pg_insert(bridge_resource_state).values(
+                    [
+                        {
+                            "bridge_resource_id": rid,
+                        }
+                        for rid in resource_ids
+                    ]
+                )
+            )
+
+            result = await queue_batched_bridge_sync(
+                trigger="manual_batched",
+                batch_size=2,
+                resource_scope="bridge_active",
+                max_resources=3,
+                enqueue_batch=enqueue_batch,
+                repo=repo,
+            )
+
+            assert result["queued_batches"] == 2
+            assert len(queued_batches) == 2
+            assert queued_batches[0]["resource_ids"] == [
+                "bridge-batched-queue-a",
+                "bridge-batched-queue-b",
+            ]
+            assert queued_batches[1]["resource_ids"] == ["bridge-batched-queue-c"]
+
+            run = await repo.get_sync_run(result["bridge_id"])
+            assert run is not None
+            assert run["bridge_status"] == "running"
+            stats = run["bridge_stats_json"]
+            assert stats["scope"] == "batched_full"
+            assert stats["resource_scope"] == "bridge_active"
+            assert stats["total_resources"] == 3
+            assert stats["total_batches"] == 2
+            assert stats["batches_queued"] == 2
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_resource_batch_imports_missing_and_finalizes_parent_run(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        found_id = "bridge-batched-found"
+        missing_id = "bridge-batched-missing"
+        resource_ids = [found_id, missing_id]
+        record = {
+            "id": found_id,
+            "import_id": "batched-1",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Batched Found",
+            "dct_description_sm": ["Found record"],
+            "dct_references_s": "[]",
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+            await database.execute(
+                pg_insert(resources).values(
+                    {
+                        "id": missing_id,
+                        "dct_title_s": "Bridge Batched Missing",
+                        "publication_state": "published",
+                        "b1g_publication_state_s": "published",
+                    }
+                )
+            )
+
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "resource_scope": "all",
+                    "stage": "batching",
+                    "estimated_total": 2,
+                    "total_resources": 2,
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            client = FakeBridgeClient({}, records={found_id: record})
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=resource_ids,
+                batch_number=1,
+                total_batches=1,
+                task_id="batch-task-1",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["processed"] == 2
+            assert result["stats"]["imported"] == 1
+            assert result["stats"]["missing"] == 1
+            assert result["stats"]["retired"] == 1
+
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "success"
+            stats = run["bridge_stats_json"]
+            assert stats["stage"] == "complete"
+            assert stats["batches_completed"] == 1
+            assert stats["processed"] == 2
+            assert stats["imported"] == 1
+            assert stats["missing"] == 1
+            assert stats["retired"] == 1
+
+            found = await database.fetch_one(
+                select(resources.c.id, resources.c.dct_title_s).where(resources.c.id == found_id)
+            )
+            missing = await database.fetch_one(
+                select(
+                    resources.c.id,
+                    resources.c.publication_state,
+                    resources.c.b1g_publication_state_s,
+                ).where(resources.c.id == missing_id)
+            )
+            assert found is not None
+            assert found["dct_title_s"] == "Bridge Batched Found"
+            assert missing is not None
+            assert missing["publication_state"] == "retired"
+            assert missing["b1g_publication_state_s"] == "retired"
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
 
     @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_paginates_and_retires_missing_records(self):

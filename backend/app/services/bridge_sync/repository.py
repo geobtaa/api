@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -150,6 +151,42 @@ class BridgeSyncRepository:
         )
         return dict(row) if row else None
 
+    async def list_resource_ids_for_batched_sync(
+        self,
+        *,
+        resource_scope: str = "all",
+        limit: Optional[int] = None,
+    ) -> List[str]:
+        scope = (resource_scope or "all").strip().lower()
+        if scope == "all":
+            q = select(resources.c.id).where(resources.c.id.is_not(None)).order_by(resources.c.id)
+        elif scope == "published":
+            q = (
+                select(resources.c.id)
+                .where(resources.c.id.is_not(None))
+                .where(func.coalesce(resources.c.publication_state, "") != "retired")
+                .order_by(resources.c.id)
+            )
+        elif scope == "bridge_active":
+            q = (
+                select(bridge_resource_state.c.bridge_resource_id)
+                .where(bridge_resource_state.c.bridge_retired_at.is_(None))
+                .order_by(bridge_resource_state.c.bridge_resource_id)
+            )
+        else:
+            raise ValueError("resource_scope must be one of: all, published, bridge_active")
+
+        if limit is not None:
+            q = q.limit(max(0, int(limit)))
+
+        rows = await database.fetch_all(q)
+        ids: List[str] = []
+        for row in rows:
+            value = row[0] if hasattr(row, "__getitem__") else None
+            if value:
+                ids.append(str(value))
+        return ids
+
     async def list_missing(self, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
         q = (
             select(bridge_resource_state)
@@ -268,6 +305,156 @@ class BridgeSyncRepository:
         )
         await database.execute(stmt)
         return len(rows)
+
+    async def mark_resources_missing(
+        self,
+        resource_ids: List[str],
+        *,
+        missing_since: datetime,
+    ) -> int:
+        rows = []
+        for resource_id in resource_ids:
+            rid = str(resource_id or "").strip()
+            if not rid:
+                continue
+            rows.append(
+                {
+                    "bridge_resource_id": rid,
+                    "bridge_first_seen_at": missing_since,
+                    "bridge_last_seen_at": missing_since,
+                    "bridge_missing_since": missing_since,
+                    "bridge_retired_at": None,
+                    "bridge_updated_at": missing_since,
+                }
+            )
+        if not rows:
+            return 0
+
+        stmt = pg_insert(bridge_resource_state).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[bridge_resource_state.c.bridge_resource_id],
+            set_={
+                "bridge_missing_since": stmt.excluded.bridge_missing_since,
+                "bridge_updated_at": stmt.excluded.bridge_updated_at,
+            },
+        )
+        await database.execute(stmt)
+        return len(rows)
+
+    async def record_batched_batch_result(
+        self,
+        *,
+        bridge_id: int,
+        batch_stats: Dict[str, Any],
+        batch_number: Optional[int] = None,
+        task_id: Optional[str] = None,
+        failed: bool = False,
+    ) -> Dict[str, Any]:
+        async with database.transaction():
+            row = await database.fetch_one(
+                text(
+                    """
+                    SELECT bridge_status, bridge_stats_json
+                    FROM bridge_sync_runs
+                    WHERE bridge_id = :bridge_id
+                    FOR UPDATE
+                    """
+                ).bindparams(bridge_id=bridge_id),
+            )
+            if row is None:
+                raise ValueError(f"Bridge sync run {bridge_id} was not found")
+
+            current_status = str(row["bridge_status"] or "").lower()
+            stats = self._coerce_stats_json(row["bridge_stats_json"])
+            if current_status != "running":
+                return stats
+
+            for key in ("processed", "imported", "skipped", "errors", "missing", "retired"):
+                stats[key] = int(stats.get(key) or 0) + int(batch_stats.get(key) or 0)
+
+            if failed:
+                stats["batches_failed"] = int(stats.get("batches_failed") or 0) + 1
+            else:
+                stats["batches_completed"] = int(stats.get("batches_completed") or 0) + 1
+
+            total_batches = int(stats.get("total_batches") or batch_stats.get("total_batches") or 0)
+            batches_completed = int(stats.get("batches_completed") or 0)
+            batches_failed = int(stats.get("batches_failed") or 0)
+            batches_finished = batches_completed + batches_failed
+            stats["batches_finished"] = batches_finished
+            stats["stage"] = "batching"
+            stats["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            stats["last_batch"] = {
+                "batch_number": batch_number,
+                "task_id": task_id,
+                "failed": failed,
+                "processed": int(batch_stats.get("processed") or 0),
+                "imported": int(batch_stats.get("imported") or 0),
+                "errors": int(batch_stats.get("errors") or 0),
+                "missing": int(batch_stats.get("missing") or 0),
+                "retired": int(batch_stats.get("retired") or 0),
+            }
+
+            self._merge_error_stats(stats, batch_stats)
+
+            values: Dict[str, Any] = {"bridge_stats_json": stats}
+            if total_batches and batches_finished >= total_batches:
+                final_status = "failed" if batches_failed else "success"
+                stats["stage"] = "failed" if batches_failed else "complete"
+                values.update(
+                    {
+                        "bridge_completed_at": datetime.utcnow(),
+                        "bridge_status": final_status,
+                    }
+                )
+                if batches_failed:
+                    values["bridge_error"] = f"{batches_failed} bridge sync batch task(s) failed"
+
+            await database.execute(
+                update(bridge_sync_runs)
+                .where(bridge_sync_runs.c.bridge_id == bridge_id)
+                .values(**values)
+            )
+            return stats
+
+    @staticmethod
+    def _coerce_stats_json(value: Any) -> Dict[str, Any]:
+        if isinstance(value, dict):
+            return dict(value)
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                return {}
+            return dict(parsed) if isinstance(parsed, dict) else {}
+        return {}
+
+    @staticmethod
+    def _merge_error_stats(stats: Dict[str, Any], batch_stats: Dict[str, Any]) -> None:
+        samples = list(stats.get("error_samples") or [])
+        for sample in batch_stats.get("error_samples") or []:
+            if len(samples) >= 20:
+                break
+            samples.append(sample)
+        if samples:
+            stats["error_samples"] = samples
+
+        counts: Dict[str, int] = {}
+        for item in stats.get("error_signatures") or []:
+            signature = item.get("signature") if isinstance(item, dict) else None
+            if signature:
+                counts[str(signature)] = counts.get(str(signature), 0) + int(item.get("count") or 0)
+        for item in batch_stats.get("error_signatures") or []:
+            signature = item.get("signature") if isinstance(item, dict) else None
+            if signature:
+                counts[str(signature)] = counts.get(str(signature), 0) + int(item.get("count") or 0)
+        if counts:
+            stats["error_signatures"] = [
+                {"signature": signature, "count": count}
+                for signature, count in sorted(counts.items(), key=lambda kv: kv[1], reverse=True)[
+                    :10
+                ]
+            ]
 
     async def mark_missing_stale(self, run_started_at: datetime) -> List[str]:
         now = datetime.utcnow()

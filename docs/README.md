@@ -181,11 +181,11 @@ Run Makefile targets from the repository root.
 | Cache and visual assets | `make clear_cache`, `make clear-thumbnail-cache`, `make prime-thumbnail-cache`, `make prime-static-map-cache`, `make prime-resource-cache`, `make prime-visual-caches`, `make refresh-resource-caches`, `make visual-assets-export`, `make visual-assets-import`, `make visual-assets-stream-import`, `make visual-assets-sync-all`. |
 | Data import | `make ingest`, `make ingest-featured`, `make populate-distributions`, `make populate-data-dictionaries`, `make backfill-distributions`, `make populate-relationships`, `make resource-aux-init`. |
 | OGM | `make ogm-refresh-all`, `make ogm-refresh-repo OGM_REPO_NAME=...`, `make ogm-status`, `make ogm-status-watch`, `make ogm-failures`. |
-| Kithe bridge | `make bridge-init`, `make bridge-sync`, `make bridge-cancel`, `make bridge-status`, `make bridge-status-watch`, `make bridge-failures`. |
+| Kithe bridge | `make bridge-init`, `make bridge-sync`, `make bridge-sync-batched`, `make bridge-cancel`, `make bridge-status`, `make bridge-status-watch`, `make bridge-failures`. |
 | Blog/sitemap | `make blog-sync`, `make sitemap-generate`. |
 | Analytics | `make analytics-maintenance`, `make analytics-size-report`. |
 | Database sync | `make db-export`, `make db-import`, `make db-sync`, `make gbl-admin-db-*`. |
-| Kamal remote ops | `make kamal-reindex`, `make kamal-clear-cache`, `make kamal-verify-h3-index`, `make kamal-blog-sync`, `make kamal-purge-home-blog-cache`, `make kamal-bridge-status`, `make kamal-cron-debug`, `make kamal-worker-logs`, `make kamal-network-sanity`, plus Kamal cache priming targets. |
+| Kamal remote ops | `make kamal-reindex`, `make kamal-clear-cache`, `make kamal-verify-h3-index`, `make kamal-blog-sync`, `make kamal-purge-home-blog-cache`, `make kamal-bridge-sync-batched`, `make kamal-bridge-status`, `make kamal-cron-debug`, `make kamal-worker-logs`, `make kamal-network-sanity`, plus Kamal cache priming targets. |
 | Performance | `make k6-smoke`, `make k6-stress`, `make k6-endpoint-capacity`. |
 
 ## Kamal Deployment Model
