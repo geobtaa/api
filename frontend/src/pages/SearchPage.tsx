@@ -615,7 +615,7 @@ function SearchContent({
               aria-label="Filter results"
               className={`${
                 isFilterDrawerOpen ? 'block' : 'hidden'
-              } fixed inset-y-0 left-0 z-50 w-[min(92vw,24rem)] overflow-y-auto bg-white px-4 py-4 shadow-xl lg:sticky lg:inset-auto lg:top-24 lg:col-span-3 lg:block lg:max-h-[calc(100vh-7rem)] lg:w-auto lg:self-start lg:overflow-y-auto lg:bg-transparent lg:p-0 lg:shadow-none`}
+              } fixed inset-y-0 left-0 z-50 w-[min(92vw,24rem)] overflow-y-auto bg-white px-4 py-4 shadow-xl lg:sticky lg:inset-auto lg:top-40 lg:z-10 lg:col-span-3 lg:block lg:w-auto lg:self-start lg:overflow-visible lg:bg-transparent lg:p-0 lg:shadow-none`}
             >
               <div className="mb-4 flex items-center justify-between lg:hidden">
                 <h2 className="text-base font-semibold text-gray-900">
