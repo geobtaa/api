@@ -1,3 +1,10 @@
+---
+hide:
+    - toc
+---
+
+
+
 <meta charset="UTF-8">
 <link rel="stylesheet" href="https://pyscript.net/releases/2024.1.1/core.css">
 <script type="module" src="https://pyscript.net/releases/2024.1.1/core.js"></script>
@@ -9,306 +16,6 @@
 <py-config>
 packages = ["requests", "pyodide-http"]
 </py-config>
-
-<style>
-
-        .run-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 14px;
-            margin-top: 10px;
-            transition: transform 0.2s;
-        }
-
-        .run-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .run-btn:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-
-        .output-area {
-            background: #1e1e1e;
-            color: #d4d4d4;
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 10px;
-            font-family: 'Courier New', monospace;
-            font-size: 12px;
-            max-height: 300px;
-            overflow-y: auto;
-            white-space: pre-wrap;
-            word-wrap: break-word;
-            display: none;
-        }
-
-        .output-area.visible {
-            display: block;
-        }
-
-        .loading {
-            color: #667eea;
-            font-style: italic;
-        }
-
-        .copy-btn {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: #2d3748;
-            color: white;
-            border: 1px solid #4a5568;
-            padding: 6px 12px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            transition: all 0.2s;
-            z-index: 10;
-        }
-
-        .copy-btn:hover {
-            background: #4a5568;
-        }
-
-        .copy-btn:active {
-            transform: scale(0.95);
-        }
-
-        pre {
-            position: relative;
-        }
-
-        /* Tutorial slide wrapper - keeps content within site layout */
-        .tutorial-slide-wrapper {
-            margin: 2rem 0;
-            padding: 2rem;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Slide styles */
-        #slide-container {
-            position: relative;
-            min-height: 600px;
-            padding: 2rem 0;
-        }
-
-        .slide {
-            display: none;
-        }
-
-        .slide.active {
-            display: block;
-            animation: fadeIn 0.3s;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-            }
-
-            to {
-                opacity: 1;
-            }
-        }
-
-        /* Controls */
-        .controls {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            margin: 30px 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 10px;
-        }
-
-        .controls button {
-            background: white;
-            color: #667eea;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .controls button:hover:not(:disabled) {
-            background: #f7fafc;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .controls button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        #fullscreenBtn {
-            font-size: 20px;
-            padding: 8px 16px;
-        }
-
-        #slide-indicator {
-            color: white;
-            font-weight: 600;
-            min-width: 120px;
-            text-align: center;
-        }
-
-        /* Fullscreen styles - hide site header/footer only in fullscreen */
-        html:fullscreen body.tutorial-fullscreen {
-            background: #1a202c;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .md-header,
-        html:fullscreen body.tutorial-fullscreen .md-tabs,
-        html:fullscreen body.tutorial-fullscreen .md-footer {
-            display: none !important;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .md-main {
-            margin-top: 0 !important;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .md-main__inner {
-            max-width: 100%;
-            padding: 40px;
-            margin-top: 0;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .tutorial-slide-wrapper {
-            margin: 0;
-            padding: 40px;
-            box-shadow: none;
-            border-radius: 0;
-            background: #1a202c;
-            color: #fff;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .slide {
-            font-size: 1.1em;
-            color: #fff;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .slide h2,
-        html:fullscreen body.tutorial-fullscreen .slide h3 {
-            color: #fff;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .controls {
-            margin-top: auto;
-        }
-
-        /* Slide heading styles to match presentation */
-        .slide h2 {
-            color: #005E8E;
-            border-bottom: 2px solid #005E8E;
-            padding-bottom: 0.5rem;
-            margin-top: 0;
-        }
-
-        .slide h3 {
-            color: #772424;
-            margin-top: 1.5rem;
-        }
-
-        html:fullscreen body.tutorial-fullscreen .example-block {
-            background: rgba(255, 255, 255, 0.05);
-            border-color: rgba(255, 255, 255, 0.2);
-        }
-
-
-
-        /* Tab Styles */
-        .tabs {
-            display: flex;
-            margin-bottom: 0;
-            background: #2d3748;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
-            overflow: hidden;
-            margin-top: 20px;
-        }
-
-        .tab-btn {
-            background: transparent;
-            border: none;
-            color: #a0aec0;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            border-bottom: 2px solid transparent;
-        }
-
-        .tab-btn:hover {
-            color: white;
-            background: #4a5568;
-        }
-
-        .tab-btn.active {
-            color: white;
-            background: #4a5568;
-            border-bottom: 2px solid #667eea;
-        }
-
-        .tab-content {
-            display: none;
-            background: #2d2d2d;
-            border-bottom-left-radius: 8px;
-            border-bottom-right-radius: 8px;
-            min-height: 200px;
-        }
-
-        .tab-content.active {
-            display: block;
-        }
-
-        /* Adjust pre styling for tabs */
-        .tab-content pre {
-            margin: 0;
-            border-radius: 0 0 8px 8px;
-            border: none;
-            max-height: 400px;
-            overflow-y: auto;
-        }
-
-        .json-area {
-            color: #d4d4d4;
-            font-family: 'Courier New', monospace;
-            padding: 15px;
-            white-space: pre !important;
-            overflow-x: auto;
-        }
-
-        /* Update output area for tab context */
-        .output-area {
-            margin-top: 0;
-            /* Remove margin as it's inside tab now */
-            background: #1e1e1e;
-            color: #d4d4d4;
-            /* Light text for dark background */
-            /* Match tab background */
-            min-height: 200px;
-            /* Ensure some height even if empty */
-            padding: 15px;
-        }
-    
-</style>
 
 
     
@@ -323,7 +30,7 @@ packages = ["requests", "pyodide-http"]
             <p>11 Recipes for Success with the BTAA Geoportal API</p>
             <p>Download the full runnable Python script containing all these examples, or run them directly in your browser below!</p>
             <p><a href="../btaa_api_examples.py" class="btn" download>Download Python Script</a></p>
-            <p style="margin-top: 30px; color: #718096;">Use the navigation buttons below or arrow keys to move between examples.</p>
+            <p class="tutorial-intro-note">Use the navigation buttons below or arrow keys to move between examples.</p>
         </div>
 
         <div class="slide">
@@ -373,11 +80,10 @@ packages = ["requests", "pyodide-http"]
 
     <div class="controls">
         <button id="prevBtn" onclick="changeSlide(-1)">&larr; Previous</button>
-        <select id="slideSelect" onchange="jumpToSlide(this.value)"
-            style="padding: 10px; border-radius: 5px; border: none; background: rgba(255,255,255,0.95); color: #4a5568; font-weight: 600; font-size: 14px; cursor: pointer; max-width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <select id="slideSelect" class="slide-select" onchange="jumpToSlide(this.value)">
             <!-- Populated by JS -->
         </select>
-        <span id="slide-indicator" style="display: none;">Slide 1 of 3</span>
+        <span id="slide-indicator" class="slide-indicator-hidden">Slide 1 of 3</span>
         <button id="nextBtn" onclick="changeSlide(1)">Next &rarr;</button>
         <button id="fullscreenBtn" onclick="toggleFullscreen()" title="Toggle Fullscreen">&#99798;</button>
     </div>
