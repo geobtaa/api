@@ -467,6 +467,7 @@ class TestBridgeSyncService:
                     delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
                 )
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -681,6 +682,7 @@ class TestBridgeSyncService:
                     delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
                 )
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -860,6 +862,7 @@ class TestBridgeSyncService:
                 )
                 await database.execute(delete(resources).where(resources.c.id == resource_id))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -962,6 +965,7 @@ class TestBridgeSyncService:
                 )
                 await database.execute(delete(resources).where(resources.c.id == resource_id))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -1139,6 +1143,7 @@ class TestBridgeSyncService:
                 )
                 await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -1275,6 +1280,7 @@ class TestBridgeSyncService:
                 )
                 await database.execute(delete(resources).where(resources.c.id == resource_id))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -1415,6 +1421,7 @@ class TestBridgeSyncService:
                     delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
                 )
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -1446,4 +1453,5 @@ class TestBridgeSyncService:
             try:
                 await database.execute(delete(bridge_sync_runs))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
