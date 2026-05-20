@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
 
 DEFAULT_DATABASE_NAME = "btaa_geospatial_api"
 DEFAULT_PREFIX = "btaa-geospatial-api"
@@ -38,6 +38,12 @@ class BackupConfig:
     sse: str | None = None
     sse_kms_key_id: str | None = None
     storage_class: str | None = None
+
+
+@dataclass(frozen=True)
+class PgConnectionArgs:
+    args: list[str]
+    env: dict[str, str]
 
 
 def _env_bool(name: str, default: bool = False) -> bool:
@@ -67,6 +73,36 @@ def _normalize_database_url(database_url: str) -> str:
     return database_url
 
 
+def _pg_connection_args(database_url: str) -> PgConnectionArgs:
+    split = urlsplit(database_url)
+    if split.scheme not in {"postgresql", "postgres"}:
+        raise RuntimeError(f"Unsupported PostgreSQL URL scheme: {split.scheme}")
+
+    if not split.hostname:
+        raise RuntimeError("DATABASE_URL must include a hostname")
+
+    database = unquote(split.path.lstrip("/"))
+    if not database:
+        raise RuntimeError("DATABASE_URL must include a database name")
+
+    args = [
+        "--host",
+        split.hostname,
+        "--dbname",
+        database,
+    ]
+    if split.port:
+        args.extend(["--port", str(split.port)])
+    if split.username:
+        args.extend(["--username", unquote(split.username)])
+
+    env = os.environ.copy()
+    if split.password:
+        env["PGPASSWORD"] = unquote(split.password)
+
+    return PgConnectionArgs(args=args, env=env)
+
+
 def _s3_key(*parts: str) -> str:
     return "/".join(part.strip("/") for part in parts if part and part.strip("/"))
 
@@ -82,13 +118,16 @@ def _aws_extra_upload_args(config: BackupConfig) -> list[str]:
     return args
 
 
-def _run(args: list[str], *, capture_json: bool = False) -> dict[str, object] | None:
+def _run(
+    args: list[str], *, capture_json: bool = False, env: dict[str, str] | None = None
+) -> dict[str, object] | None:
     try:
         result = subprocess.run(
             args,
             check=True,
             text=True,
             capture_output=True,
+            env=env,
         )
     except subprocess.CalledProcessError as exc:
         message = (exc.stderr or exc.stdout or f"{args[0]} failed").strip()
@@ -161,12 +200,12 @@ def _should_skip_scheduled_backup(force: bool) -> str | None:
 def _create_pg_dump(config: BackupConfig, output_path: Path) -> None:
     _require_command("pg_dump")
     _require_command("pg_restore")
+    connection = _pg_connection_args(config.database_url)
 
     _run(
         [
             "pg_dump",
-            "--dbname",
-            config.database_url,
+            *connection.args,
             "--format",
             "custom",
             "-Z",
@@ -175,7 +214,8 @@ def _create_pg_dump(config: BackupConfig, output_path: Path) -> None:
             "--no-acl",
             "--file",
             str(output_path),
-        ]
+        ],
+        env=connection.env,
     )
 
     # Fast archive sanity check before the artifact leaves the box.

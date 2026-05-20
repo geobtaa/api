@@ -21,6 +21,28 @@ def test_s3_key_joins_and_strips_slashes():
     )
 
 
+def test_pg_connection_args_keep_password_out_of_args(monkeypatch):
+    monkeypatch.setenv("EXISTING_ENV", "kept")
+
+    connection = backup._pg_connection_args(
+        "postgresql://postgres:p%40ss@paradedb:5432/btaa_geospatial_api"
+    )
+
+    assert connection.args == [
+        "--host",
+        "paradedb",
+        "--dbname",
+        "btaa_geospatial_api",
+        "--port",
+        "5432",
+        "--username",
+        "postgres",
+    ]
+    assert "p@ss" not in " ".join(connection.args)
+    assert connection.env["PGPASSWORD"] == "p@ss"
+    assert connection.env["EXISTING_ENV"] == "kept"
+
+
 def test_scheduled_backup_skips_when_disabled(monkeypatch):
     monkeypatch.setenv("BACKUP_ENABLED", "false")
     monkeypatch.setenv("KAMAL_DEST", "prd")

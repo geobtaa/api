@@ -1,3 +1,16 @@
+<%
+# Makefile includes keep shell-style wrapper quotes as literal characters.
+# Normalize them so Kamal config rendering matches `source .kamal/secrets.*`.
+ENV.each do |key, value|
+  next unless value.is_a?(String) && value.length >= 2
+
+  if (value.start_with?('"') && value.end_with?('"')) ||
+     (value.start_with?("'") && value.end_with?("'"))
+    ENV[key] = value[1...-1]
+  end
+end
+%>
+
 # Name of your application. Used to uniquely configure containers.
 service: btaa-geospatial-api
 
