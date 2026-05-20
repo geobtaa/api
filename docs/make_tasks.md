@@ -214,6 +214,9 @@ Set `KAMAL_DEST=dev1`, `dev2`, or `prd`. The default is `dev1`.
 | `make kamal-clear-cache` | Clear remote cache. `KAMAL_CACHE_TYPE=search|resource|suggest|map|all`. |
 | `make kamal-blog-sync` | Trigger remote home page blog sync. Use `RUN_NOW=1` for inline execution. |
 | `make kamal-purge-home-blog-cache` | Purge home blog/home endpoint cache remotely. |
+| `make kamal-backup-postgres` | Run the production-gated Postgres S3 backup in the cron container. |
+| `make kamal-backup-elasticsearch` | Run the production-gated Elasticsearch S3 snapshot in the cron container. |
+| `make kamal-backup-list-elasticsearch` | List Elasticsearch snapshots for the target destination. |
 | `make kamal-bridge-status` | Show bridge status remotely. |
 | `make kamal-bridge-status-watch` | Poll remote bridge status. |
 | `make kamal-cron-debug` | Inspect cron container crontab, timezone, and env. |
@@ -230,6 +233,8 @@ Set `KAMAL_DEST=dev1`, `dev2`, or `prd`. The default is `dev1`.
 | `make kamal-refresh-resource-caches` | Purge and rehydrate selected remote resource/API caches. |
 
 Kamal reindex knobs mirror local reindexing with the `KAMAL_REINDEX_*` prefix.
+`make kamal-backup-elasticsearch` uses `KAMAL_BACKUP_RETAIN_COUNT` as a manual
+fallback when the destination environment does not set `BACKUP_RETENTION_COUNT`.
 
 ## Performance Tests
 

@@ -1,5 +1,5 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache thumbnail-completeness-report prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-thumbnail-completeness-report kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-sync-batched bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-sync-batched kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity cli-test cli-lint cli-format cli-build cli-man
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-sync-batched kamal-bridge-status kamal-bridge-status-watch kamal-backup-postgres kamal-backup-elasticsearch kamal-backup-list-elasticsearch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity cli-test cli-lint cli-format cli-build cli-man
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -92,6 +92,7 @@ KAMAL_REINDEX_REMOVE_LEGACY_INDEX ?= true
 # If unset, the target falls back to APPLICATION_URL from Kamal env.
 KAMAL_API_URL ?=
 KAMAL_CACHE_TYPE ?= search
+KAMAL_BACKUP_RETAIN_COUNT ?= 3
 KAMAL_NETWORK_SELF_URL ?=
 KAMAL_NETWORK_EXTERNAL_URLS ?= https://api.github.com https://raw.githubusercontent.com https://gin.btaa.org http://example.com
 KAMAL_NETWORK_CONNECT_TIMEOUT ?= 5
@@ -1602,6 +1603,34 @@ kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
 	@echo
 	@echo "GIN blog sync request submitted (Kamal)."
 
+# Manually run the production-gated Postgres backup from the cron container.
+# Usage: make kamal-backup-postgres KAMAL_DEST=prd
+kamal-backup-postgres: ## Run production-gated Postgres S3 backup on Kamal
+	@echo "Running Postgres backup on Kamal cron container (KAMAL_DEST=$(KAMAL_DEST))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc '/opt/venv/bin/python3 /app/scripts/backup_postgres_to_s3.py'"
+
+# Manually run the production-gated Elasticsearch snapshot from the cron container.
+# Usage: make kamal-backup-elasticsearch KAMAL_DEST=prd [KAMAL_BACKUP_RETAIN_COUNT=3]
+kamal-backup-elasticsearch: ## Run production-gated Elasticsearch S3 snapshot on Kamal
+	@echo "Running Elasticsearch snapshot on Kamal cron container (KAMAL_DEST=$(KAMAL_DEST))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc '/opt/venv/bin/python3 /app/scripts/backup_elasticsearch.py --scheduled --create --wait --retain-count $${BACKUP_RETENTION_COUNT:-$(KAMAL_BACKUP_RETAIN_COUNT)}'"
+
+kamal-backup-list-elasticsearch: ## List Elasticsearch snapshots on Kamal
+	@echo "Listing Elasticsearch snapshots on Kamal (KAMAL_DEST=$(KAMAL_DEST))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc '/opt/venv/bin/python3 /app/scripts/backup_elasticsearch.py --list'"
+
 # Purge cached homepage blog response after a blog sync or other content change.
 kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 	@echo "Purging homepage blog cache on Kamal via $(KAMAL_API_URL)..."
@@ -1645,7 +1674,7 @@ kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'echo APPLICATION_URL=\$$APPLICATION_URL; echo REDIS_HOST=\$$REDIS_HOST; if [ -n \"\$$DATABASE_URL\" ]; then echo DATABASE_URL_SET=yes; else echo DATABASE_URL_SET=no; fi; echo PYTHONPATH=\$$PYTHONPATH; echo TZ=\$$TZ'"
 	@echo ""
 	@echo "--- 4. Script + cron bootstrap ---"
-	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'ls -la /app/scripts/trigger_bridge_sync_cron.py /app/scripts/cron_env.sh 2>/dev/null; env -i SHELL=/bin/bash BASH_ENV=/app/scripts/cron_env.sh /bin/bash -lc \"echo REDIS_HOST=\\\$$REDIS_HOST; if [ -n \\\\\"\\\$$DATABASE_URL\\\\\" ]; then echo DATABASE_URL_SET=yes; else echo DATABASE_URL_SET=no; fi; echo PYTHONPATH=\\\$$PYTHONPATH; echo BRIDGE_SYNC_LOCAL_TIMEZONE=\\\$$BRIDGE_SYNC_LOCAL_TIMEZONE\"'"
+	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'ls -la /app/scripts/trigger_bridge_sync_cron.py /app/scripts/cron_env.sh /tmp/cron-container-env.sh 2>/dev/null; env -i SHELL=/bin/bash BASH_ENV=/app/scripts/cron_env.sh /bin/bash -lc \"echo REDIS_HOST=\\\$$REDIS_HOST; if [ -n \\\\\"\\\$$DATABASE_URL\\\\\" ]; then echo DATABASE_URL_SET=yes; else echo DATABASE_URL_SET=no; fi; echo PYTHONPATH=\\\$$PYTHONPATH; echo BRIDGE_SYNC_LOCAL_TIMEZONE=\\\$$BRIDGE_SYNC_LOCAL_TIMEZONE\"'"
 
 # Manually run bridge sync trigger from cron container (same as 2 AM job).
 # Usage: make kamal-cron-test-bridge [KAMAL_DEST=prd] [CHANGED_SINCE=2026-04-23T00:00:00Z]

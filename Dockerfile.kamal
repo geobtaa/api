@@ -79,17 +79,31 @@ WORKDIR /app
 
 # Runtime deps only. Build tooling lives in python_deps/frontend_* stages so it
 # does not inflate the deploy image that must be pushed to GHCR and pulled by dev1.
+# Add PGDG so the backup cron container has a pg_dump client compatible with
+# the ParadeDB/PostgreSQL 17 runtime image.
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    gnupg \
+    bash \
+    && install -d -m 0755 /usr/share/postgresql-common/pgdg \
+    && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+      | gpg --dearmor -o /usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg \
+    && . /etc/os-release \
+    && echo "deb [signed-by=/usr/share/postgresql-common/pgdg/apt.postgresql.org.gpg] https://apt.postgresql.org/pub/repos/apt ${VERSION_CODENAME}-pgdg main" \
+      > /etc/apt/sources.list.d/pgdg.list \
+    && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
     python3 \
+    awscli \
     cron \
     tzdata \
     libcairo2 \
     gdal-bin \
     nginx \
     msmtp-mta \
-    curl \
     ca-certificates \
     git \
+    postgresql-client-17 \
     bash \
     && rm -rf /var/lib/apt/lists/*
 
