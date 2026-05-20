@@ -23,10 +23,11 @@ from app.services.admin_service import (
     ResourceProcessingService,
 )
 from app.services.api_key_service import APIKeyService
+from app.services.bridge_sync.batched import normalize_batch_size, normalize_resource_scope
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.services.cache_service import CacheService
 from app.services.ogm_harvest.repository import OGMHarvestRepository
-from app.tasks.bridge_sync import bridge_sync_all
+from app.tasks.bridge_sync import bridge_sync_all, bridge_sync_enqueue_batches
 from app.tasks.gin_blog_sync import gin_blog_sync, run_gin_blog_sync
 from app.tasks.ogm_harvest import ogm_harvest_all, ogm_harvest_repo
 
@@ -101,6 +102,10 @@ class TriggerBridgeSyncRequest(BaseModel):
     limit: Optional[int] = None
     changed_since: Optional[str] = None
     resource_id: Optional[str] = None
+    batched: bool = False
+    batch_size: Optional[int] = None
+    resource_scope: str = "all"
+    max_resources: Optional[int] = None
 
 
 class TriggerGINBlogSyncRequest(BaseModel):
@@ -423,6 +428,44 @@ async def trigger_ogm_harvest(body: TriggerOGMHarvestRequest):
 @router.post("/bridge/sync")
 async def trigger_bridge_sync(body: TriggerBridgeSyncRequest):
     """Trigger a bridge sync crawl (enqueues Celery)."""
+    if body.batched:
+        if body.changed_since is not None or body.resource_id is not None or body.limit is not None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Batched bridge sync cannot be combined with limit, changed_since, "
+                    "or resource_id; use batch_size and max_resources instead"
+                ),
+            )
+        try:
+            resource_scope = normalize_resource_scope(body.resource_scope)
+            batch_size = normalize_batch_size(body.batch_size)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        if body.max_resources is not None and body.max_resources < 0:
+            raise HTTPException(
+                status_code=400,
+                detail="max_resources must be greater than or equal to 0",
+            )
+
+        task_kwargs = {
+            "trigger": body.bridge_trigger,
+            "batch_size": batch_size,
+            "resource_scope": resource_scope,
+            "max_resources": body.max_resources,
+        }
+        task = bridge_sync_enqueue_batches.delay(**task_kwargs)
+        return create_response(
+            {
+                "queued": "kithe_bridge_batched",
+                "task_id": task.id,
+                "bridge_trigger": body.bridge_trigger,
+                "batch_size": batch_size,
+                "resource_scope": resource_scope,
+                "max_resources": body.max_resources,
+            }
+        )
+
     task_kwargs = {
         "trigger": body.bridge_trigger,
         "limit": body.limit,
@@ -444,13 +487,17 @@ async def trigger_bridge_sync(body: TriggerBridgeSyncRequest):
     )
 
 
-BRIDGE_SYNC_TASK_NAME = "bridge_sync_all"
+BRIDGE_SYNC_TASK_NAMES = {
+    "bridge_sync_all",
+    "bridge_sync_enqueue_batches",
+    "bridge_sync_resource_batch",
+}
 
 
 @router.post("/bridge/sync/cancel")
 async def cancel_bridge_sync():
     """Cancel all running bridge sync runs and revoke active/reserved
-    bridge_sync_all Celery tasks."""
+    bridge sync Celery tasks."""
     import asyncio
 
     runs_cancelled = await bridge_repo.cancel_all_running_runs(
@@ -473,10 +520,15 @@ async def cancel_bridge_sync():
             insp = celery_app.control.inspect(timeout=2.0)
             active_map = insp.active() or {}
             reserved_map = insp.reserved() or {}
-            active_ids = task_ids_for_name(active_map, BRIDGE_SYNC_TASK_NAME)
+            active_ids = [
+                tid
+                for task_name in BRIDGE_SYNC_TASK_NAMES
+                for tid in task_ids_for_name(active_map, task_name)
+            ]
             reserved_ids = [
                 tid
-                for tid in task_ids_for_name(reserved_map, BRIDGE_SYNC_TASK_NAME)
+                for task_name in BRIDGE_SYNC_TASK_NAMES
+                for tid in task_ids_for_name(reserved_map, task_name)
                 if tid not in active_ids
             ]
             for tid in active_ids:

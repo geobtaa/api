@@ -1,5 +1,5 @@
-.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache thumbnail-completeness-report prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-thumbnail-completeness-report kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
-.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity cli-test cli-lint cli-format cli-build cli-man
+.PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache thumbnail-completeness-report prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-thumbnail-completeness-report kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-sync-batched bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
+.PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-sync-batched kamal-bridge-status kamal-bridge-status-watch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity cli-test cli-lint cli-format cli-build cli-man
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -106,6 +106,10 @@ BRIDGE_TRIGGER ?= manual
 BRIDGE_LIMIT ?=
 BRIDGE_CHANGED_SINCE ?=
 BRIDGE_RESOURCE_ID ?= $(RESOURCE_ID)
+BRIDGE_BATCH_TRIGGER ?= manual_batched
+BRIDGE_BATCH_SIZE ?= 500
+BRIDGE_RESOURCE_SCOPE ?= all
+BRIDGE_MAX_RESOURCES ?=
 BRIDGE_STATUS_RAW ?=
 BRIDGE_STATUS_SHOW_LAST ?= 0
 BLOG_API_URL ?= http://localhost:8000
@@ -1331,7 +1335,28 @@ bridge-sync: bridge-init ## Trigger background bridge sync
 	@echo
 	@echo "Bridge sync request submitted."
 
-# Cancel all running bridge sync runs and revoke active/queued bridge_sync_all Celery tasks.
+# Trigger a batched full-resource reconciliation against the Geoportal bridge API.
+# Usage:
+#   make bridge-sync-batched
+#   make bridge-sync-batched BRIDGE_BATCH_SIZE=500
+#   make bridge-sync-batched BRIDGE_RESOURCE_SCOPE=bridge_active
+#   make bridge-sync-batched BRIDGE_MAX_RESOURCES=1000
+bridge-sync-batched: bridge-init ## Trigger batched bridge reconciliation
+	@echo "Triggering batched bridge sync via $(BRIDGE_API_URL)..."
+	@docker compose exec -T api bash -lc '\
+		ADMIN_USER=$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=$${ADMIN_PASSWORD:-changeme}; \
+		BODY="{\"bridge_trigger\":\"$(BRIDGE_BATCH_TRIGGER)\",\"batched\":true,\"batch_size\":$(BRIDGE_BATCH_SIZE),\"resource_scope\":\"$(BRIDGE_RESOURCE_SCOPE)\""; \
+		if [ -n "$(BRIDGE_MAX_RESOURCES)" ]; then BODY="$$BODY,\"max_resources\":$(BRIDGE_MAX_RESOURCES)"; fi; \
+		BODY="$$BODY}"; \
+		curl -fsS -u "$$ADMIN_USER:$$ADMIN_PASS" -X POST \
+			"$(BRIDGE_API_URL)/api/v1/admin/bridge/sync" \
+			-H "Content-Type: application/json" \
+			-d "$$BODY"'
+	@echo
+	@echo "Batched bridge sync request submitted."
+
+# Cancel all running bridge sync runs and revoke active/queued bridge sync Celery tasks.
 bridge-cancel: bridge-init ## Cancel all bridge syncs and queued bridge sync tasks
 	@echo "Cancelling all bridge syncs via $(BRIDGE_API_URL)..."
 	@docker compose exec -T api bash -lc '\
@@ -1398,6 +1423,30 @@ bridge-status-watch: bridge-init ## Poll bridge sync status continuously (curren
 #   make kamal-bridge-status
 #   make kamal-bridge-status BRIDGE_RUNS_LIMIT=20
 #   make kamal-bridge-status BRIDGE_RUN_ID=<run_id>
+kamal-bridge-sync-batched: ## Trigger batched bridge reconciliation on Kamal
+	@echo "Triggering batched bridge sync on Kamal (dest: $(KAMAL_DEST))..."
+	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
+		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST environment variables must be set."; \
+		echo "$(KAMAL_DEST_HELP)"; \
+		exit 1; \
+	fi
+	@kamal app exec -d $(KAMAL_DEST) --roles $(KAMAL_APP_ROLE) --reuse "bash -lc '\
+		ADMIN_USER=\$${ADMIN_USERNAME:-admin}; \
+		ADMIN_PASS=\$${ADMIN_PASSWORD:-changeme}; \
+		API_BASE=\"$(KAMAL_API_URL)\"; \
+		if [ -z \"\$$API_BASE\" ]; then API_BASE=\"\$$APPLICATION_URL\"; fi; \
+		if [ -z \"\$$API_BASE\" ]; then echo \"ERROR: KAMAL_API_URL or APPLICATION_URL must be set.\"; exit 1; fi; \
+		API_BASE=\"\$${API_BASE%/}\"; \
+		BODY=\"{\\\"bridge_trigger\\\":\\\"$(BRIDGE_BATCH_TRIGGER)\\\",\\\"batched\\\":true,\\\"batch_size\\\":$(BRIDGE_BATCH_SIZE),\\\"resource_scope\\\":\\\"$(BRIDGE_RESOURCE_SCOPE)\\\"\"; \
+		if [ -n \"$(BRIDGE_MAX_RESOURCES)\" ]; then BODY=\"\$$BODY,\\\"max_resources\\\":$(BRIDGE_MAX_RESOURCES)\"; fi; \
+		BODY=\"\$$BODY}\"; \
+		curl -fsS -u \"\$$ADMIN_USER:\$$ADMIN_PASS\" -X POST \
+			\"\$$API_BASE/api/v1/admin/bridge/sync\" \
+			-H \"Content-Type: application/json\" \
+			-d \"\$$BODY\"'"
+	@echo
+	@echo "Batched bridge sync request submitted on $(KAMAL_DEST)."
+
 kamal-bridge-status: ## Show bridge sync status on Kamal (BRIDGE_RUNS_LIMIT=N recent runs; BRIDGE_RUN_ID=... for one run)
 	@echo "Fetching bridge sync status from Kamal via $(KAMAL_API_URL)..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \

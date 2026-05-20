@@ -24,15 +24,20 @@ def build_effective_reference_payload(
     assets: Sequence[Mapping[str, Any]] | None = None,
     reference_type_id_to_uri: Mapping[int, str] | None = None,
     asset_key_to_uri: Mapping[str, str] | None = None,
+    authoritative_uris: Iterable[str] | None = None,
 ) -> Dict[str, Any]:
     """
     Merge all known legacy/bridge reference sources into a single Aardvark payload.
 
     The result only emits scalar strings or arrays, never top-level objects, so it
     remains compatible with distribution sync code that reparses `dct_references_s`.
+    When authoritative_uris is provided, matching legacy entries are replaced by
+    the current bridge-provided nested rows instead of being merged forward.
     """
 
     grouped = _group_reference_payload(base_payload)
+    for uri in authoritative_uris or []:
+        grouped.pop(uri, None)
 
     for distribution in document_distributions or []:
         uri = _reference_uri_for_distribution(distribution, reference_type_id_to_uri)

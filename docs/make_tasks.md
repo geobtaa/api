@@ -144,6 +144,7 @@ defaults to `5`.
 | --- | --- |
 | `make bridge-init` | Ensure bridge sync tables and resource aux tables exist. |
 | `make bridge-sync` | Trigger a background bridge sync. |
+| `make bridge-sync-batched` | Trigger batched full-resource bridge reconciliation. |
 | `make bridge-cancel` | Cancel all bridge syncs and queued bridge sync tasks. |
 | `make bridge-status` | Show bridge sync status. Supports `BRIDGE_RUN_ID` or `BRIDGE_RUNS_LIMIT`. |
 | `make bridge-status-watch` | Poll bridge sync status continuously. |
@@ -159,7 +160,18 @@ Useful bridge variables:
 | `BRIDGE_LIMIT` | Optional max records to sync. |
 | `BRIDGE_CHANGED_SINCE` | Optional incremental sync cutoff. |
 | `RESOURCE_ID` / `BRIDGE_RESOURCE_ID` | Single-record sync scope. |
+| `BRIDGE_BATCH_TRIGGER` | Batched reconciliation trigger label. Defaults to `manual_batched`. |
+| `BRIDGE_BATCH_SIZE` | Batched reconciliation resources per Celery task. Defaults to `500`, capped at `1000`. |
+| `BRIDGE_RESOURCE_SCOPE` | Batched reconciliation source: `all`, `published`, or `bridge_active`. Defaults to `all`. |
+| `BRIDGE_MAX_RESOURCES` | Optional cap for trial batched reconciliation runs. |
 | `BRIDGE_STATUS_POLL_SECONDS` | Defaults to `5`. |
+
+For remote reconciliation, run `make kamal-bridge-sync-batched KAMAL_DEST=dev1`
+and then monitor with `make kamal-bridge-status-watch KAMAL_DEST=dev1`. Run
+`make kamal-reindex` after the batched sync completes so Elasticsearch reflects
+the corrected database rows. The batched target reconciles existing local IDs;
+keep the normal bridge crawl/delta sync for discovering newly added Bridge
+records.
 
 ## Analytics
 

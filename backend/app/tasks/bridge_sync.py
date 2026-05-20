@@ -3,6 +3,10 @@ import logging
 import os
 from typing import Any, Coroutine, Dict, Optional
 
+from app.services.bridge_sync.batched import (
+    queue_batched_bridge_sync,
+    sync_bridge_resource_batch,
+)
 from app.services.bridge_sync.harvest import sync_bridge
 from app.services.bridge_sync.report import send_bridge_sync_report_for_run
 from app.tasks.worker import celery_app
@@ -108,3 +112,136 @@ async def _bridge_sync_all_async(
             )
             result["report"] = {"enabled": True, "sent": False, "error": str(exc)}
     return result
+
+
+@celery_app.task(
+    bind=True,
+    name="bridge_sync_enqueue_batches",
+    soft_time_limit=10 * 60,
+    time_limit=15 * 60,
+)
+def bridge_sync_enqueue_batches(
+    self,
+    trigger: str = "manual_batched",
+    batch_size: Optional[int] = None,
+    resource_scope: str = "all",
+    max_resources: Optional[int] = None,
+) -> Dict[str, Any]:
+    return _run(
+        _bridge_sync_enqueue_batches_async(
+            trigger=trigger,
+            batch_size=batch_size,
+            resource_scope=resource_scope,
+            max_resources=max_resources,
+        )
+    )
+
+
+async def _bridge_sync_enqueue_batches_async(
+    trigger: str,
+    batch_size: Optional[int],
+    resource_scope: str,
+    max_resources: Optional[int],
+) -> Dict[str, Any]:
+    if not database.is_connected:
+        await database.connect()
+
+    def _enqueue_batch(**kwargs: Any) -> Optional[str]:
+        task = bridge_sync_resource_batch.apply_async(kwargs=kwargs, ignore_result=True)
+        return str(task.id) if task.id else None
+
+    return await queue_batched_bridge_sync(
+        trigger=trigger,
+        batch_size=batch_size,
+        resource_scope=resource_scope,
+        max_resources=max_resources,
+        enqueue_batch=_enqueue_batch,
+    )
+
+
+@celery_app.task(
+    bind=True,
+    name="bridge_sync_resource_batch",
+    soft_time_limit=30 * 60,
+    time_limit=35 * 60,
+)
+def bridge_sync_resource_batch(
+    self,
+    bridge_id: int,
+    resource_ids: list[str],
+    batch_number: Optional[int] = None,
+    total_batches: Optional[int] = None,
+    trigger: str = "manual_batched",
+) -> Dict[str, Any]:
+    try:
+        return _run(
+            sync_bridge_resource_batch(
+                bridge_id=bridge_id,
+                resource_ids=resource_ids,
+                batch_number=batch_number,
+                total_batches=total_batches,
+                task_id=getattr(self.request, "id", None),
+            )
+        )
+    except Exception as exc:
+        logger.error(
+            "Bridge sync batch failed: bridge_id=%s batch_number=%s trigger=%s err=%s",
+            bridge_id,
+            batch_number,
+            trigger,
+            exc,
+            exc_info=True,
+        )
+        _run(
+            _record_failed_bridge_sync_batch(
+                bridge_id=bridge_id,
+                batch_number=batch_number,
+                total_batches=total_batches,
+                task_id=getattr(self.request, "id", None),
+                exc=exc,
+            )
+        )
+        raise
+
+
+async def _record_failed_bridge_sync_batch(
+    *,
+    bridge_id: int,
+    batch_number: Optional[int],
+    total_batches: Optional[int],
+    task_id: Optional[str],
+    exc: Exception,
+) -> None:
+    if not database.is_connected:
+        await database.connect()
+    from app.services.bridge_sync.repository import BridgeSyncRepository
+
+    repo = BridgeSyncRepository()
+    await repo.record_batched_batch_result(
+        bridge_id=bridge_id,
+        batch_number=batch_number,
+        task_id=task_id,
+        failed=True,
+        batch_stats={
+            "processed": 0,
+            "imported": 0,
+            "skipped": 0,
+            "errors": 1,
+            "missing": 0,
+            "retired": 0,
+            "total_batches": total_batches,
+            "error_samples": [
+                {
+                    "stage": "batch_task",
+                    "resource_id": None,
+                    "error": str(exc)[:500],
+                }
+            ],
+            "error_signatures": [
+                {
+                    "signature": f"{exc.__class__.__name__}: {str(exc)[:180]}",
+                    "count": 1,
+                }
+            ],
+        },
+    )
