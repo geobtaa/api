@@ -681,6 +681,421 @@ class TestBridgeSyncService:
                 pass
 
     @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_prunes_deleted_distribution_urls_from_legacy_references(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        resource_id = "bridge-sync-prune-deleted-distribution"
+        current_url = "https://example.org/current-download.zip"
+        deleted_url = "https://example.org/deleted-download.zip"
+        record = {
+            "id": resource_id,
+            "import_id": "103",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync Prune Deleted Distribution",
+            "dct_description_sm": ["Distribution pruning test"],
+            "dct_references_s": {
+                "http://schema.org/downloadUrl": [
+                    {"url": current_url, "label": "Current download"},
+                    {"url": deleted_url, "label": "Deleted download"},
+                ],
+            },
+            "document_distributions": [
+                {
+                    "reference_type_id": 8,
+                    "url": current_url,
+                    "label": "Current download",
+                    "position": 0,
+                }
+            ],
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+
+            result = await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["imported"] == 1
+
+            row = await database.fetch_one(
+                select(resources.c.id, resources.c.dct_references_s).where(
+                    resources.c.id == resource_id
+                )
+            )
+            assert row is not None
+            assert json.loads(row["dct_references_s"]) == {
+                "http://schema.org/downloadUrl": [{"url": current_url, "label": "Current download"}]
+            }
+
+            distribution_rows = await database.fetch_all(
+                select(resource_distributions.c.url, resource_distributions.c.label).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            assert [(row["url"], row["label"]) for row in distribution_rows] == [
+                (current_url, "Current download")
+            ]
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
+            except Exception:
+                pass
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_real_reported_records_ignore_stale_document_downloads(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        oneida_id = "0011D7A3-0EC0-4B1D-AF20-C055274B6DAE"
+        oneida_current = "https://web.s3.wisc.edu/parcels/pre_V1/Oneida_Parcels_2014.zip"
+        oneida_stale = "https://gisdata.wisc.edu/public/Oneida_Parcels_2014.zip"
+        michigan_id = "002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+        michigan_current = (
+            "https://michigan.access.preservica.com/download/file/"
+            "IO_002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+        )
+        michigan_stale = (
+            "https://michiganology.org/download/file/IO_002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+        )
+        resource_ids = [oneida_id, michigan_id]
+
+        records = [
+            {
+                "id": oneida_id,
+                "import_id": "662",
+                "publication_state": "published",
+                "dct_title_s": "Parcels Oneida County, WI 2014",
+                "dct_description_sm": ["Distribution pruning test"],
+                "dct_references_s": "[]",
+                "document_distributions": [
+                    {
+                        "reference_type_id": 7,
+                        "url": "https://gis.co.oneida.wi.us/gismapping/",
+                    },
+                    {
+                        "reference_type_id": 8,
+                        "url": oneida_current,
+                        "label": "Geodatabase",
+                    },
+                    {
+                        "reference_type_id": 16,
+                        "url": (
+                            "https://web.s3.wisc.edu/rml-gisdata/metadata/Oneida_Parcels_2014.xml"
+                        ),
+                    },
+                ],
+                "document_downloads": [
+                    {
+                        "label": "Geodatabase",
+                        "value": oneida_stale,
+                    }
+                ],
+            },
+            {
+                "id": michigan_id,
+                "import_id": "664",
+                "publication_state": "published",
+                "dct_title_s": (
+                    "30N 07W - Survey Map of Kearney Township, Antrim County [Michigan]"
+                ),
+                "dct_description_sm": ["Distribution pruning test"],
+                "dct_references_s": "[]",
+                "document_distributions": [
+                    {
+                        "reference_type_id": 7,
+                        "url": (
+                            "https://michigan.access.preservica.com/uncategorized/"
+                            "IO_002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+                        ),
+                    },
+                    {
+                        "reference_type_id": 8,
+                        "url": michigan_current,
+                        "label": "JPEG2000",
+                    },
+                ],
+                "document_downloads": [
+                    {
+                        "label": "JPEG2000",
+                        "value": michigan_stale,
+                    }
+                ],
+            },
+        ]
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(
+                delete(resource_downloads).where(resource_downloads.c.resource_id.in_(resource_ids))
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=records,
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+
+            result = await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["imported"] == 2
+
+            for resource_id, current_url, stale_url in (
+                (oneida_id, oneida_current, oneida_stale),
+                (michigan_id, michigan_current, michigan_stale),
+            ):
+                resource_row = await database.fetch_one(
+                    select(resources.c.dct_references_s).where(resources.c.id == resource_id)
+                )
+                assert resource_row is not None
+                references = json.loads(resource_row["dct_references_s"])
+                download_refs = references["http://schema.org/downloadUrl"]
+                assert download_refs == [
+                    {
+                        "url": current_url,
+                        "label": "Geodatabase" if resource_id == oneida_id else "JPEG2000",
+                    }
+                ]
+                assert stale_url not in json.dumps(references)
+
+                distribution_rows = await database.fetch_all(
+                    select(resource_distributions.c.url).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                distribution_urls = {row["url"] for row in distribution_rows}
+                assert current_url in distribution_urls
+                assert stale_url not in distribution_urls
+
+                download_rows = await database.fetch_all(
+                    select(resource_downloads).where(
+                        resource_downloads.c.resource_id == resource_id
+                    )
+                )
+                assert download_rows == []
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id.in_(resource_ids)
+                    )
+                )
+                await database.execute(
+                    delete(resource_downloads).where(
+                        resource_downloads.c.resource_id.in_(resource_ids)
+                    )
+                )
+                await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+            except Exception:
+                pass
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_empty_nested_downloads_clear_previous_rows(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        resource_id = "bridge-sync-clear-deleted-downloads"
+        stale_url = "https://example.org/stale-download.zip"
+        initial_record = {
+            "id": resource_id,
+            "import_id": "104",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync Clear Deleted Downloads",
+            "dct_description_sm": ["Nested download clearing test"],
+            "dct_references_s": {},
+            "document_downloads": [
+                {
+                    "label": "Stale download",
+                    "value": stale_url,
+                    "position": 0,
+                }
+            ],
+        }
+        updated_record = {
+            "id": resource_id,
+            "import_id": "104",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync Clear Deleted Downloads",
+            "dct_description_sm": ["Nested download clearing test"],
+            "dct_references_s": {
+                "http://schema.org/downloadUrl": [{"url": stale_url, "label": "Stale download"}],
+            },
+            "document_downloads": [],
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            await database.execute(
+                delete(resource_downloads).where(resource_downloads.c.resource_id == resource_id)
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            first_client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[initial_record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=first_client,
+                importer=importer,
+                repo=repo,
+            )
+
+            seeded_downloads = await database.fetch_all(
+                select(resource_downloads.c.value).where(
+                    resource_downloads.c.resource_id == resource_id
+                )
+            )
+            assert [row["value"] for row in seeded_downloads] == [stale_url]
+
+            second_client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[updated_record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=second_client,
+                importer=importer,
+                repo=repo,
+            )
+
+            row = await database.fetch_one(
+                select(resources.c.id, resources.c.dct_references_s).where(
+                    resources.c.id == resource_id
+                )
+            )
+            assert row is not None
+            assert row["dct_references_s"] is None
+
+            downloads = await database.fetch_all(
+                select(resource_downloads).where(resource_downloads.c.resource_id == resource_id)
+            )
+            assert downloads == []
+
+            distribution_rows = await database.fetch_all(
+                select(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            assert distribution_rows == []
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(
+                    delete(resource_downloads).where(
+                        resource_downloads.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
+            except Exception:
+                pass
+
+    @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_resource_id_stops_on_match_without_retiring_others(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)

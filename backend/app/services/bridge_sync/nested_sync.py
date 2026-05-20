@@ -28,14 +28,20 @@ def _group_by_resource(
         if not rid:
             continue
 
-        for d in item.get("document_downloads") or []:
-            by_downloads.setdefault(rid, []).append(d or {})
+        if "document_downloads" in item:
+            downloads = by_downloads.setdefault(rid, [])
+            for d in item.get("document_downloads") or []:
+                downloads.append(d or {})
 
-        for a in item.get("document_licensed_accesses") or []:
-            by_licensed.setdefault(rid, []).append(a or {})
+        if "document_licensed_accesses" in item:
+            licensed = by_licensed.setdefault(rid, [])
+            for a in item.get("document_licensed_accesses") or []:
+                licensed.append(a or {})
 
-        for asset in item.get("assets") or []:
-            by_assets.setdefault(rid, []).append(asset or {})
+        if "assets" in item:
+            assets = by_assets.setdefault(rid, [])
+            for asset in item.get("assets") or []:
+                assets.append(asset or {})
 
     return by_downloads, by_licensed, by_assets
 

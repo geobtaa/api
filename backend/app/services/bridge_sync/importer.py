@@ -18,6 +18,7 @@ from app.services.distribution_sync import (
 from app.services.ogm_harvest.aardvark_reader import extract_record_id
 from app.services.ogm_harvest.importer import _parse_iso_date, _parse_iso_datetime
 from app.services.reference_reconstruction import (
+    REFERENCE_NAME_TO_URI,
     build_effective_reference_payload,
     serialize_reference_payload,
 )
@@ -160,6 +161,75 @@ class BridgeResourceImporter:
 
         return out
 
+    def _authoritative_reference_uris_for_record(
+        self,
+        record: Dict[str, Any],
+        reference_type_id_to_uri: Dict[int, str],
+    ) -> Set[str]:
+        uris: Set[str] = set()
+
+        if "document_distributions" in record:
+            # Presence of this key means the bridge sent the current Kithe rows.
+            # Replace legacy references for known types so deleted rows do not survive.
+            uris.update(reference_type_id_to_uri.values())
+
+        if "document_downloads" in record:
+            uris.add(REFERENCE_NAME_TO_URI.get("download", "http://schema.org/downloadUrl"))
+
+        if "assets" in record:
+            for asset in record.get("assets") or []:
+                if not isinstance(asset, dict):
+                    continue
+                raw_key = asset.get("dct_references_uri_key")
+                key = str(raw_key).strip() if raw_key is not None else ""
+                uri = REFERENCE_NAME_TO_URI.get(key)
+                if uri:
+                    uris.add(uri)
+
+        return uris
+
+    def _document_distributions_cover_downloads(
+        self,
+        record: Dict[str, Any],
+        reference_type_id_to_uri: Dict[int, str],
+    ) -> bool:
+        download_uri = REFERENCE_NAME_TO_URI.get("download", "http://schema.org/downloadUrl")
+        for distribution in record.get("document_distributions") or []:
+            if not isinstance(distribution, dict):
+                continue
+            try:
+                type_id = int(distribution.get("reference_type_id"))
+            except (TypeError, ValueError):
+                continue
+            if reference_type_id_to_uri.get(type_id) == download_uri:
+                return True
+        return False
+
+    def _nested_row_for_record(
+        self,
+        resource_id: str,
+        record: Dict[str, Any],
+        reference_type_id_to_uri: Dict[int, str],
+    ) -> Dict[str, Any]:
+        nested_row: Dict[str, Any] = {"resource_id": resource_id}
+        distributions_cover_downloads = self._document_distributions_cover_downloads(
+            record,
+            reference_type_id_to_uri,
+        )
+        for key in (
+            "document_distributions",
+            "document_downloads",
+            "document_licensed_accesses",
+            "assets",
+        ):
+            if key in record:
+                nested_row[key] = (
+                    []
+                    if key == "document_downloads" and distributions_cover_downloads
+                    else record.get(key) or []
+                )
+        return nested_row
+
     async def upsert_records(
         self,
         records: List[Dict[str, Any]],
@@ -281,12 +351,24 @@ class BridgeResourceImporter:
                     stats["skipped"] += 1
                     continue
 
+                distributions_cover_downloads = self._document_distributions_cover_downloads(
+                    record,
+                    reference_type_id_to_uri,
+                )
                 effective_references = build_effective_reference_payload(
                     normalized.get("dct_references_s"),
                     document_distributions=record.get("document_distributions") or [],
-                    document_downloads=record.get("document_downloads") or [],
+                    document_downloads=(
+                        []
+                        if distributions_cover_downloads
+                        else record.get("document_downloads") or []
+                    ),
                     assets=record.get("assets") or [],
                     reference_type_id_to_uri=reference_type_id_to_uri,
+                    authoritative_uris=self._authoritative_reference_uris_for_record(
+                        record,
+                        reference_type_id_to_uri,
+                    ),
                 )
                 normalized["dct_references_s"] = serialize_reference_payload(effective_references)
 
@@ -300,14 +382,11 @@ class BridgeResourceImporter:
                     }
                 )
                 nested_rows.append(
-                    {
-                        "resource_id": str(rid),
-                        "document_distributions": record.get("document_distributions") or [],
-                        "document_downloads": record.get("document_downloads") or [],
-                        "document_licensed_accesses": record.get("document_licensed_accesses")
-                        or [],
-                        "assets": record.get("assets") or [],
-                    }
+                    self._nested_row_for_record(
+                        str(rid),
+                        record,
+                        reference_type_id_to_uri,
+                    )
                 )
 
                 if len(batch_rows) >= batch_size:
