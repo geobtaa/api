@@ -636,6 +636,32 @@ class TestCreateJsonapiResource:
         assert result["type"] == "resource"
         assert "ogm" in result["attributes"]
 
+    def test_create_jsonapi_resource_with_licensed_accesses(self):
+        """Test that licensed accesses are exposed in meta.ui."""
+        resource_data = {
+            "id": "999-0001",
+            "dct_title_s": "Social Explorer",
+            "ui_licensed_accesses": [
+                {
+                    "institution_code": "01",
+                    "institution_name": "Indiana University",
+                    "access_url": "https://example.com/iu",
+                    "legacy_friendlier_id": "999-0001",
+                }
+            ],
+        }
+        result = create_jsonapi_resource(resource_data)
+
+        assert result["meta"]["ui"]["licensed_accesses"] == [
+            {
+                "institution_code": "01",
+                "institution_name": "Indiana University",
+                "access_url": "https://example.com/iu",
+                "legacy_friendlier_id": "999-0001",
+            }
+        ]
+        assert "ui_licensed_accesses" not in result["attributes"].get("b1g", {})
+
     def test_create_jsonapi_resource_ogm_and_b1g_separation(self):
         """Test that OGM Aardvark fields are separated from B1G fields."""
         resource_data = {

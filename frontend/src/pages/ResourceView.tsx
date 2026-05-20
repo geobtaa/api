@@ -21,6 +21,7 @@ import { CitationTable } from '../components/resource/CitationTable';
 import { FullDetailsTable } from '../components/resource/FullDetailsTable';
 import { LocationMap } from '../components/resource/LocationMap';
 import { DownloadsTable } from '../components/resource/DownloadsTable';
+import { LicensedAccessesTable } from '../components/resource/LicensedAccessesTable';
 import { LinksTable } from '../components/resource/LinksTable';
 import { SimilarItemsCarousel } from '../components/resource/SimilarItemsCarousel';
 import { EnvironmentNavButtons } from '../components/resource/EnvironmentNavButtons';
@@ -66,6 +67,12 @@ interface ResourceData extends GeoDocument {
         generated?: boolean;
         generation_path?: string;
         download_type?: string;
+      }>;
+      licensed_accesses?: Array<{
+        institution_code: string;
+        institution_name?: string | null;
+        access_url: string;
+        legacy_friendlier_id?: string | null;
       }>;
       citation?: string;
       thumbnail_url?: string;
@@ -648,6 +655,16 @@ export function ResourceView({
                       data.meta.ui.downloads.length > 0 && (
                         <DownloadsTable
                           downloads={data.meta.ui.downloads}
+                          resourceId={data.id}
+                          searchId={searchState?.searchId}
+                        />
+                      )}
+
+                    {/* Licensed access section */}
+                    {data?.meta?.ui?.licensed_accesses &&
+                      data.meta.ui.licensed_accesses.length > 0 && (
+                        <LicensedAccessesTable
+                          licensedAccesses={data.meta.ui.licensed_accesses}
                           resourceId={data.id}
                           searchId={searchState?.searchId}
                         />

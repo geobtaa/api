@@ -176,6 +176,7 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     relationship_browse_links = {"same_as": "/search?include_filters[same_as_agg][]=test-doc"}
     allmaps_payload = {"allmaps_id": "abc123"}
     data_dictionary_payload = [{"id": 1, "name": "Fields"}]
+    licensed_access_payload = [{"institution_code": "01", "access_url": "https://example.com/iu"}]
     bridge_download_rows = [{"label": "Download", "file_url": "https://example.com/file.zip"}]
     thumbnail_asset_url = "https://example.com/thumb.jpg"
 
@@ -222,6 +223,14 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
         patch(
             "app.api.v1.endpoint_modules.search._serialize_data_dictionaries_by_id",
             return_value={"test-doc": data_dictionary_payload},
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_resource_licensed_accesses_map",
+            new=AsyncMock(return_value={"test-doc": ["ignored"]}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search._serialize_licensed_accesses_by_id",
+            return_value={"test-doc": licensed_access_payload},
         ),
         patch(
             "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationship_summaries_map",
@@ -285,6 +294,10 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     assert (
         mock_process_resource.await_args.kwargs["data_dictionaries_payload"]
         == data_dictionary_payload
+    )
+    assert (
+        mock_process_resource.await_args.kwargs["licensed_accesses_payload"]
+        == licensed_access_payload
     )
     assert mock_process_resource.await_args.kwargs["thumbnail_asset_url"] == thumbnail_asset_url
     mock_store_resource_representations.assert_awaited_once_with(
@@ -508,6 +521,10 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
         ),
         patch(
             "app.api.v1.endpoint_modules.search.fetch_resource_data_dictionaries_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_resource_licensed_accesses_map",
             new=AsyncMock(return_value={}),
         ),
         patch(

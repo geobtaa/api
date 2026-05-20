@@ -6,6 +6,7 @@ import { ResourceView } from '../../pages/ResourceView';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 import type { GeoDocument } from '../../types/api';
 
 vi.mock('../../services/analytics', () => ({
@@ -298,6 +299,23 @@ const mockResourceWithDataDictionary: GeoDocument = {
   },
 };
 
+const mockResourceWithLicensedAccesses: GeoDocument = {
+  ...mockResourceData,
+  meta: {
+    ui: {
+      ...mockResourceData.meta?.ui,
+      licensed_accesses: [
+        {
+          institution_code: '01',
+          institution_name: 'Indiana University',
+          access_url: 'https://example.com/iu-access',
+          legacy_friendlier_id: '999-0001',
+        },
+      ],
+    },
+  },
+};
+
 const mockSearchState = {
   searchResults: realFixtureData.map((fixture) => ({ id: fixture.id })),
   currentIndex: 0,
@@ -327,8 +345,8 @@ const TestWrapper = ({
 );
 
 describe('ResourceView Component', () => {
-  let fetchResourceDetails: any;
-  let fetchSearchResults: any;
+  let fetchResourceDetails: Mock;
+  let fetchSearchResults: Mock;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -949,6 +967,29 @@ describe('ResourceView Component', () => {
 
       // DownloadsTable should be rendered
       expect(screen.getByText('PDF Download')).toBeInTheDocument();
+    });
+
+    it('renders LicensedAccessesTable when licensed accesses are available', async () => {
+      fetchResourceDetails.mockResolvedValue(mockResourceWithLicensedAccesses);
+
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', {
+            name: 'Nondigitized paper map with library catalog link',
+          })
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Licensed Resource')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: /Indiana University/i })
+      ).toHaveAttribute('href', 'https://example.com/iu-access');
     });
 
     it('renders LinksTable when links are available', async () => {
