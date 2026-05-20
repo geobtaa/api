@@ -162,6 +162,7 @@ def summarize_run(
     retired = _coerce_int(stats.get("retired"))
     batches_completed = _coerce_int(stats.get("batches_completed"))
     batches_failed = _coerce_int(stats.get("batches_failed"))
+    batches_queued = _coerce_int(stats.get("batches_queued"))
     total_batches = _coerce_int(stats.get("total_batches"))
     started_at = run.get("bridge_started_at")
     elapsed_seconds = _elapsed_seconds(run, now)
@@ -221,6 +222,8 @@ def summarize_run(
     if total_batches is not None:
         batches_done = (batches_completed or 0) + (batches_failed or 0)
         parts.append(f"batches={batches_done}/{total_batches}")
+        if batches_queued is not None:
+            parts.append(f"queued={batches_queued}/{total_batches}")
     if batches_failed:
         parts.append(f"batch_failures={batches_failed}")
     if estimated_total is not None and estimated_total > 0:

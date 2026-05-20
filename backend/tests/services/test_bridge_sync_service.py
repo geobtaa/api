@@ -125,6 +125,50 @@ class TestBridgeSyncService:
             )
 
     @pytest.mark.asyncio(scope="session")
+    async def test_record_batched_batches_queued_preserves_batch_progress(self):
+        repo = BridgeSyncRepository()
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "queueing",
+                    "total_batches": 3,
+                    "batches_queued": 0,
+                    "batches_completed": 1,
+                    "batches_failed": 0,
+                    "batches_finished": 1,
+                    "processed": 500,
+                    "imported": 500,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            stats = await repo.record_batched_batches_queued(
+                bridge_id=run_id,
+                batches_queued=2,
+                queued_task_ids_sample=["task-1", "task-2"],
+            )
+
+            assert stats["batches_queued"] == 2
+            assert stats["queued_task_ids_sample"] == ["task-1", "task-2"]
+            assert stats["batches_completed"] == 1
+            assert stats["batches_finished"] == 1
+            assert stats["processed"] == 500
+            assert stats["imported"] == 500
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_resource_batch_imports_missing_and_finalizes_parent_run(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)

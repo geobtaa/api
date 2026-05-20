@@ -144,12 +144,12 @@ async def queue_batched_bridge_sync(
 
     stats = {
         **base_stats,
-        "stage": "batching",
+        "stage": "queueing",
         "estimated_total": len(resource_ids),
         "estimated_total_source": f"{scope}_resource_snapshot",
         "total_resources": len(resource_ids),
         "total_batches": total_batches,
-        "batches_queued": total_batches,
+        "batches_queued": 0,
         "batches_completed": 0,
         "batches_failed": 0,
         "batches_finished": 0,
@@ -177,12 +177,24 @@ async def queue_batched_bridge_sync(
             )
             if task_id:
                 queued_task_ids.append(str(task_id))
+            await repo.record_batched_batches_queued(
+                bridge_id=run_id,
+                batches_queued=index,
+                queued_task_ids_sample=queued_task_ids,
+                stage="queueing" if index < total_batches else "batching",
+            )
     except Exception as exc:
+        current_stats = await repo.get_sync_run(run_id)
+        current_run_stats = (
+            current_stats.get("bridge_stats_json")
+            if current_stats and isinstance(current_stats.get("bridge_stats_json"), dict)
+            else stats
+        )
         failed_stats = {
-            **stats,
+            **current_run_stats,
             "stage": "failed",
             "batches_queued": len(queued_task_ids),
-            "errors": int(stats.get("errors") or 0) + 1,
+            "errors": int(current_run_stats.get("errors") or 0) + 1,
             "error_samples": [
                 {
                     "stage": "enqueue_batches",
@@ -202,7 +214,12 @@ async def queue_batched_bridge_sync(
 
     return {
         "bridge_id": run_id,
-        "stats": {**stats, "queued_task_ids_sample": queued_task_ids[:20]},
+        "stats": {
+            **stats,
+            "stage": "batching",
+            "batches_queued": total_batches,
+            "queued_task_ids_sample": queued_task_ids[:20],
+        },
         "queued_batches": total_batches,
     }
 

@@ -417,6 +417,45 @@ class BridgeSyncRepository:
             )
             return stats
 
+    async def record_batched_batches_queued(
+        self,
+        *,
+        bridge_id: int,
+        batches_queued: int,
+        queued_task_ids_sample: Optional[List[str]] = None,
+        stage: str = "queueing",
+    ) -> Dict[str, Any]:
+        async with database.transaction():
+            row = await database.fetch_one(
+                text(
+                    """
+                    SELECT bridge_status, bridge_stats_json
+                    FROM bridge_sync_runs
+                    WHERE bridge_id = :bridge_id
+                    FOR UPDATE
+                    """
+                ).bindparams(bridge_id=bridge_id),
+            )
+            if row is None:
+                raise ValueError(f"Bridge sync run {bridge_id} was not found")
+
+            stats = self._coerce_stats_json(row["bridge_stats_json"])
+            if str(row["bridge_status"] or "").lower() != "running":
+                return stats
+
+            stats["stage"] = stage
+            stats["batches_queued"] = int(batches_queued)
+            stats["updated_at"] = datetime.utcnow().isoformat() + "Z"
+            if queued_task_ids_sample is not None:
+                stats["queued_task_ids_sample"] = queued_task_ids_sample[:20]
+
+            await database.execute(
+                update(bridge_sync_runs)
+                .where(bridge_sync_runs.c.bridge_id == bridge_id)
+                .values(bridge_stats_json=stats)
+            )
+            return stats
+
     @staticmethod
     def _coerce_stats_json(value: Any) -> Dict[str, Any]:
         if isinstance(value, dict):
