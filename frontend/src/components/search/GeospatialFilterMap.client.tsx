@@ -85,6 +85,14 @@ interface BBox {
 
 type BBoxRelationMode = 'intersects' | 'within';
 
+const BBOX_RECTANGLE_STYLE: L.PathOptions = {
+  color: '#2563eb',
+  weight: 2,
+  opacity: 0.8,
+  fillColor: '#2563eb',
+  fillOpacity: 0.05,
+};
+
 interface GeospatialFilterMapProps {
   /** When true, hide the "Location" heading and Clear button (e.g. when used inside LocationFacetCollapsible). */
   hideHeading?: boolean;
@@ -183,13 +191,10 @@ export function GeospatialFilterMap({
         );
         if (bounds.isValid()) {
           mapRef.current.fitBounds(bounds, { padding: [20, 20] });
-          bboxRectangleRef.current = L.rectangle(bounds, {
-            color: '#2563eb',
-            weight: 2,
-            opacity: 0.8,
-            fillColor: '#2563eb',
-            fillOpacity: 0.2,
-          }).addTo(mapRef.current);
+          bboxRectangleRef.current = L.rectangle(
+            bounds,
+            BBOX_RECTANGLE_STYLE
+          ).addTo(mapRef.current);
         } else {
           mapRef.current.setView([20, 0], 1);
         }
@@ -310,13 +315,9 @@ export function GeospatialFilterMap({
             }
 
             // Add rectangle overlay to visualize the active bbox filter
-            const rectangle = L.rectangle(bounds, {
-              color: '#2563eb',
-              weight: 2,
-              opacity: 0.8,
-              fillColor: '#2563eb',
-              fillOpacity: 0.2,
-            }).addTo(mapRef.current);
+            const rectangle = L.rectangle(bounds, BBOX_RECTANGLE_STYLE).addTo(
+              mapRef.current
+            );
 
             bboxRectangleRef.current = rectangle;
 
@@ -392,13 +393,10 @@ export function GeospatialFilterMap({
         isUpdatingFromParamsRef.current = true;
         mapRef.current.fitBounds(bounds, { padding: [20, 20] });
         if (!bboxRectangleRef.current) {
-          bboxRectangleRef.current = L.rectangle(bounds, {
-            color: '#2563eb',
-            weight: 2,
-            opacity: 0.8,
-            fillColor: '#2563eb',
-            fillOpacity: 0.2,
-          }).addTo(mapRef.current);
+          bboxRectangleRef.current = L.rectangle(
+            bounds,
+            BBOX_RECTANGLE_STYLE
+          ).addTo(mapRef.current);
         }
         setTimeout(() => {
           isUpdatingFromParamsRef.current = false;
