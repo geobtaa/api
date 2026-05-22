@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import psycopg2
 import pytest_asyncio
 from dotenv import load_dotenv
+from psycopg2 import sql
 from sqlalchemy import create_engine
 
 # Find repo root so `pytest` works whether run from repo root or from `backend/`
@@ -136,6 +137,7 @@ SKIP_TEST_DATABASE = os.getenv("BTAA_SKIP_TEST_DB", "").strip().lower() in {
 # Under pytest-asyncio, it's possible for a session-scoped connect to run on a different
 # loop than individual tests. Track the loop id and reconnect if needed.
 _DB_LOOP_ID: int | None = None
+TEST_DB_SETUP_LOCK_ID = 2_026_052_201
 
 
 def _hb_worker_id() -> str:
@@ -281,27 +283,7 @@ def pytest_runtest_logfinish(nodeid, location):
     )
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_test_database():
-    """Ensure test DB exists on primary ParadeDB and run needed migrations."""
-    if SKIP_TEST_DATABASE:
-        yield
-        return
-
-    # Ensure the test database exists by connecting to the default 'postgres' DB
-    admin_dsn = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres"
-    try:
-        with psycopg2.connect(admin_dsn) as conn:
-            conn.autocommit = True
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
-                exists = cur.fetchone() is not None
-                if not exists:
-                    cur.execute(f"CREATE DATABASE {db_name}")
-                    print("Created test database")
-    except Exception as e:
-        print(f"Warning: could not ensure test database exists: {type(e).__name__}")
-
+def _run_test_database_migrations():
     # Run minimal migrations required by tests (idempotent)
     from db.migrations.add_enrichment_type import add_enrichment_type_column
     from db.migrations.api_rate_limiting import init_api_rate_limiting
@@ -329,6 +311,39 @@ async def setup_test_database():
             os.environ["DATABASE_URL"] = original_database_url
         else:
             os.environ["DATABASE_URL"] = ASYNC_DATABASE_URL
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_test_database():
+    """Ensure test DB exists on primary ParadeDB and run needed migrations."""
+    if SKIP_TEST_DATABASE:
+        yield
+        return
+
+    # Ensure the test database exists by connecting to the default 'postgres' DB.
+    # xdist workers share one test DB, so serialize bootstrap/migrations on fresh CI.
+    admin_dsn = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres"
+    lock_conn = None
+    try:
+        lock_conn = psycopg2.connect(admin_dsn)
+        lock_conn.autocommit = True
+        with lock_conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(%s)", (TEST_DB_SETUP_LOCK_ID,))
+            try:
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+                exists = cur.fetchone() is not None
+                if not exists:
+                    cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+                    print("Created test database")
+                _run_test_database_migrations()
+            finally:
+                cur.execute("SELECT pg_advisory_unlock(%s)", (TEST_DB_SETUP_LOCK_ID,))
+    except Exception as e:
+        print(f"Error preparing test database: {e}")
+        raise
+    finally:
+        if lock_conn is not None:
+            lock_conn.close()
 
     yield
 
