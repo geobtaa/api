@@ -5,6 +5,7 @@ import os
 from datetime import datetime
 
 import pytest
+import requests
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
@@ -47,6 +48,16 @@ class FakeBridgeClient:
     def fetch_record(self, resource_id):
         self.calls.append({"resource_id": resource_id})
         return self.records.get(resource_id)
+
+
+def _http_error(status_code: int, url: str = "https://geo.btaa.org/api/kithe_bridge/test"):
+    response = requests.Response()
+    response.status_code = status_code
+    response.url = url
+    return requests.HTTPError(
+        f"{status_code} Server Error: Bad Gateway for url: {url}",
+        response=response,
+    )
 
 
 @pytest.mark.integration
@@ -279,6 +290,212 @@ class TestBridgeSyncService:
             )
             await database.execute(delete(bridge_sync_runs))
             await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_resource_batch_retries_transient_5xx_fetches(self, monkeypatch):
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS", "3")
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS", "0")
+
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-batched-retry-5xx"
+        record = {
+            "id": resource_id,
+            "import_id": "retry-5xx",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Batched Retry 5xx",
+            "dct_description_sm": ["Retry me"],
+            "dct_references_s": "[]",
+        }
+
+        class FlakyBridgeClient:
+            def __init__(self):
+                self.calls = 0
+
+            def fetch_record(self, requested_id):
+                self.calls += 1
+                if self.calls == 1:
+                    raise _http_error(502)
+                assert requested_id == resource_id
+                return record
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "batching",
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            client = FlakyBridgeClient()
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=[resource_id],
+                batch_number=1,
+                total_batches=1,
+                task_id="batch-task-retry-5xx",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert client.calls == 2
+            assert result["stats"]["processed"] == 1
+            assert result["stats"]["imported"] == 1
+            assert result["stats"]["errors"] == 0
+            assert result["stats"]["fetch_5xx_retries"] == 1
+            assert result["stats"]["fetch_5xx_retry_statuses"] == {"502": 1}
+
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "success"
+            assert run["bridge_error"] is None
+            parent_stats = run["bridge_stats_json"]
+            assert parent_stats["fetch_5xx_retries"] == 1
+            assert parent_stats["fetch_5xx_retry_statuses"] == {"502": 1}
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_resource_batch_fails_run_after_exhausted_5xx_retries(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS", "2")
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS", "0")
+
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-batched-persistent-5xx"
+
+        class FailingBridgeClient:
+            def __init__(self):
+                self.calls = 0
+
+            def fetch_record(self, requested_id):
+                assert requested_id == resource_id
+                self.calls += 1
+                raise _http_error(502)
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+            await database.execute(
+                pg_insert(resources).values(
+                    {
+                        "id": resource_id,
+                        "dct_title_s": "Bridge Batched Persistent 5xx",
+                        "publication_state": "published",
+                        "b1g_publication_state_s": "published",
+                    }
+                )
+            )
+
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "batching",
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            client = FailingBridgeClient()
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=[resource_id],
+                batch_number=1,
+                total_batches=1,
+                task_id="batch-task-persistent-5xx",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert client.calls == 2
+            assert result["stats"]["processed"] == 1
+            assert result["stats"]["imported"] == 0
+            assert result["stats"]["errors"] == 1
+            assert result["stats"]["missing"] == 0
+            assert result["stats"]["retired"] == 0
+            assert result["stats"]["fetch_5xx_retries"] == 1
+            assert result["stats"]["error_samples"][0]["stage"] == "fetch_record"
+            assert result["stats"]["error_signatures"] == [
+                {"signature": "HTTPError: HTTP 502", "count": 1}
+            ]
+
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "failed"
+            assert run["bridge_error"] == "bridge sync completed with 1 record error(s)"
+            parent_stats = run["bridge_stats_json"]
+            assert parent_stats["fetch_5xx_retries"] == 1
+            assert parent_stats["fetch_5xx_retry_statuses"] == {"502": 1}
+
+            resource_row = await database.fetch_one(
+                select(
+                    resources.c.id,
+                    resources.c.publication_state,
+                    resources.c.b1g_publication_state_s,
+                ).where(resources.c.id == resource_id)
+            )
+            assert resource_row is not None
+            assert resource_row["publication_state"] == "published"
+            assert resource_row["b1g_publication_state_s"] == "published"
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
 
     @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_paginates_and_retires_missing_records(self):

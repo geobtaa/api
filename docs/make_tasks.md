@@ -171,7 +171,13 @@ and then monitor with `make kamal-bridge-status-watch KAMAL_DEST=dev1`. Run
 `make kamal-reindex` after the batched sync completes so Elasticsearch reflects
 the corrected database rows. The batched target reconciles existing local IDs;
 keep the normal bridge crawl/delta sync for discovering newly added Bridge
-records.
+records. Batched resource fetches retry transient Kithe Bridge `5xx` responses
+as a group before counting a record error; tune with
+`KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS` and
+`KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS` when an upstream outage
+requires slower or faster retry pacing. A batched run that completes with
+record errors now finishes with `bridge_status=failed`, so do not reindex from
+that run until the failed records have been retried.
 
 ## Analytics
 

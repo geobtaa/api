@@ -2,8 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from datetime import datetime
 from typing import Any, Callable, Dict, List, Optional, Sequence
+
+import requests
 
 from app.services.bridge_sync.client import KitheBridgeClient
 from app.services.bridge_sync.importer import BridgeResourceImporter
@@ -15,6 +18,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_BATCH_SIZE = 500
 MAX_BATCH_SIZE = 1000
 VALID_RESOURCE_SCOPES = {"all", "published", "bridge_active"}
+FETCH_5XX_MAX_ATTEMPTS_ENV = "KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS"
+FETCH_5XX_RETRY_BACKOFF_SECONDS_ENV = "KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS"
 
 BatchEnqueuer = Callable[..., Optional[str]]
 
@@ -50,6 +55,69 @@ def _coerce_datetime(value: Any) -> datetime:
     return datetime.utcnow()
 
 
+def _fetch_5xx_max_attempts() -> int:
+    try:
+        return max(1, int(os.getenv(FETCH_5XX_MAX_ATTEMPTS_ENV, "3")))
+    except ValueError:
+        return 3
+
+
+def _fetch_5xx_retry_backoff_seconds() -> float:
+    try:
+        return max(0.0, float(os.getenv(FETCH_5XX_RETRY_BACKOFF_SECONDS_ENV, "2.0")))
+    except ValueError:
+        return 2.0
+
+
+def _http_status_code(exc: Exception) -> Optional[int]:
+    response = getattr(exc, "response", None)
+    status_code = getattr(response, "status_code", None)
+    try:
+        return int(status_code)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_retryable_5xx_fetch_error(exc: Exception) -> bool:
+    if not isinstance(exc, requests.HTTPError):
+        return False
+    status_code = _http_status_code(exc)
+    return status_code is not None and 500 <= status_code < 600
+
+
+def _record_fetch_retry(
+    stats: Dict[str, Any],
+    *,
+    resource_id: str,
+    attempt: int,
+    error: Exception,
+) -> None:
+    status_code = _http_status_code(error)
+    stats["fetch_5xx_retries"] = int(stats.get("fetch_5xx_retries") or 0) + 1
+    retry_statuses = stats.setdefault("fetch_5xx_retry_statuses", {})
+    status_key = str(status_code) if status_code is not None else "unknown"
+    retry_statuses[status_key] = int(retry_statuses.get(status_key) or 0) + 1
+
+    samples = stats.setdefault("fetch_5xx_retry_samples", [])
+    if len(samples) < 20:
+        samples.append(
+            {
+                "resource_id": resource_id,
+                "attempt": attempt,
+                "status_code": status_code,
+                "error": str(error)[:500],
+            }
+        )
+
+
+def _error_signature(error: Exception) -> str:
+    if isinstance(error, requests.HTTPError):
+        status_code = _http_status_code(error)
+        if status_code is not None:
+            return f"{error.__class__.__name__}: HTTP {status_code}"
+    return f"{error.__class__.__name__}: {str(error)[:180]}"
+
+
 def _add_error_sample(
     stats: Dict[str, Any],
     *,
@@ -58,7 +126,7 @@ def _add_error_sample(
     error: Exception,
 ) -> None:
     stats["errors"] = int(stats.get("errors") or 0) + 1
-    signature = f"{error.__class__.__name__}: {str(error)[:180]}"
+    signature = _error_signature(error)
     signature_counts = stats.setdefault("_error_signature_counts", {})
     signature_counts[signature] = int(signature_counts.get(signature) or 0) + 1
 
@@ -71,6 +139,65 @@ def _add_error_sample(
                 "error": str(error)[:500],
             }
         )
+
+
+async def _fetch_records_with_5xx_retries(
+    *,
+    client: KitheBridgeClient,
+    resource_ids: Sequence[str],
+    batch_stats: Dict[str, Any],
+) -> tuple[List[Dict[str, Any]], List[str]]:
+    records: List[Dict[str, Any]] = []
+    missing_ids: List[str] = []
+    pending_ids = list(resource_ids)
+    max_attempts = _fetch_5xx_max_attempts()
+    backoff_seconds = _fetch_5xx_retry_backoff_seconds()
+
+    for attempt in range(1, max_attempts + 1):
+        retry_ids: List[str] = []
+
+        for rid in pending_ids:
+            try:
+                record = await asyncio.to_thread(client.fetch_record, rid)
+            except Exception as exc:
+                if attempt < max_attempts and _is_retryable_5xx_fetch_error(exc):
+                    retry_ids.append(rid)
+                    _record_fetch_retry(
+                        batch_stats,
+                        resource_id=rid,
+                        attempt=attempt,
+                        error=exc,
+                    )
+                    continue
+
+                logger.warning("Bridge batched fetch failed for %s: %s", rid, exc)
+                _add_error_sample(
+                    batch_stats,
+                    stage="fetch_record",
+                    resource_id=rid,
+                    error=exc,
+                )
+                continue
+
+            if record is None:
+                missing_ids.append(rid)
+            else:
+                records.append(record)
+
+        if not retry_ids:
+            break
+
+        logger.warning(
+            "Bridge batched fetch saw %s retryable 5xx response(s) on attempt %s/%s",
+            len(retry_ids),
+            attempt,
+            max_attempts,
+        )
+        if backoff_seconds > 0:
+            await asyncio.sleep(backoff_seconds * (2 ** (attempt - 1)))
+        pending_ids = retry_ids
+
+    return records, missing_ids
 
 
 def _finalize_error_stats(stats: Dict[str, Any]) -> None:
@@ -263,30 +390,20 @@ async def sync_bridge_resource_batch(
         "retired": 0,
         "total_batches": total_batches,
     }
-    records: List[Dict[str, Any]] = []
-    missing_ids: List[str] = []
+    fetchable_ids: List[str] = []
 
     for resource_id in resource_ids:
         rid = str(resource_id or "").strip()
         if not rid:
             batch_stats["skipped"] += 1
             continue
-        try:
-            record = await asyncio.to_thread(client.fetch_record, rid)
-        except Exception as exc:
-            logger.warning("Bridge batched fetch failed for %s: %s", rid, exc)
-            _add_error_sample(
-                batch_stats,
-                stage="fetch_record",
-                resource_id=rid,
-                error=exc,
-            )
-            continue
+        fetchable_ids.append(rid)
 
-        if record is None:
-            missing_ids.append(rid)
-        else:
-            records.append(record)
+    records, missing_ids = await _fetch_records_with_5xx_retries(
+        client=client,
+        resource_ids=fetchable_ids,
+        batch_stats=batch_stats,
+    )
 
     if records:
         import_stats = await importer.upsert_records(

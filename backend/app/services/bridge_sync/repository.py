@@ -371,6 +371,24 @@ class BridgeSyncRepository:
 
             for key in ("processed", "imported", "skipped", "errors", "missing", "retired"):
                 stats[key] = int(stats.get(key) or 0) + int(batch_stats.get(key) or 0)
+            for key in ("fetch_5xx_retries",):
+                if key in batch_stats:
+                    stats[key] = int(stats.get(key) or 0) + int(batch_stats.get(key) or 0)
+            if batch_stats.get("fetch_5xx_retry_statuses"):
+                retry_statuses = dict(stats.get("fetch_5xx_retry_statuses") or {})
+                for status_code, count in batch_stats.get("fetch_5xx_retry_statuses", {}).items():
+                    status_key = str(status_code)
+                    retry_statuses[status_key] = int(retry_statuses.get(status_key) or 0) + int(
+                        count or 0
+                    )
+                stats["fetch_5xx_retry_statuses"] = retry_statuses
+            if batch_stats.get("fetch_5xx_retry_samples"):
+                retry_samples = list(stats.get("fetch_5xx_retry_samples") or [])
+                for sample in batch_stats.get("fetch_5xx_retry_samples") or []:
+                    if len(retry_samples) >= 20:
+                        break
+                    retry_samples.append(sample)
+                stats["fetch_5xx_retry_samples"] = retry_samples
 
             if failed:
                 stats["batches_failed"] = int(stats.get("batches_failed") or 0) + 1
@@ -393,14 +411,16 @@ class BridgeSyncRepository:
                 "errors": int(batch_stats.get("errors") or 0),
                 "missing": int(batch_stats.get("missing") or 0),
                 "retired": int(batch_stats.get("retired") or 0),
+                "fetch_5xx_retries": int(batch_stats.get("fetch_5xx_retries") or 0),
             }
 
             self._merge_error_stats(stats, batch_stats)
 
             values: Dict[str, Any] = {"bridge_stats_json": stats}
             if total_batches and batches_finished >= total_batches:
-                final_status = "failed" if batches_failed else "success"
-                stats["stage"] = "failed" if batches_failed else "complete"
+                total_errors = int(stats.get("errors") or 0)
+                final_status = "failed" if batches_failed or total_errors else "success"
+                stats["stage"] = "failed" if final_status == "failed" else "complete"
                 values.update(
                     {
                         "bridge_completed_at": datetime.utcnow(),
@@ -409,6 +429,10 @@ class BridgeSyncRepository:
                 )
                 if batches_failed:
                     values["bridge_error"] = f"{batches_failed} bridge sync batch task(s) failed"
+                elif total_errors:
+                    values["bridge_error"] = (
+                        f"bridge sync completed with {total_errors} record error(s)"
+                    )
 
             await database.execute(
                 update(bridge_sync_runs)
