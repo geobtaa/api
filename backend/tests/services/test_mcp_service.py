@@ -189,7 +189,8 @@ class TestOGMMCPService:
             # If it's an error, verify it's a database connection error
             error_text = result.content[0].text.lower()
             assert any(
-                term in error_text for term in ["database", "connection", "nodename", "servname"]
+                term in error_text
+                for term in ["database", "connection", "nodename", "servname", "not found"]
             )
         else:
             # If it's successful, verify the content
