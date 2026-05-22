@@ -334,7 +334,7 @@ async def setup_test_database():
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def db_connection():
+async def db_connection(setup_test_database):
     """Session-scoped database connection that stays open for all tests."""
     if SKIP_TEST_DATABASE:
         yield None
