@@ -35,6 +35,8 @@ async def _get_resource_alias_redirect(resource_id: str) -> Response | None:
         return None
     if not image_hash:
         return None
+    if not await _thumbnail_hash_has_cached_image(image_hash):
+        return None
 
     return Response(
         status_code=302,
