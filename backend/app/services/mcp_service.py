@@ -29,6 +29,7 @@ MCP_SERVICE_NAME = "btaa-geospatial-api"
 MCP_SERVICE_VERSION = "0.7.0"
 MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
+
 def get_async_session():
     """Get the shared async session factory."""
     return app_async_session

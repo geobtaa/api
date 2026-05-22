@@ -17,6 +17,7 @@ router = APIRouter()
 # Logger
 logger = logging.getLogger(__name__)
 
+
 def get_async_session():
     """Get async session - allows tests to mock async_session.
 

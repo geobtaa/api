@@ -25,6 +25,7 @@ _tier_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
 _anonymous_tier_cache: tuple[float, Dict[str, Any]] | None = None
 _last_used_updates: dict[int, float] = {}
 
+
 class APIKeyService:
     """Service to handle API key operations (keys + tiers)."""
 

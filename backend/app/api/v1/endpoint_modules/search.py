@@ -71,6 +71,7 @@ SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS = float(
 SEARCH_TIMING_HEADERS = os.getenv("SEARCH_TIMING_HEADERS", "true").lower() == "true"
 SEARCH_RESULT_RELATIONSHIP_LIMIT = int(os.getenv("SEARCH_RESULT_RELATIONSHIP_LIMIT", "5"))
 
+
 def _extract_search_hit(item: dict) -> tuple[dict | None, dict | None]:
     """Normalize a search-layer hit into result metadata and raw resource attributes."""
     if not isinstance(item, dict):
