@@ -147,7 +147,7 @@ env:
     BRIDGE_SYNC_REPORT_DESTINATIONS: "<%= ENV.fetch('BRIDGE_SYNC_REPORT_DESTINATIONS', 'prd') %>"
     BRIDGE_SYNC_REPORT_DELIVERY: "<%= ENV.fetch('BRIDGE_SYNC_REPORT_DELIVERY', 'smtp') %>"
     FEEDBACK_EMAIL_ENABLED: "<%= ENV.fetch('FEEDBACK_EMAIL_ENABLED', 'false') %>"
-    FEEDBACK_RECIPIENTS: "<%= ENV.fetch('FEEDBACK_RECIPIENTS', 'ewlarson@gmail.com,majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org') %>"
+    FEEDBACK_RECIPIENTS: "<%= ENV.fetch('FEEDBACK_RECIPIENTS', 'majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org') %>"
     FEEDBACK_FROM: "<%= ENV.fetch('FEEDBACK_FROM', 'BTAA Geoportal <no-reply@geo.btaa.org>') %>"
     FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', ENV.fetch('BRIDGE_SYNC_REPORT_DELIVERY', 'smtp')) %>"
     SENDMAIL_PATH:         "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
@@ -155,6 +155,8 @@ env:
     SMTP_HOST:             "<%= ENV.fetch('SMTP_HOST', '') %>"
     SMTP_PORT:             "<%= ENV.fetch('SMTP_PORT', '587') %>"
     SMTP_STARTTLS:         "<%= ENV.fetch('SMTP_STARTTLS', 'true') %>"
+    SMTP_SSL:              "<%= ENV.fetch('SMTP_SSL', 'false') %>"
+    SMTP_TIMEOUT_SECONDS:  "<%= ENV.fetch('SMTP_TIMEOUT_SECONDS', '20') %>"
     BACKUP_ENABLED:        "false"
     BACKUP_REQUIRED_DEST:  "prd"
     BACKUP_RETENTION_COUNT: "3"
@@ -179,6 +181,12 @@ env:
     - BTAA_GEOSPATIAL_API_KEY
     - TURNSTILE_SECRET_KEY
     - APPSIGNAL_PUSH_API_KEY
+<% if ENV.fetch('SMTP_USERNAME', '').strip != '' %>
+    - SMTP_USERNAME
+<% end %>
+<% if ENV.fetch('SMTP_PASSWORD', '').strip != '' %>
+    - SMTP_PASSWORD
+<% end %>
 
 # ────────────── Accessories (one per Compose service) ──────────────
 accessories:

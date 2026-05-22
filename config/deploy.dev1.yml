@@ -50,9 +50,12 @@ env:
     TURNSTILE_COOKIE_SECURE: "true"
     TURNSTILE_EXPECTED_ACTION: geoportal_gate
     FEEDBACK_EMAIL_ENABLED: "true"
-    FEEDBACK_DELIVERY: sendmail
-    SENDMAIL_PATH: /usr/sbin/sendmail
-    SENDMAIL_ARGS: "-t -i"
+    FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'smtp') %>"
+    SENDMAIL_PATH: "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
+    SENDMAIL_ARGS: "<%= ENV.fetch('SENDMAIL_ARGS', '-t -i') %>"
+    SMTP_HOST: "<%= ENV.fetch('SMTP_HOST', '172.18.0.1') %>"
+    SMTP_PORT: "<%= ENV.fetch('SMTP_PORT', '25') %>"
+    SMTP_STARTTLS: "<%= ENV.fetch('SMTP_STARTTLS', 'false') %>"
     WEB_UVICORN_WORKERS: "3"
     WEB_INTERNAL_UVICORN_WORKERS: "4"
     WEB_SSR_WORKERS: "3"

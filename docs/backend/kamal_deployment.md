@@ -369,14 +369,47 @@ or SMTP delivery conventions. Configure:
 
 ```bash
 FEEDBACK_EMAIL_ENABLED=true
-FEEDBACK_RECIPIENTS="ewlarson@gmail.com,majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
+FEEDBACK_RECIPIENTS="majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
 FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
 FEEDBACK_DELIVERY=sendmail
 ```
 
 `dev1` and `prd` enable feedback mail through sendmail. Unless overridden with
-`FEEDBACK_RECIPIENTS`, feedback goes to `ewlarson@gmail.com`, `majew030@umn.edu`,
-`btaa-gdp@umn.edu`, and `geoportal@btaa.org`.
+`FEEDBACK_RECIPIENTS`, feedback goes to `majew030@umn.edu`, `btaa-gdp@umn.edu`,
+and `geoportal@btaa.org`.
+
+On `dev1`, host Postfix is the preferred no-password relay. Because the app runs
+inside Docker, `localhost` means the app container, not the VM. The dev1 Kamal
+config points feedback SMTP at the host's Kamal bridge gateway:
+
+```bash
+FEEDBACK_DELIVERY=smtp
+SMTP_HOST=172.18.0.1
+SMTP_PORT=25
+SMTP_STARTTLS=false
+```
+
+Postfix must listen on that bridge address and permit the Kamal app network.
+On dev1, the current bridge is `172.18.0.1/16`, so the host-side Postfix shape
+is:
+
+```bash
+sudo postconf -e 'inet_interfaces = localhost, 172.18.0.1'
+sudo postconf -e 'mynetworks = 127.0.0.0/8 [::1]/128 172.18.0.0/16'
+sudo systemctl reload postfix
+```
+
+If the host relay cannot be approved, switch feedback to authenticated SMTP by
+setting these in `.kamal/secrets.dev1` before deploying:
+
+```bash
+export FEEDBACK_DELIVERY=smtp
+export SMTP_HOST=smtp.umn.edu
+export SMTP_PORT=587
+export SMTP_STARTTLS=true
+export SMTP_USERNAME="<smtp username>"
+export SMTP_PASSWORD="<smtp password>"
+```
 
 For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 

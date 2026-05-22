@@ -16,7 +16,7 @@ FEEDBACK_TOPICS = {
     "Other",
 }
 DEFAULT_FEEDBACK_RECIPIENTS = (
-    "ewlarson@gmail.com,majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
+    "majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
 )
 
 
