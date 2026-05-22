@@ -467,8 +467,8 @@ distribution_types = Table(
     Column("label", Boolean, server_default="false", nullable=False),
     Column("note", Text, nullable=True),
     Column("position", Integer, server_default="0", nullable=False),
-    Column("created_at", TIMESTAMP, nullable=False),
-    Column("updated_at", TIMESTAMP, nullable=False),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
 
 # Resource distributions table
@@ -481,9 +481,15 @@ resource_distributions = Table(
     Column("url", Text, nullable=False),
     Column("label", String(255), nullable=True),
     Column("position", Integer, server_default="0", nullable=False),
-    Column("created_at", TIMESTAMP, nullable=False),
-    Column("updated_at", TIMESTAMP, nullable=False),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=func.now()),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
     Column("import_distribution_id", String(255), nullable=True),
+    UniqueConstraint(
+        "resource_id",
+        "distribution_type_id",
+        "url",
+        name="idx_resource_distributions_resource_type_url",
+    ),
 )
 
 # Resource downloads table

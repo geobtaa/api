@@ -198,6 +198,10 @@ def create_distribution_tables():
                 CREATE INDEX IF NOT EXISTS idx_resource_distributions_resource_id_type 
                 ON resource_distributions (resource_id, distribution_type_id);
             """))
+            conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_distributions_resource_type_url
+                ON resource_distributions (resource_id, distribution_type_id, url);
+            """))
             
             conn.commit()
         logger.info("✓ Resource distributions indexes created")
