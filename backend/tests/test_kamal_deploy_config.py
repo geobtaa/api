@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import yaml
@@ -6,8 +7,9 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
 def _load_deploy_config(path: str) -> dict:
-    with (REPO_ROOT / path).open() as config_file:
-        return yaml.safe_load(config_file)
+    config_text = (REPO_ROOT / path).read_text()
+    config_text = re.sub(r"<%.*?%>", "", config_text, flags=re.DOTALL)
+    return yaml.safe_load(config_text)
 
 
 def test_prd_secret_override_keeps_base_secrets():
