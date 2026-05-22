@@ -374,6 +374,7 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
     from app.services.cache_service import CacheService as RealCacheService
 
     monkeypatch.setattr(search_module, "SEARCH_RESULT_CACHE_ENABLED", True)
+    monkeypatch.setattr(search_module, "ENDPOINT_CACHE", True)
 
     class FakeSemanticCache:
         _redis_client = object()

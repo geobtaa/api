@@ -90,7 +90,7 @@ class TestResourceThumbnailCogFlow:
             "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
             new=AsyncMock(return_value=image_hash),
         ) as mock_current_hash:
-            response = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
+            response = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
@@ -106,7 +106,7 @@ class TestResourceThumbnailCogFlow:
             "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
             new=AsyncMock(return_value=image_hash),
         ) as mock_current_hash:
-            response = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
+            response = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
@@ -126,7 +126,7 @@ class TestResourceThumbnailCogFlow:
                 new=AsyncMock(return_value=Response(content=b"resolved")),
             ) as mock_resolve,
         ):
-            response = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
+            response = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
 
             assert response.status_code == 200
             assert response.content == b"resolved"
@@ -178,7 +178,7 @@ class TestResourceThumbnailCogFlow:
             svc.get_cached_image = AsyncMock(return_value=png_bytes)
             mock_svc_cls.return_value = svc
 
-            resp = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
+            resp = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             mock_get_asset.assert_awaited_once_with(resource_id)
@@ -226,7 +226,7 @@ class TestResourceThumbnailCogFlow:
             svc.get_cached_image = AsyncMock(return_value=_valid_png_bytes())
             mock_svc_cls.return_value = svc
 
-            resp = client.get(f"/resources/{resource_id}/thumbnail", allow_redirects=False)
+            resp = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
 
         assert resp.status_code == 302
         assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
@@ -321,7 +321,7 @@ class TestResourceThumbnailCogFlow:
             svc.get_cached_image = AsyncMock(return_value=png_bytes)
             mock_svc_cls.return_value = svc
 
-            resp = client.get("/resources/test-cog-resource/thumbnail", allow_redirects=False)
+            resp = client.get("/resources/test-cog-resource/thumbnail", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             payload = patch_thumbnail_side_effects["state"].await_args.args[0]
@@ -516,7 +516,7 @@ class TestResourceThumbnailPmtilesFlow:
             svc.get_cached_image = AsyncMock(return_value=png_bytes)
             mock_svc_cls.return_value = svc
 
-            resp = client.get("/resources/test-pmtiles-resource/thumbnail", allow_redirects=False)
+            resp = client.get("/resources/test-pmtiles-resource/thumbnail", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             payload = patch_thumbnail_side_effects["state"].await_args.args[0]

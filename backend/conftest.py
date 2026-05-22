@@ -201,6 +201,7 @@ def pytest_configure(config):
     os.environ["APP_ENV"] = "test"
     # Disable usage logging during tests for speed/stability
     os.environ["DISABLE_API_USAGE_LOG"] = "true"
+    os.environ.setdefault("APPLICATION_URL", "http://localhost:8000")
     # Allow rate limiting bypass for most tests; rate-limit-specific tests can override
     os.environ["DISABLE_RATE_LIMIT_FOR_TESTS"] = "true"
 
@@ -288,8 +289,24 @@ def _run_test_database_migrations():
     from db.migrations.add_enrichment_type import add_enrichment_type_column
     from db.migrations.api_rate_limiting import init_api_rate_limiting
     from db.migrations.create_ai_enrichments import create_ai_enrichments_table
+    from db.migrations.create_bridge_sync_tables import create_bridge_sync_tables
+    from db.migrations.create_distribution_tables import create_distribution_tables
     from db.migrations.create_gazetteer_tables import create_gazetteer_tables
+    from db.migrations.create_generated_api_responses_table import (
+        create_generated_api_responses_table,
+    )
+    from db.migrations.create_generated_resource_representations_table import (
+        create_generated_resource_representations_table,
+    )
+    from db.migrations.create_generated_visual_assets_table import (
+        create_generated_visual_assets_table,
+    )
+    from db.migrations.create_ogm_harvest_tables import create_ogm_harvest_tables
+    from db.migrations.create_resource_aux_tables import create_resource_aux_tables
     from db.migrations.create_resource_relationships import create_relationships_table
+    from db.migrations.create_resource_spatial_facets_table import (
+        create_resource_spatial_facets_table,
+    )
 
     # Temporarily set the environment to use synchronous URL for migrations
     original_database_url = os.environ.get("DATABASE_URL")
@@ -300,6 +317,14 @@ def _run_test_database_migrations():
         create_gazetteer_tables()
         create_relationships_table()
         add_enrichment_type_column()
+        create_distribution_tables()
+        create_resource_aux_tables()
+        create_bridge_sync_tables()
+        create_ogm_harvest_tables()
+        create_resource_spatial_facets_table()
+        create_generated_visual_assets_table()
+        create_generated_resource_representations_table()
+        create_generated_api_responses_table()
         init_api_rate_limiting()
         print("All database migrations (including API rate limiting) completed successfully!")
     except Exception as e:
@@ -314,7 +339,7 @@ def _run_test_database_migrations():
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_test_database():
+async def prepared_test_database():
     """Ensure test DB exists on primary ParadeDB and run needed migrations."""
     if SKIP_TEST_DATABASE:
         yield
@@ -349,7 +374,7 @@ async def setup_test_database():
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def db_connection(setup_test_database):
+async def db_connection(prepared_test_database):
     """Session-scoped database connection that stays open for all tests."""
     if SKIP_TEST_DATABASE:
         yield None

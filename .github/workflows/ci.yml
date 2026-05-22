@@ -65,6 +65,7 @@ jobs:
       DB_PORT: "2345"
       TEST_DB_NAME: btaa_geospatial_api_test
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:2345/btaa_geospatial_api_test
+      APPLICATION_URL: http://localhost:8000
       ELASTICSEARCH_URL: http://localhost:9200
       ELASTICSEARCH_INDEX: btaa_geospatial_api_test
       REDIS_HOST: localhost
