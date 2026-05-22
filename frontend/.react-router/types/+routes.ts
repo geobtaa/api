@@ -14,6 +14,15 @@ type Pages = {
   "/": {
     params: {};
   };
+  "/about": {
+    params: {};
+  };
+  "/help": {
+    params: {};
+  };
+  "/feedback": {
+    params: {};
+  };
   "/search": {
     params: {};
   };
@@ -89,11 +98,23 @@ type Pages = {
 type RouteFiles = {
   "root.tsx": {
     id: "root";
-    page: "/" | "/search" | "/resources/:id" | "/resources/:id/static-map" | "/resources/:id/static-map/no-cache" | "/resources/:id/thumbnail" | "/resources/:id/thumbnail/no-cache" | "/thumbnails/placeholder" | "/thumbnails/:image_hash" | "/iiif/manifest" | "/suggest" | "/search/facets/:facetName" | "/map/h3" | "/bookmarks" | "/map" | "/test" | "/test/fixtures" | "/test/fixtures/providers" | "/*";
+    page: "/" | "/about" | "/help" | "/feedback" | "/search" | "/resources/:id" | "/resources/:id/static-map" | "/resources/:id/static-map/no-cache" | "/resources/:id/thumbnail" | "/resources/:id/thumbnail/no-cache" | "/thumbnails/placeholder" | "/thumbnails/:image_hash" | "/iiif/manifest" | "/suggest" | "/search/facets/:facetName" | "/map/h3" | "/bookmarks" | "/map" | "/test" | "/test/fixtures" | "/test/fixtures/providers" | "/*";
   };
   "routes/_index.tsx": {
     id: "routes/_index";
     page: "/";
+  };
+  "routes/about.tsx": {
+    id: "routes/about";
+    page: "/about";
+  };
+  "routes/help.tsx": {
+    id: "routes/help";
+    page: "/help";
+  };
+  "routes/feedback.tsx": {
+    id: "routes/feedback";
+    page: "/feedback";
   };
   "routes/search.tsx": {
     id: "routes/search";
@@ -172,6 +193,9 @@ type RouteFiles = {
 type RouteModules = {
   "root": typeof import("./app/root.tsx");
   "routes/_index": typeof import("./app/routes/_index.tsx");
+  "routes/about": typeof import("./app/routes/about.tsx");
+  "routes/help": typeof import("./app/routes/help.tsx");
+  "routes/feedback": typeof import("./app/routes/feedback.tsx");
   "routes/search": typeof import("./app/routes/search.tsx");
   "routes/resources.$id": typeof import("./app/routes/resources.$id.tsx");
   "routes/resources.$id.static-map": typeof import("./app/routes/resources.$id.static-map.ts");

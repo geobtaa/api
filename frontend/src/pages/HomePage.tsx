@@ -145,6 +145,16 @@ export function HomePage() {
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
   const blogLimit = 3;
+  const heroTitle =
+    theme.institution.hero_text ||
+    'Search geospatial resources from Big Ten Academic Alliance institutions';
+  const heroDescription =
+    theme.institution.hero_description ||
+    'Browse and download GIS data, maps, and other geospatial resources.';
+  const heroDescriptionParagraphs = heroDescription
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
   const browseSection = useSectionActivation<HTMLDivElement>('960px');
   const browseFacetPrefetch = useIdleActivation();
   const partnerSection = useSectionActivation<HTMLElement>('640px');
@@ -458,14 +468,14 @@ export function HomePage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">
                     BTAA Geoportal
                   </p>
-                  <p className="mt-1 text-xl lg:text-2xl font-semibold text-gray-800">
-                    {theme.institution.hero_text ||
-                      'Search geospatial resources from Big Ten Academic Alliance institutions'}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {theme.institution.hero_description ||
-                      'Browse and download GIS data, maps, and other geospatial resources.'}
-                  </p>
+                  <h2 className="mt-1 text-xl lg:text-2xl font-semibold text-gray-800">
+                    {heroTitle}
+                  </h2>
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-gray-700">
+                    {heroDescriptionParagraphs.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

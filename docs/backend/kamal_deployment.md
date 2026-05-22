@@ -364,6 +364,16 @@ image installs `msmtp-mta`, which provides `/usr/sbin/sendmail`, and configures 
 UMN's `smtp.umn.edu` relay without app-level SMTP credentials. UMN relay access may still
 require the production host/IP and the From address to be approved by OIT.
 
+The public `/feedback` page submits to `/api/v1/feedback`, which uses the same sendmail
+or SMTP delivery conventions. Configure:
+
+```bash
+FEEDBACK_EMAIL_ENABLED=true
+FEEDBACK_RECIPIENTS="ewlarson@gmail.com,majew030@umn.edu"
+FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
+FEEDBACK_DELIVERY=sendmail
+```
+
 For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 
 ## Destination Differences

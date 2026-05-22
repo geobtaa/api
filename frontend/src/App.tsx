@@ -12,13 +12,16 @@ import { ProviderPillsTestPage } from './pages/ProviderPillsTestPage';
 import { MapPage } from './pages/MapPage';
 import { TestPage } from './pages/TestPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { AboutPage } from './pages/AboutPage';
+import { FeedbackPage } from './pages/FeedbackPage';
+import { HelpPage } from './pages/HelpPage';
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
 
 // Ensure Stimulus is available globally
 const application = Application.start();
-(window as any).Stimulus = application;
+(window as typeof window & { Stimulus: Application }).Stimulus = application;
 
 function App() {
   const [searchParams] = useSearchParams();
@@ -32,6 +35,9 @@ function App() {
       <DebugProvider>
         <Routes>
           {/* More specific paths first so /search matches before / */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
           <Route path="/resources/:id" element={<ResourceView />} />

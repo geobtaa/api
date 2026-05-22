@@ -17,8 +17,13 @@ themes:
         lockup_gap_rem: 0.75
         lockup_separator_height_rem: 3.5
         lockup_text_size_rem: 2
-      hero_text: "Search geospatial resources from the Big Ten Academic Alliance and the OpenGeoMetadata community."
-      hero_description: "Browse and download GIS data, maps, and other geospatial resources."
+      hero_text: "Welcome to the new BTAA Geoportal."
+      hero_description: |-
+        We have upgraded the Geoportal with a redesigned search experience and improved tools for exploring maps, datasets, and other geospatial resources from across the Big Ten Academic Alliance and beyond.
+
+        The Geoportal still provides access to our growing collection of open geospatial resources, now in a more modern and flexible interface.
+
+        As we continue to develop the Geoportal, we welcome your feedback and suggestions to help guide future improvements.
     branding:
       colors:
         primary: "#003C5B"

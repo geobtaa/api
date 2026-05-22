@@ -20,6 +20,9 @@ import { ResourceView } from '../../pages/ResourceView';
 import { BookmarksPage } from '../../pages/BookmarksPage';
 import { NotFoundPage } from '../../pages/NotFoundPage';
 import { MapPage } from '../../pages/MapPage';
+import { AboutPage } from '../../pages/AboutPage';
+import { HelpPage } from '../../pages/HelpPage';
+import { FeedbackPage } from '../../pages/FeedbackPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { BookmarkProvider } from '../../context/BookmarkContext';
@@ -62,7 +65,15 @@ vi.mock('../../pages/MapPage.client', () => {
     React.createElement(
       React.Fragment,
       null,
-      React.createElement(Helmet, null, React.createElement('title', null, 'Map - Big Ten Academic Alliance Geoportal')),
+      React.createElement(
+        Helmet,
+        null,
+        React.createElement(
+          'title',
+          null,
+          'Map - Big Ten Academic Alliance Geoportal'
+        )
+      ),
       React.createElement('div', { 'data-testid': 'map-page-client' }, 'Map')
     );
   return { MapPage: MockMapClient, default: MockMapClient };
@@ -175,6 +186,69 @@ describe('Page titles', () => {
     ];
     const router = createMemoryRouter(routes, {
       initialEntries: ['/bookmarks'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      assertHasTitle();
+    });
+  });
+
+  it('AboutPage has a title', async () => {
+    const routes = [
+      {
+        path: '/about',
+        element: (
+          <HelmetProvider>
+            <AboutPage />
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/about'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      assertHasTitle();
+    });
+  });
+
+  it('FeedbackPage has a title', async () => {
+    const routes = [
+      {
+        path: '/feedback',
+        element: (
+          <HelmetProvider>
+            <FeedbackPage />
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/feedback'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      assertHasTitle();
+    });
+  });
+
+  it('HelpPage has a title', async () => {
+    const routes = [
+      {
+        path: '/help',
+        element: (
+          <HelmetProvider>
+            <HelpPage />
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/help'],
     });
     render(<RouterProvider router={router} />);
 
