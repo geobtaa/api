@@ -121,6 +121,12 @@ env:
     - BTAA_GEOSPATIAL_API_KEY
     - TURNSTILE_SECRET_KEY
     - APPSIGNAL_PUSH_API_KEY
+<% if ENV.fetch('SMTP_USERNAME', '').strip != '' %>
+    - SMTP_USERNAME
+<% end %>
+<% if ENV.fetch('SMTP_PASSWORD', '').strip != '' %>
+    - SMTP_PASSWORD
+<% end %>
     - SLACK_SIGNING_SECRET
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY
