@@ -48,6 +48,18 @@ def create_distribution_tables():
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );
             """))
+            conn.execute(text("""
+                ALTER TABLE distribution_types
+                ALTER COLUMN created_at SET DEFAULT NOW(),
+                ALTER COLUMN updated_at SET DEFAULT NOW();
+            """))
+            conn.execute(text("""
+                UPDATE distribution_types
+                SET
+                    created_at = COALESCE(created_at, NOW()),
+                    updated_at = COALESCE(updated_at, NOW())
+                WHERE created_at IS NULL OR updated_at IS NULL;
+            """))
             
             # Create resource_distributions table
             logger.info("Creating resource_distributions table...")
@@ -104,8 +116,14 @@ def create_distribution_tables():
             
             for data in distribution_types_data:
                 conn.execute(text("""
-                    INSERT INTO distribution_types (id, name, distribution_type, distribution_uri, label, note, position)
-                    VALUES (:id, :name, :distribution_type, :distribution_uri, :label, :note, :position)
+                    INSERT INTO distribution_types (
+                        id, name, distribution_type, distribution_uri, label, note, position,
+                        created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :name, :distribution_type, :distribution_uri, :label, :note,
+                        :position, NOW(), NOW()
+                    )
                     ON CONFLICT (id) DO UPDATE SET
                         name = EXCLUDED.name,
                         distribution_type = EXCLUDED.distribution_type,
