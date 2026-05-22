@@ -46,10 +46,9 @@ def _null_pool_kwargs(overrides: dict[str, Any]) -> dict[str, Any]:
     return kwargs
 
 
-def create_app_sync_engine(database_url: str, **overrides: Any) -> Engine:
-    """Create a sync SQLAlchemy engine with env-controlled pool bounds."""
+def _app_sync_engine_kwargs(overrides: dict[str, Any]) -> dict[str, Any]:
     if os.getenv("APP_ENV") == "test" or _running_under_pytest():
-        return create_engine(database_url, **_null_pool_kwargs(overrides))
+        return _null_pool_kwargs(overrides)
 
     use_null_pool = _env_bool("SQLALCHEMY_SYNC_USE_NULLPOOL", False)
 
@@ -59,10 +58,7 @@ def create_app_sync_engine(database_url: str, **overrides: Any) -> Engine:
     }
 
     if use_null_pool:
-        return create_engine(
-            database_url,
-            **_null_pool_kwargs({**kwargs, **overrides}),
-        )
+        return _null_pool_kwargs({**kwargs, **overrides})
 
     kwargs.update(
         {
@@ -73,4 +69,37 @@ def create_app_sync_engine(database_url: str, **overrides: Any) -> Engine:
     )
 
     kwargs.update(overrides)
-    return create_engine(database_url, **kwargs)
+    return kwargs
+
+
+def create_app_sync_engine(database_url: str, **overrides: Any) -> Engine:
+    """Create a sync SQLAlchemy engine with env-controlled pool bounds."""
+    return create_engine(database_url, **_app_sync_engine_kwargs(overrides))
+
+
+_SHARED_SYNC_ENGINES: dict[tuple[str, tuple[tuple[str, str], ...]], Engine] = {}
+
+
+def _shared_engine_key(
+    database_url: str, kwargs: dict[str, Any]
+) -> tuple[str, tuple[tuple[str, str], ...]]:
+    return database_url, tuple(sorted((key, repr(value)) for key, value in kwargs.items()))
+
+
+def get_app_sync_engine(database_url: str, **overrides: Any) -> Engine:
+    """Return a shared sync SQLAlchemy engine for request-path code in this process."""
+    kwargs = _app_sync_engine_kwargs(overrides)
+    key = _shared_engine_key(database_url, kwargs)
+    engine = _SHARED_SYNC_ENGINES.get(key)
+    if engine is None:
+        engine = create_engine(database_url, **kwargs)
+        _SHARED_SYNC_ENGINES[key] = engine
+    return engine
+
+
+def dispose_app_sync_engines() -> None:
+    """Dispose all shared sync SQLAlchemy engines created in this process."""
+    engines = list(_SHARED_SYNC_ENGINES.values())
+    _SHARED_SYNC_ENGINES.clear()
+    for engine in engines:
+        engine.dispose()

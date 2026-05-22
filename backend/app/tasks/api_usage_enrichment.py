@@ -14,12 +14,13 @@ from datetime import date, datetime
 from typing import Any, Dict, Optional
 
 from sqlalchemy import create_engine, insert, text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
 from user_agents import parse
 
 from app.tasks.worker import celery_app
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 from db.models import analytics_api_usage_logs
 
@@ -155,7 +156,7 @@ async def _enrich_log_async(log_id: int) -> Dict[str, Any]:
     Returns:
         Dictionary with enrichment results
     """
-    engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
     async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     try:
@@ -257,7 +258,7 @@ async def _enrich_batch_async(batch_size: int) -> Dict[str, Any]:
     Returns:
         Dictionary with batch processing results
     """
-    engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
     async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     stats = {"processed": 0, "enriched": 0, "errors": 0}

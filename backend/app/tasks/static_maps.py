@@ -11,10 +11,11 @@ from typing import Any, List
 
 from celery import Task, shared_task
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.services.static_map_service import StaticMapService
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 from db.models import resources
 
@@ -81,7 +82,7 @@ def generate_static_map(self: Task, resource_id: str) -> dict:
 async def _generate_static_map_async(resource_id: str) -> dict:
     """Async helper function for generate_static_map task."""
     # Create a new engine and session for this task
-    task_engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    task_engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
     try:
         async_session_factory = sessionmaker(
             task_engine, class_=AsyncSession, expire_on_commit=False
@@ -146,7 +147,7 @@ def generate_static_maps_batch(self: Task, resource_ids: List[str]) -> dict:
 async def _generate_static_maps_batch_async(resource_ids: List[str]) -> dict:
     """Async helper function for generate_static_maps_batch task."""
     # Create a new engine and session for this task
-    task_engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    task_engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
     try:
         async_session_factory = sessionmaker(
             task_engine, class_=AsyncSession, expire_on_commit=False
@@ -221,7 +222,7 @@ def generate_static_maps_collection(self: Task, batch_size: int = 100) -> dict:
 async def _generate_static_maps_collection_async() -> dict:
     """Async helper function for generate_static_maps_collection task."""
     # Create a new engine and session for this task
-    task_engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    task_engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
     try:
         async_session_factory = sessionmaker(
             task_engine, class_=AsyncSession, expire_on_commit=False

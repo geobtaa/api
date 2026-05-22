@@ -8,12 +8,9 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
-from db.async_engine import create_app_async_engine
-from db.config import DATABASE_URL
 from db.models import api_keys, api_service_tiers
+from db.session import async_session
 
 logger = logging.getLogger(__name__)
 API_KEY_HASH_ITERATIONS = 600_000
@@ -27,11 +24,6 @@ API_KEY_TIER_CACHE_MAX_ENTRIES = int(os.getenv("API_KEY_TIER_CACHE_MAX_ENTRIES",
 _tier_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
 _anonymous_tier_cache: tuple[float, Dict[str, Any]] | None = None
 _last_used_updates: dict[int, float] = {}
-
-# Dedicated async engine/session for API key operations.
-engine = create_app_async_engine(DATABASE_URL)
-async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-
 
 class APIKeyService:
     """Service to handle API key operations (keys + tiers)."""

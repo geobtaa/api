@@ -46,7 +46,9 @@ from app.services.sitemap_service import (
     get_sitemap_document,
     is_valid_sitemap_part_name,
 )
+from db.async_engine import dispose_app_async_engines
 from db.database import database
+from db.sync_engine import dispose_app_sync_engines
 
 # Load environment variables from .env file
 load_dotenv()
@@ -129,6 +131,13 @@ async def lifespan(app: FastAPI):
         await close_store()
     except Exception as e:
         logger.error(f"Error disconnecting from sitemap store: {str(e)}")
+
+    try:
+        await dispose_app_async_engines()
+        dispose_app_sync_engines()
+        logger.info("Disposed SQLAlchemy engines")
+    except Exception as e:
+        logger.error(f"Error disposing SQLAlchemy engines: {str(e)}")
 
 
 # Create FastAPI application

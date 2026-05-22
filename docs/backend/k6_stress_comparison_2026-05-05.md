@@ -92,8 +92,8 @@ But the extra CPU has exposed a connection-management ceiling rather than
 delivering proportional throughput. Under the full dev1-equivalent profile,
 Postgres runs out of available clients. The relevant request path includes:
 
-- `APIKeyService`, which uses a dedicated SQLAlchemy `NullPool`, so API-key
-  validation opens short-lived database connections under load;
+- API-key validation and endpoint SQLAlchemy work, which must share the
+  request-path SQLAlchemy engine so they do not multiply per-worker pools;
 - durable API response cache reads/writes, which also touch Postgres;
 - the normal endpoint database usage.
 

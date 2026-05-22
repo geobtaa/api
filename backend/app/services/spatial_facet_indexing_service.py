@@ -5,10 +5,11 @@ import time
 from typing import Any, Dict, List, Tuple
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.services.spatial_facet_service import SpatialFacetService
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class SpatialFacetIndexingService:
         """
         self.batch_size = batch_size
         self.max_workers = max_workers
-        self.engine = create_async_engine(DATABASE_URL)
+        self.engine = create_app_async_engine(DATABASE_URL)
         self.async_session = sessionmaker(self.engine, class_=AsyncSession, expire_on_commit=False)
 
     async def index_all_resources(self, dry_run: bool = False) -> Dict[str, Any]:

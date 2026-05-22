@@ -13,9 +13,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from app.services.distribution_repository import async_session_factory
 from app.services.thumbnail_alias_service import thumbnail_alias_service
-from db.config import DATABASE_URL
 from db.models import resource_thumbnail_state
-from db.sync_engine import create_app_sync_engine
+from db.session import sync_engine as _sync_engine
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +26,6 @@ class ThumbnailState:
     SUCCESS = "success"
     FAILURE = "failure"
     PLACEHELD = "placeheld"
-
-
-def _sync_database_url() -> str:
-    return DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-
-
-_sync_engine = create_app_sync_engine(_sync_database_url())
 
 
 def _utcnow() -> datetime:
