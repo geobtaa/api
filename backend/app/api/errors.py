@@ -49,11 +49,13 @@ def get_request_id(request: Request | None) -> str | None:
     if request is None:
         return None
 
-    state_request_id = getattr(request.state, "request_id", None)
+    state = getattr(request, "state", None)
+    state_request_id = getattr(state, "request_id", None)
     if state_request_id:
         return str(state_request_id)
 
-    header_request_id = request.headers.get(REQUEST_ID_HEADER)
+    headers = getattr(request, "headers", None)
+    header_request_id = headers.get(REQUEST_ID_HEADER) if headers is not None else None
     return header_request_id or None
 
 

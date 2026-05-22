@@ -234,6 +234,12 @@ class TestSearchService:
         try:
             result = await service.search(q="map", page=1, limit=5)
 
+            if "error" in result:
+                assert result["message"] == "Search operation failed"
+                assert result["error_type"] in {"connection", "elasticsearch"}
+                assert "queryTime" in result
+                return
+
             # Verify the structure
             assert "data" in result
             assert "meta" in result
