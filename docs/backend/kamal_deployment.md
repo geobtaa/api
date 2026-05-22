@@ -369,10 +369,14 @@ or SMTP delivery conventions. Configure:
 
 ```bash
 FEEDBACK_EMAIL_ENABLED=true
-FEEDBACK_RECIPIENTS="ewlarson@gmail.com,majew030@umn.edu"
+FEEDBACK_RECIPIENTS="ewlarson@gmail.com,majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
 FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
 FEEDBACK_DELIVERY=sendmail
 ```
+
+`dev1` and `prd` enable feedback mail through sendmail. Unless overridden with
+`FEEDBACK_RECIPIENTS`, feedback goes to `ewlarson@gmail.com`, `majew030@umn.edu`,
+`btaa-gdp@umn.edu`, and `geoportal@btaa.org`.
 
 For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 

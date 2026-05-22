@@ -49,6 +49,10 @@ env:
     TURNSTILE_ALLOWED_HOSTNAMES: lib-btaageoapi-dev-app-01.oit.umn.edu
     TURNSTILE_COOKIE_SECURE: "true"
     TURNSTILE_EXPECTED_ACTION: geoportal_gate
+    FEEDBACK_EMAIL_ENABLED: "true"
+    FEEDBACK_DELIVERY: sendmail
+    SENDMAIL_PATH: /usr/sbin/sendmail
+    SENDMAIL_ARGS: "-t -i"
     WEB_UVICORN_WORKERS: "3"
     WEB_INTERNAL_UVICORN_WORKERS: "4"
     WEB_SSR_WORKERS: "3"
