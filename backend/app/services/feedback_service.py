@@ -15,9 +15,7 @@ FEEDBACK_TOPICS = {
     "Harmful language",
     "Other",
 }
-DEFAULT_FEEDBACK_RECIPIENTS = (
-    "majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
-)
+DEFAULT_FEEDBACK_RECIPIENTS = "majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
 
 
 class FeedbackDeliveryUnavailable(RuntimeError):
