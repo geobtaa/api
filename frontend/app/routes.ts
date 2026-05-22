@@ -8,6 +8,8 @@ export default [
   route("feedback", "routes/feedback.tsx"),
   route("search", "routes/search.tsx"),
   route("search/results", "routes/search.results.ts"),
+  route("catalog/:id", "routes/catalog.$id.ts"),
+  route("catalog/:id/*", "routes/catalog.$id.splat.ts"),
   route("resources/:id", "routes/resources.$id.tsx"),
   route("mirador", "routes/mirador.tsx"),
   // Resource routes (return non-HTML responses via loaders)
