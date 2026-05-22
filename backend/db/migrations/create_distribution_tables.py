@@ -109,8 +109,8 @@ def create_distribution_tables():
                 (23, 'tile_json', 'TileJSON', 'https://github.com/mapbox/tilejson-spec', False, '-', 23),
                 (24, 'wcs', 'Web Coverage Service (WCS)', 'http://www.opengis.net/def/serviceType/ogc/wcs', False, '-', 24),
                 (25, 'wfs', 'Web Feature Service (WFS)', 'http://www.opengis.net/def/serviceType/ogc/wfs', False, 'Provides a to download generated vector datasets (GeoJSON, shapefile)', 25),
-                (26, 'wmts', 'Web Mapping Service (WMS)', 'http://www.opengis.net/def/serviceType/ogc/wms', False, 'Provides a service to visually preview a layer and inspect its features', 26),
-                (27, 'wms', 'WMTS', 'http://www.opengis.net/def/serviceType/ogc/wmts', False, '-', 27),
+                (26, 'wms', 'Web Mapping Service (WMS)', 'http://www.opengis.net/def/serviceType/ogc/wms', False, 'Provides a service to visually preview a layer and inspect its features', 26),
+                (27, 'wmts', 'WMTS', 'http://www.opengis.net/def/serviceType/ogc/wmts', False, '-', 27),
                 (28, 'xyz_tiles', 'XYZ tiles', 'https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames', False, 'Link to an XYZ tile server', 28)
             ]
             

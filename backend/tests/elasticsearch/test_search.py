@@ -5,6 +5,7 @@ Tests for the Elasticsearch search functionality.
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import HTTPException
 
 from app.elasticsearch.search import (
     BBOX_SPATIAL_BOOST_WEIGHT,
@@ -849,18 +850,25 @@ class TestElasticsearchSearch:
 
     @pytest.mark.asyncio
     async def test_search_resources_error_handling(self):
-        """Test search_resources error handling."""
+        """Elasticsearch failures should not expose query internals to callers."""
         # Mock the Elasticsearch client to raise an exception
         mock_es = AsyncMock()
-        mock_es.search.side_effect = Exception("Elasticsearch connection error")
+        mock_es.search.side_effect = Exception("Elasticsearch connection secret")
 
         # Mock the es client
         with patch("app.elasticsearch.search.es", mock_es):
             # Call search_resources and expect an exception
-            with pytest.raises(Exception) as exc_info:
+            with pytest.raises(HTTPException) as exc_info:
                 await search_resources(query="test", fq=None, skip=0, limit=10, sort=None)
 
-            assert "Elasticsearch connection error" in str(exc_info.value)
+            assert exc_info.value.status_code == 500
+            assert exc_info.value.detail == {
+                "message": "Elasticsearch query failed",
+                "code": "elasticsearch_query_failed",
+            }
+            assert "connection secret" not in str(exc_info.value.detail)
+            assert "query" not in exc_info.value.detail
+            assert "index" not in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_search_resources_with_suggestions(self):

@@ -1636,17 +1636,21 @@ async def search_resources(
                         exc_info=True,
                     )
 
-            # If we get here, propagate a detailed HTTP error
+            # If we get here, propagate a public-safe HTTP error. The full query,
+            # index name, and upstream exception remain in logs via exc_info above.
             error_detail = {
                 "message": "Elasticsearch query failed",
-                "error": str(es_error),
-                "query": search_query,
-                "index": index_name,
+                "code": "elasticsearch_query_failed",
             }
             if hasattr(es_error, "info"):
-                error_detail["info"] = es_error.info
+                info = getattr(es_error, "info", {}) or {}
+                upstream_status = info.get("status") if isinstance(info, dict) else None
+                if isinstance(upstream_status, int):
+                    error_detail["upstream_status_code"] = upstream_status
             if hasattr(es_error, "status_code"):
-                error_detail["status_code"] = es_error.status_code
+                status_code = es_error.status_code
+                if isinstance(status_code, int):
+                    error_detail["upstream_status_code"] = status_code
             raise HTTPException(status_code=500, detail=error_detail) from es_error
 
         return await finalize_response(

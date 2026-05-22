@@ -17,7 +17,11 @@ def _check_elasticsearch_error(response):
     """Check if response is a 500 due to Elasticsearch error and skip if so."""
     if response.status_code == 500:
         error_data = response.json()
-        error_str = str(error_data.get("error", "")).lower()
+        error_parts = [str(error_data.get("error", ""))]
+        for error in error_data.get("errors", []):
+            if isinstance(error, dict):
+                error_parts.extend(str(error.get(key, "")) for key in ("code", "title", "detail"))
+        error_str = " ".join(error_parts).lower()
         if any(term in error_str for term in ["elasticsearch", "index", "connection", "not found"]):
             pytest.skip(f"Elasticsearch not available: {error_data.get('error', 'Unknown error')}")
 
