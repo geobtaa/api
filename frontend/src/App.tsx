@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router';
 import { Application } from '@hotwired/stimulus';
 import { SearchPage } from './pages/SearchPage';
 import { ResourceView } from './pages/ResourceView';
@@ -23,6 +23,18 @@ import 'leaflet/dist/leaflet.css';
 const application = Application.start();
 (window as typeof window & { Stimulus: Application }).Stimulus = application;
 
+function CatalogRedirect() {
+  const { id } = useParams();
+  const location = useLocation();
+
+  return (
+    <Navigate
+      to={`/resources/${id ?? ''}${location.search}${location.hash}`}
+      replace
+    />
+  );
+}
+
 function App() {
   const [searchParams] = useSearchParams();
   const hasSearchParams = Array.from(searchParams.entries()).length > 0;
@@ -40,6 +52,8 @@ function App() {
           <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/catalog/:id" element={<CatalogRedirect />} />
+          <Route path="/catalog/:id/*" element={<CatalogRedirect />} />
           <Route path="/resources/:id" element={<ResourceView />} />
           <Route
             path="/test/fixtures/providers"
