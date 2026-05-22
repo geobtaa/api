@@ -24,33 +24,33 @@ async def list_resources(
     try:
         async with get_async_session() as session:
             query = select(resources).offset(skip).limit(limit)
-            logger.info(f"Executing query: {query}")
+            logger.debug("Executing resource list query: %s", query)
             result = await session.execute(query)
             results = result.fetchall()  # Get full rows instead of scalars
-            logger.info(f"Found {len(results)} resources")
+            logger.debug("Found %s resources for list response", len(results))
 
-            processed_resources = []
-            for row in results:
-                try:
-                    logger.info(f"Processing resource: {row}")
-                    # Convert to dict and sanitize datetime objects
-                    resource_dict = sanitize_for_json(dict(row._mapping))
-                    logger.info(f"Resource dict: {resource_dict}")
+        processed_resources = []
+        for row in results:
+            try:
+                # Convert to dict and sanitize datetime objects
+                resource_dict = sanitize_for_json(dict(row._mapping))
 
-                    # Apply field filtering if fields parameter is provided
-                    if fields:
-                        resource_dict = filter_resource_fields(resource_dict, fields)
-                        logger.info(f"Filtered resource dict: {resource_dict}")
+                # Apply field filtering if fields parameter is provided
+                if fields:
+                    resource_dict = filter_resource_fields(resource_dict, fields)
 
-                    # Process the resource using the shared function
-                    jsonapi_resource = await process_resource(resource_dict, session)
-                    processed_resources.append(jsonapi_resource)
-                    logger.info(f"Successfully processed resource {resource_dict['id']}")
-                except Exception:
-                    logger.error("Error processing resource in list_resources", exc_info=True)
-                    continue
+                # Process the resource after releasing the list query connection.
+                jsonapi_resource = await process_resource(
+                    resource_dict,
+                    None,
+                    include_similar_items=False,
+                )
+                processed_resources.append(jsonapi_resource)
+            except Exception:
+                logger.error("Error processing resource in list_resources", exc_info=True)
+                continue
 
-            logger.info(f"Returning {len(processed_resources)} processed resources")
+        logger.debug("Returning %s processed resources", len(processed_resources))
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None

@@ -99,7 +99,10 @@ class SimilarItemsService:
 
                     # Fallback to existing endpoint-based thumbnail behavior.
                     if not thumbnail_url:
-                        distribution_context = await fetch_distribution_context(similar_id)
+                        distribution_context = await fetch_distribution_context(
+                            similar_id,
+                            session=session,
+                        )
                         image_service = ImageService(
                             resource_dict,
                             distribution_context=distribution_context,

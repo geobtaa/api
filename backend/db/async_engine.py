@@ -45,12 +45,11 @@ def _null_pool_kwargs(overrides: dict[str, Any]) -> dict[str, Any]:
     return kwargs
 
 
-def create_app_async_engine(database_url: str, **overrides: Any) -> AsyncEngine:
-    """Create an async SQLAlchemy engine with env-controlled pool bounds."""
+def _app_async_engine_kwargs(overrides: dict[str, Any]) -> dict[str, Any]:
     if os.getenv("APP_ENV") == "test" or _running_under_pytest():
         # asyncpg pooled connections are bound to the event loop that creates them.
         # pytest/TestClient creates multiple loops, so tests must never reuse a pool.
-        return create_async_engine(database_url, **_null_pool_kwargs(overrides))
+        return _null_pool_kwargs(overrides)
 
     use_null_pool = _env_bool("SQLALCHEMY_ASYNC_USE_NULLPOOL", False)
 
@@ -60,10 +59,7 @@ def create_app_async_engine(database_url: str, **overrides: Any) -> AsyncEngine:
     }
 
     if use_null_pool:
-        return create_async_engine(
-            database_url,
-            **_null_pool_kwargs({**kwargs, **overrides}),
-        )
+        return _null_pool_kwargs({**kwargs, **overrides})
     else:
         kwargs.update(
             {
@@ -74,4 +70,37 @@ def create_app_async_engine(database_url: str, **overrides: Any) -> AsyncEngine:
         )
 
     kwargs.update(overrides)
-    return create_async_engine(database_url, **kwargs)
+    return kwargs
+
+
+def create_app_async_engine(database_url: str, **overrides: Any) -> AsyncEngine:
+    """Create an async SQLAlchemy engine with env-controlled pool bounds."""
+    return create_async_engine(database_url, **_app_async_engine_kwargs(overrides))
+
+
+_SHARED_ASYNC_ENGINES: dict[tuple[str, tuple[tuple[str, str], ...]], AsyncEngine] = {}
+
+
+def _shared_engine_key(
+    database_url: str, kwargs: dict[str, Any]
+) -> tuple[str, tuple[tuple[str, str], ...]]:
+    return database_url, tuple(sorted((key, repr(value)) for key, value in kwargs.items()))
+
+
+def get_app_async_engine(database_url: str, **overrides: Any) -> AsyncEngine:
+    """Return a shared async SQLAlchemy engine for request-path code in this process."""
+    kwargs = _app_async_engine_kwargs(overrides)
+    key = _shared_engine_key(database_url, kwargs)
+    engine = _SHARED_ASYNC_ENGINES.get(key)
+    if engine is None:
+        engine = create_async_engine(database_url, **kwargs)
+        _SHARED_ASYNC_ENGINES[key] = engine
+    return engine
+
+
+async def dispose_app_async_engines() -> None:
+    """Dispose all shared async SQLAlchemy engines created in this process."""
+    engines = list(_SHARED_ASYNC_ENGINES.values())
+    _SHARED_ASYNC_ENGINES.clear()
+    for engine in engines:
+        await engine.dispose()

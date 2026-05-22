@@ -18,12 +18,10 @@ from mcp.types import (
     ToolsCapability,
 )
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-from sqlalchemy.orm import sessionmaker
 
 from app.services.search_service import SearchService
-from db.config import DATABASE_URL
 from db.models import resources
+from db.session import async_session as app_async_session
 
 logger = logging.getLogger(__name__)
 
@@ -31,22 +29,10 @@ MCP_SERVICE_NAME = "btaa-geospatial-api"
 MCP_SERVICE_VERSION = "0.7.0"
 MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
-# Lazy initialization of database engine and session
-_engine = None
-_async_session = None
-
 
 def get_async_session():
-    """Get the async session factory, creating it if necessary."""
-    global _engine, _async_session
-    try:
-        if _engine is None:
-            _engine = create_async_engine(DATABASE_URL)
-            _async_session = sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
-        return _async_session
-    except Exception as e:
-        logger.error(f"Failed to create database session: {e}")
-        raise
+    """Get the shared async session factory."""
+    return app_async_session
 
 
 def _api_request_error_type(error: Exception) -> str:
@@ -491,28 +477,26 @@ class OGMMCPService:
                 result = await session.execute(query)
                 row = result.fetchone()
 
-                if not row:
-                    return CallToolResult(
-                        content=[
-                            TextContent(type="text", text=f"Resource not found: {resource_id}")
-                        ],
-                        isError=True,
-                    )
-
-                # Convert to dict and sanitize datetime objects
-                from app.api.v1.utils import sanitize_for_json
-
-                resource_dict = sanitize_for_json(dict(row._mapping))
-
-                # Process the resource using the same logic as API endpoints
-                from app.api.v1.utils import process_resource
-
-                resource_object = await process_resource(resource_dict, session)
-
-                # Return the full resource object as JSON
+            if not row:
                 return CallToolResult(
-                    content=[TextContent(type="text", text=json.dumps(resource_object, indent=2))]
+                    content=[TextContent(type="text", text=f"Resource not found: {resource_id}")],
+                    isError=True,
                 )
+
+            # Convert to dict and sanitize datetime objects
+            from app.api.v1.utils import sanitize_for_json
+
+            resource_dict = sanitize_for_json(dict(row._mapping))
+
+            # Process the resource using the same logic as API endpoints
+            from app.api.v1.utils import process_resource
+
+            resource_object = await process_resource(resource_dict, None)
+
+            # Return the full resource object as JSON
+            return CallToolResult(
+                content=[TextContent(type="text", text=json.dumps(resource_object, indent=2))]
+            )
         except Exception as e:
             logger.error(f"Error in _get_resource: {e}", exc_info=True)
             return CallToolResult(
@@ -598,42 +582,46 @@ class OGMMCPService:
                 count_result = await session.execute(count_query)
                 total_count = count_result.scalar()
 
-                # Process each resource to get full details
-                processed_resources = []
-                for row in results:
-                    try:
-                        # Convert to dict and sanitize datetime objects
-                        from app.api.v1.utils import sanitize_for_json
+            # Process each resource to get full details after releasing the list query connection.
+            processed_resources = []
+            for row in results:
+                try:
+                    # Convert to dict and sanitize datetime objects
+                    from app.api.v1.utils import sanitize_for_json
 
-                        resource_dict = sanitize_for_json(dict(row._mapping))
+                    resource_dict = sanitize_for_json(dict(row._mapping))
 
-                        # Process the resource using the same logic as API endpoints
-                        from app.api.v1.utils import process_resource
+                    # Process the resource using the same logic as API endpoints
+                    from app.api.v1.utils import process_resource
 
-                        resource_object = await process_resource(resource_dict, session)
-                        processed_resources.append(resource_object)
-                    except Exception as e:
-                        logger.error(f"Error processing resource: {str(e)}", exc_info=True)
-                        continue
+                    resource_object = await process_resource(
+                        resource_dict,
+                        None,
+                        include_similar_items=False,
+                    )
+                    processed_resources.append(resource_object)
+                except Exception as e:
+                    logger.error(f"Error processing resource: {str(e)}", exc_info=True)
+                    continue
 
-                # Return the full resource objects as JSON
-                return CallToolResult(
-                    content=[
-                        TextContent(
-                            type="text",
-                            text=json.dumps(
-                                {
-                                    "page": page,
-                                    "per_page": per_page,
-                                    "total_count": total_count,
-                                    "total_pages": (total_count + per_page - 1) // per_page,
-                                    "resources": processed_resources,
-                                },
-                                indent=2,
-                            ),
-                        )
-                    ]
-                )
+            # Return the full resource objects as JSON
+            return CallToolResult(
+                content=[
+                    TextContent(
+                        type="text",
+                        text=json.dumps(
+                            {
+                                "page": page,
+                                "per_page": per_page,
+                                "total_count": total_count,
+                                "total_pages": (total_count + per_page - 1) // per_page,
+                                "resources": processed_resources,
+                            },
+                            indent=2,
+                        ),
+                    )
+                ]
+            )
         except Exception as e:
             logger.error(f"Error in _list_resources: {e}", exc_info=True)
             return CallToolResult(

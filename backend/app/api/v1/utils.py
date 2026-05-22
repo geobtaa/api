@@ -702,14 +702,77 @@ def create_gazetteer_meta_and_links(
     return meta, links
 
 
-async def add_similar_items_to_resource(resource, resource_dict, session):
+async def _fetch_allmaps_attributes_for_resource(resource_dict, session=None):
+    from app.services.allmaps_service import AllmapsService
+
+    allmaps_service = AllmapsService(resource_dict)
+    if session is not None:
+        return await allmaps_service.get_allmaps_attributes(session)
+
+    from db.session import async_session as app_async_session
+
+    async with app_async_session() as owned_session:
+        return await allmaps_service.get_allmaps_attributes(owned_session)
+
+
+async def _fetch_data_dictionaries_payload_for_resource(resource_id: str, session=None):
+    if session is not None:
+        data_dictionaries = await fetch_resource_data_dictionaries(
+            resource_id,
+            session=session,
+        )
+    else:
+        from db.session import async_session as app_async_session
+
+        async with app_async_session() as owned_session:
+            data_dictionaries = await fetch_resource_data_dictionaries(
+                resource_id,
+                session=owned_session,
+            )
+
+    if not data_dictionaries:
+        return None
+
+    return sanitize_for_json(serialize_resource_data_dictionaries(data_dictionaries))
+
+
+async def _fetch_licensed_accesses_payload_for_resource(resource_id: str, session=None):
+    if session is not None:
+        licensed_accesses = await fetch_resource_licensed_accesses(
+            resource_id,
+            session=session,
+        )
+    else:
+        from db.session import async_session as app_async_session
+
+        async with app_async_session() as owned_session:
+            licensed_accesses = await fetch_resource_licensed_accesses(
+                resource_id,
+                session=owned_session,
+            )
+
+    if not licensed_accesses:
+        return None
+
+    return sanitize_for_json(serialize_resource_licensed_accesses(licensed_accesses))
+
+
+async def add_similar_items_to_resource(resource, resource_dict, session=None):
     """Attach similar items to a JSON:API resource object."""
     try:
         from app.services.similar_items_service import SimilarItemsService
 
-        similar_items = await SimilarItemsService.get_similar_items(
-            resource_dict["id"], session, limit=12
-        )
+        if session is not None:
+            similar_items = await SimilarItemsService.get_similar_items(
+                resource_dict["id"], session, limit=12
+            )
+        else:
+            from db.session import async_session as app_async_session
+
+            async with app_async_session() as owned_session:
+                similar_items = await SimilarItemsService.get_similar_items(
+                    resource_dict["id"], owned_session, limit=12
+                )
 
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
@@ -727,7 +790,7 @@ async def add_similar_items_to_resource(resource, resource_dict, session):
 
 async def process_resource(
     resource_dict,
-    session,
+    session=None,
     apply_field_mapping=True,
     *,
     include_similar_items: bool = True,
@@ -749,13 +812,12 @@ async def process_resource(
 
     Args:
         resource_dict: The resource data from the database
-        session: Database session for Allmaps queries
+        session: Optional database session to reuse for DB-backed enrichments.
         apply_field_mapping: Whether to apply OGM field mapping (default: True)
 
     Returns:
         JSON:API compliant resource object
     """
-    from app.services.allmaps_service import AllmapsService
     from app.services.citation_service import CitationService
     from app.services.download_service import DownloadService
     from app.services.link_service import LinkService
@@ -768,7 +830,10 @@ async def process_resource(
         resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
 
     if distribution_context is None:
-        distribution_context = await fetch_distribution_context(resource_dict["id"])
+        distribution_context = await fetch_distribution_context(
+            resource_dict["id"],
+            session=session,
+        )
 
     # Keep the default call shape stable for older mocks and callers; only opt into
     # the newer hot-cache-only path when explicitly requested.
@@ -805,8 +870,7 @@ async def process_resource(
 
     # Get Allmaps attributes
     if allmaps_attributes is None:
-        allmaps_service = AllmapsService(resource_dict)
-        allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+        allmaps_attributes = await _fetch_allmaps_attributes_for_resource(resource_dict, session)
 
     # Create the attributes dictionary
     attributes = {
@@ -830,13 +894,12 @@ async def process_resource(
     # Attach read-only resource data dictionaries.
     if data_dictionaries_payload is _UNSET:
         try:
-            data_dictionaries = await fetch_resource_data_dictionaries(
-                resource_dict["id"], session=session
+            data_dictionaries_payload = await _fetch_data_dictionaries_payload_for_resource(
+                resource_dict["id"],
+                session,
             )
-            if data_dictionaries:
-                attributes["data_dictionaries"] = sanitize_for_json(
-                    serialize_resource_data_dictionaries(data_dictionaries)
-                )
+            if data_dictionaries_payload:
+                attributes["data_dictionaries"] = data_dictionaries_payload
         except Exception as e:
             logger.warning(
                 "Failed to load data dictionaries for resource %s: %s",
@@ -848,10 +911,10 @@ async def process_resource(
 
     if licensed_accesses_payload is _UNSET:
         try:
-            licensed_accesses = await fetch_resource_licensed_accesses(
-                resource_dict["id"], session=session
+            licensed_accesses_payload = await _fetch_licensed_accesses_payload_for_resource(
+                resource_dict["id"],
+                session,
             )
-            licensed_accesses_payload = serialize_resource_licensed_accesses(licensed_accesses)
         except Exception as e:
             logger.warning(
                 "Failed to load licensed accesses for resource %s: %s",
@@ -934,12 +997,11 @@ async def process_resource(
 async def add_licensed_accesses_to_resource(
     resource: dict[str, Any],
     resource_id: str,
-    session,
+    session=None,
 ) -> dict[str, Any]:
     """Attach current licensed access rows to a JSON:API resource."""
     try:
-        licensed_accesses = await fetch_resource_licensed_accesses(resource_id, session=session)
-        payload = sanitize_for_json(serialize_resource_licensed_accesses(licensed_accesses))
+        payload = await _fetch_licensed_accesses_payload_for_resource(resource_id, session)
     except Exception as e:
         logger.warning("Failed to load licensed accesses for resource %s: %s", resource_id, str(e))
         return resource
@@ -954,7 +1016,7 @@ async def add_licensed_accesses_to_resource(
     return resource
 
 
-async def process_resource_homepage(resource_dict, session, apply_field_mapping=True):
+async def process_resource_homepage(resource_dict, session=None, apply_field_mapping=True):
     """
     Lightweight resource processor for homepage previews.
 
@@ -962,21 +1024,22 @@ async def process_resource_homepage(resource_dict, session, apply_field_mapping=
     so this path intentionally skips downloads, relationships, similar items, and
     other expensive enrichments used by the full resource view.
     """
-    from app.services.allmaps_service import AllmapsService
     from app.services.ogm_field_mapper import OGMFieldMapper
     from app.services.viewer_service import ViewerService
 
     if apply_field_mapping:
         resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
 
-    distribution_context = await fetch_distribution_context(resource_dict["id"])
+    distribution_context = await fetch_distribution_context(
+        resource_dict["id"],
+        session=session,
+    )
     resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
 
     viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
     viewer_attributes = viewer_service.get_viewer_attributes()
 
-    allmaps_service = AllmapsService(resource_dict)
-    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
+    allmaps_attributes = await _fetch_allmaps_attributes_for_resource(resource_dict, session)
 
     attributes = {
         **resource_dict,

@@ -8,8 +8,6 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
 from app.api.v1.advanced_search_utils import validate_adv_q
 from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
@@ -50,9 +48,8 @@ from app.services.resource_representation_cache import (
 )
 from app.services.search_service import SearchService
 from app.services.viewer_service import create_viewer_attributes
-from db.async_engine import create_app_async_engine
-from db.config import DATABASE_URL
 from db.models import resources
+from db.session import async_session
 
 logger = logging.getLogger(__name__)
 
@@ -73,10 +70,6 @@ SEARCH_RESPONSE_TIMING_LOG_THRESHOLD_MS = float(
 )
 SEARCH_TIMING_HEADERS = os.getenv("SEARCH_TIMING_HEADERS", "true").lower() == "true"
 SEARCH_RESULT_RELATIONSHIP_LIMIT = int(os.getenv("SEARCH_RESULT_RELATIONSHIP_LIMIT", "5"))
-
-# Create async engine and session for search results processing
-engine = create_app_async_engine(DATABASE_URL)
-async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
 def _extract_search_hit(item: dict) -> tuple[dict | None, dict | None]:
@@ -575,29 +568,27 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
                 thumbnail_asset_urls_by_id = await _get_thumbnail_asset_urls(missing_resource_ids)
                 miss_prefetch_ms = (time.perf_counter() - miss_prefetch_started_at) * 1000
 
-                miss_build_started_at = time.perf_counter()
-                for resource_id in missing_resource_ids:
-                    source_resource = source_resources_by_id.get(resource_id)
-                    if not source_resource:
-                        continue
-                    relationship_summary = relationship_summaries_by_id.get(resource_id, {})
-                    built_resources[resource_id] = await process_resource(
-                        source_resource,
-                        processing_session,
-                        include_similar_items=False,
-                        distribution_context=distribution_contexts.get(resource_id),
-                        bridge_asset_download_rows=bridge_asset_download_rows_by_id.get(
-                            resource_id
-                        ),
-                        ui_relationships=relationship_summary.get("relationships", {}),
-                        ui_relationship_counts=relationship_summary.get("counts"),
-                        ui_relationship_browse_links=relationship_summary.get("browse_links"),
-                        allmaps_attributes=allmaps_attributes_by_id.get(resource_id),
-                        data_dictionaries_payload=data_dictionary_payloads_by_id.get(resource_id),
-                        licensed_accesses_payload=licensed_access_payloads_by_id.get(resource_id),
-                        thumbnail_asset_url=thumbnail_asset_urls_by_id.get(resource_id),
-                    )
-                miss_build_ms = (time.perf_counter() - miss_build_started_at) * 1000
+            miss_build_started_at = time.perf_counter()
+            for resource_id in missing_resource_ids:
+                source_resource = source_resources_by_id.get(resource_id)
+                if not source_resource:
+                    continue
+                relationship_summary = relationship_summaries_by_id.get(resource_id, {})
+                built_resources[resource_id] = await process_resource(
+                    source_resource,
+                    None,
+                    include_similar_items=False,
+                    distribution_context=distribution_contexts.get(resource_id),
+                    bridge_asset_download_rows=bridge_asset_download_rows_by_id.get(resource_id),
+                    ui_relationships=relationship_summary.get("relationships", {}),
+                    ui_relationship_counts=relationship_summary.get("counts"),
+                    ui_relationship_browse_links=relationship_summary.get("browse_links"),
+                    allmaps_attributes=allmaps_attributes_by_id.get(resource_id),
+                    data_dictionaries_payload=data_dictionary_payloads_by_id.get(resource_id),
+                    licensed_accesses_payload=licensed_access_payloads_by_id.get(resource_id),
+                    thumbnail_asset_url=thumbnail_asset_urls_by_id.get(resource_id),
+                )
+            miss_build_ms = (time.perf_counter() - miss_build_started_at) * 1000
             if built_resources:
                 await store_resource_representations(
                     built_resources,
