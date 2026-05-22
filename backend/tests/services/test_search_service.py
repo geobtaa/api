@@ -237,7 +237,7 @@ class TestSearchService:
             if "error" in result:
                 assert result["message"] == "Search operation failed"
                 assert result["error_type"] in {"connection", "elasticsearch"}
-                assert "queryTime" in result
+                assert "event loop" not in str(result.get("error", "")).lower()
                 return
 
             # Verify the structure
@@ -268,6 +268,8 @@ class TestSearchService:
                 assert "resourceProcessing" in result["queryTime"]
                 assert "totalResponseTime" in result["queryTime"]
 
+        except AssertionError:
+            raise
         except Exception as e:
             # Handle connection errors gracefully
             assert (
