@@ -62,8 +62,13 @@ env:
     KAMAL_DEST: prd
     BRIDGE_SYNC_REPORT_ENABLED: "true"
     BRIDGE_SYNC_REPORT_DELIVERY: sendmail
-    SENDMAIL_PATH: /usr/sbin/sendmail
-    SENDMAIL_ARGS: "-t -i"
+    FEEDBACK_EMAIL_ENABLED: "true"
+    FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'smtp') %>"
+    SENDMAIL_PATH: "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
+    SENDMAIL_ARGS: "<%= ENV.fetch('SENDMAIL_ARGS', '-t -i') %>"
+    SMTP_HOST: "<%= ENV.fetch('SMTP_HOST', '172.18.0.1') %>"
+    SMTP_PORT: "<%= ENV.fetch('SMTP_PORT', '25') %>"
+    SMTP_STARTTLS: "<%= ENV.fetch('SMTP_STARTTLS', 'false') %>"
     SEARCH_ENGINE_INDEXING_ENABLED: "false"
     RATE_LIMIT_ENABLED: "true"
     TURNSTILE_ENABLED: "true"
@@ -116,6 +121,12 @@ env:
     - BTAA_GEOSPATIAL_API_KEY
     - TURNSTILE_SECRET_KEY
     - APPSIGNAL_PUSH_API_KEY
+<% if ENV.fetch('SMTP_USERNAME', '').strip != '' %>
+    - SMTP_USERNAME
+<% end %>
+<% if ENV.fetch('SMTP_PASSWORD', '').strip != '' %>
+    - SMTP_PASSWORD
+<% end %>
     - SLACK_SIGNING_SECRET
     - AWS_ACCESS_KEY_ID
     - AWS_SECRET_ACCESS_KEY

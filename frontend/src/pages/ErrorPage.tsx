@@ -78,12 +78,12 @@ export function GeoportalErrorPage({
             >
               Search
             </Link>
-            <a
-              href="https://geo.btaa.org/feedback"
+            <Link
+              to="/feedback"
               className="px-3 py-2 text-white/90 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Feedback
-            </a>
+            </Link>
           </nav>
         </div>
       </header>
@@ -144,13 +144,10 @@ export function GeoportalErrorPage({
                     <Home className="h-4 w-4" aria-hidden />
                     Geoportal home
                   </Link>
-                  <a
-                    href="https://geo.btaa.org/feedback"
-                    className={secondaryButtonClass}
-                  >
+                  <Link to="/feedback" className={secondaryButtonClass}>
                     <Mail className="h-4 w-4" aria-hidden />
                     Contact us
-                  </a>
+                  </Link>
                 </div>
               </div>
 

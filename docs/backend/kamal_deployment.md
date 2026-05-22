@@ -364,6 +364,62 @@ image installs `msmtp-mta`, which provides `/usr/sbin/sendmail`, and configures 
 UMN's `smtp.umn.edu` relay without app-level SMTP credentials. UMN relay access may still
 require the production host/IP and the From address to be approved by OIT.
 
+The public `/feedback` page submits to `/api/v1/feedback`, which uses the same sendmail
+or SMTP delivery conventions. Configure:
+
+```bash
+FEEDBACK_EMAIL_ENABLED=true
+FEEDBACK_RECIPIENTS="majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
+FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
+FEEDBACK_DELIVERY=sendmail
+```
+
+`dev1`, `dev2`, and `prd` enable feedback mail. Unless overridden with
+`FEEDBACK_RECIPIENTS`, feedback goes to `majew030@umn.edu`, `btaa-gdp@umn.edu`,
+and `geoportal@btaa.org`.
+
+On Kamal, host Postfix is the preferred no-password relay. Because the app runs
+inside Docker, `localhost` means the app container, not the VM. The destination
+Kamal configs point feedback SMTP at the host's Kamal bridge gateway:
+
+```bash
+FEEDBACK_DELIVERY=smtp
+SMTP_HOST=172.18.0.1
+SMTP_PORT=25
+SMTP_STARTTLS=false
+```
+
+Postfix must listen on that bridge address and permit the Kamal app network.
+For the current Kamal hosts, the bridge is `172.18.0.1/16`, so the host-side
+Postfix shape is:
+
+```bash
+sudo postconf -e 'inet_interfaces = localhost, 172.18.0.1'
+sudo postconf -e 'mynetworks = 127.0.0.0/8 [::1]/128 172.18.0.0/16'
+sudo systemctl restart postfix
+sudo firewall-cmd --zone=docker --add-port=25/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+Verify from inside the running web container that the host relay is reachable:
+
+```bash
+docker exec <web-container-name> bash -lc \
+  'timeout 3 bash -c "cat < /dev/null > /dev/tcp/172.18.0.1/25" && echo ok'
+```
+
+If the host relay cannot be approved, switch feedback to authenticated SMTP by
+setting these in `.kamal/secrets.dev1` before deploying:
+
+```bash
+export FEEDBACK_DELIVERY=smtp
+export SMTP_HOST=smtp.umn.edu
+export SMTP_PORT=587
+export SMTP_STARTTLS=true
+export SMTP_USERNAME="<smtp username>"
+export SMTP_PASSWORD="<smtp password>"
+```
+
 For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 
 ## Destination Differences

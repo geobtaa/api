@@ -47,6 +47,11 @@ Common overrides:
 Frontend lint, format, and tests are npm scripts run from `frontend/`; see
 [frontend/README.md](frontend/README.md).
 
+The public `/feedback` page posts to `/api/v1/feedback` and sends mail with the
+same sendmail/SMTP conventions as other app mail. Configure
+`FEEDBACK_EMAIL_ENABLED`, `FEEDBACK_RECIPIENTS`, `FEEDBACK_FROM`, and
+`FEEDBACK_DELIVERY`; production typically uses `FEEDBACK_DELIVERY=sendmail`.
+
 | Target | Purpose |
 | --- | --- |
 | `make frontend-reset` | Remove Vite cache and restart the Docker frontend service. Use after frontend dependency or Vite config changes. |

@@ -39,6 +39,14 @@ describe('Home Page', () => {
         screen.getByRole('heading', { name: /partner institutions/i })
       ).toBeInTheDocument();
     });
+    expect(
+      screen.getByRole('heading', {
+        name: /welcome to the new btaa geoportal/i,
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/redesigned search experience/i)
+    ).toBeInTheDocument();
     expect(screen.getByText(/new from btaa:/i)).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /read gin news & stories/i })

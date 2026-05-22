@@ -7,11 +7,16 @@ import { useTheme } from '../../hooks/useTheme';
 
 const NAV_LINKS = [
   {
-    href: 'https://gin.btaa.org/about/about-us/',
+    href: '/about',
     label: 'About',
-    external: true,
+    external: false,
   },
-  { href: 'https://geo.btaa.org/feedback', label: 'Feedback', external: true },
+  {
+    href: '/help',
+    label: 'Help',
+    external: false,
+  },
+  { href: '/feedback', label: 'Feedback', external: false },
   { href: '/bookmarks', label: 'Bookmarks', external: false },
 ];
 
