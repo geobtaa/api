@@ -105,6 +105,8 @@ async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse |
     image_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
     if not image_hash:
         return None
+    if not await _thumbnail_hash_has_cached_image(image_hash):
+        return None
     return _thumbnail_asset_redirect(image_hash)
 
 

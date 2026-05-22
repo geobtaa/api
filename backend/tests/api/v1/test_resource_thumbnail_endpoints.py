@@ -86,31 +86,45 @@ class TestResourceThumbnailCogFlow:
         resource_id = "test-fast-alias"
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
-        with patch(
-            "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
-            new=AsyncMock(return_value=image_hash),
-        ) as mock_current_hash:
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+                new=AsyncMock(return_value=image_hash),
+            ) as mock_current_hash,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=True),
+            ) as mock_hash_cached,
+        ):
             response = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             assert "max-age=3600" in response.headers["cache-control"]
             mock_current_hash.assert_awaited_once_with(resource_id)
+            mock_hash_cached.assert_awaited_once_with(image_hash)
 
     def test_resource_thumbnail_success_state_rehydrates_alias_redirect(self, client):
         """The canonical resolver should redirect when the current source is hot."""
         resource_id = "test-success-state"
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
-        with patch(
-            "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
-            new=AsyncMock(return_value=image_hash),
-        ) as mock_current_hash:
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+                new=AsyncMock(return_value=image_hash),
+            ) as mock_current_hash,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=True),
+            ) as mock_hash_cached,
+        ):
             response = client.get(f"/resources/{resource_id}/thumbnail", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             mock_current_hash.assert_awaited_once_with(resource_id)
+            mock_hash_cached.assert_awaited_once_with(image_hash)
 
     def test_resource_thumbnail_stale_alias_falls_through_to_resolver(self, client):
         """Aliases pointing at missing image bytes should not pin placeholders."""
