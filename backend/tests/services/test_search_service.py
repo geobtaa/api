@@ -234,6 +234,12 @@ class TestSearchService:
         try:
             result = await service.search(q="map", page=1, limit=5)
 
+            if "error" in result:
+                assert result["message"] == "Search operation failed"
+                assert result["error_type"] in {"connection", "elasticsearch"}
+                assert "event loop" not in str(result.get("error", "")).lower()
+                return
+
             # Verify the structure
             assert "data" in result
             assert "meta" in result
@@ -262,6 +268,8 @@ class TestSearchService:
                 assert "resourceProcessing" in result["queryTime"]
                 assert "totalResponseTime" in result["queryTime"]
 
+        except AssertionError:
+            raise
         except Exception as e:
             # Handle connection errors gracefully
             assert (

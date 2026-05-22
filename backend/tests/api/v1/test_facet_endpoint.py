@@ -628,7 +628,9 @@ class TestFacetEndpointErrorHandling:
         response = await async_client.get("/api/v1/search/facets/schema_provider_s")
 
         assert response.status_code == 500
-        assert "error" in response.json()
+        error = response.json()["errors"][0]
+        assert error["code"] == "facet_values_failed"
+        assert error["detail"] == "Failed to get facet values."
 
 
 class TestFacetEndpointIntegration:

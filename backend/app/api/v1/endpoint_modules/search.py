@@ -9,6 +9,7 @@ from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
+from app.api.errors import COMMON_ERROR_RESPONSES, api_error_response, get_request_id
 from app.api.v1.advanced_search_utils import validate_adv_q
 from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
 from app.api.v1.utils import (
@@ -58,6 +59,24 @@ router = APIRouter()
 # Cache TTL configuration in seconds
 SEARCH_CACHE_TTL = int(3600)  # 1 hour
 SUGGEST_CACHE_TTL = int(7200)  # 2 hours
+
+
+def _search_error_response(
+    request: Request,
+    *,
+    code: str,
+    title: str = "Search failed",
+    detail: str = "Search request failed.",
+) -> JSONResponse:
+    return api_error_response(
+        status_code=500,
+        code=code,
+        title=title,
+        detail=detail,
+        request_id=get_request_id(request),
+    )
+
+
 SEARCH_RESULT_CACHE_TTL = int(os.getenv("SEARCH_RESULT_CACHE_TTL", str(SEARCH_CACHE_TTL)))
 SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v1")
 SEARCH_RESULT_CACHE_NAMESPACE = "search.results"
@@ -463,7 +482,11 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     search_duration_ms = (time.perf_counter() - search_started_at) * 1000
     if isinstance(results, dict) and "error" in results:
         logger.error("Search service returned an internal error", exc_info=False)
-        return JSONResponse(content={"error": "Elasticsearch search failed"}, status_code=500)
+        return _search_error_response(
+            request,
+            code="elasticsearch_search_failed",
+            detail="Elasticsearch search failed.",
+        )
 
     # Step 2: Extract resource IDs and scores
     result_obj = results if isinstance(results, dict) else {}
@@ -722,7 +745,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     return _attach_search_timing_headers(response, timings)
 
 
-@router.get("/search")
+@router.get("/search", responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def search(
     request: Request,
@@ -826,10 +849,10 @@ async def search(
             total_duration,
             exc_info=True,
         )
-        return JSONResponse(content={"error": "Search request failed"}, status_code=500)
+        return _search_error_response(request, code="search_request_failed")
 
 
-@router.post("/search")
+@router.post("/search", responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def search_post(
     request: Request,
@@ -903,10 +926,10 @@ async def search_post(
         raise
     except Exception:
         logger.error("Search POST request failed", exc_info=True)
-        return JSONResponse(content={"error": "Search request failed"}, status_code=500)
+        return _search_error_response(request, code="search_request_failed")
 
 
-@router.get("/search/facets/{facet_name}")
+@router.get("/search/facets/{facet_name}", responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def get_facet(
     facet_name: str,
@@ -1043,10 +1066,15 @@ async def get_facet(
         return JSONResponse(content={"error": "Invalid facet request"}, status_code=400)
     except Exception:
         logger.error("Error getting facet values", exc_info=True)
-        return JSONResponse(content={"error": "Failed to get facet values"}, status_code=500)
+        return _search_error_response(
+            request,
+            code="facet_values_failed",
+            title="Facet lookup failed",
+            detail="Failed to get facet values.",
+        )
 
 
-@router.get("/suggest")
+@router.get("/suggest", responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SUGGEST_CACHE_TTL)
 async def suggest(
     request: Request,
@@ -1069,4 +1097,9 @@ async def suggest(
         raise
     except Exception:
         logger.error("Error getting suggestions", exc_info=True)
-        return JSONResponse(content={"error": "Failed to get suggestions"}, status_code=500)
+        return _search_error_response(
+            request,
+            code="suggestions_failed",
+            title="Suggestions failed",
+            detail="Failed to get suggestions.",
+        )

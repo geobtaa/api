@@ -32,6 +32,11 @@ except ImportError:
     FastAPIInstrumentor = None  # Optional: requires appsignal/otel stack
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.errors import (
+    RequestIDMiddleware,
+    get_request_id,
+    internal_server_error_response,
+)
 from app.api.ogc import router as ogc_router
 from app.api.v1.endpoints import router as public_router
 from app.elasticsearch import close_elasticsearch, init_elasticsearch
@@ -241,6 +246,9 @@ app.add_middleware(RateLimitMiddleware)
 # Add Cloudflare Turnstile browser gate middleware
 app.add_middleware(TurnstileMiddleware)
 
+# Add request IDs after other middleware so it runs first in the Starlette stack.
+app.add_middleware(RequestIDMiddleware)
+
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
 app.include_router(ogc_router, prefix="/api/v1/ogc")
@@ -292,21 +300,24 @@ async def robots_txt() -> PlainTextResponse:
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler for the application."""
-    logger.error(f"Global exception handler caught: {str(exc)}", exc_info=True)
+    request_id = get_request_id(request)
+    logger.error(
+        "Global exception handler caught request_id=%s path=%s",
+        request_id,
+        request.url.path,
+        exc_info=True,
+    )
 
     if isinstance(exc, HTTPException):
-        return JSONResponse(
+        response = JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail},
         )
+        if request_id:
+            response.headers["X-Request-ID"] = request_id
+        return response
 
-    return JSONResponse(
-        status_code=500,
-        content={
-            "message": "An unexpected error occurred",
-            "error": str(exc),
-        },
-    )
+    return internal_server_error_response(request)
 
 
 # Frontend is now served by React Router v7 in a separate Docker container
