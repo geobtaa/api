@@ -396,7 +396,16 @@ Postfix shape is:
 ```bash
 sudo postconf -e 'inet_interfaces = localhost, 172.18.0.1'
 sudo postconf -e 'mynetworks = 127.0.0.0/8 [::1]/128 172.18.0.0/16'
-sudo systemctl reload postfix
+sudo systemctl restart postfix
+sudo firewall-cmd --zone=docker --add-port=25/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+Verify from inside the running web container that the host relay is reachable:
+
+```bash
+docker exec <web-container-name> bash -lc \
+  'timeout 3 bash -c "cat < /dev/null > /dev/tcp/172.18.0.1/25" && echo ok'
 ```
 
 If the host relay cannot be approved, switch feedback to authenticated SMTP by
