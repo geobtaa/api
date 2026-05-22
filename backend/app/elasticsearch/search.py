@@ -1662,7 +1662,7 @@ async def search_resources(
 
 def get_sort_options(search_criteria):
     """Generate sort options for the response."""
-    base_url = os.getenv("APPLICATION_URL") + "/api/v1/search"
+    base_url = os.getenv("APPLICATION_URL", "http://localhost:8000").rstrip("/") + "/api/v1/search"
     current_params = {"q": search_criteria["query"] or "", "search_field": "all_fields"}
 
     # Add any existing filters to the params

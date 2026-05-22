@@ -490,6 +490,7 @@ describe('fetchMapH3', () => {
 describe('fetchFeaturedResourcePreview', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv('VITE_API_BASE_URL', 'https://example.com/api-proxy');
     Object.defineProperty(window, 'location', {
       value: {
         origin: 'https://example.com',
@@ -497,6 +498,10 @@ describe('fetchFeaturedResourcePreview', () => {
       },
       writable: true,
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('requests the lightweight homepage profile for featured previews', async () => {

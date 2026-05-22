@@ -74,7 +74,7 @@ class TestStaticMapsEndpoint:
             svc.materialize_cached_variant = AsyncMock(return_value=asset_hash)
             svc_cls.return_value = svc
 
-            resp = client.get(f"/static-maps/{resource_id}", allow_redirects=False)
+            resp = client.get(f"/static-maps/{resource_id}", follow_redirects=False)
 
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{asset_hash}"
@@ -100,7 +100,7 @@ class TestStaticMapsEndpoint:
 
             resp = client.get(
                 f"/static-maps/{resource_id}/resource-class-icon",
-                allow_redirects=False,
+                follow_redirects=False,
             )
 
             assert resp.status_code == 302
@@ -223,7 +223,7 @@ class TestStaticMapsEndpoint:
 
             resp = client.get(
                 f"/static-maps/{resource_id}/resource-class-icon",
-                allow_redirects=False,
+                follow_redirects=False,
             )
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{icon_hash}"
@@ -292,7 +292,7 @@ class TestResourceStaticMapEndpoint:
             svc.materialize_cached_variant = AsyncMock(return_value=asset_hash)
             svc_cls.return_value = svc
 
-            resp = client.get("/resources/test-resource-id/static-map", allow_redirects=False)
+            resp = client.get("/resources/test-resource-id/static-map", follow_redirects=False)
 
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{asset_hash}"
@@ -325,7 +325,7 @@ class TestResourceStaticMapEndpoint:
             svc.materialize_cached_variant = AsyncMock(side_effect=[None, "deadbeef" * 8])
             svc_cls.return_value = svc
 
-            resp = client.get("/resources/test-resource-id/static-map", allow_redirects=False)
+            resp = client.get("/resources/test-resource-id/static-map", follow_redirects=False)
 
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/static-map-assets/{'deadbeef' * 8}"
@@ -362,7 +362,7 @@ class TestResourceStaticMapEndpoint:
             svc = create_static_map_service_mock()
             svc_cls.return_value = svc
 
-            resp = client.get("/resources/test-resource-id/static-map", allow_redirects=False)
+            resp = client.get("/resources/test-resource-id/static-map", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == "/api/v1/static-maps/test-resource-id/geometry"
             assert resp.headers["cache-control"] == "no-store"
@@ -386,7 +386,7 @@ class TestResourceStaticMapEndpoint:
             svc = create_static_map_service_mock()
             svc_cls.return_value = svc
 
-            resp = client.get("/resources/test-resource-id/static-map", allow_redirects=False)
+            resp = client.get("/resources/test-resource-id/static-map", follow_redirects=False)
             assert resp.status_code == 302
             assert resp.headers["location"] == "/api/v1/static-maps/test-resource-id/geometry"
             assert resp.headers["cache-control"] == "no-store"
@@ -410,7 +410,7 @@ class TestResourceStaticMapEndpoint:
             svc = create_static_map_service_mock()
             svc_cls.return_value = svc
 
-            resp = client.get("/resources/no-geometry-resource/static-map", allow_redirects=False)
+            resp = client.get("/resources/no-geometry-resource/static-map", follow_redirects=False)
 
             assert resp.status_code == 302
             assert resp.headers["location"] == "/api/v1/static-maps/no-geometry-resource/geometry"
