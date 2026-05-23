@@ -27,6 +27,13 @@ def create_valid_jpeg_image() -> bytes:
     return buffer.getvalue()
 
 
+def error_detail(response):
+    payload = response.json()
+    if "errors" in payload:
+        return payload["errors"][0]["detail"]
+    return payload["detail"]
+
+
 @pytest.fixture
 def app():
     """Create FastAPI app with thumbnails router."""
@@ -203,7 +210,7 @@ class TestThumbnailEndpoints:
             response = client.get(f"/thumbnails/{test_image_hash}")
 
             assert response.status_code == 404
-            assert "Resource not found" in response.json()["detail"]
+            assert "Resource not found" in error_detail(response)
 
     def test_get_thumbnail_missing_hash_returns_404(self, client):
         """Missing immutable asset hashes should let clients fall back by image error."""
@@ -412,7 +419,8 @@ class TestThumbnailEndpoints:
             response = client.get(f"/thumbnails/{test_image_hash}")
 
             assert response.status_code == 500
-            assert "Service error" in response.json()["detail"]
+            assert error_detail(response) == "Failed to retrieve thumbnail"
+            assert "Service error" not in response.text
 
     def test_get_thumbnail_cache_headers(self, client):
         """Test that cached thumbnails have proper caching headers."""
@@ -664,7 +672,8 @@ class TestThumbnailEndpoints:
                 response = client.get(f"/thumbnails/{test_image_hash}")
 
                 assert response.status_code == 500
-                assert error_message in response.json()["detail"]
+                assert error_detail(response) == "Failed to retrieve thumbnail"
+                assert error_message not in response.text
 
     def test_placeholder_thumbnail_accessibility(self, client):
         """Test that placeholder thumbnail is accessible and well-formed."""

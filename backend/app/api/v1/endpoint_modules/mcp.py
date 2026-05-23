@@ -3,19 +3,21 @@ import logging
 from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, Response
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import JSONRPCResponse, MCPInfoResponse
 from app.services.mcp_service import get_mcp_service_info, handle_mcp_message
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/mcp")
+@router.get("/mcp", response_model=MCPInfoResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def mcp_endpoint():
     """Return MCP service information and connection details."""
     return JSONResponse(content=get_mcp_service_info())
 
 
-@router.post("/mcp")
+@router.post("/mcp", response_model=JSONRPCResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def mcp_http_transport(request: Request):
     """Handle JSON-RPC-over-HTTP requests for MCP bridge compatibility."""
     try:

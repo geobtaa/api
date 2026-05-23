@@ -7,6 +7,7 @@ from fastapi.responses import Response
 from PIL import Image
 from sqlalchemy.sql import select
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
 from app.services.cache_service import (
     alias_redirect_cache_control_header,
     cache_control_header,
@@ -18,7 +19,7 @@ from db.models import resources
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(responses=PUBLIC_ERROR_RESPONSES)
 
 ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 
@@ -202,7 +203,7 @@ async def _get_or_generate_map_data(
     raise HTTPException(status_code=400, detail="Unsupported static map variant")
 
 
-@router.get("/static-maps/institutions/{map_id}")
+@router.get("/static-maps/institutions/{map_id}", response_class=Response)
 async def get_institution_static_map(
     map_id: str,
     request: Request,
@@ -233,7 +234,7 @@ async def get_institution_static_map(
             )
     except Exception as e:
         logger.error(f"Error retrieving institution static map {map_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to retrieve static map") from e
 
     if not map_data:
         raise HTTPException(status_code=404, detail="Institution static map not found")
@@ -241,7 +242,7 @@ async def get_institution_static_map(
     return _validated_static_asset_response(map_data, request)
 
 
-@router.get("/static-map-assets/{map_hash}")
+@router.get("/static-map-assets/{map_hash}", response_class=Response)
 async def get_static_map_asset(map_hash: str, request: Request):
     """Serve a hash-addressed immutable static map or icon asset directly from Redis."""
     map_service = StaticMapService()
@@ -257,7 +258,7 @@ async def get_static_map_asset(map_hash: str, request: Request):
     )
 
 
-@router.get("/static-maps/{resource_id}/geometry")
+@router.get("/static-maps/{resource_id}/geometry", response_class=Response)
 async def get_static_map_geometry(resource_id: str, request: Request):
     """Serve or generate the static map with geometry overlay for a resource."""
     map_service = StaticMapService()
@@ -292,12 +293,12 @@ async def get_static_map_geometry(resource_id: str, request: Request):
         raise
     except Exception as e:
         logger.error(f"Error retrieving static map geometry {resource_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to retrieve static map") from e
 
     return _validated_static_asset_response(map_data, request)
 
 
-@router.get("/static-maps/{resource_id}/resource-class-icon")
+@router.get("/static-maps/{resource_id}/resource-class-icon", response_class=Response)
 async def get_static_map_resource_class_icon(resource_id: str):
     """Serve the resource-class icon over the basemap background."""
     redirect = await _get_asset_redirect(
@@ -359,10 +360,10 @@ async def get_static_map_resource_class_icon(resource_id: str):
         raise
     except Exception as e:
         logger.error(f"Error retrieving static map icon asset {resource_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to retrieve static map") from e
 
 
-@router.get("/static-maps/{resource_id}")
+@router.get("/static-maps/{resource_id}", response_class=Response)
 async def get_static_map(resource_id: str, request: Request):
     """Serve or generate the basemap-only static map asset for a resource."""
     map_service = StaticMapService()
@@ -397,6 +398,6 @@ async def get_static_map(resource_id: str, request: Request):
         raise
     except Exception as e:
         logger.error(f"Error retrieving basemap static map {resource_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to retrieve static map") from e
 
     return _validated_static_asset_response(map_data, request)

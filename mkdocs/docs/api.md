@@ -199,15 +199,29 @@ curl -X POST \
 
 ## Error Codes
 
+Errors are returned as JSON with an `errors` array. Each error includes `status`, `code`, `title`, optional safe `detail`, and a `request_id` that also appears in the `X-Request-ID` response header.
+
 | Code | Description |
 |------|-------------|
 | 400  | Bad Request - Invalid syntax |
 | 404  | Not Found - Resource doesn't exist |
 | 406  | Not Acceptable - Unsupported format |
+| 422  | Validation Error - Invalid parameter value |
+| 502  | Upstream Service Failed |
+| 503  | Service Unavailable |
 | 500  | Internal Server Error |
+
+## Response Contracts
+
+The OpenAPI document at `/api/openapi.json` declares named response schemas for
+the public v1 API surface, including search, suggest, resources, resource
+subroutes, OGC API Records, home/blog posts, map/H3 aggregation, OGM status, and
+MCP metadata. JSON:API resource envelopes are stable; resource attributes and
+metadata blocks remain extensible so Aardvark and B1G fields can evolve without
+requiring a schema update for every metadata key.
 
 ## Rate Limits
 
 - **Anonymous**: 100 requests/hour
 - **Authenticated**: 1000 requests/hour
-- **API Key**: 10000 requests/hour 
+- **API Key**: 10000 requests/hour

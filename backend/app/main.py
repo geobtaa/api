@@ -10,6 +10,7 @@ except ImportError:
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.openapi.docs import (
@@ -35,7 +36,9 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.api.errors import (
     RequestIDMiddleware,
     get_request_id,
+    http_exception_handler,
     internal_server_error_response,
+    validation_exception_handler,
 )
 from app.api.ogc import router as ogc_router
 from app.api.v1.endpoints import router as public_router
@@ -252,6 +255,9 @@ app.add_middleware(RequestIDMiddleware)
 # Include routers
 app.include_router(public_router, prefix="/api/v1")
 app.include_router(ogc_router, prefix="/api/v1/ogc")
+
+app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
 
 @app.get("/api/v1", include_in_schema=False)

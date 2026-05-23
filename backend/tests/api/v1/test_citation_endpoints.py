@@ -10,6 +10,11 @@ from app.main import app
 client = TestClient(app)
 
 
+def assert_public_error(data, *, status: int, code: str):
+    assert data["errors"][0]["status"] == status
+    assert data["errors"][0]["code"] == code
+
+
 @pytest.mark.unit
 def test_citation_endpoint_paths_exist():
     """Test that citation endpoints are registered."""
@@ -26,7 +31,7 @@ def test_citation_endpoint_returns_404_for_nonexistent():
     assert response.status_code in [404, 500]
     if response.status_code == 404:
         data = response.json()
-        assert "error" in data or "detail" in data
+        assert_public_error(data, status=404, code="not_found")
 
 
 @pytest.mark.unit

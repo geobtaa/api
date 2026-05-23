@@ -1,10 +1,10 @@
 from typing import Optional
 
 from fastapi import HTTPException, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.sql import select
 
+from app.api.schemas import ResourceDistributionsResponse
 from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.cache_service import cached_endpoint
 from db.models import resources
@@ -12,7 +12,7 @@ from db.models import resources
 from . import RESOURCE_CACHE_TTL, async_session, logger, router
 
 
-@router.get("/resources/{id}/distributions")
+@router.get("/resources/{id}/distributions", response_model=ResourceDistributionsResponse)
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource_distributions(
     request: Request,
@@ -28,7 +28,7 @@ async def get_resource_distributions(
             resource_row = resource_result.fetchone()
 
             if not resource_row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             # Get distributions with distribution type information
             distributions_query = text("""
@@ -68,6 +68,8 @@ async def get_resource_distributions(
 
             return create_response(response_payload, callback)
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting distributions for resource %s", id, exc_info=True)
         raise HTTPException(status_code=500, detail="Failed to get distributions") from e

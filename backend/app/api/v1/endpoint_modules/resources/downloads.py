@@ -5,6 +5,7 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.sql import select
 
+from app.api.schemas import GeneratedDownloadResponse, ResourceDownloadsResponse
 from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.download_service import DownloadService
@@ -13,7 +14,7 @@ from db.models import resources
 from . import async_session, logger, router
 
 
-@router.get("/resources/{id}/downloads")
+@router.get("/resources/{id}/downloads", response_model=ResourceDownloadsResponse)
 async def get_resource_downloads(
     request: Request,
     id: str,
@@ -28,7 +29,7 @@ async def get_resource_downloads(
             row = result.fetchone()
 
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             resource_dict = sanitize_for_json(dict(row._mapping))
 
@@ -43,12 +44,17 @@ async def get_resource_downloads(
         }
 
         return create_response(response_payload, callback)
+    except HTTPException:
+        raise
     except Exception:
         logger.error("Error getting downloads for resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get downloads"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get downloads") from None
 
 
-@router.get("/resources/{id}/downloads/generated/{download_type}")
+@router.get(
+    "/resources/{id}/downloads/generated/{download_type}",
+    response_model=GeneratedDownloadResponse,
+)
 async def prepare_generated_download(id: str, download_type: str):
     """Prepare a generated download and return its API file URL."""
     try:
@@ -57,7 +63,7 @@ async def prepare_generated_download(id: str, download_type: str):
             result = await session.execute(query)
             row = result.fetchone()
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
             resource_dict = sanitize_for_json(dict(row._mapping))
 
         distribution_context = await fetch_distribution_context(id)
@@ -65,7 +71,7 @@ async def prepare_generated_download(id: str, download_type: str):
         payload = await download_service.ensure_generated_download(download_type)
         return JSONResponse(content=payload)
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid generated download request") from exc
     except requests.HTTPError as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", 502)
         raise HTTPException(
@@ -82,7 +88,7 @@ async def prepare_generated_download(id: str, download_type: str):
         raise HTTPException(status_code=500, detail="Failed to prepare generated download") from exc
 
 
-@router.get("/resources/{id}/downloads/generated/{download_type}/file")
+@router.get("/resources/{id}/downloads/generated/{download_type}/file", response_class=FileResponse)
 async def fetch_generated_download_file(id: str, download_type: str):
     """
     Return the generated file. If it does not exist yet, generate it first.
@@ -93,7 +99,7 @@ async def fetch_generated_download_file(id: str, download_type: str):
             result = await session.execute(query)
             row = result.fetchone()
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
             resource_dict = sanitize_for_json(dict(row._mapping))
 
         distribution_context = await fetch_distribution_context(id)
@@ -112,7 +118,7 @@ async def fetch_generated_download_file(id: str, download_type: str):
             filename=file_name,
         )
     except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+        raise HTTPException(status_code=400, detail="Invalid generated download request") from exc
     except requests.HTTPError as exc:
         status_code = getattr(getattr(exc, "response", None), "status_code", 502)
         raise HTTPException(

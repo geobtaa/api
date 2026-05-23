@@ -32,7 +32,7 @@ def _svg_placeholder(*, title: str, subtitle: str) -> Response:
     )
 
 
-@router.get("/resources/{id}/static-map")
+@router.get("/resources/{id}/static-map", response_class=Response)
 async def get_resource_static_map(
     id: str,
     request: Request,
@@ -110,7 +110,7 @@ async def get_resource_static_map(
         )
 
 
-@router.get("/resources/{id}/static-map/no-cache")
+@router.get("/resources/{id}/static-map/no-cache", response_class=Response)
 async def get_resource_static_map_no_cache(
     id: str,
     request: Request,

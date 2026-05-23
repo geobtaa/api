@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from app.api.errors import COMMON_ERROR_RESPONSES, api_error_response, get_request_id
+from app.api.schemas import FacetResponse, SearchResponse, SuggestResponse
 from app.api.v1.advanced_search_utils import validate_adv_q
 from app.api.v1.strong_params import FACET_ALLOWED_PARAMS
 from app.api.v1.utils import (
@@ -745,7 +746,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     return _attach_search_timing_headers(response, timings)
 
 
-@router.get("/search", responses=COMMON_ERROR_RESPONSES)
+@router.get("/search", response_model=SearchResponse, responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def search(
     request: Request,
@@ -790,9 +791,12 @@ async def search(
             try:
                 parsed_adv_q = json.loads(adv_q)
             except json.JSONDecodeError:
-                return JSONResponse(
-                    content={"error": "Invalid JSON in adv_q parameter"},
+                return api_error_response(
                     status_code=400,
+                    code="invalid_advanced_query",
+                    title="Bad request",
+                    detail="Invalid JSON in adv_q parameter",
+                    request_id=get_request_id(request),
                 )
 
         # Get the raw query string from the request scope before FastAPI parses it
@@ -852,7 +856,7 @@ async def search(
         return _search_error_response(request, code="search_request_failed")
 
 
-@router.post("/search", responses=COMMON_ERROR_RESPONSES)
+@router.post("/search", response_model=SearchResponse, responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def search_post(
     request: Request,
@@ -929,7 +933,11 @@ async def search_post(
         return _search_error_response(request, code="search_request_failed")
 
 
-@router.get("/search/facets/{facet_name}", responses=COMMON_ERROR_RESPONSES)
+@router.get(
+    "/search/facets/{facet_name}",
+    response_model=FacetResponse,
+    responses=COMMON_ERROR_RESPONSES,
+)
 @cached_endpoint(ttl=SEARCH_CACHE_TTL)
 async def get_facet(
     facet_name: str,
@@ -963,18 +971,23 @@ async def get_facet(
         try:
             get_facet_aggregation_config(facet_name)
         except ValueError:
-            return JSONResponse(
-                content={"error": f"Invalid facet name: {facet_name}"}, status_code=400
+            return api_error_response(
+                status_code=400,
+                code="invalid_facet",
+                title="Bad request",
+                detail=f"Invalid facet name: {facet_name}",
+                request_id=get_request_id(request),
             )
 
         # Validate sort parameter
         valid_sorts = {"count_desc", "count_asc", "alpha_asc", "alpha_desc"}
         if sort not in valid_sorts:
-            return JSONResponse(
-                content={
-                    "error": f"Invalid sort parameter. Must be one of: {', '.join(valid_sorts)}"
-                },
+            return api_error_response(
                 status_code=400,
+                code="invalid_sort",
+                title="Bad request",
+                detail=(f"Invalid sort parameter. Must be one of: {', '.join(valid_sorts)}"),
+                request_id=get_request_id(request),
             )
 
         # Parse adv_q from JSON string if provided
@@ -983,9 +996,12 @@ async def get_facet(
             try:
                 parsed_adv_q = json.loads(adv_q)
             except json.JSONDecodeError:
-                return JSONResponse(
-                    content={"error": "Invalid JSON in adv_q parameter"},
+                return api_error_response(
                     status_code=400,
+                    code="invalid_advanced_query",
+                    title="Bad request",
+                    detail="Invalid JSON in adv_q parameter",
+                    request_id=get_request_id(request),
                 )
 
         # Extract filters from query parameters (similar to search endpoint)
@@ -1063,7 +1079,13 @@ async def get_facet(
     except HTTPException:
         raise
     except ValueError:
-        return JSONResponse(content={"error": "Invalid facet request"}, status_code=400)
+        return api_error_response(
+            status_code=400,
+            code="invalid_facet_request",
+            title="Bad request",
+            detail="Invalid facet request",
+            request_id=get_request_id(request),
+        )
     except Exception:
         logger.error("Error getting facet values", exc_info=True)
         return _search_error_response(
@@ -1074,7 +1096,7 @@ async def get_facet(
         )
 
 
-@router.get("/suggest", responses=COMMON_ERROR_RESPONSES)
+@router.get("/suggest", response_model=SuggestResponse, responses=COMMON_ERROR_RESPONSES)
 @cached_endpoint(ttl=SUGGEST_CACHE_TTL)
 async def suggest(
     request: Request,

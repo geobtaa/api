@@ -12,6 +12,18 @@ from app.services.relationship_service import RelationshipService
 client = TestClient(app)
 
 
+def assert_public_error(data, *, status: int, code: str, detail: str | None = None):
+    assert "errors" in data
+    assert len(data["errors"]) == 1
+
+    error = data["errors"][0]
+    assert error["status"] == status
+    assert error["code"] == code
+    assert "request_id" in error
+    if detail is not None:
+        assert error["detail"] == detail
+
+
 @pytest.mark.unit
 def test_relationship_service_initialization():
     """Test that RelationshipService can be initialized."""
@@ -123,12 +135,12 @@ def test_ogm_endpoint_404_handling():
     assert response.status_code == 404
 
     data = response.json()
-    # The endpoint may return {"error": "..."}, {"message": "..."}, or {"detail": "..."} format
-    assert "error" in data or "message" in data or "detail" in data
-    if "error" in data:
-        assert data["error"] == "Resource not found"
-    elif "detail" in data:
-        assert data["detail"] == "Resource not found"
+    assert_public_error(
+        data,
+        status=404,
+        code="not_found",
+        detail="Resource not found",
+    )
 
 
 def test_viewer_endpoint_404_handling():
@@ -142,12 +154,21 @@ def test_viewer_endpoint_404_handling():
 
     if response.status_code == 404:
         data = response.json()
-        assert "detail" in data
-        assert data["detail"] == "Resource not found"
+        assert_public_error(
+            data,
+            status=404,
+            code="not_found",
+            detail="Resource not found",
+        )
     elif response.status_code == 500:
         # Database connection issues are acceptable in test environment
         data = response.json()
-        assert "error" in data
+        assert_public_error(
+            data,
+            status=500,
+            code="internal_server_error",
+            detail="An unexpected error occurred.",
+        )
 
 
 def test_ogm_endpoint_success_response():
@@ -761,8 +782,12 @@ class TestResourceEndpointsEnhanced:
 
         assert response.status_code == 404
         data = response.json()
-        assert "error" in data
-        assert data["error"] == "Resource not found"
+        assert_public_error(
+            data,
+            status=404,
+            code="not_found",
+            detail="Resource not found",
+        )
 
     @patch("app.services.link_service.LinkService.get_resource_links")
     def test_get_resource_links_success(self, mock_get_links):

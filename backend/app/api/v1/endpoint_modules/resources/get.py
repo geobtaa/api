@@ -4,6 +4,7 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
+from app.api.schemas import ResourceResponse
 from app.api.v1.utils import (
     add_licensed_accesses_to_resource,
     add_similar_items_to_resource,
@@ -19,7 +20,7 @@ from db.models import resources
 from . import RESOURCE_CACHE_TTL, filter_resource_fields, get_async_session, logger, router
 
 
-@router.get("/resources/{id}")
+@router.get("/resources/{id}", response_model=ResourceResponse)
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource(
     request: Request,
@@ -42,7 +43,7 @@ async def get_resource(
             row = result.fetchone()
 
         if not row:
-            return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+            raise HTTPException(status_code=404, detail="Resource not found")
 
         # Convert to dict and sanitize for JSON serialization after releasing the row
         # fetch connection. Resource rendering performs its own short DB lookups.
@@ -94,4 +95,4 @@ async def get_resource(
         raise
     except Exception:
         logger.error("Error getting resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get resource"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get resource") from None

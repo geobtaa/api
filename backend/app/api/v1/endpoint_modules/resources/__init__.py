@@ -5,6 +5,7 @@ from typing import Optional
 from dotenv import load_dotenv
 from fastapi import APIRouter
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
 from db.session import async_engine as engine
 from db.session import async_session
 
@@ -12,7 +13,7 @@ from db.session import async_session
 load_dotenv()
 
 # Create router
-router = APIRouter()
+router = APIRouter(responses=PUBLIC_ERROR_RESPONSES)
 
 # Logger
 logger = logging.getLogger(__name__)

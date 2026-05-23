@@ -2,6 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Query, Request
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import HomeBlogPostsResponse
 from app.api.v1.utils import create_response
 from app.services.cache_service import cached_endpoint
 from app.services.gin_blog_service import GINBlogService
@@ -23,7 +25,11 @@ def _empty_home_blog_payload() -> dict:
     }
 
 
-@router.get("/home/blog-posts")
+@router.get(
+    "/home/blog-posts",
+    response_model=HomeBlogPostsResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 @cached_endpoint(ttl=HOME_BLOG_CACHE_TTL, tags=["home", "home_blog"])
 async def list_home_blog_posts(
     request: Request,

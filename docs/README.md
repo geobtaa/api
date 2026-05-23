@@ -167,6 +167,22 @@ Public-facing endpoint and parameter details should be kept in
 `mkdocs/docs/specification/endpoints.md` and
 `mkdocs/docs/specification/parameters.md`.
 
+Public OpenAPI routes must declare named Pydantic success response models and
+shared JSON error responses. JSON:API resource envelopes, search/facet
+pagination metadata, home/blog payloads, OGM status payloads, OGC facade
+payloads, MCP metadata, map/H3 payloads, and resource subroute wrappers are
+stable contract shapes. JSON:API resource `attributes`, selected `meta` blocks,
+metadata field blocks, and relationship/link payload details remain
+intentionally extensible so OGM/Aardvark fields and B1G enrichments can evolve
+without over-modeling every metadata key.
+
+Public errors use the `{"errors": [...]}` envelope documented in the MkDocs
+API specification. The API returns `X-Request-ID` on normal and error
+responses; callers may provide that header or let the server generate it. Public
+5xx bodies must use safe generic details and must not expose raw exception text,
+Elasticsearch query internals, database connection strings, SQL, or upstream
+stack details.
+
 ## Makefile Command Families
 
 Run Makefile targets from the repository root.

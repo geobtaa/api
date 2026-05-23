@@ -3,14 +3,16 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import APIRootResponse
 from app.api.v1.utils import create_jsonapi_response
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(responses=PUBLIC_ERROR_RESPONSES)
 
 
-@router.get("/")
+@router.get("/", response_model=APIRootResponse)
 async def api_root(request: Request):
     """Return basic API information including version."""
     api_info = {
