@@ -33,6 +33,7 @@ import {
   scheduleAnalyticsBatch,
   serializeSearchParams,
 } from '../services/analytics';
+import { buildSearchPageTitle } from '../utils/searchPageTitle';
 
 // Stable search identity for analytics. Page and per_page are excluded so a
 // paged result set remains part of the same search session.
@@ -83,6 +84,7 @@ function SearchContent({
   const viewParam = searchParams.get('view');
   const currentView = isViewMode(viewParam) ? viewParam : DEFAULT_VIEW;
   const normalizedQuery = query || '';
+  const searchPageTitle = buildSearchPageTitle(searchParams);
   const currentSearchParamsKey = searchParams.toString();
   const currentContext = getSearchContext(searchParams);
   const hasAnySearchCriteria =
@@ -536,7 +538,7 @@ function SearchContent({
   return (
     <div className="min-h-screen flex flex-col">
       <Seo
-        title={query ? `Search: ${query}` : 'Search Results'}
+        title={searchPageTitle}
         description="Search existing resources in the Big Ten Academic Alliance Geoportal."
       />
       <Header />
