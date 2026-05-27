@@ -6,6 +6,7 @@ import { useApi } from '../../src/context/ApiContext';
 import { getThemeConfigFromRequest } from '../lib/theme.server';
 import { buildSeoMeta } from '../../src/config/seo';
 import { SEARCH_RESULTS_PER_PAGE } from '../../src/constants/search';
+import { buildSearchPageTitleFromUrl } from '../../src/utils/searchPageTitle';
 
 /**
  * Loader function for the search page shell.
@@ -73,7 +74,11 @@ export async function loader({ request }: LoaderFunctionArgs) {
 
 export const meta: MetaFunction<typeof loader> = ({ data }) =>
   buildSeoMeta({
-    title: data?.query ? `Search: ${data.query}` : 'Search Results',
+    title: data?.currentUrl
+      ? buildSearchPageTitleFromUrl(data.currentUrl)
+      : data?.query
+        ? `Search: ${data.query}`
+        : 'Search Results',
     description:
       'Search existing resources in the Big Ten Academic Alliance Geoportal.',
     url: data?.currentUrl,

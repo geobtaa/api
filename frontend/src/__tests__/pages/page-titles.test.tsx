@@ -141,6 +141,68 @@ describe('Page titles', () => {
     });
   });
 
+  it('SearchPage title lists facet constraints when q is empty', async () => {
+    const routes = [
+      {
+        path: '/search',
+        element: (
+          <HelmetProvider>
+            <ApiProvider>
+              <DebugProvider>
+                <MapProvider>
+                  <SearchPage />
+                </MapProvider>
+              </DebugProvider>
+            </ApiProvider>
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: [
+        '/search?include_filters[dct_spatial_sm][]=Wisconsin&include_filters[gbl_resourceClass_sm][]=Maps&include_filters[gbl_resourceType_sm][]=Topographic+maps&q=',
+      ],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(document.title).toBe(
+        'Place: Wisconsin / Resource Class: Maps / Resource Type: Topographic maps - Big Ten Academic Alliance Geoportal'
+      );
+    });
+  });
+
+  it('SearchPage title lists a legacy bounding box when q is missing', async () => {
+    const routes = [
+      {
+        path: '/search',
+        element: (
+          <HelmetProvider>
+            <ApiProvider>
+              <DebugProvider>
+                <MapProvider>
+                  <SearchPage />
+                </MapProvider>
+              </DebugProvider>
+            </ApiProvider>
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: [
+        '/search?bbox=-87.1418%2028.265814%20-50.799027%2060.34877',
+      ],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(document.title).toBe(
+        'Bounding Box: -87.1418 28.265814 -50.799027 60.34877 - Big Ten Academic Alliance Geoportal'
+      );
+    });
+  });
+
   it('ResourceView has a title', async () => {
     const routes = [
       {
