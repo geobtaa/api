@@ -269,11 +269,10 @@ async def refresh_cache_for_changed_resources(
     if not ENDPOINT_CACHE or not _env_bool("BRIDGE_CACHE_REFRESH_ENABLED", True):
         return {"enabled": False, "resource_ids": 0, "invalidated": 0, "warmed": 0, "errors": 0}
 
-    max_resource_ids = _env_int("BRIDGE_CACHE_REFRESH_MAX_RESOURCE_IDS", 5000)
     max_warm_urls = _env_int("BRIDGE_CACHE_REWARM_MAX_URLS", 2500)
     request_timeout = float(os.getenv("BRIDGE_CACHE_REWARM_TIMEOUT_SECONDS", "20"))
 
-    changed_ids = _dedupe_preserve_order(resource_ids)[:max_resource_ids]
+    changed_ids = _dedupe_preserve_order(resource_ids)
     if not changed_ids:
         return {"enabled": True, "resource_ids": 0, "invalidated": 0, "warmed": 0, "errors": 0}
 

@@ -12,6 +12,7 @@ from db.database import database
 from db.models import resources
 
 logger = logging.getLogger(__name__)
+RESOURCE_FETCH_BATCH_SIZE = 1000
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -19,17 +20,6 @@ def _env_bool(name: str, default: bool) -> bool:
     if value is None:
         return default
     return str(value).strip().lower() in {"1", "true", "t", "yes", "y"}
-
-
-def _env_int(name: str, default: int) -> int:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    try:
-        return int(value)
-    except ValueError:
-        logger.warning("Invalid integer for %s=%r; using default=%s", name, value, default)
-        return default
 
 
 def _dedupe_preserve_order(values: Iterable[str]) -> list[str]:
@@ -44,14 +34,18 @@ def _dedupe_preserve_order(values: Iterable[str]) -> list[str]:
     return result
 
 
+def _chunk_list(values: list[str], size: int = RESOURCE_FETCH_BATCH_SIZE) -> Iterable[list[str]]:
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
 async def index_changed_resources(resource_ids: Iterable[str]) -> dict[str, Any]:
     """Targeted Elasticsearch refresh for resources imported by bridge delta sync."""
 
     if not _env_bool("BRIDGE_SEARCH_INDEX_REFRESH_ENABLED", True):
         return {"enabled": False, "resource_ids": 0, "indexed": 0, "errors": 0}
 
-    max_resource_ids = _env_int("BRIDGE_SEARCH_INDEX_MAX_RESOURCE_IDS", 5000)
-    changed_ids = _dedupe_preserve_order(resource_ids)[:max_resource_ids]
+    changed_ids = _dedupe_preserve_order(resource_ids)
     if not changed_ids:
         return {"enabled": True, "resource_ids": 0, "indexed": 0, "errors": 0}
 
@@ -59,8 +53,10 @@ async def index_changed_resources(resource_ids: Iterable[str]) -> dict[str, Any]
         await database.connect()
 
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
-    rows = await database.fetch_all(select(resources).where(resources.c.id.in_(changed_ids)))
-    rows_by_id = {str(row["id"]): dict(row) for row in rows}
+    rows_by_id: dict[str, dict[str, Any]] = {}
+    for batch_ids in _chunk_list(changed_ids):
+        rows = await database.fetch_all(select(resources).where(resources.c.id.in_(batch_ids)))
+        rows_by_id.update({str(row["id"]): dict(row) for row in rows})
 
     indexed = 0
     errors = 0

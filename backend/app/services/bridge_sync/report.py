@@ -254,6 +254,35 @@ def _alert_items(run: dict[str, Any], recent_runs: list[dict[str, Any]]) -> list
                 f"Delta processed only {processed:,} resource{'' if processed == 1 else 's'}; "
                 f"threshold is {minimum:,}."
             )
+    index_stats = (
+        stats.get("search_index_refresh")
+        if isinstance(stats.get("search_index_refresh"), dict)
+        else {}
+    )
+    if index_stats and index_stats.get("enabled") is not False:
+        if index_stats.get("error"):
+            alerts.append(f"Elasticsearch refresh failed: {index_stats.get('error')}.")
+        else:
+            expected_indexed = _coerce_int(
+                stats.get("changed_resources"), _coerce_int(stats.get("processed"))
+            )
+            requested_indexed = _coerce_int(index_stats.get("resource_ids"))
+            indexed = _coerce_int(index_stats.get("indexed"))
+            index_errors = _coerce_int(index_stats.get("errors"))
+            if expected_indexed and requested_indexed and requested_indexed < expected_indexed:
+                alerts.append(
+                    "Elasticsearch refresh received only "
+                    f"{requested_indexed:,} of {expected_indexed:,} changed resource IDs."
+                )
+            if requested_indexed and indexed + index_errors < requested_indexed:
+                alerts.append(
+                    "Elasticsearch refresh finished short: "
+                    f"{indexed:,} indexed and {index_errors:,} errors for "
+                    f"{requested_indexed:,} requested resource IDs."
+                )
+    cache_stats = stats.get("cache_refresh") if isinstance(stats.get("cache_refresh"), dict) else {}
+    if cache_stats and cache_stats.get("enabled") is not False and cache_stats.get("error"):
+        alerts.append(f"Cache refresh failed: {cache_stats.get('error')}.")
     running_runs = [
         r for r in recent_runs if str(r.get("bridge_status") or "").lower() == "running"
     ]

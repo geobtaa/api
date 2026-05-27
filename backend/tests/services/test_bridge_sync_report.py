@@ -72,6 +72,32 @@ def test_build_bridge_sync_report_flags_low_delta(monkeypatch):
     assert "Delta processed only 2 resources" in text
 
 
+def test_build_bridge_sync_report_flags_partial_elasticsearch_refresh():
+    run = _sample_run(processed=8945)
+    run["bridge_stats_json"]["search_index_refresh"] = {
+        "enabled": True,
+        "resource_ids": 5000,
+        "indexed": 5000,
+        "errors": 0,
+    }
+
+    text = build_bridge_sync_report_text(run, recent_runs=[])
+
+    assert "Elasticsearch refresh received only 5,000 of 8,945 changed resource IDs." in text
+
+
+def test_build_bridge_sync_report_flags_cache_refresh_error():
+    run = _sample_run()
+    run["bridge_stats_json"]["cache_refresh"] = {
+        "enabled": True,
+        "error": "No __appsignal__.py file found",
+    }
+
+    text = build_bridge_sync_report_text(run, recent_runs=[])
+
+    assert "Cache refresh failed: No __appsignal__.py file found." in text
+
+
 def test_send_bridge_sync_report_email_skips_when_disabled(monkeypatch):
     monkeypatch.delenv("BRIDGE_SYNC_REPORT_ENABLED", raising=False)
 
