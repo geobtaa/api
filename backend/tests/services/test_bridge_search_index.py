@@ -9,11 +9,13 @@ class FakeDatabase:
     def __init__(self, rows):
         self.is_connected = True
         self.rows = rows
+        self.fetch_calls = 0
 
     async def connect(self):
         self.is_connected = True
 
     async def fetch_all(self, _query):
+        self.fetch_calls += 1
         return self.rows
 
 
@@ -63,6 +65,8 @@ async def test_index_changed_resources_indexes_every_changed_id_even_if_legacy_l
     assert stats == {
         "enabled": True,
         "resource_ids": 3,
+        "batch_size": 1,
+        "batches": 3,
         "indexed": 3,
         "missing": 0,
         "errors": 0,
@@ -72,6 +76,7 @@ async def test_index_changed_resources_indexes_every_changed_id_even_if_legacy_l
         "resource-1",
         "resource-2",
     ]
+    assert fake_database.fetch_calls == 3
     assert fake_es.indices.refreshed == ["btaa_geospatial_api"]
 
 
