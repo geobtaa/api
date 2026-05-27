@@ -1306,11 +1306,14 @@ describe('ResourceView Component', () => {
       await waitFor(() => {
         expect(
           screen.getByRole('heading', {
-            name: 'Restricted raster layer with WMS and metadata',
+            name: /Restricted raster layer with WMS and metadata/,
           })
         ).toBeInTheDocument();
       });
 
+      expect(
+        screen.getByRole('img', { name: 'Restricted access' })
+      ).toBeInTheDocument();
       // Should render Stanford-specific content
       expect(screen.getAllByText('Raster Data')).toHaveLength(2);
       // "Documentation" appears both in the resource UI and in the global footer link;

@@ -67,6 +67,27 @@ describe('GalleryView', () => {
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
   });
 
+  it('shows a restricted access indicator for restricted items', () => {
+    const restrictedResult: GeoDocument = {
+      ...mockResults[0],
+      attributes: {
+        ogm: {
+          ...mockResults[0].attributes.ogm,
+          dct_accessRights_s: 'Restricted',
+        },
+      },
+    };
+
+    renderGallery({
+      results: [restrictedResult],
+      totalResults: 1,
+    });
+
+    expect(
+      screen.getByRole('img', { name: 'Restricted access' })
+    ).toBeInTheDocument();
+  });
+
   it('uses the resource-class static-map fallback when a result has no real thumbnail', () => {
     const { container } = renderGallery({
       results: [mockResults[0]],
