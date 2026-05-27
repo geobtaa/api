@@ -38,6 +38,7 @@ class TestGetFacetAggregationConfig:
             "b1g_localCollectionLabel_sm",
             "dct_accessRights_s",
             "gbl_georeferenced_b",
+            "b1g_georeferenced_allmaps_b",
             "geo_country",
             "geo_region",
             "geo_county",
@@ -74,6 +75,10 @@ class TestGetFacetAggregationConfig:
 
         config = get_facet_aggregation_config("gbl_georeferenced_b")
         assert config["field"] == "gbl_georeferenced_b"
+        assert ".keyword" not in config["field"]
+
+        config = get_facet_aggregation_config("b1g_georeferenced_allmaps_b")
+        assert config["field"] == "b1g_georeferenced_allmaps_b"
         assert ".keyword" not in config["field"]
 
     def test_direct_keyword_field(self):

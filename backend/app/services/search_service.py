@@ -427,6 +427,7 @@ class SearchService:
             "b1g_code_agg": "b1g_code_s",
             "access_rights_agg": "dct_accessRights_s",
             "georeferenced_agg": "gbl_georeferenced_b",
+            "map_overlay_agg": "b1g_georeferenced_allmaps_b",
             # Spatial facet fields
             "geo_country_agg": "geo_country",
             "geo_region_agg": "geo_region",

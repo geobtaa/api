@@ -15,6 +15,7 @@ export const FACET_LABELS: Record<string, string> = {
   dct_subjects_sm: 'Subject',
   dcat_theme_sm: 'Theme',
   gbl_georeferenced_b: 'Georeferenced',
+  b1g_georeferenced_allmaps_b: 'Map Overlay',
   // Relationship / collection filters (Active Filters display)
   dct_isPartOf_sm: 'Is part of',
   pcdm_memberOf_sm: 'Collection records',
@@ -37,6 +38,7 @@ export const FACET_ID_MAP: Record<string, string> = {
   institution_agg: 'schema_provider_s',
   format_agg: 'dct_format_s',
   georeferenced_agg: 'gbl_georeferenced_b',
+  map_overlay_agg: 'b1g_georeferenced_allmaps_b',
 };
 
 export function normalizeFacetId(id: string): string {
@@ -65,6 +67,7 @@ const REVERSE_FACET_ID_MAP: Record<string, string> = {
   dct_subject_sm: 'subject_agg',
   dct_format_s: 'format_agg',
   gbl_georeferenced_b: 'georeferenced_agg',
+  b1g_georeferenced_allmaps_b: 'map_overlay_agg',
 };
 
 export function getLegacyFacetName(fieldName: string): string {

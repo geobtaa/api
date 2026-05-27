@@ -11,4 +11,5 @@ export const CONFIGURED_FACETS = [
   'schema_provider_s',
   'dct_accessRights_s',
   'gbl_georeferenced_b',
+  'b1g_georeferenced_allmaps_b',
 ] as const;

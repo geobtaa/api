@@ -689,6 +689,7 @@ class TestSearchService:
             "fq[b1g_code_s][]=BTAA&"
             "fq[access_rights_agg][]=Public&"
             "fq[georeferenced_agg][]=true&"
+            "fq[map_overlay_agg][]=true&"
             "fq[geo_country_agg][]=USA&"
             "fq[geo_region_agg][]=Midwest&"
             "fq[geo_county_agg][]=Hennepin"
@@ -708,6 +709,7 @@ class TestSearchService:
         assert result["b1g_code_s"] == ["BTAA"]
         assert result["dct_accessRights_s"] == ["Public"]
         assert result["gbl_georeferenced_b"] == ["true"]
+        assert result["b1g_georeferenced_allmaps_b"] == ["true"]
         assert result["geo_country"] == ["USA"]
         assert result["geo_region"] == ["Midwest"]
         assert result["geo_county"] == ["Hennepin"]

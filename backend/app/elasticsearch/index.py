@@ -233,7 +233,11 @@ async def process_resource(resource_dict):
 
     date_fields = {"gbl_mdmodified_dt", "b1g_dateAccessioned_s", "b1g_dateRetired_s"}
     integer_fields = {"gbl_indexYear_im"}
-    boolean_fields = {"gbl_georeferenced_b", "b1g_child_record_b"}
+    boolean_fields = {
+        "gbl_georeferenced_b",
+        "b1g_child_record_b",
+        "b1g_georeferenced_allmaps_b",
+    }
 
     for key, value in resource_dict.items():
         if isinstance(value, (list, tuple)):
@@ -320,6 +324,10 @@ async def process_resource(resource_dict):
         first = summaries[0]
         processed_dict["summary"] = first.get("summary") or None
 
+    processed_dict["b1g_georeferenced_allmaps_b"] = await get_allmaps_overlay_status(
+        processed_dict["id"]
+    )
+
     # Calculate and add time_period facet
     time_period = _calculate_time_period_from_year(processed_dict.get("gbl_indexYear_im"))
     if time_period:
@@ -387,6 +395,25 @@ async def get_resource_summaries(resource_id):
     except Exception as e:
         print(f"Error getting summaries for resource {resource_id}: {str(e)}")
         return []
+
+
+async def get_allmaps_overlay_status(resource_id):
+    """Return whether a resource has an annotated Allmaps overlay."""
+    try:
+        query = """
+            SELECT annotated
+            FROM resource_allmaps
+            WHERE resource_id = :resource_id
+            ORDER BY id DESC
+            LIMIT 1
+        """
+        result = await database.fetch_one(query, {"resource_id": resource_id})
+        if not result:
+            return False
+        return bool(dict(result).get("annotated"))
+    except Exception as e:
+        logger.error(f"Error getting Allmaps status for resource {resource_id}: {str(e)}")
+        return False
 
 
 async def get_spatial_facets(resource_id):

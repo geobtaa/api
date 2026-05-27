@@ -23,6 +23,14 @@ export function getFacetValueDisplayLabel(
       return 'Not georeferenced';
   }
 
+  if (
+    facetId === 'b1g_georeferenced_allmaps_b' ||
+    facetId === 'map_overlay_agg'
+  ) {
+    if (String(value) === 'true' || String(value) === '1') return 'true';
+    if (String(value) === 'false' || String(value) === '0') return 'false';
+  }
+
   if (typeof label === 'string') {
     const trimmed = label.trim();
     // If the label is literally the count, it's not a label.

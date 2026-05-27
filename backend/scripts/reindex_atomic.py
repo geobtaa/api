@@ -11,7 +11,7 @@ Flow:
 
 Performance:
 - Bulk indexing via Elasticsearch `_bulk`
-- Chunk-level prefetch of summaries/spatial facets to avoid N+1 DB queries
+- Chunk-level prefetch of summaries/spatial/Allmaps facets to avoid N+1 DB queries
 - Optional temporary fast index settings during ingest
 """
 
@@ -249,10 +249,28 @@ async def _prefetch_spatial_facets_by_id(ids: list[str]) -> dict[str, dict[str, 
     return {str(row["resource_id"]): _format_spatial_facets_row(dict(row)) for row in rows}
 
 
+async def _prefetch_allmaps_overlay_status_by_id(ids: list[str]) -> dict[str, bool]:
+    if not ids:
+        return {}
+
+    placeholders = ", ".join([f":id{i}" for i, _ in enumerate(ids)])
+    params = {f"id{i}": rid for i, rid in enumerate(ids)}
+    sql = f"""
+        SELECT resource_id, annotated
+        FROM resource_allmaps
+        WHERE resource_id IN ({placeholders})
+        ORDER BY id ASC
+    """
+    rows = await database.fetch_all(sql, params)
+
+    return {str(row["resource_id"]): bool(row["annotated"]) for row in rows}
+
+
 async def _prepare_documents_for_chunk(ids: list[str]) -> list[tuple[str, dict[str, Any]]]:
     rows_by_id = await _db_rows_for_ids(ids)
     summaries_by_id = await _prefetch_summaries_by_id(ids)
     facets_by_id = await _prefetch_spatial_facets_by_id(ids)
+    allmaps_overlay_by_id = await _prefetch_allmaps_overlay_status_by_id(ids)
 
     async def _cached_get_resource_summaries(resource_id: str):
         return summaries_by_id.get(str(resource_id), [])
@@ -260,11 +278,16 @@ async def _prepare_documents_for_chunk(ids: list[str]) -> list[tuple[str, dict[s
     async def _cached_get_spatial_facets(resource_id: str):
         return facets_by_id.get(str(resource_id))
 
+    async def _cached_get_allmaps_overlay_status(resource_id: str):
+        return allmaps_overlay_by_id.get(str(resource_id), False)
+
     original_get_resource_summaries = index_module.get_resource_summaries
     original_get_spatial_facets = index_module.get_spatial_facets
+    original_get_allmaps_overlay_status = index_module.get_allmaps_overlay_status
 
     index_module.get_resource_summaries = _cached_get_resource_summaries
     index_module.get_spatial_facets = _cached_get_spatial_facets
+    index_module.get_allmaps_overlay_status = _cached_get_allmaps_overlay_status
 
     documents: list[tuple[str, dict[str, Any]]] = []
     try:
@@ -278,6 +301,7 @@ async def _prepare_documents_for_chunk(ids: list[str]) -> list[tuple[str, dict[s
     finally:
         index_module.get_resource_summaries = original_get_resource_summaries
         index_module.get_spatial_facets = original_get_spatial_facets
+        index_module.get_allmaps_overlay_status = original_get_allmaps_overlay_status
 
     return documents
 
