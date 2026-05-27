@@ -45,7 +45,7 @@ describe('Home Page', () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/redesigned search experience/i)
+      screen.getByText(/2026 redesign introduces a modern interface/i)
     ).toBeInTheDocument();
     expect(screen.getByText(/new from btaa:/i)).toBeInTheDocument();
     expect(

@@ -26,10 +26,14 @@ describe('HelpPage', () => {
       screen.getByRole('heading', { name: /help/i, level: 1 })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/enter keywords in the search box/i)
+      screen.getByRole('heading', { name: /search the geoportal/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/bookmarks are stored in your browser/i)
+      screen.getByText(/select the gear icon at the end of the search bar/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/map controls allow you to/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/bookmarks stay in your browser/i)
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /contact us/i })).toHaveAttribute(
       'href',
