@@ -131,21 +131,25 @@ export function getSearchTitleConstraints(
   searchParams: URLSearchParams
 ): string[] {
   return [
-    getBoundingBoxConstraint(searchParams),
     getYearRangeConstraint(searchParams),
     ...getFacetConstraints(searchParams),
+    getBoundingBoxConstraint(searchParams),
     ...getAdvancedConstraints(searchParams),
   ].filter((constraint): constraint is string => Boolean(constraint));
 }
 
 export function buildSearchPageTitle(searchParams: URLSearchParams): string {
   const query = cleanTitleValue(searchParams.get('q'));
+  const constraints = getSearchTitleConstraints(searchParams);
+
+  if (query && constraints.length > 0) {
+    return [query, ...constraints].join(' / ');
+  }
 
   if (query) {
     return `Search: ${query}`;
   }
 
-  const constraints = getSearchTitleConstraints(searchParams);
   if (constraints.length > 0) {
     return constraints.join(' / ');
   }

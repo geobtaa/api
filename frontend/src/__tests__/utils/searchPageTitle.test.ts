@@ -11,6 +11,21 @@ describe('searchPageTitle', () => {
     expect(buildSearchPageTitle(params)).toBe('Search: lakes');
   });
 
+  it('keeps keyword queries alongside facet and bounding box constraints', () => {
+    const params = new URLSearchParams();
+    params.set('q', 'parks');
+    params.append('include_filters[gbl_resourceClass_sm][]', 'Maps');
+    params.set('include_filters[geo][type]', 'bbox');
+    params.set('include_filters[geo][top_left][lat]', '42.785329');
+    params.set('include_filters[geo][top_left][lon]', '-88.879677');
+    params.set('include_filters[geo][bottom_right][lat]', '40.607704');
+    params.set('include_filters[geo][bottom_right][lon]', '-86.608254');
+
+    expect(buildSearchPageTitle(params)).toBe(
+      'parks / Resource Class: Maps / Bounding Box: -88.879677 40.607704 -86.608254 42.785329'
+    );
+  });
+
   it('lists current facet constraints when q is missing', () => {
     const params = new URLSearchParams(
       'include_filters[dct_spatial_sm][]=Wisconsin&include_filters[gbl_resourceClass_sm][]=Maps&include_filters[gbl_resourceType_sm][]=Topographic+maps'
