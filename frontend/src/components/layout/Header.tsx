@@ -28,6 +28,7 @@ export function Header() {
   const headerCfg = theme.institution?.header;
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const navPanelRef = useRef<HTMLDivElement>(null);
+  const showResourceClassTabs = location.pathname !== '/search';
 
   // Close mobile nav on route or query change (e.g. clicking Bookmarks, selecting resource type)
   useEffect(() => {
@@ -269,9 +270,11 @@ export function Header() {
           </div>
 
           {/* Resource Class Filter Tabs (row 2) — desktop only */}
-          <div className="hidden xl:block col-span-6 col-start-4 self-end min-w-0">
-            <ResourceClassFilterTabs variant="header" />
-          </div>
+          {showResourceClassTabs && (
+            <div className="hidden xl:block col-span-6 col-start-4 self-end min-w-0">
+              <ResourceClassFilterTabs variant="header" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -325,9 +328,11 @@ export function Header() {
             )
           )}
         </nav>
-        <div className="px-4 py-4 border-t border-white/20">
-          <ResourceClassFilterTabs variant="header" layout="vertical" />
-        </div>
+        {showResourceClassTabs && (
+          <div className="px-4 py-4 border-t border-white/20">
+            <ResourceClassFilterTabs variant="header" layout="vertical" />
+          </div>
+        )}
       </div>
 
       {/* Backdrop when mobile nav open */}
