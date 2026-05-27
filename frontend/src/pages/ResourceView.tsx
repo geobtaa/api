@@ -37,6 +37,8 @@ import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 import { AllmapsOverlayViewer } from '../components/resource/AllmapsOverlayViewer';
 import { AllmapsLinksCard } from '../components/resource/AllmapsLinksCard';
 import { hasAllmapsOverlay } from '../utils/allmaps';
+import { isRestrictedAccessResource } from '../utils/accessRights';
+import { RestrictedAccessIndicator } from '../components/RestrictedAccessIndicator';
 
 // Define types for search results
 interface SearchResult {
@@ -188,9 +190,9 @@ export function ResourceView({
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [isDataDictionaryModalOpen, setIsDataDictionaryModalOpen] =
     useState(false);
-  const [activeViewerTab, setActiveViewerTab] = useState<
-    'item' | 'allmaps'
-  >('item');
+  const [activeViewerTab, setActiveViewerTab] = useState<'item' | 'allmaps'>(
+    'item'
+  );
   const { setLastApiUrl } = useApi();
   const trackedResourceViewRef = useRef<string | null>(null);
 
@@ -529,8 +531,7 @@ export function ResourceView({
     null;
   const showViewerTabs = Boolean(viewerProtocol && hasAllmapsViewer);
   const showItemViewer =
-    Boolean(viewerProtocol) &&
-    (!showViewerTabs || activeViewerTab === 'item');
+    Boolean(viewerProtocol) && (!showViewerTabs || activeViewerTab === 'item');
   const showAllmapsViewer =
     hasAllmapsViewer && (!showViewerTabs || activeViewerTab === 'allmaps');
 
@@ -545,6 +546,7 @@ export function ResourceView({
     : hasStaticMap
       ? `/resources/${data.id}/static-map`
       : undefined;
+  const isRestricted = isRestrictedAccessResource(data);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -630,8 +632,14 @@ export function ResourceView({
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                 {/* Title section */}
                 <div className="lg:col-span-8">
-                  <h1 className="text-3xl font-bold text-gray-900">
-                    {data.attributes.ogm.dct_title_s}
+                  <h1 className="flex items-start gap-2 text-3xl font-bold text-gray-900">
+                    {isRestricted && (
+                      <RestrictedAccessIndicator
+                        className="mt-1 h-7 w-7"
+                        iconClassName="h-4 w-4"
+                      />
+                    )}
+                    <span>{data.attributes.ogm.dct_title_s}</span>
                   </h1>
                   <ResourceSubtitle item={data} />
                   {/* Display notes from OGM Aardvark (gbl_displayNote_sm) */}

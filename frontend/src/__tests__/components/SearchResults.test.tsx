@@ -114,6 +114,7 @@ const mockFixtureData: GeoDocument[] = [
         dc_publisher_sm: ['Stanford University'],
         gbl_resourceClass_sm: ['Raster Data'],
         gbl_indexYear_im: [2021],
+        dct_accessRights_s: 'Restricted',
       },
     },
     meta: {
@@ -266,6 +267,29 @@ describe('SearchResults Component', () => {
       expect(
         screen.getByText('Restricted raster layer with WMS and metadata')
       ).toBeInTheDocument();
+    });
+
+    it('shows a restricted access indicator for restricted results', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={4}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const restrictedTitle = screen.getByText(
+        'Restricted raster layer with WMS and metadata'
+      );
+      const restrictedArticle = restrictedTitle.closest('article');
+
+      expect(restrictedArticle).toContainElement(
+        screen.getByRole('img', { name: 'Restricted access' })
+      );
+      expect(restrictedArticle).toHaveTextContent('4.');
     });
 
     it('displays result numbers correctly', () => {

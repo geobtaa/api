@@ -8,6 +8,8 @@ import { BookmarkButton } from '../BookmarkButton';
 import { useBookmarks } from '../../context/BookmarkContext';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
 import { SEARCH_RESULTS_PER_PAGE } from '../../constants/search';
+import { isRestrictedAccessResource } from '../../utils/accessRights';
+import { RestrictedAccessIndicator } from '../RestrictedAccessIndicator';
 
 interface GalleryViewProps {
   results: GeoDocument[];
@@ -267,6 +269,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
           const imageUrl = getResultPrimaryImageUrl(r, 'gallery');
           const absIndex = getAbsoluteIndex(index);
           const bookmarked = isBookmarked(r.id);
+          const isRestricted = isRestrictedAccessResource(r);
 
           return (
             <div
@@ -330,6 +333,9 @@ export const GalleryView: React.FC<GalleryViewProps> = ({
                     <span className="text-sm text-slate-600 dark:text-slate-400 font-semibold mr-1">
                       {absIndex}.
                     </span>
+                    {isRestricted && (
+                      <RestrictedAccessIndicator className="mr-1 align-[-0.125rem]" />
+                    )}
                     {title}
                   </h3>
                   <div className="mt-auto">

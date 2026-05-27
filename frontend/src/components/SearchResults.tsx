@@ -14,6 +14,8 @@ import { scheduleAnalyticsBatch } from '../services/analytics';
 import { StaticResultMap } from './search/StaticResultMap';
 import { ResultCardPill } from './search/ResultCardPill';
 import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
+import { isRestrictedAccessResource } from '../utils/accessRights';
+import { RestrictedAccessIndicator } from './RestrictedAccessIndicator';
 
 interface SearchResultsProps {
   results: GeoDocument[];
@@ -106,6 +108,7 @@ export function SearchResults({
         const ogm = result?.attributes?.ogm;
         const title = ogm?.dct_title_s ?? '(Untitled)';
         const resourceClass = ogm?.gbl_resourceClass_sm?.[0];
+        const isRestricted = isRestrictedAccessResource(result);
         const description =
           ogm?.dct_description_sm &&
           Array.isArray(ogm.dct_description_sm) &&
@@ -240,6 +243,9 @@ export function SearchResults({
                     <h2
                       className={`${titleClass} font-semibold text-blue-600 hover:text-blue-800`}
                     >
+                      {isRestricted && (
+                        <RestrictedAccessIndicator className="mr-1 align-[-0.125rem]" />
+                      )}
                       {typeof title === 'string' ? title : String(title)}
                     </h2>
                   </Link>

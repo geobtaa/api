@@ -19,6 +19,8 @@ import { FullDetailsTable } from './FullDetailsTable';
 import type { GeoDocumentDetails } from '../../types/api';
 import { formatCount } from '../../utils/formatNumber';
 import { DataDictionariesSection } from './DataDictionariesSection';
+import { isRestrictedAccessResource } from '../../utils/accessRights';
+import { RestrictedAccessIndicator } from '../RestrictedAccessIndicator';
 
 interface SearchState {
   searchResults: Array<{ id: string }>;
@@ -230,6 +232,7 @@ export function ResourceView() {
 
   const viewerProtocol = data?.data?.meta?.ui?.viewer?.protocol;
   const dataDictionaries = data?.data?.attributes?.b1g?.data_dictionaries || [];
+  const isRestricted = isRestrictedAccessResource(data?.data);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -293,8 +296,14 @@ export function ResourceView() {
 
               {/* Title section */}
               <div className="mb-6">
-                <h1 className="text-3xl font-bold text-gray-900">
-                  {data.data.attributes.ogm.dct_title_s}
+                <h1 className="flex items-start gap-2 text-3xl font-bold text-gray-900">
+                  {isRestricted && (
+                    <RestrictedAccessIndicator
+                      className="mt-1 h-7 w-7"
+                      iconClassName="h-4 w-4"
+                    />
+                  )}
+                  <span>{data.data.attributes.ogm.dct_title_s}</span>
                 </h1>
                 <ResourceSubtitle item={data.data} />
               </div>
