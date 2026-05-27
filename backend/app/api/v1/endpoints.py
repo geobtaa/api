@@ -40,7 +40,7 @@ router.include_router(turnstile_router, tags=["turnstile"], include_in_schema=Fa
 router.include_router(mcp_router, tags=["mcp"])
 router.include_router(slack_router, tags=["slack"], include_in_schema=False)
 router.include_router(ogm_router, tags=["ogm"])
-# Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation
+# Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation.
 router.include_router(admin_router, prefix="/admin", tags=["admin"], include_in_schema=False)
 router.include_router(ogm_webhook_router, prefix="/admin", tags=["admin"], include_in_schema=False)
 router.include_router(gazetteer_router, tags=["gazetteers"], include_in_schema=False)

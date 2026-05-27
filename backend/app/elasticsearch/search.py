@@ -2205,7 +2205,10 @@ async def process_search_response(
         logger.error(f"Response body: {response}")
         raise HTTPException(
             status_code=500,
-            detail={"error": str(e), "traceback": error_trace, "response": response},
+            detail={
+                "message": "Failed to process search response",
+                "code": "search_response_processing_failed",
+            },
         ) from e
 
 
@@ -2876,7 +2879,13 @@ async def get_facet_values(
         return buckets
     except Exception as es_error:
         logger.error(f"Elasticsearch error getting facet values: {str(es_error)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(es_error)) from es_error
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Elasticsearch facet lookup failed",
+                "code": "elasticsearch_facet_lookup_failed",
+            },
+        ) from es_error
 
 
 def process_facet_response(

@@ -3,6 +3,17 @@ from typing import Any, Dict, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import (
+    OGCCollectionResponse,
+    OGCCollectionsResponse,
+    OGCConformanceResponse,
+    OGCFeatureCollectionResponse,
+    OGCFeatureResponse,
+    OGCLandingPageResponse,
+    OGCQueryablesResponse,
+    OGCSortablesResponse,
+)
 from app.api.v1.shared import SortOption
 from app.services.ogc_projector import OGCResponseProjector
 from app.services.search_service import SearchService
@@ -57,42 +68,58 @@ def parse_bbox_to_fq(bbox: Optional[str]) -> Optional[Dict]:
     return None
 
 
-@router.get("/")
+@router.get("/", response_model=OGCLandingPageResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def get_landing_page(request: Request) -> Dict[str, Any]:
     url = str(request.url)
     return OGCResponseProjector.build_landing_page(url)
 
 
-@router.get("/conformance")
+@router.get("/conformance", response_model=OGCConformanceResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def get_conformance() -> Dict[str, Any]:
     return OGCResponseProjector.build_conformance()
 
 
-@router.get("/collections")
+@router.get("/collections", response_model=OGCCollectionsResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def get_collections(request: Request) -> Dict[str, Any]:
     url = str(request.url)
     return OGCResponseProjector.build_collections(url)
 
 
-@router.get("/collections/btaa-records")
+@router.get(
+    "/collections/btaa-records",
+    response_model=OGCCollectionResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 async def get_collection(request: Request) -> Dict[str, Any]:
     url = str(request.url)
     return OGCResponseProjector.build_collection(url, "btaa-records")
 
 
-@router.get("/collections/btaa-records/queryables")
+@router.get(
+    "/collections/btaa-records/queryables",
+    response_model=OGCQueryablesResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 async def get_queryables(request: Request) -> Dict[str, Any]:
     url = str(request.url)
     return OGCResponseProjector.build_queryables(url)
 
 
-@router.get("/collections/btaa-records/sortables")
+@router.get(
+    "/collections/btaa-records/sortables",
+    response_model=OGCSortablesResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 async def get_sortables(request: Request) -> Dict[str, Any]:
     url = str(request.url)
     return OGCResponseProjector.build_sortables(url)
 
 
-@router.get("/collections/btaa-records/items")
+@router.get(
+    "/collections/btaa-records/items",
+    response_model=OGCFeatureCollectionResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 async def get_items(
     request: Request,
     q: Optional[str] = Query(None, description="Keyword search query"),
@@ -126,7 +153,11 @@ async def get_items(
     return OGCResponseProjector.build_items_response(url, results, page, limit, "btaa-records")
 
 
-@router.get("/collections/btaa-records/items/{recordId}")
+@router.get(
+    "/collections/btaa-records/items/{recordId}",
+    response_model=OGCFeatureResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 async def get_item(
     request: Request,
     recordId: str,

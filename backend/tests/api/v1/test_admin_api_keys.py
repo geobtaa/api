@@ -16,6 +16,13 @@ os.environ.setdefault("ADMIN_USERNAME", "admin")
 os.environ.setdefault("ADMIN_PASSWORD", "changeme")
 
 
+def error_detail(response):
+    payload = response.json()
+    if "errors" in payload:
+        return payload["errors"][0]["detail"]
+    return payload["detail"]
+
+
 @pytest.fixture
 def admin_client() -> TestClient:
     """Test client using the main FastAPI app with all middleware and routes."""
@@ -152,7 +159,7 @@ class TestAdminAPIKeysLifecycle:
             auth=self.auth,
         )
         assert create_resp.status_code == 400
-        assert "Invalid IP address" in create_resp.json()["detail"]
+        assert "Invalid IP address" in error_detail(create_resp)
 
     def test_update_api_key_ip_whitelist(self, admin_client: TestClient):
         """Test updating an API key's IP whitelist."""

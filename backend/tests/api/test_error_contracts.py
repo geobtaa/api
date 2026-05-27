@@ -2,7 +2,8 @@ import json
 from unittest.mock import AsyncMock
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
@@ -11,10 +12,32 @@ from app.api.errors import (
     REQUEST_ID_HEADER,
     APIErrorResponse,
     RequestIDMiddleware,
+    http_exception_handler,
     internal_server_error_response,
+    validation_exception_handler,
 )
 from app.api.v1.endpoint_modules import search as search_module
 from app.main import app as main_app
+
+API_ERROR_REF = {"$ref": "#/components/schemas/APIErrorResponse"}
+
+
+def _assert_error_payload(
+    payload: dict,
+    *,
+    status: int,
+    code: str,
+    title: str,
+    detail: str | None = None,
+    request_id: str | None = None,
+):
+    assert payload["errors"][0]["status"] == status
+    assert payload["errors"][0]["code"] == code
+    assert payload["errors"][0]["title"] == title
+    if detail is not None:
+        assert payload["errors"][0]["detail"] == detail
+    if request_id is not None:
+        assert payload["errors"][0]["request_id"] == request_id
 
 
 def test_error_response_contract_serializes_request_id():
@@ -74,6 +97,78 @@ def test_unhandled_exceptions_use_public_safe_error_envelope():
     assert "database password secret" not in response.text
 
 
+def test_http_exceptions_use_public_error_envelope():
+    app = FastAPI(responses=COMMON_ERROR_RESPONSES)
+    app.add_middleware(RequestIDMiddleware)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+
+    @app.get("/missing")
+    async def missing():
+        raise HTTPException(status_code=404, detail="Resource not found")
+
+    client = TestClient(app)
+    response = client.get("/missing", headers={REQUEST_ID_HEADER: "req-http"})
+
+    assert response.status_code == 404
+    assert response.headers[REQUEST_ID_HEADER] == "req-http"
+    _assert_error_payload(
+        response.json(),
+        status=404,
+        code="not_found",
+        title="Not found",
+        detail="Resource not found",
+        request_id="req-http",
+    )
+
+
+def test_http_5xx_details_are_sanitized():
+    app = FastAPI(responses=COMMON_ERROR_RESPONSES)
+    app.add_middleware(RequestIDMiddleware)
+    app.add_exception_handler(HTTPException, http_exception_handler)
+
+    @app.get("/upstream")
+    async def upstream():
+        raise HTTPException(status_code=503, detail="postgres://secret@localhost/db")
+
+    client = TestClient(app)
+    response = client.get("/upstream", headers={REQUEST_ID_HEADER: "req-upstream"})
+
+    assert response.status_code == 503
+    _assert_error_payload(
+        response.json(),
+        status=503,
+        code="service_unavailable",
+        title="Service unavailable",
+        detail="The service is temporarily unavailable.",
+        request_id="req-upstream",
+    )
+    assert "postgres://secret" not in response.text
+
+
+def test_validation_errors_use_public_error_envelope():
+    app = FastAPI(responses=COMMON_ERROR_RESPONSES)
+    app.add_middleware(RequestIDMiddleware)
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)
+
+    @app.get("/items")
+    async def items(limit: int = Query(..., ge=1)):
+        return {"limit": limit}
+
+    client = TestClient(app)
+    response = client.get("/items?limit=0", headers={REQUEST_ID_HEADER: "req-validation"})
+
+    assert response.status_code == 422
+    assert response.headers[REQUEST_ID_HEADER] == "req-validation"
+    _assert_error_payload(
+        response.json(),
+        status=422,
+        code="validation_error",
+        title="Validation error",
+        detail="Request validation failed.",
+        request_id="req-validation",
+    )
+
+
 @pytest.mark.unit
 def test_main_app_adds_request_id_header_to_normal_responses():
     client = TestClient(main_app)
@@ -83,16 +178,107 @@ def test_main_app_adds_request_id_header_to_normal_responses():
     assert response.headers[REQUEST_ID_HEADER] == "req-main"
 
 
-def test_openapi_documents_standard_500_error_schema():
+def test_openapi_documents_public_success_and_error_schemas():
     client = TestClient(main_app)
     schema = client.get("/api/openapi.json").json()
 
-    assert "APIErrorResponse" in schema["components"]["schemas"]
-    search_get = schema["paths"]["/api/v1/search"]["get"]
-    assert search_get["responses"]["500"]["description"] == "Internal server error"
-    assert search_get["responses"]["500"]["content"]["application/json"]["schema"] == {
-        "$ref": "#/components/schemas/APIErrorResponse"
+    component_names = schema["components"]["schemas"]
+    for component in (
+        "APIErrorResponse",
+        "APIRootResponse",
+        "SearchResponse",
+        "SuggestResponse",
+        "FacetResponse",
+        "ResourceResponse",
+        "ResourceCollectionResponse",
+        "ResourceCitationResponse",
+        "ResourceDownloadsResponse",
+        "DataDictionaryListResponse",
+        "HomeBlogPostsResponse",
+        "MapH3Response",
+        "OGCCollectionsResponse",
+        "OGCFeatureCollectionResponse",
+        "OGMRepoSummariesResponse",
+        "MCPInfoResponse",
+    ):
+        assert component in component_names
+
+    for hidden_prefix in (
+        "/api/v1/admin",
+        "/api/v1/gazetteers",
+        "/api/v1/feedback",
+        "/api/v1/slack",
+        "/api/v1/turnstile",
+        "/api/v1/shapefiles",
+    ):
+        assert all(not path.startswith(hidden_prefix) for path in schema["paths"])
+
+    expected_success_schemas = {
+        ("/api/v1/", "get"): "#/components/schemas/APIRootResponse",
+        ("/api/v1/search", "get"): "#/components/schemas/SearchResponse",
+        ("/api/v1/search", "post"): "#/components/schemas/SearchResponse",
+        ("/api/v1/search/facets/{facet_name}", "get"): "#/components/schemas/FacetResponse",
+        ("/api/v1/suggest", "get"): "#/components/schemas/SuggestResponse",
+        ("/api/v1/resources/", "get"): "#/components/schemas/ResourceCollectionResponse",
+        ("/api/v1/resources/{id}", "get"): "#/components/schemas/ResourceResponse",
+        (
+            "/api/v1/resources/{id}/citation",
+            "get",
+        ): "#/components/schemas/ResourceCitationResponse",
+        (
+            "/api/v1/resources/{id}/citation/json-ld",
+            "get",
+        ): "#/components/schemas/SchemaOrgCitationResponse",
+        (
+            "/api/v1/resources/{id}/downloads",
+            "get",
+        ): "#/components/schemas/ResourceDownloadsResponse",
+        (
+            "/api/v1/resources/{id}/downloads/generated/{download_type}",
+            "get",
+        ): "#/components/schemas/GeneratedDownloadResponse",
+        (
+            "/api/v1/resources/{id}/data-dictionaries",
+            "get",
+        ): "#/components/schemas/DataDictionaryListResponse",
+        ("/api/v1/home/blog-posts", "get"): "#/components/schemas/HomeBlogPostsResponse",
+        ("/api/v1/map/h3", "get"): "#/components/schemas/MapH3Response",
+        ("/api/v1/ogc/collections", "get"): "#/components/schemas/OGCCollectionsResponse",
+        (
+            "/api/v1/ogc/collections/btaa-records/items",
+            "get",
+        ): "#/components/schemas/OGCFeatureCollectionResponse",
+        ("/api/v1/ogm/repos", "get"): "#/components/schemas/OGMRepoSummariesResponse",
+        ("/api/v1/mcp", "get"): "#/components/schemas/MCPInfoResponse",
     }
+    for (path, method), ref in expected_success_schemas.items():
+        assert schema["paths"][path][method]["responses"]["200"]["content"]["application/json"][
+            "schema"
+        ] == {"$ref": ref}
+
+    for path, operations in schema["paths"].items():
+        if not path.startswith("/api/v1"):
+            continue
+        for method, operation in operations.items():
+            if method not in {"get", "post"}:
+                continue
+
+            responses = operation["responses"]
+            for status_code in ("400", "422", "500"):
+                assert (
+                    responses[status_code]["content"]["application/json"]["schema"] == API_ERROR_REF
+                )
+
+            success_content = responses.get("200", {}).get("content", {})
+            success_json = success_content.get("application/json")
+            if success_json is not None:
+                assert success_json.get("schema")
+                assert success_json["schema"] != {}
+                assert success_json["schema"] not in (
+                    {"$ref": "#/components/schemas/GenericObjectResponse"},
+                    {"$ref": "#/components/schemas/GenericArrayResponse"},
+                    {"$ref": "#/components/schemas/JSONAPIResponse"},
+                )
 
 
 def _build_request(query_string: bytes = b"q=test") -> Request:

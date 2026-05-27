@@ -1,15 +1,15 @@
 from typing import Optional
 
-from fastapi import Query
-from fastapi.responses import JSONResponse
+from fastapi import HTTPException, Query
 
+from app.api.schemas import ResourceLinksResponse
 from app.api.v1.utils import create_response
 from app.services.link_service import LinkService
 
 from . import logger, router
 
 
-@router.get("/resources/{id}/links")
+@router.get("/resources/{id}/links", response_model=ResourceLinksResponse)
 async def get_resource_links(
     id: str,
     callback: Optional[str] = Query(None, description="JSONP callback name"),
@@ -26,4 +26,4 @@ async def get_resource_links(
         return create_response(response_payload, callback)
     except Exception:
         logger.error("Error getting links for resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get links"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get links") from None

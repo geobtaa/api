@@ -5,6 +5,8 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import MapH3Response
 from app.api.v1.advanced_search_utils import validate_adv_q
 from app.elasticsearch.search import map_h3_aggregation
 from app.services.cache_service import cached_endpoint
@@ -18,7 +20,7 @@ router = APIRouter()
 MAP_H3_CACHE_TTL = 7200  # 2 hours
 
 
-@router.get("/map/h3")
+@router.get("/map/h3", response_model=MapH3Response, responses=PUBLIC_ERROR_RESPONSES)
 @cached_endpoint(ttl=MAP_H3_CACHE_TTL, tags=["map"])
 async def map_h3(
     request: Request,
@@ -46,12 +48,9 @@ async def map_h3(
         try:
             parsed_adv_q = validate_adv_q(json.loads(adv_q))
         except json.JSONDecodeError:
-            return JSONResponse(
-                content={"error": "Invalid JSON in adv_q parameter"},
-                status_code=400,
-            )
-        except HTTPException as exc:
-            return JSONResponse(content={"error": exc.detail}, status_code=exc.status_code)
+            raise HTTPException(status_code=400, detail="Invalid JSON in adv_q parameter") from None
+        except HTTPException:
+            raise
 
     try:
         raw = (
@@ -77,7 +76,4 @@ async def map_h3(
     except Exception as e:
         logger.exception("map/h3 failed: %s", e)
         # Return 5xx so cached_endpoint does not cache error responses
-        return JSONResponse(
-            content={"resolution": resolution, "hexes": [], "globalCount": 0},
-            status_code=500,
-        )
+        raise HTTPException(status_code=500, detail="Failed to build map aggregates") from e

@@ -4,6 +4,7 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
+from app.api.schemas import ResourceCollectionResponse
 from app.api.v1.utils import create_jsonapi_response, process_resource, sanitize_for_json
 from app.services.cache_service import cached_endpoint
 from db.models import resources
@@ -11,7 +12,7 @@ from db.models import resources
 from . import LIST_CACHE_TTL, filter_resource_fields, get_async_session, logger, router
 
 
-@router.get("/resources/")
+@router.get("/resources/", response_model=ResourceCollectionResponse)
 @cached_endpoint(ttl=LIST_CACHE_TTL)
 async def list_resources(
     request: Request,

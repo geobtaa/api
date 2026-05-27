@@ -6,6 +6,7 @@ from fastapi import HTTPException, Query
 from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.sql import select
 
+from app.api.schemas import MetadataBlockResponse, ResourceMetadataResponse
 from app.api.v1.utils import filter_empty_values, sanitize_for_json
 from app.services.distribution_repository import (
     DistributionContext,
@@ -102,7 +103,7 @@ def _separate_ogm_and_b1g_fields(resource_dict: dict) -> tuple[dict, dict]:
     return ogm_fields, b1g_fields
 
 
-@router.get("/resources/{id}/metadata")
+@router.get("/resources/{id}/metadata", response_model=ResourceMetadataResponse)
 async def get_resource_metadata(
     id: str,
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
@@ -115,7 +116,7 @@ async def get_resource_metadata(
             result = await session.execute(query)
             row = result.fetchone()
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             # Convert to dict and sanitize datetime objects
             resource_dict = sanitize_for_json(dict(row._mapping))
@@ -151,10 +152,10 @@ async def get_resource_metadata(
         raise
     except Exception:
         logger.error("Error getting metadata for resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get metadata"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get metadata") from None
 
 
-@router.get("/resources/{id}/metadata/ogm")
+@router.get("/resources/{id}/metadata/ogm", response_model=MetadataBlockResponse)
 async def get_resource_metadata_ogm(
     id: str,
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
@@ -167,7 +168,7 @@ async def get_resource_metadata_ogm(
             result = await session.execute(query)
             row = result.fetchone()
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             # Convert to dict and sanitize datetime objects
             resource_dict = sanitize_for_json(dict(row._mapping))
@@ -196,10 +197,10 @@ async def get_resource_metadata_ogm(
         raise
     except Exception:
         logger.error("Error getting OGM metadata for resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get OGM metadata"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get OGM metadata") from None
 
 
-@router.get("/resources/{id}/metadata/b1g")
+@router.get("/resources/{id}/metadata/b1g", response_model=MetadataBlockResponse)
 async def get_resource_metadata_b1g(
     id: str,
     fields: Optional[str] = Query(None, description="Comma-separated list of fields to return"),
@@ -212,7 +213,7 @@ async def get_resource_metadata_b1g(
             result = await session.execute(query)
             row = result.fetchone()
             if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+                raise HTTPException(status_code=404, detail="Resource not found")
 
             # Convert to dict and sanitize datetime objects
             resource_dict = sanitize_for_json(dict(row._mapping))
@@ -232,7 +233,7 @@ async def get_resource_metadata_b1g(
         raise
     except Exception:
         logger.error("Error getting B1G metadata for resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get B1G metadata"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get B1G metadata") from None
 
 
 def _get_metadata_url_for_format(

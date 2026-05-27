@@ -2,6 +2,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Query
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import OGMHarvestFailuresResponse, OGMRepoSummariesResponse
 from app.api.v1.utils import create_response
 from app.services.ogm_harvest.repository import OGMHarvestRepository
 
@@ -9,7 +11,7 @@ router = APIRouter()
 ogm_repo = OGMHarvestRepository()
 
 
-@router.get("/ogm/repos")
+@router.get("/ogm/repos", response_model=OGMRepoSummariesResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def list_public_ogm_repos():
     """
     Public OGM repo summaries with latest crawl status and harvest counts.
@@ -18,7 +20,11 @@ async def list_public_ogm_repos():
     return create_response({"repos": repos})
 
 
-@router.get("/ogm/harvest/failures")
+@router.get(
+    "/ogm/harvest/failures",
+    response_model=OGMHarvestFailuresResponse,
+    responses=PUBLIC_ERROR_RESPONSES,
+)
 async def list_public_ogm_harvest_failures(
     repo_name: Optional[str] = Query(None, description="Filter by a single ogm_repo_name"),
     include_with_errors: bool = Query(

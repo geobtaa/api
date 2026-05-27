@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import Response
 from PIL import Image
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
 from app.services.cache_service import (
     alias_redirect_cache_control_header,
     cache_control_header,
@@ -17,7 +18,7 @@ from app.services.thumbnail_alias_service import is_thumbnail_hash
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter()
+router = APIRouter(responses=PUBLIC_ERROR_RESPONSES)
 
 ASSET_CACHE_TTL_SECONDS = int(os.getenv("ASSET_CACHE_TTL_SECONDS", "3600"))
 
@@ -120,7 +121,7 @@ def _detect_image_type(image_data: bytes) -> str:
     return "image/jpeg"
 
 
-@router.get("/thumbnails/placeholder")
+@router.get("/thumbnails/placeholder", response_class=Response)
 async def get_placeholder_thumbnail():
     """Serve a neutral thumbnail placeholder image."""
     placeholder_svg = """
@@ -146,7 +147,7 @@ async def get_placeholder_thumbnail():
     )
 
 
-@router.get("/thumbnails/{resource_id}")
+@router.get("/thumbnails/{resource_id}", response_class=Response)
 async def get_thumbnail(resource_id: str, request: Request):
     """Serve a thumbnail asset or resolve a resource-id thumbnail fallback."""
     if not is_thumbnail_hash(resource_id):
@@ -160,7 +161,7 @@ async def get_thumbnail(resource_id: str, request: Request):
         image_data = await image_service.get_cached_image(resource_id)
     except Exception as e:
         logger.error(f"Error retrieving cached image {resource_id}: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        raise HTTPException(status_code=500, detail="Failed to retrieve thumbnail") from e
 
     if not image_data:
         if is_thumbnail_hash(resource_id):
@@ -181,7 +182,7 @@ async def get_thumbnail(resource_id: str, request: Request):
             raise
         except Exception as e:
             logger.error(f"Error retrieving resource thumbnail asset {resource_id}: {e}")
-            raise HTTPException(status_code=500, detail=str(e)) from e
+            raise HTTPException(status_code=500, detail="Failed to retrieve thumbnail") from e
 
     # Validate that the cached content is actually an image
     try:

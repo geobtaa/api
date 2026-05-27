@@ -56,6 +56,66 @@ workflows, and future agent-facing discovery tools.
 - `Makefile`: Main developer/operator entry point for linting, tests, ingest,
   reindexing, cache work, docs, and deployment-support tasks.
 
+## Local Proxy
+
+The local browser-facing proxy is provided by the React Router frontend dev
+server at `http://localhost:3000`. It is not a separate service: start the
+normal Docker stack and open the frontend URL.
+
+```bash
+cp .env.example .env
+docker compose up -d
+```
+
+The backend API remains available directly at `http://localhost:8000/api/v1`,
+but the frontend uses same-origin proxy routes for request paths that should run
+through server-side loaders, carry the server-side API key, or avoid browser
+CORS/rate-limit surprises. Common local proxy routes include:
+
+- `http://localhost:3000/search/results` -> `/api/v1/search`
+- `http://localhost:3000/search/facets/:facetName` ->
+  `/api/v1/search/facets/:facetName`
+- `http://localhost:3000/map/h3` -> `/api/v1/map/h3`
+- `http://localhost:3000/home/blog-posts` -> `/api/v1/home/blog-posts`
+- `http://localhost:3000/places/suggest` -> `/api/v1/places/suggest`
+- `http://localhost:3000/resources/:id/thumbnail` ->
+  `/api/v1/resources/:id/thumbnail`
+- `http://localhost:3000/resources/:id/static-map` ->
+  `/api/v1/resources/:id/static-map`
+- `http://localhost:3000/static-maps/...` and
+  `http://localhost:3000/thumbnails/...` for generated map and thumbnail assets
+
+There are two API base URLs to keep straight in local development:
+
+- `VITE_API_BASE_URL` is compiled into browser code. Docker sets it to
+  `http://localhost:8000/api/v1` so direct browser API calls use the host port.
+- `API_BASE_URL` is read by React Router server-side loaders. Docker sets it to
+  `http://api:8000/api/v1` because the frontend container reaches the API by
+  service name on the Docker network.
+
+If you run the frontend outside Docker, point the server-side proxy back at the
+host API:
+
+```bash
+cd frontend
+API_BASE_URL=http://localhost:8000/api/v1 npm run dev
+```
+
+Set `BTAA_GEOSPATIAL_API_KEY` when you want local proxy requests to forward an
+API key as `X-API-Key`; otherwise they use the public/anonymous API behavior.
+Localhost skips the frontend Turnstile gate by default. To exercise that flow
+locally, set `VITE_TURNSTILE_ENABLE_LOCAL=true` along with the Turnstile test
+configuration.
+
+If proxy requests fail, first check that the API is reachable from the frontend
+server context: use `http://api:8000/api/v1` from Docker and
+`http://localhost:8000/api/v1` from host-run dev servers. Useful commands:
+
+```bash
+docker compose logs -f frontend api
+make frontend-reset
+```
+
 ## Documentation
 
 Setup, development, and operations notes live in `docs/`:

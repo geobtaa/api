@@ -1,9 +1,9 @@
 from typing import Optional
 
 from fastapi import HTTPException, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
+from app.api.schemas import ResourceViewerResponse
 from app.api.v1.utils import create_response, sanitize_for_json
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.viewer_service import ViewerService
@@ -12,7 +12,7 @@ from db.models import resources
 from . import async_session, logger, router
 
 
-@router.get("/resources/{id}/viewer")
+@router.get("/resources/{id}/viewer", response_model=ResourceViewerResponse)
 async def get_resource_viewer_data(
     request: Request,
     id: str,
@@ -56,4 +56,4 @@ async def get_resource_viewer_data(
         raise
     except Exception:
         logger.error("Error getting viewer data for resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get viewer data"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get viewer data") from None

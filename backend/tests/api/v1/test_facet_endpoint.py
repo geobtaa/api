@@ -26,6 +26,13 @@ def disable_caching():
         yield
 
 
+def error_detail(response):
+    payload = response.json()
+    if "errors" in payload:
+        return payload["errors"][0]["detail"]
+    return payload.get("error") or payload["detail"]
+
+
 class TestFacetEndpointValidation:
     """Test validation of facet endpoint parameters."""
 
@@ -33,7 +40,7 @@ class TestFacetEndpointValidation:
         """Test that invalid facet name returns 400 error."""
         response = await async_client.get("/api/v1/search/facets/invalid_facet_name")
         assert response.status_code == 400
-        assert "invalid facet name" in response.json()["error"].lower()
+        assert "invalid facet name" in error_detail(response).lower()
 
     async def test_invalid_sort_parameter(self, async_client: AsyncClient):
         """Test that invalid sort parameter returns 400 error."""
@@ -41,7 +48,7 @@ class TestFacetEndpointValidation:
             "/api/v1/search/facets/schema_provider_s?sort=invalid_sort"
         )
         assert response.status_code == 400
-        assert "invalid sort parameter" in response.json()["error"].lower()
+        assert "invalid sort parameter" in error_detail(response).lower()
 
     async def test_invalid_page_parameter(self, async_client: AsyncClient):
         """Test that invalid page parameter returns validation error."""
@@ -59,7 +66,7 @@ class TestFacetEndpointValidation:
             "/api/v1/search/facets/schema_provider_s?adv_q=invalid_json"
         )
         assert response.status_code == 400
-        assert "invalid json" in response.json()["error"].lower()
+        assert "invalid json" in error_detail(response).lower()
 
 
 class TestFacetEndpointSuccess:
@@ -720,7 +727,7 @@ class TestFacetEndpointIntegration:
         response = await async_client.get("/api/v1/search/facets/invalid_facet")
 
         assert response.status_code == 400
-        assert "error" in response.json()
+        assert "invalid facet" in error_detail(response).lower()
 
     @patch("app.api.v1.endpoint_modules.search.get_facet_values")
     @patch("app.api.v1.endpoint_modules.search.process_facet_response")

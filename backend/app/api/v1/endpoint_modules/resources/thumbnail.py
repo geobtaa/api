@@ -638,7 +638,7 @@ async def _get_resource_thumbnail_response(
     return await _svg_icon_for_resource(resource_dict, variant=variant)
 
 
-@router.get("/resources/{id}/thumbnail")
+@router.get("/resources/{id}/thumbnail", response_class=Response)
 async def get_resource_thumbnail(
     id: str,
     request: Request,
@@ -675,7 +675,7 @@ async def get_resource_thumbnail(
         return _svg_placeholder(title="Thumbnail unavailable", subtitle="Error loading thumbnail")
 
 
-@router.get("/resources/{id}/thumbnail/no-cache")
+@router.get("/resources/{id}/thumbnail/no-cache", response_class=Response)
 async def get_resource_thumbnail_no_cache(
     id: str,
     request: Request,
