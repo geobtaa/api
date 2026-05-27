@@ -19,11 +19,10 @@ themes:
         lockup_text_size_rem: 2
       hero_text: "Welcome to the new BTAA Geoportal."
       hero_description: |-
-        We have upgraded the Geoportal with a redesigned search experience and improved tools for exploring maps, datasets, and other geospatial resources from across the Big Ten Academic Alliance and beyond.
+        Find maps, datasets, imagery, web services, and other geospatial resources from Big Ten Academic Alliance libraries, the OpenGeoMetadata community, and public data sources.
 
-        The Geoportal still provides access to our growing collection of open geospatial resources, now in a more modern and flexible interface.
+        Our 2026 redesign introduces a modern interface with location-based search, autocomplete suggestions, and improved tools for narrowing results.
 
-        As we continue to develop the Geoportal, we welcome your feedback and suggestions to help guide future improvements.
     branding:
       colors:
         primary: "#003C5B"

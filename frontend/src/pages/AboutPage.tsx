@@ -14,24 +14,21 @@ export function AboutPage() {
       <Header />
       <main className="flex-1">
         <section className="bg-white border-b border-gray-200">
-          <div className="max-w-5xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
-            <p className="text-sm font-semibold uppercase text-brand">
-              BTAA Geoportal
-            </p>
-            <h1 className="mt-3 max-w-3xl text-4xl font-semibold text-gray-950 sm:text-5xl">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
+            <h1 className="max-w-5xl text-4xl font-semibold text-gray-950 sm:text-5xl">
               About the BTAA Geoportal
             </h1>
-            <div className="mt-8 max-w-4xl space-y-6 text-lg leading-8 text-gray-700">
+            <div className="mt-8 max-w-5xl space-y-6 text-lg leading-8 text-gray-700">
               <p>
                 The Big Ten Academic Alliance (BTAA) Geoportal helps users find
                 geospatial resources from BTAA member libraries and public data
                 sources.
               </p>
               <p>
-                The Geoportal brings together maps, geospatial datasets, aerial
-                imagery, scanned historical maps, web services, and related
-                documentation so users can search across institutions without
-                leaving the Geoportal.
+                The Geoportal brings together over 100,000 maps, geospatial
+                datasets, aerial imagery, scanned historical maps, web services,
+                and related documentation so users can search across
+                institutions without leaving the Geoportal.
               </p>
               <p>
                 Most resources in the Geoportal link to data stored by
@@ -45,9 +42,9 @@ export function AboutPage() {
         </section>
 
         <section className="border-b border-gray-200 bg-gray-50">
-          <div className="max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
-            <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,0.6fr)]">
-              <div>
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+            <div className="grid gap-5 md:grid-cols-2">
+              <div className="border border-gray-200 bg-white p-5">
                 <h2 className="text-2xl font-semibold text-gray-950">
                   How the Portal Works
                 </h2>
@@ -59,21 +56,21 @@ export function AboutPage() {
                   service endpoint, or catalog page.
                 </p>
               </div>
-              <div>
+              <div className="border border-gray-200 bg-white p-5">
                 <h2 className="text-2xl font-semibold text-gray-950">
                   Who Maintains It
                 </h2>
                 <p className="mt-6 text-base leading-7 text-gray-700">
                   The BTAA Geoportal is maintained by the Big Ten Academic
-                  Alliance Geospatial Information Network, a collaborative
-                  program focused on discovery, access, and preservation for
-                  geospatial information.
+                  Alliance Geospatial Information Network (BTAA-GIN), a
+                  collaborative program focused on supporting the geospatial research 
+                  community and fostering connections among geospatial library professionals.
                 </p>
                 <a
                   href="https://gin.btaa.org"
                   className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-brand hover:text-brand-active"
                 >
-                  Visit BTAA GIN
+                  Visit the BTAA-GIN
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </a>
               </div>
@@ -82,17 +79,16 @@ export function AboutPage() {
         </section>
 
         <section className="border-b border-gray-200 bg-white">
-          <div className="max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
             <h2 className="text-2xl font-semibold text-gray-950">
               What You Can Find
             </h2>
-            <ul className="mt-6 grid gap-3 text-base leading-7 text-gray-700 sm:grid-cols-2 lg:grid-cols-3">
+            <ul className="mt-6 space-y-3 text-base leading-7 text-gray-700">
               {[
-                'GIS datasets',
-                'Scanned maps',
-                'Historical and public domain maps',
-                'Aerial photos',
-                'Web mapping services',
+                'GIS datasets, including school districts, municipal limits, and county lines',
+                'Scanned historical maps, including Sanborn fire insurance maps',
+                'Aerial photographs, including historical collections',
+                'Geospatial web services',
                 'Interactive maps and websites',
               ].map((item) => (
                 <li key={item} className="flex gap-3">
@@ -108,14 +104,14 @@ export function AboutPage() {
         </section>
 
         <section className="bg-gray-50">
-          <div className="flex max-w-5xl flex-col gap-4 px-4 py-10 sm:px-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
+          <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 sm:px-6 sm:flex-row sm:items-center sm:justify-between lg:px-8">
             <div>
               <h2 className="text-2xl font-semibold text-gray-950">
                 Start Exploring
               </h2>
               <p className="mt-2 text-base leading-7 text-gray-700">
-                Search the full Geoportal collection or send feedback to the
-                project team.
+                Search the Geoportal collection or send feedback to the project
+                team.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">

@@ -465,10 +465,7 @@ export function HomePage() {
                   <X className="h-4 w-4" aria-hidden />
                 </button>
                 <div className="relative z-10 pr-12">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">
-                    BTAA Geoportal
-                  </p>
-                  <h2 className="mt-1 text-xl lg:text-2xl font-semibold text-gray-800">
+                  <h2 className="text-xl lg:text-2xl font-semibold text-gray-800">
                     {heroTitle}
                   </h2>
                   <div className="mt-3 space-y-2 text-sm leading-6 text-gray-700">
