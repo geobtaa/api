@@ -85,6 +85,11 @@ export const FIELD_LABELS: Record<string, FieldConfig> = {
     display: true,
     facet: 'gbl_georeferenced_b',
   },
+  b1g_georeferenced_allmaps_b: {
+    label: 'Map Overlay',
+    display: true,
+    facet: 'b1g_georeferenced_allmaps_b',
+  },
   gbl_wxsidentifier_s: { label: 'WXS Identifier', display: true },
 
   // Schema.org

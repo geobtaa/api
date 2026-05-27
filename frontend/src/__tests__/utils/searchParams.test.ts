@@ -522,6 +522,25 @@ describe('searchParams', () => {
         'Dataset'
       );
     });
+
+    it('normalizes map overlay boolean facet values', () => {
+      const params: SearchParams = {
+        query: 'maps',
+        page: 1,
+        perPage: 20,
+        facets: [{ field: 'b1g_georeferenced_allmaps_b', value: '1' }],
+        excludeFacets: [{ field: 'b1g_georeferenced_allmaps_b', value: '0' }],
+      };
+
+      const result = buildSearchParams(params);
+
+      expect(result.get('include_filters[b1g_georeferenced_allmaps_b][]')).toBe(
+        'true'
+      );
+      expect(result.get('exclude_filters[b1g_georeferenced_allmaps_b][]')).toBe(
+        'false'
+      );
+    });
   });
 
   describe('Integration Tests', () => {

@@ -579,6 +579,7 @@ export async function fetchSearchResults(
     institution_agg: 'schema_provider_s',
     format_agg: 'dct_format_s',
     georeferenced_agg: 'gbl_georeferenced_b',
+    map_overlay_agg: 'b1g_georeferenced_allmaps_b',
     id_agg: 'id',
   };
 

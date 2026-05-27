@@ -29,6 +29,7 @@ SEARCH_ALLOWED_PARAMS = [
     "fq[b1g_code_s][]",
     "fq[dct_accessRights_s][]",
     "fq[gbl_georeferenced_b][]",
+    "fq[b1g_georeferenced_allmaps_b][]",
     # Spatial facets
     "fq[geo_country][]",
     "fq[geo_region][]",
@@ -62,6 +63,7 @@ FACET_ALLOWED_PARAMS = [
     "fq[b1g_code_s][]",
     "fq[dct_accessRights_s][]",
     "fq[gbl_georeferenced_b][]",
+    "fq[b1g_georeferenced_allmaps_b][]",
     # Spatial facets
     "fq[geo_country][]",
     "fq[geo_region][]",

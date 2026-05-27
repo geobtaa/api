@@ -193,6 +193,10 @@ def get_facet_aggregation_config(facet_name: str) -> dict:
             "field": "gbl_georeferenced_b",
             "size": DEFAULT_FACET_SIZE,
         },
+        "b1g_georeferenced_allmaps_b": {
+            "field": "b1g_georeferenced_allmaps_b",
+            "size": DEFAULT_FACET_SIZE,
+        },
         "dct_subject_sm": {
             "field": "dct_subject_sm.keyword",
             "size": DEFAULT_FACET_SIZE,
@@ -284,6 +288,12 @@ def _build_search_aggregations() -> dict:
         },
         "gbl_georeferenced_b": {
             "terms": {"field": "gbl_georeferenced_b", "size": DEFAULT_FACET_SIZE}
+        },
+        "b1g_georeferenced_allmaps_b": {
+            "terms": {
+                "field": "b1g_georeferenced_allmaps_b",
+                "size": DEFAULT_FACET_SIZE,
+            }
         },
         "geo_country": {"terms": {"field": "geo_country.keyword", "size": GEO_COUNTRY_FACET_SIZE}},
         "geo_region": {"terms": {"field": "geo_region.keyword", "size": GEO_REGION_FACET_SIZE}},
@@ -2555,6 +2565,8 @@ def process_aggregations(aggregations, search_context: dict):
         "ogm_repo": "OGM Repo",
         "access_rights_agg": "Access Rights",
         "georeferenced_agg": "Georeferenced",
+        "gbl_georeferenced_b": "Georeferenced",
+        "b1g_georeferenced_allmaps_b": "Map Overlay",
         "geo_country_agg": "Country",
         "geo_region_agg": "Region",
         "geo_county_agg": "County",

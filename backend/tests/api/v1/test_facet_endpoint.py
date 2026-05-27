@@ -495,6 +495,7 @@ class TestFacetEndpointSuccess:
             "b1g_code_s",
             "dct_accessRights_s",
             "gbl_georeferenced_b",
+            "b1g_georeferenced_allmaps_b",
             "geo_country",
             "geo_region",
             "geo_county",
