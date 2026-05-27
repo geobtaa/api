@@ -18,6 +18,7 @@ from db.models import resources
 logger = logging.getLogger(__name__)
 
 DEFAULT_REWARM_RESOURCE_PATHS = ("/api/v1/resources/{id}",)
+DEFAULT_REFRESH_BATCH_SIZE = 5000
 
 
 def _env_bool(name: str, default: bool) -> bool:
@@ -38,6 +39,16 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _positive_env_int(name: str, default: int) -> int:
+    value = _env_int(name, default)
+    if value < 1:
+        logger.warning(
+            "Invalid non-positive integer for %s=%r; using default=%s", name, value, default
+        )
+        return default
+    return value
+
+
 def _dedupe_preserve_order(values: Iterable[str]) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
@@ -48,6 +59,51 @@ def _dedupe_preserve_order(values: Iterable[str]) -> list[str]:
         seen.add(cleaned)
         result.append(cleaned)
     return result
+
+
+def _refresh_batch_size() -> int:
+    # BRIDGE_CACHE_REFRESH_MAX_RESOURCE_IDS used to be a total cap. Keep it as
+    # a compatibility alias, but interpret it as batch size so no IDs are lost.
+    legacy_batch_size = _positive_env_int(
+        "BRIDGE_CACHE_REFRESH_MAX_RESOURCE_IDS", DEFAULT_REFRESH_BATCH_SIZE
+    )
+    return _positive_env_int("BRIDGE_CACHE_REFRESH_BATCH_SIZE", legacy_batch_size)
+
+
+def _chunk_list(values: list[str], size: int) -> Iterable[list[str]]:
+    for start in range(0, len(values), size):
+        yield values[start : start + size]
+
+
+def _merge_numeric_stats(total: dict[str, Any], update: dict[str, Any]) -> dict[str, Any]:
+    merged = dict(total)
+    for key, value in update.items():
+        if isinstance(value, bool):
+            merged[key] = bool(merged.get(key, True)) and value if key == "enabled" else value
+        elif isinstance(value, (int, float)):
+            merged[key] = merged.get(key, 0) + value
+        elif isinstance(value, dict):
+            existing = merged.get(key) if isinstance(merged.get(key), dict) else {}
+            merged[key] = _merge_numeric_stats(existing, value)
+        elif key not in merged:
+            merged[key] = value
+    return merged
+
+
+def _merge_representation_delete_stats(
+    total: dict[str, Any] | None,
+    update: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(total or {})
+    if "durable_deleted" in update:
+        merged["durable_deleted"] = bool(merged.get("durable_deleted", True)) and bool(
+            update.get("durable_deleted")
+        )
+    if "redis_deleted" in update:
+        merged["redis_deleted"] = int(merged.get("redis_deleted", 0)) + int(
+            update.get("redis_deleted") or 0
+        )
+    return merged
 
 
 def _warm_path_from_record(record: dict[str, Any]) -> str | None:
@@ -269,32 +325,55 @@ async def refresh_cache_for_changed_resources(
     if not ENDPOINT_CACHE or not _env_bool("BRIDGE_CACHE_REFRESH_ENABLED", True):
         return {"enabled": False, "resource_ids": 0, "invalidated": 0, "warmed": 0, "errors": 0}
 
-    max_resource_ids = _env_int("BRIDGE_CACHE_REFRESH_MAX_RESOURCE_IDS", 5000)
     max_warm_urls = _env_int("BRIDGE_CACHE_REWARM_MAX_URLS", 2500)
     request_timeout = float(os.getenv("BRIDGE_CACHE_REWARM_TIMEOUT_SECONDS", "20"))
 
-    changed_ids = _dedupe_preserve_order(resource_ids)[:max_resource_ids]
+    changed_ids = _dedupe_preserve_order(resource_ids)
     if not changed_ids:
         return {"enabled": True, "resource_ids": 0, "invalidated": 0, "warmed": 0, "errors": 0}
 
-    tags = [f"resource:{rid}" for rid in changed_ids]
+    batch_size = _refresh_batch_size()
     cache = CacheService()
+    warm_paths: list[str] = []
+    warm_path_seen: set[str] = set()
 
-    tagged_records = await cache.cached_records_for_tags(tags)
-    tagged_paths = [_warm_path_from_record(record) for record in tagged_records]
-    warm_paths = _dedupe_preserve_order(
-        [
-            *[path for path in tagged_paths if path],
-            *_default_resource_warm_paths(changed_ids),
-        ]
-    )[:max_warm_urls]
+    def add_warm_path(path: str | None) -> None:
+        if max_warm_urls <= 0 or len(warm_paths) >= max_warm_urls:
+            return
+        if not path or path in warm_path_seen:
+            return
+        warm_path_seen.add(path)
+        warm_paths.append(path)
 
-    representation_delete_stats = await delete_resource_representations(
-        changed_ids,
-        cache_service=cache,
-    )
-    invalidated = await cache.invalidate_tags(tags)
-    generated_assets = await _warm_generated_assets_for_changed_resources(changed_ids)
+    tagged_records_count = 0
+    representation_delete_stats: dict[str, Any] | None = None
+    generated_assets: dict[str, Any] = {}
+    invalidated = 0
+    batches = 0
+
+    for batch_ids in _chunk_list(changed_ids, batch_size):
+        batches += 1
+        tags = [f"resource:{rid}" for rid in batch_ids]
+
+        tagged_records = await cache.cached_records_for_tags(tags)
+        tagged_records_count += len(tagged_records)
+        for record in tagged_records:
+            add_warm_path(_warm_path_from_record(record))
+        for path in _default_resource_warm_paths(batch_ids):
+            add_warm_path(path)
+
+        batch_representation_delete_stats = await delete_resource_representations(
+            batch_ids,
+            cache_service=cache,
+        )
+        representation_delete_stats = _merge_representation_delete_stats(
+            representation_delete_stats,
+            batch_representation_delete_stats,
+        )
+
+        invalidated += await cache.invalidate_tags(tags)
+        batch_generated_assets = await _warm_generated_assets_for_changed_resources(batch_ids)
+        generated_assets = _merge_numeric_stats(generated_assets, batch_generated_assets)
 
     warmed = 0
     errors = 0
@@ -327,9 +406,11 @@ async def refresh_cache_for_changed_resources(
     stats = {
         "enabled": True,
         "resource_ids": len(changed_ids),
-        "tagged_records": len(tagged_records),
+        "batch_size": batch_size,
+        "batches": batches,
+        "tagged_records": tagged_records_count,
         "warm_urls": len(warm_paths),
-        "resource_representations_deleted": representation_delete_stats,
+        "resource_representations_deleted": representation_delete_stats or {},
         "generated_assets": generated_assets,
         "invalidated": invalidated,
         "warmed": warmed,
