@@ -35,7 +35,7 @@ class TestMCPEndpoints:
 
         # Check basic service information
         assert data["name"] == "btaa-geospatial-api"
-        assert data["version"] == "0.7.0"
+        assert data["version"] == "0.8.0"
         assert data["description"] == "BTAA Geospatial API MCP Service"
         assert data["protocol"] == "mcp"
         assert "stdio" in data["transports"]

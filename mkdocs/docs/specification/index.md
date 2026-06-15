@@ -2,7 +2,7 @@
 
 {% include-markdown "includes/wip.md" %}
 
-**Version:** 0.7.0   **Status:** *DRAFT*   **Release Date:** 2026-05-08
+**Version:** 0.8.0   **Status:** *DRAFT*   **Release Date:** 2026-06-15
 
 ## Editors
 
@@ -50,6 +50,7 @@ The goal of this specification is to enable consistent client and server impleme
 
 | Version | Date | Notes |
 | :---- | :---- | :---- |
+| 0.8.0 | 2026-06-15 | Release version metadata updated for the production launch. |
 | 0.7.0 | 2026-05-08 | Release version metadata updated for the API service, MCP service, Docker image, and public specification. |
 | 0.6.0 | 2026-04-06 | Major API and documentation refresh, including expanded endpoint documentation, versioned publishing updates, and introduction of the OGC Records API facade under `/api/v1/ogc`. |
 | 0.3.0-pre-alpha | 2025-12-09 | Endpoints added for facet pagination, search supporting adv_q param for advanced search, lots of polish and refinement. |

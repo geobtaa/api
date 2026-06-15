@@ -11,7 +11,7 @@ The BTAA Geospatial API supports [Model Context Protocol (MCP)](https://modelcon
 ```
 {
   "name": "btaa-geospatial-api",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "BTAA Geospatial API MCP Service",
   "protocol": "mcp",
   "transports": [
