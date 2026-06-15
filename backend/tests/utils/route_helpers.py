@@ -17,12 +17,19 @@ def route_by_path(route_owner: Any, path: str) -> Any | None:
 
 def routes_with_paths(route_owner: Any, prefix: str = "") -> Iterator[tuple[str, Any]]:
     for route in getattr(route_owner, "routes", []):
-        route_prefix = getattr(route, "prefix", "") or ""
+        include_context = getattr(route, "include_context", None)
+        route_prefix = (
+            getattr(route, "prefix", None) or getattr(include_context, "prefix", None) or ""
+        )
         nested_prefix = _join_route_path(prefix, route_prefix)
 
         path = getattr(route, "path", None)
         if isinstance(path, str):
             yield _join_route_path(prefix, path), route
+
+        original_router = getattr(route, "original_router", None)
+        if original_router is not None:
+            yield from routes_with_paths(original_router, nested_prefix)
 
         if getattr(route, "routes", None):
             yield from routes_with_paths(route, nested_prefix)
