@@ -3038,14 +3038,12 @@ async def find_similar_resources(resource_id: str, limit: int = 12) -> list:
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 
     try:
-        # First, check if the resource exists in Elasticsearch
-        try:
-            doc = await es.get(index=index_name, id=resource_id)
-            if not doc:
-                logger.warning(f"Resource {resource_id} not found in Elasticsearch")
-                return []
-        except NotFoundError:
-            logger.warning(f"Resource {resource_id} not found in Elasticsearch")
+        # First, check if the resource exists in Elasticsearch. Use HEAD/exists
+        # instead of GET so retired DB records that are intentionally absent from
+        # the search index do not create traced NotFoundError exceptions.
+        resource_exists = await es.exists(index=index_name, id=resource_id)
+        if not resource_exists:
+            logger.warning("Resource %s not found in Elasticsearch", resource_id)
             return []
 
         # Build more_like_this query
