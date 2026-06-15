@@ -25,6 +25,22 @@ const isGoogleTagManagerEnabled =
   KAMAL_DESTINATION === 'prd' &&
   GOOGLE_TAG_MANAGER_ID_PATTERN.test(GOOGLE_TAG_MANAGER_ID);
 
+function buildGoogleTagManagerSnippet(containerId: string) {
+  return `
+    (function(w,d,s,l,i){
+      w[l]=w[l]||[];
+      w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});
+      var f=d.getElementsByTagName(s)[0];
+      var j=d.createElement(s);
+      var dl=l!='dataLayer'?'&l='+encodeURIComponent(l):'';
+      j.id='google-tag-manager';
+      j.async=true;
+      j.src='https://www.googletagmanager.com/gtm.js?id='+encodeURIComponent(i)+dl;
+      f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer',${JSON.stringify(containerId)});
+  `;
+}
+
 function GoogleTagManagerClient({ containerId }: { containerId: string }) {
   useEffect(() => {
     if (!containerId || document.getElementById('google-tag-manager')) return;
@@ -72,6 +88,14 @@ function RootDocument({
       <head>
         <meta charSet="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {isGoogleTagManagerEnabled && !isMiradorRoute && (
+          <script
+            id="google-tag-manager-bootstrap"
+            dangerouslySetInnerHTML={{
+              __html: buildGoogleTagManagerSnippet(GOOGLE_TAG_MANAGER_ID),
+            }}
+          />
+        )}
         <link rel="manifest" href="/manifest.webmanifest" />
         <link rel="icon" href="/favicon.ico" sizes="48x48" />
         <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
