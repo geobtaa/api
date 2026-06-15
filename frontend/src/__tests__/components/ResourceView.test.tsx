@@ -6,10 +6,19 @@ import { ResourceView } from '../../pages/ResourceView';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { vi } from 'vitest';
+import type { Mock } from 'vitest';
 import type { GeoDocument } from '../../types/api';
 
 vi.mock('../../services/analytics', () => ({
   scheduleAnalyticsBatch: vi.fn(),
+}));
+
+vi.mock('../../components/resource/AllmapsOverlayViewer', () => ({
+  AllmapsOverlayViewer: () => (
+    <div data-testid="allmaps-overlay-viewer">
+      Allmaps georeferenced map overlay
+    </div>
+  ),
 }));
 
 // Mock the API functions to return real fixture data
@@ -298,6 +307,57 @@ const mockResourceWithDataDictionary: GeoDocument = {
   },
 };
 
+const mockResourceWithLicensedAccesses: GeoDocument = {
+  ...mockResourceData,
+  meta: {
+    ui: {
+      ...mockResourceData.meta?.ui,
+      licensed_accesses: [
+        {
+          institution_code: '01',
+          institution_name: 'Indiana University',
+          access_url: 'https://example.com/iu-access',
+          legacy_friendlier_id: '999-0001',
+        },
+      ],
+    },
+  },
+};
+
+const allmapsManifestUrl = 'https://example.com/iiif/manifest.json';
+const mockResourceWithAllmaps: GeoDocument = {
+  ...mockResourceData,
+  meta: {
+    ui: {
+      ...mockResourceData.meta?.ui,
+      viewer: {
+        protocol: 'wms',
+        endpoint: 'https://example.com/wms-allmaps-test',
+        geometry: {
+          type: 'Polygon',
+          coordinates: [
+            [
+              [-91.5, 42.5],
+              [-87.017, 42.5],
+              [-87.017, 36.967],
+              [-91.5, 36.967],
+              [-91.5, 42.5],
+            ],
+          ],
+        },
+      },
+      allmaps: {
+        allmaps_id: '945e08a1a7c98ca3',
+        allmaps_annotated: true,
+        allmaps_manifest_uri: allmapsManifestUrl,
+        allmaps_annotation_url: `https://annotations.allmaps.org/?url=${encodeURIComponent(
+          allmapsManifestUrl
+        )}`,
+      },
+    },
+  },
+};
+
 const mockSearchState = {
   searchResults: realFixtureData.map((fixture) => ({ id: fixture.id })),
   currentIndex: 0,
@@ -327,8 +387,8 @@ const TestWrapper = ({
 );
 
 describe('ResourceView Component', () => {
-  let fetchResourceDetails: any;
-  let fetchSearchResults: any;
+  let fetchResourceDetails: Mock;
+  let fetchSearchResults: Mock;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -911,6 +971,58 @@ describe('ResourceView Component', () => {
       expect(indexMapContainer).toBeInTheDocument();
     });
 
+    it('renders Allmaps viewer tabs and sidebar links when an overlay is available', async () => {
+      const user = userEvent.setup();
+      fetchResourceDetails.mockResolvedValue(mockResourceWithAllmaps);
+
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', {
+            name: 'Nondigitized paper map with library catalog link',
+          })
+        ).toBeInTheDocument();
+      });
+
+      expect(
+        screen.getByRole('tab', { name: 'Item Viewer' })
+      ).toBeInTheDocument();
+      const mapOverlayTab = screen.getByRole('tab', { name: 'Map Overlay' });
+      expect(mapOverlayTab).toBeInTheDocument();
+
+      const viewerLink = screen.getByRole('link', {
+        name: /View map in the Allmaps viewer/i,
+      });
+      const editorLink = screen.getByRole('link', {
+        name: /Edit map control points with Allmaps editor/i,
+      });
+      expect(viewerLink).toHaveAttribute(
+        'href',
+        expect.stringContaining('https://viewer.allmaps.org/')
+      );
+      expect(viewerLink).toHaveAttribute(
+        'href',
+        expect.stringContaining('annotations.allmaps.org')
+      );
+      expect(editorLink).toHaveAttribute(
+        'href',
+        expect.stringContaining('https://editor.allmaps.org/#/collection')
+      );
+      expect(editorLink).toHaveAttribute(
+        'href',
+        expect.stringContaining(encodeURIComponent(allmapsManifestUrl))
+      );
+
+      await user.click(mapOverlayTab);
+
+      expect(screen.getByTestId('allmaps-overlay-viewer')).toBeInTheDocument();
+    });
+
     it('renders LocationMap when geometry is available', async () => {
       render(
         <TestWrapper>
@@ -949,6 +1061,29 @@ describe('ResourceView Component', () => {
 
       // DownloadsTable should be rendered
       expect(screen.getByText('PDF Download')).toBeInTheDocument();
+    });
+
+    it('renders LicensedAccessesTable when licensed accesses are available', async () => {
+      fetchResourceDetails.mockResolvedValue(mockResourceWithLicensedAccesses);
+
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByRole('heading', {
+            name: 'Nondigitized paper map with library catalog link',
+          })
+        ).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('Licensed Resource')).toBeInTheDocument();
+      expect(
+        screen.getByRole('link', { name: /Indiana University/i })
+      ).toHaveAttribute('href', 'https://example.com/iu-access');
     });
 
     it('renders LinksTable when links are available', async () => {
@@ -1171,11 +1306,14 @@ describe('ResourceView Component', () => {
       await waitFor(() => {
         expect(
           screen.getByRole('heading', {
-            name: 'Restricted raster layer with WMS and metadata',
+            name: /Restricted raster layer with WMS and metadata/,
           })
         ).toBeInTheDocument();
       });
 
+      expect(
+        screen.getByRole('img', { name: 'Restricted access' })
+      ).toBeInTheDocument();
       // Should render Stanford-specific content
       expect(screen.getAllByText('Raster Data')).toHaveLength(2);
       // "Documentation" appears both in the resource UI and in the global footer link;

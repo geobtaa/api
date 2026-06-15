@@ -90,6 +90,7 @@ class TestMappings:
             "b1g_dateAccessioned_s",
             "b1g_dateRetired_s",
             "b1g_child_record_b",
+            "b1g_georeferenced_allmaps_b",
             "b1g_dct_mediator_sm",
             "b1g_access_s",
             "b1g_image_ss",
@@ -194,7 +195,11 @@ class TestMappings:
                 assert properties[field]["fields"]["keyword"]["type"] == "keyword"
 
         # Boolean fields should be configured as booleans
-        boolean_fields = ["gbl_georeferenced_b", "b1g_child_record_b"]
+        boolean_fields = [
+            "gbl_georeferenced_b",
+            "b1g_child_record_b",
+            "b1g_georeferenced_allmaps_b",
+        ]
 
         for field in boolean_fields:
             if field in properties:

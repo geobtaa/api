@@ -7,14 +7,11 @@ from typing import Dict, Iterable, List, Optional, Sequence
 from sqlalchemy import Select, select
 from sqlalchemy.engine import Row
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import sessionmaker
 
-from db.async_engine import create_app_async_engine
-from db.config import DATABASE_URL
 from db.models import distribution_types, resource_distributions
+from db.session import async_session as app_async_session
 
-engine = create_app_async_engine(DATABASE_URL)
-async_session_factory = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+async_session_factory = app_async_session
 
 
 @dataclass(frozen=True)
@@ -85,17 +82,15 @@ async def fetch_distributions_for_resources(
     if owns_session:
         async with async_session_factory() as session:
             try:
-                async with session.begin():
-                    result = await session.execute(stmt)
-                    rows = result.fetchall()
+                result = await session.execute(stmt)
+                rows = result.fetchall()
             except Exception:
                 # Gracefully degrade to no distributions if DB access fails
                 return {}
     else:
         try:
-            async with session.begin():
-                result = await session.execute(stmt)
-                rows = result.fetchall()
+            result = await session.execute(stmt)
+            rows = result.fetchall()
         except Exception:
             # Gracefully degrade to no distributions if DB access fails
             return {}

@@ -21,7 +21,7 @@ servers:
   cron:
     hosts:
       - lib-btaageoapi-dev-app-01.oit.umn.edu
-    cmd: bash -lc '/opt/venv/bin/python3 /app/scripts/render_cron_env.py /tmp/cron-container-env.sh && (printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-nightly_cron}"; cat config/crontab) | crontab - && cron -f'
+    cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
       user: root
 
@@ -38,7 +38,7 @@ builder:
     VITE_API_BASE_URL: "https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1"
     VITE_TURNSTILE_ACTION: "geoportal_gate"
     VITE_TURNSTILE_ENABLED: "true"
-    VITE_TURNSTILE_SITE_KEY: "0x4AAAAAADJqCBiv8czDm2ZG"
+    VITE_TURNSTILE_PUBLIC_SITE: "0x4AAAAAADJqCBiv8czDm2ZG"
     VITE_KAMAL_DEST: "dev1"
 
 env:
@@ -49,6 +49,13 @@ env:
     TURNSTILE_ALLOWED_HOSTNAMES: lib-btaageoapi-dev-app-01.oit.umn.edu
     TURNSTILE_COOKIE_SECURE: "true"
     TURNSTILE_EXPECTED_ACTION: geoportal_gate
+    FEEDBACK_EMAIL_ENABLED: "true"
+    FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'smtp') %>"
+    SENDMAIL_PATH: "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
+    SENDMAIL_ARGS: "<%= ENV.fetch('SENDMAIL_ARGS', '-t -i') %>"
+    SMTP_HOST: "<%= ENV.fetch('SMTP_HOST', '172.18.0.1') %>"
+    SMTP_PORT: "<%= ENV.fetch('SMTP_PORT', '25') %>"
+    SMTP_STARTTLS: "<%= ENV.fetch('SMTP_STARTTLS', 'false') %>"
     WEB_UVICORN_WORKERS: "3"
     WEB_INTERNAL_UVICORN_WORKERS: "4"
     WEB_SSR_WORKERS: "3"

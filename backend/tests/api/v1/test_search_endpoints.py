@@ -9,6 +9,7 @@ from starlette.requests import Request
 from app.api.v1.endpoint_modules.search import _handle_search
 from app.main import app
 from app.services.resource_representation_cache import RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
 
@@ -17,7 +18,11 @@ def _check_elasticsearch_error(response):
     """Check if response is a 500 due to Elasticsearch error and skip if so."""
     if response.status_code == 500:
         error_data = response.json()
-        error_str = str(error_data.get("error", "")).lower()
+        error_parts = [str(error_data.get("error", ""))]
+        for error in error_data.get("errors", []):
+            if isinstance(error, dict):
+                error_parts.extend(str(error.get(key, "")) for key in ("code", "title", "detail"))
+        error_str = " ".join(error_parts).lower()
         if any(term in error_str for term in ["elasticsearch", "index", "connection", "not found"]):
             pytest.skip(f"Elasticsearch not available: {error_data.get('error', 'Unknown error')}")
 
@@ -176,6 +181,7 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     relationship_browse_links = {"same_as": "/search?include_filters[same_as_agg][]=test-doc"}
     allmaps_payload = {"allmaps_id": "abc123"}
     data_dictionary_payload = [{"id": 1, "name": "Fields"}]
+    licensed_access_payload = [{"institution_code": "01", "access_url": "https://example.com/iu"}]
     bridge_download_rows = [{"label": "Download", "file_url": "https://example.com/file.zip"}]
     thumbnail_asset_url = "https://example.com/thumb.jpg"
 
@@ -222,6 +228,14 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
         patch(
             "app.api.v1.endpoint_modules.search._serialize_data_dictionaries_by_id",
             return_value={"test-doc": data_dictionary_payload},
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_resource_licensed_accesses_map",
+            new=AsyncMock(return_value={"test-doc": ["ignored"]}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search._serialize_licensed_accesses_by_id",
+            return_value={"test-doc": licensed_access_payload},
         ),
         patch(
             "app.api.v1.endpoint_modules.search.RelationshipService.get_resource_relationship_summaries_map",
@@ -285,6 +299,10 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     assert (
         mock_process_resource.await_args.kwargs["data_dictionaries_payload"]
         == data_dictionary_payload
+    )
+    assert (
+        mock_process_resource.await_args.kwargs["licensed_accesses_payload"]
+        == licensed_access_payload
     )
     assert mock_process_resource.await_args.kwargs["thumbnail_asset_url"] == thumbnail_asset_url
     mock_store_resource_representations.assert_awaited_once_with(
@@ -361,6 +379,7 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
     from app.services.cache_service import CacheService as RealCacheService
 
     monkeypatch.setattr(search_module, "SEARCH_RESULT_CACHE_ENABLED", True)
+    monkeypatch.setattr(search_module, "ENDPOINT_CACHE", True)
 
     class FakeSemanticCache:
         _redis_client = object()
@@ -444,6 +463,7 @@ async def test_handle_search_semantic_cache_ignores_cache_buster(monkeypatch):
     assert first.headers["x-search-semantic-cache"] == "MISS"
     assert second.headers["x-search-semantic-cache"] == "HIT"
     assert any("search" in tags for _, tags, _ in FakeSemanticCache.tagged)
+    assert any("resource:test-doc" in tags for _, tags, _ in FakeSemanticCache.tagged)
 
     first_payload = json.loads(first.body)
     second_payload = json.loads(second.body)
@@ -507,6 +527,10 @@ async def test_handle_search_falls_back_to_database_when_search_hit_lacks_attrib
         ),
         patch(
             "app.api.v1.endpoint_modules.search.fetch_resource_data_dictionaries_map",
+            new=AsyncMock(return_value={}),
+        ),
+        patch(
+            "app.api.v1.endpoint_modules.search.fetch_resource_licensed_accesses_map",
             new=AsyncMock(return_value={}),
         ),
         patch(
@@ -709,7 +733,7 @@ class TestSearchEndpointsEnhanced:
 
     def test_search_endpoints_structure(self):
         """Test that search endpoints are properly configured."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         assert "/api/v1/search" in routes
         assert "/api/v1/suggest" in routes

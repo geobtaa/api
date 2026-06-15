@@ -1,145 +1,7 @@
-<style>
-/* Tutorial slide wrapper - keeps content within site layout */
-.tutorial-slide-wrapper {
-    margin: 2rem 0;
-    padding: 2rem;
-    background: #fff;
-    border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-/* Slideshow Styles for Tutorial */
-#slide-container {
-    min-height: 400px;
-    padding: 2rem 0;
-}
-
-.slide {
-    display: none;
-    width: 100%;
-    animation: fadeIn 0.5s;
-}
-
-.slide.active {
-    display: block;
-}
-
-.slide h2 {
-    color: #005E8E;
-    border-bottom: 2px solid #005E8E;
-    padding-bottom: 0.5rem;
-    margin-top: 0;
-}
-
-.slide h3 {
-    color: #772424;
-    margin-top: 1.5rem;
-}
-
-@keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-    to {
-        opacity: 1;
-    }
-}
-
-/* Controls */
-.controls {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
-    margin: 30px 0;
-    padding: 20px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border-radius: 10px;
-}
-
-.controls button {
-    background: white;
-    color: #667eea;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.controls button:hover:not(:disabled) {
-    background: #f7fafc;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-}
-
-.controls button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-#fullscreenBtn {
-    font-size: 20px;
-    padding: 8px 16px;
-}
-
-#slide-indicator {
-    color: white;
-    font-weight: 600;
-    min-width: 120px;
-    text-align: center;
-}
-
-/* Fullscreen styles - hide site header/footer only in fullscreen */
-html:fullscreen body.tutorial-fullscreen {
-    background: #1a202c;
-}
-
-html:fullscreen body.tutorial-fullscreen .md-header,
-html:fullscreen body.tutorial-fullscreen .md-tabs,
-html:fullscreen body.tutorial-fullscreen .md-footer {
-    display: none !important;
-}
-
-html:fullscreen body.tutorial-fullscreen .md-main {
-    margin-top: 0 !important;
-}
-
-html:fullscreen body.tutorial-fullscreen .md-main__inner {
-    max-width: 100%;
-    padding: 40px;
-    margin-top: 0;
-}
-
-html:fullscreen body.tutorial-fullscreen .tutorial-slide-wrapper {
-    margin: 0;
-    padding: 40px;
-    box-shadow: none;
-    border-radius: 0;
-    background: #1a202c;
-    color: #fff;
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-}
-
-html:fullscreen body.tutorial-fullscreen .slide {
-    font-size: 1.2em;
-    color: #fff;
-}
-
-html:fullscreen body.tutorial-fullscreen .slide h2,
-html:fullscreen body.tutorial-fullscreen .slide h3 {
-    color: #fff;
-    border-bottom-color: rgba(255, 255, 255, 0.3);
-}
-
-html:fullscreen body.tutorial-fullscreen .controls {
-    margin-top: auto;
-}
-</style>
+---
+hide:
+    - toc
+---
 
 <div class="tutorial-slide-wrapper">
 <div id="slide-container">
@@ -157,7 +19,7 @@ html:fullscreen body.tutorial-fullscreen .controls {
             <li><strong>JSON:API Standard:</strong> Responses are structured with <code>data</code>,
                 <code>attributes</code>, <code>meta</code>, and <code>links</code>.
             </li>
-            <li><strong>Base URL:</strong> <code>https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/</code>
+            <li><strong>Base URL:</strong> <code>https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/</code>
             </li>
         </ul>
     </div>
@@ -254,11 +116,10 @@ html:fullscreen body.tutorial-fullscreen .controls {
 
 <div class="controls">
     <button id="prevBtn" onclick="changeSlide(-1)" disabled>&larr; Previous</button>
-    <select id="slideSelect" onchange="jumpToSlide(this.value)"
-        style="padding: 10px; border-radius: 5px; border: none; background: rgba(255,255,255,0.95); color: #4a5568; font-weight: 600; font-size: 14px; cursor: pointer; max-width: 250px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+    <select id="slideSelect" class="slide-select" onchange="jumpToSlide(this.value)">
         <!-- Populated by JS -->
     </select>
-    <span id="slide-indicator" style="display: none;">Slide 1 of 5</span>
+    <span id="slide-indicator" class="slide-indicator-hidden">Slide 1 of 5</span>
     <button id="nextBtn" onclick="changeSlide(1)">Next &rarr;</button>
     <button id="fullscreenBtn" onclick="toggleFullscreen()" title="Toggle Fullscreen">&#99798;</button>
 </div>

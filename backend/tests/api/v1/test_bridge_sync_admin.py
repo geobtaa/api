@@ -73,6 +73,35 @@ async def test_trigger_bridge_sync_enqueues_task_with_resource_id(mock_task):
 
 
 @pytest.mark.asyncio
+@patch("app.api.v1.endpoint_modules.admin.bridge_sync_enqueue_batches")
+async def test_trigger_bridge_sync_enqueues_batched_task(mock_task):
+    mock_task.delay.return_value = Mock(id="bridge-batched-task-123")
+
+    response = await trigger_bridge_sync(
+        TriggerBridgeSyncRequest(
+            bridge_trigger="manual_batched",
+            batched=True,
+            batch_size=750,
+            resource_scope="bridge_active",
+            max_resources=1500,
+        )
+    )
+
+    payload = json.loads(response.body)
+    assert payload["queued"] == "kithe_bridge_batched"
+    assert payload["task_id"] == "bridge-batched-task-123"
+    assert payload["batch_size"] == 750
+    assert payload["resource_scope"] == "bridge_active"
+    assert payload["max_resources"] == 1500
+    mock_task.delay.assert_called_once_with(
+        trigger="manual_batched",
+        batch_size=750,
+        resource_scope="bridge_active",
+        max_resources=1500,
+    )
+
+
+@pytest.mark.asyncio
 @patch("app.api.v1.endpoint_modules.admin.bridge_repo")
 async def test_list_bridge_sync_runs_returns_runs(mock_repo):
     mock_repo.list_sync_runs = AsyncMock(

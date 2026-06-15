@@ -204,7 +204,7 @@ enabled and caps per-worker database pools so k6 can exercise the production
 API-key path without using production traffic:
 
 ```bash
-make k6-stress K6_BASE_URL=https://lib-geoportal-dev-web-01.oit.umn.edu K6_API_KEY=...
+make k6-stress K6_BASE_URL=https://geodev.btaa.org K6_API_KEY=...
 ```
 
 The relevant server-side knobs are:
@@ -310,9 +310,22 @@ Kamal destination must keep per-process DB pools bounded. Production uses:
 
 - `DB_POOL_MAX=2` for the shared `databases` async pool.
 - `SQLALCHEMY_ASYNC_POOL_SIZE=1` and `SQLALCHEMY_ASYNC_MAX_OVERFLOW=0` for
-  SQLAlchemy async engines.
+  the shared per-process SQLAlchemy async engine used by request-path code.
 - `SQLALCHEMY_SYNC_POOL_SIZE=1` and `SQLALCHEMY_SYNC_MAX_OVERFLOW=0` for sync
-  SQLAlchemy engines used by request-path thumbnail/visual-asset helpers.
+  the shared per-process SQLAlchemy sync engine used by request-path
+  thumbnail/visual-asset helpers.
+
+Request-path modules should import their SQLAlchemy session/engine from
+`db.session` instead of creating independent module-level engines. Each
+independent engine owns a separate pool; multiplying those pools by the public
+and internal Uvicorn worker counts can exhaust Postgres before the CPU or
+application code is saturated.
+
+Background tasks and one-off services that need task-local SQLAlchemy engines
+should use `create_app_async_engine()` / `create_app_sync_engine()` so their
+pools are still bounded by the same environment variables. Avoid raw
+`create_async_engine()` in app code unless the caller deliberately supplies a
+complete pool policy.
 
 These caps intentionally trade some request queueing inside each app process
 for a hard ceiling on database connections. If p95 rises under load, increase

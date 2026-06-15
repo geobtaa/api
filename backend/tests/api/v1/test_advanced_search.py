@@ -14,6 +14,13 @@ from httpx import AsyncClient
 pytestmark = pytest.mark.asyncio
 
 
+def error_detail(response):
+    payload = response.json()
+    if "errors" in payload:
+        return payload["errors"][0]["detail"]
+    return payload["detail"]
+
+
 class TestAdvancedSearchValidation:
     """Test validation of advanced query parameters."""
 
@@ -22,25 +29,23 @@ class TestAdvancedSearchValidation:
         payload = {"adv_q": [{"f": "dct_title_s", "q": "Iowa"}]}
         response = await async_client.post("/api/v1/search", json=payload)
         assert response.status_code == 400
-        assert "op" in response.json()["detail"].lower()
+        assert "op" in error_detail(response).lower()
 
     async def test_adv_q_missing_field(self, async_client: AsyncClient):
         """Test that missing field returns 400 error."""
         payload = {"adv_q": [{"op": "AND", "q": "Iowa"}]}
         response = await async_client.post("/api/v1/search", json=payload)
         assert response.status_code == 400
-        assert (
-            "f" in response.json()["detail"].lower() or "field" in response.json()["detail"].lower()
-        )
+        detail = error_detail(response).lower()
+        assert "f" in detail or "field" in detail
 
     async def test_adv_q_missing_query(self, async_client: AsyncClient):
         """Test that missing query returns 400 error."""
         payload = {"adv_q": [{"op": "AND", "f": "dct_title_s"}]}
         response = await async_client.post("/api/v1/search", json=payload)
         assert response.status_code == 400
-        assert (
-            "q" in response.json()["detail"].lower() or "query" in response.json()["detail"].lower()
-        )
+        detail = error_detail(response).lower()
+        assert "q" in detail or "query" in detail
 
     async def test_adv_q_empty_query(self, async_client: AsyncClient):
         """Test that empty query returns 400 error."""
@@ -59,7 +64,7 @@ class TestAdvancedSearchValidation:
         payload = {"adv_q": [{"op": "XOR", "f": "dct_title_s", "q": "Iowa"}]}
         response = await async_client.post("/api/v1/search", json=payload)
         assert response.status_code == 400
-        assert "invalid operator" in response.json()["detail"].lower()
+        assert "invalid operator" in error_detail(response).lower()
 
     async def test_adv_q_empty_list(self, async_client: AsyncClient):
         """Test that empty list returns 400 error."""

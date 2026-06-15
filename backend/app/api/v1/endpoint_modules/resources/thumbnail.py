@@ -21,15 +21,11 @@ from app.services.thumbnail_state_service import (
     ThumbnailState,
     ThumbnailStatePayload,
     safe_record_thumbnail_state,
-    thumbnail_state_service,
 )
 from app.tasks.worker import (
-    _cog_thumbnail_image_hash,
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
     _normalize_thumbnail_image,
-    _pmtiles_thumbnail_image_hash,
-    _remote_thumbnail_image_hash,
     generate_cog_thumbnail,
     generate_pmtiles_thumbnail,
 )
@@ -56,10 +52,22 @@ def _thumbnail_asset_redirect(image_hash: str) -> RedirectResponse:
     )
 
 
+async def _thumbnail_hash_has_cached_image(image_hash: str) -> bool:
+    """Return True only when an immutable thumbnail hash resolves to image bytes."""
+    if not is_thumbnail_hash(image_hash):
+        return False
+    try:
+        return await ImageService({}).has_cached_image(image_hash)
+    except Exception as exc:
+        logger.debug("Failed checking thumbnail hash %s: %s", image_hash, exc)
+        return False
+
+
 async def _current_hot_thumbnail_hash_for_resource(
     resource_id: str,
     *,
     resource_dict: dict | None = None,
+    thumbnail_asset_url: str | None = None,
 ) -> str | None:
     """Return the current hot immutable thumbnail hash for a resource, if still valid."""
     if resource_dict is None:
@@ -70,29 +78,36 @@ async def _current_hot_thumbnail_hash_for_resource(
 
     distribution_context = await fetch_distribution_context(resource_id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
-    return await image_service.current_thumbnail_hash()
+    intrinsic_source_url = image_service.resolve_thumbnail_source_url()
+    image_hash = await asyncio.to_thread(
+        image_service.current_thumbnail_hash_for_source_sync,
+        intrinsic_source_url,
+    )
+    if is_thumbnail_hash(str(image_hash)):
+        return str(image_hash)
+    if intrinsic_source_url:
+        return None
+
+    if thumbnail_asset_url is None:
+        thumbnail_asset_url = await _get_thumbnail_asset_url(resource_id)
+    if not thumbnail_asset_url:
+        return None
+
+    image_hash = await asyncio.to_thread(
+        image_service.current_thumbnail_hash_with_asset_sync,
+        thumbnail_asset_url=thumbnail_asset_url,
+    )
+    return str(image_hash) if is_thumbnail_hash(str(image_hash)) else None
 
 
 async def _fast_thumbnail_alias_redirect(resource_id: str) -> RedirectResponse | None:
-    """Resolve a hot resource_id request through the alias cache before heavy work."""
-    image_hash = await thumbnail_alias_service.get_hash(resource_id)
-    if image_hash:
-        return _thumbnail_asset_redirect(image_hash)
-
-    state = await thumbnail_state_service.get_state(resource_id)
-    if not state:
+    """Redirect only when the current preferred source already has real image bytes."""
+    image_hash = await _current_hot_thumbnail_hash_for_resource(resource_id)
+    if not image_hash:
         return None
-
-    state_hash = state.get("source_hash")
-    if (
-        state.get("state") != ThumbnailState.SUCCESS
-        or not state_hash
-        or not is_thumbnail_hash(str(state_hash))
-    ):
+    if not await _thumbnail_hash_has_cached_image(image_hash):
         return None
-
-    await thumbnail_alias_service.set_hash(resource_id, str(state_hash))
-    return _thumbnail_asset_redirect(str(state_hash))
+    return _thumbnail_asset_redirect(image_hash)
 
 
 async def _probe_thumbnail_url(url: str) -> bool:
@@ -448,22 +463,11 @@ async def _get_resource_thumbnail_response(
     distribution_context = await fetch_distribution_context(id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
 
-    # Prefer intrinsic thumbnail sources (IIIF, direct image, COG, PMTiles, manifest)
-    # over bridge assets. Bridge-synced assets are a useful fallback, but they may be
-    # undersized or oversized relative to the native source.
-    source_url = image_service._get_thumbnail_source_url()
-
-    if not source_url:
-        asset_url = await _get_thumbnail_asset_url(id)
-        if asset_url and THUMBNAIL_REQUEST_PROBE_ENABLED:
-            asset_ok = await _probe_thumbnail_url(asset_url)
-            if asset_ok:
-                source_url = asset_url
-            else:
-                logger.info(
-                    "Thumbnail asset URL is unreachable or invalid for %s; falling back to generated asset",
-                    id,
-                )
+    # Prefer intrinsic thumbnail sources (IIIF, direct image, services, COG,
+    # PMTiles, schema.org image) over Bridge assets. Bridge thumbnail assets are
+    # still a real thumbnail source when no stronger source exists.
+    asset_url = await _get_thumbnail_asset_url(id)
+    source_url = image_service.resolve_thumbnail_source_url(thumbnail_asset_url=asset_url)
 
     if not source_url:
         # No thumbnail source: show resource-class icon
@@ -478,34 +482,8 @@ async def _get_resource_thumbnail_response(
         )
         return await _svg_icon_for_resource(resource_dict, variant=variant)
 
-    # Check if we have a cached image
-    image_hash = None
-
-    # For COG URLs, use COG-specific hash and task
-    if image_service._is_cog_url(source_url):
-        image_hash = _cog_thumbnail_image_hash(source_url)
-    # For PMTiles URLs, use PMTiles-specific hash and task
-    elif image_service._is_pmtiles_url(source_url):
-        image_hash = _pmtiles_thumbnail_image_hash(source_url)
-    # For manifest URLs, try to resolve from cache
-    elif image_service._is_manifest_url(source_url):
-        manifest_cache_key = f"manifest:{source_url}"
-        try:
-            cached_manifest_data = image_service.cache.get(manifest_cache_key)
-            if cached_manifest_data:
-                manifest_json = json.loads(cached_manifest_data)
-                resolved_url = image_service._extract_thumbnail_from_manifest_json(
-                    manifest_json, source_url
-                )
-                if resolved_url:
-                    resolved_url = image_service._standardize_iiif_url(resolved_url)
-                    image_hash = _remote_thumbnail_image_hash(resolved_url)
-        except Exception as e:
-            logger.debug(f"Error checking manifest cache for {id}: {e}")
-    else:
-        # Direct image URL
-        standardized_url = image_service._standardize_iiif_url(source_url)
-        image_hash = _remote_thumbnail_image_hash(standardized_url)
+    # Check if we have a cached image for the current source.
+    image_hash = image_service.thumbnail_image_hash_for_source_sync(source_url)
 
     # Check if image is cached
     if image_hash:
@@ -549,16 +527,13 @@ async def _get_resource_thumbnail_response(
             return await _svg_icon_for_resource(resource_dict, variant=variant)
 
     # For direct (non-manifest, non-COG, non-PMTiles) thumbnail URLs: probe once
-    # so we don't serve a queued-work fallback when source returns 404 or
-    # non-image (e.g. ArcGIS /info/thumbnail, dead b1g_image_ss URLs). If probe
-    # fails and resource has geometry, serve static map. (COG/PMTiles URLs are
-    # processed server-side; skip probe.)
-    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
+    # so we don't queue or serve a dead source when it returns 404 or non-image
+    # content (e.g. ArcGIS /info/thumbnail, dead b1g_image_ss URLs). COG/PMTiles
+    # URLs are processed server-side, so skip probe.
     if (
         not image_service._is_manifest_url(source_url)
         and not image_service._is_cog_url(source_url)
         and not image_service._is_pmtiles_url(source_url)
-        and geometry
         and THUMBNAIL_REQUEST_PROBE_ENABLED
     ):
         fetch_url = image_service._standardize_iiif_url(source_url)
@@ -663,7 +638,7 @@ async def _get_resource_thumbnail_response(
     return await _svg_icon_for_resource(resource_dict, variant=variant)
 
 
-@router.get("/resources/{id}/thumbnail")
+@router.get("/resources/{id}/thumbnail", response_class=Response)
 async def get_resource_thumbnail(
     id: str,
     request: Request,
@@ -700,7 +675,7 @@ async def get_resource_thumbnail(
         return _svg_placeholder(title="Thumbnail unavailable", subtitle="Error loading thumbnail")
 
 
-@router.get("/resources/{id}/thumbnail/no-cache")
+@router.get("/resources/{id}/thumbnail/no-cache", response_class=Response)
 async def get_resource_thumbnail_no_cache(
     id: str,
     request: Request,

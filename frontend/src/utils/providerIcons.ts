@@ -61,6 +61,8 @@ const PROVIDER_OVERRIDES: Record<string, string | null> = {
   'university of california, berkeley': 'uc_berkeley',
   'university of illinois at urbana champaign':
     'university_of_illinois_urbana_champaign',
+  'rutgers university-new brunswick': 'rutgers_university',
+  'rutgers university new brunswick': 'rutgers_university',
   'uw madison': 'university_of_wisconsin_madison',
   'university of wisconsin madison': 'university_of_wisconsin_madison',
   'university of nebraska lincoln': 'university_of_nebraska_lincoln',

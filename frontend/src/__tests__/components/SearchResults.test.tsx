@@ -114,6 +114,7 @@ const mockFixtureData: GeoDocument[] = [
         dc_publisher_sm: ['Stanford University'],
         gbl_resourceClass_sm: ['Raster Data'],
         gbl_indexYear_im: [2021],
+        dct_accessRights_s: 'Restricted',
       },
     },
     meta: {
@@ -268,6 +269,29 @@ describe('SearchResults Component', () => {
       ).toBeInTheDocument();
     });
 
+    it('shows a restricted access indicator for restricted results', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData}
+            isLoading={false}
+            totalResults={4}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const restrictedTitle = screen.getByText(
+        'Restricted raster layer with WMS and metadata'
+      );
+      const restrictedArticle = restrictedTitle.closest('article');
+
+      expect(restrictedArticle).toContainElement(
+        screen.getByRole('img', { name: 'Restricted access' })
+      );
+      expect(restrictedArticle).toHaveTextContent('4.');
+    });
+
     it('displays result numbers correctly', () => {
       render(
         <TestWrapper>
@@ -343,6 +367,30 @@ describe('SearchResults Component', () => {
 
       expect(screen.getByText('1.')).toBeInTheDocument();
       expect(screen.getByText('2.')).toBeInTheDocument();
+    });
+
+    it('uses compact card elements for the default list on mobile widths', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={[mockFixtureData[0]]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const title = screen.getByRole('heading', {
+        name: 'Nondigitized paper map with library catalog link',
+      });
+      expect(title).toHaveClass('text-sm', 'md:text-xl');
+
+      const mobilePillWrapper = screen
+        .getAllByTestId('result-card-pill')
+        .map((pill) => pill.closest('div'))
+        .find((element) => element?.className.includes('md:mt-0'));
+      expect(mobilePillWrapper).toBeTruthy();
     });
 
     it('uses viewer geometry for hover display (not bbox) when available', () => {
@@ -509,7 +557,7 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/thumbnails/nyu-2451-34564"]'
+        'img[src="/resources/nyu-2451-34564/thumbnail"]'
       );
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
@@ -544,7 +592,7 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/thumbnails/nyu-2451-34564"]'
+        'img[src="/resources/nyu-2451-34564/thumbnail"]'
       );
       expect(thumbnail).toBeInTheDocument();
     });
@@ -578,7 +626,7 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/thumbnails/nyu-2451-34564"]'
+        'img[src="/resources/nyu-2451-34564/thumbnail"]'
       );
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
@@ -884,11 +932,11 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/thumbnails/missing-thumb-test"]'
+        'img[src="/resources/missing-thumb-test/thumbnail"]'
       );
       expect(thumbnail).toHaveAttribute(
         'src',
-        '/thumbnails/missing-thumb-test'
+        '/resources/missing-thumb-test/thumbnail'
       );
       expect(thumbnail).toHaveAttribute('alt', '');
     });

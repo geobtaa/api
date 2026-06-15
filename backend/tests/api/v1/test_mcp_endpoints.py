@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.endpoint_modules.mcp import router
 from app.main import app
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
 
@@ -19,7 +20,7 @@ class TestMCPEndpoints:
     def test_mcp_endpoint_structure(self):
         """Test that the MCP endpoint is properly configured."""
         # Test that the app has the expected routes
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         # Check that MCP routes exist
         assert "/api/v1/mcp" in routes
@@ -34,7 +35,7 @@ class TestMCPEndpoints:
 
         # Check basic service information
         assert data["name"] == "btaa-geospatial-api"
-        assert data["version"] == "0.7.0"
+        assert data["version"] == "0.8.0"
         assert data["description"] == "BTAA Geospatial API MCP Service"
         assert data["protocol"] == "mcp"
         assert "stdio" in data["transports"]
@@ -119,7 +120,7 @@ class TestMCPEndpoints:
     def test_mcp_websocket_endpoint_exists(self):
         """Test that the WebSocket endpoint is properly configured."""
         # Check that the WebSocket route exists
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
         assert "/api/v1/mcp/ws" in routes
 
         # Note: WebSocket testing requires a different approach

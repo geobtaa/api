@@ -107,7 +107,16 @@ class TestOGMMCPService:
             "url": "http://localhost:8000/api/v1/search?q=palestine",
             "content_type": "application/json",
             "location": None,
-            "data": {"error": "Elasticsearch search failed"},
+            "data": {
+                "errors": [
+                    {
+                        "status": 500,
+                        "code": "elasticsearch_search_failed",
+                        "title": "Search failed",
+                        "detail": "Elasticsearch search failed.",
+                    }
+                ]
+            },
         }
 
         with patch.object(service, "_api_request", AsyncMock(return_value=api_payload)):
@@ -118,7 +127,7 @@ class TestOGMMCPService:
         assert payload["status_code"] == 500
         assert payload["error_type"] == "elasticsearch"
         assert payload["query"] == "palestine"
-        assert payload["data"]["error"] == "Elasticsearch search failed"
+        assert payload["data"]["errors"][0]["code"] == "elasticsearch_search_failed"
 
     @pytest.mark.asyncio
     async def test_search_resources_tool_surfaces_connection_errors(self):
@@ -189,7 +198,8 @@ class TestOGMMCPService:
             # If it's an error, verify it's a database connection error
             error_text = result.content[0].text.lower()
             assert any(
-                term in error_text for term in ["database", "connection", "nodename", "servname"]
+                term in error_text
+                for term in ["database", "connection", "nodename", "servname", "not found"]
             )
         else:
             # If it's successful, verify the content

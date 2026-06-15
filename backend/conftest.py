@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import psycopg2
 import pytest_asyncio
 from dotenv import load_dotenv
+from psycopg2 import sql
 from sqlalchemy import create_engine
 
 # Find repo root so `pytest` works whether run from repo root or from `backend/`
@@ -125,11 +126,18 @@ _HB_CURRENT_WHEN: str | None = None
 _HB_STOP = threading.Event()
 _HB_THREAD: threading.Thread | None = None
 _HB_PATH: Path | None = None
+SKIP_TEST_DATABASE = os.getenv("BTAA_SKIP_TEST_DB", "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # The `databases`/asyncpg pool is bound to the event loop that created it.
 # Under pytest-asyncio, it's possible for a session-scoped connect to run on a different
 # loop than individual tests. Track the loop id and reconnect if needed.
 _DB_LOOP_ID: int | None = None
+TEST_DB_SETUP_LOCK_ID = 2_026_052_201
 
 
 def _hb_worker_id() -> str:
@@ -193,6 +201,7 @@ def pytest_configure(config):
     os.environ["APP_ENV"] = "test"
     # Disable usage logging during tests for speed/stability
     os.environ["DISABLE_API_USAGE_LOG"] = "true"
+    os.environ.setdefault("APPLICATION_URL", "http://localhost:8000")
     # Allow rate limiting bypass for most tests; rate-limit-specific tests can override
     os.environ["DISABLE_RATE_LIMIT_FOR_TESTS"] = "true"
 
@@ -275,29 +284,29 @@ def pytest_runtest_logfinish(nodeid, location):
     )
 
 
-@pytest_asyncio.fixture(scope="session", autouse=True)
-async def setup_test_database():
-    """Ensure test DB exists on primary ParadeDB and run needed migrations."""
-    # Ensure the test database exists by connecting to the default 'postgres' DB
-    admin_dsn = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres"
-    try:
-        with psycopg2.connect(admin_dsn) as conn:
-            conn.autocommit = True
-            with conn.cursor() as cur:
-                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
-                exists = cur.fetchone() is not None
-                if not exists:
-                    cur.execute(f"CREATE DATABASE {db_name}")
-                    print("Created test database")
-    except Exception as e:
-        print(f"Warning: could not ensure test database exists: {type(e).__name__}")
-
+def _run_test_database_migrations():
     # Run minimal migrations required by tests (idempotent)
     from db.migrations.add_enrichment_type import add_enrichment_type_column
     from db.migrations.api_rate_limiting import init_api_rate_limiting
     from db.migrations.create_ai_enrichments import create_ai_enrichments_table
+    from db.migrations.create_bridge_sync_tables import create_bridge_sync_tables
+    from db.migrations.create_distribution_tables import create_distribution_tables
     from db.migrations.create_gazetteer_tables import create_gazetteer_tables
+    from db.migrations.create_generated_api_responses_table import (
+        create_generated_api_responses_table,
+    )
+    from db.migrations.create_generated_resource_representations_table import (
+        create_generated_resource_representations_table,
+    )
+    from db.migrations.create_generated_visual_assets_table import (
+        create_generated_visual_assets_table,
+    )
+    from db.migrations.create_ogm_harvest_tables import create_ogm_harvest_tables
+    from db.migrations.create_resource_aux_tables import create_resource_aux_tables
     from db.migrations.create_resource_relationships import create_relationships_table
+    from db.migrations.create_resource_spatial_facets_table import (
+        create_resource_spatial_facets_table,
+    )
 
     # Temporarily set the environment to use synchronous URL for migrations
     original_database_url = os.environ.get("DATABASE_URL")
@@ -308,6 +317,14 @@ async def setup_test_database():
         create_gazetteer_tables()
         create_relationships_table()
         add_enrichment_type_column()
+        create_distribution_tables()
+        create_resource_aux_tables()
+        create_bridge_sync_tables()
+        create_ogm_harvest_tables()
+        create_resource_spatial_facets_table()
+        create_generated_visual_assets_table()
+        create_generated_resource_representations_table()
+        create_generated_api_responses_table()
         init_api_rate_limiting()
         print("All database migrations (including API rate limiting) completed successfully!")
     except Exception as e:
@@ -320,12 +337,49 @@ async def setup_test_database():
         else:
             os.environ["DATABASE_URL"] = ASYNC_DATABASE_URL
 
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def prepared_test_database():
+    """Ensure test DB exists on primary ParadeDB and run needed migrations."""
+    if SKIP_TEST_DATABASE:
+        yield
+        return
+
+    # Ensure the test database exists by connecting to the default 'postgres' DB.
+    # xdist workers share one test DB, so serialize bootstrap/migrations on fresh CI.
+    admin_dsn = f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/postgres"
+    lock_conn = None
+    try:
+        lock_conn = psycopg2.connect(admin_dsn)
+        lock_conn.autocommit = True
+        with lock_conn.cursor() as cur:
+            cur.execute("SELECT pg_advisory_lock(%s)", (TEST_DB_SETUP_LOCK_ID,))
+            try:
+                cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (db_name,))
+                exists = cur.fetchone() is not None
+                if not exists:
+                    cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(db_name)))
+                    print("Created test database")
+                _run_test_database_migrations()
+            finally:
+                cur.execute("SELECT pg_advisory_unlock(%s)", (TEST_DB_SETUP_LOCK_ID,))
+    except Exception as e:
+        print(f"Error preparing test database: {e}")
+        raise
+    finally:
+        if lock_conn is not None:
+            lock_conn.close()
+
     yield
 
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
-async def db_connection():
+async def db_connection(prepared_test_database):
     """Session-scoped database connection that stays open for all tests."""
+    if SKIP_TEST_DATABASE:
+        yield None
+        return
+
     from db.database import database
 
     # Connect once for the entire test session
@@ -354,6 +408,10 @@ async def db_transaction(db_connection):
     by running in separate database transactions when using pytest-xdist with
     separate database connections per worker.
     """
+    if SKIP_TEST_DATABASE:
+        yield None
+        return
+
     import uuid
 
     from db.database import database

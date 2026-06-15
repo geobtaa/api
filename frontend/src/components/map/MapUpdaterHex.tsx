@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
-import { cellArea, cellToBoundary, UNITS } from 'h3-js';
+import { cellToBoundary } from 'h3-js';
 import type { MapFeatureClickPayload } from '../../types/map';
 import { useMapH3 } from '../../hooks/useMapH3';
 import { formatCount } from '../../utils/formatNumber';
@@ -74,26 +74,29 @@ function getColor(intensity: number): string {
 }
 
 export type HexHoverData = { h3: string; count: number; resolution: number };
+export type HexBoundingBox = {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+};
 
-function formatAreaKm2(km2: number): string {
-  if (km2 >= 1000)
-    return km2.toLocaleString('en-US', { maximumFractionDigits: 0 });
-  if (km2 >= 1)
-    return km2.toLocaleString('en-US', {
-      minimumFractionDigits: 1,
-      maximumFractionDigits: 2,
-    });
-  return km2.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
-  });
+function getHexBoundingBox(h3Index: string): HexBoundingBox {
+  const vertices = cellToBoundary(h3Index);
+  const lats = vertices.map(([lat]) => lat);
+  const lngs = vertices.map(([, lng]) => lng);
+  return {
+    west: Math.min(...lngs),
+    south: Math.min(...lats),
+    east: Math.max(...lngs),
+    north: Math.max(...lats),
+  };
 }
 
 export function MapUpdaterHex({
   searchQuery,
   onFeatureClick,
   onHexClick,
-  enableSearchPopup = false,
   onHexData,
   onHexHover,
   hoveredHex,
@@ -101,8 +104,12 @@ export function MapUpdaterHex({
 }: {
   searchQuery: string;
   onFeatureClick: (feature: MapFeatureClickPayload) => void;
-  onHexClick?: (data: { h3: string; count: number; resolution: number }) => void;
-  enableSearchPopup?: boolean;
+  onHexClick?: (data: {
+    h3: string;
+    count: number;
+    resolution: number;
+    bbox: HexBoundingBox;
+  }) => void;
   onHexData?: (stats: {
     hexCount: number;
     totalInView: number;
@@ -122,54 +129,6 @@ export function MapUpdaterHex({
     defaultStyle: L.PathOptions;
   } | null>(null);
   const prevHoveredHexRef = useRef<HexHoverData | null | undefined>(undefined);
-
-  const openSearchPopup = useCallback(
-    (layer: L.Layer, h3: string, count: number, popupResolution: number) => {
-      if (!(layer instanceof L.Path)) return;
-      let areaMarkup = '';
-      try {
-        const areaKm2 = cellArea(h3, UNITS.km2);
-        areaMarkup =
-          `<div class="flex justify-between gap-4">` +
-          `<dt class="font-medium">Area</dt>` +
-          `<dd>${formatAreaKm2(areaKm2)} km²</dd>` +
-          `</div>`;
-      } catch {
-        // Invalid H3 index or library error
-      }
-      const searchUrl = buildSearchUrl(
-        h3,
-        popupResolution,
-        searchQuery,
-        queryString
-      );
-      const popupHtml =
-        `<div class="rounded-lg border border-gray-200 bg-white/95 shadow-lg backdrop-blur-sm p-3 min-w-[180px]">` +
-        `<h3 class="text-sm font-semibold text-gray-900 mb-1">H3 ${h3}</h3>` +
-        `<dl class="text-sm text-gray-600 space-y-1 mb-2">` +
-        `<div class="flex justify-between gap-4">` +
-        `<dt class="font-medium">Resources</dt>` +
-        `<dd>${formatCount(count)}</dd>` +
-        `</div>` +
-        `<div class="flex justify-between gap-4">` +
-        `<dt class="font-medium">Resolution</dt>` +
-        `<dd>Level ${popupResolution}</dd>` +
-        `</div>` +
-        areaMarkup +
-        `</dl>` +
-        `<a href="${searchUrl}" class="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline">Search this hex</a>` +
-        `</div>`;
-      layer.bindPopup(popupHtml, {
-        autoPan: false,
-        closeButton: false,
-        autoClose: true,
-        closeOnClick: true,
-        className: 'map-hex-search-popup',
-      });
-      layer.openPopup();
-    },
-    [queryString, searchQuery]
-  );
 
   const updateBbox = useCallback(() => {
     const b = map.getBounds();
@@ -328,10 +287,12 @@ export function MapUpdaterHex({
         };
 
         if (!onHexHover) {
-          const params = new URLSearchParams();
-          if (searchQuery) params.set('q', searchQuery);
-          params.set(`include_filters[h3_res${resolution}][]`, h3);
-          const searchUrl = `/search?${params.toString()}`;
+          const searchUrl = buildSearchUrl(
+            h3,
+            resolution,
+            searchQuery,
+            queryString
+          );
           layer.bindPopup(
             `<div class="map-hex-popup"><h3 class="text-sm font-semibold mb-1">H3 ${h3}</h3><p class="text-sm mb-2"><strong>Resources:</strong> ${formatCount(count)}</p><a href="${searchUrl}" class="text-blue-600 hover:underline text-sm">Search this hex</a></div>`
           );
@@ -342,9 +303,10 @@ export function MapUpdaterHex({
           if (prev && prev.layer !== layer) {
             prev.layer.setStyle(prev.defaultStyle);
           }
-          (layer as L.Path).setStyle(hoverStyle);
-          layer.bringToFront();
-          hoveredRef.current = { layer: layer as L.Path, defaultStyle };
+          const pathLayer = layer as L.Path;
+          pathLayer.setStyle(hoverStyle);
+          pathLayer.bringToFront();
+          hoveredRef.current = { layer: pathLayer, defaultStyle };
           onHexHover?.({ h3, count, resolution });
         });
         layer.on('mouseout', () => {
@@ -359,13 +321,14 @@ export function MapUpdaterHex({
           if (event.originalEvent.ctrlKey || event.originalEvent.metaKey) {
             return;
           }
-          if (enableSearchPopup) {
-            L.DomEvent.stopPropagation(event);
-            openSearchPopup(layer, h3, count, resolution);
-            return;
-          }
           if (onHexClick) {
-            onHexClick({ h3, count, resolution });
+            L.DomEvent.stopPropagation(event);
+            onHexClick({
+              h3,
+              count,
+              resolution,
+              bbox: getHexBoundingBox(h3),
+            });
             return;
           }
           onFeatureClick({

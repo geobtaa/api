@@ -14,8 +14,6 @@ interface NoteConfig {
   classes: string;
 }
 
-const TIP_PREFIX = 'Tip: ';
-
 const NOTE_PREFIXES: Array<{
   prefix: string;
   variant: Exclude<NoteVariant, 'default'>;
@@ -79,9 +77,13 @@ function classifyNote(note: string): NoteConfig {
 }
 
 function getRenderedNoteText(note: string) {
-  if (note.startsWith(TIP_PREFIX)) {
+  const matchedPrefix = NOTE_PREFIXES.find(({ prefix }) =>
+    note.startsWith(prefix)
+  )?.prefix;
+
+  if (matchedPrefix) {
     return {
-      text: note.slice(TIP_PREFIX.length).trimStart(),
+      text: note.slice(matchedPrefix.length).trimStart(),
       ariaLabel: note,
     };
   }

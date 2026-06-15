@@ -213,6 +213,34 @@ describe('search results proxy loader', () => {
     expect(headers.get('cookie')).toBe('btaa_turnstile_session=session-123');
   });
 
+  it('preserves the upstream Turnstile-required response header', async () => {
+    const request = new Request('https://example.com/search/results?q=maps');
+
+    vi.mocked(serverFetchWithTheme).mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: 'turnstile_required',
+          message: 'A verified browser session is required for this request.',
+        }),
+        {
+          status: 403,
+          headers: {
+            'Content-Type': 'application/json; charset=utf-8',
+            'X-Turnstile-Required': 'true',
+          },
+        }
+      )
+    );
+
+    const response = await loader({
+      request,
+      params: {},
+    } as unknown as LoaderFunctionArgs);
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get('x-turnstile-required')).toBe('true');
+  });
+
   it('returns 500 when upstream fetch fails', async () => {
     const request = new Request('https://example.com/search/results?q=maps');
     vi.mocked(serverFetchWithTheme).mockRejectedValue(new Error('nope'));

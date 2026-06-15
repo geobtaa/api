@@ -8,6 +8,8 @@ from fastapi import APIRouter, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import and_, func, or_, select
 
+from app.api.errors import PUBLIC_ERROR_RESPONSES
+from app.api.schemas import GenericObjectResponse, JSONAPIResponse
 from app.api.v1.strong_params import GAZETTEER_ALLOWED_PARAMS
 from app.api.v1.utils import (
     create_gazetteer_meta_and_links,
@@ -36,7 +38,7 @@ from db.models import (
 # Load environment variables from .env file
 load_dotenv()
 
-router = APIRouter()
+router = APIRouter(responses=PUBLIC_ERROR_RESPONSES)
 logger = logging.getLogger(__name__)
 
 # Cache TTL for gazetteer endpoints (1 hour)
@@ -44,7 +46,7 @@ GAZETTEER_CACHE_TTL = int(os.getenv("GAZETTEER_CACHE_TTL", 3600))
 NOMINATIM_CACHE_TTL = int(os.getenv("NOMINATIM_CACHE_TTL", 30 * 24 * 60 * 60))
 
 
-@router.get("/gazetteers")
+@router.get("/gazetteers", response_model=JSONAPIResponse)
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def list_gazetteers(
     request: Request,
@@ -129,7 +131,7 @@ async def list_gazetteers(
         raise HTTPException(status_code=500, detail="Failed to list gazetteers") from e
 
 
-@router.get("/gazetteers/search")
+@router.get("/gazetteers/search", response_model=GenericObjectResponse)
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_all_gazetteers(
     request: Request,
@@ -177,7 +179,7 @@ async def search_all_gazetteers(
         raise HTTPException(status_code=500, detail="Failed to search gazetteers") from e
 
 
-@router.get("/gazetteers/nominatim/search")
+@router.get("/gazetteers/nominatim/search", response_model=JSONAPIResponse)
 @cached_endpoint(ttl=NOMINATIM_CACHE_TTL, tags=["suggest", "gazetteer", "nominatim"])
 async def search_nominatim(
     request: Request,
@@ -212,7 +214,7 @@ async def search_nominatim(
         raise HTTPException(status_code=502, detail="Nominatim request failed") from exc
 
 
-@router.get("/gazetteers/btaa/search")
+@router.get("/gazetteers/btaa/search", response_model=JSONAPIResponse)
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_btaa(
     request: Request,
@@ -286,7 +288,7 @@ async def search_btaa(
         raise HTTPException(status_code=500, detail="Failed to search BTAA") from e
 
 
-@router.get("/gazetteers/geonames/search")
+@router.get("/gazetteers/geonames/search", response_model=JSONAPIResponse)
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_geonames(
     request: Request,
@@ -368,7 +370,7 @@ async def search_geonames(
         raise HTTPException(status_code=500, detail="Failed to search GeoNames") from e
 
 
-@router.get("/gazetteers/wof/search")
+@router.get("/gazetteers/wof/search", response_model=JSONAPIResponse)
 @cached_endpoint(ttl=GAZETTEER_CACHE_TTL)
 async def search_wof(
     request: Request,
@@ -508,9 +510,11 @@ async def search_wof(
             # Sort ancestors by placetype priority
             sorted_ancestors = sorted(
                 ancestors,
-                key=lambda a: hierarchy_placetypes.index(a.get("ancestor_placetype", ""))
-                if a.get("ancestor_placetype") in hierarchy_placetypes
-                else 999,
+                key=lambda a: (
+                    hierarchy_placetypes.index(a.get("ancestor_placetype", ""))
+                    if a.get("ancestor_placetype") in hierarchy_placetypes
+                    else 999
+                ),
             )
 
             for ancestor in sorted_ancestors:
@@ -580,4 +584,4 @@ async def search_wof(
     except Exception as e:
         error_msg = str(e)
         logger.error(f"Error searching WOF: {error_msg}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Failed to search WOF: {error_msg}") from e
+        raise HTTPException(status_code=500, detail="Failed to search WOF") from e

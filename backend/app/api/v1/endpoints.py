@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .endpoint_modules.admin import router as admin_router
 from .endpoint_modules.analytics import router as analytics_router
+from .endpoint_modules.feedback import router as feedback_router
 from .endpoint_modules.gazetteer import router as gazetteer_router
 from .endpoint_modules.home import router as home_router
 from .endpoint_modules.map import router as map_router
@@ -16,6 +17,7 @@ from .endpoint_modules.resources import router as resources_router
 from .endpoint_modules.root import router as root_router
 from .endpoint_modules.search import router as search_router
 from .endpoint_modules.shapefiles import router as shapefiles_router
+from .endpoint_modules.slack import router as slack_router
 from .endpoint_modules.static_maps import router as static_maps_router
 from .endpoint_modules.thumbnails import router as thumbnails_router
 from .endpoint_modules.turnstile import router as turnstile_router
@@ -28,6 +30,7 @@ router = APIRouter()
 router.include_router(root_router, tags=["root"])
 router.include_router(search_router, tags=["search"])
 router.include_router(analytics_router, tags=["analytics"], include_in_schema=False)
+router.include_router(feedback_router, tags=["feedback"], include_in_schema=False)
 router.include_router(home_router, tags=["home"])
 router.include_router(resources_router, tags=["resources"])
 router.include_router(thumbnails_router, tags=["thumbnails"])
@@ -35,8 +38,9 @@ router.include_router(static_maps_router, tags=["static-maps"])
 router.include_router(map_router, tags=["map"])
 router.include_router(turnstile_router, tags=["turnstile"], include_in_schema=False)
 router.include_router(mcp_router, tags=["mcp"])
+router.include_router(slack_router, tags=["slack"], include_in_schema=False)
 router.include_router(ogm_router, tags=["ogm"])
-# Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation
+# Hide admin, gazetteer, and shapefiles endpoints from Swagger documentation.
 router.include_router(admin_router, prefix="/admin", tags=["admin"], include_in_schema=False)
 router.include_router(ogm_webhook_router, prefix="/admin", tags=["admin"], include_in_schema=False)
 router.include_router(gazetteer_router, tags=["gazetteers"], include_in_schema=False)

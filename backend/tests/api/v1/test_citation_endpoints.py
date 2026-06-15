@@ -6,16 +6,22 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
+
+
+def assert_public_error(data, *, status: int, code: str):
+    assert data["errors"][0]["status"] == status
+    assert data["errors"][0]["code"] == code
 
 
 @pytest.mark.unit
 def test_citation_endpoint_paths_exist():
     """Test that citation endpoints are registered."""
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}" in routes
-    resource_routes = [r.path for r in app.routes if "citation" in str(r.path)]
+    resource_routes = [path for path in routes if "citation" in path]
     assert len(resource_routes) >= 1
 
 
@@ -26,7 +32,7 @@ def test_citation_endpoint_returns_404_for_nonexistent():
     assert response.status_code in [404, 500]
     if response.status_code == 404:
         data = response.json()
-        assert "error" in data or "detail" in data
+        assert_public_error(data, status=404, code="not_found")
 
 
 @pytest.mark.unit

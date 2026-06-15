@@ -27,6 +27,13 @@ def create_valid_jpeg_image() -> bytes:
     return buffer.getvalue()
 
 
+def error_detail(response):
+    payload = response.json()
+    if "errors" in payload:
+        return payload["errors"][0]["detail"]
+    return payload["detail"]
+
+
 @pytest.fixture
 def app():
     """Create FastAPI app with thumbnails router."""
@@ -119,55 +126,69 @@ class TestThumbnailEndpoints:
 
         with (
             patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
-                new=AsyncMock(return_value=image_hash),
-            ),
-            patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
                 new=AsyncMock(return_value=image_hash),
             ) as mock_current_hash,
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=True),
+            ) as mock_hash_cached,
         ):
             response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             assert "max-age=3600" in response.headers["cache-control"]
-            mock_current_hash.assert_not_awaited()
+            mock_current_hash.assert_awaited_once_with(resource_id)
+            mock_hash_cached.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_success_state_rehydrates_alias_redirect(self, client):
-        """Cold Redis aliases should rehydrate from persisted success state."""
+        """Resource-id requests should redirect when the canonical source is hot."""
         resource_id = "nyu-2451-34564"
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
         with (
             patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.get_hash",
-                new=AsyncMock(return_value=None),
-            ),
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_alias_service.set_hash",
-                new=AsyncMock(return_value=True),
-            ) as mock_set_hash,
-            patch(
-                "app.api.v1.endpoint_modules.thumbnails.thumbnail_state_service.get_state",
-                new=AsyncMock(
-                    return_value={
-                        "state": "success",
-                        "source_hash": image_hash,
-                    }
-                ),
-            ),
-            patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
-                new=AsyncMock(return_value=None),
+                new=AsyncMock(return_value=image_hash),
             ) as mock_current_hash,
+            patch(
+                "app.api.v1.endpoint_modules.thumbnails._thumbnail_hash_has_cached_image",
+                new=AsyncMock(return_value=True),
+            ) as mock_hash_cached,
         ):
             response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
-            mock_set_hash.assert_awaited_once_with(resource_id, image_hash)
-            mock_current_hash.assert_not_awaited()
+            mock_current_hash.assert_awaited_once_with(resource_id)
+            mock_hash_cached.assert_awaited_once_with(image_hash)
+
+    def test_get_thumbnail_stale_resource_alias_falls_through_to_resolver(self, client):
+        """Resource-id aliases with missing image bytes should not redirect to placeholders."""
+        resource_id = "nyu-2451-34564"
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._current_hot_thumbnail_hash_for_resource",
+                new=AsyncMock(return_value=None),
+            ) as mock_current_hash,
+            patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_resource_thumbnail_response",
+                new=AsyncMock(return_value=Response(content=b"resolved")),
+            ) as mock_resolve,
+        ):
+            mock_service = MagicMock()
+            mock_service.get_cached_image = AsyncMock(return_value=None)
+            mock_service_class.return_value = mock_service
+
+            response = client.get(f"/thumbnails/{resource_id}", follow_redirects=False)
+
+            assert response.status_code == 200
+            assert response.content == b"resolved"
+            mock_current_hash.assert_awaited_once_with(resource_id)
+            mock_resolve.assert_awaited_once()
 
     def test_get_thumbnail_not_found(self, client):
         """Test thumbnail retrieval when image is not found."""
@@ -189,10 +210,10 @@ class TestThumbnailEndpoints:
             response = client.get(f"/thumbnails/{test_image_hash}")
 
             assert response.status_code == 404
-            assert "Resource not found" in response.json()["detail"]
+            assert "Resource not found" in error_detail(response)
 
-    def test_get_thumbnail_missing_hash_returns_placeholder(self, client):
-        """Missing immutable asset hashes should return the thumbnail placeholder."""
+    def test_get_thumbnail_missing_hash_returns_404(self, client):
+        """Missing immutable asset hashes should let clients fall back by image error."""
         image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
 
         with patch("app.api.v1.endpoint_modules.thumbnails.ImageService") as mock_service_class:
@@ -202,11 +223,8 @@ class TestThumbnailEndpoints:
 
             response = client.get(f"/thumbnails/{image_hash}")
 
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "image/svg+xml"
+            assert response.status_code == 404
             assert response.headers["cache-control"] == "no-store"
-            assert response.headers["x-placeholder"] == "true"
-            assert "Thumbnail placeholder" in response.text
             mock_service.get_cached_image.assert_awaited_once_with(image_hash)
 
     def test_get_thumbnail_resource_asset_fallback(self, client):
@@ -293,7 +311,18 @@ class TestThumbnailEndpoints:
             mock_session_instance.execute = AsyncMock(return_value=mock_result)
 
             mock_resource_service = MagicMock()
-            mock_resource_service._get_thumbnail_source_url.return_value = None
+            mock_resource_service.resolve_thumbnail_source_url.return_value = (
+                "https://example.com/missing-thumbnail.jpg"
+            )
+            mock_resource_service.current_thumbnail_hash_for_source_sync.return_value = None
+            mock_resource_service.thumbnail_image_hash_for_source_sync.return_value = (
+                _remote_thumbnail_image_hash("https://example.com/missing-thumbnail.jpg")
+            )
+            mock_resource_service.get_cached_image = AsyncMock(return_value=None)
+            mock_resource_service._standardize_iiif_url.side_effect = lambda url: url
+            mock_resource_service._is_cog_url.return_value = False
+            mock_resource_service._is_pmtiles_url.return_value = False
+            mock_resource_service._is_manifest_url.return_value = False
             mock_resource_service_class.return_value = mock_resource_service
 
             response = client.get(f"/thumbnails/{resource_id}")
@@ -359,7 +388,9 @@ class TestThumbnailEndpoints:
 
             mock_resource_service = MagicMock()
             mock_resource_service.get_cached_image = AsyncMock(return_value=test_image_data)
-            mock_resource_service._get_thumbnail_source_url.return_value = None
+            mock_resource_service.resolve_thumbnail_source_url.return_value = asset_url
+            mock_resource_service.current_thumbnail_hash_for_source_sync.return_value = None
+            mock_resource_service.thumbnail_image_hash_for_source_sync.return_value = image_hash
             mock_resource_service._standardize_iiif_url.side_effect = lambda url: url
             mock_resource_service._is_cog_url.return_value = False
             mock_resource_service._is_pmtiles_url.return_value = False
@@ -370,9 +401,11 @@ class TestThumbnailEndpoints:
 
             assert response.status_code == 302
             assert response.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
-            mock_probe.assert_awaited_once_with(asset_url)
+            mock_probe.assert_not_awaited()
             mock_resource_service.get_cached_image.assert_awaited_once_with(image_hash)
-            mock_resource_service._get_thumbnail_source_url.assert_called_once_with()
+            mock_resource_service.resolve_thumbnail_source_url.assert_called_with(
+                thumbnail_asset_url=asset_url
+            )
 
     def test_get_thumbnail_service_error(self, client):
         """Test thumbnail retrieval with service error."""
@@ -386,7 +419,8 @@ class TestThumbnailEndpoints:
             response = client.get(f"/thumbnails/{test_image_hash}")
 
             assert response.status_code == 500
-            assert "Service error" in response.json()["detail"]
+            assert error_detail(response) == "Failed to retrieve thumbnail"
+            assert "Service error" not in response.text
 
     def test_get_thumbnail_cache_headers(self, client):
         """Test that cached thumbnails have proper caching headers."""
@@ -638,7 +672,8 @@ class TestThumbnailEndpoints:
                 response = client.get(f"/thumbnails/{test_image_hash}")
 
                 assert response.status_code == 500
-                assert error_message in response.json()["detail"]
+                assert error_detail(response) == "Failed to retrieve thumbnail"
+                assert error_message not in response.text
 
     def test_placeholder_thumbnail_accessibility(self, client):
         """Test that placeholder thumbnail is accessible and well-formed."""

@@ -32,7 +32,7 @@ ENV PATH="/root/.local/bin:$PATH"
 # Copy backend pyproject.toml and uv.lock first to leverage Docker cache
 COPY backend/pyproject.toml backend/uv.lock ./
 
-## Frontend assets are served by the dedicated `frontend` / `frontend-dev` containers.
+## Frontend assets are served by the dedicated `frontend` container.
 ## The API container no longer bundles or serves frontend static files.
 
 # Ensure operational scripts are present in the runtime image (for kamal exec)

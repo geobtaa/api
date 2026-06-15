@@ -14,17 +14,18 @@ from typing import Optional
 import aiohttp
 from celery import Task, shared_task
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.security_utils import stable_hex_digest
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 from db.models import distribution_types, resource_allmaps, resource_distributions, resources
 
 logger = logging.getLogger(__name__)
 
 # Create async engine and session
-engine = create_async_engine(DATABASE_URL)
+engine = create_app_async_engine(DATABASE_URL)
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 
@@ -140,7 +141,7 @@ async def process_resource(resource_id: str, manifest_url: str) -> bool:
         bool: True if the resource was processed successfully, False otherwise
     """
     # Create a new engine and session for this task to avoid concurrency issues
-    task_engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    task_engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
     try:
         async_session_factory = sessionmaker(
             task_engine, class_=AsyncSession, expire_on_commit=False
@@ -235,7 +236,7 @@ def index_all_allmaps(self: Task, batch_size: int = 100) -> dict:
     async def get_resources_with_manifests():
         """Get all resources with IIIF manifests."""
         # Create a new engine and session for this operation
-        task_engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+        task_engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
         try:
             async_session_factory = sessionmaker(
                 task_engine, class_=AsyncSession, expire_on_commit=False

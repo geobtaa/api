@@ -32,13 +32,6 @@ def _path_matches(path: str, protected_path: str) -> bool:
     return path == protected_path or path.startswith(f"{protected_path}/")
 
 
-def _has_api_key(request: Request) -> bool:
-    if request.headers.get("X-API-Key"):
-        return True
-    auth_header = request.headers.get("Authorization", "")
-    return auth_header.startswith("Bearer ") or bool(request.query_params.get("api_key"))
-
-
 def _is_frontend_gate_request(request: Request) -> bool:
     if request.headers.get("X-BTAA-Turnstile-Gate"):
         return True
@@ -78,7 +71,7 @@ def _should_bypass_local_turnstile(request: Request) -> bool:
 
 
 class TurnstileMiddleware(BaseHTTPMiddleware):
-    """Require a verified Turnstile browser session on configured hot paths."""
+    """Require a verified Turnstile session only for explicit frontend gate traffic."""
 
     def __init__(self, app):
         super().__init__(app)
@@ -112,7 +105,7 @@ class TurnstileMiddleware(BaseHTTPMiddleware):
         if not any(_path_matches(path, protected_path) for protected_path in _protected_paths()):
             return False
 
-        if _has_api_key(request) and not _is_frontend_gate_request(request):
+        if not _is_frontend_gate_request(request):
             return False
 
         return True

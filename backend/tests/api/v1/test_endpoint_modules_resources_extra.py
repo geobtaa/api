@@ -39,6 +39,11 @@ class DummySession:
         pass
 
 
+@pytest.fixture(autouse=True)
+def disable_endpoint_cache(monkeypatch):
+    monkeypatch.setattr("app.services.cache_service.ENDPOINT_CACHE", False)
+
+
 @pytest.mark.asyncio
 async def test_list_resources_success(monkeypatch):
     from app.api.v1.endpoint_modules import resources as res
@@ -99,7 +104,14 @@ async def test_get_resource_found(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await res.get_resource(request=DummyRequest(), id="r1", callback=None)
+    resp = await res.get_resource(
+        request=DummyRequest(),
+        id="r1",
+        fields=None,
+        ui_profile=None,
+        callback=None,
+        format=None,
+    )
     assert hasattr(resp, "body")
 
 
@@ -146,6 +158,8 @@ async def test_get_resource_homepage_profile_uses_lightweight_processor(monkeypa
 
 @pytest.mark.asyncio
 async def test_get_resource_not_found(monkeypatch):
+    from fastapi import HTTPException
+
     from app.api.v1.endpoint_modules import resources as res
 
     res.async_session = lambda: DummySession(fetchone_row=None)
@@ -160,13 +174,15 @@ async def test_get_resource_not_found(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await res.get_resource(request=DummyRequest(), id="missing", callback=None)
-    assert hasattr(resp, "body")
-    assert resp.status_code == 404
+    with pytest.raises(HTTPException) as exc:
+        await res.get_resource(request=DummyRequest(), id="missing", callback=None)
+    assert exc.value.status_code == 404
 
 
 @pytest.mark.asyncio
 async def test_get_resource_error(monkeypatch):
+    from fastapi import HTTPException
+
     from app.api.v1.endpoint_modules import resources as res
 
     row = make_row({"id": "r1"})
@@ -187,9 +203,9 @@ async def test_get_resource_error(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await res.get_resource(request=DummyRequest(), id="r1", callback=None)
-    assert hasattr(resp, "body")
-    assert resp.status_code == 500
+    with pytest.raises(HTTPException) as exc:
+        await res.get_resource(request=DummyRequest(), id="r1", callback=None)
+    assert exc.value.status_code == 500
 
 
 @pytest.mark.asyncio
@@ -205,19 +221,21 @@ async def test_get_resource_ogm_success(monkeypatch):
             return resource_dict
 
     monkeypatch.setattr(res, "OGMFieldMapper", FakeMapper)
-    resp = await res.get_resource_ogm("r1", callback="cb")
+    resp = await res.get_resource_ogm("r1", fields=None, callback="cb")
     # JSONP-like acceptable as JSONResponse/str body exists
     assert resp is not None
 
 
 @pytest.mark.asyncio
 async def test_get_resource_ogm_not_found(monkeypatch):
+    from fastapi import HTTPException
+
     from app.api.v1.endpoint_modules import resources as res
 
     res.async_session = lambda: DummySession(fetchone_row=None)
-    resp = await res.get_resource_ogm("x", callback=None)
-    assert hasattr(resp, "body")
-    assert resp.status_code == 404
+    with pytest.raises(HTTPException) as exc:
+        await res.get_resource_ogm("x", callback=None)
+    assert exc.value.status_code == 404
 
 
 # Summaries endpoint tests removed - endpoint is commented out and not available
@@ -250,12 +268,14 @@ async def test_get_resource_viewer_not_found(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_get_resource_viewer_error(monkeypatch):
+    from fastapi import HTTPException
+
     from app.api.v1.endpoint_modules import resources as res
 
     res.async_session = lambda: DummySession(raise_on="execute")
-    resp = await res.get_resource_viewer("r1", embed=False)
-    assert hasattr(resp, "body")
-    assert resp.status_code == 500
+    with pytest.raises(HTTPException) as exc:
+        await res.get_resource_viewer("r1", embed=False)
+    assert exc.value.status_code == 500
 
 
 @pytest.mark.asyncio

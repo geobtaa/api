@@ -5,9 +5,14 @@ import os
 from datetime import datetime
 
 import pytest
+import requests
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.services.bridge_sync.batched import (
+    queue_batched_bridge_sync,
+    sync_bridge_resource_batch,
+)
 from app.services.bridge_sync.client import BridgePage
 from app.services.bridge_sync.harvest import sync_bridge
 from app.services.bridge_sync.importer import BridgeResourceImporter
@@ -45,6 +50,16 @@ class FakeBridgeClient:
         return self.records.get(resource_id)
 
 
+def _http_error(status_code: int, url: str = "https://geo.btaa.org/api/kithe_bridge/test"):
+    response = requests.Response()
+    response.status_code = status_code
+    response.url = url
+    return requests.HTTPError(
+        f"{status_code} Server Error: Bad Gateway for url: {url}",
+        response=response,
+    )
+
+
 @pytest.mark.integration
 @pytest.mark.database
 class TestBridgeSyncService:
@@ -53,6 +68,434 @@ class TestBridgeSyncService:
         os.environ["BRIDGE_CACHE_REFRESH_ENABLED"] = "false"
         create_bridge_sync_tables()
         create_resource_aux_tables()
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_queue_batched_bridge_sync_creates_parent_run_and_batch_jobs(self):
+        repo = BridgeSyncRepository()
+        resource_ids = [
+            "bridge-batched-queue-a",
+            "bridge-batched-queue-b",
+            "bridge-batched-queue-c",
+        ]
+
+        if not database.is_connected:
+            await database.connect()
+
+        queued_batches = []
+
+        def enqueue_batch(**kwargs):
+            queued_batches.append(kwargs)
+            return f"task-{kwargs['batch_number']}"
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(bridge_resource_state))
+            await database.execute(
+                pg_insert(bridge_resource_state).values(
+                    [
+                        {
+                            "bridge_resource_id": rid,
+                        }
+                        for rid in resource_ids
+                    ]
+                )
+            )
+
+            result = await queue_batched_bridge_sync(
+                trigger="manual_batched",
+                batch_size=2,
+                resource_scope="bridge_active",
+                max_resources=3,
+                enqueue_batch=enqueue_batch,
+                repo=repo,
+            )
+
+            assert result["queued_batches"] == 2
+            assert len(queued_batches) == 2
+            assert queued_batches[0]["resource_ids"] == [
+                "bridge-batched-queue-a",
+                "bridge-batched-queue-b",
+            ]
+            assert queued_batches[1]["resource_ids"] == ["bridge-batched-queue-c"]
+
+            run = await repo.get_sync_run(result["bridge_id"])
+            assert run is not None
+            assert run["bridge_status"] == "running"
+            stats = run["bridge_stats_json"]
+            assert stats["scope"] == "batched_full"
+            assert stats["resource_scope"] == "bridge_active"
+            assert stats["total_resources"] == 3
+            assert stats["total_batches"] == 2
+            assert stats["batches_queued"] == 2
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_record_batched_batches_queued_preserves_batch_progress(self):
+        repo = BridgeSyncRepository()
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "queueing",
+                    "total_batches": 3,
+                    "batches_queued": 0,
+                    "batches_completed": 1,
+                    "batches_failed": 0,
+                    "batches_finished": 1,
+                    "processed": 500,
+                    "imported": 500,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            stats = await repo.record_batched_batches_queued(
+                bridge_id=run_id,
+                batches_queued=2,
+                queued_task_ids_sample=["task-1", "task-2"],
+            )
+
+            assert stats["batches_queued"] == 2
+            assert stats["queued_task_ids_sample"] == ["task-1", "task-2"]
+            assert stats["batches_completed"] == 1
+            assert stats["batches_finished"] == 1
+            assert stats["processed"] == 500
+            assert stats["imported"] == 500
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_resource_batch_imports_missing_and_finalizes_parent_run(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        found_id = "bridge-batched-found"
+        missing_id = "bridge-batched-missing"
+        resource_ids = [found_id, missing_id]
+        record = {
+            "id": found_id,
+            "import_id": "batched-1",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Batched Found",
+            "dct_description_sm": ["Found record"],
+            "dct_references_s": "[]",
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+            await database.execute(
+                pg_insert(resources).values(
+                    {
+                        "id": missing_id,
+                        "dct_title_s": "Bridge Batched Missing",
+                        "publication_state": "published",
+                        "b1g_publication_state_s": "published",
+                    }
+                )
+            )
+
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "resource_scope": "all",
+                    "stage": "batching",
+                    "estimated_total": 2,
+                    "total_resources": 2,
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            client = FakeBridgeClient({}, records={found_id: record})
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=resource_ids,
+                batch_number=1,
+                total_batches=1,
+                task_id="batch-task-1",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["processed"] == 2
+            assert result["stats"]["imported"] == 1
+            assert result["stats"]["missing"] == 1
+            assert result["stats"]["retired"] == 1
+
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "success"
+            stats = run["bridge_stats_json"]
+            assert stats["stage"] == "complete"
+            assert stats["batches_completed"] == 1
+            assert stats["processed"] == 2
+            assert stats["imported"] == 1
+            assert stats["missing"] == 1
+            assert stats["retired"] == 1
+
+            found = await database.fetch_one(
+                select(resources.c.id, resources.c.dct_title_s).where(resources.c.id == found_id)
+            )
+            missing = await database.fetch_one(
+                select(
+                    resources.c.id,
+                    resources.c.publication_state,
+                    resources.c.b1g_publication_state_s,
+                ).where(resources.c.id == missing_id)
+            )
+            assert found is not None
+            assert found["dct_title_s"] == "Bridge Batched Found"
+            assert missing is not None
+            assert missing["publication_state"] == "retired"
+            assert missing["b1g_publication_state_s"] == "retired"
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_resource_batch_retries_transient_5xx_fetches(self, monkeypatch):
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS", "3")
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS", "0")
+
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-batched-retry-5xx"
+        record = {
+            "id": resource_id,
+            "import_id": "retry-5xx",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Batched Retry 5xx",
+            "dct_description_sm": ["Retry me"],
+            "dct_references_s": "[]",
+        }
+
+        class FlakyBridgeClient:
+            def __init__(self):
+                self.calls = 0
+
+            def fetch_record(self, requested_id):
+                self.calls += 1
+                if self.calls == 1:
+                    raise _http_error(502)
+                assert requested_id == resource_id
+                return record
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "batching",
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            client = FlakyBridgeClient()
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=[resource_id],
+                batch_number=1,
+                total_batches=1,
+                task_id="batch-task-retry-5xx",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert client.calls == 2
+            assert result["stats"]["processed"] == 1
+            assert result["stats"]["imported"] == 1
+            assert result["stats"]["errors"] == 0
+            assert result["stats"]["fetch_5xx_retries"] == 1
+            assert result["stats"]["fetch_5xx_retry_statuses"] == {"502": 1}
+
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "success"
+            assert run["bridge_error"] is None
+            parent_stats = run["bridge_stats_json"]
+            assert parent_stats["fetch_5xx_retries"] == 1
+            assert parent_stats["fetch_5xx_retry_statuses"] == {"502": 1}
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_resource_batch_fails_run_after_exhausted_5xx_retries(
+        self, monkeypatch
+    ):
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS", "2")
+        monkeypatch.setenv("KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS", "0")
+
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-batched-persistent-5xx"
+
+        class FailingBridgeClient:
+            def __init__(self):
+                self.calls = 0
+
+            def fetch_record(self, requested_id):
+                assert requested_id == resource_id
+                self.calls += 1
+                raise _http_error(502)
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+            await database.execute(
+                pg_insert(resources).values(
+                    {
+                        "id": resource_id,
+                        "dct_title_s": "Bridge Batched Persistent 5xx",
+                        "publication_state": "published",
+                        "b1g_publication_state_s": "published",
+                    }
+                )
+            )
+
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "batching",
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "retired": 0,
+                },
+            )
+
+            client = FailingBridgeClient()
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=[resource_id],
+                batch_number=1,
+                total_batches=1,
+                task_id="batch-task-persistent-5xx",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert client.calls == 2
+            assert result["stats"]["processed"] == 1
+            assert result["stats"]["imported"] == 0
+            assert result["stats"]["errors"] == 1
+            assert result["stats"]["missing"] == 0
+            assert result["stats"]["retired"] == 0
+            assert result["stats"]["fetch_5xx_retries"] == 1
+            assert result["stats"]["error_samples"][0]["stage"] == "fetch_record"
+            assert result["stats"]["error_signatures"] == [
+                {"signature": "HTTPError: HTTP 502", "count": 1}
+            ]
+
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "failed"
+            assert run["bridge_error"] == "bridge sync completed with 1 record error(s)"
+            parent_stats = run["bridge_stats_json"]
+            assert parent_stats["fetch_5xx_retries"] == 1
+            assert parent_stats["fetch_5xx_retry_statuses"] == {"502": 1}
+
+            resource_row = await database.fetch_one(
+                select(
+                    resources.c.id,
+                    resources.c.publication_state,
+                    resources.c.b1g_publication_state_s,
+                ).where(resources.c.id == resource_id)
+            )
+            assert resource_row is not None
+            assert resource_row["publication_state"] == "published"
+            assert resource_row["b1g_publication_state_s"] == "published"
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
 
     @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_paginates_and_retires_missing_records(self):
@@ -285,6 +728,7 @@ class TestBridgeSyncService:
                     delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
                 )
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -499,6 +943,7 @@ class TestBridgeSyncService:
                     delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
                 )
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -678,6 +1123,425 @@ class TestBridgeSyncService:
                 )
                 await database.execute(delete(resources).where(resources.c.id == resource_id))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
+                pass
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_prunes_deleted_distribution_urls_from_legacy_references(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        resource_id = "bridge-sync-prune-deleted-distribution"
+        current_url = "https://example.org/current-download.zip"
+        deleted_url = "https://example.org/deleted-download.zip"
+        record = {
+            "id": resource_id,
+            "import_id": "103",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync Prune Deleted Distribution",
+            "dct_description_sm": ["Distribution pruning test"],
+            "dct_references_s": {
+                "http://schema.org/downloadUrl": [
+                    {"url": current_url, "label": "Current download"},
+                    {"url": deleted_url, "label": "Deleted download"},
+                ],
+            },
+            "document_distributions": [
+                {
+                    "reference_type_id": 8,
+                    "url": current_url,
+                    "label": "Current download",
+                    "position": 0,
+                }
+            ],
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+
+            result = await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["imported"] == 1
+
+            row = await database.fetch_one(
+                select(resources.c.id, resources.c.dct_references_s).where(
+                    resources.c.id == resource_id
+                )
+            )
+            assert row is not None
+            assert json.loads(row["dct_references_s"]) == {
+                "http://schema.org/downloadUrl": [{"url": current_url, "label": "Current download"}]
+            }
+
+            distribution_rows = await database.fetch_all(
+                select(resource_distributions.c.url, resource_distributions.c.label).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            assert [(row["url"], row["label"]) for row in distribution_rows] == [
+                (current_url, "Current download")
+            ]
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
+            except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
+                pass
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_real_reported_records_ignore_stale_document_downloads(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        oneida_id = "0011D7A3-0EC0-4B1D-AF20-C055274B6DAE"
+        oneida_current = "https://web.s3.wisc.edu/parcels/pre_V1/Oneida_Parcels_2014.zip"
+        oneida_stale = "https://gisdata.wisc.edu/public/Oneida_Parcels_2014.zip"
+        michigan_id = "002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+        michigan_current = (
+            "https://michigan.access.preservica.com/download/file/"
+            "IO_002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+        )
+        michigan_stale = (
+            "https://michiganology.org/download/file/IO_002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+        )
+        resource_ids = [oneida_id, michigan_id]
+
+        records = [
+            {
+                "id": oneida_id,
+                "import_id": "662",
+                "publication_state": "published",
+                "dct_title_s": "Parcels Oneida County, WI 2014",
+                "dct_description_sm": ["Distribution pruning test"],
+                "dct_references_s": "[]",
+                "document_distributions": [
+                    {
+                        "reference_type_id": 7,
+                        "url": "https://gis.co.oneida.wi.us/gismapping/",
+                    },
+                    {
+                        "reference_type_id": 8,
+                        "url": oneida_current,
+                        "label": "Geodatabase",
+                    },
+                    {
+                        "reference_type_id": 16,
+                        "url": (
+                            "https://web.s3.wisc.edu/rml-gisdata/metadata/Oneida_Parcels_2014.xml"
+                        ),
+                    },
+                ],
+                "document_downloads": [
+                    {
+                        "label": "Geodatabase",
+                        "value": oneida_stale,
+                    }
+                ],
+            },
+            {
+                "id": michigan_id,
+                "import_id": "664",
+                "publication_state": "published",
+                "dct_title_s": (
+                    "30N 07W - Survey Map of Kearney Township, Antrim County [Michigan]"
+                ),
+                "dct_description_sm": ["Distribution pruning test"],
+                "dct_references_s": "[]",
+                "document_distributions": [
+                    {
+                        "reference_type_id": 7,
+                        "url": (
+                            "https://michigan.access.preservica.com/uncategorized/"
+                            "IO_002a86d5-ff04-4d71-b7d2-5b4be4d79102"
+                        ),
+                    },
+                    {
+                        "reference_type_id": 8,
+                        "url": michigan_current,
+                        "label": "JPEG2000",
+                    },
+                ],
+                "document_downloads": [
+                    {
+                        "label": "JPEG2000",
+                        "value": michigan_stale,
+                    }
+                ],
+            },
+        ]
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(
+                delete(resource_downloads).where(resource_downloads.c.resource_id.in_(resource_ids))
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=records,
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+
+            result = await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["imported"] == 2
+
+            for resource_id, current_url, stale_url in (
+                (oneida_id, oneida_current, oneida_stale),
+                (michigan_id, michigan_current, michigan_stale),
+            ):
+                resource_row = await database.fetch_one(
+                    select(resources.c.dct_references_s).where(resources.c.id == resource_id)
+                )
+                assert resource_row is not None
+                references = json.loads(resource_row["dct_references_s"])
+                download_refs = references["http://schema.org/downloadUrl"]
+                assert download_refs == [
+                    {
+                        "url": current_url,
+                        "label": "Geodatabase" if resource_id == oneida_id else "JPEG2000",
+                    }
+                ]
+                assert stale_url not in json.dumps(references)
+
+                distribution_rows = await database.fetch_all(
+                    select(resource_distributions.c.url).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                distribution_urls = {row["url"] for row in distribution_rows}
+                assert current_url in distribution_urls
+                assert stale_url not in distribution_urls
+
+                download_rows = await database.fetch_all(
+                    select(resource_downloads).where(
+                        resource_downloads.c.resource_id == resource_id
+                    )
+                )
+                assert download_rows == []
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id.in_(resource_ids)
+                    )
+                )
+                await database.execute(
+                    delete(resource_downloads).where(
+                        resource_downloads.c.resource_id.in_(resource_ids)
+                    )
+                )
+                await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+            except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
+                pass
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_empty_nested_downloads_clear_previous_rows(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        resource_id = "bridge-sync-clear-deleted-downloads"
+        stale_url = "https://example.org/stale-download.zip"
+        initial_record = {
+            "id": resource_id,
+            "import_id": "104",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync Clear Deleted Downloads",
+            "dct_description_sm": ["Nested download clearing test"],
+            "dct_references_s": {},
+            "document_downloads": [
+                {
+                    "label": "Stale download",
+                    "value": stale_url,
+                    "position": 0,
+                }
+            ],
+        }
+        updated_record = {
+            "id": resource_id,
+            "import_id": "104",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Sync Clear Deleted Downloads",
+            "dct_description_sm": ["Nested download clearing test"],
+            "dct_references_s": {
+                "http://schema.org/downloadUrl": [{"url": stale_url, "label": "Stale download"}],
+            },
+            "document_downloads": [],
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            await database.execute(
+                delete(resource_downloads).where(resource_downloads.c.resource_id == resource_id)
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            first_client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[initial_record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=first_client,
+                importer=importer,
+                repo=repo,
+            )
+
+            seeded_downloads = await database.fetch_all(
+                select(resource_downloads.c.value).where(
+                    resource_downloads.c.resource_id == resource_id
+                )
+            )
+            assert [row["value"] for row in seeded_downloads] == [stale_url]
+
+            second_client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[updated_record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            await sync_bridge(
+                trigger="manual",
+                limit=10,
+                client=second_client,
+                importer=importer,
+                repo=repo,
+            )
+
+            row = await database.fetch_one(
+                select(resources.c.id, resources.c.dct_references_s).where(
+                    resources.c.id == resource_id
+                )
+            )
+            assert row is not None
+            assert row["dct_references_s"] is None
+
+            downloads = await database.fetch_all(
+                select(resource_downloads).where(resource_downloads.c.resource_id == resource_id)
+            )
+            assert downloads == []
+
+            distribution_rows = await database.fetch_all(
+                select(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            assert distribution_rows == []
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(
+                    delete(resource_downloads).where(
+                        resource_downloads.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
+            except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -818,6 +1682,7 @@ class TestBridgeSyncService:
                     delete(resources).where(resources.c.id.in_(["bridge-sync-a", "bridge-sync-b"]))
                 )
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass
 
     @pytest.mark.asyncio(scope="session")
@@ -849,4 +1714,5 @@ class TestBridgeSyncService:
             try:
                 await database.execute(delete(bridge_sync_runs))
             except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
                 pass

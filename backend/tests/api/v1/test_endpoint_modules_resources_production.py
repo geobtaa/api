@@ -185,8 +185,9 @@ class TestResourcesProductionDatabase:
 
         if response.status_code == 200:
             data = response.json()
-            assert "data" in data
-            assert "attributes" in data["data"]
+            assert data["id"] == "test-resource-id"
+            assert "spatial_facets" in data
+            assert isinstance(data["spatial_facets"], dict)
 
     def test_resources_with_real_ogm_field_mapper(self):
         """Test OGM endpoint with real OGMFieldMapper."""

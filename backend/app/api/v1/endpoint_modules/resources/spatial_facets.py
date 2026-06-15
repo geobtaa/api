@@ -3,6 +3,7 @@ from typing import Optional
 from fastapi import HTTPException, Query, Request
 from sqlalchemy.sql import select
 
+from app.api.schemas import ResourceSpatialFacetsResponse
 from app.api.v1.utils import create_response
 from app.services.spatial_facet_service import SpatialFacetService
 from db.models import resources
@@ -10,7 +11,7 @@ from db.models import resources
 from . import get_async_session, logger, router
 
 
-@router.get("/resources/{id}/spatial-facets")
+@router.get("/resources/{id}/spatial-facets", response_model=ResourceSpatialFacetsResponse)
 async def get_resource_spatial_facets(
     request: Request,
     id: str,
@@ -56,6 +57,4 @@ async def get_resource_spatial_facets(
 
     except Exception as e:
         logger.error(f"Error getting spatial facets for resource {id}: {str(e)}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Error retrieving spatial facets: {str(e)}"
-        ) from e
+        raise HTTPException(status_code=500, detail="Failed to get spatial facets") from e

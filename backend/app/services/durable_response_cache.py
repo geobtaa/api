@@ -18,6 +18,15 @@ API_RESPONSE_DURABLE_CACHE_STORE = os.getenv(
     "API_RESPONSE_DURABLE_CACHE_STORE",
     "database",
 ).lower()
+API_RESPONSE_DURABLE_DELETE_BATCH_SIZE = int(
+    os.getenv("API_RESPONSE_DURABLE_DELETE_BATCH_SIZE", "10000")
+)
+
+
+def _chunk_list(values: list[str], batch_size: int) -> Iterable[list[str]]:
+    size = max(1, batch_size)
+    for index in range(0, len(values), size):
+        yield values[index : index + size]
 
 
 def durable_api_response_cache_enabled() -> bool:
@@ -199,18 +208,20 @@ async def delete_durable_api_responses_for_tags(tags: Iterable[str]) -> int:
     if not tag_list or not durable_api_response_cache_enabled():
         return 0
 
-    cache_key_stmt = select(generated_api_response_tags.c.cache_key).where(
-        generated_api_response_tags.c.tag.in_(tag_list)
-    )
-    stmt = delete(generated_api_responses).where(
-        generated_api_responses.c.cache_key.in_(cache_key_stmt)
-    )
-
     try:
+        deleted = 0
         async with async_session_factory() as session:
             async with session.begin():
-                result = await session.execute(stmt)
-        return int(result.rowcount or 0)
+                for batch_tags in _chunk_list(tag_list, API_RESPONSE_DURABLE_DELETE_BATCH_SIZE):
+                    cache_key_stmt = select(generated_api_response_tags.c.cache_key).where(
+                        generated_api_response_tags.c.tag.in_(batch_tags)
+                    )
+                    stmt = delete(generated_api_responses).where(
+                        generated_api_responses.c.cache_key.in_(cache_key_stmt)
+                    )
+                    result = await session.execute(stmt)
+                    deleted += int(result.rowcount or 0)
+        return deleted
     except Exception as exc:
         logger.warning("Failed to delete durable API responses for tags %s: %s", tag_list, exc)
         return 0

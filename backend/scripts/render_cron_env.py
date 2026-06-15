@@ -23,6 +23,8 @@ ALLOWED_EXACT_KEYS = {
 ALLOWED_PREFIXES = (
     "ADMIN_",
     "APP_",
+    "AWS_",
+    "BACKUP_",
     "BRIDGE_",
     "CACHE_",
     "CELERY_",

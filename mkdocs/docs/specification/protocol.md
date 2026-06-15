@@ -3,9 +3,9 @@
 {% include-markdown "includes/wip.md" %}
 
 * API Base URI:
-    * Current development base: [`https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/`](https://lib-btaageoapi-dev-app-01.oit.umn.edu/api/v1/
+    * Current production base: [`https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/`](https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1/
 )
-    * Projected production base: https://api.geo.btaa.org
+    * Projected custom domain: https://api.geo.btaa.org
 * Content types:  
     * `application/json` (default)  
     * `application/ld+json` (when `Accept` header includes JSON‑LD)  

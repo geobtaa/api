@@ -67,6 +67,27 @@ describe('GalleryView', () => {
     expect(screen.getAllByText('Result 1').length).toBeGreaterThan(0);
   });
 
+  it('shows a restricted access indicator for restricted items', () => {
+    const restrictedResult: GeoDocument = {
+      ...mockResults[0],
+      attributes: {
+        ogm: {
+          ...mockResults[0].attributes.ogm,
+          dct_accessRights_s: 'Restricted',
+        },
+      },
+    };
+
+    renderGallery({
+      results: [restrictedResult],
+      totalResults: 1,
+    });
+
+    expect(
+      screen.getByRole('img', { name: 'Restricted access' })
+    ).toBeInTheDocument();
+  });
+
   it('uses the resource-class static-map fallback when a result has no real thumbnail', () => {
     const { container } = renderGallery({
       results: [mockResults[0]],
@@ -134,7 +155,7 @@ describe('GalleryView', () => {
     }
   });
 
-  it('uses the static-map fallback for cold generic resource thumbnail endpoints', () => {
+  it('uses the canonical resolver for generic resource thumbnail endpoints', () => {
     const resultWithGenericThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -151,16 +172,14 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-1/resource-class-icon"]'
-      )
+      container.querySelector('img[src="/resources/result-1/thumbnail"]')
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId('gallery-thumbnail-placeholder-0')
     ).not.toBeInTheDocument();
   });
 
-  it('uses the static-map fallback for raw bridge thumbnail assets in gallery view', () => {
+  it('routes raw bridge thumbnail assets through the canonical resolver in gallery view', () => {
     const resultWithBridgeThumbnail: GeoDocument = {
       ...mockResults[0],
       meta: {
@@ -177,9 +196,7 @@ describe('GalleryView', () => {
     });
 
     expect(
-      container.querySelector(
-        'img[src="/static-maps/result-1/resource-class-icon"]'
-      )
+      container.querySelector('img[src="/resources/result-1/thumbnail"]')
     ).toBeInTheDocument();
     expect(
       screen.queryByTestId('gallery-thumbnail-placeholder-0')

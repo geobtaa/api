@@ -1,0 +1,43 @@
+name: Production Pages Smoke Tests
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-pages-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-pages-smoke:
+    name: MkDocs examples and gallery thumbnails
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RUN_PRODUCTION_SMOKE_TESTS: "true"
+      BTAA_SKIP_TEST_DB: "true"
+      MKDOCS_EXAMPLES_BASE_URL: "https://lib-geoportal-prd-web-01.oit.umn.edu"
+      MKDOCS_EXAMPLES_TIMEOUT_SECONDS: "30"
+      PRODUCTION_SMOKE_MIN_REQUEST_INTERVAL_SECONDS: "6.5"
+      URBAN_BASE_LAYERS_THUMBNAIL_SAMPLE_SIZE: "5"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install smoke test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest pytest-asyncio requests python-dotenv SQLAlchemy psycopg2-binary
+
+      - name: Run production MkDocs/API smoke tests
+        run: |
+          python -m pytest backend/tests/integration/test_mkdocs_interactive_examples.py -q -ra

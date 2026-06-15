@@ -222,6 +222,49 @@ describe('useSearch', () => {
       expect(result.current.results).toBeDefined();
     });
 
+    it('performs search when only geo bbox filters are provided', async () => {
+      const bboxOnlyParams =
+        'include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox' +
+        '&include_filters[geo][relation]=intersects' +
+        '&include_filters[geo][top_left][lat]=55.557474095314596' +
+        '&include_filters[geo][top_left][lon]=11.440001986920835' +
+        '&include_filters[geo][bottom_right][lat]=50.96285728506949' +
+        '&include_filters[geo][bottom_right][lon]=16.164123080670837' +
+        '&view=gallery';
+
+      const { result } = renderUseSearch(bboxOnlyParams);
+
+      await waitFor(() => {
+        expect(mockFetchSearchResults).toHaveBeenCalledWith(
+          '',
+          1,
+          20,
+          [],
+          expect.any(Function),
+          'relevance',
+          [],
+          [],
+          undefined,
+          expect.any(URLSearchParams)
+        );
+      });
+
+      const forwardedParams = mockFetchSearchResults.mock.calls[0][9];
+      expect(forwardedParams?.get('include_filters[geo][type]')).toBe('bbox');
+      expect(forwardedParams?.get('include_filters[geo][relation]')).toBe(
+        'intersects'
+      );
+      expect(forwardedParams?.get('include_filters[geo][top_left][lat]')).toBe(
+        '55.557474095314596'
+      );
+
+      await waitFor(() => {
+        expect(result.current.isLoading).toBe(false);
+      });
+
+      expect(result.current.results).toBeDefined();
+    });
+
     it('skips search when no query, facets, or advanced clauses are provided', async () => {
       const { result } = renderUseSearch('');
 

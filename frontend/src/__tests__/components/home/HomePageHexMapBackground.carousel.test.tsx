@@ -17,8 +17,18 @@ import * as api from '../../../services/api';
 import { FEATURED_RESOURCE_IDS } from '../../../config/featured';
 import { HomePageHexMapBackground } from '../../../components/home/HomePageHexMapBackground.client';
 
+const mockNavigate = vi.hoisted(() => vi.fn());
+
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
 vi.mock('leaflet-gesture-handling', () => ({ GestureHandling: {} }));
+
+vi.mock('react-router', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router')>();
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
 
 vi.mock('../../../components/map/BasemapSwitcherControl', () => ({
   BasemapSwitcherControl: () => null,
@@ -83,7 +93,39 @@ vi.mock('react-leaflet', () => ({
 }));
 
 vi.mock('../../../components/map/MapUpdaterHex', () => ({
-  MapUpdaterHex: () => null,
+  MapUpdaterHex: ({
+    onHexClick,
+    onHexHover,
+    enableSearchPopup,
+  }: {
+    onHexClick?: (data: {
+      h3: string;
+      count: number;
+      resolution: number;
+      bbox: { north: number; west: number; south: number; east: number };
+    }) => void;
+    onHexHover?: (data: unknown) => void;
+    enableSearchPopup?: boolean;
+  }) => (
+    <button
+      type="button"
+      data-testid="mock-homepage-hex"
+      data-enable-search-popup={String(Boolean(enableSearchPopup))}
+      onMouseEnter={() =>
+        onHexHover?.({ h3: '862a1072fffffff', count: 12, resolution: 6 })
+      }
+      onClick={() =>
+        onHexClick?.({
+          h3: '862a1072fffffff',
+          count: 12,
+          resolution: 6,
+          bbox: { north: 45, west: -94, south: 44, east: -93 },
+        })
+      }
+    >
+      Mock homepage hex
+    </button>
+  ),
 }));
 
 vi.mock('../../../components/home/FeaturedMapController', () => ({
@@ -120,10 +162,7 @@ function makeMockDetail(id: string, title: string, thumbnailUrl?: string) {
       ui: {
         thumbnail_url: thumbnailUrl ?? null,
         viewer: {
-          geometry: {
-            type: 'Point',
-            coordinates: [-93.265, 44.9778],
-          },
+          geometry: 'POINT (-93.265 44.9778)',
         },
       },
     },
@@ -143,6 +182,8 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     vi.useRealTimers();
     localStorage.clear();
     vi.clearAllMocks();
+    mockNavigate.mockClear();
+    window.history.pushState({}, '', '/');
     Cookies.remove(FEATURED_CAROUSEL_HIDDEN_COOKIE, { path: '/' });
     vi.mocked(api.fetchFeaturedResourcePreview).mockImplementation(
       (id: string) => {
@@ -161,7 +202,12 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     Cookies.remove(FEATURED_CAROUSEL_HIDDEN_COOKIE, { path: '/' });
   });
 
-  const renderCarousel = () => {
+  const renderCarousel = ({
+    featuredVisible = false,
+  }: { featuredVisible?: boolean } = {}) => {
+    if (featuredVisible) {
+      Cookies.set(FEATURED_CAROUSEL_HIDDEN_COOKIE, '0', { path: '/' });
+    }
     render(
       <BrowserRouter>
         <HomePageHexMapBackground />
@@ -186,7 +232,7 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     screen.getByRole('progressbar', { name: /Time remaining/i });
 
   it('carousel region renders with expected structure', async () => {
-    renderCarousel();
+    renderCarousel({ featuredVisible: true });
     const carousel = await screen.findByRole('region', {
       name: /Featured resources/i,
     });
@@ -195,8 +241,20 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     expect(getPlayPauseButton()).toBeInTheDocument();
   });
 
-  it('hides and restores the featured carousel preference with a cookie', async () => {
+  it('starts collapsed by default when no carousel preference exists', () => {
     renderCarousel();
+
+    expect(
+      screen.queryByRole('region', { name: /Featured resources/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Show featured highlights/i })
+    ).toBeInTheDocument();
+    expect(api.fetchFeaturedResourcePreview).not.toHaveBeenCalled();
+  });
+
+  it('hides and restores the featured carousel preference with a cookie', async () => {
+    renderCarousel({ featuredVisible: true });
 
     expect(
       await screen.findByText(/BTAA Collection Highlights/i)
@@ -264,8 +322,21 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
     );
   });
 
-  it('clicking a featured item thumbnail highlights it without starting the animation', async () => {
+  it('clicking a homepage hex navigates to a geo bbox search without opening a popup', async () => {
     renderCarousel();
+
+    const hex = await screen.findByTestId('mock-homepage-hex');
+    expect(hex).toHaveAttribute('data-enable-search-popup', 'false');
+
+    await user.click(hex);
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/search?include_filters%5Bgeo%5D%5Btype%5D=bbox&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox&include_filters%5Bgeo%5D%5Brelation%5D=intersects&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=45&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=-94&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=44&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=-93'
+    );
+  });
+
+  it('clicking a featured item thumbnail highlights it without starting the animation', async () => {
+    renderCarousel({ featuredVisible: true });
     await waitForFeaturedData();
 
     const thirdThumb = screen.getByRole('button', {
@@ -306,7 +377,7 @@ describe('HomePageHexMapBackground – Featured carousel behavior', () => {
       }
     );
 
-    renderCarousel();
+    renderCarousel({ featuredVisible: true });
 
     const image = await screen.findByTestId('featured-thumbnail-image-0');
     fireEvent.error(image);

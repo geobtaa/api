@@ -17,9 +17,12 @@ from app.services.data_dictionary_repository import (
 from app.services.distribution_repository import (
     DistributionContext,
     build_distribution_context,
-    fetch_distribution_context,
+    fetch_distribution_context,  # noqa: F401 - used by ResourcePresenter via utils shim
 )
-from app.services.ogm_field_mapper import OGMFieldMapper
+from app.services.licensed_access_repository import (
+    fetch_resource_licensed_accesses,
+    serialize_resource_licensed_accesses,
+)
 from db.database import database
 from db.models import resource_assets
 
@@ -308,6 +311,37 @@ def _build_resource_thumbnail_url(resource_id: str) -> str:
     return f"{application_url}/api/v1/resources/{resource_id}/thumbnail"
 
 
+def _build_thumbnail_asset_url(image_hash: str) -> str:
+    """Return the immutable API thumbnail asset URL for a cached image hash."""
+    return f"{_application_url()}/api/v1/thumbnails/{image_hash}"
+
+
+def _hot_thumbnail_url_for_resource(
+    resource_dict: Dict[str, Any],
+    *,
+    distribution_context: DistributionContext | None = None,
+    thumbnail_asset_url: str | None = None,
+) -> Optional[str]:
+    """Return an immutable thumbnail URL for the current source when bytes exist."""
+    resource_id = resource_dict.get("id")
+    if not resource_id:
+        return None
+
+    try:
+        from app.services.image_service import ImageService
+
+        if distribution_context is None:
+            distribution_context = build_distribution_context(str(resource_id), [])
+        image_service = ImageService(resource_dict, distribution_context=distribution_context)
+        image_hash = image_service.current_thumbnail_hash_with_asset_sync(
+            thumbnail_asset_url=thumbnail_asset_url
+        )
+        return _build_thumbnail_asset_url(image_hash) if image_hash else None
+    except Exception as exc:
+        logger.debug("Failed resolving hot thumbnail for %s: %s", resource_id, exc)
+        return None
+
+
 def create_jsonapi_response(data, request_url=None, callback=None):
     """
     Create a JSON:API compliant response.
@@ -355,128 +389,9 @@ def create_jsonapi_resource(resource_data, request_url=None):
     Returns:
         JSON:API compliant resource structure
     """
-    # Extract UI-related fields to move to meta.ui
-    ui_fields = {}
-    core_attributes = {}
+    from app.api.v1.presenters import ResourcePresenter
 
-    # Fields that should go to meta.ui
-    ui_field_names = [
-        "ui_thumbnail_url",
-        "ui_resource_class_icon_url",
-        "ui_citation",
-        "ui_citations",
-        "ui_downloads",
-        "ui_links",
-        "ui_viewer_protocol",
-        "ui_viewer_endpoint",
-        "ui_viewer_geometry",
-        "ui_relationships",
-        "ui_relationship_counts",
-        "ui_relationship_browse_links",
-        "ui_summaries",
-        "ai_summaries",
-        "suggest",
-    ]
-
-    for key, value in resource_data.items():
-        if key in ui_field_names:
-            ui_fields[key] = value
-        else:
-            # Only include non-null values in attributes
-            if value is not None:
-                core_attributes[key] = value
-
-    # Filter out empty arrays and empty strings from core_attributes
-    core_attributes = filter_empty_values(core_attributes)
-
-    # Get resource ID for root level (required by JSON:API spec)
-    resource_id = core_attributes.get("id") or resource_data.get("id", "")
-
-    # Separate OGM Aardvark fields from B1G custom fields
-    ogm_fields = {}
-    b1g_fields = {}
-    ogm_aardvark_field_set = OGMFieldMapper.get_ogm_aardvark_fields()
-
-    # Classify each field (including 'id' which goes into ogm namespace)
-    for key, value in core_attributes.items():
-        if key in ogm_aardvark_field_set:
-            ogm_fields[key] = value
-        else:
-            # All other fields (B1G custom fields and legacy/internal fields) go to b1g
-            b1g_fields[key] = value
-
-    # Filter empty values from both dictionaries
-    ogm_fields = filter_empty_values(ogm_fields)
-    b1g_fields = filter_empty_values(b1g_fields)
-
-    # Build nested attributes structure
-    nested_attributes = {}
-    if ogm_fields:
-        nested_attributes["ogm"] = ogm_fields
-    if b1g_fields:
-        nested_attributes["b1g"] = b1g_fields
-
-    # Restructure UI fields to remove prefixes and organize viewer
-    restructured_ui = {}
-
-    # Simple field mappings (remove ui_ prefix)
-    if "ui_thumbnail_url" in ui_fields and ui_fields["ui_thumbnail_url"] is not None:
-        thumbnail_url = ui_fields["ui_thumbnail_url"]
-        restructured_ui["thumbnail_url"] = thumbnail_url
-        # Add placeholder flag if it's a placeholder URL
-        if "/thumbnails/placeholder" in str(thumbnail_url):
-            restructured_ui["thumbnail_placeholder"] = True
-    if (
-        "ui_resource_class_icon_url" in ui_fields
-        and ui_fields["ui_resource_class_icon_url"] is not None
-    ):
-        restructured_ui["resource_class_icon_url"] = ui_fields["ui_resource_class_icon_url"]
-    if "ui_citation" in ui_fields:
-        restructured_ui["citation"] = ui_fields["ui_citation"]
-    if "ui_citations" in ui_fields:
-        restructured_ui["citations"] = ui_fields["ui_citations"]
-    if "ui_downloads" in ui_fields:
-        restructured_ui["downloads"] = ui_fields["ui_downloads"]
-    if "ui_links" in ui_fields:
-        restructured_ui["links"] = ui_fields["ui_links"]
-    if "ui_relationships" in ui_fields:
-        restructured_ui["relationships"] = ui_fields["ui_relationships"]
-    if "ui_relationship_counts" in ui_fields:
-        restructured_ui["relationship_counts"] = ui_fields["ui_relationship_counts"]
-    if "ui_relationship_browse_links" in ui_fields:
-        restructured_ui["relationship_browse_links"] = ui_fields["ui_relationship_browse_links"]
-    if "ui_summaries" in ui_fields:
-        restructured_ui["summaries"] = ui_fields["ui_summaries"]
-    if "ai_summaries" in ui_fields:
-        restructured_ui["ai_summaries"] = ui_fields["ai_summaries"]
-    if "suggest" in ui_fields:
-        restructured_ui["suggest"] = ui_fields["suggest"]
-
-    # Group viewer-related fields into a nested viewer object
-    viewer_fields = {}
-    if "ui_viewer_protocol" in ui_fields:
-        viewer_fields["protocol"] = ui_fields["ui_viewer_protocol"]
-    if "ui_viewer_endpoint" in ui_fields:
-        viewer_fields["endpoint"] = ui_fields["ui_viewer_endpoint"]
-    if "ui_viewer_geometry" in ui_fields:
-        viewer_fields["geometry"] = ui_fields["ui_viewer_geometry"]
-
-    if viewer_fields:
-        restructured_ui["viewer"] = viewer_fields
-
-    # Create the resource structure
-    resource = {
-        "type": "resource",
-        "id": str(resource_id),
-        "attributes": nested_attributes if nested_attributes else {},
-        "meta": {
-            "@context": "https://gin.btaa.org/ld/contexts/ogm-aardvark-btaa.context.jsonld",
-            "@type": "BtaaAardvarkRecord",
-            "ui": restructured_ui,
-        },
-    }
-
-    return resource
+    return ResourcePresenter.serialize_jsonapi_resource(resource_data, request_url=request_url)
 
 
 def strong_params(request, allowed_params):
@@ -664,14 +579,77 @@ def create_gazetteer_meta_and_links(
     return meta, links
 
 
-async def add_similar_items_to_resource(resource, resource_dict, session):
+async def _fetch_allmaps_attributes_for_resource(resource_dict, session=None):
+    from app.services.allmaps_service import AllmapsService
+
+    allmaps_service = AllmapsService(resource_dict)
+    if session is not None:
+        return await allmaps_service.get_allmaps_attributes(session)
+
+    from db.session import async_session as app_async_session
+
+    async with app_async_session() as owned_session:
+        return await allmaps_service.get_allmaps_attributes(owned_session)
+
+
+async def _fetch_data_dictionaries_payload_for_resource(resource_id: str, session=None):
+    if session is not None:
+        data_dictionaries = await fetch_resource_data_dictionaries(
+            resource_id,
+            session=session,
+        )
+    else:
+        from db.session import async_session as app_async_session
+
+        async with app_async_session() as owned_session:
+            data_dictionaries = await fetch_resource_data_dictionaries(
+                resource_id,
+                session=owned_session,
+            )
+
+    if not data_dictionaries:
+        return None
+
+    return sanitize_for_json(serialize_resource_data_dictionaries(data_dictionaries))
+
+
+async def _fetch_licensed_accesses_payload_for_resource(resource_id: str, session=None):
+    if session is not None:
+        licensed_accesses = await fetch_resource_licensed_accesses(
+            resource_id,
+            session=session,
+        )
+    else:
+        from db.session import async_session as app_async_session
+
+        async with app_async_session() as owned_session:
+            licensed_accesses = await fetch_resource_licensed_accesses(
+                resource_id,
+                session=owned_session,
+            )
+
+    if not licensed_accesses:
+        return None
+
+    return sanitize_for_json(serialize_resource_licensed_accesses(licensed_accesses))
+
+
+async def add_similar_items_to_resource(resource, resource_dict, session=None):
     """Attach similar items to a JSON:API resource object."""
     try:
         from app.services.similar_items_service import SimilarItemsService
 
-        similar_items = await SimilarItemsService.get_similar_items(
-            resource_dict["id"], session, limit=12
-        )
+        if session is not None:
+            similar_items = await SimilarItemsService.get_similar_items(
+                resource_dict["id"], session, limit=12
+            )
+        else:
+            from db.session import async_session as app_async_session
+
+            async with app_async_session() as owned_session:
+                similar_items = await SimilarItemsService.get_similar_items(
+                    resource_dict["id"], owned_session, limit=12
+                )
 
         resource.setdefault("meta", {})
         resource["meta"].setdefault("ui", {})
@@ -689,7 +667,7 @@ async def add_similar_items_to_resource(resource, resource_dict, session):
 
 async def process_resource(
     resource_dict,
-    session,
+    session=None,
     apply_field_mapping=True,
     *,
     include_similar_items: bool = True,
@@ -697,6 +675,7 @@ async def process_resource(
     distribution_context: DistributionContext | None = None,
     ui_downloads: list[dict[str, Any]] | None = None,
     bridge_asset_download_rows: Any = None,
+    licensed_accesses_payload: list[dict[str, Any]] | None | object = _UNSET,
     ui_relationships: dict[str, Any] | None = None,
     ui_relationship_counts: dict[str, int] | None = None,
     ui_relationship_browse_links: dict[str, str] | None = None,
@@ -706,169 +685,77 @@ async def process_resource(
 ):
     """
     Process a resource to add UI fields and prepare it for JSON:API response.
-    This function is shared between resources and search endpoints.
+    Compatibility wrapper around ResourcePresenter.
 
     Args:
         resource_dict: The resource data from the database
-        session: Database session for Allmaps queries
+        session: Optional database session to reuse for DB-backed enrichments.
         apply_field_mapping: Whether to apply OGM field mapping (default: True)
 
     Returns:
         JSON:API compliant resource object
     """
-    from app.services.allmaps_service import AllmapsService
-    from app.services.citation_service import CitationService
-    from app.services.download_service import DownloadService
-    from app.services.link_service import LinkService
-    from app.services.ogm_field_mapper import OGMFieldMapper
-    from app.services.relationship_service import RelationshipService
-    from app.services.viewer_service import ViewerService
-
-    # Map database column names to proper OGM field names (only if requested)
-    if apply_field_mapping:
-        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
-
-    if distribution_context is None:
-        distribution_context = await fetch_distribution_context(resource_dict["id"])
-
-    # Keep the default call shape stable for older mocks and callers; only opt into
-    # the newer hot-cache-only path when explicitly requested.
-    thumbnail_kwargs: dict[str, Any] = {"distribution_context": distribution_context}
-    if hot_only_thumbnail_url:
-        thumbnail_kwargs["hot_only"] = True
-    resource_dict = add_thumbnail_url(resource_dict, **thumbnail_kwargs)
-    if not resource_dict.get("ui_thumbnail_url"):
-        resource_dict["ui_resource_class_icon_url"] = _hot_resource_class_icon_url(resource_dict)
-
-    # Generate citations (APA, MLA, Chicago)
-    citation_service = CitationService(resource_dict, distribution_context=distribution_context)
-    ui_citations = citation_service.get_all_citations()
-    ui_citation = ui_citations["apa"]
-
-    # Use ViewerService to get viewer attributes
-    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
-    viewer_attributes = viewer_service.get_viewer_attributes()
-
-    # Use DownloadService to get download options
-    download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    if ui_downloads is None:
-        ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads(
-            bridge_asset_download_rows
-        )
-
-    # Use LinkService to get links
-    link_service = LinkService(resource_dict, distribution_context=distribution_context)
-    ui_links = link_service.get_links()
-
-    # Use RelationshipService to get relationships
-    if ui_relationships is None:
-        ui_relationships = await RelationshipService.get_resource_relationships(resource_dict["id"])
-
-    # Get Allmaps attributes
-    if allmaps_attributes is None:
-        allmaps_service = AllmapsService(resource_dict)
-        allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
-
-    # Create the attributes dictionary
-    attributes = {
-        **resource_dict,
-        "ui_citation": ui_citation,
-        "ui_citations": ui_citations,
-        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
-        "ui_resource_class_icon_url": resource_dict.get("ui_resource_class_icon_url"),
-        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
-        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
-        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
-        "ui_downloads": ui_downloads,
-        "ui_links": ui_links,
-        "ui_relationships": ui_relationships,
-    }
-    if ui_relationship_counts:
-        attributes["ui_relationship_counts"] = ui_relationship_counts
-    if ui_relationship_browse_links:
-        attributes["ui_relationship_browse_links"] = ui_relationship_browse_links
-
-    # Attach read-only resource data dictionaries.
-    if data_dictionaries_payload is _UNSET:
-        try:
-            data_dictionaries = await fetch_resource_data_dictionaries(
-                resource_dict["id"], session=session
-            )
-            if data_dictionaries:
-                attributes["data_dictionaries"] = sanitize_for_json(
-                    serialize_resource_data_dictionaries(data_dictionaries)
-                )
-        except Exception as e:
-            logger.warning(
-                "Failed to load data dictionaries for resource %s: %s",
-                resource_dict.get("id"),
-                str(e),
-            )
-    elif data_dictionaries_payload:
-        attributes["data_dictionaries"] = sanitize_for_json(data_dictionaries_payload)
-
-    # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
-    try:
-        legacy_refs = distribution_context.legacy_reference_payload
-        if legacy_refs:
-            attributes["dct_references_s"] = json.dumps(legacy_refs)
-    except Exception:
-        # Do not fail response generation due to references serialization issues
-        pass
-
-    # Add viewer attributes
-    for key, value in viewer_attributes.items():
-        if key not in attributes:
-            attributes[key] = value
-
-    # Create JSON:API compliant resource first
-    resource = create_jsonapi_resource(attributes)
-
-    # If a bridge-synced thumbnail asset exists, expose the stable thumbnail endpoint
-    # instead of the raw stored object so clients go through the resize/cache pipeline.
-    thumb_asset_url = (
-        await _get_thumbnail_asset_url(resource_dict["id"])
-        if thumbnail_asset_url is _UNSET
-        else thumbnail_asset_url
+    from app.api.v1.presenters import (
+        RESOURCE_PRESENTATION_UNSET,
+        ResourceHydrationContext,
+        ResourcePresenter,
     )
-    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
-    if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
-        resource.setdefault("meta", {})
-        resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
 
-    # Add Allmaps attributes to meta.ui.allmaps section
-    if allmaps_attributes:
-        if "meta" not in resource:
-            resource["meta"] = {}
-        if "ui" not in resource["meta"]:
-            resource["meta"]["ui"] = {}
+    hydration = ResourceHydrationContext(
+        distribution_context=distribution_context,
+        ui_downloads=ui_downloads,
+        bridge_asset_download_rows=bridge_asset_download_rows,
+        licensed_accesses_payload=(
+            RESOURCE_PRESENTATION_UNSET
+            if licensed_accesses_payload is _UNSET
+            else licensed_accesses_payload
+        ),
+        ui_relationships=ui_relationships,
+        ui_relationship_counts=ui_relationship_counts,
+        ui_relationship_browse_links=ui_relationship_browse_links,
+        allmaps_attributes=allmaps_attributes,
+        data_dictionaries_payload=(
+            RESOURCE_PRESENTATION_UNSET
+            if data_dictionaries_payload is _UNSET
+            else data_dictionaries_payload
+        ),
+        thumbnail_asset_url=(
+            RESOURCE_PRESENTATION_UNSET if thumbnail_asset_url is _UNSET else thumbnail_asset_url
+        ),
+    )
 
-        # Wrap Allmaps attributes in an allmaps object
-        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
+    return await ResourcePresenter(session=session).present_full(
+        resource_dict,
+        apply_field_mapping=apply_field_mapping,
+        include_similar_items=include_similar_items,
+        hot_only_thumbnail_url=hot_only_thumbnail_url,
+        hydration=hydration,
+    )
 
-    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox).
-    # This points directly at the geometry-overlay asset variant.
-    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
-    if geometry:
-        static_map_url = _hot_static_map_url(resource_dict) or _build_static_map_url(
-            resource_dict["id"]
-        )
 
-        if "meta" not in resource:
-            resource["meta"] = {}
-        if "ui" not in resource["meta"]:
-            resource["meta"]["ui"] = {}
+async def add_licensed_accesses_to_resource(
+    resource: dict[str, Any],
+    resource_id: str,
+    session=None,
+) -> dict[str, Any]:
+    """Attach current licensed access rows to a JSON:API resource."""
+    try:
+        payload = await _fetch_licensed_accesses_payload_for_resource(resource_id, session)
+    except Exception as e:
+        logger.warning("Failed to load licensed accesses for resource %s: %s", resource_id, str(e))
+        return resource
 
-        resource["meta"]["ui"]["static_map"] = static_map_url
-
-    if include_similar_items:
-        resource = await add_similar_items_to_resource(resource, resource_dict, session)
+    resource.setdefault("meta", {})
+    resource["meta"].setdefault("ui", {})
+    if payload:
+        resource["meta"]["ui"]["licensed_accesses"] = payload
+    else:
+        resource["meta"]["ui"].pop("licensed_accesses", None)
 
     return resource
 
 
-async def process_resource_homepage(resource_dict, session, apply_field_mapping=True):
+async def process_resource_homepage(resource_dict, session=None, apply_field_mapping=True):
     """
     Lightweight resource processor for homepage previews.
 
@@ -876,49 +763,12 @@ async def process_resource_homepage(resource_dict, session, apply_field_mapping=
     so this path intentionally skips downloads, relationships, similar items, and
     other expensive enrichments used by the full resource view.
     """
-    from app.services.allmaps_service import AllmapsService
-    from app.services.ogm_field_mapper import OGMFieldMapper
-    from app.services.viewer_service import ViewerService
+    from app.api.v1.presenters import ResourcePresenter
 
-    if apply_field_mapping:
-        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
-
-    distribution_context = await fetch_distribution_context(resource_dict["id"])
-    resource_dict = add_thumbnail_url(resource_dict, distribution_context=distribution_context)
-
-    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
-    viewer_attributes = viewer_service.get_viewer_attributes()
-
-    allmaps_service = AllmapsService(resource_dict)
-    allmaps_attributes = await allmaps_service.get_allmaps_attributes(session)
-
-    attributes = {
-        **resource_dict,
-        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
-        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
-        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
-        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
-    }
-
-    for key, value in viewer_attributes.items():
-        if key not in attributes:
-            attributes[key] = value
-
-    resource = create_jsonapi_resource(attributes)
-
-    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
-    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
-    if thumb_asset_url and not _is_immutable_thumbnail_url(current_thumbnail_url):
-        resource.setdefault("meta", {})
-        resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
-
-    if allmaps_attributes:
-        resource.setdefault("meta", {})
-        resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
-
-    return resource
+    return await ResourcePresenter(session=session).present_homepage(
+        resource_dict,
+        apply_field_mapping=apply_field_mapping,
+    )
 
 
 async def process_resource_optimized(
@@ -940,121 +790,11 @@ async def process_resource_optimized(
     Returns:
         JSON:API compliant resource object
     """
-    from app.services.citation_service import CitationService
-    from app.services.download_service import DownloadService
-    from app.services.link_service import LinkService
-    from app.services.ogm_field_mapper import OGMFieldMapper
-    from app.services.relationship_service import RelationshipService
-    from app.services.viewer_service import ViewerService
+    from app.api.v1.presenters import ResourcePresenter
 
-    # Map database column names to proper OGM field names (only if requested)
-    if apply_field_mapping:
-        resource_dict = OGMFieldMapper.map_resource_fields(resource_dict)
-
-    distribution_context = await fetch_distribution_context(resource_dict["id"])
-
-    # Keep the default call shape stable for older mocks and callers; only opt into
-    # the newer hot-cache-only path when explicitly requested.
-    thumbnail_kwargs: dict[str, Any] = {"distribution_context": distribution_context}
-    if hot_only_thumbnail_url:
-        thumbnail_kwargs["hot_only"] = True
-    resource_dict = add_thumbnail_url(resource_dict, **thumbnail_kwargs)
-    if hot_only_thumbnail_url and not resource_dict.get("ui_thumbnail_url"):
-        resource_dict["ui_resource_class_icon_url"] = _hot_resource_class_icon_url(resource_dict)
-
-    # Generate citations (APA, MLA, Chicago)
-    citation_service = CitationService(resource_dict, distribution_context=distribution_context)
-    ui_citations = citation_service.get_all_citations()
-    ui_citation = ui_citations["apa"]
-
-    # Use ViewerService to get viewer attributes
-    viewer_service = ViewerService(resource_dict, distribution_context=distribution_context)
-    viewer_attributes = viewer_service.get_viewer_attributes()
-
-    # Use DownloadService to get download options
-    download_service = DownloadService(resource_dict, distribution_context=distribution_context)
-    ui_downloads = await download_service.get_download_options_with_bridge_asset_downloads()
-
-    # Use LinkService to get links
-    link_service = LinkService(resource_dict, distribution_context=distribution_context)
-    ui_links = link_service.get_links()
-
-    # Use RelationshipService to get relationships
-    ui_relationships = await RelationshipService.get_resource_relationships(resource_dict["id"])
-
-    # Use pre-fetched Allmaps attributes (no database query needed!)
-    # allmaps_attributes is passed in as a parameter
-
-    # Create the attributes dictionary
-    attributes = {
-        **resource_dict,
-        "ui_citation": ui_citation,
-        "ui_citations": ui_citations,
-        "ui_thumbnail_url": resource_dict.get("ui_thumbnail_url"),
-        "ui_resource_class_icon_url": resource_dict.get("ui_resource_class_icon_url"),
-        "ui_viewer_endpoint": viewer_attributes.get("ui_viewer_endpoint"),
-        "ui_viewer_geometry": viewer_attributes.get("ui_viewer_geometry"),
-        "ui_viewer_protocol": viewer_attributes.get("ui_viewer_protocol"),
-        "ui_downloads": ui_downloads,
-        "ui_links": ui_links,
-        "ui_relationships": ui_relationships,
-    }
-
-    # Regenerate dct_references_s from resource_distributions for OGM Aardvark compatibility
-    try:
-        legacy_refs = distribution_context.legacy_reference_payload
-        if legacy_refs:
-            attributes["dct_references_s"] = json.dumps(legacy_refs)
-    except Exception:
-        pass
-
-    # Add viewer attributes
-    for key, value in viewer_attributes.items():
-        if key not in attributes:
-            attributes[key] = value
-
-    # Create JSON:API compliant resource first
-    resource = create_jsonapi_resource(attributes)
-
-    # Prefer the stable thumbnail endpoint when a bridge-synced thumbnail asset exists.
-    thumb_asset_url = await _get_thumbnail_asset_url(resource_dict["id"])
-    current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
-    if (
-        thumb_asset_url
-        and not hot_only_thumbnail_url
-        and not _is_immutable_thumbnail_url(current_thumbnail_url)
-    ):
-        resource.setdefault("meta", {})
-        resource["meta"].setdefault("ui", {})
-        resource["meta"]["ui"]["thumbnail_url"] = _build_resource_thumbnail_url(resource_dict["id"])
-
-    # Add pre-fetched Allmaps attributes to meta.ui.allmaps section
-    if allmaps_attributes:
-        if "meta" not in resource:
-            resource["meta"] = {}
-        if "ui" not in resource["meta"]:
-            resource["meta"]["ui"] = {}
-
-        # Wrap Allmaps attributes in an allmaps object
-        resource["meta"]["ui"]["allmaps"] = allmaps_attributes
-
-    # Add static map URL to meta.ui if resource has geometry (locn_geometry or dcat_bbox).
-    # See notes above in process_resource().
-    geometry = resource_dict.get("locn_geometry") or resource_dict.get("dcat_bbox")
-    if geometry:
-        static_map_url = _hot_static_map_url(resource_dict) or _build_static_map_url(
-            resource_dict["id"]
-        )
-
-        if "meta" not in resource:
-            resource["meta"] = {}
-        if "ui" not in resource["meta"]:
-            resource["meta"]["ui"] = {}
-
-        resource["meta"]["ui"]["static_map"] = static_map_url
-
-    # Note: Similar items are intentionally omitted from process_resource_optimized to avoid
-    # per-result similarity lookups on search results. Clients should fetch them lazily
-    # via the `/api/v1/resources/{id}/similar-items` endpoint when needed.
-
-    return resource
+    return await ResourcePresenter(session=None).present_search_result(
+        resource_dict,
+        allmaps_attributes,
+        apply_field_mapping=apply_field_mapping,
+        hot_only_thumbnail_url=hot_only_thumbnail_url,
+    )

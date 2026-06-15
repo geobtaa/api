@@ -161,6 +161,24 @@ describe('FullDetailsTable', () => {
     );
   });
 
+  it('renders Access Rights in document metadata', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_accessRights_s: 'Restricted',
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getByText('Access Rights')).toBeInTheDocument();
+    expect(screen.getByText('Restricted')).toBeInTheDocument();
+  });
+
   it('metadata facet labels use sequential heading level (h3 under h2)', () => {
     const data = {
       ...baseData,

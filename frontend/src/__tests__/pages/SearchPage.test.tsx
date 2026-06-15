@@ -241,6 +241,47 @@ describe('SearchPage Logic', () => {
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
   });
 
+  it('keeps filters in a mobile drawer until toggled', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?view=list', results);
+
+    const panel = document.getElementById('search-filters-panel');
+    expect(panel).toHaveClass('hidden');
+
+    const filtersButton = screen.getByRole('button', { name: /^filters$/i });
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'false');
+
+    await act(async () => {
+      filtersButton.click();
+    });
+
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'true');
+    expect(panel).toHaveClass('block');
+    expect(panel).not.toHaveClass('hidden');
+
+    await act(async () => {
+      screen.getAllByRole('button', { name: /close filters/i })[0].click();
+    });
+
+    expect(filtersButton).toHaveAttribute('aria-expanded', 'false');
+    expect(panel).toHaveClass('hidden');
+  });
+
+  it('lets the desktop filter rail scroll with the page', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    renderWithRouter('/search?view=list', results);
+
+    const panel = document.getElementById('search-filters-panel') as HTMLElement;
+    expect(panel).toHaveClass('z-50');
+    expect(panel).toHaveClass('lg:z-10');
+    expect(panel).toHaveClass('lg:top-40');
+    expect(panel).not.toHaveClass('lg:top-24');
+    expect(panel).toHaveClass('overflow-y-auto');
+    expect(panel).toHaveClass('lg:overflow-visible');
+    expect(panel).not.toHaveClass('lg:overflow-y-auto');
+    expect(panel.className).not.toContain('lg:max-h-');
+  });
+
   it('hides stale client results while a new query is loading', async () => {
     const mockFetchSearchResults = vi.mocked(fetchSearchResults);
     const oldResults = createMockApiResponse(
@@ -291,6 +332,34 @@ describe('SearchPage Logic', () => {
     expect(
       await screen.findByText('List Result North Dakota result')
     ).toBeInTheDocument();
+  });
+
+  it('loads client results for a bbox-only gallery URL', async () => {
+    const mockFetchSearchResults = vi.mocked(fetchSearchResults);
+    const results = createMockApiResponse(
+      [createMockResult('bbox-result', 'Bbox result')],
+      1,
+      1
+    );
+    mockFetchSearchResults.mockResolvedValueOnce(results);
+
+    const bboxOnlyUrl =
+      '/search?include_filters%5Bgeo%5D%5Btype%5D=bbox' +
+      '&include_filters%5Bgeo%5D%5Bfield%5D=dcat_bbox' +
+      '&include_filters%5Bgeo%5D%5Brelation%5D=intersects' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blat%5D=55.557474095314596' +
+      '&include_filters%5Bgeo%5D%5Btop_left%5D%5Blon%5D=11.440001986920835' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blat%5D=50.96285728506949' +
+      '&include_filters%5Bgeo%5D%5Bbottom_right%5D%5Blon%5D=16.164123080670837' +
+      '&view=gallery';
+
+    renderWithRouter(bboxOnlyUrl, null, { clientSearchEnabled: true });
+
+    expect(
+      await screen.findByText('Gallery Result Bbox result')
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Searching/i)).not.toBeInTheDocument();
+    expect(mockFetchSearchResults).toHaveBeenCalledTimes(1);
   });
 
   it('restores saved map view preference when URL has no view param', async () => {

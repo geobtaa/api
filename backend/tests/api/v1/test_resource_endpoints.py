@@ -8,8 +8,21 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.relationship_service import RelationshipService
+from tests.utils.route_helpers import route_by_path, route_paths
 
 client = TestClient(app)
+
+
+def assert_public_error(data, *, status: int, code: str, detail: str | None = None):
+    assert "errors" in data
+    assert len(data["errors"]) == 1
+
+    error = data["errors"][0]
+    assert error["status"] == status
+    assert error["code"] == code
+    assert "request_id" in error
+    if detail is not None:
+        assert error["detail"] == detail
 
 
 @pytest.mark.unit
@@ -25,7 +38,7 @@ def test_relationship_service_initialization():
 def test_resource_endpoints_exist():
     """Test that the resource endpoints are properly configured."""
     # Test that the app has the expected routes
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
 
     # Check that resource routes exist
     assert "/api/v1/resources/" in routes
@@ -61,7 +74,7 @@ async def test_resource_endpoint_404_handling():
     # without requiring actual database connections
 
     # Test that the endpoint structure is correct
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}" in routes
 
     # Verify that the app has proper error handling
@@ -71,15 +84,11 @@ async def test_resource_endpoint_404_handling():
 @pytest.mark.unit
 def test_ogm_endpoint_structure():
     """Test that the metadata endpoint is properly configured (formerly OGM)."""
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}/metadata" in routes
 
     # Find the metadata route and verify its configuration
-    metadata_route = None
-    for route in app.routes:
-        if route.path == "/api/v1/resources/{id}/metadata":
-            metadata_route = route
-            break
+    metadata_route = route_by_path(app, "/api/v1/resources/{id}/metadata")
 
     assert metadata_route is not None
     assert metadata_route.methods == {"GET"}
@@ -88,15 +97,11 @@ def test_ogm_endpoint_structure():
 @pytest.mark.unit
 def test_viewer_endpoint_structure():
     """Test that the viewer endpoint is properly configured."""
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}/viewer" in routes
 
     # Find the viewer route and verify its configuration
-    viewer_route = None
-    for route in app.routes:
-        if route.path == "/api/v1/resources/{id}/viewer":
-            viewer_route = route
-            break
+    viewer_route = route_by_path(app, "/api/v1/resources/{id}/viewer")
 
     assert viewer_route is not None
     assert viewer_route.methods == {"GET"}
@@ -123,12 +128,12 @@ def test_ogm_endpoint_404_handling():
     assert response.status_code == 404
 
     data = response.json()
-    # The endpoint may return {"error": "..."}, {"message": "..."}, or {"detail": "..."} format
-    assert "error" in data or "message" in data or "detail" in data
-    if "error" in data:
-        assert data["error"] == "Resource not found"
-    elif "detail" in data:
-        assert data["detail"] == "Resource not found"
+    assert_public_error(
+        data,
+        status=404,
+        code="not_found",
+        detail="Resource not found",
+    )
 
 
 def test_viewer_endpoint_404_handling():
@@ -142,12 +147,21 @@ def test_viewer_endpoint_404_handling():
 
     if response.status_code == 404:
         data = response.json()
-        assert "detail" in data
-        assert data["detail"] == "Resource not found"
+        assert_public_error(
+            data,
+            status=404,
+            code="not_found",
+            detail="Resource not found",
+        )
     elif response.status_code == 500:
         # Database connection issues are acceptable in test environment
         data = response.json()
-        assert "error" in data
+        assert_public_error(
+            data,
+            status=500,
+            code="internal_server_error",
+            detail="An unexpected error occurred.",
+        )
 
 
 def test_ogm_endpoint_success_response():
@@ -561,7 +575,7 @@ class TestResourceEndpointsEnhanced:
 
     def test_resource_endpoints_structure(self):
         """Test that resource endpoints are properly configured."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         assert "/api/v1/resources/" in routes
         assert "/api/v1/resources/{id}" in routes
@@ -648,10 +662,14 @@ class TestResourceEndpointsEnhanced:
     @patch("app.api.v1.utils.add_thumbnail_url")
     @patch("app.api.v1.utils.serialize_resource_data_dictionaries")
     @patch("app.api.v1.utils.fetch_resource_data_dictionaries", new_callable=AsyncMock)
+    @patch("app.api.v1.utils.serialize_resource_licensed_accesses")
+    @patch("app.api.v1.utils.fetch_resource_licensed_accesses", new_callable=AsyncMock)
     @patch("app.api.v1.endpoint_modules.resources.async_session")
     def test_get_resource_includes_json_safe_data_dictionaries(
         self,
         mock_session,
+        mock_fetch_resource_licensed_accesses,
+        mock_serialize_resource_licensed_accesses,
         mock_fetch_resource_data_dictionaries,
         mock_serialize_resource_data_dictionaries,
         mock_add_thumbnail_url,
@@ -718,17 +736,29 @@ class TestResourceEndpointsEnhanced:
                 ],
             }
         ]
+        mock_fetch_resource_licensed_accesses.return_value = [object()]
+        mock_serialize_resource_licensed_accesses.return_value = [
+            {
+                "institution_code": "01",
+                "institution_name": "Indiana University",
+                "access_url": "https://example.com/iu",
+                "legacy_friendlier_id": "test-resource-dictionaries",
+            }
+        ]
 
         response = client.get("/api/v1/resources/test-resource-dictionaries?cachebust=1")
         assert response.status_code == 200
 
         payload = response.json()
         dictionaries = payload["data"]["attributes"]["b1g"]["data_dictionaries"]
+        licensed_accesses = payload["data"]["meta"]["ui"]["licensed_accesses"]
         assert len(dictionaries) == 1
         assert dictionaries[0]["name"] == "Attributes"
         assert dictionaries[0]["created_at"] == "2026-01-01T00:00:00"
         assert dictionaries[0]["entries"][0]["resource_data_dictionary_id"] == 1
         assert dictionaries[0]["entries"][0]["created_at"] == "2026-01-03T00:00:00"
+        assert licensed_accesses[0]["institution_name"] == "Indiana University"
+        assert licensed_accesses[0]["access_url"] == "https://example.com/iu"
 
     @patch("app.api.v1.endpoint_modules.resources.async_session")
     def test_get_resource_not_found(self, mock_session):
@@ -745,8 +775,12 @@ class TestResourceEndpointsEnhanced:
 
         assert response.status_code == 404
         data = response.json()
-        assert "error" in data
-        assert data["error"] == "Resource not found"
+        assert_public_error(
+            data,
+            status=404,
+            code="not_found",
+            detail="Resource not found",
+        )
 
     @patch("app.services.link_service.LinkService.get_resource_links")
     def test_get_resource_links_success(self, mock_get_links):

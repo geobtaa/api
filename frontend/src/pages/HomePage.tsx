@@ -145,6 +145,16 @@ export function HomePage() {
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
   const blogLimit = 3;
+  const heroTitle =
+    theme.institution.hero_text ||
+    'Search geospatial resources from Big Ten Academic Alliance institutions';
+  const heroDescription =
+    theme.institution.hero_description ||
+    'Browse and download GIS data, maps, and other geospatial resources.';
+  const heroDescriptionParagraphs = heroDescription
+    .split(/\n\s*\n/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
   const browseSection = useSectionActivation<HTMLDivElement>('960px');
   const browseFacetPrefetch = useIdleActivation();
   const partnerSection = useSectionActivation<HTMLElement>('640px');
@@ -400,19 +410,32 @@ export function HomePage() {
     <div className="min-h-screen flex flex-col">
       <Seo title="Big Ten Academic Alliance Geoportal" />
       {showAnnouncement && (
-        <div className="bg-white text-gray-800 px-4 sm:px-6 lg:px-8 py-2 text-sm border-b border-gray-200">
-          <p className="text-center">
-            {announcement.text}{' '}
-            <a
-              href={announcement.link_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-brand-active underline underline-offset-2 hover:no-underline"
+        <div className="bg-[#fff8df] text-gray-950 px-4 sm:px-6 lg:px-8 py-2 text-sm font-bold leading-5 border-b border-[#e6d08f]">
+          <div className="mx-auto flex max-w-5xl items-center justify-center gap-3">
+            <span
+              aria-hidden
+              className="relative hidden h-px max-w-sm flex-1 bg-[#c9a24a] sm:block"
             >
-              {announcement.link_label}
-              <ArrowRight className="w-4 h-4" aria-hidden />
-            </a>
-          </p>
+              <span className="absolute right-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 translate-x-1/2 rotate-45 bg-[#c9a24a]" />
+            </span>
+            <p className="shrink-0 text-center">
+              {announcement.text}{' '}
+              <a
+                href={announcement.link_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 font-semibold text-gray-950 no-underline underline-offset-2 hover:underline hover:decoration-2"
+              >
+                {announcement.link_label}
+              </a>
+            </p>
+            <span
+              aria-hidden
+              className="relative hidden h-px max-w-sm flex-1 bg-[#c9a24a] sm:block"
+            >
+              <span className="absolute left-0 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rotate-45 bg-[#c9a24a]" />
+            </span>
+          </div>
         </div>
       )}
       <Header />
@@ -442,17 +465,14 @@ export function HomePage() {
                   <X className="h-4 w-4" aria-hidden />
                 </button>
                 <div className="relative z-10 pr-12">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-primary">
-                    BTAA Geoportal
-                  </p>
-                  <p className="mt-1 text-xl lg:text-2xl font-semibold text-gray-800">
-                    {theme.institution.hero_text ||
-                      'Search geospatial resources from Big Ten Academic Alliance institutions'}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-2">
-                    {theme.institution.hero_description ||
-                      'Browse and download GIS data, maps, and other geospatial resources.'}
-                  </p>
+                  <h2 className="text-xl lg:text-2xl font-semibold text-gray-800">
+                    {heroTitle}
+                  </h2>
+                  <div className="mt-3 space-y-2 text-sm leading-6 text-gray-700">
+                    {heroDescriptionParagraphs.map((paragraph) => (
+                      <p key={paragraph}>{paragraph}</p>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>

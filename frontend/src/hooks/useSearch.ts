@@ -28,6 +28,16 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchField = searchParams.get('search_field') || 'all_fields';
   const searchParamsKey = searchParams.toString();
+  const hasFilterParam = useMemo(
+    () =>
+      Array.from(searchParams.keys()).some(
+        (key) =>
+          key.startsWith('include_filters[') ||
+          key.startsWith('exclude_filters[') ||
+          key.startsWith('fq[')
+      ),
+    [searchParamsKey, searchParams]
+  );
 
   // Parse search parameters and memoize facets to prevent infinite loops
   const {
@@ -59,6 +69,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
       perPage,
       facetsLength: facets?.length,
       excludeLength: excludeFacets?.length,
+      hasFilterParam,
       sort,
       searchField,
       advancedClauses: advancedQuery.length,
@@ -72,14 +83,14 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
       };
     }
 
-    // Only fetch if we have a query parameter (even if empty) or facets
+    // Only fetch if we have a query parameter (even if empty), filters, or advanced clauses.
+    // Geo bbox filters are deliberately excluded from `facets`, but still need to trigger search.
     if (
       !hasQueryParam &&
-      (!facets || facets.length === 0) &&
-      (!excludeFacets || excludeFacets.length === 0) &&
+      !hasFilterParam &&
       (!advancedQuery || advancedQuery.length === 0)
     ) {
-      debugLog('⏭️ Skipping search - no query or facets');
+      debugLog('⏭️ Skipping search - no query, filters, or advanced clauses');
       setResults(null);
       setResultsKey(null);
       setError(null);
@@ -157,6 +168,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
     sort,
     searchField,
     searchParamsKey,
+    hasFilterParam,
     hasQueryParam,
     enabled,
     setLastApiUrl,

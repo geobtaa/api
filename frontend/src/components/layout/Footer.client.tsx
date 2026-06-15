@@ -30,10 +30,7 @@ function BtaaFooter({ id }: FooterProps) {
               </h3>
               <ul className="space-y-2">
                 <li>
-                  <a
-                    href="https://gin.btaa.org/about/about-us/"
-                    className={footerLinkClass}
-                  >
+                  <a href="/about" className={footerLinkClass}>
                     About Us
                   </a>
                 </li>
@@ -46,19 +43,13 @@ function BtaaFooter({ id }: FooterProps) {
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="https://geo.btaa.org/feedback"
-                    className={footerLinkClass}
-                  >
+                  <a href="/feedback" className={footerLinkClass}>
                     Contact Us
                   </a>
                 </li>
                 <li>
-                  <a
-                    href="https://gin.btaa.org/guides/"
-                    className={footerLinkClass}
-                  >
-                    Help Guides
+                  <a href="/help" className={footerLinkClass}>
+                    Help
                   </a>
                 </li>
                 <li>

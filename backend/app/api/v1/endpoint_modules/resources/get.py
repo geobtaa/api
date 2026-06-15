@@ -4,7 +4,9 @@ from fastapi import HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.sql import select
 
+from app.api.schemas import ResourceResponse
 from app.api.v1.utils import (
+    add_licensed_accesses_to_resource,
     add_similar_items_to_resource,
     create_jsonapi_response,
     process_resource,
@@ -18,7 +20,7 @@ from db.models import resources
 from . import RESOURCE_CACHE_TTL, filter_resource_fields, get_async_session, logger, router
 
 
-@router.get("/resources/{id}")
+@router.get("/resources/{id}", response_model=ResourceResponse)
 @cached_endpoint(ttl=RESOURCE_CACHE_TTL)
 async def get_resource(
     request: Request,
@@ -40,40 +42,46 @@ async def get_resource(
             result = await session.execute(query)
             row = result.fetchone()
 
-            if not row:
-                return JSONResponse(content={"error": "Resource not found"}, status_code=404)
+        if not row:
+            raise HTTPException(status_code=404, detail="Resource not found")
 
-            # Convert to dict and sanitize for JSON serialization
-            resource_dict = sanitize_for_json(dict(row._mapping))
-            resource_dict["id"] = id  # Ensure ID is set
+        # Convert to dict and sanitize for JSON serialization after releasing the row
+        # fetch connection. Resource rendering performs its own short DB lookups.
+        resource_dict = sanitize_for_json(dict(row._mapping))
+        resource_dict["id"] = id  # Ensure ID is set
 
-            if ui_profile == "homepage":
-                if fields:
-                    resource_dict = filter_resource_fields(resource_dict, fields)
-                    logger.debug("Filtered resource dict: %s", resource_dict)
-                jsonapi_resource = await process_resource_homepage(resource_dict, session)
-            elif fields:
+        if ui_profile == "homepage":
+            if fields:
                 resource_dict = filter_resource_fields(resource_dict, fields)
                 logger.debug("Filtered resource dict: %s", resource_dict)
-                jsonapi_resource = await process_resource(resource_dict, session)
-            else:
+            jsonapi_resource = await process_resource_homepage(resource_dict)
+        elif fields:
+            resource_dict = filter_resource_fields(resource_dict, fields)
+            logger.debug("Filtered resource dict: %s", resource_dict)
+            jsonapi_resource = await process_resource(resource_dict, None)
+        else:
 
-                async def build_resource(resource_data: dict):
-                    return await process_resource(
-                        resource_data,
-                        session,
-                        include_similar_items=False,
-                    )
+            async def build_resource(resource_data: dict):
+                return await process_resource(
+                    resource_data,
+                    None,
+                    include_similar_items=False,
+                )
 
-                jsonapi_resource = await get_or_build_resource_representation(
-                    resource_dict,
-                    build_resource,
-                )
-                jsonapi_resource = await add_similar_items_to_resource(
-                    jsonapi_resource,
-                    resource_dict,
-                    session,
-                )
+            jsonapi_resource = await get_or_build_resource_representation(
+                resource_dict,
+                build_resource,
+            )
+            jsonapi_resource = await add_similar_items_to_resource(
+                jsonapi_resource,
+                resource_dict,
+                None,
+            )
+            jsonapi_resource = await add_licensed_accesses_to_resource(
+                jsonapi_resource,
+                id,
+                None,
+            )
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None
@@ -87,4 +95,4 @@ async def get_resource(
         raise
     except Exception:
         logger.error("Error getting resource %s", id, exc_info=True)
-        return JSONResponse(content={"error": "Failed to get resource"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to get resource") from None

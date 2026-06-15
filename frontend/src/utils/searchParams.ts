@@ -2,9 +2,12 @@ import { AdvancedClause, SearchParams } from '../types/search';
 import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
 
 /** Boolean facet fields must send "true"/"false" to the API, not "1"/"0". */
-const BOOLEAN_FACET_FIELDS = ['gbl_georeferenced_b'];
+const BOOLEAN_FACET_FIELDS = [
+  'gbl_georeferenced_b',
+  'b1g_georeferenced_allmaps_b',
+];
 
-/** Normalize facet value for URL/API (e.g. gbl_georeferenced_b: "1" -> "true", "0" -> "false"). */
+/** Normalize facet value for URL/API (e.g. boolean facets: "1" -> "true", "0" -> "false"). */
 export function normalizeFacetValueForUrl(
   field: string,
   value: string

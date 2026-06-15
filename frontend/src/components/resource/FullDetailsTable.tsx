@@ -86,6 +86,7 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
     'dct_creator_sm',
     'dct_issued_s',
     'dct_temporal_sm',
+    'dct_accessRights_s',
     'b1g_language_sm',
     'b1g_dct_conformsTo_sm',
     'b1g_dcat_spatialResolutionInMeters_sm',

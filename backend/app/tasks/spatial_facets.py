@@ -3,11 +3,12 @@ import logging
 from typing import Any, Dict, List
 
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 from app.services.spatial_facet_service import SpatialFacetService
 from app.tasks.worker import celery_app
+from db.async_engine import create_app_async_engine
 from db.config import DATABASE_URL
 
 logger = logging.getLogger(__name__)
@@ -65,7 +66,7 @@ async def _index_batch_async(resource_ids: List[str], batch_id: str = None) -> D
     Returns:
         Dictionary with processing results
     """
-    engine = create_async_engine(DATABASE_URL, pool_pre_ping=True)
+    engine = create_app_async_engine(DATABASE_URL, pool_pre_ping=True)
 
     stats = {
         "status": "success",
@@ -241,7 +242,7 @@ async def _setup_batch_jobs_async(batch_size: int, max_workers: int) -> Dict[str
     Returns:
         Dictionary with job information
     """
-    engine = create_async_engine(DATABASE_URL)
+    engine = create_app_async_engine(DATABASE_URL)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     try:
@@ -343,7 +344,7 @@ async def _reindex_resource_async(resource_id: str) -> Dict[str, Any]:
     Returns:
         Dictionary with reindexing results
     """
-    engine = create_async_engine(DATABASE_URL)
+    engine = create_app_async_engine(DATABASE_URL)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     try:

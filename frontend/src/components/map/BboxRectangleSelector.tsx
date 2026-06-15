@@ -2,20 +2,35 @@ import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import L from 'leaflet';
 import { useMap } from 'react-leaflet';
+import { normalizeBboxSearchEnvelope } from '../../utils/bbox';
 
 const BBOX_RECTANGLE_PANE = 'bboxRectangleSelectorPane';
 
 function buildBboxSearchUrl(bounds: L.LatLngBounds, relation = 'intersects') {
   const ne = bounds.getNorthEast();
   const sw = bounds.getSouthWest();
+  const bbox = normalizeBboxSearchEnvelope(sw.lng, sw.lat, ne.lng, ne.lat);
+  if (!bbox) return null;
   const params = new URLSearchParams();
   params.set('include_filters[geo][type]', 'bbox');
   params.set('include_filters[geo][field]', 'dcat_bbox');
   params.set('include_filters[geo][relation]', relation);
-  params.set('include_filters[geo][top_left][lat]', ne.lat.toString());
-  params.set('include_filters[geo][top_left][lon]', sw.lng.toString());
-  params.set('include_filters[geo][bottom_right][lat]', sw.lat.toString());
-  params.set('include_filters[geo][bottom_right][lon]', ne.lng.toString());
+  params.set(
+    'include_filters[geo][top_left][lat]',
+    bbox.topLeft.lat.toString()
+  );
+  params.set(
+    'include_filters[geo][top_left][lon]',
+    bbox.topLeft.lon.toString()
+  );
+  params.set(
+    'include_filters[geo][bottom_right][lat]',
+    bbox.bottomRight.lat.toString()
+  );
+  params.set(
+    'include_filters[geo][bottom_right][lon]',
+    bbox.bottomRight.lon.toString()
+  );
   return `/search?${params.toString()}`;
 }
 
@@ -104,11 +119,15 @@ export function BboxRectangleSelector() {
 
       const sw = bounds.getSouthWest();
       const ne = bounds.getNorthEast();
-      if (Math.abs(ne.lat - sw.lat) < 1e-8 || Math.abs(ne.lng - sw.lng) < 1e-8) {
+      if (
+        Math.abs(ne.lat - sw.lat) < 1e-8 ||
+        Math.abs(ne.lng - sw.lng) < 1e-8
+      ) {
         return;
       }
 
-      navigate(buildBboxSearchUrl(bounds));
+      const url = buildBboxSearchUrl(bounds);
+      if (url) navigate(url);
     };
 
     const handleClickCapture = (event: MouseEvent) => {

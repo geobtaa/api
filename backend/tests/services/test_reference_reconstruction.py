@@ -72,6 +72,34 @@ def test_build_effective_reference_payload_merges_legacy_sources():
     ]
 
 
+def test_build_effective_reference_payload_replaces_authoritative_uris():
+    payload = build_effective_reference_payload(
+        {
+            "http://lccn.loc.gov/sh85035852": "https://example.org/reference-guide",
+            "http://schema.org/downloadUrl": [
+                {"url": "https://example.org/current.zip", "label": "Current"},
+                {"url": "https://example.org/deleted.zip", "label": "Deleted"},
+            ],
+        },
+        document_distributions=[
+            {
+                "reference_type_id": 8,
+                "url": "https://example.org/current.zip",
+                "label": "Current",
+            }
+        ],
+        reference_type_id_to_uri={8: "http://schema.org/downloadUrl"},
+        authoritative_uris={"http://schema.org/downloadUrl"},
+    )
+
+    assert payload == {
+        "http://lccn.loc.gov/sh85035852": "https://example.org/reference-guide",
+        "http://schema.org/downloadUrl": [
+            {"url": "https://example.org/current.zip", "label": "Current"}
+        ],
+    }
+
+
 def test_build_asset_record_from_kithe_model_builds_storage_backed_asset():
     file_data = {
         "storage": "store",

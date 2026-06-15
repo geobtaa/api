@@ -111,9 +111,9 @@ class TestRateLimitMiddleware:
         """Test extracting IP address from X-Forwarded-For header."""
         request = MagicMock(spec=Request)
         request.headers.get = MagicMock(
-            side_effect=lambda key, default=None: "192.168.1.1, 10.0.0.1"
-            if key == "X-Forwarded-For"
-            else default
+            side_effect=lambda key, default=None: (
+                "192.168.1.1, 10.0.0.1" if key == "X-Forwarded-For" else default
+            )
         )
         request.client = None
 

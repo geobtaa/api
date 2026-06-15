@@ -5,6 +5,7 @@ import pytest
 import app.services.resource_representation_cache as resource_cache
 from app.services.resource_representation_cache import (
     delete_durable_resource_representations,
+    delete_redis_resource_representations,
     get_cached_resource_representations,
     get_or_build_resource_representation,
     resource_representation_cache_key,
@@ -35,6 +36,15 @@ class FakeCacheService:
 
     async def tag_cache_key(self, key, tags, ttl_seconds):
         self.tag_calls.append((key, set(tags), ttl_seconds))
+
+
+class FakeRedis:
+    def __init__(self):
+        self.deleted = []
+
+    async def delete(self, key):
+        self.deleted.append(key)
+        return 1
 
 
 @pytest.mark.asyncio
@@ -190,3 +200,58 @@ async def test_delete_durable_resource_representations_noops_when_disabled(monke
     result = await delete_durable_resource_representations()
 
     assert result is False
+
+
+@pytest.mark.asyncio
+async def test_delete_durable_resource_representations_chunks_large_id_lists(monkeypatch):
+    class FakeTransaction:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+    class FakeSession:
+        def __init__(self):
+            self.batches = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return False
+
+        def begin(self):
+            return FakeTransaction()
+
+        async def execute(self, stmt):
+            params = stmt.compile().params
+            batch = next(value for value in params.values() if isinstance(value, list))
+            self.batches.append(batch)
+
+    fake_session = FakeSession()
+    monkeypatch.setattr(resource_cache, "RESOURCE_REPRESENTATION_DURABLE_STORE", "database")
+    monkeypatch.setattr(resource_cache, "RESOURCE_REPRESENTATION_DELETE_BATCH_SIZE", 2)
+    monkeypatch.setattr(resource_cache, "async_session_factory", lambda: fake_session)
+
+    result = await delete_durable_resource_representations(["r1", "r2", "r3"])
+
+    assert result is True
+    assert fake_session.batches == [["r1", "r2"], ["r3"]]
+
+
+@pytest.mark.asyncio
+async def test_delete_redis_resource_representations_deletes_known_profiles():
+    cache_service = FakeCacheService()
+    cache_service._redis_client = FakeRedis()
+
+    deleted = await delete_redis_resource_representations(
+        ["r1"],
+        cache_service=cache_service,
+    )
+
+    assert deleted == 2
+    assert cache_service._redis_client.deleted == [
+        resource_representation_cache_key("r1", profile="api-full"),
+        resource_representation_cache_key("r1", profile="search-result"),
+    ]

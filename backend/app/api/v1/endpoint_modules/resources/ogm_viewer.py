@@ -3,7 +3,7 @@ import os
 from urllib.parse import quote
 
 from fastapi import HTTPException, Query
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse
 from sqlalchemy.sql import select
 
 from db.models import resources
@@ -11,7 +11,7 @@ from db.models import resources
 from . import get_async_session, logger, router
 
 
-@router.get("/resources/{id}/ogm-viewer")
+@router.get("/resources/{id}/ogm-viewer", response_class=HTMLResponse)
 async def get_resource_viewer(
     id: str,
     embed: bool = Query(False, description="Embedded mode for iframe usage"),
@@ -85,4 +85,4 @@ async def get_resource_viewer(
         raise
     except Exception as e:
         logger.error(f"Error creating viewer page for resource {id}: {str(e)}", exc_info=True)
-        return JSONResponse(content={"error": "Failed to create viewer page"}, status_code=500)
+        raise HTTPException(status_code=500, detail="Failed to create viewer page") from e

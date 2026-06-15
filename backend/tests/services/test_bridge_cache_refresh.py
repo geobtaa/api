@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, call, patch
 
 import pytest
 
@@ -24,7 +24,7 @@ class FakeCacheService:
 
     async def invalidate_tags(self, tags):
         self.invalidate_calls.append(list(tags))
-        return 3
+        return len(tags)
 
 
 @pytest.mark.asyncio
@@ -40,9 +40,9 @@ async def test_refresh_cache_for_changed_resources_deletes_durable_and_warms_ass
         patch.object(cache_refresh, "CacheService", return_value=fake_cache),
         patch.object(
             cache_refresh,
-            "delete_durable_resource_representations",
-            new=AsyncMock(return_value=True),
-        ) as mock_delete_durable,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True, "redis_deleted": 2}),
+        ) as mock_delete_representations,
         patch.object(
             cache_refresh,
             "_warm_generated_assets_for_changed_resources",
@@ -55,14 +55,71 @@ async def test_refresh_cache_for_changed_resources_deletes_durable_and_warms_ass
 
     assert stats["enabled"] is True
     assert stats["resource_ids"] == 1
-    assert stats["invalidated"] == 3
-    assert stats["durable_resource_representations_deleted"] is True
+    assert stats["invalidated"] == 1
+    assert stats["resource_representations_deleted"] == {
+        "durable_deleted": True,
+        "redis_deleted": 2,
+    }
     assert stats["generated_assets"] == {"enabled": True, "resources": 1}
     assert stats["warm_urls"] == 0
-    mock_delete_durable.assert_awaited_once_with(["resource-1"])
+    mock_delete_representations.assert_awaited_once_with(
+        ["resource-1"],
+        cache_service=fake_cache,
+    )
     mock_warm_assets.assert_awaited_once_with(["resource-1"])
     assert fake_cache.cached_records_calls == [["resource:resource-1"]]
     assert fake_cache.invalidate_calls == [["resource:resource-1"]]
+
+
+@pytest.mark.asyncio
+async def test_refresh_cache_for_changed_resources_invalidates_every_changed_id(
+    monkeypatch,
+):
+    fake_cache = FakeCacheService()
+    monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_MAX_RESOURCE_IDS", "1")
+    monkeypatch.setenv("BRIDGE_CACHE_REWARM_MAX_URLS", "0")
+
+    async def fake_warm_assets(resource_ids):
+        return {"enabled": True, "resources": len(resource_ids)}
+
+    with (
+        patch.object(cache_refresh, "CacheService", return_value=fake_cache),
+        patch.object(
+            cache_refresh,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True}),
+        ) as mock_delete_representations,
+        patch.object(
+            cache_refresh,
+            "_warm_generated_assets_for_changed_resources",
+            new=AsyncMock(side_effect=fake_warm_assets),
+        ) as mock_warm_assets,
+    ):
+        stats = await cache_refresh.refresh_cache_for_changed_resources(
+            ["resource-1", "resource-2", "resource-1", "resource-3"]
+        )
+
+    expected_ids = ["resource-1", "resource-2", "resource-3"]
+    expected_tag_batches = [[f"resource:{resource_id}"] for resource_id in expected_ids]
+    assert stats["resource_ids"] == 3
+    assert stats["batch_size"] == 1
+    assert stats["batches"] == 3
+    assert stats["invalidated"] == 3
+    assert stats["generated_assets"] == {"enabled": True, "resources": 3}
+    assert fake_cache.cached_records_calls == expected_tag_batches
+    assert fake_cache.invalidate_calls == expected_tag_batches
+    assert mock_delete_representations.await_args_list == [
+        call(["resource-1"], cache_service=fake_cache),
+        call(["resource-2"], cache_service=fake_cache),
+        call(["resource-3"], cache_service=fake_cache),
+    ]
+    assert mock_warm_assets.await_args_list == [
+        call(["resource-1"]),
+        call(["resource-2"]),
+        call(["resource-3"]),
+    ]
 
 
 @pytest.mark.asyncio

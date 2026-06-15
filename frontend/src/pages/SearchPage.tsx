@@ -9,6 +9,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import type { AdvancedClause, FacetFilter } from '../types/search';
 import { FacetList } from '../components/FacetList';
+import { SlidersHorizontal, X } from 'lucide-react';
 // import { MapView } from '../components/search/MapView';
 import { MapProvider, useMap } from '../context/MapContext';
 import { SortControl } from '../components/search/SortControl';
@@ -32,6 +33,7 @@ import {
   scheduleAnalyticsBatch,
   serializeSearchParams,
 } from '../services/analytics';
+import { buildSearchPageTitle } from '../utils/searchPageTitle';
 
 // Stable search identity for analytics. Page and per_page are excluded so a
 // paged result set remains part of the same search session.
@@ -66,6 +68,9 @@ function SearchContent({
   const { hoveredResourceId, hoveredGeometry } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [hasOpenedFilterDrawer, setHasOpenedFilterDrawer] = useState(false);
+  const [isDesktopViewport, setIsDesktopViewport] = useState(false);
   const showAdvancedParam = searchParams.get('showAdvanced') === 'true';
   const {
     query,
@@ -79,6 +84,7 @@ function SearchContent({
   const viewParam = searchParams.get('view');
   const currentView = isViewMode(viewParam) ? viewParam : DEFAULT_VIEW;
   const normalizedQuery = query || '';
+  const searchPageTitle = buildSearchPageTitle(searchParams);
   const currentSearchParamsKey = searchParams.toString();
   const currentContext = getSearchContext(searchParams);
   const hasAnySearchCriteria =
@@ -131,6 +137,79 @@ function SearchContent({
     next.set('showAdvanced', 'true');
     return `/search?${next.toString()}`;
   }, [searchParams, normalizedQuery]);
+  const activeFilterCount = React.useMemo(() => {
+    const activeFacetKeys = new Set(
+      searchFacets.map((facet) =>
+        facet.field === 'year_range'
+          ? 'year_range'
+          : `${facet.field}\0${facet.value}`
+      )
+    );
+    const activeExcludeKeys = new Set(
+      searchExcludeFacets.map((facet) => `${facet.field}\0${facet.value}`)
+    );
+    const hasGeoFilter =
+      searchParams.get('include_filters[geo][type]') === 'bbox';
+
+    return (
+      activeFacetKeys.size +
+      activeExcludeKeys.size +
+      advancedQuery.length +
+      (hasGeoFilter ? 1 : 0)
+    );
+  }, [advancedQuery.length, searchFacets, searchExcludeFacets, searchParams]);
+  const shouldRenderFilterContent =
+    isDesktopViewport || isFilterDrawerOpen || hasOpenedFilterDrawer;
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (typeof window.matchMedia !== 'function') {
+      setIsDesktopViewport(true);
+      return;
+    }
+
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    const syncDesktopViewport = () => {
+      setIsDesktopViewport(mediaQuery.matches);
+    };
+
+    syncDesktopViewport();
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', syncDesktopViewport);
+      return () => {
+        mediaQuery.removeEventListener('change', syncDesktopViewport);
+      };
+    }
+
+    mediaQuery.addListener(syncDesktopViewport);
+    return () => {
+      mediaQuery.removeListener(syncDesktopViewport);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isFilterDrawerOpen || typeof document === 'undefined') return;
+
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isFilterDrawerOpen]);
+
+  useEffect(() => {
+    if (!isFilterDrawerOpen || typeof window === 'undefined') return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsFilterDrawerOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isFilterDrawerOpen]);
 
   // For now, treat API errors as “no results” and let ErrorMessage show when needed.
   const activeSearchError =
@@ -459,7 +538,7 @@ function SearchContent({
   return (
     <div className="min-h-screen flex flex-col">
       <Seo
-        title={query ? `Search: ${query}` : 'Search Results'}
+        title={searchPageTitle}
         description="Search existing resources in the Big Ten Academic Alliance Geoportal."
       />
       <Header />
@@ -523,33 +602,66 @@ function SearchContent({
 
           {/* Two columns: left = Filter Results (heading + map + facets), right = single column with "Showing results" + list/gallery/map */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-x-8 gap-y-2 mt-4">
+            {isFilterDrawerOpen && (
+              <button
+                type="button"
+                className="fixed inset-0 z-40 bg-slate-900/40 lg:hidden"
+                aria-label="Close filters"
+                onClick={() => setIsFilterDrawerOpen(false)}
+              />
+            )}
+
             {/* Left column: filters */}
-            <div className="lg:col-span-3 lg:self-start space-y-4">
+            <aside
+              id="search-filters-panel"
+              aria-label="Filter results"
+              className={`${
+                isFilterDrawerOpen ? 'block' : 'hidden'
+              } fixed inset-y-0 left-0 z-50 w-[min(92vw,24rem)] overflow-y-auto bg-white px-4 py-4 shadow-xl lg:sticky lg:inset-auto lg:top-40 lg:z-10 lg:col-span-3 lg:block lg:w-auto lg:self-start lg:overflow-visible lg:bg-transparent lg:p-0 lg:shadow-none`}
+            >
+              <div className="mb-4 flex items-center justify-between lg:hidden">
+                <h2 className="text-base font-semibold text-gray-900">
+                  Filter Results
+                </h2>
+                <button
+                  type="button"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700"
+                  aria-label="Close filters"
+                  onClick={() => setIsFilterDrawerOpen(false)}
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
               <h2 className="sr-only text-lg font-semibold text-gray-900">
                 Filter Results
               </h2>
-              <LocationFacetCollapsible
-                accordion={accordion}
-                setAccordion={setAccordion}
-                showMap={shouldShowLocationFacetMap}
-              />
-              {activeSearchResults?.included ? (
-                <FacetList
-                  facets={activeSearchResults.included.filter(
-                    (item) => item.type === 'facet' || item.type === 'timeline'
+              {shouldRenderFilterContent && (
+                <>
+                  <LocationFacetCollapsible
+                    accordion={accordion}
+                    setAccordion={setAccordion}
+                    showMap={shouldShowLocationFacetMap}
+                  />
+                  {activeSearchResults?.included ? (
+                    <FacetList
+                      facets={activeSearchResults.included.filter(
+                        (item) =>
+                          item.type === 'facet' || item.type === 'timeline'
+                      )}
+                      accordion={accordion}
+                      setAccordion={setAccordion}
+                    />
+                  ) : (
+                    <div className="text-gray-500">Loading facets...</div>
                   )}
-                  accordion={accordion}
-                  setAccordion={setAccordion}
-                />
-              ) : (
-                <div className="text-gray-500">Loading facets...</div>
+                </>
               )}
-            </div>
+            </aside>
 
             {/* Right column: "Showing results" header + results list / gallery / map view */}
             <div className="lg:col-span-9 flex flex-col pt-0 mt-0">
               {!hasNoSearchResults && (
-                <div className="mb-2 flex justify-between items-center">
+                <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   {error ? (
                     <h2 className="text-lg text-gray-600">Results</h2>
                   ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
@@ -572,7 +684,28 @@ function SearchContent({
                     </h2>
                   )}
                   {!error && (
-                    <div className="flex items-center gap-4">
+                    <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-900 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-700 lg:hidden"
+                        aria-controls="search-filters-panel"
+                        aria-expanded={isFilterDrawerOpen}
+                        onClick={() => {
+                          setHasOpenedFilterDrawer(true);
+                          setIsFilterDrawerOpen(true);
+                        }}
+                      >
+                        <SlidersHorizontal
+                          className="h-4 w-4"
+                          aria-hidden="true"
+                        />
+                        <span>Filters</span>
+                        {activeFilterCount > 0 && (
+                          <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-blue-700 px-1.5 text-xs font-semibold text-white">
+                            {activeFilterCount}
+                          </span>
+                        )}
+                      </button>
                       <ViewToggle
                         currentView={currentView}
                         onViewChange={handleViewChange}

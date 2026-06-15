@@ -25,9 +25,7 @@ describe('DisplayNotes', () => {
       render(
         <DisplayNotes notes={['Danger: This document is highly flammable.']} />
       );
-      const note = screen.getByText(
-        /Danger: This document is highly flammable/
-      );
+      const note = screen.getByText(/This document is highly flammable/);
       expect(note).toBeInTheDocument();
       const wrapper = note.closest('.gbl-display-note');
       expect(wrapper).toHaveClass(
@@ -35,6 +33,13 @@ describe('DisplayNotes', () => {
         'bg-red-50',
         'text-red-800'
       );
+      expect(wrapper).toHaveAttribute(
+        'aria-label',
+        'Danger: This document is highly flammable.'
+      );
+      expect(
+        screen.queryByText(/Danger: This document/)
+      ).not.toBeInTheDocument();
     });
 
     it('renders Info note with info styling', () => {
@@ -43,13 +48,18 @@ describe('DisplayNotes', () => {
           notes={['Info: This dataset represents the buildings.']}
         />
       );
-      const note = screen.getByText(/Info: This dataset represents/);
+      const note = screen.getByText(/This dataset represents/);
       const wrapper = note.closest('.gbl-display-note');
       expect(wrapper).toHaveClass(
         'border-blue-200',
         'bg-blue-50',
         'text-blue-800'
       );
+      expect(wrapper).toHaveAttribute(
+        'aria-label',
+        'Info: This dataset represents the buildings.'
+      );
+      expect(screen.queryByText(/Info: This dataset/)).not.toBeInTheDocument();
     });
 
     it('renders Tip note with tip styling', () => {
@@ -61,14 +71,21 @@ describe('DisplayNotes', () => {
         'aria-label',
         'Tip: Be sure to look in the mailbox.'
       );
-      expect(screen.queryByText(/Tip: Be sure to look/)).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(/Tip: Be sure to look/)
+      ).not.toBeInTheDocument();
     });
 
     it('renders Warning note with warning styling', () => {
       render(<DisplayNotes notes={['Warning: This data is fictional.']} />);
-      const note = screen.getByText(/Warning: This data is fictional/);
+      const note = screen.getByText(/This data is fictional/);
       const wrapper = note.closest('.gbl-display-note');
       expect(wrapper).toHaveClass('border-amber-200', 'bg-amber-50');
+      expect(wrapper).toHaveAttribute(
+        'aria-label',
+        'Warning: This data is fictional.'
+      );
+      expect(screen.queryByText(/Warning: This data/)).not.toBeInTheDocument();
     });
 
     it('renders non-prefixed note with default styling', () => {
@@ -90,8 +107,8 @@ describe('DisplayNotes', () => {
       render(
         <DisplayNotes notes={['Info: First note.', 'Warning: Second note.']} />
       );
-      expect(screen.getByText(/Info: First note/)).toBeInTheDocument();
-      expect(screen.getByText(/Warning: Second note/)).toBeInTheDocument();
+      expect(screen.getByText(/First note/)).toBeInTheDocument();
+      expect(screen.getByText(/Second note/)).toBeInTheDocument();
       const notes = screen.getAllByRole('status');
       expect(notes).toHaveLength(2);
     });

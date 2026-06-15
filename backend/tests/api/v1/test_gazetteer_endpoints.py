@@ -4,8 +4,21 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
+
+
+def assert_public_error(data, *, status: int, code: str, detail: str | None = None):
+    assert "errors" in data
+    assert len(data["errors"]) == 1
+
+    error = data["errors"][0]
+    assert error["status"] == status
+    assert error["code"] == code
+    assert "request_id" in error
+    if detail is not None:
+        assert error["detail"] == detail
 
 
 def test_list_gazetteers():
@@ -299,7 +312,7 @@ class TestGazetteerEndpointsEnhanced:
 
     def test_gazetteer_endpoints_structure(self):
         """Test that gazetteer endpoints are properly configured."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         assert "/api/v1/gazetteers" in routes
         assert "/api/v1/gazetteers/search" in routes
@@ -349,8 +362,13 @@ class TestGazetteerEndpointsEnhanced:
 
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert data["detail"] == "Failed to list gazetteers"
+        assert_public_error(
+            data,
+            status=500,
+            code="internal_server_error",
+            detail="An unexpected error occurred.",
+        )
+        assert "Database connection failed" not in response.text
 
     def test_search_all_gazetteers_missing_query(self):
         """Test search all gazetteers without required query parameter."""
@@ -364,8 +382,12 @@ class TestGazetteerEndpointsEnhanced:
 
         assert response.status_code == 400
         data = response.json()
-        assert "detail" in data
-        assert "Invalid gazetteer specified" in data["detail"]
+        assert_public_error(
+            data,
+            status=400,
+            code="bad_request",
+            detail="Invalid gazetteer specified",
+        )
 
     def test_search_all_gazetteers_invalid_limit(self):
         """Test search with invalid limit parameter."""
@@ -405,7 +427,12 @@ class TestGazetteerEndpointsEnhanced:
                 assert isinstance(gazetteer_data["data"], list)
         else:
             # Handle error response structure
-            assert "detail" in data
+            assert_public_error(
+                data,
+                status=500,
+                code="internal_server_error",
+                detail="An unexpected error occurred.",
+            )
 
     def test_search_all_gazetteers_specific_geonames(self):
         """Test search with specific gazetteer (geonames)."""
@@ -451,8 +478,13 @@ class TestGazetteerEndpointsEnhanced:
 
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert "Failed to search GeoNames" in data["detail"]
+        assert_public_error(
+            data,
+            status=500,
+            code="internal_server_error",
+            detail="An unexpected error occurred.",
+        )
+        assert "Database error" not in response.text
 
     def test_search_wof_success(self):
         """Test successful WOF search."""
@@ -482,8 +514,13 @@ class TestGazetteerEndpointsEnhanced:
 
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert "Failed to search WOF" in data["detail"]
+        assert_public_error(
+            data,
+            status=500,
+            code="internal_server_error",
+            detail="An unexpected error occurred.",
+        )
+        assert "Database error" not in response.text
 
     def test_search_btaa_success(self):
         """Test successful BTAA search."""
@@ -513,8 +550,13 @@ class TestGazetteerEndpointsEnhanced:
 
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
-        assert "Failed to search BTAA" in data["detail"]
+        assert_public_error(
+            data,
+            status=500,
+            code="internal_server_error",
+            detail="An unexpected error occurred.",
+        )
+        assert "Database error" not in response.text
 
     def test_search_with_pagination(self):
         """Test search with pagination parameters."""

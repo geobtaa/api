@@ -8,7 +8,12 @@ from unittest.mock import patch
 
 import pytest
 
-from app.services.image_service import ImageService
+from app.services.image_service import (
+    COG_THUMBNAIL_PREFIX,
+    PMTILES_THUMBNAIL_PREFIX,
+    REMOTE_THUMBNAIL_PREFIX,
+    ImageService,
+)
 from app.services.thumbnail_state_service import ThumbnailState
 
 
@@ -206,6 +211,54 @@ class TestImageServiceThumbnailSourceURL:
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
+    def test_resolve_thumbnail_source_url_uses_bridge_asset_as_last_resort(self):
+        """Bridge thumbnail assets are only used when intrinsic sources are absent."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            assert (
+                service.resolve_thumbnail_source_url(
+                    thumbnail_asset_url="https://assets.example.edu/thumb.png"
+                )
+                == "https://assets.example.edu/thumb.png"
+            )
+
+            service_with_source = ImageService(
+                {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+            )
+            assert (
+                service_with_source.resolve_thumbnail_source_url(
+                    thumbnail_asset_url="https://assets.example.edu/thumb.png"
+                )
+                == "https://curated.example.com/thumb.jpg"
+            )
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_thumbnail_image_hash_for_source_uses_worker_hash_conventions(self):
+        """Hash calculation should match worker prefixes for remote, COG, and PMTiles sources."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            remote = "https://example.com/thumb.jpg"
+            cog = "https://example.com/raster.tif"
+            pmtiles = "https://example.com/tiles.pmtiles"
+
+            assert (
+                service.thumbnail_image_hash_for_source_sync(remote)
+                == hashlib.sha256(f"{REMOTE_THUMBNAIL_PREFIX}{remote}".encode()).hexdigest()
+            )
+            assert (
+                service.thumbnail_image_hash_for_source_sync(cog)
+                == hashlib.sha256(f"{COG_THUMBNAIL_PREFIX}{cog}".encode()).hexdigest()
+            )
+            assert (
+                service.thumbnail_image_hash_for_source_sync(pmtiles)
+                == hashlib.sha256(f"{PMTILES_THUMBNAIL_PREFIX}{pmtiles}".encode()).hexdigest()
+            )
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
     def test_get_thumbnail_source_url_schema_thumbnail(self):
         """Test extraction of schema.org thumbnail URL."""
         metadata = {"id": "test-doc"}
@@ -230,6 +283,40 @@ class TestImageServiceThumbnailSourceURL:
 
         except Exception as e:
             # Handle Redis connection errors gracefully
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_schema_image(self):
+        """Use schema.org/image as a direct curated thumbnail source."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            references = {"http://schema.org/image": "https://example.com/image.png"}
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/image.png"
+
+            https_references = {
+                "https://schema.org/image": [
+                    "https://example.com/image-https.png",
+                    "https://example.com/second.png",
+                ]
+            }
+            result = service._get_thumbnail_source_url(https_references)
+            assert result == "https://example.com/image-https.png"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_thumbnailurl_overrides_schema_image(self):
+        """Prefer the more specific schema.org thumbnailUrl when both are present."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            references = {
+                "http://schema.org/thumbnailUrl": "https://example.com/thumb.jpg",
+                "http://schema.org/image": "https://example.com/image.png",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
     def test_get_thumbnail_source_url_iiif_image(self):
@@ -475,6 +562,20 @@ class TestImageServiceThumbnailSourceURL:
             }
             result = service._get_thumbnail_source_url(references)
             assert result == "https://example.com/thumb.jpg"
+        except Exception as e:
+            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_get_thumbnail_source_url_pmtiles_overrides_schema_image(self):
+        """Prefer generated PMTiles thumbnails over curated schema.org/image previews."""
+        metadata = {"id": "test-doc"}
+        try:
+            service = ImageService(metadata)
+            references = {
+                "http://schema.org/image": "https://example.com/preview.png",
+                "https://github.com/protomaps/PMTiles": "https://example.com/tiles.pmtiles",
+            }
+            result = service._get_thumbnail_source_url(references)
+            assert result == "https://example.com/tiles.pmtiles"
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 

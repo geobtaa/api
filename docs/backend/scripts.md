@@ -205,6 +205,42 @@ make analytics-maintenance
 make analytics-size-report
 ```
 
+### 11. `backup_postgres_to_s3.py`
+
+**Purpose**: Creates a production-gated PostgreSQL/ParadeDB `pg_dump` custom
+archive and uploads it to S3 with a JSON manifest.
+
+**Usage**:
+```bash
+python scripts/backup_postgres_to_s3.py
+```
+
+From the project root you can run against Kamal production:
+```bash
+make kamal-backup-postgres KAMAL_DEST=prd
+```
+
+### 12. `backup_elasticsearch.py`
+
+**Purpose**: Manages Elasticsearch snapshots for disaster recovery. It supports
+the historical filesystem repository and the production S3 repository.
+
+**Usage**:
+```bash
+python scripts/backup_elasticsearch.py --create --wait --retain-count 3
+python scripts/backup_elasticsearch.py --list
+python scripts/backup_elasticsearch.py --restore <snapshot-name> --wait
+```
+
+From the project root you can run against Kamal production:
+```bash
+make kamal-backup-elasticsearch KAMAL_DEST=prd
+make kamal-backup-list-elasticsearch KAMAL_DEST=prd
+```
+
+See [disaster_recovery.md](disaster_recovery.md) for S3 configuration,
+retention, and restore procedures.
+
 ## Common Features
 
 All scripts share some common features:
@@ -219,6 +255,9 @@ Several scripts require specific environment variables:
 
 - `OPENAI_API_KEY`: Required by `generate_fast_embeddings.py`
 - `REDIS_HOST` and `REDIS_PORT`: Used by `clear_cache.py`
+- `BACKUP_ENABLED`, `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`,
+  `BACKUP_RETENTION_COUNT`, and AWS credentials: used by the disaster recovery
+  backup scripts.
 
 ### API rate limiting and service tiers
 
@@ -246,7 +285,8 @@ Rate limiting for the public API is enforced by middleware backed by Redis:
   - `analytics_daily_api_usage_metrics`, `analytics_daily_search_metrics`, `analytics_daily_resource_metrics` – compact daily rollups
   - `analytics_maintenance_state` – rollup checkpoint state
 
-- Runtime configuration is controlled via environment variables (see also `README.md`):
+- Runtime configuration is controlled via environment variables (see also
+  [../development.md](../development.md)):
 
   ```bash
   RATE_LIMIT_ENABLED=true

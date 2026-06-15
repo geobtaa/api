@@ -2,7 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter } from 'react-router';
-import { FacetList } from '../../components/FacetList';
+import { FacetList, type JsonApiFacet } from '../../components/FacetList';
 import { vi } from 'vitest';
 
 // Mock useSearchParams
@@ -24,9 +24,11 @@ vi.mock('../../utils/facetLabels', () => ({
     dc_publisher_sm: 'Publisher',
     dct_temporal_sm: 'Year',
     dct_spatial_sm: 'Location',
+    b1g_georeferenced_allmaps_b: 'Map Overlay',
   },
   // For unit tests we keep facet IDs stable (no remapping).
-  normalizeFacetId: (id: string) => id,
+  normalizeFacetId: (id: string) =>
+    id === 'map_overlay_agg' ? 'b1g_georeferenced_allmaps_b' : id,
 }));
 
 vi.mock('../../constants/facets', () => ({
@@ -37,6 +39,7 @@ vi.mock('../../constants/facets', () => ({
     'year_histogram',
     'dct_spatial_sm',
     'georeferenced_agg',
+    'b1g_georeferenced_allmaps_b',
   ],
 }));
 
@@ -204,7 +207,7 @@ const mockFacetData = [
   },
 ];
 
-const mockTimelineFacetData: any = [
+const mockTimelineFacetData: JsonApiFacet[] = [
   {
     type: 'timeline' as const,
     id: 'year_histogram',
@@ -296,7 +299,7 @@ describe('FacetList Component', () => {
 
       render(
         <TestWrapper>
-          <FacetList facets={compactFacetData as any} />
+          <FacetList facets={compactFacetData as JsonApiFacet[]} />
         </TestWrapper>
       );
 
@@ -351,7 +354,7 @@ describe('FacetList Component', () => {
     it('displays message when facets is null', () => {
       render(
         <TestWrapper>
-          <FacetList facets={null as any} />
+          <FacetList facets={null as unknown as JsonApiFacet[]} />
         </TestWrapper>
       );
 
@@ -663,6 +666,38 @@ describe('FacetList Component', () => {
       ).toBeInTheDocument(); // Value "false" renamed
     });
 
+    it('renders map overlay facet with true and false values', () => {
+      const mapOverlayFacet = [
+        {
+          type: 'facet' as const,
+          id: 'b1g_georeferenced_allmaps_b',
+          attributes: {
+            label: 'Map Overlay',
+            items: [
+              [1, 10],
+              [0, 5],
+            ] as [number, number][],
+          },
+        },
+      ];
+
+      render(
+        <TestWrapper>
+          <FacetList facets={mapOverlayFacet} />
+        </TestWrapper>
+      );
+
+      expect(
+        screen.getByRole('heading', { level: 3, name: 'Map Overlay' })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /true\s*\(\d+\)/ })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /false\s*\(\d+\)/ })
+      ).toBeInTheDocument();
+    });
+
     it('handles facets with missing items attribute', () => {
       const facetsWithMissingItems = [
         {
@@ -677,7 +712,9 @@ describe('FacetList Component', () => {
 
       render(
         <TestWrapper>
-          <FacetList facets={facetsWithMissingItems as any} />
+          <FacetList
+            facets={facetsWithMissingItems as unknown as JsonApiFacet[]}
+          />
         </TestWrapper>
       );
 

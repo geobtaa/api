@@ -50,6 +50,7 @@ INDEX_MAPPING = {
                 "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
             "gbl_georeferenced_b": {"type": "boolean"},
+            "b1g_georeferenced_allmaps_b": {"type": "boolean"},
             "dct_alternative_sm": {
                 "type": "text",
                 "fields": {

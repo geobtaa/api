@@ -17,7 +17,7 @@ from app.services.distribution_repository import (
     build_distribution_context,
     fetch_distribution_context,
 )
-from app.services.resource_representation_cache import delete_durable_resource_representations
+from app.services.resource_representation_cache import delete_resource_representations
 from app.tasks.entities import generate_geo_entities
 from app.tasks.summarization import generate_resource_summary
 from db.database import database
@@ -41,7 +41,7 @@ class CacheManagementService:
 
             if cache_type == "resource" or cache_type is None or cache_type == "all":
                 await self.cache_service.invalidate_tags(["resource"])
-                await delete_durable_resource_representations()
+                await delete_resource_representations(cache_service=self.cache_service)
 
             if cache_type == "suggest" or cache_type is None or cache_type == "all":
                 await self.cache_service.invalidate_tags(["suggest"])

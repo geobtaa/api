@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router';
+import { Routes, Route, Navigate, useLocation, useParams } from 'react-router';
 import { Application } from '@hotwired/stimulus';
 import { SearchPage } from './pages/SearchPage';
 import { ResourceView } from './pages/ResourceView';
@@ -12,13 +12,28 @@ import { ProviderPillsTestPage } from './pages/ProviderPillsTestPage';
 import { MapPage } from './pages/MapPage';
 import { TestPage } from './pages/TestPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { AboutPage } from './pages/AboutPage';
+import { FeedbackPage } from './pages/FeedbackPage';
+import { HelpPage } from './pages/HelpPage';
 
 // Import Leaflet CSS
 import 'leaflet/dist/leaflet.css';
 
 // Ensure Stimulus is available globally
 const application = Application.start();
-(window as any).Stimulus = application;
+(window as typeof window & { Stimulus: Application }).Stimulus = application;
+
+function CatalogRedirect() {
+  const { id } = useParams();
+  const location = useLocation();
+
+  return (
+    <Navigate
+      to={`/resources/${id ?? ''}${location.search}${location.hash}`}
+      replace
+    />
+  );
+}
 
 function App() {
   const [searchParams] = useSearchParams();
@@ -32,8 +47,13 @@ function App() {
       <DebugProvider>
         <Routes>
           {/* More specific paths first so /search matches before / */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/feedback" element={<FeedbackPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/bookmarks" element={<BookmarksPage />} />
+          <Route path="/catalog/:id" element={<CatalogRedirect />} />
+          <Route path="/catalog/:id/*" element={<CatalogRedirect />} />
           <Route path="/resources/:id" element={<ResourceView />} />
           <Route
             path="/test/fixtures/providers"

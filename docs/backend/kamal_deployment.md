@@ -10,11 +10,11 @@ It intentionally omits older generic Kamal guidance that does not match how thes
 
 ## Current Environments
 
-| Destination | Host | Config | Secrets file |
-|-------------|------|--------|--------------|
-| `dev1` | `lib-btaageoapi-dev-app-01.oit.umn.edu` | `config/deploy.dev1.yml` | `.kamal/secrets.dev1` |
-| `dev2` | `lib-geoportal-dev-web-01.oit.umn.edu` | `config/deploy.dev2.yml` | `.kamal/secrets.dev2` |
-| `prd` | `lib-geoportal-prd-web-01.oit.umn.edu` | `config/deploy.prd.yml` | `.kamal/secrets.prd` |
+| Destination | Deploy host | Public origin | Config | Secrets file |
+|-------------|-------------|---------------|--------|--------------|
+| `dev1` | `lib-btaageoapi-dev-app-01.oit.umn.edu` | `https://lib-btaageoapi-dev-app-01.oit.umn.edu` | `config/deploy.dev1.yml` | `.kamal/secrets.dev1` |
+| `dev2` | `lib-geoportal-dev-web-01.oit.umn.edu` | `https://geodev.btaa.org` | `config/deploy.dev2.yml` | `.kamal/secrets.dev2` |
+| `prd` | `lib-geoportal-prd-web-01.oit.umn.edu` | `https://geo.btaa.org` | `config/deploy.prd.yml` | `.kamal/secrets.prd` |
 
 Shared secrets live in `.kamal/secrets-common`.
 
@@ -145,6 +145,10 @@ export KAMAL_HOST=lib-geoportal-prd-web-01.oit.umn.edu
 export KAMAL_SSH_USER=deploy
 ```
 
+`KAMAL_HOST` is the SSH/deployment target. For `dev2` and `prd`, keep it set to
+the VM hostname; the public BTAA origins are configured in the destination
+deploy files.
+
 The exact shared secret set is defined by `config/deploy.yml`:
 
 - ERB `ENV[...]` references
@@ -152,6 +156,10 @@ The exact shared secret set is defined by `config/deploy.yml`:
 - `registry`
 
 Treat `config/deploy.yml` as the source of truth so the docs do not drift from the config.
+
+Destination `env.secret` lists replace the shared list rather than appending to
+it. If a destination needs an extra secret, repeat the full shared secret set in
+that destination file and add the destination-only secret at the end.
 
 Before running direct `kamal` commands in a shell, source the secrets:
 
@@ -205,20 +213,20 @@ kamal deploy -d prd
 ```
 
 When prompted, enter the tag or branch you intend to deploy, for example
-`v0.7.0` or `main`.
+`v0.8.0` or `main`.
 
 For non-interactive shells, pass the ref explicitly:
 
 ```bash
-PRD_DEPLOY_REF=v0.7.0 kamal deploy -d prd
+PRD_DEPLOY_REF=v0.8.0 kamal deploy -d prd
 ```
 
 The production deploy hook verifies that the selected ref matches both the
 current checkout and `KAMAL_VERSION`. To deploy an older tag, check it out first:
 
 ```bash
-git switch --detach v0.7.0
-PRD_DEPLOY_REF=v0.7.0 kamal deploy -d prd
+git switch --detach v0.8.0
+PRD_DEPLOY_REF=v0.8.0 kamal deploy -d prd
 git switch main
 ```
 
@@ -250,10 +258,11 @@ kamal accessory details -d prd redis
 Then confirm the public app is responding:
 
 ```bash
-curl -sS -o /dev/null -D - https://lib-geoportal-prd-web-01.oit.umn.edu/api/docs
+curl -sS -o /dev/null -D - https://geo.btaa.org/api/docs
 ```
 
-Use the matching host for `dev1` or `dev2` when checking those destinations.
+Use the matching public origin for `dev1` or `dev2` when checking those
+destinations. For `dev2`, prefer `https://geodev.btaa.org`.
 
 ## Common Operations
 
@@ -315,10 +324,15 @@ The cron container currently runs:
 - daily sitemap generation at `4:15 AM America/Chicago`
 - daily analytics storage maintenance at `4:45 AM America/Chicago`
 
-Cron now sets `CRON_TZ=America/Chicago` in the crontab, and bridge delta windows are
-computed from the previous America/Chicago day before converting to UTC for the bridge
-API. Each cron shell also loads `/app/scripts/cron_env.sh` via `BASH_ENV`, which restores
-the container's Redis, database, Python-path, and bridge settings before the job starts.
+The cron container starts through `/app/scripts/start_cron.sh`, which pins the
+container timezone to `America/Chicago` before launching `cron -f`; set
+`BRIDGE_SYNC_LOCAL_TIMEZONE` only if a destination intentionally needs a different local
+schedule. Startup fails if the requested zoneinfo file is unavailable, rather than falling
+back to UTC. `CRON_TZ` also remains in `config/crontab` for cron implementations that
+support per-file timezones. Bridge delta windows are computed from the previous
+America/Chicago day before converting to UTC for the bridge API. Each cron shell also loads
+`/app/scripts/cron_env.sh` via `BASH_ENV`, which restores the container's Redis, database,
+Python-path, and bridge settings before the job starts.
 Bridge/blog cron triggers enqueue Celery tasks with `apply_async(ignore_result=True)` so
 they do not depend on a result-backend subscription just to queue fire-and-forget work.
 
@@ -350,6 +364,62 @@ image installs `msmtp-mta`, which provides `/usr/sbin/sendmail`, and configures 
 UMN's `smtp.umn.edu` relay without app-level SMTP credentials. UMN relay access may still
 require the production host/IP and the From address to be approved by OIT.
 
+The public `/feedback` page submits to `/api/v1/feedback`, which uses the same sendmail
+or SMTP delivery conventions. Configure:
+
+```bash
+FEEDBACK_EMAIL_ENABLED=true
+FEEDBACK_RECIPIENTS="majew030@umn.edu,btaa-gdp@umn.edu,geoportal@btaa.org"
+FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
+FEEDBACK_DELIVERY=sendmail
+```
+
+`dev1`, `dev2`, and `prd` enable feedback mail. Unless overridden with
+`FEEDBACK_RECIPIENTS`, feedback goes to `majew030@umn.edu`, `btaa-gdp@umn.edu`,
+and `geoportal@btaa.org`.
+
+On Kamal, host Postfix is the preferred no-password relay. Because the app runs
+inside Docker, `localhost` means the app container, not the VM. The destination
+Kamal configs point feedback SMTP at the host's Kamal bridge gateway:
+
+```bash
+FEEDBACK_DELIVERY=smtp
+SMTP_HOST=172.18.0.1
+SMTP_PORT=25
+SMTP_STARTTLS=false
+```
+
+Postfix must listen on that bridge address and permit the Kamal app network.
+For the current Kamal hosts, the bridge is `172.18.0.1/16`, so the host-side
+Postfix shape is:
+
+```bash
+sudo postconf -e 'inet_interfaces = localhost, 172.18.0.1'
+sudo postconf -e 'mynetworks = 127.0.0.0/8 [::1]/128 172.18.0.0/16'
+sudo systemctl restart postfix
+sudo firewall-cmd --zone=docker --add-port=25/tcp --permanent
+sudo firewall-cmd --reload
+```
+
+Verify from inside the running web container that the host relay is reachable:
+
+```bash
+docker exec <web-container-name> bash -lc \
+  'timeout 3 bash -c "cat < /dev/null > /dev/tcp/172.18.0.1/25" && echo ok'
+```
+
+If the host relay cannot be approved, switch feedback to authenticated SMTP by
+setting these in `.kamal/secrets.dev1` before deploying:
+
+```bash
+export FEEDBACK_DELIVERY=smtp
+export SMTP_HOST=smtp.umn.edu
+export SMTP_PORT=587
+export SMTP_STARTTLS=true
+export SMTP_USERNAME="<smtp username>"
+export SMTP_PASSWORD="<smtp password>"
+```
+
 For analytics retention, rollups, and storage behavior, see [Analytics Program](analytics_program.md).
 
 ## Destination Differences
@@ -359,8 +429,8 @@ The base config in `config/deploy.yml` is shared across all destinations. The de
 Current differences:
 
 - `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=4`, and `WEB_SSR_WORKERS=3`
-- `dev2`: host `lib-geoportal-dev-web-01.oit.umn.edu`, same prd-sized performance profile as `dev1`, with `RATE_LIMIT_ENABLED=true` and bounded DB pool settings for production-like k6 capacity tests
-- `prd`: host `lib-geoportal-prd-web-01.oit.umn.edu`, 12-vCPU production performance profile with `web cpus: 8`, `worker cpus: 1.75`, `WEB_UVICORN_WORKERS=4`, `WEB_INTERNAL_UVICORN_WORKERS=6`, and `WEB_SSR_WORKERS=4`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
+- `dev2`: deploy host `lib-geoportal-dev-web-01.oit.umn.edu` with public origin `https://geodev.btaa.org`, same prd-sized performance profile as `dev1`, with `RATE_LIMIT_ENABLED=true` and bounded DB pool settings for production-like k6 capacity tests
+- `prd`: deploy host `lib-geoportal-prd-web-01.oit.umn.edu` with public origin `https://geo.btaa.org`, 12-vCPU production performance profile with `web cpus: 8`, `worker cpus: 1.75`, `WEB_UVICORN_WORKERS=4`, `WEB_INTERNAL_UVICORN_WORKERS=6`, and `WEB_SSR_WORKERS=4`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 
 If a new destination needs a persistent behavior difference, put only that override in `config/deploy.<dest>.yml` and keep the shared behavior in `config/deploy.yml`.
 
@@ -384,7 +454,7 @@ Check:
 ```bash
 kamal app details -d prd
 kamal app logs -d prd --roles web
-curl -sS -o /dev/null -D - https://lib-geoportal-prd-web-01.oit.umn.edu/api/docs
+curl -sS -o /dev/null -D - https://geo.btaa.org/api/docs
 ```
 
 ### Accessory problem

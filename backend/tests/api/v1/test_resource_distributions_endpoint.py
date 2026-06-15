@@ -9,6 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.utils.route_helpers import route_by_path, route_paths
 
 
 class TestResourceDistributionsEndpoint:
@@ -22,23 +23,18 @@ class TestResourceDistributionsEndpoint:
     def test_endpoint_exists(self, client):
         """Test that the distributions endpoint is properly configured."""
         # Check that the endpoint route exists
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
         assert "/api/v1/resources/{id}/distributions" in routes
 
     def test_endpoint_route_registration(self, client):
         """Test that the distributions endpoint route is properly registered."""
         # This test verifies the endpoint exists without making database calls
         # that could conflict with other tests in the suite
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
         assert "/api/v1/resources/{id}/distributions" in routes
 
         # Verify it's a GET endpoint
-        distributions_route = None
-        for route in app.routes:
-            if hasattr(route, "path") and route.path == "/api/v1/resources/{id}/distributions":
-                distributions_route = route
-                break
-
+        distributions_route = route_by_path(app, "/api/v1/resources/{id}/distributions")
         assert distributions_route is not None
         assert hasattr(distributions_route, "methods")
         assert "GET" in distributions_route.methods

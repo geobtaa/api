@@ -1,3 +1,16 @@
+<%
+# Makefile includes keep shell-style wrapper quotes as literal characters.
+# Normalize them so Kamal config rendering matches `source .kamal/secrets.*`.
+ENV.each do |key, value|
+  next unless value.is_a?(String) && value.length >= 2
+
+  if (value.start_with?('"') && value.end_with?('"')) ||
+     (value.start_with?("'") && value.end_with?("'"))
+    ENV[key] = value[1...-1]
+  end
+end
+%>
+
 # Destination: prd — Production server
 # Merged with config/deploy.yml when using: kamal deploy -d prd
 
@@ -21,7 +34,7 @@ servers:
   cron:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
-    cmd: bash -lc '/opt/venv/bin/python3 /app/scripts/render_cron_env.py /tmp/cron-container-env.sh && (printf "ADMIN_USERNAME=%s\nADMIN_PASSWORD=%s\nAPPLICATION_URL=%s\nBRIDGE_TRIGGER=%s\n" "${ADMIN_USERNAME}" "${ADMIN_PASSWORD}" "${APPLICATION_URL}" "${BRIDGE_TRIGGER:-nightly_cron}"; cat config/crontab) | crontab - && cron -f'
+    cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
       user: root
 
@@ -31,30 +44,35 @@ servers:
     cmd: celery -A app.tasks.worker flower --port=5555
 
 proxy:
-  host: lib-geoportal-prd-web-01.oit.umn.edu
+  host: geo.btaa.org,lib-geoportal-prd-web-01.oit.umn.edu
 
 builder:
   args:
-    VITE_API_BASE_URL: "https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1"
+    VITE_API_BASE_URL: "https://geo.btaa.org/api/v1"
     VITE_TURNSTILE_ACTION: "geoportal_gate"
     VITE_TURNSTILE_ENABLED: "true"
-    VITE_TURNSTILE_SITE_KEY: "0x4AAAAAADJqCBiv8czDm2ZG"
+    VITE_TURNSTILE_PUBLIC_SITE: "0x4AAAAAADJqCBiv8czDm2ZG"
     VITE_GTM_ID: "GTM-K7S6976T"
     VITE_KAMAL_DEST: "prd"
 
 env:
   clear:
-    APPLICATION_URL: https://lib-geoportal-prd-web-01.oit.umn.edu
+    APPLICATION_URL: https://geo.btaa.org
     APP_ENV: production
     KAMAL_DEST: prd
     BRIDGE_SYNC_REPORT_ENABLED: "true"
     BRIDGE_SYNC_REPORT_DELIVERY: sendmail
-    SENDMAIL_PATH: /usr/sbin/sendmail
-    SENDMAIL_ARGS: "-t -i"
+    FEEDBACK_EMAIL_ENABLED: "true"
+    FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'smtp') %>"
+    SENDMAIL_PATH: "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
+    SENDMAIL_ARGS: "<%= ENV.fetch('SENDMAIL_ARGS', '-t -i') %>"
+    SMTP_HOST: "<%= ENV.fetch('SMTP_HOST', '172.18.0.1') %>"
+    SMTP_PORT: "<%= ENV.fetch('SMTP_PORT', '25') %>"
+    SMTP_STARTTLS: "<%= ENV.fetch('SMTP_STARTTLS', 'false') %>"
     SEARCH_ENGINE_INDEXING_ENABLED: "false"
     RATE_LIMIT_ENABLED: "true"
     TURNSTILE_ENABLED: "true"
-    TURNSTILE_ALLOWED_HOSTNAMES: lib-geoportal-prd-web-01.oit.umn.edu
+    TURNSTILE_ALLOWED_HOSTNAMES: geo.btaa.org,lib-geoportal-prd-web-01.oit.umn.edu
     TURNSTILE_COOKIE_SECURE: "true"
     TURNSTILE_EXPECTED_ACTION: geoportal_gate
     CACHE_DEBUG_HEADERS: "false"
@@ -75,9 +93,49 @@ env:
     WEB_UVICORN_WORKERS: "4"
     WEB_INTERNAL_UVICORN_WORKERS: "6"
     WEB_SSR_WORKERS: "4"
+    BACKUP_ENABLED: "<%= ENV.fetch('BACKUP_ENABLED', 'true') %>"
+    BACKUP_REQUIRED_DEST: prd
+    BACKUP_RETENTION_COUNT: "<%= ENV.fetch('BACKUP_RETENTION_COUNT', '3') %>"
+    BACKUP_S3_BUCKET: "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
+    BACKUP_S3_PREFIX: "<%= ENV.fetch('BACKUP_S3_PREFIX', 'btaa-geospatial-api') %>"
+    BACKUP_S3_REGION: "<%= ENV.fetch('BACKUP_S3_REGION', ENV.fetch('AWS_REGION', 'us-east-2')) %>"
+    AWS_REGION: "<%= ENV.fetch('AWS_REGION', ENV.fetch('BACKUP_S3_REGION', 'us-east-2')) %>"
+    AWS_DEFAULT_REGION: "<%= ENV.fetch('AWS_DEFAULT_REGION', ENV.fetch('AWS_REGION', ENV.fetch('BACKUP_S3_REGION', 'us-east-2'))) %>"
+    ELASTICSEARCH_SNAPSHOT_REPOSITORY: btaa_geoportal_snapshots
+    ELASTICSEARCH_SNAPSHOT_REPOSITORY_TYPE: s3
+    ELASTICSEARCH_SNAPSHOT_S3_BASE_PATH: "<%= ENV.fetch('ELASTICSEARCH_SNAPSHOT_S3_BASE_PATH', 'btaa-geospatial-api/prd/elasticsearch') %>"
+    ELASTICSEARCH_SNAPSHOT_S3_STORAGE_CLASS: "<%= ENV.fetch('ELASTICSEARCH_SNAPSHOT_S3_STORAGE_CLASS', '') %>"
+    ELASTICSEARCH_SNAPSHOT_S3_SERVER_SIDE_ENCRYPTION: "<%= ENV.fetch('ELASTICSEARCH_SNAPSHOT_S3_SERVER_SIDE_ENCRYPTION', 'true') %>"
+  secret:
+    # Destination secret lists replace the base list rather than appending.
+    # Keep the shared entries in sync with config/deploy.yml; prod-only backup
+    # secrets are listed at the end.
+    - REDIS_PASSWORD
+    - POSTGRES_PASSWORD
+    - DATABASE_URL
+    - KITHE_BRIDGE_TOKEN
+    - OPENAI_API_KEY
+    - OPENAI_MODEL
+    - ADMIN_USERNAME
+    - ADMIN_PASSWORD
+    - BTAA_GEOSPATIAL_API_KEY
+    - TURNSTILE_SECRET_KEY
+    - APPSIGNAL_PUSH_API_KEY
+<% if ENV.fetch('SMTP_USERNAME', '').strip != '' %>
+    - SMTP_USERNAME
+<% end %>
+<% if ENV.fetch('SMTP_PASSWORD', '').strip != '' %>
+    - SMTP_PASSWORD
+<% end %>
+    - SLACK_SIGNING_SECRET
+    - AWS_ACCESS_KEY_ID
+    - AWS_SECRET_ACCESS_KEY
 
 accessories:
   elasticsearch:
     env:
       clear:
         ES_JAVA_OPTS: "-Xms4g -Xmx4g"
+      secret:
+        - AWS_ACCESS_KEY_ID
+        - AWS_SECRET_ACCESS_KEY

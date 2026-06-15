@@ -48,6 +48,18 @@ def create_distribution_tables():
                     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
                 );
             """))
+            conn.execute(text("""
+                ALTER TABLE distribution_types
+                ALTER COLUMN created_at SET DEFAULT NOW(),
+                ALTER COLUMN updated_at SET DEFAULT NOW();
+            """))
+            conn.execute(text("""
+                UPDATE distribution_types
+                SET
+                    created_at = COALESCE(created_at, NOW()),
+                    updated_at = COALESCE(updated_at, NOW())
+                WHERE created_at IS NULL OR updated_at IS NULL;
+            """))
             
             # Create resource_distributions table
             logger.info("Creating resource_distributions table...")
@@ -97,15 +109,21 @@ def create_distribution_tables():
                 (23, 'tile_json', 'TileJSON', 'https://github.com/mapbox/tilejson-spec', False, '-', 23),
                 (24, 'wcs', 'Web Coverage Service (WCS)', 'http://www.opengis.net/def/serviceType/ogc/wcs', False, '-', 24),
                 (25, 'wfs', 'Web Feature Service (WFS)', 'http://www.opengis.net/def/serviceType/ogc/wfs', False, 'Provides a to download generated vector datasets (GeoJSON, shapefile)', 25),
-                (26, 'wmts', 'Web Mapping Service (WMS)', 'http://www.opengis.net/def/serviceType/ogc/wms', False, 'Provides a service to visually preview a layer and inspect its features', 26),
-                (27, 'wms', 'WMTS', 'http://www.opengis.net/def/serviceType/ogc/wmts', False, '-', 27),
+                (26, 'wms', 'Web Mapping Service (WMS)', 'http://www.opengis.net/def/serviceType/ogc/wms', False, 'Provides a service to visually preview a layer and inspect its features', 26),
+                (27, 'wmts', 'WMTS', 'http://www.opengis.net/def/serviceType/ogc/wmts', False, '-', 27),
                 (28, 'xyz_tiles', 'XYZ tiles', 'https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames', False, 'Link to an XYZ tile server', 28)
             ]
             
             for data in distribution_types_data:
                 conn.execute(text("""
-                    INSERT INTO distribution_types (id, name, distribution_type, distribution_uri, label, note, position)
-                    VALUES (:id, :name, :distribution_type, :distribution_uri, :label, :note, :position)
+                    INSERT INTO distribution_types (
+                        id, name, distribution_type, distribution_uri, label, note, position,
+                        created_at, updated_at
+                    )
+                    VALUES (
+                        :id, :name, :distribution_type, :distribution_uri, :label, :note,
+                        :position, NOW(), NOW()
+                    )
                     ON CONFLICT (id) DO UPDATE SET
                         name = EXCLUDED.name,
                         distribution_type = EXCLUDED.distribution_type,
@@ -179,6 +197,10 @@ def create_distribution_tables():
             conn.execute(text("""
                 CREATE INDEX IF NOT EXISTS idx_resource_distributions_resource_id_type 
                 ON resource_distributions (resource_id, distribution_type_id);
+            """))
+            conn.execute(text("""
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_resource_distributions_resource_type_url
+                ON resource_distributions (resource_id, distribution_type_id, url);
             """))
             
             conn.commit()

@@ -47,6 +47,19 @@ describe('getFacetValueDisplayLabel', () => {
     );
   });
 
+  it('normalizes map overlay values to true and false labels', () => {
+    const item1 = { id: '1', attributes: { value: '1', hits: 10 } };
+    const item0 = { id: '0', attributes: { value: '0', hits: 5 } };
+
+    expect(
+      getFacetValueDisplayLabel(item1, 'b1g_georeferenced_allmaps_b')
+    ).toBe('true');
+    expect(
+      getFacetValueDisplayLabel(item0, 'b1g_georeferenced_allmaps_b')
+    ).toBe('false');
+    expect(getFacetValueDisplayLabel(item1, 'map_overlay_agg')).toBe('true');
+  });
+
   it('ignores other facet IDs', () => {
     const item = { id: '1', attributes: { value: '1', hits: 5 } };
     // Should return "1" because it's not the georeferenced facet

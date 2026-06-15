@@ -146,6 +146,31 @@ describe('GeospatialFilterMap client', () => {
     });
   });
 
+  it('uses a light fill for the active bbox rectangle', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/search?include_filters[geo][type]=bbox&include_filters[geo][field]=dcat_bbox&include_filters[geo][top_left][lat]=45&include_filters[geo][top_left][lon]=-109&include_filters[geo][bottom_right][lat]=41&include_filters[geo][bottom_right][lon]=-104',
+        ]}
+      >
+        <Routes>
+          <Route path="/search" element={<GeospatialFilterMap />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(L.rectangle).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          color: '#2563eb',
+          fillColor: '#2563eb',
+          fillOpacity: 0.05,
+        })
+      );
+    });
+  });
+
   it('waits until window load before issuing the initial hex request', async () => {
     vi.useFakeTimers();
 

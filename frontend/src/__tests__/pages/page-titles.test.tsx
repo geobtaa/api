@@ -20,6 +20,9 @@ import { ResourceView } from '../../pages/ResourceView';
 import { BookmarksPage } from '../../pages/BookmarksPage';
 import { NotFoundPage } from '../../pages/NotFoundPage';
 import { MapPage } from '../../pages/MapPage';
+import { AboutPage } from '../../pages/AboutPage';
+import { HelpPage } from '../../pages/HelpPage';
+import { FeedbackPage } from '../../pages/FeedbackPage';
 import { ApiProvider } from '../../context/ApiContext';
 import { DebugProvider } from '../../context/DebugContext';
 import { BookmarkProvider } from '../../context/BookmarkContext';
@@ -62,7 +65,15 @@ vi.mock('../../pages/MapPage.client', () => {
     React.createElement(
       React.Fragment,
       null,
-      React.createElement(Helmet, null, React.createElement('title', null, 'Map - Big Ten Academic Alliance Geoportal')),
+      React.createElement(
+        Helmet,
+        null,
+        React.createElement(
+          'title',
+          null,
+          'Map - Big Ten Academic Alliance Geoportal'
+        )
+      ),
       React.createElement('div', { 'data-testid': 'map-page-client' }, 'Map')
     );
   return { MapPage: MockMapClient, default: MockMapClient };
@@ -130,6 +141,68 @@ describe('Page titles', () => {
     });
   });
 
+  it('SearchPage title lists facet constraints when q is empty', async () => {
+    const routes = [
+      {
+        path: '/search',
+        element: (
+          <HelmetProvider>
+            <ApiProvider>
+              <DebugProvider>
+                <MapProvider>
+                  <SearchPage />
+                </MapProvider>
+              </DebugProvider>
+            </ApiProvider>
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: [
+        '/search?include_filters[dct_spatial_sm][]=Wisconsin&include_filters[gbl_resourceClass_sm][]=Maps&include_filters[gbl_resourceType_sm][]=Topographic+maps&q=',
+      ],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(document.title).toBe(
+        'Place: Wisconsin / Resource Class: Maps / Resource Type: Topographic maps - Big Ten Academic Alliance Geoportal'
+      );
+    });
+  });
+
+  it('SearchPage title lists a legacy bounding box when q is missing', async () => {
+    const routes = [
+      {
+        path: '/search',
+        element: (
+          <HelmetProvider>
+            <ApiProvider>
+              <DebugProvider>
+                <MapProvider>
+                  <SearchPage />
+                </MapProvider>
+              </DebugProvider>
+            </ApiProvider>
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: [
+        '/search?bbox=-87.1418%2028.265814%20-50.799027%2060.34877',
+      ],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      expect(document.title).toBe(
+        'Bounding Box: -87.1418 28.265814 -50.799027 60.34877 - Big Ten Academic Alliance Geoportal'
+      );
+    });
+  });
+
   it('ResourceView has a title', async () => {
     const routes = [
       {
@@ -175,6 +248,69 @@ describe('Page titles', () => {
     ];
     const router = createMemoryRouter(routes, {
       initialEntries: ['/bookmarks'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      assertHasTitle();
+    });
+  });
+
+  it('AboutPage has a title', async () => {
+    const routes = [
+      {
+        path: '/about',
+        element: (
+          <HelmetProvider>
+            <AboutPage />
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/about'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      assertHasTitle();
+    });
+  });
+
+  it('FeedbackPage has a title', async () => {
+    const routes = [
+      {
+        path: '/feedback',
+        element: (
+          <HelmetProvider>
+            <FeedbackPage />
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/feedback'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      assertHasTitle();
+    });
+  });
+
+  it('HelpPage has a title', async () => {
+    const routes = [
+      {
+        path: '/help',
+        element: (
+          <HelmetProvider>
+            <HelpPage />
+          </HelmetProvider>
+        ),
+      },
+    ];
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/help'],
     });
     render(<RouterProvider router={router} />);
 

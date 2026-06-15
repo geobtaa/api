@@ -1,6 +1,7 @@
+from pathlib import Path
+
 import requests
 import urllib3
-from pathlib import Path
 
 
 def _plugin_version() -> str:

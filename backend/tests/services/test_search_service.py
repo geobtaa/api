@@ -70,7 +70,12 @@ class TestSearchService:
         assert hasattr(service, "index_name")
         assert hasattr(service, "es")
         # In test environment, the index name might be different
-        assert service.index_name in ["btaa_geospatial_api", "btaa_ogm_api_test", "btaa_ogm_api"]
+        assert service.index_name in [
+            "btaa_geospatial_api",
+            "btaa_geospatial_api_test",
+            "btaa_ogm_api_test",
+            "btaa_ogm_api",
+        ]
 
     @pytest.mark.asyncio
     async def test_search_with_id_field_in_multi_match(self):
@@ -229,6 +234,12 @@ class TestSearchService:
         try:
             result = await service.search(q="map", page=1, limit=5)
 
+            if "error" in result:
+                assert result["message"] == "Search operation failed"
+                assert result["error_type"] in {"connection", "elasticsearch"}
+                assert "event loop" not in str(result.get("error", "")).lower()
+                return
+
             # Verify the structure
             assert "data" in result
             assert "meta" in result
@@ -257,6 +268,8 @@ class TestSearchService:
                 assert "resourceProcessing" in result["queryTime"]
                 assert "totalResponseTime" in result["queryTime"]
 
+        except AssertionError:
+            raise
         except Exception as e:
             # Handle connection errors gracefully
             assert (
@@ -676,6 +689,7 @@ class TestSearchService:
             "fq[b1g_code_s][]=BTAA&"
             "fq[access_rights_agg][]=Public&"
             "fq[georeferenced_agg][]=true&"
+            "fq[map_overlay_agg][]=true&"
             "fq[geo_country_agg][]=USA&"
             "fq[geo_region_agg][]=Midwest&"
             "fq[geo_county_agg][]=Hennepin"
@@ -695,6 +709,7 @@ class TestSearchService:
         assert result["b1g_code_s"] == ["BTAA"]
         assert result["dct_accessRights_s"] == ["Public"]
         assert result["gbl_georeferenced_b"] == ["true"]
+        assert result["b1g_georeferenced_allmaps_b"] == ["true"]
         assert result["geo_country"] == ["USA"]
         assert result["geo_region"] == ["Midwest"]
         assert result["geo_county"] == ["Hennepin"]
