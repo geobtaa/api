@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.middleware.rate_limit_middleware import (
     RateLimitMiddleware,
+    _is_crawler_artifact_route,
     _is_documentation_route,
     _is_immutable_asset_route,
 )
@@ -186,6 +187,25 @@ class TestRateLimitMiddleware:
         """Documentation shell and schema requests should bypass throttling."""
         assert _is_documentation_route(path) is expected
 
+    @pytest.mark.parametrize(
+        ("path", "expected"),
+        [
+            ("/robots.txt", True),
+            ("/robots.txt/", True),
+            ("/sitemap.xml", True),
+            ("/sitemap.xml/", True),
+            ("/sitemaps/sitemap-1.xml", True),
+            ("/sitemaps/SITEMAP-22.XML", True),
+            ("/sitemaps/sitemap-1.xml/", True),
+            ("/sitemaps/nested/sitemap-1.xml", False),
+            ("/sitemaps/sitemap-1.xml.gz", False),
+            ("/api/v1/search", False),
+        ],
+    )
+    def test_is_crawler_artifact_route(self, path, expected):
+        """Crawler metadata should bypass throttling."""
+        assert _is_crawler_artifact_route(path) is expected
+
     @pytest.mark.asyncio
     async def test_get_tier_info_with_ip_whitelist_allowed(self, middleware):
         """Test tier info retrieval when IP is in whitelist."""
@@ -344,6 +364,47 @@ class TestRateLimitMiddleware:
         middleware.rate_limit_service.check_rate_limit.assert_not_called()
         middleware.usage_log_service.log_request.assert_called_once()
         assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        "path",
+        ["/robots.txt", "/sitemap.xml", "/sitemaps/sitemap-1.xml"],
+    )
+    async def test_dispatch_crawler_artifact_skipped(self, middleware, path):
+        """Crawler artifacts should bypass throttling but still log."""
+        request = MagicMock(spec=Request)
+        request.url = MagicMock()
+        request.url.path = path
+        request.headers.get = MagicMock(return_value=None)
+        request.query_params.get = MagicMock(return_value=None)
+        request.client = MagicMock()
+        request.client.host = "192.168.1.1"
+        tier_info = {
+            "tier_id": 6,
+            "tier_name": "anonymous",
+            "display_name": "Anonymous",
+            "requests_per_minute": 10,
+        }
+        middleware.api_key_service.get_anonymous_tier = AsyncMock(return_value=tier_info)
+        middleware.usage_log_service.log_request = AsyncMock()
+        middleware.rate_limit_service.check_rate_limit = AsyncMock()
+        call_next = AsyncMock(return_value=JSONResponse(content={}, status_code=200))
+
+        with patch.dict(
+            os.environ,
+            {
+                "RATE_LIMIT_ENABLED": "true",
+                "DISABLE_RATE_LIMIT_FOR_TESTS": "false",
+            },
+            clear=False,
+        ):
+            response = await middleware.dispatch(request, call_next)
+
+        call_next.assert_called_once_with(request)
+        middleware.rate_limit_service.check_rate_limit.assert_not_called()
+        middleware.usage_log_service.log_request.assert_called_once()
+        assert response.status_code == 200
+        assert "X-RateLimit-Limit" not in response.headers
 
     @pytest.mark.asyncio
     async def test_dispatch_rate_limit_exceeded(self, middleware):

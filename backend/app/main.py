@@ -151,7 +151,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="BTAA Geospatial API",
-    version="0.8.2",
+    version="0.8.3",
     lifespan=lifespan,
     docs_url=None,
     redoc_url="/api/redoc",
@@ -266,8 +266,7 @@ async def api_v1_no_slash_redirect():
     return RedirectResponse(url="/api/v1/")
 
 
-@app.get("/sitemap.xml", include_in_schema=False)
-async def sitemap_xml() -> Response:
+async def _sitemap_xml_response() -> Response:
     xml_content = await get_current_sitemap_document(SITEMAP_ROOT_NAME)
     if xml_content is None:
         result, _stored = await generate_and_store()
@@ -278,8 +277,13 @@ async def sitemap_xml() -> Response:
     return response
 
 
-@app.get("/sitemaps/{filename}.xml", include_in_schema=False)
-async def sitemap_part_xml(filename: str) -> Response:
+@app.get("/sitemap.xml", include_in_schema=False)
+@app.head("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml() -> Response:
+    return await _sitemap_xml_response()
+
+
+async def _sitemap_part_xml_response(filename: str) -> Response:
     part_name = f"{filename}.xml"
     if not is_valid_sitemap_part_name(part_name):
         raise HTTPException(status_code=404, detail="Sitemap part not found")
@@ -296,11 +300,22 @@ async def sitemap_part_xml(filename: str) -> Response:
     return response
 
 
-@app.get("/robots.txt", include_in_schema=False)
-async def robots_txt() -> PlainTextResponse:
+@app.get("/sitemaps/{filename}.xml", include_in_schema=False)
+@app.head("/sitemaps/{filename}.xml", include_in_schema=False)
+async def sitemap_part_xml(filename: str) -> Response:
+    return await _sitemap_part_xml_response(filename)
+
+
+def _robots_txt_response() -> PlainTextResponse:
     response = PlainTextResponse(build_robots_txt())
     response.headers["Cache-Control"] = "public, max-age=3600"
     return response
+
+
+@app.get("/robots.txt", include_in_schema=False)
+@app.head("/robots.txt", include_in_schema=False)
+async def robots_txt() -> PlainTextResponse:
+    return _robots_txt_response()
 
 
 @app.exception_handler(Exception)

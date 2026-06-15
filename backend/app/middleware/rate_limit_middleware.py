@@ -44,6 +44,11 @@ DOCUMENTATION_ASSET_PATHS = {
     "/static/btaa-logo-white.png",
     "/static/favicon.ico",
 }
+CRAWLER_ARTIFACT_PATHS = {
+    "/robots.txt",
+    "/sitemap.xml",
+}
+SITEMAP_PART_PATH_RE = re.compile(r"^/sitemaps/[^/]+\.xml$", re.IGNORECASE)
 
 
 def _is_immutable_asset_route(path: str) -> bool:
@@ -57,6 +62,14 @@ def _is_documentation_route(path: str) -> bool:
     """Return True for documentation shell and schema assets."""
     normalized_path = path.rstrip("/") or "/"
     return normalized_path in DOCUMENTATION_PATHS or normalized_path in DOCUMENTATION_ASSET_PATHS
+
+
+def _is_crawler_artifact_route(path: str) -> bool:
+    """Return True for public crawler metadata that must not be throttled."""
+    normalized_path = path.rstrip("/") or "/"
+    return normalized_path in CRAWLER_ARTIFACT_PATHS or bool(
+        SITEMAP_PART_PATH_RE.fullmatch(normalized_path)
+    )
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
@@ -91,6 +104,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             skip_rate_limit_reason = "documentation route"
         elif _is_immutable_asset_route(request.url.path):
             skip_rate_limit_reason = "immutable asset route"
+        elif _is_crawler_artifact_route(request.url.path):
+            skip_rate_limit_reason = "crawler artifact route"
 
         if skip_rate_limit_reason:
             logger.debug(

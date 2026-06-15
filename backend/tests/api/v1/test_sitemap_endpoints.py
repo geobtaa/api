@@ -44,6 +44,21 @@ async def test_sitemap_xml_serves_cached_document(async_client, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_sitemap_xml_head_serves_cached_document_headers(async_client, monkeypatch):
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"""
+
+    monkeypatch.setattr(
+        "app.main.get_current_sitemap_document", AsyncMock(return_value=sitemap_xml)
+    )
+
+    response = await async_client.head("/sitemap.xml")
+
+    assert response.status_code == 200
+    assert response.content == b""
+    assert response.headers["content-type"].startswith("application/xml")
+
+
+@pytest.mark.asyncio
 async def test_sitemap_xml_regenerates_when_cached_document_is_stale(async_client, monkeypatch):
     sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"""
     result = type("SitemapResult", (), {"documents": {"sitemap.xml": sitemap_xml}})()
@@ -67,6 +82,21 @@ async def test_sitemap_part_rejects_invalid_names(async_client):
 
 
 @pytest.mark.asyncio
+async def test_sitemap_part_head_serves_cached_document_headers(async_client, monkeypatch):
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"""
+
+    monkeypatch.setattr(
+        "app.main.get_current_sitemap_document", AsyncMock(return_value=sitemap_xml)
+    )
+
+    response = await async_client.head("/sitemaps/sitemap-1.xml")
+
+    assert response.status_code == 200
+    assert response.content == b""
+    assert response.headers["content-type"].startswith("application/xml")
+
+
+@pytest.mark.asyncio
 async def test_robots_txt_uses_application_url(async_client, monkeypatch):
     monkeypatch.setenv("APPLICATION_URL", "https://geo.example.org")
     monkeypatch.setenv("SEARCH_ENGINE_INDEXING_ENABLED", "true")
@@ -78,6 +108,18 @@ async def test_robots_txt_uses_application_url(async_client, monkeypatch):
     assert "Disallow: /api/" in response.text
     assert "Disallow: /search?" in response.text
     assert "Sitemap: https://geo.example.org/sitemap.xml" in response.text
+
+
+@pytest.mark.asyncio
+async def test_robots_txt_head_serves_headers(async_client, monkeypatch):
+    monkeypatch.setenv("APPLICATION_URL", "https://geo.example.org")
+    monkeypatch.setenv("SEARCH_ENGINE_INDEXING_ENABLED", "true")
+
+    response = await async_client.head("/robots.txt")
+
+    assert response.status_code == 200
+    assert response.content == b""
+    assert response.headers["content-type"].startswith("text/plain")
 
 
 @pytest.mark.asyncio

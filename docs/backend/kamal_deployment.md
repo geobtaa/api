@@ -213,20 +213,20 @@ kamal deploy -d prd
 ```
 
 When prompted, enter the tag or branch you intend to deploy, for example
-`v0.8.2` or `main`.
+`v0.8.3` or `main`.
 
 For non-interactive shells, pass the ref explicitly:
 
 ```bash
-PRD_DEPLOY_REF=v0.8.2 kamal deploy -d prd
+PRD_DEPLOY_REF=v0.8.3 kamal deploy -d prd
 ```
 
 The production deploy hook verifies that the selected ref matches both the
 current checkout and `KAMAL_VERSION`. To deploy an older tag, check it out first:
 
 ```bash
-git switch --detach v0.8.2
-PRD_DEPLOY_REF=v0.8.2 kamal deploy -d prd
+git switch --detach v0.8.3
+PRD_DEPLOY_REF=v0.8.3 kamal deploy -d prd
 git switch main
 ```
 

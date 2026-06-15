@@ -20,7 +20,7 @@ async def api_root(request: Request):
         "id": "root",
         "attributes": {
             "api": "BTAA Geospatial API",
-            "version": "0.8.2",
+            "version": "0.8.3",
             "description": (
                 "A RESTful API that provides access to digitized maps and geospatial data "
                 "resources curated by Big Ten Academic Alliance member libraries."

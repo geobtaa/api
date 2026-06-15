@@ -13,6 +13,7 @@ from app.elasticsearch.search import (
     _compute_bbox_spatial_metrics,
     _escape_query_string_brackets,
     _normalize_geo_bbox_bounds,
+    find_similar_resources,
     get_search_criteria,
     map_h3_aggregation,
     search_resources,
@@ -64,6 +65,56 @@ class TestElasticsearchSearch:
         assert criteria["query"] == "test query"
         assert criteria["filters"] == {"dct_spatial_sm": ["Minnesota"]}
         assert criteria["sort"] == [{"_score": "desc"}]
+
+    @pytest.mark.asyncio
+    async def test_find_similar_resources_returns_empty_for_unindexed_resource(self):
+        """Unindexed source records should not raise traced ES NotFoundError events."""
+        mock_es = AsyncMock()
+        mock_es.exists.return_value = False
+
+        with (
+            patch.dict("os.environ", {"ELASTICSEARCH_INDEX": "test-index"}),
+            patch("app.elasticsearch.search.es", mock_es),
+        ):
+            result = await find_similar_resources("retired-resource", limit=12)
+
+        assert result == []
+        mock_es.exists.assert_awaited_once_with(index="test-index", id="retired-resource")
+        mock_es.get.assert_not_called()
+        mock_es.search.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_find_similar_resources_searches_when_source_is_indexed(self):
+        """Indexed source records still run the more-like-this query."""
+        mock_es = AsyncMock()
+        mock_es.exists.return_value = True
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {
+                "hits": [
+                    {"_source": {"id": "similar-1"}},
+                    {"_source": {"id": "similar-2"}},
+                ]
+            }
+        }
+        mock_es.search.return_value = mock_response
+
+        with (
+            patch.dict("os.environ", {"ELASTICSEARCH_INDEX": "test-index"}),
+            patch("app.elasticsearch.search.es", mock_es),
+        ):
+            result = await find_similar_resources("source-resource", limit=2)
+
+        assert result == ["similar-1", "similar-2"]
+        mock_es.exists.assert_awaited_once_with(index="test-index", id="source-resource")
+        mock_es.get.assert_not_called()
+        mock_es.search.assert_awaited_once()
+
+        search_kwargs = mock_es.search.await_args.kwargs
+        assert search_kwargs["index"] == "test-index"
+        assert search_kwargs["size"] == 2
+        like = search_kwargs["query"]["bool"]["must"][0]["more_like_this"]["like"]
+        assert like == [{"_id": "source-resource"}]
 
     def test_compute_bbox_spatial_metrics_rewards_containment(self):
         """Contained extents should still score well even when query bbox is larger."""

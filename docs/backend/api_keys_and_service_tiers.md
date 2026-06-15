@@ -67,6 +67,10 @@ A **rate limit** is the maximum number of requests you can make in one minute. F
 
 This is similar to how some library databases limit how many articles you can download per hour to ensure fair access for all users.
 
+Crawler metadata routes (`/robots.txt`, `/sitemap.xml`, and `/sitemaps/*.xml`)
+bypass API throttling so search engines can discover public pages without
+consuming anonymous API quota.
+
 ## How to Use an API Key
 
 If you're a developer or librarian setting up an application to use our API, you'll need to include the API key with each request. There are three ways to do this:
@@ -235,4 +239,3 @@ Each user or application should have their own API key.
 This system ensures that the BTAA Geospatial API remains fast, reliable, and accessible to all users while supporting both casual browsing and high-volume institutional applications.
 
 For questions or to request an API key, please contact the BTAA Geoportal team.
-
