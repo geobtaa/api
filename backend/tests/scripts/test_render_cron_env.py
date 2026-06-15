@@ -10,6 +10,7 @@ def test_render_cron_env_exports_filters_and_quotes_values():
         {
             "DATABASE_URL": "postgresql://user:p@ss word@db.example/btaa",
             "REDIS_HOST": "redis.internal",
+            "GEOPORTAL_BASE_URL": "https://geo.btaa.org",
             "BRIDGE_SYNC_LOCAL_TIMEZONE": "America/Chicago",
             "BACKUP_ENABLED": "true",
             "AWS_ACCESS_KEY_ID": "example-key",
@@ -19,6 +20,7 @@ def test_render_cron_env_exports_filters_and_quotes_values():
 
     assert "export DATABASE_URL='postgresql://user:p@ss word@db.example/btaa'" in rendered
     assert "export REDIS_HOST=redis.internal" in rendered
+    assert "export GEOPORTAL_BASE_URL=https://geo.btaa.org" in rendered
     assert "export BRIDGE_SYNC_LOCAL_TIMEZONE=America/Chicago" in rendered
     assert "export BACKUP_ENABLED=true" in rendered
     assert "export AWS_ACCESS_KEY_ID=example-key" in rendered
