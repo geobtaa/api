@@ -213,20 +213,20 @@ kamal deploy -d prd
 ```
 
 When prompted, enter the tag or branch you intend to deploy, for example
-`v0.8.0` or `main`.
+`v0.8.1` or `main`.
 
 For non-interactive shells, pass the ref explicitly:
 
 ```bash
-PRD_DEPLOY_REF=v0.8.0 kamal deploy -d prd
+PRD_DEPLOY_REF=v0.8.1 kamal deploy -d prd
 ```
 
 The production deploy hook verifies that the selected ref matches both the
 current checkout and `KAMAL_VERSION`. To deploy an older tag, check it out first:
 
 ```bash
-git switch --detach v0.8.0
-PRD_DEPLOY_REF=v0.8.0 kamal deploy -d prd
+git switch --detach v0.8.1
+PRD_DEPLOY_REF=v0.8.1 kamal deploy -d prd
 git switch main
 ```
 
@@ -374,11 +374,12 @@ FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
 FEEDBACK_DELIVERY=sendmail
 ```
 
-`dev1`, `dev2`, and `prd` enable feedback mail. Unless overridden with
-`FEEDBACK_RECIPIENTS`, feedback goes to `majew030@umn.edu`, `btaa-gdp@umn.edu`,
-and `geoportal@btaa.org`.
+`dev1`, `dev2`, and `prd` enable feedback mail. Production defaults to sendmail
+delivery through the Kamal image's `msmtp-mta` setup, matching the bridge sync
+report path. Unless overridden with `FEEDBACK_RECIPIENTS`, feedback goes to
+`majew030@umn.edu`, `btaa-gdp@umn.edu`, and `geoportal@btaa.org`.
 
-On Kamal, host Postfix is the preferred no-password relay. Because the app runs
+On Kamal dev hosts, host Postfix can be used as a no-password relay. Because the app runs
 inside Docker, `localhost` means the app container, not the VM. The destination
 Kamal configs point feedback SMTP at the host's Kamal bridge gateway:
 
