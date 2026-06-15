@@ -32,13 +32,31 @@ async def async_client():
 async def test_sitemap_xml_serves_cached_document(async_client, monkeypatch):
     sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"""
 
-    monkeypatch.setattr("app.main.get_sitemap_document", AsyncMock(return_value=sitemap_xml))
+    monkeypatch.setattr(
+        "app.main.get_current_sitemap_document", AsyncMock(return_value=sitemap_xml)
+    )
 
     response = await async_client.get("/sitemap.xml")
 
     assert response.status_code == 200
     assert response.text == sitemap_xml
     assert response.headers["content-type"].startswith("application/xml")
+
+
+@pytest.mark.asyncio
+async def test_sitemap_xml_regenerates_when_cached_document_is_stale(async_client, monkeypatch):
+    sitemap_xml = """<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>"""
+    result = type("SitemapResult", (), {"documents": {"sitemap.xml": sitemap_xml}})()
+
+    monkeypatch.setattr("app.main.get_current_sitemap_document", AsyncMock(return_value=None))
+    generate = AsyncMock(return_value=(result, True))
+    monkeypatch.setattr("app.main.generate_and_store", generate)
+
+    response = await async_client.get("/sitemap.xml")
+
+    assert response.status_code == 200
+    assert response.text == sitemap_xml
+    generate.assert_awaited_once()
 
 
 @pytest.mark.asyncio

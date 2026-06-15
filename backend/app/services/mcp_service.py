@@ -26,7 +26,7 @@ from db.session import async_session as app_async_session
 logger = logging.getLogger(__name__)
 
 MCP_SERVICE_NAME = "btaa-geospatial-api"
-MCP_SERVICE_VERSION = "0.8.1"
+MCP_SERVICE_VERSION = "0.8.2"
 MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
 

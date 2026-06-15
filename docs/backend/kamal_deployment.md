@@ -213,20 +213,20 @@ kamal deploy -d prd
 ```
 
 When prompted, enter the tag or branch you intend to deploy, for example
-`v0.8.1` or `main`.
+`v0.8.2` or `main`.
 
 For non-interactive shells, pass the ref explicitly:
 
 ```bash
-PRD_DEPLOY_REF=v0.8.1 kamal deploy -d prd
+PRD_DEPLOY_REF=v0.8.2 kamal deploy -d prd
 ```
 
 The production deploy hook verifies that the selected ref matches both the
 current checkout and `KAMAL_VERSION`. To deploy an older tag, check it out first:
 
 ```bash
-git switch --detach v0.8.1
-PRD_DEPLOY_REF=v0.8.1 kamal deploy -d prd
+git switch --detach v0.8.2
+PRD_DEPLOY_REF=v0.8.2 kamal deploy -d prd
 git switch main
 ```
 
@@ -323,6 +323,10 @@ The cron container currently runs:
 - daily blog sync at `3:00 AM America/Chicago`
 - daily sitemap generation at `4:15 AM America/Chicago`
 - daily analytics storage maintenance at `4:45 AM America/Chicago`
+
+Production sets `GEOPORTAL_BASE_URL=https://geo.btaa.org` so sitemap documents use the
+public canonical host instead of the deploy host. If a cached sitemap was generated with
+an older host, the public sitemap endpoints regenerate it on demand.
 
 The cron container starts through `/app/scripts/start_cron.sh`, which pins the
 container timezone to `America/Chicago` before launching `cron -f`; set
