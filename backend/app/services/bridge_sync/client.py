@@ -19,6 +19,13 @@ BRIDGE_FETCH_RETRY_BACKOFF_SECONDS = float(
 )
 
 
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() not in {"", "0", "false", "no", "off"}
+
+
 @dataclass
 class BridgePage:
     data: List[Dict[str, Any]]
@@ -44,12 +51,19 @@ class KitheBridgeClient:
         self.request_timeout = int(
             request_timeout or os.getenv("KITHE_BRIDGE_REQUEST_TIMEOUT", "30")
         )
+        self.verify_ssl = _env_bool("KITHE_BRIDGE_VERIFY_SSL", True)
         self.session = session or requests.Session()
 
         if not self.base_url:
             raise ValueError("KITHE_BRIDGE_URL is required")
         if not self.token:
             raise ValueError("KITHE_BRIDGE_TOKEN is required")
+        if not self.verify_ssl:
+            logger.warning(
+                "KITHE_BRIDGE_VERIFY_SSL=false; Kithe Bridge TLS certificate "
+                "verification is disabled for %s",
+                self.base_url,
+            )
 
     def _request_json(
         self, *, url: str, params: Optional[Dict[str, Any]] = None
@@ -61,6 +75,7 @@ class KitheBridgeClient:
                     params=params,
                     headers={"X-Bridge-Token": self.token},
                     timeout=self.request_timeout,
+                    verify=self.verify_ssl,
                 )
                 return response
             except (

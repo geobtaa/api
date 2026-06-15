@@ -121,7 +121,8 @@ env:
     APP_MODE:              production
     APPLICATION_URL:       https://<%= ENV['KAMAL_HOST'] %>
     SEARCH_ENGINE_INDEXING_ENABLED: "<%= ENV.fetch('SEARCH_ENGINE_INDEXING_ENABLED', 'false') %>"
-    KITHE_BRIDGE_URL:      https://geo.btaa.org/api/kithe_bridge
+    KITHE_BRIDGE_URL:      https://geomg.lib.umn.edu/api/kithe_bridge
+    KITHE_BRIDGE_VERIFY_SSL: "<%= ENV.fetch('KITHE_BRIDGE_VERIFY_SSL', 'true') %>"
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
     # IMPORTANT: tells db/config.py not to rewrite Docker hostnames to localhost:2345

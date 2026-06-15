@@ -170,6 +170,8 @@ Useful bridge variables:
 | `BRIDGE_RESOURCE_SCOPE` | Batched reconciliation source: `all`, `published`, or `bridge_active`. Defaults to `all`. |
 | `BRIDGE_MAX_RESOURCES` | Optional cap for trial batched reconciliation runs. |
 | `BRIDGE_STATUS_POLL_SECONDS` | Defaults to `5`. |
+| `KITHE_BRIDGE_URL` | Upstream Kithe Bridge endpoint used by the worker. |
+| `KITHE_BRIDGE_VERIFY_SSL` | Defaults to `true` in code. Set to `false` only for temporary hostname/certificate mismatches. |
 
 For remote reconciliation, run `make kamal-bridge-sync-batched KAMAL_DEST=dev1`
 and then monitor with `make kamal-bridge-status-watch KAMAL_DEST=dev1`. Run
@@ -183,6 +185,12 @@ as a group before counting a record error; tune with
 requires slower or faster retry pacing. A batched run that completes with
 record errors now finishes with `bridge_status=failed`, so do not reindex from
 that run until the failed records have been retried.
+
+June 2026 bridge cutover note: the Kithe Bridge server moved to
+`https://geomg.lib.umn.edu/`, and Kamal points `KITHE_BRIDGE_URL` at the
+collection endpoint `https://geomg.lib.umn.edu/api/kithe_bridge` with
+`KITHE_BRIDGE_VERIFY_SSL=true`. Set verification to `false` only for a
+temporary hostname/certificate mismatch during an infrastructure change.
 
 ## Analytics
 
