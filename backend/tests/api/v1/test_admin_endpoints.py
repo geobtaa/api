@@ -7,6 +7,7 @@ These tests cover cache management, reindexing, and resource processing endpoint
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
 
@@ -70,7 +71,7 @@ class TestAdminEndpoints:
     def test_admin_endpoints_structure(self):
         """Test that admin endpoints are properly configured."""
         # Check that admin routes exist
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         # Check if admin routes are present (they might not be included in the main app)
         admin_routes = [route for route in routes if "/admin" in route]

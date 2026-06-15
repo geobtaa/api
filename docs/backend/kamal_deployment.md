@@ -14,7 +14,7 @@ It intentionally omits older generic Kamal guidance that does not match how thes
 |-------------|-------------|---------------|--------|--------------|
 | `dev1` | `lib-btaageoapi-dev-app-01.oit.umn.edu` | `https://lib-btaageoapi-dev-app-01.oit.umn.edu` | `config/deploy.dev1.yml` | `.kamal/secrets.dev1` |
 | `dev2` | `lib-geoportal-dev-web-01.oit.umn.edu` | `https://geodev.btaa.org` | `config/deploy.dev2.yml` | `.kamal/secrets.dev2` |
-| `prd` | `lib-geoportal-prd-web-01.oit.umn.edu` | `https://lib-geoportal-prd-web-01.oit.umn.edu` | `config/deploy.prd.yml` | `.kamal/secrets.prd` |
+| `prd` | `lib-geoportal-prd-web-01.oit.umn.edu` | `https://geo.btaa.org` | `config/deploy.prd.yml` | `.kamal/secrets.prd` |
 
 Shared secrets live in `.kamal/secrets-common`.
 
@@ -145,9 +145,9 @@ export KAMAL_HOST=lib-geoportal-prd-web-01.oit.umn.edu
 export KAMAL_SSH_USER=deploy
 ```
 
-`KAMAL_HOST` is the SSH/deployment target. For `dev2`, keep it set to
-`lib-geoportal-dev-web-01.oit.umn.edu`; the public BTAA origin is configured in
-`config/deploy.dev2.yml`.
+`KAMAL_HOST` is the SSH/deployment target. For `dev2` and `prd`, keep it set to
+the VM hostname; the public BTAA origins are configured in the destination
+deploy files.
 
 The exact shared secret set is defined by `config/deploy.yml`:
 
@@ -258,7 +258,7 @@ kamal accessory details -d prd redis
 Then confirm the public app is responding:
 
 ```bash
-curl -sS -o /dev/null -D - https://lib-geoportal-prd-web-01.oit.umn.edu/api/docs
+curl -sS -o /dev/null -D - https://geo.btaa.org/api/docs
 ```
 
 Use the matching public origin for `dev1` or `dev2` when checking those
@@ -430,7 +430,7 @@ Current differences:
 
 - `dev1`: host `lib-btaageoapi-dev-app-01.oit.umn.edu`, prd-sized performance profile for `web`/`worker` limits, Elasticsearch heap, `WEB_UVICORN_WORKERS=3`, `WEB_INTERNAL_UVICORN_WORKERS=4`, and `WEB_SSR_WORKERS=3`
 - `dev2`: deploy host `lib-geoportal-dev-web-01.oit.umn.edu` with public origin `https://geodev.btaa.org`, same prd-sized performance profile as `dev1`, with `RATE_LIMIT_ENABLED=true` and bounded DB pool settings for production-like k6 capacity tests
-- `prd`: host `lib-geoportal-prd-web-01.oit.umn.edu`, 12-vCPU production performance profile with `web cpus: 8`, `worker cpus: 1.75`, `WEB_UVICORN_WORKERS=4`, `WEB_INTERNAL_UVICORN_WORKERS=6`, and `WEB_SSR_WORKERS=4`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
+- `prd`: deploy host `lib-geoportal-prd-web-01.oit.umn.edu` with public origin `https://geo.btaa.org`, 12-vCPU production performance profile with `web cpus: 8`, `worker cpus: 1.75`, `WEB_UVICORN_WORKERS=4`, `WEB_INTERNAL_UVICORN_WORKERS=6`, and `WEB_SSR_WORKERS=4`, plus production-only behavior overrides such as `RATE_LIMIT_ENABLED=true`, `CACHE_DEBUG_HEADERS=false`, `CACHE_LOG_EVENTS=false`, and bridge-report delivery
 
 If a new destination needs a persistent behavior difference, put only that override in `config/deploy.<dest>.yml` and keep the shared behavior in `config/deploy.yml`.
 
@@ -454,7 +454,7 @@ Check:
 ```bash
 kamal app details -d prd
 kamal app logs -d prd --roles web
-curl -sS -o /dev/null -D - https://lib-geoportal-prd-web-01.oit.umn.edu/api/docs
+curl -sS -o /dev/null -D - https://geo.btaa.org/api/docs
 ```
 
 ### Accessory problem

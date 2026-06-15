@@ -6,6 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
 
@@ -18,9 +19,9 @@ def assert_public_error(data, *, status: int, code: str):
 @pytest.mark.unit
 def test_citation_endpoint_paths_exist():
     """Test that citation endpoints are registered."""
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}" in routes
-    resource_routes = [r.path for r in app.routes if "citation" in str(r.path)]
+    resource_routes = [path for path in routes if "citation" in path]
     assert len(resource_routes) >= 1
 
 

@@ -9,6 +9,7 @@ from starlette.requests import Request
 from app.api.v1.endpoint_modules.search import _handle_search
 from app.main import app
 from app.services.resource_representation_cache import RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
 
@@ -732,7 +733,7 @@ class TestSearchEndpointsEnhanced:
 
     def test_search_endpoints_structure(self):
         """Test that search endpoints are properly configured."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         assert "/api/v1/search" in routes
         assert "/api/v1/suggest" in routes

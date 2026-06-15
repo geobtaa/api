@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.services.relationship_service import RelationshipService
+from tests.utils.route_helpers import route_by_path, route_paths
 
 client = TestClient(app)
 
@@ -37,7 +38,7 @@ def test_relationship_service_initialization():
 def test_resource_endpoints_exist():
     """Test that the resource endpoints are properly configured."""
     # Test that the app has the expected routes
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
 
     # Check that resource routes exist
     assert "/api/v1/resources/" in routes
@@ -73,7 +74,7 @@ async def test_resource_endpoint_404_handling():
     # without requiring actual database connections
 
     # Test that the endpoint structure is correct
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}" in routes
 
     # Verify that the app has proper error handling
@@ -83,15 +84,11 @@ async def test_resource_endpoint_404_handling():
 @pytest.mark.unit
 def test_ogm_endpoint_structure():
     """Test that the metadata endpoint is properly configured (formerly OGM)."""
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}/metadata" in routes
 
     # Find the metadata route and verify its configuration
-    metadata_route = None
-    for route in app.routes:
-        if route.path == "/api/v1/resources/{id}/metadata":
-            metadata_route = route
-            break
+    metadata_route = route_by_path(app, "/api/v1/resources/{id}/metadata")
 
     assert metadata_route is not None
     assert metadata_route.methods == {"GET"}
@@ -100,15 +97,11 @@ def test_ogm_endpoint_structure():
 @pytest.mark.unit
 def test_viewer_endpoint_structure():
     """Test that the viewer endpoint is properly configured."""
-    routes = [route.path for route in app.routes]
+    routes = route_paths(app)
     assert "/api/v1/resources/{id}/viewer" in routes
 
     # Find the viewer route and verify its configuration
-    viewer_route = None
-    for route in app.routes:
-        if route.path == "/api/v1/resources/{id}/viewer":
-            viewer_route = route
-            break
+    viewer_route = route_by_path(app, "/api/v1/resources/{id}/viewer")
 
     assert viewer_route is not None
     assert viewer_route.methods == {"GET"}
@@ -582,7 +575,7 @@ class TestResourceEndpointsEnhanced:
 
     def test_resource_endpoints_structure(self):
         """Test that resource endpoints are properly configured."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         assert "/api/v1/resources/" in routes
         assert "/api/v1/resources/{id}" in routes
