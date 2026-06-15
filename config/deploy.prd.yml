@@ -58,6 +58,7 @@ builder:
 env:
   clear:
     APPLICATION_URL: https://geo.btaa.org
+    GEOPORTAL_BASE_URL: https://geo.btaa.org
     APP_ENV: production
     KAMAL_DEST: prd
     BRIDGE_SYNC_REPORT_ENABLED: "true"

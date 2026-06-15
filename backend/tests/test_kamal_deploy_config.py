@@ -32,6 +32,12 @@ def test_prd_allows_search_engine_indexing():
     assert prd_config["env"]["clear"]["SEARCH_ENGINE_INDEXING_ENABLED"] == "true"
 
 
+def test_prd_uses_canonical_geoportal_base_url():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+
+    assert prd_config["env"]["clear"]["GEOPORTAL_BASE_URL"] == "https://geo.btaa.org"
+
+
 def test_prd_feedback_defaults_to_sendmail():
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
 
