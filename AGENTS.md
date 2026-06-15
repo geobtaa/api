@@ -4,6 +4,16 @@ This file gives agents a single reference for how to lint, format, test, run Doc
 
 ---
 
+## Git workflow and pull requests
+
+This repository uses **git-flow**. Treat `develop` as the normal integration branch for feature and bugfix work.
+
+- **Open pull requests against `develop`**, not `main`, unless the user explicitly asks for a different base branch.
+- Before creating or retargeting a PR, verify the base branch is `develop`.
+- If a PR is accidentally opened against another branch, retarget it to `develop` and make sure GitHub Actions actually run afterward. If checks do not appear, close and reopen the PR or push a follow-up commit to trigger a fresh `pull_request` event.
+
+---
+
 ## Lint, format, and test
 
 ### Backend (Python)
