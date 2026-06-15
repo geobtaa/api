@@ -63,7 +63,7 @@ env:
     BRIDGE_SYNC_REPORT_ENABLED: "true"
     BRIDGE_SYNC_REPORT_DELIVERY: sendmail
     FEEDBACK_EMAIL_ENABLED: "true"
-    FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'smtp') %>"
+    FEEDBACK_DELIVERY: "<%= ENV.fetch('FEEDBACK_DELIVERY', 'sendmail') %>"
     SENDMAIL_PATH: "<%= ENV.fetch('SENDMAIL_PATH', '/usr/sbin/sendmail') %>"
     SENDMAIL_ARGS: "<%= ENV.fetch('SENDMAIL_ARGS', '-t -i') %>"
     SMTP_HOST: "<%= ENV.fetch('SMTP_HOST', '172.18.0.1') %>"

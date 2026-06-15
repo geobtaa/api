@@ -374,11 +374,12 @@ FEEDBACK_FROM="BTAA Geoportal <no-reply@geo.btaa.org>"
 FEEDBACK_DELIVERY=sendmail
 ```
 
-`dev1`, `dev2`, and `prd` enable feedback mail. Unless overridden with
-`FEEDBACK_RECIPIENTS`, feedback goes to `majew030@umn.edu`, `btaa-gdp@umn.edu`,
-and `geoportal@btaa.org`.
+`dev1`, `dev2`, and `prd` enable feedback mail. Production defaults to sendmail
+delivery through the Kamal image's `msmtp-mta` setup, matching the bridge sync
+report path. Unless overridden with `FEEDBACK_RECIPIENTS`, feedback goes to
+`majew030@umn.edu`, `btaa-gdp@umn.edu`, and `geoportal@btaa.org`.
 
-On Kamal, host Postfix is the preferred no-password relay. Because the app runs
+On Kamal dev hosts, host Postfix can be used as a no-password relay. Because the app runs
 inside Docker, `localhost` means the app container, not the VM. The destination
 Kamal configs point feedback SMTP at the host's Kamal bridge gateway:
 
