@@ -230,6 +230,67 @@ def test_turnstile_middleware_bypasses_qgis_user_agent_without_api_key(monkeypat
 
 
 @pytest.mark.parametrize(
+    "user_agent",
+    [
+        "Mozilla/5.0 AppleWebKit/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+        "Googlebot-Image/1.0",
+        "Mozilla/5.0 AppleWebKit/537.36 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+        "DuckDuckBot/1.1; (+http://duckduckgo.com/duckduckbot.html)",
+        "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+        "Twitterbot/1.0",
+        "LinkedInBot/1.0",
+        "Applebot/0.1",
+    ],
+)
+def test_turnstile_middleware_bypasses_friendly_crawlers_for_frontend_gate_requests(
+    monkeypatch,
+    user_agent,
+):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+
+    async def session_invalid(self, request):
+        raise AssertionError("Friendly crawlers should bypass Turnstile session lookup")
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app())
+    response = client.get(
+        "/api/v1/search",
+        headers={
+            "User-Agent": user_agent,
+            "X-BTAA-Turnstile-Gate": "frontend-search",
+            "X-BTAA-Client-Channel": "browser",
+        },
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("user_agent", ["WormlyBot/1.0", "AppSignalBot/1.0"])
+def test_turnstile_middleware_bypasses_monitoring_bots_for_frontend_gate_requests(
+    monkeypatch,
+    user_agent,
+):
+    monkeypatch.setenv("TURNSTILE_ENABLED", "true")
+
+    async def session_invalid(self, request):
+        raise AssertionError("Monitoring bots should bypass Turnstile session lookup")
+
+    monkeypatch.setattr(TurnstileService, "is_session_valid", session_invalid)
+
+    client = TestClient(_make_app())
+    response = client.get(
+        "/api/v1/search",
+        headers={
+            "User-Agent": user_agent,
+            "X-BTAA-Turnstile-Gate": "frontend-search",
+        },
+    )
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize(
     ("headers", "params"),
     [
         ({"X-BTAA-Client-Channel": "browser"}, None),

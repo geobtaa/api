@@ -50,7 +50,7 @@ class FakeBridgeClient:
         return self.records.get(resource_id)
 
 
-def _http_error(status_code: int, url: str = "https://geo.btaa.org/api/kithe_bridge/test"):
+def _http_error(status_code: int, url: str = "https://geomg.lib.umn.edu/test"):
     response = requests.Response()
     response.status_code = status_code
     response.url = url

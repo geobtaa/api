@@ -31,6 +31,13 @@ normal browser-origin requests to public API endpoints, such as examples running
 from the MkDocs site. Turnstile is not an API authentication layer and must not
 interfere with public direct API access.
 
+Friendly crawler and monitoring user agents also bypass Turnstile, even when
+they hit a frontend-gated hot path. This keeps search indexing and external
+monitoring from depending on an interactive browser challenge. The built-in
+allowlist includes `Googlebot`, `Googlebot-Image`, `Googlebot-Video`, `Bingbot`,
+`Slurp`, `DuckDuckBot`, `Baiduspider`, `YandexBot`, `facebookexternalhit`,
+`Twitterbot`, `LinkedInBot`, `Applebot`, `WormlyBot`, and `AppSignalBot`.
+
 The single-host nginx `/search/results` BFF route and the React Router
 `/search/results` loader add a frontend gate marker for normal browser traffic,
 so frontend search traffic is still protected. When a caller supplies its own
