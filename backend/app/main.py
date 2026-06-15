@@ -151,7 +151,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="BTAA Geospatial API",
-    version="0.8.2",
+    version="0.8.4",
     lifespan=lifespan,
     docs_url=None,
     redoc_url="/api/redoc",
