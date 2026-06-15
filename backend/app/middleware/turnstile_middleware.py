@@ -1,5 +1,6 @@
 import logging
 import os
+import re
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -13,6 +14,25 @@ DEFAULT_PROTECTED_PATHS = (
     "/api/v1/search",
     "/api/v1/suggest",
     "/api/v1/map/h3",
+)
+FRIENDLY_BOT_USER_AGENT_PATTERN = re.compile(
+    r"""
+    WormlyBot|           # External uptime monitoring
+    AppSignalBot|        # AppSignal monitoring
+    Googlebot|           # Google Search, Images, Video, News
+    Googlebot-Image|
+    Googlebot-Video|
+    Bingbot|             # Microsoft Bing
+    Slurp|               # Yahoo
+    DuckDuckBot|         # DuckDuckGo
+    Baiduspider|         # Baidu
+    YandexBot|           # Yandex
+    facebookexternalhit| # Facebook sharing
+    Twitterbot|          # Twitter cards
+    LinkedInBot|         # LinkedIn
+    Applebot             # Apple Search / Siri
+    """,
+    re.IGNORECASE | re.VERBOSE,
 )
 LOCAL_DEV_HOSTNAMES = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
 LOCAL_APP_ENV_VALUES = {"development", "dev", "local", "test"}
@@ -38,6 +58,11 @@ def _is_frontend_gate_request(request: Request) -> bool:
     if request.headers.get("X-BTAA-Client-Channel", "").lower() == "browser":
         return True
     return bool(request.headers.get("X-Visit-Token"))
+
+
+def _is_friendly_bot_request(request: Request) -> bool:
+    user_agent = request.headers.get("User-Agent", "")
+    return bool(user_agent and FRIENDLY_BOT_USER_AGENT_PATTERN.search(user_agent))
 
 
 def _local_turnstile_enabled() -> bool:
@@ -106,6 +131,9 @@ class TurnstileMiddleware(BaseHTTPMiddleware):
             return False
 
         if not _is_frontend_gate_request(request):
+            return False
+
+        if _is_friendly_bot_request(request):
             return False
 
         return True

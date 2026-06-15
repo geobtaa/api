@@ -344,6 +344,12 @@ Bridge delta syncs update changed resources in Elasticsearch, invalidate and re-
 entries tagged with changed `resource:<id>` values, plus the canonical resource detail
 response for each changed resource.
 
+The Kithe Bridge server moved to `https://geomg.lib.umn.edu/` in June 2026.
+The worker reads records from the collection endpoint configured in
+`KITHE_BRIDGE_URL`, currently `https://geomg.lib.umn.edu/api/kithe_bridge`.
+Keep `KITHE_BRIDGE_VERIFY_SSL=true` unless there is a temporary certificate
+mismatch during an infrastructure change.
+
 To send the styled nightly bridge report after the Celery sync task concludes, prd enables
 sendmail delivery:
 
