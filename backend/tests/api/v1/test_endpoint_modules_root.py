@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 # Create test app
 from app.api.v1.endpoint_modules.root import router
+from tests.utils.route_helpers import route_by_path, route_paths
 
 app = FastAPI()
 app.include_router(router)
@@ -171,16 +172,14 @@ class TestRootEndpoints:
 
     def test_api_root_endpoint_path_exists(self):
         """Test that root endpoint path exists."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
         assert "/" in routes
 
     def test_api_root_endpoint_http_method(self):
         """Test that root endpoint uses correct HTTP method."""
-        routes = [route for route in app.routes if hasattr(route, "methods")]
-
-        for route in routes:
-            if route.path == "/":
-                assert "GET" in route.methods
+        route = route_by_path(app, "/")
+        assert route is not None
+        assert "GET" in route.methods
 
     def test_function_signature(self):
         """Test function signature for root endpoint."""

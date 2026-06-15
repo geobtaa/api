@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
 
@@ -311,7 +312,7 @@ class TestGazetteerEndpointsEnhanced:
 
     def test_gazetteer_endpoints_structure(self):
         """Test that gazetteer endpoints are properly configured."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         assert "/api/v1/gazetteers" in routes
         assert "/api/v1/gazetteers/search" in routes

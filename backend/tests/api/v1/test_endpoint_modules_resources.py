@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 # Create test app
 from app.api.v1.endpoint_modules.resources import router
+from tests.utils.route_helpers import route_paths, routes_with_paths
 
 app = FastAPI()
 app.include_router(router)
@@ -191,7 +192,7 @@ class TestResourcesEndpoints:
 
     def test_endpoint_paths_exist(self):
         """Test that all expected endpoint paths exist."""
-        routes = [route.path for route in app.routes]
+        routes = route_paths(app)
 
         expected_paths = [
             "/resources/",
@@ -210,11 +211,9 @@ class TestResourcesEndpoints:
 
     def test_endpoint_http_methods(self):
         """Test that endpoints use correct HTTP methods."""
-        routes = [route for route in app.routes if hasattr(route, "methods")]
-
         # All resource endpoints should be GET methods
-        for route in routes:
-            if "/resources" in route.path:
+        for path, route in routes_with_paths(app):
+            if "/resources" in path:
                 assert "GET" in route.methods
 
     def test_function_signatures(self):
