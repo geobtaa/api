@@ -24,3 +24,9 @@ def test_prd_secret_override_keeps_base_secrets():
         "config/deploy.prd.yml env.secret replaces the base list; "
         f"missing inherited secrets: {sorted(missing)}"
     )
+
+
+def test_prd_allows_search_engine_indexing():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+
+    assert prd_config["env"]["clear"]["SEARCH_ENGINE_INDEXING_ENABLED"] == "true"

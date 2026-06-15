@@ -69,7 +69,7 @@ env:
     SMTP_HOST: "<%= ENV.fetch('SMTP_HOST', '172.18.0.1') %>"
     SMTP_PORT: "<%= ENV.fetch('SMTP_PORT', '25') %>"
     SMTP_STARTTLS: "<%= ENV.fetch('SMTP_STARTTLS', 'false') %>"
-    SEARCH_ENGINE_INDEXING_ENABLED: "false"
+    SEARCH_ENGINE_INDEXING_ENABLED: "true"
     RATE_LIMIT_ENABLED: "true"
     TURNSTILE_ENABLED: "true"
     TURNSTILE_ALLOWED_HOSTNAMES: geo.btaa.org,lib-geoportal-prd-web-01.oit.umn.edu
