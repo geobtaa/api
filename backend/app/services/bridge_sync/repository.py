@@ -1,47 +1,34 @@
 from __future__ import annotations
 
 import json
-from datetime import date, datetime
-from typing import Any, Dict, List, Optional, Set, Tuple
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import delete, func, or_, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db.database import database
-from db.models import bridge_resource_state, bridge_sync_runs, resources
+from db.models import (
+    bridge_resource_state,
+    bridge_sync_runs,
+    generated_resource_representations,
+    generated_visual_asset_links,
+    resource_ai_enrichments,
+    resource_allmaps,
+    resource_assets,
+    resource_data_dictionaries,
+    resource_data_dictionary_entries,
+    resource_distributions,
+    resource_downloads,
+    resource_licensed_accesses,
+    resource_relationships,
+    resource_thumbnail_state,
+    resources,
+)
 
 
 class BridgeSyncRepository:
     """Async repository for bridge sync state and run tracking."""
-
-    def __init__(self) -> None:
-        self._resource_columns_cache: Optional[Set[str]] = None
-
-    async def _resource_columns_in_db(self) -> Set[str]:
-        if self._resource_columns_cache is not None:
-            return self._resource_columns_cache
-
-        rows = await database.fetch_all(
-            text(
-                """
-                SELECT column_name
-                FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = 'resources'
-                """
-            )
-        )
-        cols = set()
-        for row in rows:
-            try:
-                name = row["column_name"]
-            except Exception:
-                name = None
-            if name:
-                cols.add(str(name))
-        if not cols:
-            cols = {c.name for c in resources.c}
-        self._resource_columns_cache = cols
-        return cols
 
     async def create_sync_run(self, bridge_trigger: str) -> int:
         stmt = (
@@ -341,6 +328,80 @@ class BridgeSyncRepository:
         await database.execute(stmt)
         return len(rows)
 
+    async def delete_missing_resources(self, resource_ids: List[str]) -> int:
+        ids = list(dict.fromkeys(str(resource_id or "").strip() for resource_id in resource_ids))
+        ids = [resource_id for resource_id in ids if resource_id]
+        if not ids:
+            return 0
+
+        async with database.transaction():
+            state_rows = await database.fetch_all(
+                select(bridge_resource_state.c.bridge_resource_id).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(ids)
+                )
+            )
+            resource_rows = await database.fetch_all(
+                select(resources.c.id, resources.c.import_id).where(resources.c.id.in_(ids))
+            )
+
+            eligible_ids = {str(row["bridge_resource_id"]) for row in state_rows}
+            eligible_ids.update(
+                str(row["id"])
+                for row in resource_rows
+                if str(row["id"] or "").strip() and str(row["import_id"] or "").strip()
+            )
+            if not eligible_ids:
+                return 0
+
+            target_ids = list(eligible_ids)
+            dictionary_rows = await database.fetch_all(
+                select(resource_data_dictionaries.c.id).where(
+                    resource_data_dictionaries.c.resource_id.in_(target_ids)
+                )
+            )
+            dictionary_ids = [row["id"] for row in dictionary_rows]
+            if dictionary_ids:
+                await database.execute(
+                    delete(resource_data_dictionary_entries).where(
+                        resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(
+                            dictionary_ids
+                        )
+                    )
+                )
+
+            for table in (
+                resource_ai_enrichments,
+                resource_allmaps,
+                resource_assets,
+                resource_data_dictionaries,
+                resource_distributions,
+                resource_downloads,
+                resource_licensed_accesses,
+                resource_thumbnail_state,
+                generated_resource_representations,
+                generated_visual_asset_links,
+            ):
+                await database.execute(delete(table).where(table.c.resource_id.in_(target_ids)))
+
+            await database.execute(
+                delete(resource_relationships).where(
+                    or_(
+                        resource_relationships.c.subject_id.in_(target_ids),
+                        resource_relationships.c.object_id.in_(target_ids),
+                    )
+                )
+            )
+
+            deleted_rows = await database.fetch_all(
+                delete(resources).where(resources.c.id.in_(target_ids)).returning(resources.c.id)
+            )
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(target_ids)
+                )
+            )
+            return len(deleted_rows)
+
     async def record_batched_batch_result(
         self,
         *,
@@ -369,7 +430,15 @@ class BridgeSyncRepository:
             if current_status != "running":
                 return stats
 
-            for key in ("processed", "imported", "skipped", "errors", "missing", "retired"):
+            for key in (
+                "processed",
+                "imported",
+                "skipped",
+                "errors",
+                "missing",
+                "deleted",
+                "retired",
+            ):
                 stats[key] = int(stats.get(key) or 0) + int(batch_stats.get(key) or 0)
             for key in ("fetch_5xx_retries",):
                 if key in batch_stats:
@@ -416,6 +485,7 @@ class BridgeSyncRepository:
                 "imported": int(batch_stats.get("imported") or 0),
                 "errors": int(batch_stats.get("errors") or 0),
                 "missing": int(batch_stats.get("missing") or 0),
+                "deleted": int(batch_stats.get("deleted") or 0),
                 "retired": int(batch_stats.get("retired") or 0),
                 "fetch_5xx_retries": int(batch_stats.get("fetch_5xx_retries") or 0),
             }
@@ -559,41 +629,3 @@ class BridgeSyncRepository:
         )
         rows = await database.fetch_all(stmt)
         return [str(row["bridge_resource_id"]) for row in rows]
-
-    async def retire_missing_resources(self, resource_ids: List[str], retired_at: datetime) -> int:
-        if not resource_ids:
-            return 0
-
-        resource_columns = await self._resource_columns_in_db()
-        retired_date = date.fromisoformat(retired_at.date().isoformat())
-        state_stmt = (
-            update(bridge_resource_state)
-            .where(bridge_resource_state.c.bridge_resource_id.in_(resource_ids))
-            .where(bridge_resource_state.c.bridge_retired_at.is_(None))
-            .values(bridge_retired_at=retired_at, bridge_updated_at=retired_at)
-            .returning(bridge_resource_state.c.bridge_resource_id)
-        )
-        state_rows = await database.fetch_all(state_stmt)
-        retired_ids = [str(row["bridge_resource_id"]) for row in state_rows]
-        if not retired_ids:
-            return 0
-
-        update_values: Dict[str, Any] = {"publication_state": "retired"}
-        if "b1g_publication_state_s" in resource_columns:
-            update_values["b1g_publication_state_s"] = "retired"
-        if "b1g_dateRetired_dt" in resource_columns:
-            update_values["b1g_dateRetired_dt"] = func.coalesce(
-                resources.c.b1g_dateRetired_dt, retired_at
-            )
-        if "b1g_dateRetired_s" in resource_columns:
-            update_values["b1g_dateRetired_s"] = func.coalesce(
-                resources.c.b1g_dateRetired_s, retired_date
-            )
-        if "date_modified_dtsi" in resource_columns:
-            update_values["date_modified_dtsi"] = retired_at
-
-        resource_stmt = (
-            update(resources).where(resources.c.id.in_(retired_ids)).values(**update_values)
-        )
-        await database.execute(resource_stmt)
-        return len(retired_ids)

@@ -195,6 +195,15 @@ requires slower or faster retry pacing. A batched run that completes with
 record errors now finishes with `bridge_status=failed`, so retry the failed
 records before treating that run as complete.
 
+Bridge resources that disappear from Kithe Bridge are deleted locally, not
+converted to suppressed or retired records. A full bridge sync can detect
+missing records from a complete upstream snapshot, and
+`make bridge-sync RESOURCE_ID=<id>` deletes the local bridge-managed record when
+that upstream record is absent. A delta sync with `BRIDGE_CHANGED_SINCE` cannot
+infer deletions because unchanged records are intentionally absent from the
+delta window. The deletion guard is limited to bridge-managed rows
+(`bridge_resource_state`) or legacy Kithe-origin rows with `resources.import_id`.
+
 June 2026 bridge cutover note: the Kithe Bridge server moved to
 `https://geomg.lib.umn.edu/`, and Kamal points `KITHE_BRIDGE_URL` at the
 collection endpoint `https://geomg.lib.umn.edu/api/kithe_bridge` with

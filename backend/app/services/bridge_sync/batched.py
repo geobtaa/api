@@ -263,6 +263,7 @@ async def queue_batched_bridge_sync(
         "skipped": 0,
         "errors": 0,
         "missing": 0,
+        "deleted": 0,
         "retired": 0,
         "updated_at": datetime.utcnow().isoformat() + "Z",
         "post_sync": "run a full Elasticsearch reindex after this batched sync completes",
@@ -398,6 +399,7 @@ async def sync_bridge_resource_batch(
         "skipped": 0,
         "errors": 0,
         "missing": 0,
+        "deleted": 0,
         "retired": 0,
         "total_batches": total_batches,
     }
@@ -430,14 +432,9 @@ async def sync_bridge_resource_batch(
             batch_stats.setdefault("error_signatures", []).extend(import_stats["error_signatures"])
 
     if missing_ids:
-        missing_since = datetime.utcnow()
-        await repo.mark_resources_missing(missing_ids, missing_since=missing_since)
-        retired_count = await repo.retire_missing_resources(
-            missing_ids,
-            retired_at=missing_since,
-        )
+        deleted_count = await repo.delete_missing_resources(missing_ids)
         batch_stats["missing"] = len(missing_ids)
-        batch_stats["retired"] = retired_count
+        batch_stats["deleted"] = deleted_count
 
     search_refresh_ids = resource_ids_for_bridge_records(records) + missing_ids
     if search_refresh_ids:

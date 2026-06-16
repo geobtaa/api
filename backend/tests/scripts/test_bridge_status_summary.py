@@ -40,7 +40,8 @@ def test_render_payload_current_last_includes_progress_and_eta():
                     "errors": 0,
                     "pages_processed": 85,
                     "missing": 12,
-                    "retired": 12,
+                    "deleted": 12,
+                    "retired": 0,
                 },
             },
         ]
@@ -60,7 +61,7 @@ def test_render_payload_current_last_includes_progress_and_eta():
     assert "progress~=2.9%" in rendered
     assert "eta~=2h50m00s" in rendered
     assert "last:" in rendered
-    assert "missing=12 retired=12" in rendered
+    assert "missing=12 deleted=12 retired=0" in rendered
 
 
 def test_render_payload_current_only_omits_last_run():

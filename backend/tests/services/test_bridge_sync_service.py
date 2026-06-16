@@ -181,6 +181,72 @@ class TestBridgeSyncService:
             await database.execute(delete(bridge_sync_runs))
 
     @pytest.mark.asyncio(scope="session")
+    async def test_delete_missing_resources_skips_non_bridge_rows(self):
+        repo = BridgeSyncRepository()
+        bridge_id = "bridge-delete-guard-managed"
+        non_bridge_id = "bridge-delete-guard-nonbridge"
+        resource_ids = [bridge_id, non_bridge_id]
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+            await database.execute(
+                pg_insert(resources).values(
+                    [
+                        {
+                            "id": bridge_id,
+                            "dct_title_s": "Bridge Managed Row",
+                            "publication_state": "published",
+                            "b1g_publication_state_s": "published",
+                        },
+                        {
+                            "id": non_bridge_id,
+                            "dct_title_s": "Non-Bridge Row",
+                            "publication_state": "published",
+                            "b1g_publication_state_s": "published",
+                        },
+                    ]
+                )
+            )
+            await database.execute(
+                pg_insert(bridge_resource_state).values({"bridge_resource_id": bridge_id})
+            )
+
+            deleted_count = await repo.delete_missing_resources(resource_ids)
+
+            assert deleted_count == 1
+
+            bridge_row = await database.fetch_one(
+                select(resources.c.id).where(resources.c.id == bridge_id)
+            )
+            non_bridge_row = await database.fetch_one(
+                select(resources.c.id).where(resources.c.id == non_bridge_id)
+            )
+            bridge_state = await database.fetch_one(
+                select(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == bridge_id
+                )
+            )
+
+            assert bridge_row is None
+            assert bridge_state is None
+            assert non_bridge_row is not None
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+    @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_resource_batch_imports_missing_and_finalizes_parent_run(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
@@ -214,6 +280,7 @@ class TestBridgeSyncService:
                         "dct_title_s": "Bridge Batched Missing",
                         "publication_state": "published",
                         "b1g_publication_state_s": "published",
+                        "import_id": "batched-missing",
                     }
                 )
             )
@@ -236,6 +303,7 @@ class TestBridgeSyncService:
                     "skipped": 0,
                     "errors": 0,
                     "missing": 0,
+                    "deleted": 0,
                     "retired": 0,
                 },
             )
@@ -255,7 +323,8 @@ class TestBridgeSyncService:
             assert result["stats"]["processed"] == 2
             assert result["stats"]["imported"] == 1
             assert result["stats"]["missing"] == 1
-            assert result["stats"]["retired"] == 1
+            assert result["stats"]["deleted"] == 1
+            assert result["stats"]["retired"] == 0
             assert result["stats"]["search_index_refresh"]["enabled"] is False
 
             run = await repo.get_sync_run(run_id)
@@ -267,7 +336,8 @@ class TestBridgeSyncService:
             assert stats["processed"] == 2
             assert stats["imported"] == 1
             assert stats["missing"] == 1
-            assert stats["retired"] == 1
+            assert stats["deleted"] == 1
+            assert stats["retired"] == 0
             assert stats["search_index_refresh"]["enabled"] is False
             assert stats["search_index_refresh"]["resource_ids"] == 0
 
@@ -283,9 +353,7 @@ class TestBridgeSyncService:
             )
             assert found is not None
             assert found["dct_title_s"] == "Bridge Batched Found"
-            assert missing is not None
-            assert missing["publication_state"] == "retired"
-            assert missing["b1g_publication_state_s"] == "retired"
+            assert missing is None
         finally:
             await database.execute(
                 delete(bridge_resource_state).where(
@@ -605,7 +673,7 @@ class TestBridgeSyncService:
             await database.execute(delete(resources).where(resources.c.id == resource_id))
 
     @pytest.mark.asyncio(scope="session")
-    async def test_sync_bridge_paginates_and_retires_missing_records(self):
+    async def test_sync_bridge_paginates_and_deletes_missing_records(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
 
@@ -744,7 +812,8 @@ class TestBridgeSyncService:
 
             assert second_result["stats"]["imported"] == 1
             assert second_result["stats"]["missing"] == 1
-            assert second_result["stats"]["retired"] == 1
+            assert second_result["stats"]["deleted"] == 1
+            assert second_result["stats"]["retired"] == 0
 
             downloads_a = await database.fetch_all(
                 select(resource_downloads).where(
@@ -779,12 +848,7 @@ class TestBridgeSyncService:
                 ).where(resources.c.id == "bridge-sync-a")
             )
             row_b = await database.fetch_one(
-                select(
-                    resources.c.id,
-                    resources.c.publication_state,
-                    resources.c.b1g_publication_state_s,
-                    resources.c.b1g_dateRetired_s,
-                ).where(resources.c.id == "bridge-sync-b")
+                select(resources.c.id).where(resources.c.id == "bridge-sync-b")
             )
             state_b = await database.fetch_one(
                 select(bridge_resource_state).where(
@@ -796,14 +860,8 @@ class TestBridgeSyncService:
             assert row_a["publication_state"] == "published"
             assert row_a["b1g_publication_state_s"] == "published"
 
-            assert row_b is not None
-            assert row_b["publication_state"] == "retired"
-            assert row_b["b1g_publication_state_s"] == "retired"
-            assert row_b["b1g_dateRetired_s"] is not None
-
-            assert state_b is not None
-            assert state_b["bridge_missing_since"] is not None
-            assert state_b["bridge_retired_at"] is not None
+            assert row_b is None
+            assert state_b is None
         finally:
             try:
                 await database.execute(
@@ -927,7 +985,7 @@ class TestBridgeSyncService:
                     await database.disconnect()
 
     @pytest.mark.asyncio(scope="session")
-    async def test_sync_bridge_delta_does_not_retire_missing_records(self):
+    async def test_sync_bridge_delta_does_not_delete_missing_records(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
 
@@ -991,11 +1049,12 @@ class TestBridgeSyncService:
             )
 
             assert result["stats"]["missing"] == 0
+            assert result["stats"]["deleted"] == 0
             assert result["stats"]["retired"] == 0
             assert result["stats"]["search_index_refresh"]["enabled"] is False
             assert result["stats"]["cache_refresh"]["enabled"] is False
 
-            # record_b should remain published (i.e., not retired just because it
+            # record_b should remain published (i.e., not deleted just because it
             # wasn't returned in the delta crawl).
             row_b = await database.fetch_one(
                 select(
@@ -1793,33 +1852,72 @@ class TestBridgeSyncService:
                 pass
 
     @pytest.mark.asyncio(scope="session")
-    async def test_sync_bridge_resource_id_raises_when_record_missing(self):
+    async def test_sync_bridge_resource_id_deletes_when_record_missing(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-sync-missing"
 
         if not database.is_connected:
             await database.connect()
 
         try:
             await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+            await database.execute(
+                pg_insert(resources).values(
+                    {
+                        "id": resource_id,
+                        "dct_title_s": "Bridge Sync Missing",
+                        "publication_state": "published",
+                        "b1g_publication_state_s": "published",
+                        "import_id": "missing-import",
+                    }
+                )
+            )
             targeted_client = FakeBridgeClient({}, records={})
 
-            with pytest.raises(
-                RuntimeError, match="Bridge resource bridge-sync-missing was not found"
-            ):
-                await sync_bridge(
-                    trigger="manual",
-                    limit=1,
-                    resource_id="bridge-sync-missing",
-                    client=targeted_client,
-                    importer=importer,
-                    repo=repo,
-                )
+            result = await sync_bridge(
+                trigger="manual",
+                limit=1,
+                resource_id=resource_id,
+                client=targeted_client,
+                importer=importer,
+                repo=repo,
+            )
 
-            assert targeted_client.calls == [{"resource_id": "bridge-sync-missing"}]
+            assert targeted_client.calls == [{"resource_id": resource_id}]
+            assert result["stats"]["found"] is False
+            assert result["stats"]["missing"] == 1
+            assert result["stats"]["deleted"] == 1
+            assert result["stats"]["retired"] == 0
+            assert result["stats"]["search_index_refresh"]["enabled"] is False
+            assert result["stats"]["cache_refresh"]["enabled"] is False
+
+            row = await database.fetch_one(
+                select(resources.c.id).where(resources.c.id == resource_id)
+            )
+            state = await database.fetch_one(
+                select(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+
+            assert row is None
+            assert state is None
         finally:
             try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
                 await database.execute(delete(bridge_sync_runs))
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
             except Exception:
                 # Cleanup is best effort; test assertions should report the real failure.
                 pass
