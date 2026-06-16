@@ -178,19 +178,22 @@ Useful bridge variables:
 | `BRIDGE_STATUS_POLL_SECONDS` | Defaults to `5`. |
 | `KITHE_BRIDGE_URL` | Upstream Kithe Bridge endpoint used by the worker. |
 | `KITHE_BRIDGE_VERIFY_SSL` | Defaults to `true` in code. Set to `false` only for temporary hostname/certificate mismatches. |
+| `BRIDGE_BATCH_CACHE_REFRESH_ENABLED` | Defaults to `false`; set to `true` only when a batched run should also invalidate and rewarm changed resource caches. |
 
 For remote reconciliation, run `make kamal-bridge-sync-batched KAMAL_DEST=dev1`
-and then monitor with `make kamal-bridge-status-watch KAMAL_DEST=dev1`. Run
-`make kamal-reindex` after the batched sync completes so Elasticsearch reflects
-the corrected database rows. The batched target reconciles existing local IDs;
-keep the normal bridge crawl/delta sync for discovering newly added Bridge
-records. Batched resource fetches retry transient Kithe Bridge `5xx` responses
-as a group before counting a record error; tune with
+and then monitor with `make kamal-bridge-status-watch KAMAL_DEST=dev1`. Bridge
+syncs now refresh Elasticsearch for imported and retired resource IDs as the sync
+completes; batched reconciliation does this per completed batch, while cache
+refresh for batched runs is opt-in via `BRIDGE_BATCH_CACHE_REFRESH_ENABLED`.
+The batched target reconciles existing local IDs; keep the normal bridge
+crawl/delta sync for discovering newly added Bridge records. Batched resource
+fetches retry transient Kithe Bridge `5xx` responses as a group before counting
+a record error; tune with
 `KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS` and
 `KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS` when an upstream outage
 requires slower or faster retry pacing. A batched run that completes with
-record errors now finishes with `bridge_status=failed`, so do not reindex from
-that run until the failed records have been retried.
+record errors now finishes with `bridge_status=failed`, so retry the failed
+records before treating that run as complete.
 
 June 2026 bridge cutover note: the Kithe Bridge server moved to
 `https://geomg.lib.umn.edu/`, and Kamal points `KITHE_BRIDGE_URL` at the

@@ -8,9 +8,12 @@ from typing import Any, Callable, Dict, List, Optional, Sequence
 
 import requests
 
+from app.services.bridge_sync.cache_refresh import refresh_cache_for_changed_resources
+from app.services.bridge_sync.changed_resources import resource_ids_for_bridge_records
 from app.services.bridge_sync.client import KitheBridgeClient
 from app.services.bridge_sync.importer import BridgeResourceImporter
 from app.services.bridge_sync.repository import BridgeSyncRepository
+from app.services.bridge_sync.search_index import index_changed_resources
 from db.database import database
 
 logger = logging.getLogger(__name__)
@@ -20,6 +23,7 @@ MAX_BATCH_SIZE = 1000
 VALID_RESOURCE_SCOPES = {"all", "published", "bridge_active"}
 FETCH_5XX_MAX_ATTEMPTS_ENV = "KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS"
 FETCH_5XX_RETRY_BACKOFF_SECONDS_ENV = "KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS"
+BATCH_CACHE_REFRESH_ENABLED_ENV = "BRIDGE_BATCH_CACHE_REFRESH_ENABLED"
 
 BatchEnqueuer = Callable[..., Optional[str]]
 
@@ -67,6 +71,13 @@ def _fetch_5xx_retry_backoff_seconds() -> float:
         return max(0.0, float(os.getenv(FETCH_5XX_RETRY_BACKOFF_SECONDS_ENV, "2.0")))
     except ValueError:
         return 2.0
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "t", "yes", "y"}
 
 
 def _http_status_code(exc: Exception) -> Optional[int]:
@@ -427,6 +438,37 @@ async def sync_bridge_resource_batch(
         )
         batch_stats["missing"] = len(missing_ids)
         batch_stats["retired"] = retired_count
+
+    search_refresh_ids = resource_ids_for_bridge_records(records) + missing_ids
+    if search_refresh_ids:
+        try:
+            batch_stats["search_index_refresh"] = await index_changed_resources(search_refresh_ids)
+        except Exception as index_exc:
+            logger.warning(
+                "Bridge batched search index refresh failed for bridge_id=%s batch_number=%s: %s",
+                bridge_id,
+                batch_number,
+                index_exc,
+            )
+            batch_stats["search_index_refresh"] = {"enabled": True, "error": str(index_exc)}
+
+    if _env_bool(BATCH_CACHE_REFRESH_ENABLED_ENV, False):
+        cache_refresh_ids = (
+            resource_ids_for_bridge_records(records, include_related=True) + missing_ids
+        )
+        if cache_refresh_ids:
+            try:
+                batch_stats["cache_refresh"] = await refresh_cache_for_changed_resources(
+                    cache_refresh_ids
+                )
+            except Exception as cache_exc:
+                logger.warning(
+                    "Bridge batched cache refresh failed for bridge_id=%s batch_number=%s: %s",
+                    bridge_id,
+                    batch_number,
+                    cache_exc,
+                )
+                batch_stats["cache_refresh"] = {"enabled": True, "error": str(cache_exc)}
 
     _finalize_error_stats(batch_stats)
     parent_stats = await repo.record_batched_batch_result(

@@ -27,6 +27,7 @@ from db.models import (
     resource_distributions,
     resource_downloads,
     resource_licensed_accesses,
+    resource_relationships,
     resources,
 )
 
@@ -255,6 +256,7 @@ class TestBridgeSyncService:
             assert result["stats"]["imported"] == 1
             assert result["stats"]["missing"] == 1
             assert result["stats"]["retired"] == 1
+            assert result["stats"]["search_index_refresh"]["enabled"] is False
 
             run = await repo.get_sync_run(run_id)
             assert run is not None
@@ -266,6 +268,8 @@ class TestBridgeSyncService:
             assert stats["imported"] == 1
             assert stats["missing"] == 1
             assert stats["retired"] == 1
+            assert stats["search_index_refresh"]["enabled"] is False
+            assert stats["search_index_refresh"]["resource_ids"] == 0
 
             found = await database.fetch_one(
                 select(resources.c.id, resources.c.dct_title_s).where(resources.c.id == found_id)
@@ -283,6 +287,109 @@ class TestBridgeSyncService:
             assert missing["publication_state"] == "retired"
             assert missing["b1g_publication_state_s"] == "retired"
         finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_populates_inverse_replacement_relationships(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        old_id = "bridge-replaced-old"
+        new_id = "bridge-replaced-new"
+        resource_ids = [old_id, new_id]
+
+        old_record = {
+            "id": old_id,
+            "import_id": "replace-old",
+            "publication_state": "unpublished",
+            "b1g_publication_state_s": "unpublished",
+            "dct_title_s": "Old Bridge Record",
+            "dct_description_sm": ["Retired record"],
+            "dct_references_s": "[]",
+        }
+        new_record = {
+            "id": new_id,
+            "import_id": "replace-new",
+            "publication_state": "published",
+            "dct_title_s": "New Bridge Record",
+            "dct_description_sm": ["Replacement record"],
+            "dct_replaces_sm": [old_id],
+            "dct_references_s": "[]",
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(resource_relationships).where(
+                    (resource_relationships.c.subject_id.in_(resource_ids))
+                    | (resource_relationships.c.object_id.in_(resource_ids))
+                )
+            )
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[old_record, new_record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+
+            result = await sync_bridge(
+                trigger="manual",
+                limit=10,
+                changed_since="2026-06-15T00:00:00Z",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["imported"] == 2
+            rows = await database.fetch_all(
+                select(
+                    resource_relationships.c.subject_id,
+                    resource_relationships.c.predicate,
+                    resource_relationships.c.object_id,
+                )
+                .where(resource_relationships.c.subject_id.in_(resource_ids))
+                .where(resource_relationships.c.object_id.in_(resource_ids))
+                .order_by(
+                    resource_relationships.c.subject_id,
+                    resource_relationships.c.predicate,
+                    resource_relationships.c.object_id,
+                )
+            )
+
+            relationships = {
+                (row["subject_id"], row["predicate"], row["object_id"]) for row in rows
+            }
+            assert (new_id, "dct:replaces", old_id) in relationships
+            assert (old_id, "dct:isReplacedBy", new_id) in relationships
+            assert result["stats"]["changed_resources"] == 2
+            assert result["stats"]["search_index_refresh"]["enabled"] is False
+            assert result["stats"]["cache_refresh"]["enabled"] is False
+        finally:
+            await database.execute(
+                delete(resource_relationships).where(
+                    (resource_relationships.c.subject_id.in_(resource_ids))
+                    | (resource_relationships.c.object_id.in_(resource_ids))
+                )
+            )
             await database.execute(
                 delete(bridge_resource_state).where(
                     bridge_resource_state.c.bridge_resource_id.in_(resource_ids)
