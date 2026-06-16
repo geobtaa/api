@@ -240,9 +240,7 @@ async def test_init_elasticsearch_respects_alias_backed_existing_mapping(monkeyp
         return_value={
             "btaa_geospatial_api_20260616010101": {
                 "mappings": {
-                    "properties": {
-                        "ogm_repo": INDEX_MAPPING["mappings"]["properties"]["ogm_repo"]
-                    }
+                    "properties": {"ogm_repo": INDEX_MAPPING["mappings"]["properties"]["ogm_repo"]}
                 }
             }
         }

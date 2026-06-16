@@ -15,6 +15,7 @@ from app.elasticsearch.search import (
     _normalize_geo_bbox_bounds,
     find_similar_resources,
     get_search_criteria,
+    is_public_resource_document,
     map_h3_aggregation,
     public_visibility_filter_clauses,
     search_resources,
@@ -70,11 +71,43 @@ class TestElasticsearchSearch:
 
     def test_public_visibility_filter_clauses(self):
         """Default Elasticsearch queries should only include public resources."""
-        assert public_visibility_filter_clauses() == [
+        clauses = public_visibility_filter_clauses()
+        assert clauses == [
             {"term": {"publication_state": "published"}},
-            {"term": {"gbl_suppressed_b": False}},
+            {
+                "bool": {
+                    "should": [
+                        {"term": {"gbl_suppressed_b": False}},
+                        {
+                            "bool": {
+                                "must_not": [
+                                    {"exists": {"field": "gbl_suppressed_b"}},
+                                ]
+                            }
+                        },
+                    ],
+                    "minimum_should_match": 1,
+                }
+            },
         ]
         assert public_visibility_filter_clauses(include_non_public=True) == []
+
+    def test_is_public_resource_document_treats_missing_suppression_as_public(self):
+        """Indexed docs without gbl_suppressed_b should match Postgres null=false behavior."""
+        assert is_public_resource_document({"publication_state": "published"}) is True
+        assert (
+            is_public_resource_document(
+                {"publication_state": "published", "gbl_suppressed_b": False}
+            )
+            is True
+        )
+        assert (
+            is_public_resource_document(
+                {"publication_state": "published", "gbl_suppressed_b": True}
+            )
+            is False
+        )
+        assert is_public_resource_document({"publication_state": "draft"}) is False
 
     @pytest.mark.asyncio
     async def test_find_similar_resources_short_circuits_missing_source_doc(self, monkeypatch):
@@ -720,7 +753,15 @@ class TestElasticsearchSearch:
                 assert "script_score" not in search_query
 
                 filters = search_query["bool"]["filter"]
-                geo_filter = next((f for f in filters if "bool" in f), None)
+                geo_filter = next(
+                    (
+                        f
+                        for f in filters
+                        if "bool" in f
+                        and any("geo_shape" in clause for clause in f["bool"].get("should", []))
+                    ),
+                    None,
+                )
                 assert geo_filter is not None
 
                 should = geo_filter["bool"]["should"]

@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 
+from app.elasticsearch.search import public_visibility_filter_clauses
 from app.services.search_service import SearchService
 
 
@@ -582,8 +583,8 @@ class TestSearchService:
         bool_query = query["query"]["bool"]
         assert query["size"] == 12
         assert bool_query["must"][0]["multi_match"]["type"] == "bool_prefix"
-        assert {"term": {"publication_state": "published"}} in bool_query["filter"]
-        assert {"term": {"gbl_suppressed_b": False}} in bool_query["filter"]
+        for visibility_filter in public_visibility_filter_clauses():
+            assert visibility_filter in bool_query["filter"]
         assert {"term": {"gbl_resourceClass_sm.keyword": "Dataset"}} in bool_query["filter"]
 
     @pytest.mark.asyncio

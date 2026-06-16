@@ -37,7 +37,7 @@ def _mapping_entries(mapping_response: dict, requested_index: str) -> list[dict]
 
 def _mapping_has_field(mapping_response: dict, requested_index: str, field_name: str) -> bool:
     for entry in _mapping_entries(mapping_response, requested_index):
-        properties = ((entry.get("mappings", {}) or {}).get("properties", {}) or {})
+        properties = (entry.get("mappings", {}) or {}).get("properties", {}) or {}
         if field_name in properties:
             return True
     return False

@@ -60,7 +60,15 @@ def public_visibility_filter_clauses(*, include_non_public: bool = False) -> lis
         return []
     return [
         {"term": {PUBLICATION_STATE_FIELD: "published"}},
-        {"term": {SUPPRESSED_FIELD: False}},
+        {
+            "bool": {
+                "should": [
+                    {"term": {SUPPRESSED_FIELD: False}},
+                    {"bool": {"must_not": [{"exists": {"field": SUPPRESSED_FIELD}}]}},
+                ],
+                "minimum_should_match": 1,
+            }
+        },
     ]
 
 
@@ -68,7 +76,7 @@ def is_public_resource_document(source: dict | None) -> bool:
     if not isinstance(source, dict):
         return False
     publication_state = str(source.get(PUBLICATION_STATE_FIELD) or "").strip().lower()
-    return publication_state == "published" and source.get(SUPPRESSED_FIELD) is False
+    return publication_state == "published" and source.get(SUPPRESSED_FIELD) is not True
 
 
 def _escape_query_string_brackets(query_text: str) -> str:
