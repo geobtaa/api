@@ -234,6 +234,7 @@ async def process_resource(resource_dict):
     date_fields = {"gbl_mdmodified_dt", "b1g_dateAccessioned_s", "b1g_dateRetired_s"}
     integer_fields = {"gbl_indexYear_im"}
     boolean_fields = {
+        "gbl_suppressed_b",
         "gbl_georeferenced_b",
         "b1g_child_record_b",
         "b1g_georeferenced_allmaps_b",
@@ -293,6 +294,8 @@ async def process_resource(resource_dict):
             processed_dict[key] = value
 
     ensure_b1g_language(processed_dict)
+    if processed_dict.get("gbl_suppressed_b") is None:
+        processed_dict["gbl_suppressed_b"] = False
 
     # Derive OGM repo facet/filter field from admin tags.
     # Source-of-truth tag format stored in Postgres: "ogm_repo:<repo_name>"

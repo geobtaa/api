@@ -16,6 +16,7 @@ from app.elasticsearch.search import (
     get_facet_aggregation_config,
     get_facet_values,
     process_facet_response,
+    public_visibility_filter_clauses,
 )
 
 
@@ -347,6 +348,30 @@ class TestGetFacetValues:
         assert len(buckets) == 2
         assert buckets[0]["key"] == "Provider A"
         assert buckets[0]["doc_count"] == 100
+        filters = mock_es.search.call_args.kwargs["query"]["bool"]["filter"]
+        for visibility_filter in public_visibility_filter_clauses():
+            assert visibility_filter in filters
+
+    @pytest.mark.asyncio
+    @patch("app.elasticsearch.search.es")
+    async def test_include_non_public_omits_visibility_filters(self, mock_es):
+        """Facet diagnostics can request counts across all indexed resources."""
+        mock_response = MagicMock()
+        mock_response.body = {"aggregations": {"facet_values": {"buckets": []}}}
+        mock_es.search = AsyncMock(return_value=mock_response)
+
+        await get_facet_values(
+            facet_name="schema_provider_s",
+            query=None,
+            fq=None,
+            include_filters=None,
+            exclude_filters=None,
+            adv_q=None,
+            include_non_public=True,
+        )
+
+        bool_query = mock_es.search.call_args.kwargs["query"]["bool"]
+        assert "filter" not in bool_query
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")

@@ -35,7 +35,7 @@ load_dotenv()
 ELASTICSEARCH_URL = os.getenv("ELASTICSEARCH_URL", "http://localhost:9200")
 INDEX_NAME = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
 FAILURE_LOG = os.getenv("FAILURE_LOG", "logs/reindex_failures.log")
-PUBLISHED_ONLY = os.getenv("PUBLISHED_ONLY", "1").strip().lower() in {"1", "true", "t", "yes", "y"}
+PUBLISHED_ONLY = os.getenv("PUBLISHED_ONLY", "0").strip().lower() in {"1", "true", "t", "yes", "y"}
 USE_B1G_PUB_STATE = os.getenv("USE_B1G_PUBLICATION_STATE", "0").strip().lower() in {
     "1",
     "true",

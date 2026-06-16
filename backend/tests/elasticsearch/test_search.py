@@ -16,6 +16,7 @@ from app.elasticsearch.search import (
     find_similar_resources,
     get_search_criteria,
     map_h3_aggregation,
+    public_visibility_filter_clauses,
     search_resources,
 )
 
@@ -65,6 +66,15 @@ class TestElasticsearchSearch:
         assert criteria["query"] == "test query"
         assert criteria["filters"] == {"dct_spatial_sm": ["Minnesota"]}
         assert criteria["sort"] == [{"_score": "desc"}]
+        assert criteria["include_non_public"] is False
+
+    def test_public_visibility_filter_clauses(self):
+        """Default Elasticsearch queries should only include public resources."""
+        assert public_visibility_filter_clauses() == [
+            {"term": {"publication_state": "published"}},
+            {"term": {"gbl_suppressed_b": False}},
+        ]
+        assert public_visibility_filter_clauses(include_non_public=True) == []
 
     @pytest.mark.asyncio
     async def test_find_similar_resources_short_circuits_missing_source_doc(self, monkeypatch):
@@ -85,6 +95,25 @@ class TestElasticsearchSearch:
         )
         mock_es.get.assert_not_awaited()
         mock_es.search.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_find_similar_resources_filters_to_public_candidates(self, monkeypatch):
+        """Similar-item recommendations should not return retired/suppressed records."""
+        monkeypatch.setenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+        mock_es = AsyncMock()
+        mock_es.exists.return_value = True
+        mock_response = MagicMock()
+        mock_response.body = {"hits": {"hits": []}}
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.es", mock_es):
+            result = await find_similar_resources("source-id")
+
+        assert result == []
+        bool_query = mock_es.search.await_args.kwargs["query"]["bool"]
+        for visibility_filter in public_visibility_filter_clauses():
+            assert visibility_filter in bool_query["filter"]
+        assert {"term": {"id": "source-id"}} in bool_query["must_not"]
 
     def test_compute_bbox_spatial_metrics_rewards_containment(self):
         """Contained extents should still score well even when query bbox is larger."""
@@ -227,6 +256,41 @@ class TestElasticsearchSearch:
                 assert "must" in search_query["bool"]
                 assert {"match_all": {}} in search_query["bool"]["must"]
 
+                for visibility_filter in public_visibility_filter_clauses():
+                    assert visibility_filter in search_query["bool"]["filter"]
+
+    @pytest.mark.asyncio
+    async def test_search_resources_include_non_public_omits_visibility_filters(self):
+        """Internal diagnostics can explicitly request all indexed resources."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "hits": {"total": {"value": 0}, "hits": []},
+            "took": 1,
+            "aggregations": {},
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.database.fetch_all") as mock_fetch:
+            mock_fetch.return_value = []
+
+            with patch("app.elasticsearch.search.es", mock_es):
+                await search_resources(
+                    query=None,
+                    fq=None,
+                    skip=0,
+                    limit=10,
+                    sort=None,
+                    include_non_public=True,
+                )
+
+                search_query = mock_es.search.call_args.kwargs["query"]
+                filters = search_query["bool"].get("filter", [])
+
+                assert filters == []
+                for visibility_filter in public_visibility_filter_clauses():
+                    assert visibility_filter not in filters
+
     @pytest.mark.asyncio
     async def test_search_resources_with_filters(self):
         """Test search_resources with filter queries."""
@@ -269,10 +333,20 @@ class TestElasticsearchSearch:
 
                 # Verify the filter clause
                 filter_clauses = search_query["bool"]["filter"]
-                assert len(filter_clauses) == 1
-                assert "terms" in filter_clauses[0]
+                for visibility_filter in public_visibility_filter_clauses():
+                    assert visibility_filter in filter_clauses
+
+                spatial_filter = next(
+                    (
+                        clause
+                        for clause in filter_clauses
+                        if "terms" in clause and "dct_spatial_sm.keyword" in clause["terms"]
+                    ),
+                    None,
+                )
+                assert spatial_filter is not None
                 # Field is resolved to .keyword suffix via _resolve_filter_field
-                assert filter_clauses[0]["terms"]["dct_spatial_sm.keyword"] == [
+                assert spatial_filter["terms"]["dct_spatial_sm.keyword"] == [
                     "Minnesota",
                     "Wisconsin",
                 ]
@@ -368,6 +442,27 @@ class TestElasticsearchSearch:
                 {"match": {"dct_title_s": {"query": "water", "operator": "and"}}}
             ]
             assert bool_query["minimum_should_match"] == 1
+            for visibility_filter in public_visibility_filter_clauses():
+                assert visibility_filter in bool_query["filter"]
+
+    @pytest.mark.asyncio
+    async def test_map_h3_aggregation_include_non_public_omits_visibility_filters(self):
+        """Map diagnostics can explicitly include unpublished/suppressed resources."""
+        mock_es = AsyncMock()
+        mock_response = MagicMock()
+        mock_response.body = {
+            "aggregations": {
+                "h3_terms": {"buckets": []},
+                "global_bucket_agg": {"doc_count": 0},
+            }
+        }
+        mock_es.search.return_value = mock_response
+
+        with patch("app.elasticsearch.search.es", mock_es):
+            await map_h3_aggregation(q="", resolution=5, include_non_public=True)
+
+        bool_query = mock_es.search.await_args.kwargs["query"]["bool"]
+        assert "filter" not in bool_query
 
     @pytest.mark.asyncio
     async def test_search_resources_relationship_filters_use_keyword_subfield(self):

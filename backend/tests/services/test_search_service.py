@@ -5,6 +5,7 @@ Tests for the SearchService.
 from unittest.mock import patch
 
 import pytest
+from fastapi import HTTPException
 
 from app.services.search_service import SearchService
 
@@ -104,6 +105,19 @@ class TestSearchService:
 
             # Verify the query parameter was passed correctly
             assert query_param == "test-resource-id"
+            assert call_args.kwargs["include_non_public"] is False
+
+    @pytest.mark.asyncio
+    async def test_search_forwards_include_non_public_override(self):
+        """SearchService should pass the diagnostics visibility override through."""
+        service = SearchService()
+
+        with patch("app.services.search_service.search_resources") as mock_search:
+            mock_search.return_value = {"data": [], "meta": {}, "included": []}
+
+            await service.search(q="test", page=1, limit=10, include_non_public=True)
+
+        assert mock_search.call_args.kwargs["include_non_public"] is True
 
     @pytest.mark.asyncio
     async def test_search_with_filters(self):
@@ -407,6 +421,8 @@ class TestSearchService:
             mock_es.get.return_value = {
                 "_source": {
                     "id": "test-id",
+                    "publication_state": "published",
+                    "gbl_suppressed_b": False,
                     "dct_references_s": '{"download": "http://example.com/download"}',
                 }
             }
@@ -447,7 +463,12 @@ class TestSearchService:
         with patch("app.services.search_service.es") as mock_es:
             # Mock Elasticsearch response with invalid JSON
             mock_es.get.return_value = {
-                "_source": {"id": "test-id", "dct_references_s": "invalid json{"}
+                "_source": {
+                    "id": "test-id",
+                    "publication_state": "published",
+                    "gbl_suppressed_b": False,
+                    "dct_references_s": "invalid json{",
+                }
             }
 
             # Mock other services
@@ -477,6 +498,29 @@ class TestSearchService:
                         term in error_msg
                         for term in ["event loop", "connection", "404", "not found"]
                     )
+
+    @pytest.mark.asyncio
+    async def test_get_resource_hides_non_public_elasticsearch_documents(self):
+        """Service-level Elasticsearch resource lookups should honor public visibility."""
+        service = SearchService()
+
+        with patch("app.services.search_service.es") as mock_es:
+            mock_es.get.return_value = {
+                "_source": {
+                    "id": "retired-id",
+                    "publication_state": "retired",
+                    "gbl_suppressed_b": False,
+                }
+            }
+
+            with pytest.raises(HTTPException) as exc_info:
+                await service.get_resource(
+                    "retired-id",
+                    include_relationships=False,
+                    include_summaries=False,
+                )
+
+        assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
     async def test_suggest_success(self):
@@ -519,6 +563,45 @@ class TestSearchService:
             return
 
         assert result["meta"]["resource_class"] == "Dataset"
+
+    @pytest.mark.asyncio
+    async def test_suggest_query_applies_public_visibility_filters(self):
+        """Suggestions should use the same public visibility default as search."""
+        service = SearchService()
+
+        with patch("app.services.search_service.es") as mock_es:
+
+            async def mock_search(*args, **kwargs):
+                return type("MockResponse", (), {"body": {"hits": {"hits": []}}})()
+
+            mock_es.search = mock_search
+
+            result = await service.suggest("test", resource_class="Dataset", size=3)
+
+        query = result["meta"]["es_query"]
+        bool_query = query["query"]["bool"]
+        assert query["size"] == 12
+        assert bool_query["must"][0]["multi_match"]["type"] == "bool_prefix"
+        assert {"term": {"publication_state": "published"}} in bool_query["filter"]
+        assert {"term": {"gbl_suppressed_b": False}} in bool_query["filter"]
+        assert {"term": {"gbl_resourceClass_sm.keyword": "Dataset"}} in bool_query["filter"]
+
+    @pytest.mark.asyncio
+    async def test_suggest_include_non_public_omits_public_visibility_filters(self):
+        """The diagnostic override should remove publication/suppression filters."""
+        service = SearchService()
+
+        with patch("app.services.search_service.es") as mock_es:
+
+            async def mock_search(*args, **kwargs):
+                return type("MockResponse", (), {"body": {"hits": {"hits": []}}})()
+
+            mock_es.search = mock_search
+
+            result = await service.suggest("test", include_non_public=True)
+
+        bool_query = result["meta"]["es_query"]["query"]["bool"]
+        assert "filter" not in bool_query
 
     @pytest.mark.asyncio
     async def test_suggest_error_handling(self):
@@ -640,9 +723,10 @@ class TestSearchService:
                 "chicago department of city planning",
                 "chicago metropolitan agency for planning",
             ]
-            assert (
-                result["meta"]["es_query"]["suggest"]["my-suggestion"]["completion"]["size"] == 20
-            )
+            assert result["meta"]["es_query"]["size"] == 20
+            assert {"term": {"publication_state": "published"}} in result["meta"]["es_query"][
+                "query"
+            ]["bool"]["filter"]
 
     @pytest.mark.asyncio
     async def test_search_resource_processing_timing(self):

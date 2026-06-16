@@ -50,6 +50,25 @@ SEARCH_FACET_CACHE_TTL = int(os.getenv("SEARCH_FACET_CACHE_TTL", "3600"))
 SEARCH_TIMING_LOG_THRESHOLD_MS = float(os.getenv("SEARCH_TIMING_LOG_THRESHOLD_MS", "750"))
 SEARCH_FACET_CACHE_NAMESPACE = "search.facets"
 FACET_VALUES_CACHE_NAMESPACE = "search.facet_values"
+PUBLICATION_STATE_FIELD = "publication_state"
+SUPPRESSED_FIELD = "gbl_suppressed_b"
+
+
+def public_visibility_filter_clauses(*, include_non_public: bool = False) -> list[dict]:
+    """Return the default public-resource filters for Elasticsearch queries."""
+    if include_non_public:
+        return []
+    return [
+        {"term": {PUBLICATION_STATE_FIELD: "published"}},
+        {"term": {SUPPRESSED_FIELD: False}},
+    ]
+
+
+def is_public_resource_document(source: dict | None) -> bool:
+    if not isinstance(source, dict):
+        return False
+    publication_state = str(source.get(PUBLICATION_STATE_FIELD) or "").strip().lower()
+    return publication_state == "published" and source.get(SUPPRESSED_FIELD) is False
 
 
 def _escape_query_string_brackets(query_text: str) -> str:
@@ -316,6 +335,7 @@ def _build_search_facet_cache_key(
     exclude_filters: dict | None,
     adv_q: Optional[list],
     selected_aggs: tuple[str, ...],
+    include_non_public: bool,
 ) -> str:
     return CacheService.generate_cache_key(
         SEARCH_FACET_CACHE_NAMESPACE,
@@ -327,6 +347,7 @@ def _build_search_facet_cache_key(
         exclude_filters=exclude_filters or {},
         adv_q=adv_q or [],
         aggs=selected_aggs,
+        include_non_public=include_non_public,
     )
 
 
@@ -341,6 +362,7 @@ def _build_facet_values_cache_key(
     adv_q: Optional[list],
     q_facet: str | None,
     size: int,
+    include_non_public: bool,
 ) -> str:
     return CacheService.generate_cache_key(
         FACET_VALUES_CACHE_NAMESPACE,
@@ -353,6 +375,7 @@ def _build_facet_values_cache_key(
         adv_q=adv_q or [],
         q_facet=q_facet or "",
         size=size,
+        include_non_public=include_non_public,
     )
 
 
@@ -459,13 +482,21 @@ def _log_aggregation_timing(
         logger.debug(log_message, json.dumps(payload, separators=(",", ":"), sort_keys=True))
 
 
-def get_search_criteria(query: str, fq: dict, skip: int, limit: int, sort: list = None):
+def get_search_criteria(
+    query: str,
+    fq: dict,
+    skip: int,
+    limit: int,
+    sort: list = None,
+    include_non_public: bool = False,
+):
     """Return the currently applied search criteria."""
     return {
         "query": query,
         "filters": fq,
         "pagination": {"skip": skip, "limit": limit},
         "sort": sort or [{"_score": "desc"}],
+        "include_non_public": include_non_public,
     }
 
 
@@ -1111,6 +1142,7 @@ class SearchParams:
     adv_q: list | None = None
     hydrate_hits: bool = True
     index_name: str = ""
+    include_non_public: bool = False
 
     @classmethod
     def from_inputs(
@@ -1127,6 +1159,7 @@ class SearchParams:
         facets: str | None,
         adv_q: list | None,
         hydrate_hits: bool,
+        include_non_public: bool = False,
     ) -> "SearchParams":
         normalized_limit = limit if limit > 0 else 20
         return cls(
@@ -1142,6 +1175,7 @@ class SearchParams:
             adv_q=adv_q,
             hydrate_hits=hydrate_hits,
             index_name=os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api"),
+            include_non_public=include_non_public,
         )
 
     @property
@@ -1149,7 +1183,14 @@ class SearchParams:
         return self.sort or [{"_score": "desc"}]
 
     def criteria(self) -> dict:
-        return get_search_criteria(self.query, self.fq, self.skip, self.limit, self.sort)
+        return get_search_criteria(
+            self.query,
+            self.fq,
+            self.skip,
+            self.limit,
+            self.sort,
+            include_non_public=self.include_non_public,
+        )
 
 
 @dataclass
@@ -1193,6 +1234,7 @@ class FacetService:
             exclude_filters=params.exclude_filters,
             adv_q=params.adv_q,
             selected_aggs=selected_agg_names,
+            include_non_public=params.include_non_public,
         )
         facet_cache_lookup_start = time.perf_counter()
         selection.cached_aggregations = await _get_cached_search_aggregations(selection.cache_key)
@@ -1316,7 +1358,9 @@ class SearchQueryBuilder:
         )
 
     def _build_filters(self) -> SearchFilterPlan:
-        filter_clauses = []
+        filter_clauses = public_visibility_filter_clauses(
+            include_non_public=self.params.include_non_public
+        )
         must_not_clauses = []
         bbox_filter_info = None
 
@@ -1822,6 +1866,7 @@ class SearchResponseBuilder:
             exclude_filters=self.params.exclude_filters,
             adv_q=self.params.adv_q,
             hydrate_hits=self.params.hydrate_hits,
+            include_non_public=self.params.include_non_public,
         )
         self._log_timing(execution)
         return result
@@ -1857,6 +1902,7 @@ async def search_resources(
     facets: Optional[str] = None,
     adv_q: Optional[list] = None,
     hydrate_hits: bool = True,
+    include_non_public: bool = False,
 ):
     """Search resources in Elasticsearch with optional filters, sorting, and spelling
     suggestions."""
@@ -1872,6 +1918,7 @@ async def search_resources(
         facets=facets,
         adv_q=adv_q,
         hydrate_hits=hydrate_hits,
+        include_non_public=include_non_public,
     )
     overall_start = time.perf_counter()
 
@@ -1993,6 +2040,7 @@ async def process_search_response(
     exclude_filters: dict | None = None,
     adv_q: Optional[list] = None,
     hydrate_hits: bool = True,
+    include_non_public: bool = False,
 ):
     """Process Elasticsearch response and format for API output."""
     try:
@@ -2172,6 +2220,7 @@ async def process_search_response(
                     "exclude_filters": exclude_filters,
                     "fq": search_criteria.get("filters"),
                     "adv_q": adv_q,
+                    "include_non_public": include_non_public,
                 },
             ),
             *get_sort_options(search_criteria),
@@ -2230,6 +2279,7 @@ async def map_h3_aggregation(
     adv_q: Optional[list] = None,
     bbox: Optional[str] = None,
     resolution: int = 5,
+    include_non_public: bool = False,
 ) -> dict:
     """Run H3 terms agg + global count for map hex layer.
 
@@ -2239,7 +2289,7 @@ async def map_h3_aggregation(
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
     if resolution < 2 or resolution > 8:
         resolution = 5
-    filter_clauses = []
+    filter_clauses = public_visibility_filter_clauses(include_non_public=include_non_public)
     must_not_clauses = []
 
     if fq:
@@ -2490,8 +2540,11 @@ def generate_facet_apply_template(facet_id: str, search_context: dict) -> str:
     exclude_filters = (search_context or {}).get("exclude_filters") or {}
     fq = (search_context or {}).get("fq") or {}
     adv_q = (search_context or {}).get("adv_q")
+    include_non_public = bool((search_context or {}).get("include_non_public"))
 
     query_params: dict[str, list[str] | str] = {"q": q}
+    if include_non_public:
+        query_params["include_non_public"] = "true"
 
     # Preserve advanced query clauses if present (as a compact JSON string)
     if adv_q:
@@ -2647,6 +2700,8 @@ def generate_facet_link(agg_name, facet_value, search_criteria):
     query_params = {
         "q": search_criteria["query"] or "",
     }
+    if search_criteria.get("include_non_public"):
+        query_params["include_non_public"] = "true"
 
     # Add existing filters using include_filters format
     if search_criteria.get("filters"):
@@ -2677,6 +2732,7 @@ async def get_facet_values(
     adv_q: Optional[list] = None,
     q_facet: Optional[str] = None,
     size: int = 1000,
+    include_non_public: bool = False,
 ):
     """Get facet values for a specific facet field within a search context.
 
@@ -2706,7 +2762,7 @@ async def get_facet_values(
     agg_field = facet_config["field"]
 
     # Build the same filter query structure as search_resources
-    filter_clauses = []
+    filter_clauses = public_visibility_filter_clauses(include_non_public=include_non_public)
     must_not_clauses = []
 
     if fq:
@@ -2804,7 +2860,9 @@ async def get_facet_values(
         combined_must_not.extend(advanced_query_structure["must_not"])
 
     # Build the bool query
-    bool_query_dict = {"filter": filter_clauses}
+    bool_query_dict = {}
+    if filter_clauses:
+        bool_query_dict["filter"] = filter_clauses
 
     if must_clauses:
         bool_query_dict["must"] = must_clauses
@@ -2843,6 +2901,7 @@ async def get_facet_values(
         adv_q=adv_q,
         q_facet=q_facet,
         size=size,
+        include_non_public=include_non_public,
     )
     cache_lookup_start = time.perf_counter()
     cached_buckets = await _get_cached_facet_values(cache_key)
@@ -3071,6 +3130,7 @@ async def find_similar_resources(resource_id: str, limit: int = 12) -> list:
                         }
                     }
                 ],
+                "filter": public_visibility_filter_clauses(include_non_public=False),
                 "must_not": [{"term": {"id": resource_id}}],
             }
         }

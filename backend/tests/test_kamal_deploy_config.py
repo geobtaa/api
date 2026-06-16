@@ -42,3 +42,71 @@ def test_prd_feedback_defaults_to_sendmail():
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
 
     assert "ENV.fetch('FEEDBACK_DELIVERY', 'sendmail')" in config_text
+
+
+def test_appsignal_prd_identity():
+    prd_env = _load_deploy_config("config/deploy.prd.yml")["env"]["clear"]
+    config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
+
+    assert prd_env["APPSIGNAL_ACTIVE"] == "true"
+    assert prd_env["APPSIGNAL_APP_ENV"] == "production"
+    assert prd_env["APPSIGNAL_APP_NAME"] == "BTAA Geospatial API - Production"
+    assert prd_env["APPSIGNAL_BACKEND_ACTIVE"] == "true"
+    assert prd_env["APPSIGNAL_BACKEND_APP_ENV"] == "production"
+    assert prd_env["APPSIGNAL_BACKEND_APP_NAME"] == "BTAA Geospatial API - Production"
+    assert prd_env["APPSIGNAL_BACKEND_ENABLE_HOST_METRICS"] == "true"
+    assert prd_env["APPSIGNAL_BACKEND_HOST_ROLE"] == "backend"
+    assert prd_env["APPSIGNAL_BACKEND_OPENTELEMETRY_PORT"] == "8099"
+    assert prd_env["APPSIGNAL_FRONTEND_ACTIVE"] == "true"
+    assert prd_env["APPSIGNAL_FRONTEND_APP_ENV"] == "production"
+    assert prd_env["APPSIGNAL_FRONTEND_APP_NAME"] == "BTAA Geoportal SSR - Production"
+    assert prd_env["APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS"] == "false"
+    assert prd_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
+    assert prd_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
+    assert "APP_REVISION" in prd_env
+    assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text
+
+
+def test_appsignal_dev2_identity():
+    dev2_env = _load_deploy_config("config/deploy.dev2.yml")["env"]["clear"]
+    config_text = (REPO_ROOT / "config/deploy.dev2.yml").read_text()
+
+    assert dev2_env["APPSIGNAL_ACTIVE"] == "true"
+    assert dev2_env["APPSIGNAL_APP_ENV"] == "development"
+    assert dev2_env["APPSIGNAL_APP_NAME"] == "BTAA Geospatial API - Development"
+    assert dev2_env["APPSIGNAL_BACKEND_ACTIVE"] == "true"
+    assert dev2_env["APPSIGNAL_BACKEND_APP_ENV"] == "development"
+    assert dev2_env["APPSIGNAL_BACKEND_APP_NAME"] == "BTAA Geospatial API - Development"
+    assert dev2_env["APPSIGNAL_BACKEND_ENABLE_HOST_METRICS"] == "true"
+    assert dev2_env["APPSIGNAL_BACKEND_HOST_ROLE"] == "backend"
+    assert dev2_env["APPSIGNAL_BACKEND_OPENTELEMETRY_PORT"] == "8099"
+    assert dev2_env["APPSIGNAL_FRONTEND_ACTIVE"] == "true"
+    assert dev2_env["APPSIGNAL_FRONTEND_APP_ENV"] == "development"
+    assert dev2_env["APPSIGNAL_FRONTEND_APP_NAME"] == "BTAA Geoportal SSR - Development"
+    assert dev2_env["APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS"] == "false"
+    assert dev2_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
+    assert dev2_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
+    assert "APP_REVISION" in dev2_env
+    assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text
+
+
+def test_appsignal_dev1_disabled():
+    dev1_env = _load_deploy_config("config/deploy.dev1.yml")["env"]["clear"]
+    config_text = (REPO_ROOT / "config/deploy.dev1.yml").read_text()
+
+    assert dev1_env["APPSIGNAL_ACTIVE"] == "false"
+    assert dev1_env["APPSIGNAL_APP_ENV"] == "development"
+    assert dev1_env["APPSIGNAL_BACKEND_ACTIVE"] == "false"
+    assert dev1_env["APPSIGNAL_BACKEND_APP_ENV"] == "development"
+    assert dev1_env["APPSIGNAL_BACKEND_APP_NAME"] == "BTAA Geospatial API - Development"
+    assert dev1_env["APPSIGNAL_BACKEND_ENABLE_HOST_METRICS"] == "false"
+    assert dev1_env["APPSIGNAL_BACKEND_HOST_ROLE"] == "backend"
+    assert dev1_env["APPSIGNAL_BACKEND_OPENTELEMETRY_PORT"] == "8099"
+    assert dev1_env["APPSIGNAL_FRONTEND_ACTIVE"] == "false"
+    assert dev1_env["APPSIGNAL_FRONTEND_APP_ENV"] == "development"
+    assert dev1_env["APPSIGNAL_FRONTEND_APP_NAME"] == "BTAA Geoportal SSR - Development"
+    assert dev1_env["APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS"] == "false"
+    assert dev1_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
+    assert dev1_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
+    assert "APP_REVISION" in dev1_env
+    assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text

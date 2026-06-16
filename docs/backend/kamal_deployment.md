@@ -18,6 +18,30 @@ It intentionally omits older generic Kamal guidance that does not match how thes
 
 Shared secrets live in `.kamal/secrets-common`.
 
+## AppSignal Telemetry
+
+The destination deploy files set AppSignal identity explicitly. The FastAPI API
+and React SSR frontend report as separate AppSignal apps so incidents,
+performance traces, and route/action names stay grouped by runtime.
+
+| Destination | Backend telemetry | Backend app | Frontend telemetry | Frontend app |
+|-------------|-------------------|-------------|--------------------|--------------|
+| `dev1` | disabled with `APPSIGNAL_BACKEND_ACTIVE=false` | `BTAA Geospatial API - Development` | disabled with `APPSIGNAL_FRONTEND_ACTIVE=false` | `BTAA Geoportal SSR - Development` |
+| `dev2` | enabled | `BTAA Geospatial API - Development` | enabled | `BTAA Geoportal SSR - Development` |
+| `prd` | enabled | `BTAA Geospatial API - Production` | enabled | `BTAA Geoportal SSR - Production` |
+
+`APPSIGNAL_BACKEND_*` values are consumed by `backend/__appsignal__.py` and
+`APPSIGNAL_FRONTEND_*` values are consumed by `frontend/appsignal.cjs`. The
+older shared `APPSIGNAL_ACTIVE`, `APPSIGNAL_APP_ENV`, and
+`APPSIGNAL_APP_NAME` values remain as fallbacks for local/dev compatibility.
+The backend uses AppSignal's default OpenTelemetry HTTP port, `8099`, and owns
+host metrics. The frontend SSR process uses `8100` and sets
+`APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS=false` to avoid duplicate host metrics
+from the same Kamal container.
+
+Each destination also sets `APP_REVISION` from `APP_REVISION`, falling back to
+`KAMAL_VERSION`, so AppSignal releases line up with Kamal deploy revisions.
+
 Kamal always requires an explicit destination in this repo:
 
 ```bash

@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from httpx import AsyncClient
 from starlette.requests import Request
 
-from app.api.v1.endpoint_modules.search import _handle_search
+from app.api.v1.endpoint_modules.search import _build_semantic_search_cache_key, _handle_search
 from app.main import app
 from app.services.resource_representation_cache import RESOURCE_SEARCH_RESULT_REPRESENTATION_PROFILE
 from tests.utils.route_helpers import route_paths
@@ -282,6 +282,7 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
     )
     assert mock_search.await_args.kwargs["hydrate_hits"] is False
     assert mock_search.await_args.kwargs["sanitize_response"] is False
+    assert mock_search.await_args.kwargs["include_non_public"] is False
     assert mock_async_session.call_count == 1
     assert mock_process_resource.await_args.kwargs["include_similar_items"] is False
     assert mock_process_resource.await_args.kwargs["distribution_context"] is distribution_context
@@ -312,6 +313,55 @@ async def test_handle_search_builds_and_stores_missing_resource_representation()
 
     payload = json.loads(response.body)
     assert payload["data"][0]["meta"]["score"] == 12.5
+
+
+@pytest.mark.asyncio
+async def test_handle_search_forwards_include_non_public():
+    request = _build_request(b"q=st+paul&include_non_public=true")
+    search_mock = AsyncMock(
+        return_value={
+            "data": [],
+            "meta": {"pages": {"total_count": 0, "total_pages": 0}},
+            "queryTime": {},
+        }
+    )
+
+    with patch("app.api.v1.endpoint_modules.search.SearchService.search", search_mock):
+        response = await _handle_search(
+            request,
+            {
+                "q": "st paul",
+                "page": 1,
+                "per_page": 20,
+                "meta": True,
+                "request_query_params": "q=st+paul&include_non_public=true",
+                "include_non_public": True,
+            },
+        )
+
+    assert response.status_code == 200
+    assert search_mock.await_args.kwargs["include_non_public"] is True
+
+
+def test_semantic_search_cache_key_includes_include_non_public():
+    common = {
+        "q": "st paul",
+        "page": 1,
+        "per_page": 20,
+        "sort": None,
+        "search_field": None,
+        "fields": None,
+        "facets": None,
+        "include_filters": {},
+        "exclude_filters": {},
+        "fq": {},
+        "adv_q": None,
+    }
+
+    public_key = _build_semantic_search_cache_key(**common, include_non_public=False)
+    non_public_key = _build_semantic_search_cache_key(**common, include_non_public=True)
+
+    assert public_key != non_public_key
 
 
 @pytest.mark.asyncio

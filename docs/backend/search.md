@@ -10,6 +10,11 @@
 
 ## Searching
 
+The Elasticsearch index contains all resource rows. Public search, facet, map,
+suggestion, and similar-item queries filter to `publication_state=published` and
+`gbl_suppressed_b=false` by default. Internal diagnostics can pass
+`include_non_public=true` to include unpublished and suppressed records.
+
 ### Searching all documents
 `curl -X GET http://localhost:9200/geoblacklight/_search?q=*:*&pretty`
 
@@ -43,6 +48,7 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `per_page`        | integer  | No       | Number of resources per page                                                                         | `10`, `25`                                        |
 | `sort`            | string   | No       | Sort option: `relevance`, `year_desc`, `year_asc`, `title_asc`, `title_desc`                     | `year_desc`                                       |
 | `callback`        | string   | No       | JSONP callback name (for JSONP support)                                                          | `myCallback`                                      |
+| `include_non_public` | boolean | No       | Include unpublished and suppressed records in Elasticsearch-backed responses                      | `true`                                            |
 | `fq[spatial_agg][]`         | string[] | No       | Filter by spatial location (maps to `dct_spatial_sm`)                                            | `fq[spatial_agg][]=Minnesota`                     |
 | `fq[resource_type_agg][]`   | string[] | No       | Filter by resource type (maps to `gbl_resourceType_sm`)                                          | `fq[resource_type_agg][]=Map`                     |
 | `fq[resource_class_agg][]`  | string[] | No       | Filter by resource class (maps to `gbl_resourceClass_sm`)                                        | `fq[resource_class_agg][]=Datasets`               |

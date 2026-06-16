@@ -37,6 +37,10 @@ async def map_h3(
         description="Viewport bbox as west,south,east,north",
     ),
     resolution: int = Query(5, ge=2, le=8, description="H3 resolution (2–8)"),
+    include_non_public: bool = Query(
+        False,
+        description="Include unpublished and suppressed records in map aggregates",
+    ),
 ):
     """Return H3 hex aggregates and global count for the map hex layer.
 
@@ -71,6 +75,7 @@ async def map_h3(
             adv_q=parsed_adv_q,
             bbox=bbox,
             resolution=resolution,
+            include_non_public=include_non_public,
         )
         return JSONResponse(content=result)
     except Exception as e:

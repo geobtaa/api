@@ -353,6 +353,7 @@ Supports both GET (simple) and POST (complex) forms.
 | `exclude_filters` | object | Active facet exclude filters |
 | `meta` | boolean | Include META (default true) |
 | `adv_q` | string | JSON array of advanced query clauses. Example: `{'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}` | 
+| `include_non_public` | boolean | Include unpublished and suppressed records; default searches require `publication_state=published` and `gbl_suppressed_b=false` |
 
 ## Search Facet Pagination
 
@@ -375,6 +376,7 @@ Supports both GET (simple) and POST (complex) forms.
 | `sort` | string |  | Sort option: `count_desc`, `count_asc`, `alpha_asc`, `alpha_desc` (default: `count_desc`) |
 | `q_facet` | string |  | Search query to filter facet values |
 | `adv_q` | string |  | JSON array of advanced query clauses. Each clause: `{'op': 'AND\|OR\|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}` |
+| `include_non_public` | boolean |  | Include unpublished and suppressed records |
 
 ## Search Autosuggestions
 
@@ -392,6 +394,7 @@ Supports both GET (simple) and POST (complex) forms.
 | :---- | :---- | :---- | :---- |
 | `q` | string | ✔️ | Search query for suggestions |
 | `callback` | string |  | JSONP callback name |
+| `include_non_public` | boolean |  | Include unpublished and suppressed records |
 
 ## Resource Endpoint
 

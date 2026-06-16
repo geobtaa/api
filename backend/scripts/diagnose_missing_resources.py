@@ -43,7 +43,7 @@ async def main():
         await database.connect()
 
         # Flags
-        published_only = _env_bool("PUBLISHED_ONLY", True)
+        published_only = _env_bool("PUBLISHED_ONLY", False)
         use_b1g_pub_state = _env_bool("USE_B1G_PUBLICATION_STATE", False)
         check_id = os.getenv("CHECK_ID")  # Optional: explicitly verify a single ID
 

@@ -8,6 +8,11 @@ try:
 except ImportError:
     appsignal = None  # Optional: not installed in minimal/test envs
 
+try:
+    from opentelemetry import trace
+except ImportError:
+    trace = None  # Optional: requires appsignal/otel stack
+
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
@@ -60,7 +65,19 @@ from db.sync_engine import dispose_app_sync_engines
 
 # Load environment variables from .env file
 load_dotenv()
-if appsignal is not None and os.getenv("APP_ENV") != "test":
+
+
+def _env_flag(name: str, default: str = "false") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+APPSIGNAL_ENABLED = (
+    appsignal is not None
+    and os.getenv("APP_ENV") != "test"
+    and _env_flag("APPSIGNAL_BACKEND_ACTIVE", os.getenv("APPSIGNAL_ACTIVE", "true"))
+)
+
+if APPSIGNAL_ENABLED:
     appsignal.start()
 
 # Create logs directory if it doesn't exist
@@ -158,7 +175,7 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
-if FastAPIInstrumentor is not None and appsignal is not None and os.getenv("APP_ENV") != "test":
+if FastAPIInstrumentor is not None and APPSIGNAL_ENABLED:
     FastAPIInstrumentor().instrument_app(app)
 
 
@@ -166,10 +183,6 @@ if FastAPIInstrumentor is not None and appsignal is not None and os.getenv("APP_
 # - GZipMiddleware supports gzip only; brotli should typically be handled at the edge
 #   (e.g., CDN/Nginx).
 # - Disabled automatically during tests to avoid surprising header-level assertions.
-def _env_flag(name: str, default: str = "false") -> bool:
-    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
-
-
 if os.getenv("APP_ENV") != "test" and _env_flag("ENABLE_RESPONSE_COMPRESSION", "true"):
     gzip_minimum_size = int(os.getenv("GZIP_MINIMUM_SIZE", "1000"))
     gzip_compresslevel = int(os.getenv("GZIP_COMPRESSLEVEL", "6"))
@@ -205,6 +218,44 @@ class CrossOriginHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["X-Robots-Tag"] = robots_tag
 
         return response
+
+
+def _set_appsignal_route_name(request: Request) -> None:
+    if not APPSIGNAL_ENABLED:
+        return
+
+    route = request.scope.get("route")
+    route_path = getattr(route, "path", None)
+    if route_path:
+        root_path = request.scope.get("root_path") or ""
+        action_name = f"{request.method} {root_path}{route_path}"
+    else:
+        action_name = f"{request.method} unmatched_route"
+
+    tracing = getattr(appsignal, "tracing", None)
+    for setter_name in ("set_name", "set_root_name"):
+        setter = getattr(tracing, setter_name, None) if tracing is not None else None
+        if callable(setter):
+            setter(action_name)
+
+    if trace is not None:
+        current_span = trace.get_current_span()
+        if current_span is not None:
+            try:
+                current_span.update_name(action_name)
+                if route_path:
+                    current_span.set_attribute("http.route", route_path)
+            except Exception:
+                logger.debug("Unable to set OpenTelemetry route name", exc_info=True)
+
+
+class AppSignalRouteNameMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        try:
+            response = await call_next(request)
+            return response
+        finally:
+            _set_appsignal_route_name(request)
 
 
 # Add CORS middleware - Permissive for public API
@@ -248,6 +299,9 @@ app.add_middleware(RateLimitMiddleware)
 
 # Add Cloudflare Turnstile browser gate middleware
 app.add_middleware(TurnstileMiddleware)
+
+# Keep AppSignal incident grouping stable even when instrumentation sees raw URLs.
+app.add_middleware(AppSignalRouteNameMiddleware)
 
 # Add request IDs after other middleware so it runs first in the Starlette stack.
 app.add_middleware(RequestIDMiddleware)
