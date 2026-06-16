@@ -6,11 +6,19 @@ minimal-app unit tests that mock map_h3_aggregation.
 
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def disable_endpoint_cache(monkeypatch):
+    from app.services import cache_service
+
+    monkeypatch.setattr(cache_service, "ENDPOINT_CACHE", False)
 
 
 @patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)
@@ -38,6 +46,20 @@ def test_map_h3_returns_resolution_hexes_global_count(mock_agg):
     assert call_kw["q"] == "maps"
     assert call_kw["bbox"] == "-94,44,-92,46"
     assert call_kw["resolution"] == 5
+    assert call_kw["include_non_public"] is False
+
+
+@patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)
+def test_map_h3_forwards_include_non_public(mock_agg):
+    mock_agg.return_value = {"resolution": 5, "hexes": [], "globalCount": 0}
+
+    resp = client.get(
+        "/api/v1/map/h3",
+        params={"bbox": "-94,44,-92,46", "include_non_public": "true"},
+    )
+
+    assert resp.status_code == 200
+    assert mock_agg.call_args.kwargs["include_non_public"] is True
 
 
 @patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)

@@ -40,6 +40,9 @@ class TestMappings:
         assert title_field["fields"]["keyword"]["type"] == "keyword"
         assert title_field["fields"]["keyword"]["normalizer"] == "lowercase"
 
+        assert properties["publication_state"]["type"] == "keyword"
+        assert properties["gbl_suppressed_b"]["type"] == "boolean"
+
     def test_spatial_field_mappings(self):
         """Test that spatial field mappings are correctly configured."""
         properties = INDEX_MAPPING["mappings"]["properties"]

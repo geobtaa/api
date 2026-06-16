@@ -79,7 +79,8 @@ def _search_error_response(
 
 
 SEARCH_RESULT_CACHE_TTL = int(os.getenv("SEARCH_RESULT_CACHE_TTL", str(SEARCH_CACHE_TTL)))
-SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v1")
+# Bump when search query semantics change so stale cached totals do not survive deploys.
+SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v2")
 SEARCH_RESULT_CACHE_NAMESPACE = "search.results"
 SEARCH_RESULT_CACHE_ENABLED = os.getenv("SEARCH_RESULT_CACHE", "true").lower() == "true"
 SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS = float(
@@ -186,6 +187,14 @@ def _canonical_filter_value(value):
     return value
 
 
+def _coerce_request_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "t", "yes", "y", "on"}
+    return False
+
+
 def _build_semantic_search_cache_key(
     *,
     q,
@@ -199,6 +208,7 @@ def _build_semantic_search_cache_key(
     exclude_filters,
     fq,
     adv_q,
+    include_non_public: bool,
 ) -> str:
     """Cache key for the expensive request-independent search response core."""
     return CacheService.generate_cache_key(
@@ -216,6 +226,7 @@ def _build_semantic_search_cache_key(
         exclude_filters=_canonical_filter_value(exclude_filters or {}),
         fq=_canonical_filter_value(fq or {}),
         adv_q=adv_q or [],
+        include_non_public=include_non_public,
     )
 
 
@@ -411,6 +422,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     exclude_filters = params.get("exclude_filters")
     fq = params.get("fq")
     adv_q = params.get("adv_q")
+    include_non_public = _coerce_request_bool(params.get("include_non_public", False))
 
     # Validate adv_q if provided
     if adv_q is not None:
@@ -433,6 +445,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         exclude_filters=exclude_filters,
         fq=fq,
         adv_q=adv_q,
+        include_non_public=include_non_public,
     )
     cache_service = CacheService()
     cached_core, semantic_cache_status = await _get_cached_search_response_core(
@@ -479,6 +492,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         adv_q=adv_q,
         hydrate_hits=False,
         sanitize_response=False,
+        include_non_public=include_non_public,
     )
     search_duration_ms = (time.perf_counter() - search_started_at) * 1000
     if isinstance(results, dict) and "error" in results:
@@ -769,6 +783,10 @@ async def search(
             "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
         ),
     ),
+    include_non_public: bool = Query(
+        False,
+        description="Include unpublished and suppressed records in Elasticsearch-backed results",
+    ),
 ):
     """Search resources."""
 
@@ -842,6 +860,7 @@ async def search(
                 "fq": filter_query,
                 "include_filters": include_filters,
                 "exclude_filters": exclude_filters,
+                "include_non_public": include_non_public,
             },
         )
     except HTTPException:
@@ -888,6 +907,7 @@ async def search_post(
       - q, page, per_page, sort, search_field, fields, facets, meta
       - include_filters, exclude_filters, fq (object of field->values)
       - adv_q (array of query clauses with op, f, q)
+      - include_non_public (boolean; default false)
     """
 
     # Extract parameters with defaults matching GET
@@ -901,6 +921,7 @@ async def search_post(
     meta = payload.get("meta", True)
     callback = payload.get("callback")
     adv_q = payload.get("adv_q")
+    include_non_public = _coerce_request_bool(payload.get("include_non_public", False))
 
     include_filters = payload.get("include_filters")
     exclude_filters = payload.get("exclude_filters")
@@ -924,6 +945,7 @@ async def search_post(
                 "exclude_filters": exclude_filters,
                 "fq": fq,
                 "adv_q": adv_q,
+                "include_non_public": include_non_public,
             },
         )
     except HTTPException:
@@ -957,6 +979,12 @@ async def get_facet(
             "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
         ),
     ),
+    include_non_public: bool = Query(
+        False,
+        description=(
+            "Include unpublished and suppressed records in Elasticsearch-backed facet counts"
+        ),
+    ),
 ):
     """Get paginated, sortable facet values for a specific facet field within a search resultset.
 
@@ -967,6 +995,8 @@ async def get_facet(
     import json
 
     try:
+        include_non_public = _coerce_request_bool(include_non_public)
+
         # Validate facet name
         try:
             get_facet_aggregation_config(facet_name)
@@ -1021,7 +1051,14 @@ async def get_facet(
             parsed_adv_q = validate_adv_q(parsed_adv_q)
 
         # Build search criteria for link generation
-        search_criteria = get_search_criteria(q, filter_query, 0, 10, None)
+        search_criteria = get_search_criteria(
+            q,
+            filter_query,
+            0,
+            10,
+            None,
+            include_non_public=include_non_public,
+        )
 
         # Get facet values from Elasticsearch
         buckets = await get_facet_values(
@@ -1032,6 +1069,7 @@ async def get_facet(
             exclude_filters=exclude_filters,
             adv_q=parsed_adv_q,
             q_facet=q_facet,
+            include_non_public=include_non_public,
         )
 
         # Process and format facet response
@@ -1062,6 +1100,7 @@ async def get_facet(
                 "exclude_filters": exclude_filters,
                 "fq": filter_query,
                 "adv_q": parsed_adv_q,
+                "include_non_public": include_non_public,
             },
         )
 
@@ -1102,11 +1141,16 @@ async def suggest(
     request: Request,
     q: str = Query(..., description="Search query for suggestions"),
     callback: Optional[str] = Query(None, description="JSONP callback name"),
+    include_non_public: bool = Query(
+        False,
+        description="Include unpublished and suppressed records in suggestions",
+    ),
 ):
     """Get search suggestions."""
     try:
+        include_non_public = _coerce_request_bool(include_non_public)
         search_service = SearchService()
-        suggestions = await search_service.suggest(q)
+        suggestions = await search_service.suggest(q, include_non_public=include_non_public)
 
         # Create JSON:API compliant response
         request_url = str(request.url) if request else None

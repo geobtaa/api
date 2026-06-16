@@ -156,10 +156,10 @@ Common parameters:
 
 | Area | Parameters |
 | --- | --- |
-| Search | `q`, `page`, `per_page`, `sort`, `search_field`, `fields`, `facets`, `meta`, `format`, `callback`, `adv_q`, `include_filters`, `exclude_filters`, `fq`. |
-| Facets | `facet_name`, `q`, `page`, `per_page`, `sort`, `q_facet`, `adv_q`, include/exclude filter params. |
+| Search | `q`, `page`, `per_page`, `sort`, `search_field`, `fields`, `facets`, `meta`, `format`, `callback`, `adv_q`, `include_non_public`, `include_filters`, `exclude_filters`, `fq`. |
+| Facets | `facet_name`, `q`, `page`, `per_page`, `sort`, `q_facet`, `adv_q`, `include_non_public`, include/exclude filter params. |
 | Resources | `id`, `fields`, `format`, `callback`, `ui_profile`, `variant`, `debug`, `embed`. |
-| Map/H3 | `q`, `adv_q`, `bbox`, `resolution`, include/exclude filters. |
+| Map/H3 | `q`, `adv_q`, `bbox`, `resolution`, `include_non_public`, include/exclude filters. |
 | OGC | `q`, `bbox`, `datetime`, `limit`, `page`, `sortby`. |
 | Admin status | `status`, `limit`, `offset`, `runs_limit`, `include_celery`, `format`, `repo_name`. |
 

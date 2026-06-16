@@ -44,7 +44,24 @@ builder:
 env:
   clear:
     APPLICATION_URL: https://geodev.btaa.org
+    APP_ENV: development
+    APP_REVISION: "<%= ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') { `git rev-parse --verify HEAD`.strip } } %>"
     KAMAL_DEST: dev2
+    APPSIGNAL_ACTIVE: "true"
+    APPSIGNAL_APP_ENV: development
+    APPSIGNAL_APP_NAME: "BTAA Geospatial API - Development"
+    APPSIGNAL_BACKEND_ACTIVE: "true"
+    APPSIGNAL_BACKEND_APP_ENV: development
+    APPSIGNAL_BACKEND_APP_NAME: "BTAA Geospatial API - Development"
+    APPSIGNAL_BACKEND_ENABLE_HOST_METRICS: "true"
+    APPSIGNAL_BACKEND_HOST_ROLE: backend
+    APPSIGNAL_BACKEND_OPENTELEMETRY_PORT: "8099"
+    APPSIGNAL_FRONTEND_ACTIVE: "true"
+    APPSIGNAL_FRONTEND_APP_ENV: development
+    APPSIGNAL_FRONTEND_APP_NAME: "BTAA Geoportal SSR - Development"
+    APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS: "false"
+    APPSIGNAL_FRONTEND_HOST_ROLE: frontend
+    APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT: "8100"
     TURNSTILE_ENABLED: "true"
     TURNSTILE_ALLOWED_HOSTNAMES: geodev.btaa.org,lib-geoportal-dev-web-01.oit.umn.edu
     TURNSTILE_COOKIE_SECURE: "true"

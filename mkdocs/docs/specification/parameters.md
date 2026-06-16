@@ -20,6 +20,7 @@ Applies to `GET /api/v1/search` unless noted otherwise.
 | `callback` | string | JSONP-capable endpoints | JSONP callback name (supported only on endpoints that use `create_response` / `create_jsonapi_response`). |
 | `adv_q` | string (JSON) | `/search`, `/search/facets/{facet_name}` | JSON array of clauses like `{"op":"AND|OR|NOT","f":"dct_title_s","q":"Iowa"}`. |
 | `q_facet` | string | `/search/facets/{facet_name}` | Filters facet values by text. |
+| `include_non_public` | boolean | `/search`, `/search/facets/{facet_name}`, `/suggest`, `/map/h3` | Include unpublished and suppressed records. Default public queries require `publication_state=published` and `gbl_suppressed_b=false`. |
 | `fq` | object | `/search` (`POST` body) | Legacy/object-style include filters (`field -> values`). |
 | `include_filters` | object | `/search`, `/search/facets/{facet_name}`, `/map/h3` | Include filter object (same logical purpose as `fq`). |
 | `exclude_filters` | object | `/search`, `/search/facets/{facet_name}`, `/map/h3` | Exclude filter object. |

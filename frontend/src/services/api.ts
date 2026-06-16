@@ -1098,7 +1098,7 @@ export interface MapH3Response {
   globalCount: number;
 }
 
-const MAP_H3_REQUEST_VERSION = '2';
+const MAP_H3_REQUEST_VERSION = '3';
 
 function normalizeMapH3Response(raw: MapH3ResponseRaw): MapH3Response {
   return {

@@ -248,7 +248,7 @@ async def check_elasticsearch_health() -> Dict[str, Any]:
                 await database.connect()
 
                 # Get DB count based on published_only setting
-                published_only = os.getenv("PUBLISHED_ONLY", "1").strip().lower() in {
+                published_only = os.getenv("PUBLISHED_ONLY", "0").strip().lower() in {
                     "1",
                     "true",
                     "t",

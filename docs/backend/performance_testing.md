@@ -353,7 +353,10 @@ These backend env vars are useful when tuning facet-heavy search behavior:
   same as `SEARCH_CACHE_TTL` (`3600` seconds).
 - `SEARCH_RESULT_CACHE_VERSION`
   Bumps only the semantic search response-core namespace when the cached core
-  format changes. Default: `v1`.
+  format changes. Default: `v2`.
+- `SEARCH_AGGREGATION_CACHE_VERSION`
+  Bumps cached search facet blocks and facet-value buckets when aggregation
+  semantics change. Default: `v2`.
 - `SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS`
   Controls how briefly a request waits for another worker to fill the semantic
   cache before computing the response itself. Default: `0.25` seconds.

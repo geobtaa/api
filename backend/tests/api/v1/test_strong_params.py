@@ -4,6 +4,7 @@ Tests for the strong_params module.
 
 from app.api.v1.strong_params import (
     ADMIN_ALLOWED_PARAMS,
+    FACET_ALLOWED_PARAMS,
     GAZETTEER_ALLOWED_PARAMS,
     MCP_ALLOWED_PARAMS,
     RESOURCE_ALLOWED_PARAMS,
@@ -27,6 +28,11 @@ class TestStrongParams:
         assert "per_page" in SEARCH_ALLOWED_PARAMS
         assert "sort" in SEARCH_ALLOWED_PARAMS
         assert "callback" in SEARCH_ALLOWED_PARAMS
+        assert "include_non_public" in SEARCH_ALLOWED_PARAMS
+
+    def test_facet_allowed_params_include_visibility_override(self):
+        """Facet links should preserve the diagnostics visibility override."""
+        assert "include_non_public" in FACET_ALLOWED_PARAMS
 
     def test_search_allowed_params_facet_filters(self):
         """Test that SEARCH_ALLOWED_PARAMS contains facet filter parameters."""
@@ -106,6 +112,7 @@ class TestStrongParams:
         """Test that all parameters in all lists are strings."""
         all_param_lists = [
             SEARCH_ALLOWED_PARAMS,
+            FACET_ALLOWED_PARAMS,
             GAZETTEER_ALLOWED_PARAMS,
             RESOURCE_ALLOWED_PARAMS,
             ADMIN_ALLOWED_PARAMS,

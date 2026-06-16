@@ -13,8 +13,17 @@ from app.api.v1.shared import SORT_MAPPINGS
 from app.api.v1.utils import create_jsonapi_resource, sanitize_for_json
 from app.elasticsearch import search_resources
 from app.elasticsearch.client import es
-from app.elasticsearch.search import _normalize_geo_params
-from app.elasticsearch.suggest import normalize_suggestion_text, suggestion_sort_key
+from app.elasticsearch.search import (
+    _normalize_geo_params,
+    is_public_resource_document,
+    public_visibility_filter_clauses,
+)
+from app.elasticsearch.suggest import (
+    SUGGEST_SOURCE_FIELDS,
+    build_suggest_inputs,
+    normalize_suggestion_text,
+    suggestion_sort_key,
+)
 from app.services.citation_service import CitationService
 from app.services.distribution_repository import fetch_distribution_context
 from app.services.download_service import DownloadService
@@ -118,6 +127,7 @@ class SearchService:
         adv_q: Optional[list] = None,
         hydrate_hits: bool = True,
         sanitize_response: bool = True,
+        include_non_public: bool = False,
     ) -> Dict:
         """Search endpoint with caching support."""
         try:
@@ -180,6 +190,7 @@ class SearchService:
                 facets=facets,
                 adv_q=adv_q,
                 hydrate_hits=hydrate_hits,
+                include_non_public=include_non_public,
             )
             # Defensive: ensure results is a dict
             if not isinstance(results, dict):
@@ -233,6 +244,7 @@ class SearchService:
         callback: Optional[str] = None,
         include_relationships: bool = True,
         include_summaries: bool = True,
+        include_non_public: bool = False,
     ) -> Dict:
         """Get a single resource by ID."""
         try:
@@ -251,6 +263,9 @@ class SearchService:
                 raise HTTPException(status_code=500, detail=detail) from e
 
             source_data = result["_source"]
+            if not include_non_public and not is_public_resource_document(source_data):
+                raise HTTPException(status_code=404, detail="Resource not found")
+
             references = source_data.get("dct_references_s")
             if isinstance(references, str):
                 try:
@@ -320,31 +335,82 @@ class SearchService:
             logger.error("Error getting resource %s", id, exc_info=True)
             raise HTTPException(status_code=500, detail=str(e)) from e
 
-    async def suggest(self, q: str, resource_class: Optional[str] = None, size: int = 5) -> Dict:
+    async def suggest(
+        self,
+        q: str,
+        resource_class: Optional[str] = None,
+        size: int = 5,
+        include_non_public: bool = False,
+    ) -> Dict:
         """Get search suggestions."""
         try:
             raw_size = max(size * 4, 10)
-            suggest_query = {
-                "suggest": {
-                    "my-suggestion": {
-                        "prefix": q,
-                        "completion": {
-                            "field": "suggest",
-                            "size": raw_size,
-                            "skip_duplicates": True,
-                            "fuzzy": {"fuzziness": "AUTO"},
-                        },
+            normalized_query = normalize_suggestion_text(q) or q.strip().lower()
+            filter_clauses = public_visibility_filter_clauses(include_non_public=include_non_public)
+            if resource_class:
+                filter_clauses.append({"term": {"gbl_resourceClass_sm.keyword": resource_class}})
+
+            bool_query = {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": q,
+                            "type": "bool_prefix",
+                            "fields": list(SUGGEST_SOURCE_FIELDS),
+                        }
                     }
-                },
+                ]
             }
-            response = es.search(index=self.index_name, body=suggest_query)
+            if filter_clauses:
+                bool_query["filter"] = filter_clauses
+
+            suggest_query = {
+                "query": {
+                    "bool": bool_query,
+                },
+                "_source": list(SUGGEST_SOURCE_FIELDS),
+                "size": raw_size,
+            }
+            response = es.search(
+                index=self.index_name,
+                query=suggest_query["query"],
+                size=raw_size,
+                _source=suggest_query["_source"],
+            )
             if inspect.isawaitable(response):
                 response = await response
-            response_dict = response.body
+            response_dict = response.body if hasattr(response, "body") else response
             suggestions_by_id = {}
             suggestions_by_text = {}
 
-            if response_dict.get("suggest", {}).get("my-suggestion"):
+            hits = response_dict.get("hits", {}).get("hits", [])
+            for hit in hits:
+                hit_id = hit.get("_id")
+                source = hit.get("_source", {}) or {}
+                hit_score = hit.get("_score", 0)
+                for suggestion_text in build_suggest_inputs(source):
+                    if normalized_query and normalized_query not in suggestion_text:
+                        continue
+                    suggestion_candidate = {
+                        "type": "suggestion",
+                        "id": hit_id,
+                        "attributes": {
+                            "text": suggestion_text,
+                            "score": hit_score,
+                        },
+                    }
+                    existing_by_id = suggestions_by_id.get(hit_id)
+                    if existing_by_id and suggestion_sort_key(
+                        existing_by_id["attributes"]["text"],
+                        q,
+                        existing_by_id["attributes"]["score"],
+                    ) <= suggestion_sort_key(suggestion_text, q, hit_score):
+                        continue
+
+                    suggestions_by_id[hit_id] = suggestion_candidate
+
+            # Compatibility fallback for older mocks/responses shaped like completion suggesters.
+            if not suggestions_by_id and response_dict.get("suggest", {}).get("my-suggestion"):
                 for suggestion in response_dict["suggest"]["my-suggestion"]:
                     if options := suggestion.get("options", []):
                         for option in options:

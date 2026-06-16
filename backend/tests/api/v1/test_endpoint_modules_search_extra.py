@@ -3,12 +3,22 @@ import json
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def disable_endpoint_cache(monkeypatch):
+    from app.services import cache_service
+
+    monkeypatch.setattr(cache_service, "ENDPOINT_CACHE", False)
+
+
 @pytest.mark.asyncio
 async def test_suggest_success(monkeypatch):
     from app.api.v1.endpoint_modules import search as se
 
+    captured = {}
+
     class FakeSearchService:
-        async def suggest(self, q):
+        async def suggest(self, q, include_non_public=False):
+            captured["include_non_public"] = include_non_public
             return {"data": ["a", "b"]}
 
     monkeypatch.setattr(se, "SearchService", lambda: FakeSearchService())
@@ -16,6 +26,7 @@ async def test_suggest_success(monkeypatch):
     assert hasattr(resp, "body")
     data = json.loads(resp.body)
     assert data.get("data") == ["a", "b"]
+    assert captured["include_non_public"] is False
 
 
 @pytest.mark.asyncio
@@ -104,8 +115,11 @@ async def test_search_success(monkeypatch):
 async def test_suggest_jsonp(monkeypatch):
     from app.api.v1.endpoint_modules import search as se
 
+    captured = {}
+
     class FakeSearchService:
-        async def suggest(self, q):
+        async def suggest(self, q, include_non_public=False):
+            captured["include_non_public"] = include_non_public
             return {"data": ["a"]}
 
     monkeypatch.setattr(se, "SearchService", lambda: FakeSearchService())
@@ -120,5 +134,11 @@ async def test_suggest_jsonp(monkeypatch):
         def url(self):
             return self._url
 
-    resp = await se.suggest(q="a", callback="cb", request=DummyRequest())
+    resp = await se.suggest(
+        q="a",
+        callback="cb",
+        request=DummyRequest(),
+        include_non_public=True,
+    )
     assert hasattr(resp, "body")
+    assert captured["include_non_public"] is True

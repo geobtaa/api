@@ -4,7 +4,7 @@ Zero-downtime, alias-based reindex for local Docker and Kamal.
 
 Flow:
 1) Build a new versioned index: <ELASTICSEARCH_INDEX>_YYYYmmddHHMMSS
-2) Index matching DB resources into the new index
+2) Index DB resources into the new index
 3) Verify expected counts before cutover
 4) Atomically swap alias ELASTICSEARCH_INDEX -> new versioned index
 5) Keep one previous versioned index (configurable) and prune older ones
@@ -581,7 +581,7 @@ async def _prune_old_versioned_indices(
 
 async def main() -> None:
     base_alias = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
-    published_only = _env_bool("PUBLISHED_ONLY", True)
+    published_only = _env_bool("PUBLISHED_ONLY", False)
     use_b1g_pub_state = _env_bool("USE_B1G_PUBLICATION_STATE", False)
     chunk_size = _env_int("REINDEX_ATOMIC_CHUNK_SIZE", 2000)
     bulk_size = _env_int("REINDEX_ATOMIC_BULK_SIZE", 2000)

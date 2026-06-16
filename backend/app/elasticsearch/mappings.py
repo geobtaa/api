@@ -49,6 +49,8 @@ INDEX_MAPPING = {
                 "type": "text",
                 "fields": {"keyword": {"type": "keyword", "ignore_above": 8191}},
             },
+            "publication_state": {"type": "keyword"},
+            "gbl_suppressed_b": {"type": "boolean"},
             "gbl_georeferenced_b": {"type": "boolean"},
             "b1g_georeferenced_allmaps_b": {"type": "boolean"},
             "dct_alternative_sm": {

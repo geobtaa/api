@@ -101,6 +101,12 @@ Important reindex knobs:
 | `REINDEX_PRUNE_OLD` | `true` |
 | `REINDEX_RETAIN_PREVIOUS` | `1` |
 | `REINDEX_REMOVE_LEGACY_INDEX` | `true` |
+| `PUBLISHED_ONLY` | `false` |
+
+`make reindex` and `make kamal-reindex` index all resource rows by default. Public
+Elasticsearch-backed queries apply `publication_state=published` and
+`gbl_suppressed_b=false` at query time; set `PUBLISHED_ONLY=1` only for a narrowed
+maintenance index build.
 
 ## Cache And Visual Assets
 
