@@ -24,12 +24,14 @@ export async function loader({ request }: LoaderFunctionArgs) {
   const q = url.searchParams.get("q") ?? "";
   const bbox = url.searchParams.get("bbox");
   const resolution = url.searchParams.get("resolution") ?? "5";
+  const requestVersion = url.searchParams.get("_v");
 
   const upstreamPath = "/map/h3";
   const upstreamUrl = new URL(upstreamPath, "http://placeholder");
   upstreamUrl.searchParams.set("q", q);
   if (bbox) upstreamUrl.searchParams.set("bbox", bbox);
   upstreamUrl.searchParams.set("resolution", resolution);
+  if (requestVersion) upstreamUrl.searchParams.set("_v", requestVersion);
 
   // Forward advanced query and filter params so the map stays aligned with search results.
   url.searchParams.forEach((value, key) => {
@@ -37,6 +39,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       key !== "q" &&
       key !== "bbox" &&
       key !== "resolution" &&
+      key !== "_v" &&
       (key === "adv_q" ||
         key.startsWith("include_filters[") ||
         key.startsWith("exclude_filters[") ||

@@ -28,7 +28,7 @@ describe("api.map.h3 loader", () => {
     );
     const includeFilter = encodeURIComponent("include_filters[dct_spatial_sm][]");
     const mockRequest = new Request(
-      `https://example.com/map/h3?q=&resolution=5&adv_q=${advQuery}&${includeFilter}=Pennsylvania`,
+      `https://example.com/map/h3?q=&resolution=5&_v=3&adv_q=${advQuery}&${includeFilter}=Pennsylvania`,
     );
     const loaderArgs = { request: mockRequest } as LoaderFunctionArgs;
 
@@ -38,6 +38,7 @@ describe("api.map.h3 loader", () => {
     expect(vi.mocked(serverFetchJsonWithTheme).mock.calls[0][0]).toBe(mockRequest);
     const pathAndQuery = vi.mocked(serverFetchJsonWithTheme).mock.calls[0][1];
     expect(pathAndQuery).toContain("/map/h3?");
+    expect(pathAndQuery).toContain("_v=3");
     expect(pathAndQuery).toContain("adv_q=");
     expect(pathAndQuery).toContain("include_filters%5Bdct_spatial_sm%5D%5B%5D=Pennsylvania");
   });

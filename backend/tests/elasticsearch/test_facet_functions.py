@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from app.elasticsearch import search as search_module
 from app.elasticsearch.search import (
     get_facet_aggregation_config,
     get_facet_values,
@@ -317,6 +318,47 @@ class TestGetFacetValues:
             "app.elasticsearch.search._store_cached_facet_values",
             AsyncMock(),
         )
+
+    def test_cache_keys_include_aggregation_version(self, monkeypatch):
+        """Facet cache keys should rotate when search aggregation semantics change."""
+        common_kwargs = {
+            "index_name": "btaa_geospatial_api",
+            "query": "",
+            "fq": None,
+            "include_filters": None,
+            "exclude_filters": None,
+            "adv_q": None,
+            "include_non_public": False,
+        }
+
+        monkeypatch.setattr(search_module, "SEARCH_AGGREGATION_CACHE_VERSION", "old")
+        old_search_key = search_module._build_search_facet_cache_key(
+            **common_kwargs,
+            search_fields=None,
+            selected_aggs=("schema_provider_s",),
+        )
+        old_facet_key = search_module._build_facet_values_cache_key(
+            **common_kwargs,
+            facet_name="schema_provider_s",
+            q_facet=None,
+            size=10,
+        )
+
+        monkeypatch.setattr(search_module, "SEARCH_AGGREGATION_CACHE_VERSION", "new")
+        new_search_key = search_module._build_search_facet_cache_key(
+            **common_kwargs,
+            search_fields=None,
+            selected_aggs=("schema_provider_s",),
+        )
+        new_facet_key = search_module._build_facet_values_cache_key(
+            **common_kwargs,
+            facet_name="schema_provider_s",
+            q_facet=None,
+            size=10,
+        )
+
+        assert old_search_key != new_search_key
+        assert old_facet_key != new_facet_key
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")

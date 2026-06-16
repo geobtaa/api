@@ -47,6 +47,7 @@ BBOX_CONTAINMENT_WEIGHT = float(os.getenv("BBOX_CONTAINMENT_WEIGHT", "0.7"))
 BBOX_IOU_WEIGHT = float(os.getenv("BBOX_IOU_WEIGHT", "0.3"))
 BBOX_SPATIAL_BOOST_WEIGHT = float(os.getenv("BBOX_SPATIAL_BOOST_WEIGHT", "0.8"))
 SEARCH_FACET_CACHE_TTL = int(os.getenv("SEARCH_FACET_CACHE_TTL", "3600"))
+SEARCH_AGGREGATION_CACHE_VERSION = os.getenv("SEARCH_AGGREGATION_CACHE_VERSION", "v2")
 SEARCH_TIMING_LOG_THRESHOLD_MS = float(os.getenv("SEARCH_TIMING_LOG_THRESHOLD_MS", "750"))
 SEARCH_FACET_CACHE_NAMESPACE = "search.facets"
 FACET_VALUES_CACHE_NAMESPACE = "search.facet_values"
@@ -356,6 +357,7 @@ def _build_search_facet_cache_key(
         adv_q=adv_q or [],
         aggs=selected_aggs,
         include_non_public=include_non_public,
+        version=SEARCH_AGGREGATION_CACHE_VERSION,
     )
 
 
@@ -384,6 +386,7 @@ def _build_facet_values_cache_key(
         q_facet=q_facet or "",
         size=size,
         include_non_public=include_non_public,
+        version=SEARCH_AGGREGATION_CACHE_VERSION,
     )
 
 
