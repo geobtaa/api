@@ -78,7 +78,7 @@ API_RESPONSE_DURABLE_CACHE_STORE=database
 # Semantic search-result core cache below the endpoint cache.
 SEARCH_RESULT_CACHE=true
 SEARCH_RESULT_CACHE_TTL=3600
-SEARCH_RESULT_CACHE_VERSION=v1
+SEARCH_RESULT_CACHE_VERSION=v2
 
 # Live search diagnostics; not stored in endpoint response-cache records.
 SEARCH_TIMING_HEADERS=true
@@ -357,6 +357,10 @@ If you change the cache record format or want a clean slate:
 - bump `CACHE_VERSION` (bigger hammer)
 
 This avoids needing a live `flush_all`.
+
+If search query semantics change, such as publication or suppression filters,
+bump `SEARCH_RESULT_CACHE_VERSION` so cached search totals are not reused across
+the deploy.
 
 ### Troubleshooting checklist
 

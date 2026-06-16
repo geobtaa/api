@@ -79,7 +79,8 @@ def _search_error_response(
 
 
 SEARCH_RESULT_CACHE_TTL = int(os.getenv("SEARCH_RESULT_CACHE_TTL", str(SEARCH_CACHE_TTL)))
-SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v1")
+# Bump when search query semantics change so stale cached totals do not survive deploys.
+SEARCH_RESULT_CACHE_VERSION = os.getenv("SEARCH_RESULT_CACHE_VERSION", "v2")
 SEARCH_RESULT_CACHE_NAMESPACE = "search.results"
 SEARCH_RESULT_CACHE_ENABLED = os.getenv("SEARCH_RESULT_CACHE", "true").lower() == "true"
 SEARCH_RESULT_CACHE_LOCK_WAIT_SECONDS = float(
