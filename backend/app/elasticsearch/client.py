@@ -27,6 +27,22 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
+def _mapping_entries(mapping_response: dict, requested_index: str) -> list[dict]:
+    """Return mapping entries for an index or alias response."""
+    direct_entry = mapping_response.get(requested_index)
+    if direct_entry is not None:
+        return [direct_entry]
+    return [entry for entry in mapping_response.values() if isinstance(entry, dict)]
+
+
+def _mapping_has_field(mapping_response: dict, requested_index: str, field_name: str) -> bool:
+    for entry in _mapping_entries(mapping_response, requested_index):
+        properties = ((entry.get("mappings", {}) or {}).get("properties", {}) or {})
+        if field_name in properties:
+            return True
+    return False
+
+
 async def init_elasticsearch():
     """Initialize Elasticsearch index and mappings."""
     from .mappings import INDEX_MAPPING
@@ -67,13 +83,13 @@ async def init_elasticsearch():
             # Ensure newly-added fields exist in mappings (non-destructive).
             try:
                 current = await es.indices.get_mapping(index=index_name)
-                props = ((current.get(index_name, {}) or {}).get("mappings", {}) or {}).get(
-                    "properties", {}
-                ) or {}
-                if "ogm_repo" not in props:
+                if not _mapping_has_field(current, index_name, "ogm_repo"):
                     logger.info("Adding missing mapping field: ogm_repo")
                     await es.indices.put_mapping(
-                        index=index_name, properties={"ogm_repo": {"type": "keyword"}}
+                        index=index_name,
+                        properties={
+                            "ogm_repo": INDEX_MAPPING["mappings"]["properties"]["ogm_repo"]
+                        },
                     )
             except Exception as e:
                 logger.warning(f"Could not ensure mappings for {index_name}: {e}")

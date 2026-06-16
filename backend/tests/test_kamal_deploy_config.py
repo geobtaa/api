@@ -110,3 +110,12 @@ def test_appsignal_dev1_disabled():
     assert dev1_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in dev1_env
     assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text
+
+
+def test_frontend_appsignal_uses_node_option_names():
+    config_text = (REPO_ROOT / "frontend/appsignal.cjs").read_text()
+
+    assert "enableHostMetrics:" in config_text
+    assert "hostRole:" in config_text
+    assert "opentelemetryPort:" in config_text
+    assert "opentelemetry_port:" not in config_text

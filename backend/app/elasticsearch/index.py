@@ -299,6 +299,7 @@ async def process_resource(resource_dict):
 
     # Derive OGM repo facet/filter field from admin tags.
     # Source-of-truth tag format stored in Postgres: "ogm_repo:<repo_name>"
+    ogm_repo_values = []
     tags = processed_dict.get("b1g_adminTags_sm")
     if tags:
         if isinstance(tags, str):
@@ -308,7 +309,6 @@ async def process_resource(resource_dict):
         else:
             tags_list = [str(tags)]
 
-        ogm_repo_values = []
         seen = set()
         for t in tags_list:
             if not isinstance(t, str):
@@ -320,6 +320,8 @@ async def process_resource(resource_dict):
                     ogm_repo_values.append(repo_name)
         if ogm_repo_values:
             processed_dict["ogm_repo"] = ogm_repo_values
+    if not ogm_repo_values and not processed_dict.get("ogm_repo"):
+        processed_dict["ogm_repo"] = ["btaa"]
 
     # Add top-level summary only to avoid dynamic mapping conflicts
     summaries = await get_resource_summaries(processed_dict["id"])

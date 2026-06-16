@@ -42,6 +42,6 @@ new Appsignal({
   hostRole:
     envFirst("APPSIGNAL_FRONTEND_HOST_ROLE", "APPSIGNAL_HOST_ROLE") ||
     "frontend",
-  opentelemetry_port: envInt("APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT", "8100"),
+  opentelemetryPort: envInt("APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT", "8100"),
   additionalInstrumentations: [new RemixInstrumentation()],
 });

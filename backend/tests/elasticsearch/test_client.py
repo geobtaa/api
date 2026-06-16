@@ -225,3 +225,63 @@ async def test_init_elasticsearch_ignores_resource_already_exists(monkeypatch):
     await es_client_mod.init_elasticsearch()
 
     fake_es.indices.create.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_init_elasticsearch_respects_alias_backed_existing_mapping(monkeypatch):
+    """Do not put_mapping when an alias resolves to a concrete index with ogm_repo."""
+    import app.elasticsearch.client as es_client_mod
+
+    fake_es = Mock()
+    fake_es.info = AsyncMock(return_value={"cluster_name": "test-cluster"})
+    fake_es.indices = Mock()
+    fake_es.indices.exists = AsyncMock(return_value=True)
+    fake_es.indices.get_mapping = AsyncMock(
+        return_value={
+            "btaa_geospatial_api_20260616010101": {
+                "mappings": {
+                    "properties": {
+                        "ogm_repo": INDEX_MAPPING["mappings"]["properties"]["ogm_repo"]
+                    }
+                }
+            }
+        }
+    )
+    fake_es.indices.put_mapping = AsyncMock()
+
+    monkeypatch.setattr(es_client_mod, "es", fake_es)
+    monkeypatch.setenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    await es_client_mod.init_elasticsearch()
+
+    fake_es.indices.get_mapping.assert_awaited_once_with(index="btaa_geospatial_api")
+    fake_es.indices.put_mapping.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_init_elasticsearch_adds_missing_ogm_repo_with_canonical_mapping(monkeypatch):
+    """When ogm_repo is truly absent, add the same mapping used for new indices."""
+    import app.elasticsearch.client as es_client_mod
+
+    fake_es = Mock()
+    fake_es.info = AsyncMock(return_value={"cluster_name": "test-cluster"})
+    fake_es.indices = Mock()
+    fake_es.indices.exists = AsyncMock(return_value=True)
+    fake_es.indices.get_mapping = AsyncMock(
+        return_value={
+            "btaa_geospatial_api_20260616010101": {
+                "mappings": {"properties": {"id": {"type": "keyword"}}}
+            }
+        }
+    )
+    fake_es.indices.put_mapping = AsyncMock()
+
+    monkeypatch.setattr(es_client_mod, "es", fake_es)
+    monkeypatch.setenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+
+    await es_client_mod.init_elasticsearch()
+
+    fake_es.indices.put_mapping.assert_awaited_once_with(
+        index="btaa_geospatial_api",
+        properties={"ogm_repo": INDEX_MAPPING["mappings"]["properties"]["ogm_repo"]},
+    )
