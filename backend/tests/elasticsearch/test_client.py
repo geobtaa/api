@@ -6,7 +6,7 @@ import pytest_asyncio
 from dotenv import load_dotenv
 from elasticsearch import AsyncElasticsearch
 
-from app.elasticsearch.client import close_elasticsearch, init_elasticsearch
+import app.elasticsearch.client as es_client_mod
 from app.elasticsearch.mappings import INDEX_MAPPING
 
 # Load environment variables from .env.test file
@@ -111,13 +111,11 @@ async def es_client(clean_es_index):
 async def test_init_elasticsearch_success(es_client, monkeypatch):
     """Test successful initialization of Elasticsearch."""
     # Monkeypatch the global ES client to use our test client
-    import app.elasticsearch.client
-
-    monkeypatch.setattr(app.elasticsearch.client, "es", es_client)
+    monkeypatch.setattr(es_client_mod, "es", es_client)
 
     try:
         # Call the function
-        await init_elasticsearch()
+        await es_client_mod.init_elasticsearch()
 
         # Verify the index was created
         assert await es_client.indices.exists(index=TEST_INDEX_NAME)
@@ -135,9 +133,7 @@ async def test_init_elasticsearch_success(es_client, monkeypatch):
 async def test_init_elasticsearch_index_exists(es_client, monkeypatch):
     """Test initialization when index already exists."""
     # Monkeypatch the global ES client to use our test client
-    import app.elasticsearch.client
-
-    monkeypatch.setattr(app.elasticsearch.client, "es", es_client)
+    monkeypatch.setattr(es_client_mod, "es", es_client)
 
     try:
         # Delete the index if it exists
@@ -152,7 +148,7 @@ async def test_init_elasticsearch_index_exists(es_client, monkeypatch):
         )
 
         # Call the function
-        await init_elasticsearch()
+        await es_client_mod.init_elasticsearch()
 
         # Verify the index still exists
         assert await es_client.indices.exists(index=TEST_INDEX_NAME)
@@ -173,8 +169,6 @@ async def test_init_elasticsearch_index_exists(es_client, monkeypatch):
 async def test_close_elasticsearch(monkeypatch):
     """Test closing the Elasticsearch connection."""
     # Create a separate client just for this test to avoid closing the session-scoped fixture
-    import app.elasticsearch.client
-
     test_client = AsyncElasticsearch(
         hosts=[ELASTICSEARCH_URL],
         verify_certs=False,
@@ -186,10 +180,10 @@ async def test_close_elasticsearch(monkeypatch):
 
     try:
         # Monkeypatch the global ES client to use our test client
-        monkeypatch.setattr(app.elasticsearch.client, "es", test_client)
+        monkeypatch.setattr(es_client_mod, "es", test_client)
 
         # Call the function - it should handle event loop issues gracefully
-        await close_elasticsearch()
+        await es_client_mod.close_elasticsearch()
 
         # This test is successful if no exception is raised
     finally:
@@ -204,7 +198,6 @@ async def test_close_elasticsearch(monkeypatch):
 @pytest.mark.asyncio
 async def test_init_elasticsearch_ignores_resource_already_exists(monkeypatch):
     """init_elasticsearch should continue if create races with another process."""
-    import app.elasticsearch.client as es_client_mod
 
     class _FakeBadRequestError(Exception):
         def __init__(self, body):
@@ -230,8 +223,6 @@ async def test_init_elasticsearch_ignores_resource_already_exists(monkeypatch):
 @pytest.mark.asyncio
 async def test_init_elasticsearch_respects_alias_backed_existing_mapping(monkeypatch):
     """Do not put_mapping when an alias resolves to a concrete index with ogm_repo."""
-    import app.elasticsearch.client as es_client_mod
-
     fake_es = Mock()
     fake_es.info = AsyncMock(return_value={"cluster_name": "test-cluster"})
     fake_es.indices = Mock()
@@ -259,8 +250,6 @@ async def test_init_elasticsearch_respects_alias_backed_existing_mapping(monkeyp
 @pytest.mark.asyncio
 async def test_init_elasticsearch_adds_missing_ogm_repo_with_canonical_mapping(monkeypatch):
     """When ogm_repo is truly absent, add the same mapping used for new indices."""
-    import app.elasticsearch.client as es_client_mod
-
     fake_es = Mock()
     fake_es.info = AsyncMock(return_value={"cluster_name": "test-cluster"})
     fake_es.indices = Mock()
