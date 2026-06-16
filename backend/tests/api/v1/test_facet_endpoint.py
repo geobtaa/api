@@ -144,6 +144,54 @@ class TestFacetEndpointSuccess:
         # Verify mocks were called
         mock_get_facet.assert_called_once()
         mock_process.assert_called_once()
+        assert mock_get_facet.call_args.kwargs["include_non_public"] is False
+        assert mock_search_criteria.call_args.kwargs["include_non_public"] is False
+
+    @patch("app.api.v1.endpoint_modules.search.get_facet_values")
+    @patch("app.api.v1.endpoint_modules.search.process_facet_response")
+    @patch("app.api.v1.endpoint_modules.search.get_search_criteria")
+    @patch("app.api.v1.endpoint_modules.search.create_pagination_links")
+    @patch("app.api.v1.endpoint_modules.search.create_jsonapi_response")
+    @patch("app.api.v1.endpoint_modules.search.sanitize_for_json")
+    async def test_include_non_public_is_forwarded(
+        self,
+        mock_sanitize,
+        mock_jsonapi,
+        mock_pagination,
+        mock_search_criteria,
+        mock_process,
+        mock_get_facet,
+        async_client: AsyncClient,
+    ):
+        """Facet counts can opt into unpublished/suppressed records for diagnostics."""
+        mock_get_facet.return_value = []
+        mock_search_criteria.return_value = {
+            "query": None,
+            "filters": {},
+            "include_non_public": True,
+        }
+        mock_process.return_value = {
+            "data": [],
+            "meta": {
+                "totalCount": 0,
+                "totalPages": 0,
+                "currentPage": 1,
+                "perPage": 10,
+                "facetName": "schema_provider_s",
+                "sort": "count_desc",
+            },
+        }
+        mock_pagination.return_value = {"self": "/test?include_non_public=true"}
+        mock_jsonapi.return_value = {"jsonapi": {"version": "1.1"}}
+        mock_sanitize.side_effect = lambda x: x
+
+        response = await async_client.get(
+            "/api/v1/search/facets/schema_provider_s?include_non_public=true"
+        )
+
+        assert response.status_code == 200
+        assert mock_get_facet.call_args.kwargs["include_non_public"] is True
+        assert mock_search_criteria.call_args.kwargs["include_non_public"] is True
 
     @pytest.mark.parametrize(
         "sort_option",

@@ -482,7 +482,7 @@ describe('fetchMapH3', () => {
     const callUrl = mockFetch.mock.calls[0][0];
     const url = new URL(callUrl);
     expect(url.pathname).toBe('/map/h3');
-    expect(url.searchParams.get('_v')).toBe('2');
+    expect(url.searchParams.get('_v')).toBe('3');
     expect(url.searchParams.get('adv_q')).toBe(advQuery);
   });
 });

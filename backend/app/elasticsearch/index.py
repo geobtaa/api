@@ -234,6 +234,7 @@ async def process_resource(resource_dict):
     date_fields = {"gbl_mdmodified_dt", "b1g_dateAccessioned_s", "b1g_dateRetired_s"}
     integer_fields = {"gbl_indexYear_im"}
     boolean_fields = {
+        "gbl_suppressed_b",
         "gbl_georeferenced_b",
         "b1g_child_record_b",
         "b1g_georeferenced_allmaps_b",
@@ -293,9 +294,12 @@ async def process_resource(resource_dict):
             processed_dict[key] = value
 
     ensure_b1g_language(processed_dict)
+    if processed_dict.get("gbl_suppressed_b") is None:
+        processed_dict["gbl_suppressed_b"] = False
 
     # Derive OGM repo facet/filter field from admin tags.
     # Source-of-truth tag format stored in Postgres: "ogm_repo:<repo_name>"
+    ogm_repo_values = []
     tags = processed_dict.get("b1g_adminTags_sm")
     if tags:
         if isinstance(tags, str):
@@ -305,7 +309,6 @@ async def process_resource(resource_dict):
         else:
             tags_list = [str(tags)]
 
-        ogm_repo_values = []
         seen = set()
         for t in tags_list:
             if not isinstance(t, str):
@@ -317,6 +320,8 @@ async def process_resource(resource_dict):
                     ogm_repo_values.append(repo_name)
         if ogm_repo_values:
             processed_dict["ogm_repo"] = ogm_repo_values
+    if not ogm_repo_values and not processed_dict.get("ogm_repo"):
+        processed_dict["ogm_repo"] = ["btaa"]
 
     # Add top-level summary only to avoid dynamic mapping conflicts
     summaries = await get_resource_summaries(processed_dict["id"])

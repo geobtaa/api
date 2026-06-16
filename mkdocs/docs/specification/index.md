@@ -2,7 +2,7 @@
 
 {% include-markdown "includes/wip.md" %}
 
-**Version:** 0.8.5   **Status:** *DRAFT*   **Release Date:** 2026-06-15
+**Version:** 0.8.6   **Status:** *DRAFT*   **Release Date:** 2026-06-16
 
 ## Editors
 
@@ -50,6 +50,7 @@ The goal of this specification is to enable consistent client and server impleme
 
 | Version | Date | Notes |
 | :---- | :---- | :---- |
+| 0.8.6 | 2026-06-16 | Split AppSignal backend and SSR telemetry, group FastAPI route actions, and enforce public visibility filters across search, facets, map aggregates, and similar items. |
 | 0.8.5 | 2026-06-15 | Release version metadata updated for the next API service, MCP service, and public specification release. |
 | 0.8.4 | 2026-06-15 | Release version metadata updated for the API service, MCP service, and public specification. |
 | 0.8.2 | 2026-06-15 | Use the canonical `geo.btaa.org` origin for production sitemap generation and refresh stale sitemap cache entries when the origin changes. |

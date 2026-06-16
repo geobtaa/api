@@ -8,7 +8,7 @@ Resilient, self-healing reindexer:
 
 Environment:
   - ELASTICSEARCH_INDEX: target index name (default: btaa_geospatial_api)
-  - PUBLISHED_ONLY:      1/true to index only published rows (default: 1)
+  - PUBLISHED_ONLY:      1/true to index only published rows (default: 0)
   - USE_B1G_PUBLICATION_STATE: 1/true to use b1g_publication_state_s (default: 0)
   - BATCH_SIZE:          DB fetch size (default: 2000)
   - MAX_RETRIES:         Per-document index retries (default: 3)
@@ -205,7 +205,7 @@ async def _verify_missing(
 
 async def main():
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
-    published_only = _env_bool("PUBLISHED_ONLY", True)
+    published_only = _env_bool("PUBLISHED_ONLY", False)
     use_b1g_pub_state = _env_bool("USE_B1G_PUBLICATION_STATE", False)
     batch_size = int(os.getenv("BATCH_SIZE", "2000"))
     max_retries = int(os.getenv("MAX_RETRIES", "3"))

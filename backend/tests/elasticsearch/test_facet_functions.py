@@ -12,10 +12,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from fastapi import HTTPException
 
+from app.elasticsearch import search as search_module
 from app.elasticsearch.search import (
     get_facet_aggregation_config,
     get_facet_values,
     process_facet_response,
+    public_visibility_filter_clauses,
 )
 
 
@@ -317,6 +319,47 @@ class TestGetFacetValues:
             AsyncMock(),
         )
 
+    def test_cache_keys_include_aggregation_version(self, monkeypatch):
+        """Facet cache keys should rotate when search aggregation semantics change."""
+        common_kwargs = {
+            "index_name": "btaa_geospatial_api",
+            "query": "",
+            "fq": None,
+            "include_filters": None,
+            "exclude_filters": None,
+            "adv_q": None,
+            "include_non_public": False,
+        }
+
+        monkeypatch.setattr(search_module, "SEARCH_AGGREGATION_CACHE_VERSION", "old")
+        old_search_key = search_module._build_search_facet_cache_key(
+            **common_kwargs,
+            search_fields=None,
+            selected_aggs=("schema_provider_s",),
+        )
+        old_facet_key = search_module._build_facet_values_cache_key(
+            **common_kwargs,
+            facet_name="schema_provider_s",
+            q_facet=None,
+            size=10,
+        )
+
+        monkeypatch.setattr(search_module, "SEARCH_AGGREGATION_CACHE_VERSION", "new")
+        new_search_key = search_module._build_search_facet_cache_key(
+            **common_kwargs,
+            search_fields=None,
+            selected_aggs=("schema_provider_s",),
+        )
+        new_facet_key = search_module._build_facet_values_cache_key(
+            **common_kwargs,
+            facet_name="schema_provider_s",
+            q_facet=None,
+            size=10,
+        )
+
+        assert old_search_key != new_search_key
+        assert old_facet_key != new_facet_key
+
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
     async def test_basic_facet_retrieval(self, mock_es):
@@ -347,6 +390,30 @@ class TestGetFacetValues:
         assert len(buckets) == 2
         assert buckets[0]["key"] == "Provider A"
         assert buckets[0]["doc_count"] == 100
+        filters = mock_es.search.call_args.kwargs["query"]["bool"]["filter"]
+        for visibility_filter in public_visibility_filter_clauses():
+            assert visibility_filter in filters
+
+    @pytest.mark.asyncio
+    @patch("app.elasticsearch.search.es")
+    async def test_include_non_public_omits_visibility_filters(self, mock_es):
+        """Facet diagnostics can request counts across all indexed resources."""
+        mock_response = MagicMock()
+        mock_response.body = {"aggregations": {"facet_values": {"buckets": []}}}
+        mock_es.search = AsyncMock(return_value=mock_response)
+
+        await get_facet_values(
+            facet_name="schema_provider_s",
+            query=None,
+            fq=None,
+            include_filters=None,
+            exclude_filters=None,
+            adv_q=None,
+            include_non_public=True,
+        )
+
+        bool_query = mock_es.search.call_args.kwargs["query"]["bool"]
+        assert "filter" not in bool_query
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
