@@ -24,20 +24,30 @@ The destination deploy files set AppSignal identity explicitly. The FastAPI API
 and React SSR frontend report as separate AppSignal apps so incidents,
 performance traces, and route/action names stay grouped by runtime.
 
-| Destination | Backend telemetry | Backend app | Frontend telemetry | Frontend app |
-|-------------|-------------------|-------------|--------------------|--------------|
-| `dev1` | disabled with `APPSIGNAL_BACKEND_ACTIVE=false` | `BTAA Geospatial API - Development` | disabled with `APPSIGNAL_FRONTEND_ACTIVE=false` | `BTAA Geoportal SSR - Development` |
-| `dev2` | enabled | `BTAA Geospatial API - Development` | enabled | `BTAA Geoportal SSR - Development` |
-| `prd` | enabled | `BTAA Geospatial API - Production` | enabled | `BTAA Geoportal SSR - Production` |
+| Destination | Backend telemetry | Backend app | Backend app ID | Frontend telemetry | Frontend app | Frontend app ID |
+|-------------|-------------------|-------------|----------------|--------------------|--------------|-----------------|
+| `dev1` | disabled with `APPSIGNAL_BACKEND_ACTIVE=false` | `BTAA Geospatial API - Development` | `6a316c2135fc588db66c7661` | disabled with `APPSIGNAL_FRONTEND_ACTIVE=false` | `BTAA Geoportal SSR - Development` | `6a316c1a35fc588db66c7657` |
+| `dev2` | enabled | `BTAA Geospatial API - Development` | `6a316c2135fc588db66c7661` | enabled | `BTAA Geoportal SSR - Development` | `6a316c1a35fc588db66c7657` |
+| `prd` | enabled | `BTAA Geospatial API - Production` | `6a31948735fc588db66c770e` | enabled | `BTAA Geoportal SSR - Production` | `6a31948035fc588db66c7704` |
 
 `APPSIGNAL_BACKEND_*` values are consumed by `backend/__appsignal__.py` and
 `APPSIGNAL_FRONTEND_*` values are consumed by `frontend/appsignal.cjs`. The
 older shared `APPSIGNAL_ACTIVE`, `APPSIGNAL_APP_ENV`, and
 `APPSIGNAL_APP_NAME` values remain as fallbacks for local/dev compatibility.
+The `APPSIGNAL_BACKEND_APP_ID` and `APPSIGNAL_FRONTEND_APP_ID` values are
+operational identifiers for AppSignal dashboards and API/MCP lookups; the
+AppSignal agents do not consume app IDs directly.
 The backend uses AppSignal's default OpenTelemetry HTTP port, `8099`, and owns
 host metrics. The frontend SSR process uses `8100` and sets
 `APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS=false` to avoid duplicate host metrics
 from the same Kamal container.
+
+Because the web role runs FastAPI and React SSR side by side in the same
+container, the two AppSignal agents must also use separate working directories:
+`APPSIGNAL_BACKEND_WORKING_DIRECTORY_PATH=/tmp/appsignal-backend` and
+`APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH=/tmp/appsignal-frontend`. Without
+that isolation the agents can conflict even when their app names and
+OpenTelemetry ports differ.
 
 Each destination also sets `APP_REVISION` from `APP_REVISION`, falling back to
 `KAMAL_VERSION`, then the current Git commit. This keeps AppSignal releases tied
