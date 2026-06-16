@@ -389,6 +389,12 @@ class BridgeSyncRepository:
                         break
                     retry_samples.append(sample)
                 stats["fetch_5xx_retry_samples"] = retry_samples
+            for refresh_key in ("search_index_refresh", "cache_refresh"):
+                if isinstance(batch_stats.get(refresh_key), dict):
+                    stats[refresh_key] = self._merge_refresh_stats(
+                        stats.get(refresh_key),
+                        batch_stats[refresh_key],
+                    )
 
             if failed:
                 stats["batches_failed"] = int(stats.get("batches_failed") or 0) + 1
@@ -518,6 +524,29 @@ class BridgeSyncRepository:
                     :10
                 ]
             ]
+
+    @staticmethod
+    def _merge_refresh_stats(existing: Any, update: Dict[str, Any]) -> Dict[str, Any]:
+        merged: Dict[str, Any] = dict(existing) if isinstance(existing, dict) else {}
+        for key, value in update.items():
+            if key == "enabled":
+                merged[key] = bool(merged.get(key, True)) and bool(value)
+            elif key == "batch_size":
+                merged[key] = value
+            elif isinstance(value, bool):
+                merged[key] = value
+            elif isinstance(value, (int, float)):
+                merged[key] = int(merged.get(key) or 0) + value
+            elif isinstance(value, dict):
+                merged[key] = BridgeSyncRepository._merge_refresh_stats(
+                    merged.get(key),
+                    value,
+                )
+            elif key not in merged:
+                merged[key] = value
+            else:
+                merged[key] = value
+        return merged
 
     async def mark_missing_stale(self, run_started_at: datetime) -> List[str]:
         now = datetime.utcnow()

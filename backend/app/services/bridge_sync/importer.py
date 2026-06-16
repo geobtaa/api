@@ -22,6 +22,7 @@ from app.services.reference_reconstruction import (
     build_effective_reference_payload,
     serialize_reference_payload,
 )
+from app.services.relationship_sync import sync_relationships_for_batch
 from db.database import database
 from db.models import resources
 
@@ -306,6 +307,13 @@ class BridgeResourceImporter:
                         logger.warning(
                             "Nested bridge sync failed for batch; continuing. err=%s",
                             str(nested_err),
+                        )
+                    try:
+                        await sync_relationships_for_batch(rows)
+                    except Exception as rel_err:
+                        logger.warning(
+                            "Relationship sync failed for bridge batch; continuing. err=%s",
+                            str(rel_err),
                         )
                     await self.repo.upsert_resources_seen_batch(seen)
                 return len(rows)
