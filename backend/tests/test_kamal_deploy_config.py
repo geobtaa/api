@@ -69,10 +69,7 @@ def test_appsignal_prd_identity():
     assert prd_env["APPSIGNAL_FRONTEND_APP_ID"] == "6a31948035fc588db66c7704"
     assert prd_env["APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS"] == "false"
     assert prd_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
-    assert (
-        prd_env["APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH"]
-        == "/tmp/appsignal-frontend"
-    )
+    assert prd_env["APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH"] == "/tmp/appsignal-frontend"
     assert prd_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in prd_env
     assert APP_REVISION_EXPR in config_text
@@ -101,10 +98,7 @@ def test_appsignal_dev2_identity():
     assert dev2_env["APPSIGNAL_FRONTEND_APP_ID"] == "6a316c1a35fc588db66c7657"
     assert dev2_env["APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS"] == "false"
     assert dev2_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
-    assert (
-        dev2_env["APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH"]
-        == "/tmp/appsignal-frontend"
-    )
+    assert dev2_env["APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH"] == "/tmp/appsignal-frontend"
     assert dev2_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in dev2_env
     assert APP_REVISION_EXPR in config_text
@@ -132,10 +126,7 @@ def test_appsignal_dev1_disabled():
     assert dev1_env["APPSIGNAL_FRONTEND_APP_ID"] == "6a316c1a35fc588db66c7657"
     assert dev1_env["APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS"] == "false"
     assert dev1_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
-    assert (
-        dev1_env["APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH"]
-        == "/tmp/appsignal-frontend"
-    )
+    assert dev1_env["APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH"] == "/tmp/appsignal-frontend"
     assert dev1_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in dev1_env
     assert APP_REVISION_EXPR in config_text
