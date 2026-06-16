@@ -4,6 +4,10 @@ from pathlib import Path
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
+APP_REVISION_EXPR = (
+    "ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') "
+    "{ `git rev-parse --verify HEAD`.strip } }"
+)
 
 
 def _load_deploy_config(path: str) -> dict:
@@ -64,7 +68,9 @@ def test_appsignal_prd_identity():
     assert prd_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
     assert prd_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in prd_env
-    assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text
+    assert APP_REVISION_EXPR in config_text
+    assert "unknown" not in prd_env["APP_REVISION"]
+    assert "'unknown'" not in config_text
 
 
 def test_appsignal_dev2_identity():
@@ -87,7 +93,9 @@ def test_appsignal_dev2_identity():
     assert dev2_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
     assert dev2_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in dev2_env
-    assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text
+    assert APP_REVISION_EXPR in config_text
+    assert "unknown" not in dev2_env["APP_REVISION"]
+    assert "'unknown'" not in config_text
 
 
 def test_appsignal_dev1_disabled():
@@ -109,7 +117,9 @@ def test_appsignal_dev1_disabled():
     assert dev1_env["APPSIGNAL_FRONTEND_HOST_ROLE"] == "frontend"
     assert dev1_env["APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT"] == "8100"
     assert "APP_REVISION" in dev1_env
-    assert "ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown'))" in config_text
+    assert APP_REVISION_EXPR in config_text
+    assert "unknown" not in dev1_env["APP_REVISION"]
+    assert "'unknown'" not in config_text
 
 
 def test_frontend_appsignal_uses_node_option_names():

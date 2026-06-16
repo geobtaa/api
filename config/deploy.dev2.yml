@@ -45,7 +45,7 @@ env:
   clear:
     APPLICATION_URL: https://geodev.btaa.org
     APP_ENV: development
-    APP_REVISION: "<%= ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown')) %>"
+    APP_REVISION: "<%= ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') { `git rev-parse --verify HEAD`.strip } } %>"
     KAMAL_DEST: dev2
     APPSIGNAL_ACTIVE: "true"
     APPSIGNAL_APP_ENV: development

@@ -40,7 +40,8 @@ host metrics. The frontend SSR process uses `8100` and sets
 from the same Kamal container.
 
 Each destination also sets `APP_REVISION` from `APP_REVISION`, falling back to
-`KAMAL_VERSION`, so AppSignal releases line up with Kamal deploy revisions.
+`KAMAL_VERSION`, then the current Git commit. This keeps AppSignal releases tied
+to a concrete deploy revision instead of `unknown`.
 
 Kamal always requires an explicit destination in this repo:
 

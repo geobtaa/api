@@ -45,7 +45,7 @@ env:
   clear:
     APPLICATION_URL: https://lib-btaageoapi-dev-app-01.oit.umn.edu
     APP_ENV: development
-    APP_REVISION: "<%= ENV.fetch('APP_REVISION', ENV.fetch('KAMAL_VERSION', 'unknown')) %>"
+    APP_REVISION: "<%= ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') { `git rev-parse --verify HEAD`.strip } } %>"
     KAMAL_DEST: dev1
     APPSIGNAL_ACTIVE: "false"
     APPSIGNAL_APP_ENV: development
