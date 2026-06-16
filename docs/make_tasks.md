@@ -254,6 +254,8 @@ Set `KAMAL_DEST=dev1`, `dev2`, or `prd`. The default is `dev1`.
 | `make kamal-backup-postgres` | Run the production-gated Postgres S3 backup in the cron container. |
 | `make kamal-backup-elasticsearch` | Run the production-gated Elasticsearch S3 snapshot in the cron container. |
 | `make kamal-backup-list-elasticsearch` | List Elasticsearch snapshots for the target destination. |
+| `make kamal-bridge-sync` | Trigger remote bridge sync. Supports `RESOURCE_ID`, `BRIDGE_LIMIT`, and `BRIDGE_CHANGED_SINCE`. |
+| `make kamal-bridge-sync-batched` | Trigger remote batched bridge reconciliation. |
 | `make kamal-bridge-status` | Show bridge status remotely. |
 | `make kamal-bridge-status-watch` | Poll remote bridge status. |
 | `make kamal-cron-debug` | Inspect cron container crontab, timezone, and env. |

@@ -26,7 +26,7 @@ servers:
   worker:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
-    cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker worker --loglevel=INFO"
     options:
       cpus: 1.75
       memory: 2048m
@@ -41,7 +41,7 @@ servers:
   flower:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
-    cmd: celery -A app.tasks.worker flower --port=5555
+    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker flower --port=5555"
 
 proxy:
   host: geo.btaa.org,lib-geoportal-prd-web-01.oit.umn.edu
