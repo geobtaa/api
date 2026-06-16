@@ -41,6 +41,11 @@ appsignal = Appsignal(
         "APPSIGNAL_HOST_ROLE",
         default="backend",
     ),
+    working_directory_path=_env_first(
+        "APPSIGNAL_BACKEND_WORKING_DIRECTORY_PATH",
+        "APPSIGNAL_WORKING_DIRECTORY_PATH",
+        default="/tmp/appsignal-backend",
+    ),
     opentelemetry_port=_env_int_first(
         "APPSIGNAL_BACKEND_OPENTELEMETRY_PORT",
         "APPSIGNAL_OPENTELEMETRY_PORT",

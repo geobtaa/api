@@ -5,9 +5,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "NODE_OPTIONS='--require source-map-support/register --require ./appsignal.cjs' react-router dev",
+    "dev": "NODE_OPTIONS='--require ./appsignal.cjs --require source-map-support/register' react-router dev",
     "build": "react-router build",
-    "start": "NODE_OPTIONS='--require source-map-support/register --require ./appsignal.cjs' react-router-serve ./build/server/index.js",
+    "start": "NODE_OPTIONS='--require ./appsignal.cjs --require source-map-support/register' react-router-serve ./build/server/index.js",
     "update-imports": "node scripts/update-react-router-imports.js",
     "lint": "eslint 'src/**/*.{ts,tsx}'",
     "lint:fix": "eslint 'src/**/*.{ts,tsx}' --fix",
