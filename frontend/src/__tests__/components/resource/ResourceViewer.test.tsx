@@ -54,11 +54,19 @@ const mocks = vi.hoisted(() => {
     setResolution,
     getResolutionForExtentInternal: vi.fn(() => 128),
   };
-  const olMap = vi.fn(() => map);
-  const olView = vi.fn(() => view);
+  const olMap = vi.fn(function OlMap() {
+    return map;
+  });
+  const olView = vi.fn(function View() {
+    return view;
+  });
 
-  vectorTileLayer.mockImplementation(() => overlay);
-  webglTileLayer.mockImplementation(() => overlay);
+  vectorTileLayer.mockImplementation(function VectorTileLayer() {
+    return overlay;
+  });
+  webglTileLayer.mockImplementation(function WebGLTileLayer() {
+    return overlay;
+  });
 
   return {
     circle,
