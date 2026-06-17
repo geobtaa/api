@@ -54,7 +54,7 @@ servers:
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
     options:
       cpus: <%= ENV.fetch('KAMAL_WORKER_CPUS', '1') %>
       memory: <%= ENV.fetch('KAMAL_WORKER_MEMORY', '1024m') %>
@@ -71,14 +71,6 @@ servers:
       cpus: <%= ENV.fetch('KAMAL_CRON_CPUS', '0.25') %>
       memory: <%= ENV.fetch('KAMAL_CRON_MEMORY', '256m') %>
       user: root
-
-  flower:
-    hosts:
-      - <%= ENV['KAMAL_HOST'] %>
-    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker flower --port=5555"
-    options:
-      cpus: <%= ENV.fetch('KAMAL_FLOWER_CPUS', '0.5') %>
-      memory: <%= ENV.fetch('KAMAL_FLOWER_MEMORY', '512m') %>
 
 proxy:
   ssl: true
@@ -193,7 +185,7 @@ env:
 accessories:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:9.0.0
-    roles: [web, worker, flower]
+    roles: [web, worker]
     env:
       clear:
         discovery.type: single-node
@@ -212,7 +204,7 @@ accessories:
 
   paradedb:
     image: paradedb/paradedb:0.18.11
-    roles: [web, worker, flower]
+    roles: [web, worker]
     env:
       clear:
         POSTGRES_USER: postgres
@@ -225,7 +217,7 @@ accessories:
 
   redis:
     image: redis:7.4.6-alpine
-    roles: [web, worker, flower]
+    roles: [web, worker]
     env:
       clear:
         REDIS_MAXMEMORY: "<%= ENV.fetch('REDIS_MAXMEMORY', '12gb') %>"

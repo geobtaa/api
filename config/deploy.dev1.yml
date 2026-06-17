@@ -13,7 +13,7 @@ servers:
   worker:
     hosts:
       - lib-btaageoapi-dev-app-01.oit.umn.edu
-    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
     options:
       cpus: 0.75
       memory: 1536m
@@ -24,11 +24,6 @@ servers:
     cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
       user: root
-
-  flower:
-    hosts:
-      - lib-btaageoapi-dev-app-01.oit.umn.edu
-    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker flower --port=5555"
 
 proxy:
   host: lib-btaageoapi-dev-app-01.oit.umn.edu

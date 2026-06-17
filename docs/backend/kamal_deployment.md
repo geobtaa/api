@@ -100,7 +100,6 @@ Each destination is a single-host deployment with these app roles:
 - `web`: nginx + SSR + FastAPI on the public host
 - `worker`: Celery worker
 - `cron`: cron container for scheduled bridge/blog/analytics-maintenance tasks
-- `flower`: Celery monitoring UI
 
 Each destination also runs these accessories on the same VM:
 
@@ -307,7 +306,6 @@ destinations. For `dev2`, prefer `https://geodev.btaa.org`.
 kamal app logs -d prd --roles web
 kamal app logs -d prd --roles worker
 kamal app logs -d prd --roles cron
-kamal app logs -d prd --roles flower
 kamal accessory logs -d prd paradedb
 kamal accessory logs -d prd elasticsearch
 kamal accessory logs -d prd redis
@@ -539,19 +537,6 @@ That usually means the Celery worker never started the task. Check:
 make kamal-worker-logs KAMAL_DEST=prd
 kamal app details -d prd
 ```
-
-If needed, open Flower through an SSH tunnel:
-
-```bash
-set -a
-source .kamal/secrets-common
-source .kamal/secrets.prd
-set +a
-
-ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
-```
-
-Then open `http://localhost:5555`.
 
 ### Storage drift
 
