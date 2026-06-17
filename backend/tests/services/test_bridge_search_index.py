@@ -32,12 +32,17 @@ class FakeElasticsearch:
         self.indexed = []
         self.deleted = []
         self.indices = FakeIndices()
+        self.options_kwargs = {}
+
+    def options(self, **kwargs):
+        self.options_kwargs = kwargs
+        return self
 
     async def index(self, *, index, id, document):
         self.indexed.append({"index": index, "id": id, "document": document})
 
-    async def delete(self, *, index, id, ignore_status):
-        self.deleted.append({"index": index, "id": id, "ignore_status": ignore_status})
+    async def delete(self, *, index, id):
+        self.deleted.append({"index": index, "id": id, "options": self.options_kwargs})
 
 
 @pytest.mark.asyncio
@@ -77,6 +82,39 @@ async def test_index_changed_resources_indexes_every_changed_id_even_if_legacy_l
         "resource-2",
     ]
     assert fake_database.fetch_calls == 3
+    assert fake_es.indices.refreshed == ["btaa_geospatial_api"]
+
+
+@pytest.mark.asyncio
+async def test_index_changed_resources_deletes_missing_ids(monkeypatch):
+    fake_database = FakeDatabase([])
+    fake_es = FakeElasticsearch()
+
+    monkeypatch.setenv("BRIDGE_SEARCH_INDEX_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("BRIDGE_SEARCH_INDEX_MAX_RESOURCE_IDS", "5000")
+    monkeypatch.setenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
+    monkeypatch.setattr(search_index, "database", fake_database)
+    monkeypatch.setattr(search_index, "es", fake_es)
+    monkeypatch.setattr(search_index, "process_resource", AsyncMock())
+
+    stats = await search_index.index_changed_resources(["missing-resource"])
+
+    assert stats == {
+        "enabled": True,
+        "resource_ids": 1,
+        "batch_size": 5000,
+        "batches": 1,
+        "indexed": 0,
+        "missing": 1,
+        "errors": 0,
+    }
+    assert fake_es.deleted == [
+        {
+            "index": "btaa_geospatial_api",
+            "id": "missing-resource",
+            "options": {"ignore_status": [404]},
+        }
+    ]
     assert fake_es.indices.refreshed == ["btaa_geospatial_api"]
 
 

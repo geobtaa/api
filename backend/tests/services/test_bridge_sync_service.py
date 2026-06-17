@@ -1711,6 +1711,115 @@ class TestBridgeSyncService:
                 pass
 
     @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_changed_since_deletes_tombstone_record(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-sync-delta-tombstone"
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+            await database.execute(
+                pg_insert(resources).values(
+                    {
+                        "id": resource_id,
+                        "dct_title_s": "Bridge Sync Delta Tombstone",
+                        "publication_state": "published",
+                        "b1g_publication_state_s": "published",
+                        "import_id": "390",
+                    }
+                )
+            )
+            await database.execute(
+                pg_insert(bridge_resource_state).values(
+                    {
+                        "bridge_resource_id": resource_id,
+                        "bridge_source_import_id": "390",
+                    }
+                )
+            )
+
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[
+                            {
+                                "id": resource_id,
+                                "import_id": "390",
+                                "publication_state": "published",
+                                "dct_title_s": "Bridge Sync Delta Tombstone",
+                                "deleted": True,
+                                "deleted_at": "2026-06-17T08:25:32.923-05:00",
+                                "kithe_updated_at": "2026-06-17T08:25:32.923-05:00",
+                            }
+                        ],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+
+            result = await sync_bridge(
+                trigger="nightly_cron",
+                limit=500,
+                changed_since="2026-06-16T05:00:00Z",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert client.calls == [
+                {
+                    "cursor": None,
+                    "limit": 500,
+                    "changed_since": "2026-06-16T05:00:00Z",
+                }
+            ]
+            assert result["stats"]["processed"] == 1
+            assert result["stats"]["imported"] == 0
+            assert result["stats"]["missing"] == 0
+            assert result["stats"]["deleted"] == 1
+            assert result["stats"]["retired"] == 0
+            assert result["stats"]["search_index_refresh"]["enabled"] is False
+            assert result["stats"]["cache_refresh"]["enabled"] is False
+
+            row = await database.fetch_one(
+                select(resources.c.id).where(resources.c.id == resource_id)
+            )
+            state = await database.fetch_one(
+                select(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            run = await repo.get_sync_run(result["bridge_id"])
+
+            assert row is None
+            assert state is None
+            assert run is not None
+            assert run["bridge_status"] == "success"
+            assert run["bridge_stats_json"]["deleted"] == 1
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
+            except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
+                pass
+
+    @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_resource_id_stops_on_match_without_retiring_others(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)

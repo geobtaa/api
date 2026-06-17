@@ -80,7 +80,7 @@ async def _index_changed_resource_batch(
         if not row:
             missing += 1
             try:
-                await es.delete(index=index_name, id=resource_id, ignore_status=[404])
+                await es.options(ignore_status=[404]).delete(index=index_name, id=resource_id)
             except Exception as exc:
                 errors += 1
                 logger.warning(
