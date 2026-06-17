@@ -424,7 +424,7 @@ async def sync_bridge_resource_batch(
             run_started_at=run_started_at,
             batch_size=min(len(records), normalize_batch_size(None)),
         )
-        for key in ("imported", "skipped", "errors"):
+        for key in ("imported", "skipped", "errors", "deleted"):
             batch_stats[key] = int(batch_stats.get(key) or 0) + int(import_stats.get(key) or 0)
         if import_stats.get("error_samples"):
             batch_stats.setdefault("error_samples", []).extend(import_stats["error_samples"])
@@ -434,7 +434,7 @@ async def sync_bridge_resource_batch(
     if missing_ids:
         deleted_count = await repo.delete_missing_resources(missing_ids)
         batch_stats["missing"] = len(missing_ids)
-        batch_stats["deleted"] = deleted_count
+        batch_stats["deleted"] = int(batch_stats.get("deleted") or 0) + deleted_count
 
     search_refresh_ids = resource_ids_for_bridge_records(records) + missing_ids
     if search_refresh_ids:

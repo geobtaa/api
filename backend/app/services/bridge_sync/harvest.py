@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _merge_stats(total: Dict[str, Any], page_stats: Dict[str, Any]) -> None:
-    for key in ("processed", "imported", "skipped", "errors"):
+    for key in ("processed", "imported", "skipped", "errors", "deleted"):
         total[key] = int(total.get(key, 0)) + int(page_stats.get(key, 0) or 0)
 
     samples = list(total.get("error_samples") or [])
@@ -221,7 +221,7 @@ async def sync_bridge(
                 "stage": "complete",
                 "pages_processed": pages_processed,
                 "missing": len(missing_ids),
-                "deleted": deleted_count,
+                "deleted": int(stats.get("deleted") or 0) + deleted_count,
                 "updated_at": datetime.utcnow().isoformat() + "Z",
             }
         )
