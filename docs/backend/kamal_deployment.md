@@ -375,12 +375,15 @@ Python-path, and bridge settings before the job starts.
 Bridge/blog cron triggers enqueue Celery tasks with `apply_async(ignore_result=True)` so
 they do not depend on a result-backend subscription just to queue fire-and-forget work.
 
-Bridge syncs update imported and retired resources in Elasticsearch as the sync completes.
+Bridge syncs update imported and deleted resources in Elasticsearch as the sync completes.
 Delta and single-record syncs also invalidate and re-warm cache entries tagged with changed
 or relationship-linked `resource:<id>` values, plus the canonical resource detail response
 for those resources. Batched bridge reconciliation refreshes Elasticsearch per completed
 batch; set `BRIDGE_BATCH_CACHE_REFRESH_ENABLED=true` only when a batched run should also
-invalidate and re-warm changed resource caches.
+invalidate and re-warm changed resource caches. Delta windows do not prove that an omitted
+resource was deleted upstream; use a full bridge sync, batched reconciliation, or a
+targeted `make kamal-bridge-sync KAMAL_DEST=<dest> RESOURCE_ID=<id>` run to remove local
+bridge-managed records that no longer exist in Kithe Bridge.
 
 The Kithe Bridge server moved to `https://geomg.lib.umn.edu/` in June 2026.
 The worker reads records from the collection endpoint configured in

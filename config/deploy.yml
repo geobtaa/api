@@ -54,7 +54,7 @@ servers:
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker worker --loglevel=INFO"
     options:
       cpus: <%= ENV.fetch('KAMAL_WORKER_CPUS', '1') %>
       memory: <%= ENV.fetch('KAMAL_WORKER_MEMORY', '1024m') %>
@@ -75,7 +75,7 @@ servers:
   flower:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: celery -A app.tasks.worker flower --port=5555
+    cmd: bash -lc "cd /app/backend && celery -A app.tasks.worker flower --port=5555"
     options:
       cpus: <%= ENV.fetch('KAMAL_FLOWER_CPUS', '0.5') %>
       memory: <%= ENV.fetch('KAMAL_FLOWER_MEMORY', '512m') %>

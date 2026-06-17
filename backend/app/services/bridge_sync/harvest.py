@@ -52,7 +52,7 @@ async def sync_bridge(
     importer: Optional[BridgeResourceImporter] = None,
     repo: Optional[BridgeSyncRepository] = None,
 ) -> Dict[str, Any]:
-    """Page the bridge API, UPSERT resources, and retire records that disappear."""
+    """Page the bridge API, UPSERT resources, and delete bridge records that disappear."""
 
     if not database.is_connected:
         await database.connect()
@@ -88,7 +88,14 @@ async def sync_bridge(
     cursor: Optional[str] = None
     last_cursor: Optional[str] = None
     pages_processed = 0
-    stats: Dict[str, Any] = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+    stats: Dict[str, Any] = {
+        "processed": 0,
+        "imported": 0,
+        "skipped": 0,
+        "errors": 0,
+        "deleted": 0,
+        "retired": 0,
+    }
     search_refresh_resource_ids: list[str] = []
     cache_refresh_resource_ids: list[str] = []
     if resource_id_norm:
@@ -195,17 +202,18 @@ async def sync_bridge(
                 cursor = page.next_cursor
 
         missing_ids = []
-        retired_count = 0
+        deleted_count = 0
         # Delta crawl (`changed_since`) does not have a complete snapshot, so we
-        # must not retire "missing" resources that simply weren't returned.
+        # must not delete resources that simply weren't returned.
         if resource_id_norm:
             if not found_resource:
-                raise RuntimeError(f"Bridge resource {resource_id_norm} was not found")
+                missing_ids = [resource_id_norm]
+                deleted_count = await repo.delete_missing_resources(missing_ids)
+                search_refresh_resource_ids.append(resource_id_norm)
+                cache_refresh_resource_ids.append(resource_id_norm)
         elif not changed_since_norm:
             missing_ids = await repo.mark_missing_stale(run_started_at=run_started_at)
-            retired_count = await repo.retire_missing_resources(
-                missing_ids, retired_at=datetime.utcnow()
-            )
+            deleted_count = await repo.delete_missing_resources(missing_ids)
             search_refresh_resource_ids.extend(missing_ids)
             cache_refresh_resource_ids.extend(missing_ids)
         stats.update(
@@ -213,7 +221,7 @@ async def sync_bridge(
                 "stage": "complete",
                 "pages_processed": pages_processed,
                 "missing": len(missing_ids),
-                "retired": retired_count,
+                "deleted": deleted_count,
                 "updated_at": datetime.utcnow().isoformat() + "Z",
             }
         )
@@ -246,11 +254,11 @@ async def sync_bridge(
             bridge_last_cursor=last_cursor,
         )
         logger.info(
-            "Bridge sync completed run_id=%s pages=%s imported=%s retired=%s",
+            "Bridge sync completed run_id=%s pages=%s imported=%s deleted=%s",
             run_id,
             pages_processed,
             stats.get("imported"),
-            stats.get("retired"),
+            stats.get("deleted"),
         )
         return {"bridge_id": run_id, "stats": stats, "bridge_last_cursor": last_cursor}
     except Exception as exc:

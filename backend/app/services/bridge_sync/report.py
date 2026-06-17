@@ -415,8 +415,12 @@ def build_bridge_sync_report_html(
                     ("Changed resources", f"{changed_resources:,}"),
                     ("Pages processed", f"{_coerce_int(stats.get('pages_processed')):,}"),
                     (
-                        "Missing / retired",
-                        f"{_coerce_int(stats.get('missing')):,} / {_coerce_int(stats.get('retired')):,}",
+                        "Missing / deleted / retired",
+                        (
+                            f"{_coerce_int(stats.get('missing')):,} / "
+                            f"{_coerce_int(stats.get('deleted')):,} / "
+                            f"{_coerce_int(stats.get('retired')):,}"
+                        ),
                     ),
                 ]
             ),
