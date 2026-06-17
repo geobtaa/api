@@ -39,12 +39,14 @@ vi.mock('react-leaflet', () => ({
 }));
 
 vi.mock('@krozamdev/overlapping-marker-spiderfier', () => ({
-  default: vi.fn().mockImplementation(() => ({
-    addMarker: vi.fn(),
-    addListener: vi.fn(),
-    clearMarkers: vi.fn(),
-    unspiderfy: vi.fn(),
-  })),
+  default: vi.fn().mockImplementation(function OverlappingMarkerSpiderfier() {
+    return {
+      addMarker: vi.fn(),
+      addListener: vi.fn(),
+      clearMarkers: vi.fn(),
+      unspiderfy: vi.fn(),
+    };
+  }),
 }));
 
 vi.mock('../../../components/map/BasemapSwitcherControl', () => ({

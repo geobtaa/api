@@ -13,7 +13,7 @@ servers:
   worker:
     hosts:
       - lib-btaageoapi-dev-app-01.oit.umn.edu
-    cmd: celery -A app.tasks.worker worker --loglevel=INFO
+    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
     options:
       cpus: 0.75
       memory: 1536m
@@ -24,11 +24,6 @@ servers:
     cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
       user: root
-
-  flower:
-    hosts:
-      - lib-btaageoapi-dev-app-01.oit.umn.edu
-    cmd: celery -A app.tasks.worker flower --port=5555
 
 proxy:
   host: lib-btaageoapi-dev-app-01.oit.umn.edu
@@ -53,14 +48,18 @@ env:
     APPSIGNAL_BACKEND_ACTIVE: "false"
     APPSIGNAL_BACKEND_APP_ENV: development
     APPSIGNAL_BACKEND_APP_NAME: "BTAA Geospatial API - Development"
+    APPSIGNAL_BACKEND_APP_ID: "6a316c2135fc588db66c7661"
     APPSIGNAL_BACKEND_ENABLE_HOST_METRICS: "false"
     APPSIGNAL_BACKEND_HOST_ROLE: backend
+    APPSIGNAL_BACKEND_WORKING_DIRECTORY_PATH: /tmp/appsignal-backend
     APPSIGNAL_BACKEND_OPENTELEMETRY_PORT: "8099"
     APPSIGNAL_FRONTEND_ACTIVE: "false"
     APPSIGNAL_FRONTEND_APP_ENV: development
     APPSIGNAL_FRONTEND_APP_NAME: "BTAA Geoportal SSR - Development"
+    APPSIGNAL_FRONTEND_APP_ID: "6a316c1a35fc588db66c7657"
     APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS: "false"
     APPSIGNAL_FRONTEND_HOST_ROLE: frontend
+    APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH: /tmp/appsignal-frontend
     APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT: "8100"
     TURNSTILE_ENABLED: "true"
     TURNSTILE_ALLOWED_HOSTNAMES: lib-btaageoapi-dev-app-01.oit.umn.edu

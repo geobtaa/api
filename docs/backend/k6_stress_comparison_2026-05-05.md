@@ -193,8 +193,7 @@ make k6-run K6_ENTRY=stress.js \
    event-loop issues, but under multi-worker production load it makes Postgres
    absorb avoidable connection churn.
 4. Set explicit Postgres connection budget math for each prd process group:
-   public API workers, internal API workers, SSR workers, worker, cron, and
-   Flower.
+   public API workers, internal API workers, SSR workers, worker, and cron.
 5. Rerun the same three corrected prd profiles after connection changes. The
    success target is the dev1-equivalent `6 frontend + 18 API` profile passing
    with 0% failures and API p95 below 1.5 s.

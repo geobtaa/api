@@ -59,13 +59,13 @@ Core runtime technologies:
 
 | Layer | Current implementation |
 | --- | --- |
-| API | API 0.8.6 app mounted at `/api/v1`, with custom Swagger at `/api/docs` and OpenAPI JSON at `/api/openapi.json`. |
+| API | API 0.8.7 app mounted at `/api/v1`, with custom Swagger at `/api/docs` and OpenAPI JSON at `/api/openapi.json`. |
 | Public web app | React 19, React Router 7, TypeScript, Vite 7, MUI 7, Leaflet, GeoBlacklight frontend components, H3 map visualization. |
 | Search | Elasticsearch 9.0.0, versioned index build plus alias swap through `scripts/reindex_atomic.py`. |
 | Database | ParadeDB/PostgreSQL, SQLAlchemy table metadata in `backend/db/models.py`, script-based migrations in `backend/db/migrations/`. |
 | Cache | Redis for hot endpoint/cache coordination plus durable database caches in `generated_api_responses`, `generated_resource_representations`, and generated visual asset tables. |
 | Jobs | Celery worker with Redis broker/result backend; Flower for local monitoring. |
-| Deployment | Kamal with `web`, `worker`, `cron`, and `flower` roles plus Elasticsearch, ParadeDB, and Redis accessories. |
+| Deployment | Kamal with `web`, `worker`, and `cron` roles plus Elasticsearch, ParadeDB, and Redis accessories. |
 | Public docs | MkDocs Material under `mkdocs/`, served locally with `make docs-serve` and built with `make docs-build`. |
 | Performance tests | Dockerized Grafana k6 scripts under `performance/k6`. |
 
@@ -218,7 +218,6 @@ Kamal roles:
 | `web` | Single-host runtime that starts FastAPI public/internal pools and React Router SSR through `scripts/start_web_singlehost.sh`. |
 | `worker` | Celery worker for ingest, cache, bridge, OGM, thumbnail, static-map, and indexing jobs. |
 | `cron` | Root cron container that loads `config/crontab` and env values rendered by `scripts/render_cron_env.py`. |
-| `flower` | Flower task monitor. |
 
 Accessories:
 

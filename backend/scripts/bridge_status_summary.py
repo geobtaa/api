@@ -159,6 +159,7 @@ def summarize_run(
     last_page_size = _coerce_int(stats.get("last_page_size"))
     matched_page_size = _coerce_int(stats.get("matched_page_size"))
     missing = _coerce_int(stats.get("missing"))
+    deleted = _coerce_int(stats.get("deleted"))
     retired = _coerce_int(stats.get("retired"))
     batches_completed = _coerce_int(stats.get("batches_completed"))
     batches_failed = _coerce_int(stats.get("batches_failed"))
@@ -217,6 +218,8 @@ def summarize_run(
         parts.append(f"rate={_format_rate(rate)}")
     if missing is not None:
         parts.append(f"missing={missing}")
+    if deleted is not None:
+        parts.append(f"deleted={deleted}")
     if retired is not None:
         parts.append(f"retired={retired}")
     if total_batches is not None:

@@ -9,7 +9,10 @@ The field `dct_isPartOf_sm` is defined in the index mapping (text + keyword subf
 ## Building relationships
 
 - **DB table**: `resource_relationships` (subject_id, predicate, object_id). Populated from the `resources` table columns (e.g. `dct_isPartOf_sm`, `pcdm_memberOf_sm`).
-- **OGM harvest behavior**: OpenGeoMetadata harvests now sync `resource_relationships` automatically for the harvested records and any unchanged resources that point at them.
+- **Import behavior**: OpenGeoMetadata harvests and Kithe Bridge syncs sync
+  `resource_relationships` automatically for imported records and unchanged
+  resources that point at them. This includes inverse replacement links such as
+  `dct:isReplacedBy` from a new record's `dct_replaces_sm` value.
 - **Make task** (from project root):
   ```bash
   make populate-relationships
@@ -19,8 +22,8 @@ The field `dct_isPartOf_sm` is defined in the index mapping (text + keyword subf
   - **Has part**: `include_filters[dct_isPartOf_sm][]=<parent_id>` — children must have the parent ID in `resources.dct_isPartOf_sm`.
   - **Collection records**: `include_filters[pcdm_memberOf_sm][]=<collection_id>` — member resources must have the collection ID in `resources.pcdm_memberOf_sm`.
   Filters are applied in Elasticsearch using the indexed fields (with `.keyword` for exact match). So:
-  1. Run `make populate-relationships` so the UI relationship lists are correct (from `resource_relationships`).
-  2. Run `make reindex` so Elasticsearch has up-to-date `dct_isPartOf_sm` and `pcdm_memberOf_sm` for the search filters.
+  1. Run `make populate-relationships` after manual/bulk DB edits that bypass the normal importers.
+  2. Run `make reindex` after manual/bulk DB edits so Elasticsearch has up-to-date `dct_isPartOf_sm` and `pcdm_memberOf_sm` for the search filters.
 
 ## Querying the database
 

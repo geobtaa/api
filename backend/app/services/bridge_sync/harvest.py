@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from app.services.bridge_sync.cache_refresh import refresh_cache_for_changed_resources
+from app.services.bridge_sync.changed_resources import resource_ids_for_bridge_records
 from app.services.bridge_sync.client import KitheBridgeClient
 from app.services.bridge_sync.importer import BridgeResourceImporter
 from app.services.bridge_sync.repository import BridgeSyncRepository
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 def _merge_stats(total: Dict[str, Any], page_stats: Dict[str, Any]) -> None:
-    for key in ("processed", "imported", "skipped", "errors"):
+    for key in ("processed", "imported", "skipped", "errors", "deleted"):
         total[key] = int(total.get(key, 0)) + int(page_stats.get(key, 0) or 0)
 
     samples = list(total.get("error_samples") or [])
@@ -51,7 +52,7 @@ async def sync_bridge(
     importer: Optional[BridgeResourceImporter] = None,
     repo: Optional[BridgeSyncRepository] = None,
 ) -> Dict[str, Any]:
-    """Page the bridge API, UPSERT resources, and retire records that disappear."""
+    """Page the bridge API, UPSERT resources, and delete bridge records that disappear."""
 
     if not database.is_connected:
         await database.connect()
@@ -87,8 +88,16 @@ async def sync_bridge(
     cursor: Optional[str] = None
     last_cursor: Optional[str] = None
     pages_processed = 0
-    stats: Dict[str, Any] = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
-    changed_resource_ids: list[str] = []
+    stats: Dict[str, Any] = {
+        "processed": 0,
+        "imported": 0,
+        "skipped": 0,
+        "errors": 0,
+        "deleted": 0,
+        "retired": 0,
+    }
+    search_refresh_resource_ids: list[str] = []
+    cache_refresh_resource_ids: list[str] = []
     if resource_id_norm:
         stats["scope"] = "single"
         stats["estimated_total"] = 1
@@ -124,10 +133,9 @@ async def sync_bridge(
             pages_processed = 1
             found_resource = bool(record)
             page_records = [record] if record else []
-            changed_resource_ids.extend(
-                str(item.get("id")).strip()
-                for item in page_records
-                if isinstance(item, dict) and item.get("id")
+            search_refresh_resource_ids.extend(resource_ids_for_bridge_records(page_records))
+            cache_refresh_resource_ids.extend(
+                resource_ids_for_bridge_records(page_records, include_related=True)
             )
             page_stats = await importer.upsert_records(
                 page_records,
@@ -160,11 +168,10 @@ async def sync_bridge(
                 pages_processed += 1
 
                 page_records = page.data
+                search_refresh_resource_ids.extend(resource_ids_for_bridge_records(page_records))
                 if changed_since_norm:
-                    changed_resource_ids.extend(
-                        str(item.get("id")).strip()
-                        for item in page_records
-                        if isinstance(item, dict) and item.get("id")
+                    cache_refresh_resource_ids.extend(
+                        resource_ids_for_bridge_records(page_records, include_related=True)
                     )
                 page_stats = await importer.upsert_records(
                     page_records,
@@ -195,39 +202,46 @@ async def sync_bridge(
                 cursor = page.next_cursor
 
         missing_ids = []
-        retired_count = 0
+        deleted_count = 0
         # Delta crawl (`changed_since`) does not have a complete snapshot, so we
-        # must not retire "missing" resources that simply weren't returned.
+        # must not delete resources that simply weren't returned.
         if resource_id_norm:
             if not found_resource:
-                raise RuntimeError(f"Bridge resource {resource_id_norm} was not found")
+                missing_ids = [resource_id_norm]
+                deleted_count = await repo.delete_missing_resources(missing_ids)
+                search_refresh_resource_ids.append(resource_id_norm)
+                cache_refresh_resource_ids.append(resource_id_norm)
         elif not changed_since_norm:
             missing_ids = await repo.mark_missing_stale(run_started_at=run_started_at)
-            retired_count = await repo.retire_missing_resources(
-                missing_ids, retired_at=datetime.utcnow()
-            )
+            deleted_count = await repo.delete_missing_resources(missing_ids)
+            search_refresh_resource_ids.extend(missing_ids)
+            cache_refresh_resource_ids.extend(missing_ids)
         stats.update(
             {
                 "stage": "complete",
                 "pages_processed": pages_processed,
                 "missing": len(missing_ids),
-                "retired": retired_count,
+                "deleted": int(stats.get("deleted") or 0) + deleted_count,
                 "updated_at": datetime.utcnow().isoformat() + "Z",
             }
         )
         if resource_id_norm:
             stats["found"] = found_resource
 
-        if changed_resource_ids:
-            stats["changed_resources"] = len({rid for rid in changed_resource_ids if rid})
+        if search_refresh_resource_ids:
+            stats["changed_resources"] = len({rid for rid in search_refresh_resource_ids if rid})
             try:
-                stats["search_index_refresh"] = await index_changed_resources(changed_resource_ids)
+                stats["search_index_refresh"] = await index_changed_resources(
+                    search_refresh_resource_ids
+                )
             except Exception as index_exc:
                 logger.warning("Bridge search index refresh failed; continuing. err=%s", index_exc)
                 stats["search_index_refresh"] = {"enabled": True, "error": str(index_exc)}
+
+        if cache_refresh_resource_ids:
             try:
                 stats["cache_refresh"] = await refresh_cache_for_changed_resources(
-                    changed_resource_ids
+                    cache_refresh_resource_ids
                 )
             except Exception as cache_exc:
                 logger.warning("Bridge cache refresh failed; continuing. err=%s", cache_exc)
@@ -240,11 +254,11 @@ async def sync_bridge(
             bridge_last_cursor=last_cursor,
         )
         logger.info(
-            "Bridge sync completed run_id=%s pages=%s imported=%s retired=%s",
+            "Bridge sync completed run_id=%s pages=%s imported=%s deleted=%s",
             run_id,
             pages_processed,
             stats.get("imported"),
-            stats.get("retired"),
+            stats.get("deleted"),
         )
         return {"bridge_id": run_id, "stats": stats, "bridge_last_cursor": last_cursor}
     except Exception as exc:

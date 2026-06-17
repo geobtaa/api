@@ -22,6 +22,7 @@ from app.services.reference_reconstruction import (
     build_effective_reference_payload,
     serialize_reference_payload,
 )
+from app.services.relationship_sync import sync_relationships_for_batch
 from db.database import database
 from db.models import resources
 
@@ -161,6 +162,14 @@ class BridgeResourceImporter:
 
         return out
 
+    def _is_deleted_record(self, record: Dict[str, Any]) -> bool:
+        deleted = record.get("deleted")
+        if isinstance(deleted, bool):
+            return deleted
+        if deleted is None:
+            return False
+        return str(deleted).strip().lower() in {"1", "true", "yes", "y", "on"}
+
     def _authoritative_reference_uris_for_record(
         self,
         record: Dict[str, Any],
@@ -237,7 +246,13 @@ class BridgeResourceImporter:
         run_started_at: datetime,
         batch_size: int = 500,
     ) -> Dict[str, Any]:
-        stats: Dict[str, Any] = {"processed": 0, "imported": 0, "skipped": 0, "errors": 0}
+        stats: Dict[str, Any] = {
+            "processed": 0,
+            "imported": 0,
+            "skipped": 0,
+            "errors": 0,
+            "deleted": 0,
+        }
         error_samples: List[Dict[str, Any]] = []
         error_signature_counts: Dict[str, int] = {}
 
@@ -307,6 +322,13 @@ class BridgeResourceImporter:
                             "Nested bridge sync failed for batch; continuing. err=%s",
                             str(nested_err),
                         )
+                    try:
+                        await sync_relationships_for_batch(rows)
+                    except Exception as rel_err:
+                        logger.warning(
+                            "Relationship sync failed for bridge batch; continuing. err=%s",
+                            str(rel_err),
+                        )
                     await self.repo.upsert_resources_seen_batch(seen)
                 return len(rows)
             except Exception as exc:
@@ -345,6 +367,15 @@ class BridgeResourceImporter:
         for record in records:
             stats["processed"] += 1
             try:
+                raw_rid = extract_record_id(record)
+                if self._is_deleted_record(record):
+                    if not raw_rid:
+                        stats["skipped"] += 1
+                        continue
+                    await _flush()
+                    stats["deleted"] += await self.repo.delete_missing_resources([str(raw_rid)])
+                    continue
+
                 normalized = self._normalize_record(record)
                 rid = normalized.get("id")
                 if not rid:

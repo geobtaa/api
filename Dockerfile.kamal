@@ -169,12 +169,11 @@ ENV PORT="3000"
 
 EXPOSE 8000
 
-# HEALTHCHECK for all roles (web, cron, flower, worker). Each role runs different process:
-# Web: nginx on 8000 | Flower: Celery on 5555 | Cron: cron (PID 1) | Worker: celery, no HTTP
+# HEALTHCHECK for all roles. Each role runs a different process:
+# Web: nginx on 8000 | Cron: cron (PID 1) | Worker: celery, no HTTP
 HEALTHCHECK --interval=10s --timeout=5s --start-period=45s --retries=3 \
   CMD case "$KAMAL_CONTAINER_NAME" in \
         *-web-*) curl -sf http://127.0.0.1:8000/api/docs -o /dev/null ;; \
-        *-flower-*) curl -sf http://127.0.0.1:5555/ -o /dev/null ;; \
         *-cron-*) grep -q cron /proc/1/comm 2>/dev/null ;; \
         *) kill -0 1 2>/dev/null ;; \
       esac

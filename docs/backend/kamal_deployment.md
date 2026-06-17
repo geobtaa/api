@@ -24,20 +24,30 @@ The destination deploy files set AppSignal identity explicitly. The FastAPI API
 and React SSR frontend report as separate AppSignal apps so incidents,
 performance traces, and route/action names stay grouped by runtime.
 
-| Destination | Backend telemetry | Backend app | Frontend telemetry | Frontend app |
-|-------------|-------------------|-------------|--------------------|--------------|
-| `dev1` | disabled with `APPSIGNAL_BACKEND_ACTIVE=false` | `BTAA Geospatial API - Development` | disabled with `APPSIGNAL_FRONTEND_ACTIVE=false` | `BTAA Geoportal SSR - Development` |
-| `dev2` | enabled | `BTAA Geospatial API - Development` | enabled | `BTAA Geoportal SSR - Development` |
-| `prd` | enabled | `BTAA Geospatial API - Production` | enabled | `BTAA Geoportal SSR - Production` |
+| Destination | Backend telemetry | Backend app | Backend app ID | Frontend telemetry | Frontend app | Frontend app ID |
+|-------------|-------------------|-------------|----------------|--------------------|--------------|-----------------|
+| `dev1` | disabled with `APPSIGNAL_BACKEND_ACTIVE=false` | `BTAA Geospatial API - Development` | `6a316c2135fc588db66c7661` | disabled with `APPSIGNAL_FRONTEND_ACTIVE=false` | `BTAA Geoportal SSR - Development` | `6a316c1a35fc588db66c7657` |
+| `dev2` | enabled | `BTAA Geospatial API - Development` | `6a316c2135fc588db66c7661` | enabled | `BTAA Geoportal SSR - Development` | `6a316c1a35fc588db66c7657` |
+| `prd` | enabled | `BTAA Geospatial API - Production` | `6a31948735fc588db66c770e` | enabled | `BTAA Geoportal SSR - Production` | `6a31948035fc588db66c7704` |
 
 `APPSIGNAL_BACKEND_*` values are consumed by `backend/__appsignal__.py` and
 `APPSIGNAL_FRONTEND_*` values are consumed by `frontend/appsignal.cjs`. The
 older shared `APPSIGNAL_ACTIVE`, `APPSIGNAL_APP_ENV`, and
 `APPSIGNAL_APP_NAME` values remain as fallbacks for local/dev compatibility.
+The `APPSIGNAL_BACKEND_APP_ID` and `APPSIGNAL_FRONTEND_APP_ID` values are
+operational identifiers for AppSignal dashboards and API/MCP lookups; the
+AppSignal agents do not consume app IDs directly.
 The backend uses AppSignal's default OpenTelemetry HTTP port, `8099`, and owns
 host metrics. The frontend SSR process uses `8100` and sets
 `APPSIGNAL_FRONTEND_ENABLE_HOST_METRICS=false` to avoid duplicate host metrics
 from the same Kamal container.
+
+Because the web role runs FastAPI and React SSR side by side in the same
+container, the two AppSignal agents must also use separate working directories:
+`APPSIGNAL_BACKEND_WORKING_DIRECTORY_PATH=/tmp/appsignal-backend` and
+`APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH=/tmp/appsignal-frontend`. Without
+that isolation the agents can conflict even when their app names and
+OpenTelemetry ports differ.
 
 Each destination also sets `APP_REVISION` from `APP_REVISION`, falling back to
 `KAMAL_VERSION`, then the current Git commit. This keeps AppSignal releases tied
@@ -90,7 +100,6 @@ Each destination is a single-host deployment with these app roles:
 - `web`: nginx + SSR + FastAPI on the public host
 - `worker`: Celery worker
 - `cron`: cron container for scheduled bridge/blog/analytics-maintenance tasks
-- `flower`: Celery monitoring UI
 
 Each destination also runs these accessories on the same VM:
 
@@ -238,20 +247,20 @@ kamal deploy -d prd
 ```
 
 When prompted, enter the tag or branch you intend to deploy, for example
-`v0.8.2` or `main`.
+`v0.8.7` or `main`.
 
 For non-interactive shells, pass the ref explicitly:
 
 ```bash
-PRD_DEPLOY_REF=v0.8.2 kamal deploy -d prd
+PRD_DEPLOY_REF=v0.8.7 kamal deploy -d prd
 ```
 
 The production deploy hook verifies that the selected ref matches both the
-current checkout and `KAMAL_VERSION`. To deploy an older tag, check it out first:
+current checkout and `KAMAL_VERSION`. To deploy from a specific tag, check it out first:
 
 ```bash
-git switch --detach v0.8.2
-PRD_DEPLOY_REF=v0.8.2 kamal deploy -d prd
+git switch --detach v0.8.7
+PRD_DEPLOY_REF=v0.8.7 kamal deploy -d prd
 git switch main
 ```
 
@@ -297,7 +306,6 @@ destinations. For `dev2`, prefer `https://geodev.btaa.org`.
 kamal app logs -d prd --roles web
 kamal app logs -d prd --roles worker
 kamal app logs -d prd --roles cron
-kamal app logs -d prd --roles flower
 kamal accessory logs -d prd paradedb
 kamal accessory logs -d prd elasticsearch
 kamal accessory logs -d prd redis
@@ -365,9 +373,15 @@ Python-path, and bridge settings before the job starts.
 Bridge/blog cron triggers enqueue Celery tasks with `apply_async(ignore_result=True)` so
 they do not depend on a result-backend subscription just to queue fire-and-forget work.
 
-Bridge delta syncs update changed resources in Elasticsearch, invalidate and re-warm cache
-entries tagged with changed `resource:<id>` values, plus the canonical resource detail
-response for each changed resource.
+Bridge syncs update imported and deleted resources in Elasticsearch as the sync completes.
+Delta and single-record syncs also invalidate and re-warm cache entries tagged with changed
+or relationship-linked `resource:<id>` values, plus the canonical resource detail response
+for those resources. Batched bridge reconciliation refreshes Elasticsearch per completed
+batch; set `BRIDGE_BATCH_CACHE_REFRESH_ENABLED=true` only when a batched run should also
+invalidate and re-warm changed resource caches. Delta windows do not prove that an omitted
+resource was deleted upstream; use a full bridge sync, batched reconciliation, or a
+targeted `make kamal-bridge-sync KAMAL_DEST=<dest> RESOURCE_ID=<id>` run to remove local
+bridge-managed records that no longer exist in Kithe Bridge.
 
 The Kithe Bridge server moved to `https://geomg.lib.umn.edu/` in June 2026.
 The worker reads records from the collection endpoint configured in
@@ -523,19 +537,6 @@ That usually means the Celery worker never started the task. Check:
 make kamal-worker-logs KAMAL_DEST=prd
 kamal app details -d prd
 ```
-
-If needed, open Flower through an SSH tunnel:
-
-```bash
-set -a
-source .kamal/secrets-common
-source .kamal/secrets.prd
-set +a
-
-ssh -L 5555:localhost:5555 $KAMAL_SSH_USER@$KAMAL_HOST
-```
-
-Then open `http://localhost:5555`.
 
 ### Storage drift
 

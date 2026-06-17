@@ -228,6 +228,7 @@ async def _record_failed_bridge_sync_batch(
             "skipped": 0,
             "errors": 1,
             "missing": 0,
+            "deleted": 0,
             "retired": 0,
             "total_batches": total_batches,
             "error_samples": [
