@@ -467,8 +467,7 @@ Kamal deploys the application as a single-host stack with roles for:
 
 - web,
 - worker,
-- cron,
-- flower.
+- cron.
 
 Accessories run alongside the application:
 

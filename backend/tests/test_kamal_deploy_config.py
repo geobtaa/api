@@ -36,6 +36,23 @@ def test_prd_allows_search_engine_indexing():
     assert prd_config["env"]["clear"]["SEARCH_ENGINE_INDEXING_ENABLED"] == "true"
 
 
+def test_kamal_configs_do_not_deploy_flower_role():
+    deploy_paths = [
+        "config/deploy.yml",
+        "config/deploy.dev1.yml",
+        "config/deploy.dev2.yml",
+        "config/deploy.prd.yml",
+    ]
+
+    for path in deploy_paths:
+        config = _load_deploy_config(path)
+        assert "flower" not in config.get("servers", {})
+
+    base_config = _load_deploy_config("config/deploy.yml")
+    for accessory in base_config["accessories"].values():
+        assert "flower" not in accessory.get("roles", [])
+
+
 def test_prd_uses_canonical_geoportal_base_url():
     prd_config = _load_deploy_config("config/deploy.prd.yml")
 
