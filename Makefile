@@ -1635,7 +1635,7 @@ kamal-blog-sync: ## Trigger home page blog sync on Kamal (RUN_NOW=1 for inline)
 
 # Manually run the production-gated Postgres backup from the cron container.
 # Usage: make kamal-backup-postgres KAMAL_DEST=prd
-kamal-backup-postgres: ## Run production-gated Postgres S3 backup on Kamal
+kamal-backup-postgres: ## Run production-gated Postgres backup on Kamal
 	@echo "Running Postgres backup on Kamal cron container (KAMAL_DEST=$(KAMAL_DEST))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
 		echo "ERROR: KAMAL_SSH_USER and KAMAL_HOST must be set. $(KAMAL_DEST_HELP)"; \

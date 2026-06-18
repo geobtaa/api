@@ -152,6 +152,8 @@ env:
     SMTP_TIMEOUT_SECONDS:  "<%= ENV.fetch('SMTP_TIMEOUT_SECONDS', '20') %>"
     BACKUP_ENABLED:        "false"
     BACKUP_REQUIRED_DEST:  "prd"
+    BACKUP_POSTGRES_TARGET: "s3"
+    BACKUP_LOCAL_DIR:      "<%= ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api') %>"
     BACKUP_RETENTION_COUNT: "3"
     BACKUP_S3_BUCKET:      "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
     BACKUP_S3_PREFIX:      "<%= ENV.fetch('BACKUP_S3_PREFIX', 'btaa-geospatial-api') %>"

@@ -41,6 +41,9 @@ servers:
 proxy:
   host: geo.btaa.org,lib-geoportal-prd-web-01.oit.umn.edu
 
+volumes:
+  - /var/lib/btaa-geospatial-api/backups:/var/backups/btaa-geospatial-api
+
 builder:
   args:
     VITE_API_BASE_URL: "https://geo.btaa.org/api/v1"
@@ -55,6 +58,7 @@ env:
     APPLICATION_URL: https://geo.btaa.org
     GEOPORTAL_BASE_URL: https://geo.btaa.org
     APP_ENV: production
+    LOG_LEVEL: INFO
     APP_REVISION: "<%= ENV.fetch('APP_REVISION') { ENV.fetch('KAMAL_VERSION') { `git rev-parse --verify HEAD`.strip } } %>"
     KAMAL_DEST: prd
     APPSIGNAL_ACTIVE: "true"
@@ -76,6 +80,7 @@ env:
     APPSIGNAL_FRONTEND_HOST_ROLE: frontend
     APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH: /tmp/appsignal-frontend
     APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT: "8100"
+    APPSIGNAL_FRONTEND_IGNORE_ERRORS: "<%= ENV.fetch('APPSIGNAL_FRONTEND_IGNORE_ERRORS', 'Writable closed before stream finished') %>"
     BRIDGE_SYNC_REPORT_ENABLED: "true"
     BRIDGE_SYNC_REPORT_DELIVERY: sendmail
     FEEDBACK_EMAIL_ENABLED: "true"
@@ -111,6 +116,8 @@ env:
     WEB_SSR_WORKERS: "4"
     BACKUP_ENABLED: "<%= ENV.fetch('BACKUP_ENABLED', 'true') %>"
     BACKUP_REQUIRED_DEST: prd
+    BACKUP_POSTGRES_TARGET: "<%= ENV.fetch('BACKUP_POSTGRES_TARGET', 'local') %>"
+    BACKUP_LOCAL_DIR: "<%= ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api') %>"
     BACKUP_RETENTION_COUNT: "<%= ENV.fetch('BACKUP_RETENTION_COUNT', '3') %>"
     BACKUP_S3_BUCKET: "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
     BACKUP_S3_PREFIX: "<%= ENV.fetch('BACKUP_S3_PREFIX', 'btaa-geospatial-api') %>"
