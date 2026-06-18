@@ -15,6 +15,7 @@ from app.api.schemas import (
     OGCSortablesResponse,
 )
 from app.api.v1.shared import SortOption
+from app.api.v1.utils import sanitize_for_json
 from app.services.ogc_projector import OGCResponseProjector
 from app.services.search_service import SearchService
 
@@ -150,7 +151,9 @@ async def get_items(
         logger.error("OGC search request failed in search service")
         raise HTTPException(status_code=503, detail="Elasticsearch search failed")
 
-    return OGCResponseProjector.build_items_response(url, results, page, limit, "btaa-records")
+    return sanitize_for_json(
+        OGCResponseProjector.build_items_response(url, results, page, limit, "btaa-records")
+    )
 
 
 @router.get(

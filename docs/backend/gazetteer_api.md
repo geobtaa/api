@@ -61,7 +61,7 @@ Returns information about all available gazetteers, including record counts.
         "name": "BTAA",
         "description": "Big Ten Academic Alliance Geoportal gazetteer",
         "record_count": 5000,
-        "website": "https://geo.btaa.org/"
+        "website": "https://example.org/geoportal"
       }
     }
   ],
@@ -522,4 +522,4 @@ data/
       *.csv
 ```
 
-Each CSV file should match the expected format for the corresponding gazetteer. 
+Each CSV file should match the expected format for the corresponding gazetteer.

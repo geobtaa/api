@@ -91,7 +91,7 @@ btaa-geo-api --install-completion zsh
 The CLI reads configuration from flags, environment variables, and its user config file.
 
 ```bash
-BTAA_GEO_API_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1
+BTAA_GEO_API_BASE_URL=http://localhost:8000/api/v1
 BTAA_GEO_API_KEY=your-key
 BTAA_GEO_API_ANALYTICS=0
 ```

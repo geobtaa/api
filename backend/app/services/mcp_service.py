@@ -26,7 +26,7 @@ from db.session import async_session as app_async_session
 logger = logging.getLogger(__name__)
 
 MCP_SERVICE_NAME = "btaa-geospatial-api"
-MCP_SERVICE_VERSION = "0.8.7"
+MCP_SERVICE_VERSION = "0.8.8"
 MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
 
@@ -88,6 +88,19 @@ def _api_response_error_type(payload: dict[str, Any]) -> str:
     if status_code in (401, 403):
         return "authentication"
     return "http"
+
+
+def _jsonrpc_error_response(
+    msg_id: Any,
+    *,
+    code: int = -32603,
+    message: str = "Internal error",
+) -> dict[str, Any]:
+    return {
+        "jsonrpc": "2.0",
+        "id": msg_id,
+        "error": {"code": code, "message": message},
+    }
 
 
 class OGMMCPService:
@@ -394,7 +407,8 @@ class OGMMCPService:
             except Exception as e:
                 logger.error(f"Error in tool {name}: {str(e)}", exc_info=True)
                 return CallToolResult(
-                    content=[TextContent(type="text", text=f"Error: {str(e)}")], isError=True
+                    content=[TextContent(type="text", text="Error: Tool request failed")],
+                    isError=True,
                 )
 
         logger.info("MCP tools registered successfully")
@@ -449,7 +463,6 @@ class OGMMCPService:
                 {
                     "error": "Search request failed",
                     "error_type": _api_request_error_type(e),
-                    "detail": str(e),
                     "query": query,
                     "page": page,
                     "per_page": per_page,
@@ -1030,15 +1043,9 @@ async def run_mcp_websocket_server(websocket):
                         {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}}
                     )
                 )
-            except Exception as e:
-                await websocket.send_text(
-                    json.dumps(
-                        {
-                            "jsonrpc": "2.0",
-                            "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
-                        }
-                    )
-                )
+            except Exception:
+                logger.error("Error handling MCP WebSocket message", exc_info=True)
+                await websocket.send_text(json.dumps(_jsonrpc_error_response(None)))
     except Exception as e:
         logging.error(f"WebSocket error: {e}")
 
@@ -1133,12 +1140,9 @@ async def handle_mcp_message(data: Dict[str, Any]) -> Dict[str, Any] | None:
                 },
             }
 
-        except Exception as e:
-            return {
-                "jsonrpc": "2.0",
-                "id": msg_id,
-                "error": {"code": -32603, "message": f"Internal error: {str(e)}"},
-            }
+        except Exception:
+            logger.error("Error handling MCP tool call", exc_info=True)
+            return _jsonrpc_error_response(msg_id)
 
     else:
         return {

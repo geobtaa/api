@@ -32,6 +32,15 @@ from app.services.viewer_service import ViewerService
 from db.database import database
 
 logger = logging.getLogger(__name__)
+_SEARCH_ERROR_CODE = "search_request_failed"
+
+
+def _search_error_payload(error: object) -> Dict[str, str]:
+    return {
+        "message": "Search operation failed",
+        "error": _SEARCH_ERROR_CODE,
+        "error_type": _search_error_type(error),
+    }
 
 
 def _search_error_text(error: object) -> str:
@@ -196,8 +205,7 @@ class SearchService:
             if not isinstance(results, dict):
                 results = {}
             if "error" in results:
-                results.setdefault("message", "Search operation failed")
-                results.setdefault("error_type", _search_error_type(results))
+                results.update(_search_error_payload(results))
 
             total_time = time.time() - start_time
             query_timings = results.get("queryTime", {})
@@ -229,14 +237,7 @@ class SearchService:
 
         except Exception as e:
             logger.error("Search service error", exc_info=True)
-            return {
-                "message": "Search operation failed",
-                "error": str(e),
-                "error_type": _search_error_type(e),
-                "query": q,
-                "filters": filter_query if "filter_query" in locals() else None,
-                "sort": sort,
-            }
+            return _search_error_payload(e)
 
     async def get_resource(
         self,

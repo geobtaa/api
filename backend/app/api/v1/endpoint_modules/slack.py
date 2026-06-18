@@ -6,6 +6,7 @@ from urllib.parse import parse_qs
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from app.api.v1.utils import sanitize_for_json
 from app.services.slackbot_service import handle_slack_command, verify_slack_signature
 
 router = APIRouter()
@@ -39,4 +40,4 @@ async def slack_command(request: Request):
 
     form_data = parse_qs(body.decode("utf-8"), keep_blank_values=True)
     response = await handle_slack_command(form_data)
-    return JSONResponse(content=response)
+    return JSONResponse(content=sanitize_for_json(response))

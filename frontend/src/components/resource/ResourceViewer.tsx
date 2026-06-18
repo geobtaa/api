@@ -365,7 +365,8 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
   const protocol = data.meta?.ui?.viewer?.protocol || '';
   const endpoint = data.meta?.ui?.viewer?.endpoint || '';
   const geometry = data.meta?.ui?.viewer?.geometry;
-  const available = !!protocol && !!endpoint && !!geometry;
+  const available =
+    !!protocol && !!endpoint && (protocol === 'iiif_image' || !!geometry);
   const layerIdentifier =
     data.attributes.ogm?.gbl_wxsIdentifier_s ||
     data.attributes.ogm?.gbl_wxsidentifier_s ||
@@ -384,7 +385,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
 
   // Helper function to determine viewer type
   const getViewerType = (protocol: string) => {
-    if (['iiif_manifest', 'iiif_image'].includes(protocol)) {
+    if (protocol === 'iiif_manifest') {
       return 'mirador';
     }
     if (['cog', 'pmtiles'].includes(protocol)) {
@@ -426,6 +427,9 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
     if (protocol === 'arcgis_image_map_layer') {
       return 'ImageMapLayer';
     }
+    if (protocol === 'iiif_image') {
+      return 'Iiif';
+    }
     if (protocol === 'open_index_map') {
       return 'IndexMap';
     }
@@ -451,14 +455,9 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
         );
       }
 
-      // For iiif_image, we synthesize a Presentation manifest via a local SSR route.
-      // Mirador runs in a sandboxed iframe, so use absolute URLs for both real and
-      // synthesized manifests.
+      // Mirador runs in a sandboxed iframe, so use an absolute URL for the manifest.
       const pageOrigin = window.location.origin;
-      const manifestUrl =
-        protocol === 'iiif_image'
-          ? `${pageOrigin}/iiif/manifest?image_service=${encodeURIComponent(endpoint)}`
-          : new URL(endpoint, pageOrigin).toString();
+      const manifestUrl = new URL(endpoint, pageOrigin).toString();
 
       const miradorUrl = new URL('/mirador', pageOrigin);
       miradorUrl.searchParams.set('manifest', manifestUrl);
@@ -604,9 +603,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
             data-controller="leaflet-viewer"
             data-leaflet-viewer-available-value={available}
             data-leaflet-viewer-map-geom-value={JSON.stringify(geometry)}
-            data-leaflet-viewer-layer-id-value={
-              data.attributes.ogm.gbl_wxsIdentifier_s || ''
-            }
+            data-leaflet-viewer-layer-id-value={layerIdentifier}
             data-leaflet-viewer-options-value={JSON.stringify(
               leafletViewerOptions
             )}

@@ -65,6 +65,8 @@ Current first-party client identities:
 
 - `geoportal-web` for same-origin browser API requests
 - `geoportal-ssr` for server-side fetches
+- `qgis-plugin` with channel `qgis`
+- `btaa-mcp-http-bridge` and `btaa-mcp-websocket-bridge` with channel `mcp`
 
 External or partner clients can opt into the same attribution model by sending the `X-BTAA-Client-*` headers.
 
@@ -240,7 +242,7 @@ Large `DELETE` jobs create table bloat and vacuum pressure in Postgres. Monthly 
 
 ## Operations
 
-### Run migrations
+### Run migrations locally
 
 Local Docker:
 
@@ -248,13 +250,7 @@ Local Docker:
 docker compose exec -T api bash -lc 'cd /app/backend && python scripts/run_migrations.py'
 ```
 
-Kamal / remote:
-
-```bash
-kamal app exec -d dev1 --roles web "bash -lc 'cd /app/backend && /opt/venv/bin/python scripts/run_migrations.py'"
-```
-
-### Run analytics maintenance
+### Run analytics maintenance locally
 
 Local:
 
@@ -272,19 +268,13 @@ python scripts/manage_analytics_storage.py --mode size-report
 python scripts/manage_analytics_storage.py --mode ensure
 ```
 
-Remote:
-
-```bash
-kamal app exec -d dev1 --roles web "bash -lc 'cd /app/backend && /opt/venv/bin/python scripts/manage_analytics_storage.py --mode maintenance'"
-```
-
-### Scheduled maintenance
-
-The Kamal cron container currently runs analytics maintenance daily at `4:45 AM`.
+Deployed analytics maintenance commands, schedules, and verification procedures
+are restricted operations material.
 
 ### `db-sync` preservation
 
-`make db-sync` preserves destination-local analytics tables by default:
+`make db-sync` is a mixed local/deployed workflow. Deployed use is restricted
+operations material. The implementation preserves analytics tables by default:
 
 - `analytics_api_usage_logs`
 - `analytics_searches`
@@ -328,5 +318,5 @@ If a raw field needs to survive beyond raw retention:
 
 - [Service Tiers & Rate Limiting Runbook](service_tiers_runbook.md)
 - [Backend Scripts](scripts.md)
-- [Kamal Deployment](kamal_deployment.md)
+- [Deployment](deployment.md)
 - [Makefile Tasks](../make_tasks.md)

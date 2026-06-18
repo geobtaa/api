@@ -9,7 +9,7 @@ When your React application runs in users' browsers, there's an important distin
 ```
 User's Browser (IP: 203.0.113.42) 
     ↓
-    ↓ Makes fetch() call to api.geo.btaa.org
+    ↓ Makes fetch() call to api.example.org
     ↓
     ↓ (Request includes API key from React code)
     ↓
@@ -83,9 +83,9 @@ API Server
 
 **What to do:**
 - Create a thin backend API (Next.js API routes, Express, etc.) that proxies requests
-- React app calls YOUR backend (not api.geo.btaa.org directly)
+- React app calls YOUR backend (not the API directly)
 - Backend has the API key (server-side, not exposed)
-- Backend calls api.geo.btaa.org with API key
+- Backend calls the API with the API key
 - Use IP whitelisting on the API key (whitelist your backend server IP)
 
 **Pros:**
@@ -106,7 +106,7 @@ User Browser
 Your Backend Server (IP: 198.51.100.10)
     ↓ (API key here, server-side only)
     ↓ (X-Forwarded-For: 198.51.100.10)
-api.geo.btaa.org
+api.example.org
     ↓ (Checks: key valid + IP 198.51.100.10 in whitelist)
     ↓ (ALLOWED)
 API Response
@@ -142,4 +142,3 @@ Use the **BFF pattern** (Option 3) - create a backend proxy that holds the API k
 | Backend proxy (BFF) | ✅ Yes (to backend IP) | Backend (hidden) | ✅ Yes, most secure |
 
 **Key Point**: IP whitelisting only works when the requests come from a known server IP. Client-side JavaScript runs in users' browsers, so requests come from user IPs, not your server IP.
-

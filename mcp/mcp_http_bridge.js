@@ -10,6 +10,10 @@ const http = require("http");
 const https = require("https");
 const readline = require("readline");
 
+const { clientHeaders } = require("./client_headers");
+
+const CLIENT_NAME = "btaa-mcp-http-bridge";
+
 function baseUrl() {
   return (process.env.BTAA_GEOSPATIAL_API_BASE_URL || "http://127.0.0.1:8000").replace(
     /\/$/,
@@ -19,6 +23,14 @@ function baseUrl() {
 
 function mcpHttpUrl() {
   return process.env.MCP_SERVER_URL || process.env.MCP_HTTP_URL || `${baseUrl()}/api/v1/mcp`;
+}
+
+function requestHeaders(requestBody) {
+  return {
+    "content-type": "application/json",
+    "content-length": Buffer.byteLength(requestBody),
+    ...clientHeaders(CLIENT_NAME),
+  };
 }
 
 function writeJson(message) {
@@ -46,10 +58,7 @@ async function postMessage(message) {
         port: target.port || (target.protocol === "https:" ? 443 : 80),
         path: `${target.pathname}${target.search}`,
         method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "content-length": Buffer.byteLength(requestBody),
-        },
+        headers: requestHeaders(requestBody),
       },
       (response) => {
         let body = "";
@@ -119,7 +128,19 @@ async function main() {
   await queue;
 }
 
-main().catch((error) => {
-  process.stderr.write(`MCP HTTP bridge failed: ${error.stack || error.message}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`MCP HTTP bridge failed: ${error.stack || error.message}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  baseUrl,
+  handleLine,
+  jsonRpcError,
+  main,
+  mcpHttpUrl,
+  postMessage,
+  requestHeaders,
+};

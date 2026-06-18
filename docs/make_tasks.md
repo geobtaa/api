@@ -1,8 +1,7 @@
 # Make Tasks
 
 Run these targets from the repository root. The Makefile loads `.env` when it
-exists and loads Kamal secrets from `.kamal/secrets-common` plus
-`.kamal/secrets.<KAMAL_DEST>` when those files exist.
+exists.
 
 Use `make help` to print the authoritative target list from the current
 Makefile.
@@ -47,10 +46,8 @@ Common overrides:
 Frontend lint, format, and tests are npm scripts run from `frontend/`; see
 [frontend/README.md](frontend/README.md).
 
-The public `/feedback` page posts to `/api/v1/feedback` and sends mail with the
-same sendmail/SMTP conventions as other app mail. Configure
-`FEEDBACK_EMAIL_ENABLED`, `FEEDBACK_RECIPIENTS`, `FEEDBACK_FROM`, and
-`FEEDBACK_DELIVERY`; production typically uses `FEEDBACK_DELIVERY=sendmail`.
+The public `/feedback` page posts to `/api/v1/feedback`. Deployed mail delivery
+configuration is restricted operations material.
 
 | Target | Purpose |
 | --- | --- |
@@ -103,7 +100,7 @@ Important reindex knobs:
 | `REINDEX_REMOVE_LEGACY_INDEX` | `true` |
 | `PUBLISHED_ONLY` | `false` |
 
-`make reindex` and `make kamal-reindex` index all resource rows by default. Public
+`make reindex` indexes all resource rows by default. Public
 Elasticsearch-backed queries apply `publication_state=published` and
 `gbl_suppressed_b=false` at query time; set `PUBLISHED_ONLY=1` only for a narrowed
 maintenance index build.
@@ -122,9 +119,9 @@ maintenance index build.
 | `make refresh-resource-caches` | Purge and rehydrate selected resource/API caches. Use `REFRESH_APPLY=1` to apply. |
 | `make api-response-cache-prune` | Prune expired durable API response cache rows. |
 | `make visual-assets-export` | Export generated visual asset table data. |
-| `make visual-assets-import` | Import generated visual asset data to `KAMAL_DEST`. |
-| `make visual-assets-stream-import` | Stream generated visual asset data directly to `KAMAL_DEST`. |
-| `make visual-assets-sync-all` | Export once, then import generated visual assets to `VISUAL_ASSETS_DESTS`. |
+| `make visual-assets-import` | Import generated visual asset data in a configured environment. |
+| `make visual-assets-stream-import` | Stream generated visual asset data in a configured environment. |
+| `make visual-assets-sync-all` | Export once, then import generated visual assets in configured environments. |
 
 Common cache/priming variables:
 
@@ -180,20 +177,9 @@ Useful bridge variables:
 | `KITHE_BRIDGE_VERIFY_SSL` | Defaults to `true` in code. Set to `false` only for temporary hostname/certificate mismatches. |
 | `BRIDGE_BATCH_CACHE_REFRESH_ENABLED` | Defaults to `false`; set to `true` only when a batched run should also invalidate and rewarm changed resource caches. |
 
-For remote reconciliation, run `make kamal-bridge-sync-batched KAMAL_DEST=dev1`
-and then monitor with `make kamal-bridge-status-watch KAMAL_DEST=dev1`. Bridge
-syncs now refresh Elasticsearch for imported and retired resource IDs as the sync
-completes; batched reconciliation does this per completed batch, while cache
-refresh for batched runs is opt-in via `BRIDGE_BATCH_CACHE_REFRESH_ENABLED`.
-The batched target reconciles existing local IDs; keep the normal bridge
-crawl/delta sync for discovering newly added Bridge records. Batched resource
-fetches retry transient Kithe Bridge `5xx` responses as a group before counting
-a record error; tune with
-`KITHE_BRIDGE_BATCH_FETCH_5XX_MAX_ATTEMPTS` and
-`KITHE_BRIDGE_BATCH_FETCH_5XX_RETRY_BACKOFF_SECONDS` when an upstream outage
-requires slower or faster retry pacing. A batched run that completes with
-record errors now finishes with `bridge_status=failed`, so retry the failed
-records before treating that run as complete.
+Remote bridge reconciliation, monitoring, retry tuning, and cache refresh
+procedures are restricted operations material. Keep public notes focused on
+local targets and code behavior.
 
 Bridge resources that disappear from Kithe Bridge are deleted locally, not
 converted to suppressed or retired records. A full bridge sync can detect
@@ -204,11 +190,8 @@ infer deletions because unchanged records are intentionally absent from the
 delta window. The deletion guard is limited to bridge-managed rows
 (`bridge_resource_state`) or legacy Kithe-origin rows with `resources.import_id`.
 
-June 2026 bridge cutover note: the Kithe Bridge server moved to
-`https://geomg.lib.umn.edu/`, and Kamal points `KITHE_BRIDGE_URL` at the
-collection endpoint `https://geomg.lib.umn.edu/api/kithe_bridge` with
-`KITHE_BRIDGE_VERIFY_SSL=true`. Set verification to `false` only for a
-temporary hostname/certificate mismatch during an infrastructure change.
+Environment-specific Bridge endpoints and verification overrides are restricted
+operations material.
 
 ## Analytics
 
@@ -219,13 +202,13 @@ temporary hostname/certificate mismatch during an infrastructure change.
 
 ## Database Sync And Legacy GBL Admin Import
 
-These targets can be destructive on the destination named by `KAMAL_DEST`.
-Confirm the target environment before running remote imports.
+Some database import targets can be destructive outside local development.
+Deployed database sync procedures are restricted operations material.
 
 | Target | Purpose |
 | --- | --- |
 | `make db-export` | Export local ParadeDB to `tmp/btaa_geospatial_api_export.sql.gz` and build the db-sync archive. |
-| `make db-import` | Import the db-sync archive to a Kamal destination. Preserves local API/analytics tables by default. |
+| `make db-import` | Import the db-sync archive in a configured environment. Deployed use is restricted operations material. |
 | `make db-sync` | Run `db-export` then `db-import`. |
 | `make gbl-admin-db-download` | Download the latest GBL Admin production dump. |
 | `make gbl-admin-db-unzip` | Decompress the downloaded GBL Admin dump. |
@@ -235,45 +218,17 @@ Confirm the target environment before running remote imports.
 | `make gbl-admin-db-import-resources` | Import resources from the GBL Admin bridge. |
 | `make gbl-admin-db-import-all` | Run the full GBL Admin import pipeline. |
 
-By default, `db-import` preserves destination-local API key and analytics tables:
+By default, `db-import` preserves API key and analytics tables:
 `api_service_tiers`, `api_keys`, `analytics_api_usage_logs`,
 `analytics_searches`, `analytics_search_impressions`, and `analytics_events`,
 plus their owned sequences.
 
-## Kamal Remote Operations
+## Remote Operations
 
-Set `KAMAL_DEST=dev1`, `dev2`, or `prd`. The default is `dev1`.
-
-| Target | Purpose |
-| --- | --- |
-| `make kamal-reindex` | Run atomic Elasticsearch reindex on a Kamal destination. |
-| `make kamal-verify-h3-index` | Verify H3 index fields on a Kamal destination. |
-| `make kamal-clear-cache` | Clear remote cache. `KAMAL_CACHE_TYPE=search|resource|suggest|map|all`. |
-| `make kamal-blog-sync` | Trigger remote home page blog sync. Use `RUN_NOW=1` for inline execution. |
-| `make kamal-purge-home-blog-cache` | Purge home blog/home endpoint cache remotely. |
-| `make kamal-backup-postgres` | Run the production-gated Postgres S3 backup in the cron container. |
-| `make kamal-backup-elasticsearch` | Run the production-gated Elasticsearch S3 snapshot in the cron container. |
-| `make kamal-backup-list-elasticsearch` | List Elasticsearch snapshots for the target destination. |
-| `make kamal-bridge-sync` | Trigger remote bridge sync. Supports `RESOURCE_ID`, `BRIDGE_LIMIT`, and `BRIDGE_CHANGED_SINCE`. |
-| `make kamal-bridge-sync-batched` | Trigger remote batched bridge reconciliation. |
-| `make kamal-bridge-status` | Show bridge status remotely. |
-| `make kamal-bridge-status-watch` | Poll remote bridge status. |
-| `make kamal-cron-debug` | Inspect cron container crontab, timezone, and env. |
-| `make kamal-cron-test-bridge` | Run the bridge sync cron trigger inside the cron container. |
-| `make kamal-worker-logs` | Tail Celery worker logs. |
-| `make kamal-network-sanity` | Check outbound and self-FQDN networking on a Kamal host/container. |
-| `make kamal-prime-thumbnail-cache` | Prime thumbnail cache remotely. |
-| `make kamal-prime-static-map-cache` | Prime static-map cache remotely. |
-| `make kamal-prime-visual-caches` | Prime remote thumbnail and static-map caches. |
-| `make kamal-prime-resource-cache` | Prime remote shared API resource representation cache. |
-| `make kamal-thumbnail-completeness-report` | Report remote thumbnail completeness. |
-| `make kamal-api-response-cache-init` | Ensure durable API response cache tables remotely. |
-| `make kamal-api-response-cache-prune` | Prune expired durable API response rows remotely. |
-| `make kamal-refresh-resource-caches` | Purge and rehydrate selected remote resource/API caches. |
-
-Kamal reindex knobs mirror local reindexing with the `KAMAL_REINDEX_*` prefix.
-`make kamal-backup-elasticsearch` uses `KAMAL_BACKUP_RETAIN_COUNT` as a manual
-fallback when the destination environment does not set `BACKUP_RETENTION_COUNT`.
+Remote deployment, cache, backup, indexing, bridge, cron, worker, and network
+operations are restricted operations material. Public docs intentionally do not
+list destination names, remote target examples, secret-loading behavior, or
+production command sequences.
 
 ## Performance Tests
 
@@ -284,8 +239,9 @@ fallback when the destination environment does not set `BACKUP_RETENTION_COUNT`.
 | `make k6-endpoint-capacity` | Run a fixed-request-rate capacity test for one endpoint. |
 
 Useful variables include `K6_BASE_URL`, `K6_QUERY`, `K6_RESOURCE_ID`,
-`K6_API_KEY`, `K6_ENABLE_FRONTEND`, `K6_ENABLE_API`, endpoint target and request
-rate variables, and p95/p99 threshold variables. See
+`K6_ENABLE_FRONTEND`, `K6_ENABLE_API`, endpoint target and request-rate
+variables, and p95/p99 threshold variables. Keep API keys and deployed target
+details in restricted operations docs. See
 [backend/performance_testing.md](backend/performance_testing.md).
 
 ## Troubleshooting
@@ -304,14 +260,6 @@ make frontend-reset
 ```
 
 Then hard-refresh the browser.
-
-If a remote bridge task is queued but does not run:
-
-```bash
-make kamal-worker-logs KAMAL_DEST=dev1
-make kamal-cron-debug KAMAL_DEST=dev1
-make kamal-bridge-status KAMAL_DEST=dev1
-```
 
 If this file drifts, regenerate the target list with:
 

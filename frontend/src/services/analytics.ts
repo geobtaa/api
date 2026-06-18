@@ -60,6 +60,22 @@ interface AnalyticsBatchPayload {
   events?: AnalyticsEventRecord[];
 }
 
+interface AnalyticsDefaultFields {
+  visit_token?: string;
+  client_name?: string;
+  client_version?: string;
+  client_channel?: string;
+  client_instance?: string;
+  source_host?: string;
+  occurred_at?: string;
+}
+
+declare global {
+  interface Window {
+    dataLayer?: Array<Record<string, unknown>>;
+  }
+}
+
 const ANALYTICS_CLIENT_NAME = 'geoportal-web';
 const ANALYTICS_CLIENT_CHANNEL = 'browser';
 
@@ -94,7 +110,9 @@ function getSourceHost(): string | undefined {
   return window.location.host || undefined;
 }
 
-function withDefaults<T extends Record<string, unknown>>(row: T): T {
+function withDefaults<T extends AnalyticsDefaultFields>(
+  row: T
+): T & AnalyticsDefaultFields {
   return {
     ...row,
     visit_token: row.visit_token ?? getVisitToken(),
@@ -118,7 +136,7 @@ export function serializeSearchParams(
     .sort()
     .forEach((key) => {
       const values = searchParams.getAll(key);
-      serialized[key] = values.length > 1 ? values : values[0] ?? '';
+      serialized[key] = values.length > 1 ? values : (values[0] ?? '');
     });
 
   return serialized;
@@ -138,7 +156,11 @@ export function sendAnalyticsBatch(payload: AnalyticsBatchPayload): boolean {
     })
   );
 
-  if (searches.length === 0 && impressions.length === 0 && events.length === 0) {
+  if (
+    searches.length === 0 &&
+    impressions.length === 0 &&
+    events.length === 0
+  ) {
     return false;
   }
 
@@ -180,10 +202,28 @@ export function scheduleAnalyticsBatch(payload: AnalyticsBatchPayload): void {
     sendAnalyticsBatch(payload);
   };
 
-  if ('requestIdleCallback' in window) {
+  if (typeof window.requestIdleCallback === 'function') {
     window.requestIdleCallback(flush, { timeout: 1000 });
     return;
   }
 
   window.setTimeout(flush, 0);
+}
+
+export function pushDataLayerEvent(
+  event: string,
+  params: Record<string, unknown> = {}
+): boolean {
+  if (typeof window === 'undefined') return false;
+
+  if (!Array.isArray(window.dataLayer)) {
+    window.dataLayer = [];
+  }
+
+  window.dataLayer.push({
+    event,
+    ...params,
+  });
+
+  return true;
 }

@@ -36,7 +36,7 @@ they hit a frontend-gated hot path. This keeps search indexing and external
 monitoring from depending on an interactive browser challenge. The built-in
 allowlist includes `Googlebot`, `Googlebot-Image`, `Googlebot-Video`, `Bingbot`,
 `Slurp`, `DuckDuckBot`, `Baiduspider`, `YandexBot`, `facebookexternalhit`,
-`Twitterbot`, `LinkedInBot`, `Applebot`, `WormlyBot`, and `AppSignalBot`.
+`Twitterbot`, `LinkedInBot`, `Applebot`, and approved monitoring bots.
 
 The single-host nginx `/search/results` BFF route and the React Router
 `/search/results` loader add a frontend gate marker for normal browser traffic,
@@ -68,10 +68,10 @@ VITE_TURNSTILE_SITE_KEY=<cloudflare-site-key>
 VITE_TURNSTILE_ACTION=geoportal_gate
 ```
 
-For Kamal, put the public site key and enable flags in the destination secrets or
-deploy environment, and add `TURNSTILE_SECRET_KEY` to the destination secret
-file. The site key is public and baked into the Vite bundle; the secret key must
-only be present in backend runtime secrets.
+Deployed Turnstile key placement, secret handling, and environment-specific
+enablement are restricted operations material. The site key is public and baked
+into the Vite bundle; the secret key must only be present in backend runtime
+configuration.
 
 ## Local Development
 
@@ -91,7 +91,7 @@ VITE_TURNSTILE_ENABLE_LOCAL=true
 
 When local Turnstile is not opted in, FastAPI bypasses the browser gate for
 local `localhost`, `127.0.0.1`, `::1`, and `0.0.0.0` requests when the app is
-not running in a production/Kamal context. The React Router `/search/results`
+not running in a deployed context. The React Router `/search/results`
 proxy also strips frontend gate markers before calling FastAPI so local search
 traffic can still use the server-side API key without receiving
 `turnstile_required`.

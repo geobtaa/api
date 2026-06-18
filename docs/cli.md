@@ -27,7 +27,7 @@ The CLI resolves configuration in this order: command flags, environment variabl
 Useful environment variables:
 
 ```bash
-BTAA_GEO_API_BASE_URL=https://lib-geoportal-prd-web-01.oit.umn.edu/api/v1
+BTAA_GEO_API_BASE_URL=http://localhost:8000/api/v1
 BTAA_GEO_API_KEY=your-api-key
 BTAA_GEO_API_ANALYTICS=0
 BTAA_GEO_API_OUTPUT=json

@@ -44,6 +44,8 @@ def sanitize_for_json(obj: Any) -> Any:
         return obj.isoformat()
     elif hasattr(obj, "isoformat"):  # Handle other objects with isoformat (fallback)
         return obj.isoformat()
+    elif isinstance(obj, BaseException):
+        return "Internal error"
     elif hasattr(obj, "__dict__"):  # Handle objects with __dict__
         return sanitize_for_json(obj.__dict__)
     elif isinstance(obj, bool):  # Handle boolean objects (before float conversion)

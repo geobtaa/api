@@ -6,9 +6,9 @@ want to understand the architecture without reading every source file.
 
 The short version: this repository is a modern geospatial discovery platform. It
 combines a public web application, a standards-oriented API, a search index,
-durable metadata storage, generated media assets, background synchronization
-jobs, analytics, and Model Context Protocol (MCP) access into one deployable
-system.
+  durable metadata storage, generated media assets, background synchronization
+  jobs, analytics, and Model Context Protocol (MCP) access into one application
+  system.
 
 ## Executive Summary
 
@@ -29,7 +29,7 @@ The project is designed around four goals:
 
 At a platform level, the system is:
 
-- **FastAPI backend** for public API, admin APIs, MCP bridge, and operational
+- **FastAPI backend** for public API, admin APIs, MCP bridge, and maintenance
   endpoints.
 - **React frontend** for the public Geoportal user experience.
 - **Postgres/ParadeDB** for canonical records, auxiliary tables, generated
@@ -40,8 +40,8 @@ At a platform level, the system is:
   locks, Celery broker usage, and short-lived state.
 - **Celery/cron scripts** for background ingestion, synchronization, cache
   warming, sitemap generation, analytics maintenance, and scheduled refreshes.
-- **Kamal deployment** for single-host application roles and long-running
-  accessories.
+- **Containerized runtime** for application roles and long-running supporting
+  services. Deployed-environment procedures are restricted operations material.
 
 ## Repository Map
 
@@ -50,16 +50,18 @@ The most important top-level directories are:
 - `backend/`: FastAPI application, service classes, database models, migrations,
   scripts, Celery tasks, tests, and API code.
 - `frontend/`: React application used by the public Geoportal interface.
-- `docs/`: internal developer, operations, architecture, and runbook
-  documentation.
+- `docs/`: local development, architecture, testing, public API, and
+  restricted-topic stub documentation.
 - `mkdocs/`: public documentation site for API specifications, linked-data
   guidance, and external user-facing docs.
 - `mcp/`: MCP bridge helpers for Claude Desktop and other MCP clients.
 - `qgis-plugin/`: QGIS plugin source for desktop GIS users.
-- `config/`: Kamal deploy config, crontab, and runtime configuration files.
+- `config/`: runtime and deployment configuration files. Operational rollout
+  details are restricted.
 - `docker-compose.yml`: local development stack.
-- `Makefile`: the main operator/developer interface for linting, testing,
-  priming caches, syncing data, deploying, and running maintenance tasks.
+- `Makefile`: the main developer interface for linting, testing, priming local
+  caches, syncing data locally, and running safe maintenance tasks. Remote
+  operations procedures are restricted.
 
 ## Backend Architecture
 
@@ -347,11 +349,7 @@ Cache warming is done by Make targets and scripts:
 - `prime-visual-caches`: runs thumbnail and static-map warmers.
 - `api-response-cache-prune`: removes expired durable response rows.
 
-Kamal variants run the same work remotely, for example:
-
-- `make kamal-prime-resource-cache KAMAL_DEST=dev1`
-- `make kamal-prime-static-map-cache KAMAL_DEST=dev1`
-- `make kamal-api-response-cache-prune KAMAL_DEST=dev1`
+Remote cache warming and pruning procedures are restricted operations material.
 
 Static-map priming defaults are intentionally safe: full-corpus priming writes
 durable assets and aliases but does not hydrate every PNG body into Redis. Small
@@ -386,20 +384,19 @@ fresh source data.
 
 The cache design includes explicit memory safety controls:
 
-- Redis has a Kamal maxmemory setting and `volatile-lru` eviction.
-- Visual asset Redis keys have TTLs in Kamal.
+- Redis can use memory limits and eviction policies.
+- Visual asset Redis keys can use TTLs to bound hot-cache growth.
 - Full-corpus static-map body hydration is blocked unless explicitly overridden.
 - Durable generated artifacts live in Postgres so Redis can be reset safely.
-- Expired durable API response rows are pruned by cron.
+- Expired durable API response rows are pruned by scheduled maintenance.
 - Redis loading states are retried during priming to avoid false failures.
-- VM recovery documentation covers memory overload, Redis reset, and swap
-  cleanup.
+- Restricted operations runbooks cover deployed memory recovery.
 
 Relevant runbooks:
 
 - `docs/backend/caching.md`
 - `docs/backend/vm_memory_recovery.md`
-- `docs/backend/kamal_deployment.md`
+- `docs/backend/deployment.md`
 
 ## Background Jobs and Synchronization
 
@@ -421,8 +418,9 @@ Major flows include:
 - **Analytics maintenance**: rolls up usage data and manages retention.
 - **Blog/homepage sync**: keeps public update content available to the frontend.
 
-The Makefile is intentionally the operator interface for these workflows, so
-developers and operators run consistent commands locally and on Kamal.
+The Makefile is intentionally the shared interface for these workflows, so
+developers can run consistent commands locally. Deployed command examples are
+restricted operations material.
 
 ## Frontend Architecture
 
@@ -461,28 +459,14 @@ platform, not only a website. The same resource details can support:
 - analytics and reporting,
 - external API consumers.
 
-## Deployment and Operations
+## Deployment And Operations
 
-Kamal deploys the application as a single-host stack with roles for:
+Deployment, host layout, role mapping, remote cache warming, incident response,
+and production maintenance procedures are restricted operations material.
 
-- web,
-- worker,
-- cron.
-
-Accessories run alongside the application:
-
-- Postgres/ParadeDB,
-- Elasticsearch,
-- Redis.
-
-Operational conventions:
-
-- Use `make` targets for repeatable workflows.
-- Use atomic reindexing for Elasticsearch.
-- Use durable generated-cache tables before large cache warming.
-- Keep Redis bounded and recoverable.
-- Prefer staged or canary priming before full-corpus jobs.
-- Monitor memory, swap, and container stats during large cache operations.
+Public architecture docs should describe the application shape and code
+boundaries without publishing deployed topology, command sequences, hostnames,
+secret handling, or capacity assumptions.
 
 ## Testing and Quality Strategy
 
@@ -526,8 +510,8 @@ This codebase reflects several important institutional technology values:
   source providers are protected from repeated unnecessary traffic.
 - **Recoverability**: generated cache data is durable, making Redis a fast layer
   rather than a fragile single point of failure.
-- **Operational transparency**: Make targets and runbooks make common workflows
-  repeatable for staff.
+- **Operational transparency for maintainers**: Make targets and restricted
+  runbooks make common workflows repeatable for approved staff.
 - **Future readiness**: MCP, service-tier governance, analytics, durable
   generated artifacts, and cacheable API responses position the platform for
   agentic discovery and wider programmatic use.

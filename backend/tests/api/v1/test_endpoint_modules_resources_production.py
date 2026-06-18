@@ -41,8 +41,8 @@ class TestResourcesProductionDatabase:
 
         if response.status_code == 404:
             data = response.json()
-            assert "error" in data
-            assert "not found" in data["error"].lower()
+            message = data.get("error") or data.get("detail", "")
+            assert "not found" in message.lower()
 
     def test_get_resource_ogm_with_real_database(self):
         """Test get resource OGM with real database connection."""

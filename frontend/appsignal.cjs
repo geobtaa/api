@@ -23,6 +23,18 @@ function envInt(name, defaultValue) {
   return Number.parseInt(process.env[name] ?? defaultValue, 10);
 }
 
+function envList(...names) {
+  for (const name of names) {
+    if (Object.prototype.hasOwnProperty.call(process.env, name)) {
+      return String(process.env[name] ?? '')
+        .split(',')
+        .map((value) => value.trim())
+        .filter(Boolean);
+    }
+  }
+  return [];
+}
+
 const appsignalActive = envFlag(
   'APPSIGNAL_FRONTEND_ACTIVE',
   process.env.APPSIGNAL_ACTIVE ?? 'true'
@@ -47,6 +59,10 @@ new Appsignal({
       'APPSIGNAL_FRONTEND_WORKING_DIRECTORY_PATH',
       'APPSIGNAL_WORKING_DIRECTORY_PATH'
     ) || '/tmp/appsignal-frontend',
+  ignoreErrors: envList(
+    'APPSIGNAL_FRONTEND_IGNORE_ERRORS',
+    'APPSIGNAL_IGNORE_ERRORS'
+  ),
   opentelemetryPort: envInt('APPSIGNAL_FRONTEND_OPENTELEMETRY_PORT', '8100'),
   additionalInstrumentations: [new RemixInstrumentation()],
 });
