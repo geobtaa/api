@@ -287,6 +287,19 @@ const iiifManifestData = {
   },
 } as Parameters<typeof ResourceViewer>[0]['data'];
 
+const iiifImageDataWithoutGeometry = {
+  attributes: { dct_references_s: {} },
+  meta: {
+    ui: {
+      viewer: {
+        protocol: 'iiif_image',
+        endpoint:
+          'https://cdm17287.contentdm.oclc.org/digital/iiif/wpamaps/2535/info.json',
+      },
+    },
+  },
+} as Parameters<typeof ResourceViewer>[0]['data'];
+
 describe('ResourceViewer', () => {
   let rectSpy: ReturnType<typeof vi.spyOn>;
 
@@ -369,6 +382,33 @@ describe('ResourceViewer', () => {
   });
 
   describe('Leaflet-backed viewer remounts', () => {
+    it('renders IIIF Image API endpoints through the Leaflet IIIF protocol instead of Mirador', async () => {
+      const { container } = render(
+        <ResourceViewer data={iiifImageDataWithoutGeometry} pageValue="SHOW" />
+      );
+
+      await act(async () => {});
+
+      expect(
+        container.querySelector('iframe[title="Mirador viewer"]')
+      ).toBeNull();
+
+      const viewer = container.querySelector('#leaflet-viewer');
+      expect(viewer).not.toBeNull();
+      expect(viewer?.getAttribute('data-leaflet-viewer-protocol-value')).toBe(
+        'Iiif'
+      );
+      expect(viewer?.getAttribute('data-leaflet-viewer-available-value')).toBe(
+        'true'
+      );
+      expect(viewer?.getAttribute('data-leaflet-viewer-url-value')).toBe(
+        'https://cdm17287.contentdm.oclc.org/digital/iiif/wpamaps/2535/info.json'
+      );
+      expect(viewer?.hasAttribute('data-leaflet-viewer-map-geom-value')).toBe(
+        false
+      );
+    });
+
     it('replaces the viewer container when the resource changes', async () => {
       const { rerender, container } = render(
         <ResourceViewer data={wmsDataWithGeometry} pageValue="SHOW" />
