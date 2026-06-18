@@ -6,7 +6,9 @@ import {
   getIiifLeafletMapOptions,
   getIiifMaxNativeZoom,
   getIiifTileUrl,
+  IIIF_MIN_ZOOM,
   normalizeIiifImageServiceId,
+  resizeIiifTileToNaturalSize,
 } from '../../geoblacklight/iiif_image_layer';
 
 const baseTileOptions = {
@@ -56,9 +58,26 @@ describe('Leaflet IIIF helpers', () => {
     expect(options.gestureHandling).toBe(true);
     expect(options.maxBounds.contains(bounds)).toBe(true);
     expect(options.maxZoom).toBe(3);
-    expect(options.minZoom).toBe(0);
+    expect(options.minZoom).toBe(IIIF_MIN_ZOOM);
     expect(options.scrollWheelZoom).toBe(true);
     expect(options.zoom).toBe(0);
+  });
+
+  it('allows large CONTENTdm scans to fit by zooming out below native IIIF zoom 0', () => {
+    const maxNativeZoom = getIiifMaxNativeZoom(8826, 11246, 1024);
+    const bounds = getIiifImageBounds(Leaflet, 8826, 11246, maxNativeZoom);
+    const options = getIiifLeafletMapOptions(
+      Leaflet,
+      bounds,
+      maxNativeZoom,
+      { SLEEP: false },
+      {}
+    );
+
+    expect(maxNativeZoom).toBe(4);
+    expect(bounds.getNorthEast().lng).toBeCloseTo(551.625);
+    expect(bounds.getSouthWest().lat).toBeCloseTo(-702.875);
+    expect(options.minZoom).toBe(-5);
   });
 
   it('normalizes IIIF service ids from info.json metadata', () => {
@@ -77,6 +96,20 @@ describe('Leaflet IIIF helpers', () => {
       })
     ).toBe(
       'https://s3.amazonaws.com/ogm-metadata-studio/uploads/unr-74479f22-0e6b-4c13-b376-0195a7461525/iiif/0,0,7392,6270/924,/0/default.jpg'
+    );
+  });
+
+  it('clamps display zooms below the native IIIF pyramid to zoom 0 tile requests', () => {
+    expect(
+      getIiifTileUrl({
+        ...baseTileOptions,
+        coords: { x: 0, y: 0, z: -2 },
+      })
+    ).toBe(
+      getIiifTileUrl({
+        ...baseTileOptions,
+        coords: { x: 0, y: 0, z: 0 },
+      })
     );
   });
 
@@ -110,5 +143,27 @@ describe('Leaflet IIIF helpers', () => {
         coords: { x: 8, y: 0, z: 3 },
       })
     ).toBe(EMPTY_IIIF_TILE_URL);
+  });
+
+  it('resizes non-square IIIF tiles to their natural image dimensions', () => {
+    const tile = document.createElement('img');
+    Object.defineProperty(tile, 'naturalWidth', { value: 552 });
+    Object.defineProperty(tile, 'naturalHeight', { value: 703 });
+
+    resizeIiifTileToNaturalSize(tile, 1024);
+
+    expect(tile.style.width).toBe('552px');
+    expect(tile.style.height).toBe('703px');
+  });
+
+  it('leaves full-size square IIIF tiles alone', () => {
+    const tile = document.createElement('img');
+    Object.defineProperty(tile, 'naturalWidth', { value: 1024 });
+    Object.defineProperty(tile, 'naturalHeight', { value: 1024 });
+
+    resizeIiifTileToNaturalSize(tile, 1024);
+
+    expect(tile.style.width).toBe('');
+    expect(tile.style.height).toBe('');
   });
 });
