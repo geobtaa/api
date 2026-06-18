@@ -6,6 +6,7 @@ vi.mock('../../services/api', () => ({
 }));
 
 import {
+  pushDataLayerEvent,
   sendAnalyticsBatch,
   serializeSearchParams,
 } from '../../services/analytics';
@@ -86,5 +87,25 @@ describe('analytics service', () => {
         }),
       })
     );
+  });
+
+  it('pushes custom events to the Google Tag Manager dataLayer', () => {
+    window.dataLayer = undefined;
+
+    const pushed = pushDataLayerEvent('cite_export', {
+      resource_id: 'abc-123',
+      resource_title: 'Test Resource',
+      format: 'RIS',
+    });
+
+    expect(pushed).toBe(true);
+    expect(window.dataLayer).toEqual([
+      {
+        event: 'cite_export',
+        resource_id: 'abc-123',
+        resource_title: 'Test Resource',
+        format: 'RIS',
+      },
+    ]);
   });
 });
