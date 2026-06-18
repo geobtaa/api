@@ -12,7 +12,9 @@ import {
   getIiifTileFormat,
   getIiifTileSize,
   getIiifTileUrl,
+  IIIF_MIN_ZOOM,
   normalizeIiifImageServiceId,
+  resizeIiifTileToNaturalSize,
 } from './iiif_image_layer';
 
 function buildIiifTileLayer(options) {
@@ -38,6 +40,9 @@ function buildIiifTileLayer(options) {
     updateWhenIdle: true,
   });
   layer.maxNativeZoom = options.maxNativeZoom || 0;
+  layer.on('tileload', ({ tile }) => {
+    resizeIiifTileToNaturalSize(tile, options.tileSize);
+  });
   return layer;
 }
 
@@ -157,7 +162,8 @@ export default class LeafletViewerController extends BaseLeafletViewerController
       imageWidth: width,
       maxNativeZoom,
       maxZoom: maxNativeZoom,
-      minZoom: 0,
+      minNativeZoom: 0,
+      minZoom: IIIF_MIN_ZOOM,
       serviceId: normalizeIiifImageServiceId(this.urlValue, info),
       tileFormat: getIiifTileFormat(info),
       tileQuality: 'default',
@@ -214,11 +220,6 @@ export default class LeafletViewerController extends BaseLeafletViewerController
   }
 
   addIiifControls() {
-    if (this.availableValue && this.previewOverlay) {
-      const opacityControl = this.getControl('Opacity');
-      if (opacityControl) this.addControl(opacityControl);
-    }
-
     const fullscreenControl = this.getControl('Fullscreen');
     if (fullscreenControl) this.addControl(fullscreenControl);
   }

@@ -1,5 +1,6 @@
 export const EMPTY_IIIF_TILE_URL =
   'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
+export const IIIF_MIN_ZOOM = -5;
 
 function getInfoId(info) {
   const id = info.id ?? info['@id'];
@@ -111,6 +112,16 @@ export function getIiifTileUrl({
   return `${baseUrl}/${region}/${size}/0/${tileQuality}.${tileFormat}`;
 }
 
+export function resizeIiifTileToNaturalSize(tile, tileSize) {
+  const { naturalHeight, naturalWidth } = tile;
+
+  if (!naturalHeight || !naturalWidth) return;
+  if (naturalHeight === tileSize && naturalWidth === tileSize) return;
+
+  tile.style.width = `${naturalWidth}px`;
+  tile.style.height = `${naturalHeight}px`;
+}
+
 export async function fetchIiifImageInfo(imageServiceOrInfoUrl) {
   const base = imageServiceOrInfoUrl.replace(/\/$/, '');
   const infoUrl = base.endsWith('/info.json') ? base : `${base}/info.json`;
@@ -143,7 +154,7 @@ export function getIiifLeafletMapOptions(
     maxBounds: imageBounds.pad(0.5),
     maxBoundsViscosity: 0.5,
     maxZoom: maxNativeZoom,
-    minZoom: 0,
+    minZoom: IIIF_MIN_ZOOM,
     preferCanvas: false,
     zoom: 0,
   };
