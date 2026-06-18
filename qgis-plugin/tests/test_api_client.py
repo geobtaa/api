@@ -16,6 +16,13 @@ def test_init_sets_base_url():
     assert client.session.verify is False
 
 
+def test_init_sets_analytics_headers(api_client):
+    assert api_client.session.headers["User-Agent"].startswith("BTAA-QGIS-Plugin/")
+    assert api_client.session.headers["X-BTAA-Client-Name"] == "qgis-plugin"
+    assert api_client.session.headers["X-BTAA-Client-Version"]
+    assert api_client.session.headers["X-BTAA-Client-Channel"] == "qgis"
+
+
 @patch("requests.Session.get")
 def test_get_facets(mock_get, api_client):
     mock_response = Mock()

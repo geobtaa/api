@@ -65,6 +65,8 @@ Current first-party client identities:
 
 - `geoportal-web` for same-origin browser API requests
 - `geoportal-ssr` for server-side fetches
+- `qgis-plugin` with channel `qgis`
+- `btaa-mcp-http-bridge` and `btaa-mcp-websocket-bridge` with channel `mcp`
 
 External or partner clients can opt into the same attribution model by sending the `X-BTAA-Client-*` headers.
 

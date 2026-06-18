@@ -25,7 +25,7 @@ class BtaaApiClient:
                 "User-Agent": f"BTAA-QGIS-Plugin/{plugin_version}",
                 "X-BTAA-Client-Name": "qgis-plugin",
                 "X-BTAA-Client-Version": plugin_version,
-                "X-BTAA-Client-Channel": "desktop",
+                "X-BTAA-Client-Channel": "qgis",
             }
         )
 

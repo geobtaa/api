@@ -83,6 +83,14 @@ Both bridge scripts default to the local API at `http://127.0.0.1:8000`.
   Full WebSocket MCP URL override for `mcp/mcp_websocket_bridge.js`.
 - `MCP_NODE_BIN`
   Optional absolute path to a modern Node binary for `mcp/run_mcp_websocket_bridge.py`.
+- `BTAA_MCP_CLIENT_VERSION`
+  Optional version value sent in `X-BTAA-Client-Version`; defaults to `local`.
+- `BTAA_MCP_CLIENT_INSTANCE`
+  Optional instance value sent in `X-BTAA-Client-Instance`.
+
+The HTTP and WebSocket bridges identify traffic with `X-BTAA-Client-Channel: mcp`.
+The WebSocket bridge attaches these headers when it can use the optional `ws`
+package; Node's built-in WebSocket API does not support custom handshake headers.
 
 ## Claude Desktop
 
