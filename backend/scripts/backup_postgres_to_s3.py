@@ -201,10 +201,8 @@ def _backup_lock(config: BackupConfig):
                 ) from None
 
             try:
-                lock_path.unlink()
-            except FileNotFoundError:
-                # Another process removed the stale lock between our read and unlink.
-                continue
+                # Another process may remove the stale lock between our read and unlink.
+                lock_path.unlink(missing_ok=True)
             except OSError as exc:
                 raise BackupAlreadyRunning(
                     f"PostgreSQL backup lock exists but cannot be removed: {lock_path}"
