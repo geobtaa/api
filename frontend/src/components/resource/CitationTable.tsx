@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Copy, Check, Download } from 'lucide-react';
-import { scheduleAnalyticsBatch } from '../../services/analytics';
+import {
+  pushDataLayerEvent,
+  scheduleAnalyticsBatch,
+} from '../../services/analytics';
 
 export type CitationStyle = 'apa' | 'mla' | 'chicago';
+type CitationDataLayerEvent = 'cite_copy' | 'cite_export' | 'cite_url';
+type CitationExportFormat = 'RIS' | 'BibTeX' | 'JSON-LD';
 
 interface CitationTableProps {
   /** Primary/default citation (APA format) - for backward compatibility */
@@ -12,6 +17,7 @@ interface CitationTableProps {
   permalink: string;
   /** Resource ID for export links (JSON-LD, RIS, BibTeX) */
   resourceId?: string;
+  resourceTitle?: string;
   searchId?: string;
 }
 
@@ -33,6 +39,7 @@ export function CitationTable({
   citations,
   permalink,
   resourceId,
+  resourceTitle,
   searchId,
 }: CitationTableProps) {
   const [copiedPermalink, setCopiedPermalink] = useState(false);
@@ -46,10 +53,26 @@ export function CitationTable({
     citations && selectedStyle in citations && citations[selectedStyle]
       ? citations[selectedStyle]!
       : citation;
+  const apiBase = getApiBase();
+  const citationDataLayerParams = {
+    resource_id: resourceId,
+    resource_title: resourceTitle,
+  };
+
+  const trackCitationDataLayerEvent = (
+    event: CitationDataLayerEvent,
+    params: Record<string, unknown> = {}
+  ) => {
+    pushDataLayerEvent(event, {
+      ...citationDataLayerParams,
+      ...params,
+    });
+  };
 
   const handleCopyPermalink = async () => {
     try {
       await navigator.clipboard.writeText(permalink);
+      trackCitationDataLayerEvent('cite_url');
       scheduleAnalyticsBatch({
         events: [
           {
@@ -72,6 +95,7 @@ export function CitationTable({
   const handleCopyCitation = async () => {
     try {
       await navigator.clipboard.writeText(displayCitation);
+      trackCitationDataLayerEvent('cite_copy');
       scheduleAnalyticsBatch({
         events: [
           {
@@ -91,6 +115,25 @@ export function CitationTable({
     } catch (err) {
       console.error('Failed to copy citation:', err);
     }
+  };
+
+  const handleCitationExport = (
+    format: CitationExportFormat,
+    destinationUrl: string
+  ) => {
+    trackCitationDataLayerEvent('cite_export', { format });
+    scheduleAnalyticsBatch({
+      events: [
+        {
+          event_type: 'citation_export',
+          search_id: searchId,
+          resource_id: resourceId,
+          label: format,
+          destination_url: destinationUrl,
+          source_component: 'CitationTable',
+        },
+      ],
+    });
   };
 
   return (
@@ -116,7 +159,9 @@ export function CitationTable({
                     <select
                       id="citation-style"
                       value={selectedStyle}
-                      onChange={(e) => setSelectedStyle(e.target.value as CitationStyle)}
+                      onChange={(e) =>
+                        setSelectedStyle(e.target.value as CitationStyle)
+                      }
                       className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
                     >
                       {styleOptions.map((s) => (
@@ -128,7 +173,9 @@ export function CitationTable({
                   )}
                 </div>
                 <div className="flex gap-2">
-                  <div className="flex-1 text-sm text-gray-900">{displayCitation}</div>
+                  <div className="flex-1 text-sm text-gray-900">
+                    {displayCitation}
+                  </div>
                   <button
                     onClick={handleCopyCitation}
                     className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
@@ -152,21 +199,13 @@ export function CitationTable({
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <a
-                    href={`${getApiBase()}/resources/${resourceId}/citation/ris`}
+                    href={`${apiBase}/resources/${resourceId}/citation/ris`}
                     download={`${resourceId}.ris`}
                     onClick={() =>
-                      scheduleAnalyticsBatch({
-                        events: [
-                          {
-                            event_type: 'citation_export',
-                            search_id: searchId,
-                            resource_id: resourceId,
-                            label: 'RIS',
-                            destination_url: `${getApiBase()}/resources/${resourceId}/citation/ris`,
-                            source_component: 'CitationTable',
-                          },
-                        ],
-                      })
+                      handleCitationExport(
+                        'RIS',
+                        `${apiBase}/resources/${resourceId}/citation/ris`
+                      )
                     }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
@@ -174,21 +213,13 @@ export function CitationTable({
                     RIS
                   </a>
                   <a
-                    href={`${getApiBase()}/resources/${resourceId}/citation/bibtex`}
+                    href={`${apiBase}/resources/${resourceId}/citation/bibtex`}
                     download={`${resourceId}.bib`}
                     onClick={() =>
-                      scheduleAnalyticsBatch({
-                        events: [
-                          {
-                            event_type: 'citation_export',
-                            search_id: searchId,
-                            resource_id: resourceId,
-                            label: 'BibTeX',
-                            destination_url: `${getApiBase()}/resources/${resourceId}/citation/bibtex`,
-                            source_component: 'CitationTable',
-                          },
-                        ],
-                      })
+                      handleCitationExport(
+                        'BibTeX',
+                        `${apiBase}/resources/${resourceId}/citation/bibtex`
+                      )
                     }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
@@ -196,22 +227,14 @@ export function CitationTable({
                     BibTeX
                   </a>
                   <a
-                    href={`${getApiBase()}/resources/${resourceId}/citation/json-ld`}
+                    href={`${apiBase}/resources/${resourceId}/citation/json-ld`}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={() =>
-                      scheduleAnalyticsBatch({
-                        events: [
-                          {
-                            event_type: 'citation_export',
-                            search_id: searchId,
-                            resource_id: resourceId,
-                            label: 'JSON-LD',
-                            destination_url: `${getApiBase()}/resources/${resourceId}/citation/json-ld`,
-                            source_component: 'CitationTable',
-                          },
-                        ],
-                      })
+                      handleCitationExport(
+                        'JSON-LD',
+                        `${apiBase}/resources/${resourceId}/citation/json-ld`
+                      )
                     }
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
                   >
@@ -219,7 +242,8 @@ export function CitationTable({
                   </a>
                 </div>
                 <p className="text-xs text-gray-500 mt-1.5">
-                  RIS and BibTeX for Zotero, EndNote, Mendeley. JSON-LD for Schema.org/Google Dataset Search.
+                  RIS and BibTeX for Zotero, EndNote, Mendeley. JSON-LD for
+                  Schema.org/Google Dataset Search.
                 </p>
               </td>
             </tr>

@@ -1,29 +1,44 @@
-import React from 'react';
-import { vi } from 'vitest';
-import {
-  render,
-  screen,
-  fireEvent,
-  waitFor,
-} from '@testing-library/react';
+import type { ReactElement } from 'react';
+import { afterEach, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import {
   CitationTable,
   type CitationStyle,
 } from '../../../components/resource/CitationTable';
+import { pushDataLayerEvent } from '../../../services/analytics';
 
 vi.mock('../../../services/analytics', () => ({
+  pushDataLayerEvent: vi.fn(),
   scheduleAnalyticsBatch: vi.fn(),
 }));
 
-const renderWithRouter = (ui: React.ReactElement) =>
+const renderWithRouter = (ui: ReactElement) =>
   render(<MemoryRouter>{ui}</MemoryRouter>);
+
+const clickWithoutNavigation = (element: HTMLElement) => {
+  const clickEvent = new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+  });
+  clickEvent.preventDefault();
+  fireEvent(element, clickEvent);
+};
 
 describe('CitationTable', () => {
   const defaultProps = {
     citation: 'Author. (2023). Test Title. Publisher. https://example.com',
     permalink: 'https://geoportal.example.org/resources/123',
   };
+  const trackableProps = {
+    ...defaultProps,
+    resourceId: 'test-resource-123',
+    resourceTitle: 'Test Title',
+  };
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('renders without crashing', () => {
     renderWithRouter(<CitationTable {...defaultProps} />);
@@ -45,18 +60,14 @@ describe('CitationTable', () => {
     renderWithRouter(
       <CitationTable {...defaultProps} resourceId="test-resource-456" />
     );
-    expect(
-      screen.getByText('Export for citation tools')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Export for citation tools')).toBeInTheDocument();
     expect(screen.getByText('RIS')).toBeInTheDocument();
     expect(screen.getByText('BibTeX')).toBeInTheDocument();
     expect(screen.getByText('JSON-LD')).toBeInTheDocument();
   });
 
   it('Export RIS link has correct href', () => {
-    renderWithRouter(
-      <CitationTable {...defaultProps} resourceId="abc-123" />
-    );
+    renderWithRouter(<CitationTable {...defaultProps} resourceId="abc-123" />);
     const risLink = screen.getByRole('link', { name: /RIS/i });
     expect(risLink).toHaveAttribute(
       'href',
@@ -66,9 +77,7 @@ describe('CitationTable', () => {
   });
 
   it('Export BibTeX link has correct href', () => {
-    renderWithRouter(
-      <CitationTable {...defaultProps} resourceId="xyz-789" />
-    );
+    renderWithRouter(<CitationTable {...defaultProps} resourceId="xyz-789" />);
     const bibLink = screen.getByRole('link', { name: /BibTeX/i });
     expect(bibLink).toHaveAttribute(
       'href',
@@ -152,6 +161,31 @@ describe('CitationTable', () => {
     });
   });
 
+  it('does not push citation dataLayer events on render', () => {
+    renderWithRouter(<CitationTable {...trackableProps} />);
+
+    expect(pushDataLayerEvent).not.toHaveBeenCalled();
+  });
+
+  it('pushes cite_copy to the dataLayer when citation copy is clicked', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithRouter(<CitationTable {...trackableProps} />);
+    fireEvent.click(screen.getByTitle('Copy citation'));
+
+    await waitFor(() => {
+      expect(pushDataLayerEvent).toHaveBeenCalledWith('cite_copy', {
+        resource_id: trackableProps.resourceId,
+        resource_title: trackableProps.resourceTitle,
+      });
+    });
+  });
+
   it('copies permalink to clipboard when permalink Copy clicked', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -166,6 +200,41 @@ describe('CitationTable', () => {
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(defaultProps.permalink);
+    });
+  });
+
+  it('pushes cite_url to the dataLayer when permalink copy is clicked', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithRouter(<CitationTable {...trackableProps} />);
+    fireEvent.click(screen.getByTitle('Copy permalink'));
+
+    await waitFor(() => {
+      expect(pushDataLayerEvent).toHaveBeenCalledWith('cite_url', {
+        resource_id: trackableProps.resourceId,
+        resource_title: trackableProps.resourceTitle,
+      });
+    });
+  });
+
+  it.each([
+    ['RIS', 'RIS'],
+    ['BibTeX', 'BibTeX'],
+    ['JSON-LD', 'JSON-LD'],
+  ])('pushes cite_export for %s exports', (linkName, format) => {
+    renderWithRouter(<CitationTable {...trackableProps} />);
+
+    clickWithoutNavigation(screen.getByRole('link', { name: linkName }));
+
+    expect(pushDataLayerEvent).toHaveBeenCalledWith('cite_export', {
+      resource_id: trackableProps.resourceId,
+      resource_title: trackableProps.resourceTitle,
+      format,
     });
   });
 

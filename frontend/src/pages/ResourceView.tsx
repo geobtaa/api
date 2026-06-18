@@ -818,6 +818,7 @@ export function ResourceView({
                           citations={data.meta?.ui?.citations}
                           permalink={isMounted ? window.location.href : ''}
                           resourceId={data.id}
+                          resourceTitle={data.attributes.ogm.dct_title_s}
                           searchId={searchState?.searchId}
                         />
                       </div>

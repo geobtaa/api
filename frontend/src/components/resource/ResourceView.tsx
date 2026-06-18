@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link, useLocation, useNavigate } from 'react-router';
 import { ArrowLeft, ArrowRight, ArrowLeftCircle, XCircle } from 'lucide-react';
 import {
@@ -347,6 +347,8 @@ export function ResourceView() {
                       <CitationTable
                         citation={data.data.meta.ui.citation}
                         permalink={window.location.href}
+                        resourceId={data.data.id}
+                        resourceTitle={data.data.attributes.ogm.dct_title_s}
                       />
                     </div>
                   )}
