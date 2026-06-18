@@ -454,8 +454,7 @@ def _store_local_backup(
 
     deleted = _prune_old_local_backups(backup_dir, config.retention_count)
     print(
-        f"PostgreSQL backup complete: {final_dump_path} "
-        f"(retention deleted {len(deleted)} file(s))",
+        f"PostgreSQL backup complete: {final_dump_path} (retention deleted {len(deleted)} file(s))",
         flush=True,
     )
 
@@ -517,9 +516,10 @@ def create_backup(config: BackupConfig) -> dict[str, object]:
     manifest_key = f"{backup_key}.manifest.json"
 
     config.work_dir.mkdir(parents=True, exist_ok=True)
-    with _backup_lock(config), TemporaryDirectory(
-        prefix="postgres-", dir=str(config.work_dir)
-    ) as tmpdir:
+    with (
+        _backup_lock(config),
+        TemporaryDirectory(prefix="postgres-", dir=str(config.work_dir)) as tmpdir,
+    ):
         dump_path = Path(tmpdir) / filename
         manifest_path = Path(tmpdir) / f"{filename}.manifest.json"
 
