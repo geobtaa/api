@@ -1,6 +1,6 @@
 [project]
 name = "data-api"
-version = "0.8.7"
+version = "0.8.8"
 description = "BTAA OpenGeoMetadata API"
 requires-python = ">=3.11"
 authors = [
