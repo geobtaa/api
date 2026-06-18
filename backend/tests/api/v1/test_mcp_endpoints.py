@@ -197,6 +197,34 @@ class TestMCPEndpoints:
         assert "tools" in data["result"]
         assert len(data["result"]["tools"]) > 0
 
+    def test_mcp_http_transport_tool_error_uses_generic_message(self, monkeypatch):
+        """Tool handler exceptions should keep response details stable."""
+        from app.services import mcp_service as mcp_service_module
+
+        async def failing_handler(_arguments):
+            raise RuntimeError("internal traceback detail")
+
+        monkeypatch.setitem(
+            mcp_service_module.mcp_service.tool_handlers,
+            "search_resources",
+            failing_handler,
+        )
+
+        response = client.post(
+            "/api/v1/mcp",
+            json={
+                "jsonrpc": "2.0",
+                "id": 3,
+                "method": "tools/call",
+                "params": {"name": "search_resources", "arguments": {}},
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["error"]["message"] == "Internal error"
+        assert "internal traceback detail" not in response.text
+
     def test_mcp_http_transport_initialized_notification(self):
         """Test that initialized notifications do not generate a JSON-RPC reply."""
         response = client.post(

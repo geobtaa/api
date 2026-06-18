@@ -5,6 +5,7 @@ from fastapi.responses import JSONResponse, Response
 
 from app.api.errors import PUBLIC_ERROR_RESPONSES
 from app.api.schemas import JSONRPCResponse, MCPInfoResponse
+from app.api.v1.utils import sanitize_for_json
 from app.services.mcp_service import get_mcp_service_info, handle_mcp_message
 
 logger = logging.getLogger(__name__)
@@ -14,7 +15,7 @@ router = APIRouter()
 @router.get("/mcp", response_model=MCPInfoResponse, responses=PUBLIC_ERROR_RESPONSES)
 async def mcp_endpoint():
     """Return MCP service information and connection details."""
-    return JSONResponse(content=get_mcp_service_info())
+    return JSONResponse(content=sanitize_for_json(get_mcp_service_info()))
 
 
 @router.post("/mcp", response_model=JSONRPCResponse, responses=PUBLIC_ERROR_RESPONSES)
@@ -35,7 +36,7 @@ async def mcp_http_transport(request: Request):
     if response is None:
         return Response(status_code=204)
 
-    return JSONResponse(content=response)
+    return JSONResponse(content=sanitize_for_json(response))
 
 
 @router.websocket("/mcp/ws")

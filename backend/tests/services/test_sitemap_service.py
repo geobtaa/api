@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
 import pytest_asyncio
@@ -124,17 +125,22 @@ def test_build_sitemap_documents_renders_single_urlset():
 
     urls = root.findall("sm:url", NS)
     locs = [url.findtext("sm:loc", namespaces=NS) for url in urls]
+    locs_by_path = {urlsplit(loc or "").path: urlsplit(loc or "") for loc in locs}
 
-    assert "https://geo.example.org/" in locs
-    assert "https://geo.example.org/search" in locs
-    assert "https://geo.example.org/map" in locs
-    assert "https://geo.example.org/resources/ark:-77981-gmgs8p5v86m" in locs
+    assert locs_by_path["/"].scheme == "https"
+    assert locs_by_path["/"].netloc == "geo.example.org"
+    assert locs_by_path["/search"].scheme == "https"
+    assert locs_by_path["/search"].netloc == "geo.example.org"
+    assert locs_by_path["/map"].scheme == "https"
+    assert locs_by_path["/map"].netloc == "geo.example.org"
+    assert locs_by_path["/resources/ark:-77981-gmgs8p5v86m"].scheme == "https"
+    assert locs_by_path["/resources/ark:-77981-gmgs8p5v86m"].netloc == "geo.example.org"
 
     resource_url = next(
         url
         for url in urls
-        if url.findtext("sm:loc", namespaces=NS)
-        == "https://geo.example.org/resources/ark:-77981-gmgs8p5v86m"
+        if urlsplit(url.findtext("sm:loc", namespaces=NS) or "").path
+        == "/resources/ark:-77981-gmgs8p5v86m"
     )
     assert resource_url.findtext("sm:lastmod", namespaces=NS) == "2026-04-08"
 

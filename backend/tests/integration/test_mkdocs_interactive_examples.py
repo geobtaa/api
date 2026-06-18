@@ -190,6 +190,16 @@ def _visible_text_from_html(html: str) -> str:
     return " ".join(parser.parts)
 
 
+def _visible_url_hosts(text: str) -> set[str]:
+    hosts = set()
+    for token in text.split():
+        candidate = token.strip(".,;:!?)('\"[]{}")
+        parsed = urlsplit(candidate)
+        if parsed.scheme in {"http", "https"} and parsed.hostname:
+            hosts.add(parsed.hostname)
+    return hosts
+
+
 def _is_frontend_turnstile_gate(response: requests.Response) -> bool:
     content_type = (response.headers.get("Content-Type") or "").lower()
     if "text/html" not in content_type:
@@ -506,5 +516,5 @@ def test_resource_page_hides_display_note_style_prefixes():
 
     visible_text = _visible_text_from_html(response.text)
     assert DISPLAY_NOTE_PREFIX_REGRESSION_BODY in visible_text
-    assert "https://opendata.minneapolismn.gov" in visible_text
+    assert any(host == "opendata.minneapolismn.gov" for host in _visible_url_hosts(visible_text))
     assert f"Warning: {DISPLAY_NOTE_PREFIX_REGRESSION_BODY}" not in visible_text
