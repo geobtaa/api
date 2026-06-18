@@ -59,10 +59,31 @@ def test_prd_uses_canonical_geoportal_base_url():
     assert prd_config["env"]["clear"]["GEOPORTAL_BASE_URL"] == "https://geo.btaa.org"
 
 
+def test_prd_uses_info_log_level():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+
+    assert prd_config["env"]["clear"]["LOG_LEVEL"] == "INFO"
+
+
 def test_prd_feedback_defaults_to_sendmail():
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
 
     assert "ENV.fetch('FEEDBACK_DELIVERY', 'sendmail')" in config_text
+
+
+def test_prd_postgres_backup_uses_local_mounted_storage():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+    config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
+
+    assert (
+        "/var/lib/btaa-geospatial-api/backups:/var/backups/btaa-geospatial-api"
+        in prd_config["volumes"]
+    )
+    assert "ENV.fetch('BACKUP_POSTGRES_TARGET', 'local')" in config_text
+    assert (
+        "ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api')"
+        in config_text
+    )
 
 
 def test_appsignal_prd_identity():
