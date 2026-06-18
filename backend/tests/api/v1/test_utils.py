@@ -69,6 +69,11 @@ class TestSanitizeForJson:
         result = sanitize_for_json(obj)
         assert result == {"name": "test", "value": 123}
 
+    def test_sanitize_for_json_exception(self):
+        """Exception objects should not expose their internal attributes."""
+        result = sanitize_for_json(RuntimeError("connection failed at internal/path.py:42"))
+        assert result == "Internal error"
+
     def test_sanitize_for_json_nested_structures(self):
         """Test sanitizing nested structures with various types."""
         data = {

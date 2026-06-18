@@ -5,11 +5,13 @@ Tests for the admin endpoint module (app.api.v1.endpoint_modules.admin).
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
 from app.api.v1.endpoint_modules.admin import (
     clear_cache,
+    download_ogm_dump_file,
+    get_ogm_dump_manifest,
     identify_geo_entities,
     reindex,
     router,
@@ -131,6 +133,77 @@ class TestClearCacheEndpoint:
         assert result.status_code == 500
         data = json.loads(result.body)
         assert "error" in data
+
+
+class TestOGMDumpEndpoints:
+    @pytest.mark.asyncio
+    async def test_get_ogm_dump_manifest_serves_file_under_configured_base(
+        self, monkeypatch, tmp_path
+    ):
+        from app.api.v1.endpoint_modules import admin as admin_module
+
+        base_dir = tmp_path / "harvest_dumps" / "ogm"
+        dump_dir = base_dir / "repo" / "2026-06-18" / "123"
+        dump_dir.mkdir(parents=True)
+        manifest_path = dump_dir / "manifest.json"
+        manifest_path.write_text("{}", encoding="utf-8")
+
+        monkeypatch.setenv("OGM_DUMP_BASE_DIR", str(base_dir))
+        monkeypatch.setattr(
+            admin_module.ogm_repo,
+            "get_harvest_run",
+            AsyncMock(return_value={"ogm_dump_dir": str(dump_dir)}),
+        )
+
+        response = await get_ogm_dump_manifest(123)
+
+        assert response.path == str(manifest_path)
+        assert response.media_type == "application/json"
+
+    @pytest.mark.asyncio
+    async def test_get_ogm_dump_manifest_rejects_file_outside_configured_base(
+        self, monkeypatch, tmp_path
+    ):
+        from app.api.v1.endpoint_modules import admin as admin_module
+
+        base_dir = tmp_path / "harvest_dumps" / "ogm"
+        outside_dir = tmp_path / "elsewhere" / "repo" / "2026-06-18" / "123"
+        outside_dir.mkdir(parents=True)
+        (outside_dir / "manifest.json").write_text("{}", encoding="utf-8")
+
+        monkeypatch.setenv("OGM_DUMP_BASE_DIR", str(base_dir))
+        monkeypatch.setattr(
+            admin_module.ogm_repo,
+            "get_harvest_run",
+            AsyncMock(return_value={"ogm_dump_dir": str(outside_dir)}),
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await get_ogm_dump_manifest(123)
+
+        assert exc.value.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_download_ogm_dump_file_requires_expected_artifact_name(
+        self, monkeypatch, tmp_path
+    ):
+        from app.api.v1.endpoint_modules import admin as admin_module
+
+        base_dir = tmp_path / "harvest_dumps" / "ogm"
+        dump_dir = base_dir / "repo" / "2026-06-18" / "123"
+        dump_dir.mkdir(parents=True)
+
+        monkeypatch.setenv("OGM_DUMP_BASE_DIR", str(base_dir))
+        monkeypatch.setattr(
+            admin_module.ogm_repo,
+            "get_harvest_run",
+            AsyncMock(return_value={"ogm_dump_dir": str(dump_dir)}),
+        )
+
+        with pytest.raises(HTTPException) as exc:
+            await download_ogm_dump_file(123, "notes.txt")
+
+        assert exc.value.status_code == 404
 
 
 class TestReindexEndpoint:

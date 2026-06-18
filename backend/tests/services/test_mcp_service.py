@@ -143,7 +143,8 @@ class TestOGMMCPService:
         payload = json.loads(result.content[0].text)
         assert payload["error"] == "Search request failed"
         assert payload["error_type"] == "connection"
-        assert payload["detail"] == "connection refused"
+        assert "detail" not in payload
+        assert "connection refused" not in result.content[0].text
         assert payload["query"] == "palestine"
         assert payload["page"] == 3
         assert payload["source"]["transport"] == "http"

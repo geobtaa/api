@@ -1,6 +1,7 @@
-import html as _html
+import html
 import ipaddress
 import logging
+import os
 from pathlib import Path
 from typing import List, Optional
 
@@ -68,6 +69,54 @@ _admin_service_dependency = Depends(get_admin_service)
 api_key_service = APIKeyService()
 ogm_repo = OGMHarvestRepository()
 bridge_repo = BridgeSyncRepository()
+
+_OGM_DUMP_BASE_DIR_ENV = "OGM_DUMP_BASE_DIR"
+_OGM_DUMP_DEFAULT_BASE_DIR = "data/harvest_dumps/ogm"
+
+
+def _ogm_dump_base_dir() -> Path:
+    return Path(os.getenv(_OGM_DUMP_BASE_DIR_ENV, _OGM_DUMP_DEFAULT_BASE_DIR)).resolve()
+
+
+def _resolve_ogm_dump_dir(raw_dump_dir: str | Path, run_id: int) -> Path:
+    try:
+        base_dir = _ogm_dump_base_dir()
+        dump_dir = Path(raw_dump_dir).resolve()
+        dump_dir.relative_to(base_dir)
+    except (OSError, RuntimeError, ValueError):
+        raise HTTPException(status_code=404, detail="Dump not found for run") from None
+    if dump_dir.name != str(run_id):
+        raise HTTPException(status_code=404, detail="Dump not found for run")
+    return dump_dir
+
+
+def _ogm_dump_filename(filename: str) -> str:
+    try:
+        safe_filename = require_safe_filename(filename)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Invalid filename") from exc
+
+    if safe_filename == "dataset.ndjson":
+        return "dataset.ndjson"
+    if safe_filename == "dataset.json":
+        return "dataset.json"
+    if safe_filename == "dataset.parquet":
+        return "dataset.parquet"
+    if safe_filename == "manifest.json":
+        return "manifest.json"
+    raise HTTPException(status_code=404, detail="File not found")
+
+
+def _resolve_ogm_dump_file(raw_dump_dir: str | Path, run_id: int, filename: str) -> Path:
+    dump_dir = _resolve_ogm_dump_dir(raw_dump_dir, run_id)
+    safe_filename = _ogm_dump_filename(filename)
+
+    try:
+        candidate = (dump_dir / safe_filename).resolve()
+        candidate.relative_to(dump_dir)
+    except (OSError, RuntimeError, ValueError):
+        raise HTTPException(status_code=400, detail="Invalid filename") from None
+    return candidate
 
 
 # Pydantic models for request/response
@@ -781,26 +830,32 @@ async def ogm_harvest_status(
             "<td>{errs}</td>"
             "<td><small>{err}</small></td>"
             "</tr>".format(
-                cls=_html.escape(css_class),
-                name=_html.escape(name),
-                enabled=_html.escape(enabled_txt),
-                mode=_html.escape(watch_mode or "-"),
-                status=_html.escape(run_status),
-                stage=_html.escape(str(stage)),
-                run_id=_html.escape(str(run_id) if run_id is not None else "-"),
-                dur=_html.escape(dur),
-                upd=_html.escape((_age(upd_dt) + " ago") if upd_dt else "-"),
-                imp=_html.escape(str(imported) if imported is not None else "-"),
-                errs=_html.escape(str(errors) if errors is not None else "-"),
-                err=_html.escape(err_short) if err_short else "",
+                cls=html.escape(css_class),
+                name=html.escape(name),
+                enabled=html.escape(enabled_txt),
+                mode=html.escape(watch_mode or "-"),
+                status=html.escape(run_status),
+                stage=html.escape(str(stage)),
+                run_id=html.escape(str(run_id) if run_id is not None else "-"),
+                dur=html.escape(dur),
+                upd=html.escape((_age(upd_dt) + " ago") if upd_dt else "-"),
+                imp=html.escape(str(imported) if imported is not None else "-"),
+                errs=html.escape(str(errors) if errors is not None else "-"),
+                err=html.escape(err_short) if err_short else "",
             )
         )
 
     counts_html = (
-        f"<div><strong>Counts (last {runs_limit} runs)</strong>: "
-        f"running={counts['running']}, success={counts['success']}, "
-        f"failed={counts['failed']}, other={counts['other']}</div>"
+        "<div><strong>Counts (last {runs_limit} runs)</strong>: "
+        "running={running}, success={success}, failed={failed}, other={other}</div>"
+    ).format(
+        runs_limit=html.escape(str(runs_limit)),
+        running=html.escape(str(counts["running"])),
+        success=html.escape(str(counts["success"])),
+        failed=html.escape(str(counts["failed"])),
+        other=html.escape(str(counts["other"])),
     )
+    rows_table_html = "\n".join(rows_html)
 
     html_body = f"""
 <!doctype html>
@@ -850,7 +905,7 @@ async def ogm_harvest_status(
       </tr>
     </thead>
     <tbody>
-      {"".join(rows_html)}
+      {rows_table_html}
     </tbody>
   </table>
 </body>
@@ -874,8 +929,7 @@ async def get_ogm_dump_manifest(run_id: int):
     run = await ogm_repo.get_harvest_run(run_id)
     if not run or not run.get("ogm_dump_dir"):
         raise HTTPException(status_code=404, detail="Dump not found for run")
-    dump_dir = Path(run["ogm_dump_dir"])
-    manifest_path = dump_dir / "manifest.json"
+    manifest_path = _resolve_ogm_dump_file(run["ogm_dump_dir"], run_id, "manifest.json")
     if not manifest_path.exists():
         raise HTTPException(status_code=404, detail="manifest.json not found")
     return FileResponse(str(manifest_path), media_type="application/json")
@@ -887,17 +941,8 @@ async def download_ogm_dump_file(run_id: int, filename: str):
     if not run or not run.get("ogm_dump_dir"):
         raise HTTPException(status_code=404, detail="Dump not found for run")
 
-    try:
-        safe_filename = require_safe_filename(filename)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail="Invalid filename") from exc
-
-    dump_dir = Path(run["ogm_dump_dir"])
-    resolved_dump_dir = dump_dir.resolve()
-    # Prevent path traversal
-    candidate = (resolved_dump_dir / safe_filename).resolve()
-    if resolved_dump_dir not in candidate.parents:
-        raise HTTPException(status_code=400, detail="Invalid filename")
+    candidate = _resolve_ogm_dump_file(run["ogm_dump_dir"], run_id, filename)
+    safe_filename = candidate.name
 
     if not candidate.exists() or not candidate.is_file():
         raise HTTPException(status_code=404, detail="File not found")

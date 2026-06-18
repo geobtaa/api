@@ -182,7 +182,7 @@ class TestSearchService:
             assert "error" in result
             assert result["message"] == "Search operation failed"
             assert result["error_type"] == "elasticsearch"
-            assert "Elasticsearch error" in result["error"]
+            assert result["error"] == "search_request_failed"
 
     @pytest.mark.asyncio
     async def test_search_classifies_returned_dependency_errors(self):
