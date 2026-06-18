@@ -219,7 +219,7 @@ def test_backup_lock_replaces_stale_lock(monkeypatch, tmp_path: Path):
 def test_main_skips_when_backup_already_running(monkeypatch, capsys):
     monkeypatch.setattr(backup.sys, "argv", ["backup_postgres_to_s3.py"])
     monkeypatch.setattr(backup, "_should_skip_scheduled_backup", lambda force: None)
-    monkeypatch.setattr(backup, "_build_config", lambda: object())
+    monkeypatch.setattr(backup, "_build_config", object)
 
     def fake_create_backup(_config):
         raise backup.BackupAlreadyRunning("PostgreSQL backup already running (pid=123)")

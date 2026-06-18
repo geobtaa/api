@@ -203,6 +203,7 @@ def _backup_lock(config: BackupConfig):
             try:
                 lock_path.unlink()
             except FileNotFoundError:
+                # Another process removed the stale lock between our read and unlink.
                 pass
             except OSError as exc:
                 raise BackupAlreadyRunning(
@@ -561,8 +562,6 @@ def create_backup(config: BackupConfig) -> dict[str, object]:
             size_bytes,
             sha256,
         )
-
-    raise RuntimeError("PostgreSQL backup did not complete")
 
 
 def main() -> int:
