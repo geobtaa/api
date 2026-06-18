@@ -8,6 +8,10 @@
 
 const readline = require("readline");
 
+const { clientHeaders } = require("./client_headers");
+
+const CLIENT_NAME = "btaa-mcp-websocket-bridge";
+
 function baseUrl() {
   return (process.env.BTAA_GEOSPATIAL_API_BASE_URL || "http://127.0.0.1:8000").replace(
     /\/$/,
@@ -26,17 +30,21 @@ function mcpWebSocketUrl() {
 }
 
 function getWebSocketImplementation() {
-  if (typeof WebSocket === "function") {
-    return WebSocket;
-  }
-
   try {
-    return require("ws");
+    return { WebSocketImpl: require("ws"), supportsHeaders: true };
   } catch (_error) {
+    if (typeof WebSocket === "function") {
+      return { WebSocketImpl: WebSocket, supportsHeaders: false };
+    }
+
     throw new Error(
       "WebSocket is unavailable. Use Node.js 22+ or install the optional 'ws' package.",
     );
   }
+}
+
+function webSocketOptions() {
+  return { headers: clientHeaders(CLIENT_NAME) };
 }
 
 function writeJson(message) {
@@ -72,13 +80,20 @@ function normalizeIncomingPayload(payload) {
 }
 
 async function connect() {
-  const WebSocketImpl = getWebSocketImplementation();
+  const { WebSocketImpl, supportsHeaders } = getWebSocketImplementation();
   const bridgeUrl = mcpWebSocketUrl();
 
   process.stderr.write(`Using MCP WebSocket bridge -> ${bridgeUrl}\n`);
+  if (!supportsHeaders) {
+    process.stderr.write(
+      "MCP WebSocket bridge is using a WebSocket implementation that cannot attach BTAA client headers\n",
+    );
+  }
 
   return await new Promise((resolve, reject) => {
-    const socket = new WebSocketImpl(bridgeUrl);
+    const socket = supportsHeaders
+      ? new WebSocketImpl(bridgeUrl, webSocketOptions())
+      : new WebSocketImpl(bridgeUrl);
     let opened = false;
 
     const onOpen = () => {
@@ -152,7 +167,20 @@ async function main() {
   await new Promise((resolve) => rl.on("close", resolve));
 }
 
-main().catch((error) => {
-  process.stderr.write(`MCP WebSocket bridge failed: ${error.stack || error.message}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`MCP WebSocket bridge failed: ${error.stack || error.message}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  baseUrl,
+  connect,
+  getWebSocketImplementation,
+  jsonRpcError,
+  main,
+  mcpWebSocketUrl,
+  normalizeIncomingPayload,
+  webSocketOptions,
+};
