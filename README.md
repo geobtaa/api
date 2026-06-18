@@ -41,20 +41,22 @@ workflows, and future agent-facing discovery tools.
   spatial resources into a map canvas.
 - `mcp/`: Local MCP stdio, HTTP, and WebSocket bridge helpers plus desktop client
   configuration templates.
-- `docs/slack/`: Slackbot setup and slash-command notes.
-- `docs/`: Internal development, architecture, operations, testing, deployment,
-  and runbook documentation.
+- `docs/slack/`: Public Slackbot integration stub.
+- `docs/`: Local development, architecture, testing, public API, and
+  restricted-topic stub documentation.
 - `mkdocs/`: Public documentation site for API specifications, linked data,
   tutorials, and external-facing reference material.
-- `config/`: Deployment and runtime configuration, including Kamal and cron
-  assets.
-- `performance/`: k6 and related performance testing assets.
+- `config/`: Runtime and deployment configuration. Detailed deployed-environment
+  procedures are restricted operations material.
+- `performance/`: k6 and related performance testing harness assets. Detailed
+  capacity reports are restricted operations material.
 - `scripts/`: Repository-level utility scripts.
 - `data/`: Local data volumes and development data artifacts.
 - `docker-compose.yml`: Local application stack for the API, frontend dev
   server, Postgres/ParadeDB, Elasticsearch, Redis, Celery, and Flower.
-- `Makefile`: Main developer/operator entry point for linting, tests, ingest,
-  reindexing, cache work, docs, and deployment-support tasks.
+- `Makefile`: Main developer entry point for linting, tests, ingest,
+  reindexing, cache work, and docs. Remote operations targets may exist, but
+  public docs do not publish deployed-environment procedures.
 
 ## Local Proxy
 
@@ -121,14 +123,21 @@ make frontend-reset
 Setup, development, and operations notes live in `docs/`:
 
 - Internal documentation handbook: [docs/README.md](docs/README.md)
+- Documentation security policy: [docs/security_docs_policy.md](docs/security_docs_policy.md)
 - Local setup and development: [docs/development.md](docs/development.md)
 - Codebase overview: [docs/backend/codebase_overview.md](docs/backend/codebase_overview.md)
 - Backend testing: [docs/backend/testing.md](docs/backend/testing.md)
 - Frontend docs: [docs/frontend/README.md](docs/frontend/README.md)
 - Make tasks: [docs/make_tasks.md](docs/make_tasks.md)
+- Deployment stub: [docs/deploying.md](docs/deploying.md)
+- Deployment runbook stub: [docs/backend/deployment.md](docs/backend/deployment.md)
+- Analytics stub: [docs/analytics.md](docs/analytics.md)
 - OpenGeoMetadata harvesting: [docs/backend/ogm_harvesting.md](docs/backend/ogm_harvesting.md)
 - MCP / Claude Desktop: [docs/mcp/README.md](docs/mcp/README.md)
-- Slackbot: [docs/slack/README.md](docs/slack/README.md)
+- Slackbot stub: [docs/slack/README.md](docs/slack/README.md)
 - QGIS plugin testing: [qgis-plugin/docs/testing.md](qgis-plugin/docs/testing.md)
 
 The public documentation site is maintained separately under `mkdocs/`.
+Detailed deployment, host, secret, backup, incident, capacity, dashboard, and
+production operations live in restricted operations documentation and are not
+published in this repository.

@@ -27,10 +27,8 @@ Features:
 
 Configuration:
 
-- Google Tag Manager is injected by the SSR root only when
-  `VITE_KAMAL_DEST=prd` and `VITE_GTM_ID` is present and matches a GTM
-  container ID. Kamal leaves this blank by default and sets `VITE_GTM_ID` only
-  for the `prd` destination.
+- Deployed analytics and tag-manager configuration is restricted operations
+  material. See [../analytics.md](../analytics.md) for the public stub.
 
 ## Project Overview
 

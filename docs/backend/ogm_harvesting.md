@@ -35,7 +35,7 @@ During harvest, imported records now update three local DB surfaces automaticall
 - **Webhook endpoint** (GitHub signature verified; mounted under `/api/v1/admin/*`, but NOT Basic Auth):
   - `POST /api/v1/admin/ogm/webhook`
 
-## One-time setup (existing deployments)
+## Local Setup
 
 ### 1) Database migration
 
@@ -47,10 +47,12 @@ docker compose exec api bash -lc "cd /app/backend && python db/migrations/create
 
 ### 2) Elasticsearch reindex (required for `ogm_repo` facet/filter)
 
-The ES mapping now includes a new field `ogm_repo`, so you need to rebuild the index once:
+The ES mapping includes `ogm_repo`, so rebuild the local index after applying
+the migration:
 
 ```bash
-curl -u admin:changeme -X POST "http://localhost:8000/api/v1/admin/reindex"
+curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" \
+  -X POST "http://localhost:8000/api/v1/admin/reindex"
 ```
 
 This deletes and recreates the ES index (`ELASTICSEARCH_INDEX`) and re-indexes all `resources`.
@@ -73,10 +75,10 @@ You **do not** need to restart Postgres or Elasticsearch for these changes, as l
 OGM harvesting currently uses `git clone` / `git pull` inside the API/Celery containers.
 Ensure the backend image includes `git` (the project `Dockerfile` installs it).
 
-## Configure env vars
+## Configure Local Env Vars
 
-- **Webhook verification** (required to accept GitHub webhooks):
-  - `OGM_WEBHOOK_SECRET`: shared secret configured in the GitHub webhook settings
+Deployed webhook configuration and shared-secret setup are restricted operations
+material.
 
 - **Optional paths**:
   - `OGM_CHECKOUT_PATH`: where repos are cloned/pulled (default: `data/opengeometadata`)
@@ -87,7 +89,7 @@ Ensure the backend image includes `git` (the project `Dockerfile` installs it).
 ### 1) Add/watch repos
 
 ```bash
-curl -u admin:changeme -X PATCH \
+curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" -X PATCH \
   "http://localhost:8000/api/v1/admin/ogm/repos/edu.stanford.purl" \
   -H "Content-Type: application/json" \
   -d '{"ogm_enabled":true,"ogm_watch_mode":"weekly"}'
@@ -105,14 +107,17 @@ docker compose exec api bash -lc "cd /app/backend && python scripts/populate_ogm
 ```
 
 Notes:
-- This script checks whether each repo has a `metadata-aardvark/` directory.\n+  - If **missing**, it sets `ogm_enabled=false` and flags it via `ogm_tags.ogm_missing_aardvark=true`.\n+  - If **present**, it sets `ogm_enabled=true` and `ogm_watch_mode=weekly`.\n+- For better GitHub rate limits, pass a token:\n+  - `GITHUB_TOKEN=... python scripts/populate_ogm_repos.py`
+- This script checks whether each repo has a `metadata-aardvark/` directory.
+- If the directory is missing, it disables the repo and records that state.
+- If the directory is present, it enables the repo with the default watch mode.
+- For better GitHub rate limits, pass a local GitHub token.
 
 ### 2) Trigger a harvest
 
 Single repo:
 
 ```bash
-curl -u admin:changeme -X POST \
+curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" -X POST \
   "http://localhost:8000/api/v1/admin/ogm/harvest" \
   -H "Content-Type: application/json" \
   -d '{"ogm_repo_name":"edu.stanford.purl","ogm_trigger":"manual"}'
@@ -124,7 +129,7 @@ If you need local Elasticsearch/search results to reflect the new or changed rec
 All enabled weekly repos:
 
 ```bash
-curl -u admin:changeme -X POST \
+curl -u "$ADMIN_USERNAME:$ADMIN_PASSWORD" -X POST \
   "http://localhost:8000/api/v1/admin/ogm/harvest" \
   -H "Content-Type: application/json" \
   -d '{"ogm_all":true,"ogm_trigger":"weekly"}'
@@ -155,10 +160,7 @@ For a given `run_id`:
 
 ## Webhook notes
 
-Configure a GitHub webhook on the repo(s) you care about:
-- Payload URL: `http://<your-api-host>/api/v1/admin/ogm/webhook`
-- Content type: `application/json`
-- Secret: must match `OGM_WEBHOOK_SECRET`
-- Events: `push` (and `ping` for validation)
+Deployed GitHub webhook payload URLs, shared secrets, and validation procedures
+are restricted operations material.
 
-Only repos with `ogm_watch_mode` of `webhook` or `both` will enqueue harvest jobs on push.
+Only repos with a webhook-enabled watch mode enqueue harvest jobs on push.

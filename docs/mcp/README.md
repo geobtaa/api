@@ -62,7 +62,8 @@ python3 mcp/run_mcp_websocket_bridge.py
 ## Choosing A Transport
 
 - Direct stdio (`mcp/run_mcp_service.py`)
-  Best for local development when your Python environment, database, and Elasticsearch are all available on the same machine.
+  Best for local development when your Python environment, database, and search
+  service are all available on the same machine.
 - HTTP bridge (`mcp/mcp_http_bridge.js`)
   Best fallback when the remote API exposes `POST /api/v1/mcp` but WebSocket transport is unavailable or blocked by a proxy.
 - WebSocket bridge (`mcp/mcp_websocket_bridge.js`)
@@ -89,28 +90,20 @@ Claude Desktop configuration examples live in [claude_desktop.md](./claude_deskt
 
 The short version:
 
-- Use `mcp/run_mcp_websocket_bridge.py` for local and remote WebSocket-backed setups.
+- Use `mcp/run_mcp_websocket_bridge.py` for local WebSocket-backed setups.
 - Use `mcp/mcp_http_bridge.js` if you need an HTTP-only fallback.
 - Use `mcp/run_mcp_service.py` only for direct local stdio development.
 
-## Remote Environments
+## Deployed Environments
 
-For Kamal deployments such as `dev1` and `dev2`, the base URL should be the public HTTPS origin:
-
-- `https://lib-btaageoapi-dev-app-01.oit.umn.edu`
-- `https://geodev.btaa.org`
-
-The WebSocket bridge derives:
-
-- `wss://<host>/api/v1/mcp/ws`
-
-The HTTP bridge derives:
-
-- `https://<host>/api/v1/mcp`
+Deployed MCP endpoint URLs and client configuration examples are restricted
+operations material. Keep this public page focused on local development.
 
 ## Troubleshooting
 
 - If Claude Desktop starts the bridge with an old Node version and crashes on modern JavaScript syntax, switch to `python3 mcp/run_mcp_websocket_bridge.py`.
 - If search-related MCP tools return explicit search errors, verify the API itself can answer `/api/v1/search`.
 - If WebSocket transport fails but `POST /api/v1/mcp` works, switch Claude Desktop to the HTTP bridge until the proxy path is fixed.
-- If direct stdio works locally but remote access does not, remember that `mcp/run_mcp_service.py` uses the local Python environment, not the remote API.
+- If direct stdio works locally but a deployed setup does not, remember that
+  `mcp/run_mcp_service.py` uses the local Python environment, not a deployed
+  API.
