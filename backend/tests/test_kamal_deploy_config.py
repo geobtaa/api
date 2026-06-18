@@ -71,6 +71,15 @@ def test_prd_feedback_defaults_to_sendmail():
     assert "ENV.fetch('FEEDBACK_DELIVERY', 'sendmail')" in config_text
 
 
+def test_prd_frontend_ignores_closed_stream_appsignal_notice():
+    config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
+
+    assert (
+        "ENV.fetch('APPSIGNAL_FRONTEND_IGNORE_ERRORS', "
+        "'Writable closed before stream finished')"
+    ) in config_text
+
+
 def test_prd_postgres_backup_uses_local_mounted_storage():
     prd_config = _load_deploy_config("config/deploy.prd.yml")
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
