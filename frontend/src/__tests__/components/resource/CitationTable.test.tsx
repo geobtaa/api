@@ -186,6 +186,30 @@ describe('CitationTable', () => {
     });
   });
 
+  it('pushes cite_copy even when clipboard write is denied', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithRouter(<CitationTable {...trackableProps} />);
+    fireEvent.click(screen.getByTitle('Copy citation'));
+
+    await waitFor(() => {
+      expect(pushDataLayerEvent).toHaveBeenCalledWith('cite_copy', {
+        resource_id: trackableProps.resourceId,
+        resource_title: trackableProps.resourceTitle,
+      });
+    });
+
+    consoleError.mockRestore();
+  });
+
   it('copies permalink to clipboard when permalink Copy clicked', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', {
@@ -220,6 +244,30 @@ describe('CitationTable', () => {
         resource_title: trackableProps.resourceTitle,
       });
     });
+  });
+
+  it('pushes cite_url even when clipboard write is denied', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('denied'));
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      writable: true,
+      configurable: true,
+    });
+
+    renderWithRouter(<CitationTable {...trackableProps} />);
+    fireEvent.click(screen.getByTitle('Copy permalink'));
+
+    await waitFor(() => {
+      expect(pushDataLayerEvent).toHaveBeenCalledWith('cite_url', {
+        resource_id: trackableProps.resourceId,
+        resource_title: trackableProps.resourceTitle,
+      });
+    });
+
+    consoleError.mockRestore();
   });
 
   it.each([
