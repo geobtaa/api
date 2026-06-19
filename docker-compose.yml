@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ewlarson/btaa-geospatial-api:0.8.8
+    image: ewlarson/btaa-geospatial-api:0.8.9
     container_name: btaa-geospatial-api-app
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
