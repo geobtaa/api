@@ -70,9 +70,10 @@ export function CitationTable({
   };
 
   const handleCopyPermalink = async () => {
+    trackCitationDataLayerEvent('cite_url');
+
     try {
       await navigator.clipboard.writeText(permalink);
-      trackCitationDataLayerEvent('cite_url');
       scheduleAnalyticsBatch({
         events: [
           {
@@ -93,9 +94,10 @@ export function CitationTable({
   };
 
   const handleCopyCitation = async () => {
+    trackCitationDataLayerEvent('cite_copy');
+
     try {
       await navigator.clipboard.writeText(displayCitation);
-      trackCitationDataLayerEvent('cite_copy');
       scheduleAnalyticsBatch({
         events: [
           {
