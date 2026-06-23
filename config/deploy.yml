@@ -54,7 +54,7 @@ servers:
   worker:
     hosts:
       - <%= ENV['KAMAL_HOST'] %>
-    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -lc 'cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO --concurrency="${CELERY_WORKER_CONCURRENCY:-2}" --prefetch-multiplier=1 --max-tasks-per-child="${CELERY_MAX_TASKS_PER_CHILD:-5000}" --max-memory-per-child="${CELERY_MAX_MEMORY_PER_CHILD_KB:-900000}"'
     options:
       cpus: <%= ENV.fetch('KAMAL_WORKER_CPUS', '1') %>
       memory: <%= ENV.fetch('KAMAL_WORKER_MEMORY', '1024m') %>
@@ -129,6 +129,9 @@ env:
     TURNSTILE_COOKIE_SECURE: "<%= ENV.fetch('TURNSTILE_COOKIE_SECURE', 'true') %>"
     SLACK_BOT_COMMAND:     "<%= ENV.fetch('SLACK_BOT_COMMAND', '/btaa') %>"
     WEB_UVICORN_WORKERS:   "<%= ENV.fetch('WEB_UVICORN_WORKERS', '2') %>"
+    CELERY_WORKER_CONCURRENCY: "<%= ENV.fetch('CELERY_WORKER_CONCURRENCY', '2') %>"
+    CELERY_MAX_TASKS_PER_CHILD: "<%= ENV.fetch('CELERY_MAX_TASKS_PER_CHILD', '5000') %>"
+    CELERY_MAX_MEMORY_PER_CHILD_KB: "<%= ENV.fetch('CELERY_MAX_MEMORY_PER_CHILD_KB', '900000') %>"
     # Loopback-only FastAPI pool used by SSR/BFF fetches. This keeps frontend
     # traffic from occupying the public /api worker queue used by QGIS, MCP,
     # and other external clients. Set to "0" to route SSR back to the public pool.

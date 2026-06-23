@@ -53,6 +53,47 @@ def test_kamal_configs_do_not_deploy_flower_role():
         assert "flower" not in accessory.get("roles", [])
 
 
+def test_kamal_worker_commands_cap_concurrency_and_child_memory():
+    deploy_paths = [
+        "config/deploy.yml",
+        "config/deploy.dev1.yml",
+        "config/deploy.dev2.yml",
+        "config/deploy.prd.yml",
+    ]
+
+    for path in deploy_paths:
+        cmd = _load_deploy_config(path)["servers"]["worker"]["cmd"]
+        assert "--concurrency=" in cmd
+        assert "--prefetch-multiplier=1" in cmd
+        assert "--max-tasks-per-child=" in cmd
+        assert "--max-memory-per-child=" in cmd
+
+
+def test_prd_resource_limits_keep_long_uptime_headroom():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+
+    servers = prd_config["servers"]
+    assert servers["web"]["options"]["memory"] == "6144m"
+    assert servers["worker"]["options"]["cpus"] == 2
+    assert servers["worker"]["options"]["memory"] == "4096m"
+    assert servers["cron"]["options"]["cpus"] == 0.5
+    assert servers["cron"]["options"]["memory"] == "1024m"
+
+    prd_env = prd_config["env"]["clear"]
+    assert prd_env["CELERY_WORKER_CONCURRENCY"] == "3"
+    assert prd_env["CELERY_MAX_TASKS_PER_CHILD"] == "5000"
+    assert prd_env["CELERY_MAX_MEMORY_PER_CHILD_KB"] == "900000"
+
+
+def test_prd_elasticsearch_heap_matches_current_single_host_budget():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+
+    assert (
+        prd_config["accessories"]["elasticsearch"]["env"]["clear"]["ES_JAVA_OPTS"]
+        == "-Xms2g -Xmx2g"
+    )
+
+
 def test_prd_uses_canonical_geoportal_base_url():
     prd_config = _load_deploy_config("config/deploy.prd.yml")
 
