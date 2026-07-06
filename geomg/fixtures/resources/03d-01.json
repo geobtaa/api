@@ -1,0 +1,41 @@
+{
+  "gbl_mdVersion_s": "BTAA Aardvark",
+  "b1g_isHarvested_b": true,
+  "dct_references_s": "{\"http://schema.org/url\":\"https://digital.lib.uiowa.edu/node/60932\"}",
+  "dct_title_s": "University of Iowa Digital Library: Atlases and Maps",
+  "b1g_websitePlatform_s": "Islandora",
+  "geomg_id_s": "03d-01",
+  "b1g_publication_state_s": "published",
+  "b1g_dct_accrualMethod_s": "Automated retrieval",
+  "pcdm_memberOf_sm": [
+    "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+  ],
+  "b1g_dcat_endpointURL_s": "https://digital.lib.uiowa.edu/oai2/oai.php?verb=ListRecords&metadataPrefix=mods&set=ui_dep",
+  "b1g_dcat_endpointDescription_s": "OAI-PMH",
+  "schema_provider_s": "University of Iowa",
+  "gbl_resourceClass_sm": [
+    "Websites"
+  ],
+  "gbl_resourceType_sm": [
+    "Digital repositories"
+  ],
+  "dct_creator_sm": [
+    "University of Iowa"
+  ],
+  "dct_subject_sm": [
+    "Map collections"
+  ],
+  "date_created_dtsi": "2023-12-03T01:21:37Z",
+  "date_modified_dtsi": "2026-03-29T19:06:41Z",
+  "dct_accessRights_s": "Public",
+  "dct_identifier_sm": [
+    "https://digital.lib.uiowa.edu/islandora/object/ui_root?sort=mods_titleInfo_title_ss%20asc&islandora_solr_search_navigation=0&f%5B0%5D=RELS_EXT_isMemberOfCollection_uri_ms%3A%22info%5C%3Afedora%5C/ui%5C%3Amaps%22"
+  ],
+  "b1g_code_s": "03d-01",
+  "b1g_adminTags_sm": [
+    "ogm"
+  ],
+  "b1g_lastHarvested_dt": "2025-09-16",
+  "b1g_dct_accrualPeriodicity_s": "Irregular",
+  "b1g_harvestWorkflow_s": "py_oaipmh"
+}

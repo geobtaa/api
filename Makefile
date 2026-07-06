@@ -1,5 +1,6 @@
 .PHONY: help lint lint-check format test lint-test test-coverage-compare wait-local-db clear-thumbnail-cache thumbnail-completeness-report prime-thumbnail-cache prime-static-map-cache prime-resource-cache prime-visual-caches visual-assets-export visual-assets-import visual-assets-stream-import visual-assets-sync-all db-export db-import db-sync gbl-admin-db-download gbl-admin-db-unzip gbl-admin-db-restore gbl-admin-db-sync gbl-admin-db-add-latest-btaa-fields gbl-admin-db-import-resources populate-distributions backfill-distributions populate-data-dictionaries gbl-admin-db-import-all reindex reindex-benchmark local-clear-search-cache sitemap-generate analytics-maintenance analytics-size-report es-unblock populate-relationships verify-h3-index kamal-reindex kamal-verify-h3-index kamal-clear-cache kamal-prime-thumbnail-cache kamal-prime-static-map-cache kamal-prime-visual-caches kamal-prime-resource-cache kamal-thumbnail-completeness-report kamal-api-response-cache-init kamal-api-response-cache-prune refresh-resource-caches kamal-refresh-resource-caches clear_cache frontend-reset ogm-refresh ogm-refresh-all ogm-refresh-repo ogm-status ogm-status-watch ogm-failures resource-aux-init resource-cache-init api-response-cache-init api-response-cache-prune bridge-init bridge-sync bridge-sync-batched bridge-cancel bridge-status bridge-status-watch bridge-failures blog-sync
 .PHONY: kamal-blog-sync kamal-purge-home-blog-cache kamal-bridge-sync kamal-bridge-sync-batched kamal-bridge-status kamal-bridge-status-watch kamal-backup-postgres kamal-backup-elasticsearch kamal-backup-list-elasticsearch kamal-cron-debug kamal-cron-test-bridge kamal-worker-logs kamal-network-sanity docs-serve docs-build k6-run k6-smoke k6-stress k6-endpoint-capacity cli-test cli-lint cli-format cli-build cli-man
+.PHONY: geomg
 
 # Load environment variables from .env file if it exists
 -include .env
@@ -114,6 +115,9 @@ BRIDGE_MAX_RESOURCES ?=
 BRIDGE_STATUS_RAW ?=
 BRIDGE_STATUS_SHOW_LAST ?= 0
 BLOG_API_URL ?= http://localhost:8000
+GEOMG_HOST ?= 127.0.0.1
+GEOMG_PORT ?= 8010
+GEOMG_PYTHON ?= $(shell if test -x backend/.venv/bin/python; then printf '%s/backend/.venv/bin/python' "$$(pwd)"; else command -v python3; fi)
 PRIME_LIMIT ?=
 PRIME_BATCH_SIZE ?= 500
 PRIME_THUMBNAIL_CONCURRENCY ?= 4
@@ -194,22 +198,26 @@ help:
 	@grep -hE '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-35s\033[0m %s\n", $$1, $$2}'
 
+geomg: ## Serve the standalone local GEOMG admin prototype
+	@echo "Starting GEOMG admin prototype at http://$(GEOMG_HOST):$(GEOMG_PORT)"
+	$(GEOMG_PYTHON) -m uvicorn geomg.main:app --host $(GEOMG_HOST) --port $(GEOMG_PORT)
+
 # Run both linting and formatting checks (without modifying files)
 lint: ## Check code with ruff (no modifications)
 	@echo "Checking code with ruff..."
-	ruff check backend/app/ backend/tests/ backend/scripts/
+	ruff check backend/app/ backend/tests/ backend/scripts/ geomg/
 
 # Format code in-place
 format: ## Format and fix code with ruff
 	@echo "Formatting code with ruff..."
-	ruff format backend/app/ backend/tests/ backend/scripts/
-	ruff check --fix backend/app/ backend/tests/ backend/scripts/
+	ruff format backend/app/ backend/tests/ backend/scripts/ geomg/
+	ruff check --fix backend/app/ backend/tests/ backend/scripts/ geomg/
 
 # Check formatting only (for CI)
 lint-check: ## CI-style lint/format check (no edits)
 	@echo "Checking formatting with ruff..."
-	ruff format --check backend/app/ backend/tests/ backend/scripts/
-	ruff check backend/app/ backend/tests/ backend/scripts/
+	ruff format --check backend/app/ backend/tests/ backend/scripts/ geomg/
+	ruff check backend/app/ backend/tests/ backend/scripts/ geomg/
 
 # Run just the tests with coverage threshold
 test: ## Run tests with coverage threshold

@@ -65,6 +65,15 @@ configuration is restricted operations material.
 | `make docs-serve` | Serve the public MkDocs site at `http://localhost:8001`. |
 | `make docs-build` | Build the public site into `mkdocs/site/`. |
 
+## Local Admin Prototype
+
+| Target | Purpose |
+| --- | --- |
+| `make geomg` | Serve the standalone local GEOMG admin prototype at `http://127.0.0.1:8010`. |
+
+`GEOMG_HOST` and `GEOMG_PORT` override the default bind address and port.
+`GEOMG_PYTHON` can point to a backend virtualenv. See [geomg.md](geomg.md).
+
 ## Local Data And Indexing
 
 | Target | Purpose |

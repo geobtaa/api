@@ -1,0 +1,197 @@
+{% extends "geomg/base.html" %}
+
+{% block title %}{{ resource.title }} - GEOMG Admin Prototype{% endblock %}
+
+{% block content %}
+  <section class="detail-heading">
+    <a class="back-link" href="/resources">Back to queue</a>
+    <div class="detail-title-row">
+      <div>
+        <p class="eyebrow">Resource record</p>
+        <h1>{{ resource.title }}</h1>
+        <p class="muted">{{ resource.id }}</p>
+      </div>
+      <div class="lock-box">
+        <span class="lock-label">Record lock</span>
+        <strong>{{ resource.checked_out_by }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <nav class="section-tabs" aria-label="Record sections">
+    <a href="#overview">Overview</a>
+    <a href="#discovery">Discovery metadata</a>
+    <a href="#links">Links / references</a>
+    <a href="#admin">Admin / provenance</a>
+    <a href="#json">Preview JSON</a>
+  </nav>
+
+  <form class="detail-form">
+    <section id="overview" class="section-panel">
+      <div class="section-heading">
+        <h2>Overview</h2>
+        <span class="status status-{{ resource.publication_state|lower }}">{{ resource.publication_state }}</span>
+      </div>
+      <div class="field-grid two">
+        <label>
+          <span>Title</span>
+          <input name="title" value="{{ resource.title }}">
+        </label>
+        <label>
+          <span>Publication state</span>
+          <select name="publication_state">
+            {% for state in publication_states %}
+              <option value="{{ state }}" {% if resource.publication_state == state %}selected{% endif %}>{{ state }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Provider</span>
+          <input name="provider" value="{{ resource.provider }}">
+        </label>
+        <label>
+          <span>Publisher</span>
+          <input name="publisher" value="{{ resource.publisher }}">
+        </label>
+        <label>
+          <span>Resource class</span>
+          <input name="resource_class" value="{{ resource.resource_class }}">
+        </label>
+        <label>
+          <span>Resource type</span>
+          <input name="resource_type" value="{{ resource.resource_type }}">
+        </label>
+      </div>
+      <label class="full-width">
+        <span>Description</span>
+        <textarea name="description" rows="6">{{ resource.description }}</textarea>
+      </label>
+      <div class="form-actions">
+        <button type="button" disabled>Save draft</button>
+        <button type="button" disabled>Request review</button>
+      </div>
+    </section>
+
+    <section id="discovery" class="section-panel">
+      <div class="section-heading">
+        <h2>Discovery metadata</h2>
+        <span class="validation-chip">{{ resource.validation_summary }}</span>
+      </div>
+      <div class="field-grid two">
+        <label>
+          <span>Access</span>
+          <input name="access" value="{{ resource.access }}">
+        </label>
+        <label>
+          <span>Format</span>
+          <input name="format" value="{{ resource.format }}">
+        </label>
+        <label>
+          <span>Spatial</span>
+          <input name="spatial" value="{{ resource.spatial }}">
+        </label>
+        <label>
+          <span>Temporal</span>
+          <input name="temporal" value="{{ resource.temporal }}">
+        </label>
+        <label>
+          <span>Subjects</span>
+          <input name="subjects" value="{{ resource.subjects }}">
+        </label>
+        <label>
+          <span>Keywords</span>
+          <input name="keywords" value="{{ resource.keywords }}">
+        </label>
+      </div>
+      <label class="full-width">
+        <span>Geometry / bounding box</span>
+        <textarea name="geometry" rows="3">{{ resource.geometry }}</textarea>
+      </label>
+      <div class="validation-panel">
+        <h3>Validation</h3>
+        <ul>
+          {% for message in resource.validation %}
+            <li class="validation-{{ message.level }}">{{ message.message }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+    </section>
+
+    <section id="links" class="section-panel">
+      <h2>Links / references</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Label</th>
+            <th>URL</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for reference in resource.references %}
+            <tr>
+              <td>{{ reference.type }}</td>
+              <td>{{ reference.label }}</td>
+              <td>
+                {% if reference.url %}
+                  <a href="{{ reference.url }}">{{ reference.url }}</a>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="3" class="empty">No references parsed from this fixture.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section id="admin" class="section-panel">
+      <h2>Admin / provenance</h2>
+      <div class="field-grid two">
+        <label>
+          <span>Fixture path</span>
+          <input value="{{ resource.fixture_path }}" readonly>
+        </label>
+        <label>
+          <span>Last modified</span>
+          <input value="{{ resource.last_modified }}" readonly>
+        </label>
+        <label>
+          <span>Identifiers</span>
+          <input value="{{ resource.identifiers }}" readonly>
+        </label>
+        <label>
+          <span>Checked out by</span>
+          <input value="{{ resource.checked_out_by }}" readonly>
+        </label>
+      </div>
+      <table class="compact-table">
+        <thead>
+          <tr>
+            <th>Source</th>
+            <th>Import date</th>
+            <th>Status</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for import in imports %}
+            <tr>
+              <td>{{ import.source }}</td>
+              <td>{{ import.imported_at }}</td>
+              <td>{{ import.status }}</td>
+              <td>{{ import.notes }}</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section id="json" class="section-panel">
+      <h2>Preview JSON</h2>
+      <pre class="json-preview">{{ resource.raw_json }}</pre>
+    </section>
+  </form>
+{% endblock %}

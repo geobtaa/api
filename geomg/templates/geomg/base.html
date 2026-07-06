@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}GEOMG Admin Prototype{% endblock %}</title>
+    <link rel="stylesheet" href="{{ request.url_for('geomg_static', path='/geomg/admin.css') }}">
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <a class="brand" href="/resources">GEOMG</a>
+        <span class="mode">Local admin prototype</span>
+      </div>
+      <nav aria-label="Admin navigation">
+        <a href="/resources">Resources</a>
+        <a href="/harvest-records">Harvest records</a>
+        <a href="/health">Health</a>
+      </nav>
+    </header>
+    <main class="page">
+      {% block content %}{% endblock %}
+    </main>
+  </body>
+</html>

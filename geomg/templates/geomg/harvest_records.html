@@ -1,0 +1,58 @@
+{% extends "geomg/base.html" %}
+
+{% block title %}Harvest Records - GEOMG Admin Prototype{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Administrative metadata</p>
+      <h1>Harvest records</h1>
+    </div>
+    <div class="summary-strip" aria-label="Harvest record summary">
+      <span><strong>{{ harvest_records|length }}</strong> shown</span>
+      <span><strong>{{ total_count }}</strong> fixtures</span>
+    </div>
+  </section>
+
+  <form method="get" action="/harvest-records">
+    <div class="queue-toolbar">
+      <label>
+        <span>Search</span>
+        <input type="search" name="q" value="{{ filters.q }}" placeholder="Search harvest records">
+      </label>
+      <button type="submit">Search</button>
+      <a class="button secondary" href="/harvest-records">Reset filters</a>
+    </div>
+    <section class="table-panel" aria-label="Harvest records table">
+      <table class="resource-table harvest-table compact-table">
+        <thead>
+          <tr>
+            {% for column in harvest_columns %}
+              <th title="{{ column.key }}">{{ column.label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for record in harvest_records %}
+            <tr>
+              {% for column in harvest_columns %}
+                {% set value = record.fields.get(column.key, "") %}
+                <td data-label="{{ column.label }}">
+                  {% if loop.first %}
+                    <a class="record-link truncate" href="/harvest-records/{{ record.id }}" title="{{ value }}">{{ value or "-" }}</a>
+                  {% else %}
+                    <span class="truncate" title="{{ value }}">{{ value or "-" }}</span>
+                  {% endif %}
+                </td>
+              {% endfor %}
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="{{ harvest_columns|length }}" class="empty">No harvest records match these filters.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+  </form>
+{% endblock %}

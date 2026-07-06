@@ -1,0 +1,84 @@
+{
+  "gbl_mdVersion_s": "BTAA Aardvark",
+  "dct_references_s": "{\"http://schema.org/downloadUrl\":[{\"url\":\"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/26bf39fe-28ba-41c2-b8fc-f1844d65dff7/e2a8fe16d711729a43caeebe03bab591.zip\",\"label\":\"Shapefile (original)\"},{\"url\":\"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/6d28c9ec-9824-471f-ad0d-aab35931c531/3b94ef36e8fde179733544f74e5ea1b8.zip\",\"label\":\"GeoPackage (derived from original)\"}],\"https://github.com/protomaps/PMTiles\":\"https://geobtaa-assets-prod.s3.us-east-2.amazonaws.com/store/asset/350c3388-a377-4294-8826-591de7d5eda5/2b0b0f77e07e847fa623123725125076.pmtiles\"}",
+  "dct_title_s": "City parks [Minnesota--Minneapolis] {2011}",
+  "dct_alternative_sm": [
+    "PARK.shp"
+  ],
+  "dct_description_sm": [
+    "Historical dataset of city parks in Minneapolis, Minnesota. Parks are polygon features representing publicly accessible land designated for recreation, conservation, or open space and managed by the Minneapolis Park and Recreation Board."
+  ],
+  "b1g_dct_provenance_sm": [
+    "Shapefile acquired by the University of Minnesota Libraries from the City of Minneapolis in 2011."
+  ],
+  "b1g_dateAccessioned_dt": "2025-12-18",
+  "dct_format_s": "GeoPackage",
+  "gbl_fileSize_s": "908 KB",
+  "geomg_id_s": "b1g_2Lx2SCAOw85E",
+  "b1g_publication_state_s": "published",
+  "b1g_dct_accrualMethod_s": "Manual curation",
+  "pcdm_memberOf_sm": [
+    "b1g_urbanBaseLayers"
+  ],
+  "dct_temporal_sm": [
+    "2011"
+  ],
+  "dct_issued_s": "2026",
+  "gbl_indexYear_im": [
+    "2011"
+  ],
+  "gbl_dateRange_drsim": [
+    "[2011 TO 2011]"
+  ],
+  "dct_spatial_sm": [
+    "Minnesota--Minneapolis",
+    "Minnesota"
+  ],
+  "dcat_bbox": "ENVELOPE(-93.376,-93.187,45.051,44.882)",
+  "locn_geometry": "POLYGON ((-93.3291 44.9197, -93.3291 44.9414, -93.3288 44.9521, -93.3288 44.9665, -93.3185 44.9772, -93.3185 45.0205, -93.3188 45.0313, -93.3193 45.0402, -93.3232 45.0403, -93.3232 45.0429, -93.3195 45.0512, -93.2830 45.0511, -93.2813 45.0502, -93.2806 45.0445, -93.2807 45.0433, -93.2815 45.0404, -93.2835 45.0355, -93.2269 45.0357, -93.2269 45.0132, -93.2178 45.0133, -93.2178 45.0060, -93.2076 45.0061, -93.2076 44.9748, -93.2077 44.9530, -93.2045 44.9515, -93.2025 44.9495, -93.2013 44.9469, -93.2009 44.9440, -93.2011 44.9397, -93.2011 44.9379, -93.2009 44.9350, -93.2004 44.9305, -93.2001 44.9286, -93.2008 44.9255, -93.2014 44.9207, -93.2015 44.9178, -93.2014 44.9147, -93.2004 44.9103, -93.1996 44.9091, -93.1973 44.9072, -93.1943 44.9054, -93.2076 44.9054, -93.2077 44.8962, -93.2109 44.8962, -93.2109 44.8934, -93.2160 44.8934, -93.2171 44.8938, -93.2192 44.8960, -93.2225 44.8960, -93.2225 44.8968, -93.2191 44.8968, -93.2191 44.8978, -93.2205 44.8972, -93.2273 44.8970, -93.2317 44.8969, -93.2351 44.8951, -93.2351 44.8962, -93.2325 44.8969, -93.2375 44.8970, -93.2426 44.8971, -93.2437 44.8973, -93.2451 44.8968, -93.2476 44.8962, -93.2482 44.8979, -93.2546 44.8979, -93.2547 44.8972, -93.2554 44.8955, -93.2547 44.8949, -93.2540 44.8944, -93.2540 44.8926, -93.2528 44.8908, -93.3188 44.8908, -93.3188 44.9052, -93.3290 44.9053, -93.3291 44.9197))",
+  "dcat_centroid": "44.966499999999996,-93.2815",
+  "b1g_geonames_sm": [
+    "http://sws.geonames.org/5037649"
+  ],
+  "dct_publisher_sm": [
+    "City of Minneapolis"
+  ],
+  "schema_provider_s": "BTAA-GIN",
+  "gbl_resourceClass_sm": [
+    "Datasets"
+  ],
+  "b1g_adminNote_sm": [
+    "Purchased by University of Minnesota Borchert Map Library circa 2011",
+    "Original metadata XML files are incomplete and only contain templated values."
+  ],
+  "gbl_resourceType_sm": [
+    "Polygon data"
+  ],
+  "gbl_displayNote_sm": [
+    "Warning: This dataset is a historical version held by the BTAA-GIN. For the most current layer, consult Open Data Minneapolis https://opendata.minneapolismn.gov"
+  ],
+  "dct_creator_sm": [
+    "City of Minneapolis"
+  ],
+  "dct_subject_sm": [
+    "Recreation areas",
+    "Parks"
+  ],
+  "dcat_theme_sm": [
+    "Boundaries"
+  ],
+  "dct_language_sm": [
+    "eng"
+  ],
+  "date_created_dtsi": "2026-01-18T18:40:25Z",
+  "date_modified_dtsi": "2026-06-29T15:15:39Z",
+  "dct_accessRights_s": "Public",
+  "dct_identifier_sm": [
+    "b1g_000013"
+  ],
+  "b1g_code_s": "b1g_27_43000",
+  "b1g_dct_conformsTo_sm": [
+    "https://spatialreference.org/ref/esri/103734/"
+  ],
+  "b1g_harvestWorkflow_s": "curation_datasets"
+}

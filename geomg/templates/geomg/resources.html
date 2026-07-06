@@ -1,0 +1,169 @@
+{% extends "geomg/base.html" %}
+
+{% block title %}Resources - GEOMG Admin Prototype{% endblock %}
+
+{% block content %}
+  <section class="page-heading">
+    <div>
+      <p class="eyebrow">Administrative metadata</p>
+      <h1>Resource queue</h1>
+    </div>
+    <div class="summary-strip" aria-label="Queue summary">
+      <span><strong>{{ resources|length }}</strong> shown</span>
+      <span><strong>{{ total_count }}</strong> fixtures</span>
+      <span><strong>{{ imports[0].status }}</strong></span>
+    </div>
+  </section>
+
+  <form id="resource-filter-form" method="get" action="/resources">
+    <div class="queue-toolbar">
+      <label>
+        <span>Search</span>
+        <input type="search" name="q" value="{{ filters.q }}" placeholder="Search resources">
+      </label>
+      <button type="submit">Search</button>
+      <a class="button secondary" href="/resources">Reset filters</a>
+    </div>
+    <section class="table-panel" aria-label="Resource table">
+      <table class="resource-table compact-table">
+        <colgroup>
+          <col class="col-title">
+          <col class="col-resource-class">
+          <col class="col-resource-type">
+          <col class="col-provider">
+          <col class="col-publisher">
+          <col class="col-publication-state">
+        </colgroup>
+        <thead>
+          <tr>
+            <th>
+              Title
+            </th>
+            <th>
+              <label>
+                <span>Resource Class</span>
+                <select name="resource_class" data-submit-on-change="true">
+                  <option value="">Any</option>
+                  {% for resource_class in resource_classes %}
+                    <option value="{{ resource_class }}" {% if filters.resource_class == resource_class %}selected{% endif %}>{{ resource_class }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </th>
+            <th>
+              <label>
+                <span>Resource Type</span>
+                <select name="resource_type" data-submit-on-change="true">
+                  <option value="">Any</option>
+                  {% for resource_type in resource_types %}
+                    <option value="{{ resource_type }}" {% if filters.resource_type == resource_type %}selected{% endif %}>{{ resource_type }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </th>
+            <th>
+              <label>
+                <span>Provider</span>
+                <select name="provider" data-submit-on-change="true">
+                  <option value="">Any</option>
+                  {% for provider in providers %}
+                    <option value="{{ provider }}" {% if filters.provider == provider %}selected{% endif %}>{{ provider }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </th>
+            <th>
+              <label>
+                <span>Publisher</span>
+                <select name="publisher" data-submit-on-change="true">
+                  <option value="">Any</option>
+                  {% for publisher in publishers %}
+                    <option value="{{ publisher }}" {% if filters.publisher == publisher %}selected{% endif %}>{{ publisher }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </th>
+            <th>
+              <label>
+                <span>Publication State</span>
+                <select name="publication_state" data-submit-on-change="true">
+                  <option value="">Any</option>
+                  {% for state in publication_states %}
+                    <option value="{{ state }}" {% if filters.publication_state == state %}selected{% endif %}>{{ state }}</option>
+                  {% endfor %}
+                </select>
+              </label>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for resource in resources %}
+            <tr>
+              <td data-label="Title"><a class="record-link truncate" href="/resources/{{ resource.id }}" title="{{ resource.title }}">{{ resource.title or "-" }}</a></td>
+              <td data-label="Resource Class"><span class="truncate" title="{{ resource.resource_class }}">{{ resource.resource_class or "-" }}</span></td>
+              <td data-label="Resource Type"><span class="truncate" title="{{ resource.resource_type }}">{{ resource.resource_type or "-" }}</span></td>
+              <td data-label="Provider"><span class="truncate" title="{{ resource.provider }}">{{ resource.provider or "-" }}</span></td>
+              <td data-label="Publisher"><span class="truncate" title="{{ resource.publisher }}">{{ resource.publisher or "-" }}</span></td>
+              <td data-label="Publication State"><span class="status status-{{ resource.publication_state|lower }}">{{ resource.publication_state }}</span></td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="empty">No fixture records match these filters.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+    <button class="visually-hidden" type="submit">Apply filters</button>
+  </form>
+
+  <section class="import-panel" aria-label="Import activity">
+    <h2>Import activity</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Source</th>
+          <th>Harvest/import date</th>
+          <th>Records</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for import in imports %}
+          <tr>
+            <td>{{ import.source }}</td>
+            <td>{{ import.imported_at }}</td>
+            <td>{{ import.record_count }}</td>
+            <td>{{ import.status }}</td>
+            <td>{{ import.notes }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+  <script>
+    const resourceFilterForm = document.getElementById("resource-filter-form");
+
+    function submitResourceFilters() {
+      if (!resourceFilterForm) {
+        return;
+      }
+
+      const params = new URLSearchParams();
+      for (const field of new FormData(resourceFilterForm).entries()) {
+        const [name, value] = field;
+        if (String(value).trim() !== "") {
+          params.set(name, value);
+        }
+      }
+
+      const query = params.toString();
+      window.location.href = query ? `${resourceFilterForm.action}?${query}` : resourceFilterForm.action;
+    }
+
+    document.querySelectorAll("[data-submit-on-change]").forEach((control) => {
+      control.addEventListener("change", submitResourceFilters);
+    });
+  </script>
+{% endblock %}

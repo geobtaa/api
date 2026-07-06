@@ -1,0 +1,41 @@
+{
+  "gbl_mdVersion_s": "BTAA Aardvark",
+  "dct_references_s": "{}",
+  "dct_title_s": "Harvest record for University of Iowa Digital Library: Atlases and Maps",
+  "dct_description_sm": [
+    "Harvest record - temporary"
+  ],
+  "b1g_dct_provenance_sm": [
+    "2025-09-16 / harvest",
+    "2026-05-18 / harvest / 603 new records, 2864 replacements"
+  ],
+  "b1g_websitePlatform_s": "Islandora",
+  "geomg_id_s": "harvest_03d-01",
+  "b1g_publication_state_s": "draft",
+  "b1g_dct_accrualMethod_s": "Automated retrieval",
+  "gbl_suppressed_b": true,
+  "b1g_dcat_endpointURL_s": "https://digital.lib.uiowa.edu/oai2/oai.php?verb=ListRecords&metadataPrefix=mods&set=ui_dep",
+  "b1g_dcat_endpointDescription_s": "OAI-PMH",
+  "gbl_resourceClass_sm": [
+    "Series"
+  ],
+  "b1g_adminNote_sm": [
+    "2026-04-09 ~ needed to work with Iowa's IT and contracted developer to whitelist my IP address and open their CORS headings\r\n2026-04-13 ~ many new atlas records: remediated Spatial Coverage and matched bboxes\r\n2026-05-18 ~ IIIF fixed and replaced old records with new IDs intended to be stable; manually removed hundreds of non-map records from atlases"
+  ],
+  "dct_subject_sm": [
+    "Maps"
+  ],
+  "date_created_dtsi": "2026-03-28T21:05:08Z",
+  "date_modified_dtsi": "2026-05-18T23:52:38Z",
+  "dct_accessRights_s": "Public",
+  "dct_identifier_sm": [
+    "03d-01"
+  ],
+  "b1g_code_s": "03d-01",
+  "b1g_adminTags_sm": [
+    "ogm"
+  ],
+  "b1g_lastHarvested_dt": "2026-04-15",
+  "b1g_dct_accrualPeriodicity_s": "Irregular",
+  "b1g_harvestWorkflow_s": "py_oaipmh"
+}

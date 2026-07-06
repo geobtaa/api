@@ -1,0 +1,33 @@
+{
+  "gbl_mdVersion_s": "BTAA Aardvark",
+  "dct_references_s": "{}",
+  "dct_title_s": "Harvest record for Urban Base Layers - Minneapolis",
+  "dct_description_sm": [
+    "Curated datasets from the city of Minneapolis"
+  ],
+  "b1g_dct_provenance_sm": [
+    "2011-01-01 / acquisition / purchase by UMN Libraries",
+    "2025-12-18 / ingest / 12 datasets",
+    "2026-06-23 / ingest / 6 datasets downloaded from ArcGIS Feature Service"
+  ],
+  "b1g_websitePlatform_s": "ArcGIS Online",
+  "b1g_dateAccessioned_dt": "2026-04-03",
+  "geomg_id_s": "b1g_27_43000",
+  "b1g_publication_state_s": "draft",
+  "b1g_dct_accrualMethod_s": "Manual curation",
+  "b1g_dcat_endpointURL_s": "https://services.arcgis.com/afSMGVsC7QlRK1kZ/arcgis/rest/services/Planning_Primary_Zoning/FeatureServer/0",
+  "b1g_dcat_endpointDescription_s": "ArcGIS Rest Service",
+  "gbl_resourceClass_sm": [
+    "Series"
+  ],
+  "dct_subject_sm": [
+    "Data"
+  ],
+  "date_created_dtsi": "2026-04-03T12:06:52Z",
+  "date_modified_dtsi": "2026-06-23T23:20:21Z",
+  "dct_accessRights_s": "Public",
+  "b1g_code_s": "b1g_27_43000",
+  "b1g_lastHarvested_dt": "2026-06-23",
+  "b1g_dct_accrualPeriodicity_s": "Annual",
+  "b1g_harvestWorkflow_s": "curation_datasets"
+}

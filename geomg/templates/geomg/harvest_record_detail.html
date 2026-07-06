@@ -1,0 +1,123 @@
+{% extends "geomg/base.html" %}
+
+{% block title %}{{ harvest_record.title }} - GEOMG Admin Prototype{% endblock %}
+
+{% block content %}
+  <section class="detail-heading">
+    <a class="back-link" href="/harvest-records">Back to harvest records</a>
+    <div class="detail-title-row">
+      <div>
+        <p class="eyebrow">Harvest record</p>
+        <h1>{{ harvest_record.title }}</h1>
+        <p class="muted">{{ harvest_record.id }}</p>
+      </div>
+      <div class="lock-box">
+        <span class="lock-label">Associated resources</span>
+        <strong>{{ harvest_record.associated_resources|length }}</strong>
+      </div>
+    </div>
+  </section>
+
+  <nav class="section-tabs" aria-label="Harvest record sections">
+    <a href="#overview">Overview</a>
+    <a href="#workflow">Harvest workflow</a>
+    <a href="#associated">Associated resources</a>
+    <a href="#admin">Admin / provenance</a>
+    <a href="#json">Preview JSON</a>
+  </nav>
+
+  <form class="detail-form">
+    <section id="overview" class="section-panel">
+      <h2>Overview</h2>
+      <div class="field-grid two">
+        {% for field in harvest_record.overview_fields %}
+          <label>
+            <span>{{ field.label }}</span>
+            {% if field.key in ["dct_description_sm", "b1g_dct_provenance_sm", "b1g_adminNote_sm"] %}
+              <textarea name="{{ field.key }}" rows="5">{{ field.value }}</textarea>
+            {% else %}
+              <input name="{{ field.key }}" value="{{ field.value }}">
+            {% endif %}
+          </label>
+        {% endfor %}
+      </div>
+      <div class="form-actions">
+        <button type="button" disabled>Save draft</button>
+        <button type="button" disabled>Run validation</button>
+      </div>
+    </section>
+
+    <section id="workflow" class="section-panel">
+      <h2>Harvest workflow</h2>
+      <div class="field-grid two">
+        {% for field in harvest_record.workflow_fields %}
+          <label>
+            <span>{{ field.label }}</span>
+            {% if field.key == "b1g_dcat_endpointURL_s" %}
+              <textarea name="{{ field.key }}" rows="3">{{ field.value }}</textarea>
+            {% else %}
+              <input name="{{ field.key }}" value="{{ field.value }}">
+            {% endif %}
+          </label>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section id="associated" class="section-panel">
+      <h2>Associated resources</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>GEOMG ID</th>
+            <th>Class</th>
+            <th>Type</th>
+            <th>Provider</th>
+            <th>State</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for resource in harvest_record.associated_resources %}
+            <tr>
+              <td>{{ resource.title }}</td>
+              <td>{{ resource.id }}</td>
+              <td>{{ resource.resource_class or "-" }}</td>
+              <td>{{ resource.resource_type or "-" }}</td>
+              <td>{{ resource.provider or "-" }}</td>
+              <td>{{ resource.publication_state }}</td>
+            </tr>
+          {% else %}
+            <tr>
+              <td colspan="6" class="empty">No associated resource fixtures found for this B1G code.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </section>
+
+    <section id="admin" class="section-panel">
+      <h2>Admin / provenance</h2>
+      <div class="field-grid two">
+        {% for field in harvest_record.admin_fields %}
+          <label>
+            <span>{{ field.label }}</span>
+            {% if field.key in ["b1g_dct_provenance_sm", "b1g_adminNote_sm"] %}
+              <textarea name="{{ field.key }}" rows="5">{{ field.value }}</textarea>
+            {% else %}
+              <input name="{{ field.key }}" value="{{ field.value }}">
+            {% endif %}
+          </label>
+        {% endfor %}
+        <label>
+          <span>Fixture path</span>
+          <input value="{{ harvest_record.fixture_path }}" readonly>
+        </label>
+      </div>
+    </section>
+
+    <section id="json" class="section-panel">
+      <h2>Preview JSON</h2>
+      <pre class="json-preview">{{ harvest_record.raw_json }}</pre>
+    </section>
+  </form>
+{% endblock %}
