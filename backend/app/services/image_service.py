@@ -387,14 +387,17 @@ class ImageService:
         """
         Return the preferred thumbnail source URL for this resource.
 
-        Intrinsic metadata/distribution sources win. Bridge thumbnail assets are
-        a fallback source for resources that do not expose a stronger IIIF,
-        direct-image, service, COG, PMTiles, or schema.org image source.
+        Manually selected thumbnail assets win over derived metadata/distribution
+        sources such as IIIF, web services, COG, and PMTiles.
         """
+        asset_url = self._clean_external_thumbnail_url(thumbnail_asset_url)
+        if asset_url:
+            return asset_url
+
         source_url = self._get_thumbnail_source_url()
         if source_url:
             return source_url
-        return self._clean_external_thumbnail_url(thumbnail_asset_url)
+        return None
 
     def thumbnail_image_hash_for_source_sync(
         self,
@@ -526,7 +529,7 @@ class ImageService:
         *,
         thumbnail_asset_url: Optional[str] = None,
     ) -> Optional[str]:
-        """Return a hot hash, allowing Bridge thumbnail assets as a fallback source."""
+        """Return a hot hash, preferring a manually selected thumbnail asset."""
         doc_id = self.metadata.get("id")
         if not doc_id:
             return None

@@ -211,8 +211,8 @@ class TestImageServiceThumbnailSourceURL:
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
-    def test_resolve_thumbnail_source_url_uses_bridge_asset_as_last_resort(self):
-        """Bridge thumbnail assets are only used when intrinsic sources are absent."""
+    def test_resolve_thumbnail_source_url_prefers_manual_thumbnail_asset(self):
+        """Manually selected thumbnail assets override derived metadata sources."""
         metadata = {"id": "test-doc"}
         try:
             service = ImageService(metadata)
@@ -224,13 +224,29 @@ class TestImageServiceThumbnailSourceURL:
             )
 
             service_with_source = ImageService(
-                {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
+                {
+                    "id": "test-doc",
+                    "dct_references_s": json.dumps(
+                        {
+                            "https://github.com/protomaps/PMTiles": (
+                                "https://services.example.com/generalized.pmtiles"
+                            )
+                        }
+                    ),
+                }
             )
             assert (
                 service_with_source.resolve_thumbnail_source_url(
                     thumbnail_asset_url="https://assets.example.edu/thumb.png"
                 )
-                == "https://curated.example.com/thumb.jpg"
+                == "https://assets.example.edu/thumb.png"
+            )
+
+            assert (
+                service_with_source.resolve_thumbnail_source_url(
+                    thumbnail_asset_url="not-an-http-url"
+                )
+                == "https://services.example.com/generalized.pmtiles"
             )
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()

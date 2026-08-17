@@ -1,7 +1,6 @@
 import json
 import logging
 import os
-import re
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Any, Dict, Iterable, Optional
@@ -27,10 +26,6 @@ from db.database import database
 from db.models import resource_assets
 
 logger = logging.getLogger(__name__)
-IMMUTABLE_THUMBNAIL_URL_RE = re.compile(
-    r"(?:https?://[^/]+)?/api/v1/thumbnails/[0-9a-f]{64}(?:\?.*)?$",
-    re.IGNORECASE,
-)
 _UNSET = object()
 
 
@@ -133,10 +128,6 @@ def add_thumbnail_url(
     # If None, frontend can use resource class (gbl_resourceClass_sm) to show default icon
     item["ui_thumbnail_url"] = thumbnail_url
     return item
-
-
-def _is_immutable_thumbnail_url(url: Optional[str]) -> bool:
-    return isinstance(url, str) and IMMUTABLE_THUMBNAIL_URL_RE.search(url) is not None
 
 
 def _application_url() -> str:

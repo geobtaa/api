@@ -78,24 +78,13 @@ async def _current_hot_thumbnail_hash_for_resource(
 
     distribution_context = await fetch_distribution_context(resource_id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
-    intrinsic_source_url = image_service.resolve_thumbnail_source_url()
-    image_hash = await asyncio.to_thread(
-        image_service.current_thumbnail_hash_for_source_sync,
-        intrinsic_source_url,
-    )
-    if is_thumbnail_hash(str(image_hash)):
-        return str(image_hash)
-    if intrinsic_source_url:
-        return None
-
     if thumbnail_asset_url is None:
         thumbnail_asset_url = await _get_thumbnail_asset_url(resource_id)
-    if not thumbnail_asset_url:
-        return None
 
+    source_url = image_service.resolve_thumbnail_source_url(thumbnail_asset_url=thumbnail_asset_url)
     image_hash = await asyncio.to_thread(
-        image_service.current_thumbnail_hash_with_asset_sync,
-        thumbnail_asset_url=thumbnail_asset_url,
+        image_service.current_thumbnail_hash_for_source_sync,
+        source_url,
     )
     return str(image_hash) if is_thumbnail_hash(str(image_hash)) else None
 
@@ -463,9 +452,8 @@ async def _get_resource_thumbnail_response(
     distribution_context = await fetch_distribution_context(id)
     image_service = ImageService(resource_dict, distribution_context=distribution_context)
 
-    # Prefer intrinsic thumbnail sources (IIIF, direct image, services, COG,
-    # PMTiles, schema.org image) over Bridge assets. Bridge thumbnail assets are
-    # still a real thumbnail source when no stronger source exists.
+    # Prefer manually selected Bridge thumbnail assets over derived sources such
+    # as IIIF, web services, COG, and PMTiles.
     asset_url = await _get_thumbnail_asset_url(id)
     source_url = image_service.resolve_thumbnail_source_url(thumbnail_asset_url=asset_url)
 
