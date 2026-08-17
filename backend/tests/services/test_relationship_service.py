@@ -3,12 +3,114 @@ Tests for RelationshipService - comprehensive coverage using real fixtures and d
 """
 
 import pytest
+from sqlalchemy import delete
 
 from app.services.relationship_service import RelationshipService
+from db.database import database
+from db.models import resource_relationships, resources
 
 
 class TestRelationshipService:
     """Test cases for RelationshipService functionality."""
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_relationships_exclude_non_public_targets(self):
+        """Relationship previews and counts include only public target resources."""
+        parent_id = "relationship-visibility-parent"
+        visible_id = "relationship-visibility-published"
+        draft_id = "relationship-visibility-draft"
+        unpublished_id = "relationship-visibility-unpublished"
+        suppressed_id = "relationship-visibility-suppressed"
+        resource_ids = [
+            parent_id,
+            visible_id,
+            draft_id,
+            unpublished_id,
+            suppressed_id,
+        ]
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(resource_relationships).where(
+                    (resource_relationships.c.subject_id.in_(resource_ids))
+                    | (resource_relationships.c.object_id.in_(resource_ids))
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
+            await database.execute_many(
+                query=resources.insert(),
+                values=[
+                    {
+                        "id": parent_id,
+                        "dct_title_s": "Relationship Parent",
+                        "publication_state": "published",
+                        "gbl_suppressed_b": False,
+                    },
+                    {
+                        "id": visible_id,
+                        "dct_title_s": "Published Target",
+                        "publication_state": "published",
+                        "gbl_suppressed_b": False,
+                    },
+                    {
+                        "id": draft_id,
+                        "dct_title_s": "Draft Target",
+                        "publication_state": "draft",
+                        "gbl_suppressed_b": False,
+                    },
+                    {
+                        "id": unpublished_id,
+                        "dct_title_s": "Unpublished Target",
+                        "publication_state": "unpublished",
+                        "gbl_suppressed_b": False,
+                    },
+                    {
+                        "id": suppressed_id,
+                        "dct_title_s": "Suppressed Target",
+                        "publication_state": "published",
+                        "gbl_suppressed_b": True,
+                    },
+                ],
+            )
+            await database.execute_many(
+                query=resource_relationships.insert(),
+                values=[
+                    {
+                        "subject_id": parent_id,
+                        "predicate": "dct:hasPart",
+                        "object_id": object_id,
+                    }
+                    for object_id in [visible_id, draft_id, unpublished_id, suppressed_id]
+                ],
+            )
+
+            relationships = await RelationshipService.get_resource_relationships(parent_id)
+            summaries = await RelationshipService.get_resource_relationship_summaries_map(
+                [parent_id]
+            )
+
+            assert relationships == {
+                "dct:hasPart": [
+                    {
+                        "resource_id": visible_id,
+                        "resource_title": "Published Target",
+                        "link": f"/resources/{visible_id}",
+                    }
+                ]
+            }
+            assert summaries[parent_id]["relationships"] == relationships
+            assert summaries[parent_id]["counts"] == {"dct:hasPart": 1}
+        finally:
+            await database.execute(
+                delete(resource_relationships).where(
+                    (resource_relationships.c.subject_id.in_(resource_ids))
+                    | (resource_relationships.c.object_id.in_(resource_ids))
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(resource_ids)))
 
     @pytest.mark.asyncio
     async def test_get_resource_relationship_summaries_map_limits_and_counts(self, monkeypatch):

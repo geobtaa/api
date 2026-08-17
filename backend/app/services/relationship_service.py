@@ -16,6 +16,7 @@ RELATIONSHIP_BROWSE_FACET_FIELDS = {
     "pcdm:hasMember": "pcdm_memberOf_sm",
     "hasMember": "pcdm_memberOf_sm",
 }
+PUBLICATION_STATE_PUBLISHED = "published"
 
 
 def _relationship_browse_link(resource_id: str, predicate: str) -> str | None:
@@ -45,15 +46,22 @@ class RelationshipService:
 
     @staticmethod
     def _relationship_query(resource_ids: list[str], limit_per_predicate: int | None = None):
-        base_select = select(
-            resource_relationships.c.subject_id,
-            resource_relationships.c.predicate,
-            resource_relationships.c.object_id,
-            resources.c.dct_title_s,
-        ).select_from(
-            resource_relationships.join(
-                resources,
-                resources.c.id == resource_relationships.c.object_id,
+        base_select = (
+            select(
+                resource_relationships.c.subject_id,
+                resource_relationships.c.predicate,
+                resource_relationships.c.object_id,
+                resources.c.dct_title_s,
+            )
+            .select_from(
+                resource_relationships.join(
+                    resources,
+                    resources.c.id == resource_relationships.c.object_id,
+                )
+            )
+            .where(
+                resources.c.publication_state == PUBLICATION_STATE_PUBLISHED,
+                resources.c.gbl_suppressed_b.is_not(True),
             )
         )
 
