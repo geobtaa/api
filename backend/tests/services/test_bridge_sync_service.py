@@ -13,13 +13,7 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 import app.services.bridge_sync.batched as bridge_batched
 import app.services.bridge_sync.harvest as bridge_harvest
 import app.services.bridge_sync.importer as bridge_importer
-from app.services.bridge_sync.batched import (
-    queue_batched_bridge_sync,
-    sync_bridge_resource_batch,
-)
 from app.services.bridge_sync.client import BridgePage
-from app.services.bridge_sync.harvest import BridgeSyncIncompleteError, sync_bridge
-from app.services.bridge_sync.importer import BridgeResourceImporter
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from db.database import database
 from db.migrations.create_bridge_sync_tables import create_bridge_sync_tables
@@ -36,6 +30,12 @@ from db.models import (
     resource_relationships,
     resources,
 )
+
+queue_batched_bridge_sync = bridge_batched.queue_batched_bridge_sync
+sync_bridge_resource_batch = bridge_batched.sync_bridge_resource_batch
+BridgeSyncIncompleteError = bridge_harvest.BridgeSyncIncompleteError
+sync_bridge = bridge_harvest.sync_bridge
+BridgeResourceImporter = bridge_importer.BridgeResourceImporter
 
 
 class FakeBridgeClient:

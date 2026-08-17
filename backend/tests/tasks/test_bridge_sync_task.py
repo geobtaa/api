@@ -7,12 +7,11 @@ import pytest
 
 import app.tasks.bridge_sync as bridge_sync_task
 from app.services.bridge_sync.repository import BridgeSyncRepository
-from app.tasks.bridge_sync import (
-    _bridge_sync_all_async,
-    _incremental_checkpoint,
-    _should_send_failure_report,
-    _should_send_report,
-)
+
+_bridge_sync_all_async = bridge_sync_task._bridge_sync_all_async
+_incremental_checkpoint = bridge_sync_task._incremental_checkpoint
+_should_send_failure_report = bridge_sync_task._should_send_failure_report
+_should_send_report = bridge_sync_task._should_send_report
 
 
 def test_bridge_sync_report_trigger_defaults_to_cron(monkeypatch):
