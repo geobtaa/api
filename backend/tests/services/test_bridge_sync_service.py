@@ -16,8 +16,6 @@ import app.services.bridge_sync.importer as bridge_importer
 from app.services.bridge_sync.client import BridgePage
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from db.database import database
-from db.migrations.create_bridge_sync_tables import create_bridge_sync_tables
-from db.migrations.create_resource_aux_tables import create_resource_aux_tables
 from db.models import (
     bridge_resource_state,
     bridge_sync_runs,
@@ -84,8 +82,6 @@ class TestBridgeSyncService:
     def setup_method(self):
         os.environ["BRIDGE_SEARCH_INDEX_REFRESH_ENABLED"] = "false"
         os.environ["BRIDGE_CACHE_REFRESH_ENABLED"] = "false"
-        create_bridge_sync_tables()
-        create_resource_aux_tables()
 
     @pytest.mark.asyncio(scope="session")
     async def test_empty_delta_retains_source_high_watermark(self):
