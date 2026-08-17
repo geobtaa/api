@@ -43,6 +43,20 @@ def _should_send_report(trigger: str) -> bool:
     return trigger_norm in _report_triggers() or "*" in _report_triggers()
 
 
+def _failure_report_triggers() -> set[str]:
+    raw = os.getenv(
+        "BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS",
+        "nightly_cron,cron,incremental_cron",
+    )
+    return {part.strip().lower() for part in raw.split(",") if part.strip()}
+
+
+def _should_send_failure_report(trigger: str) -> bool:
+    trigger_norm = (trigger or "").strip().lower()
+    triggers = _failure_report_triggers()
+    return trigger_norm in triggers or "*" in triggers
+
+
 def _nonnegative_env_int(name: str, default: int) -> int:
     raw = os.getenv(name, str(default))
     try:
@@ -139,7 +153,7 @@ async def _bridge_sync_all_async(
         )
     except Exception as exc:
         run_id = getattr(exc, "bridge_sync_run_id", None)
-        if run_id and _should_send_report(trigger):
+        if run_id and _should_send_failure_report(trigger):
             try:
                 await send_bridge_sync_report_for_run(int(run_id))
             except Exception as report_exc:
@@ -152,7 +166,7 @@ async def _bridge_sync_all_async(
         raise
 
     run_id = result.get("bridge_id")
-    if run_id and _should_send_report(trigger):
+    if run_id and not result.get("skipped") and _should_send_report(trigger):
         try:
             report_stats = await send_bridge_sync_report_for_run(int(run_id))
             result["report"] = report_stats

@@ -54,6 +54,7 @@ def test_main_enqueues_checkpointed_incremental_bridge_sync(monkeypatch, capsys)
 def test_main_preserves_explicit_changed_since(monkeypatch, capsys):
     fake_task = _FakeTask()
     monkeypatch.setattr(trigger_bridge_sync_cron, "bridge_sync_all", fake_task)
+    monkeypatch.delenv("BRIDGE_TRIGGER", raising=False)
     monkeypatch.setenv("CHANGED_SINCE", "2026-08-17T10:00:00Z")
     monkeypatch.setenv("BRIDGE_LIMIT", "250")
 

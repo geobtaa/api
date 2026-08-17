@@ -2,19 +2,23 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 import requests
 from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+import app.services.bridge_sync.batched as bridge_batched
+import app.services.bridge_sync.harvest as bridge_harvest
+import app.services.bridge_sync.importer as bridge_importer
 from app.services.bridge_sync.batched import (
     queue_batched_bridge_sync,
     sync_bridge_resource_batch,
 )
 from app.services.bridge_sync.client import BridgePage
-from app.services.bridge_sync.harvest import sync_bridge
+from app.services.bridge_sync.harvest import BridgeSyncIncompleteError, sync_bridge
 from app.services.bridge_sync.importer import BridgeResourceImporter
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from db.database import database
@@ -53,6 +57,16 @@ class FakeBridgeClient:
         return self.records.get(resource_id)
 
 
+class FakeImporter:
+    def __init__(self, stats):
+        self.stats = stats
+        self.calls = []
+
+    async def upsert_records(self, records, **kwargs):
+        self.calls.append({"records": records, **kwargs})
+        return dict(self.stats)
+
+
 def _http_error(status_code: int, url: str = "https://geomg.lib.umn.edu/test"):
     response = requests.Response()
     response.status_code = status_code
@@ -65,6 +79,7 @@ def _http_error(status_code: int, url: str = "https://geomg.lib.umn.edu/test"):
 
 @pytest.mark.integration
 @pytest.mark.database
+@pytest.mark.xdist_group(name="bridge_sync_service")
 class TestBridgeSyncService:
     def setup_method(self):
         os.environ["BRIDGE_SEARCH_INDEX_REFRESH_ENABLED"] = "false"
@@ -103,6 +118,340 @@ class TestBridgeSyncService:
 
             assert result["stats"]["processed"] == 0
             assert result["stats"]["source_high_watermark"] == "2026-08-17T15:30:00Z"
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_failed_import_does_not_advance_checkpoint_or_delete_missing(self):
+        repo = BridgeSyncRepository()
+        repo.mark_missing_stale = AsyncMock(return_value=["must-not-delete"])
+        repo.delete_missing_resources = AsyncMock(return_value=1)
+        importer = FakeImporter(
+            {
+                "processed": 2,
+                "imported": 1,
+                "skipped": 0,
+                "errors": 1,
+                "deleted": 0,
+                "error_samples": [{"stage": "test", "error": "bad record"}],
+            }
+        )
+        client = FakeBridgeClient(
+            {
+                "__first__": BridgePage(
+                    data=[
+                        {"id": "bridge-good", "kithe_updated_at": "2026-08-17T15:30:00Z"},
+                        {"id": "bridge-bad", "kithe_updated_at": "2026-08-17T15:35:00Z"},
+                    ],
+                    next_cursor=None,
+                    has_more=False,
+                )
+            }
+        )
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+
+            with pytest.raises(BridgeSyncIncompleteError, match="1 record error"):
+                await sync_bridge(client=client, importer=importer, repo=repo)
+
+            repo.mark_missing_stale.assert_not_awaited()
+            repo.delete_missing_resources.assert_not_awaited()
+            run = (await repo.list_sync_runs(limit=1))[0]
+            assert run["bridge_status"] == "failed"
+            assert run["bridge_stats_json"]["stage"] == "failed"
+            assert run["bridge_stats_json"]["source_high_watermark"] == ("2026-08-17T15:35:00Z")
+            assert await repo.latest_successful_crawl_source_watermark() is None
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_requests_skip_while_another_run_is_active(self):
+        repo = BridgeSyncRepository()
+        client = FakeBridgeClient({})
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            active_run_id = await repo.create_sync_run(bridge_trigger="manual")
+
+            standard_result = await sync_bridge(client=client, repo=repo)
+            batched_result = await queue_batched_bridge_sync(
+                enqueue_batch=lambda **_kwargs: pytest.fail("no batch should be queued"),
+                repo=repo,
+            )
+
+            assert standard_result["skipped"] is True
+            assert standard_result["stats"]["active_bridge_id"] == active_run_id
+            assert batched_result["skipped"] is True
+            assert batched_result["stats"]["active_bridge_id"] == active_run_id
+            assert client.calls == []
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_stale_active_run_is_failed_and_replaced(self, monkeypatch):
+        repo = BridgeSyncRepository()
+        monkeypatch.setenv("BRIDGE_SYNC_STALE_AFTER_SECONDS", "60")
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            stale_run_id = await repo.create_sync_run(bridge_trigger="incremental_cron")
+            stale_time = datetime.utcnow() - timedelta(minutes=2)
+            await database.execute(
+                bridge_sync_runs.update()
+                .where(bridge_sync_runs.c.bridge_id == stale_run_id)
+                .values(
+                    bridge_started_at=stale_time,
+                    bridge_stats_json={
+                        "stage": "import",
+                        "updated_at": "not-a-timestamp",
+                    },
+                )
+            )
+
+            replacement_run_id, active_run_id = await repo.create_sync_run_if_idle(
+                bridge_trigger="incremental_cron"
+            )
+
+            assert replacement_run_id is not None
+            assert replacement_run_id != stale_run_id
+            assert active_run_id is None
+            stale_run = await repo.get_sync_run(stale_run_id)
+            assert stale_run is not None
+            assert stale_run["bridge_status"] == "failed"
+            assert "60 seconds without a heartbeat" in stale_run["bridge_error"]
+            assert stale_run["bridge_stats_json"]["stale_reclaimed_at"]
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_refresh_errors_fail_run_without_publishing_checkpoint(self, monkeypatch):
+        repo = BridgeSyncRepository()
+        importer = FakeImporter(
+            {"processed": 1, "imported": 1, "skipped": 0, "errors": 0, "deleted": 0}
+        )
+        client = FakeBridgeClient(
+            {
+                "__first__": BridgePage(
+                    data=[
+                        {
+                            "id": "bridge-refresh-failure",
+                            "kithe_updated_at": "2026-08-17T15:40:00Z",
+                        }
+                    ],
+                    next_cursor=None,
+                    has_more=False,
+                )
+            }
+        )
+        monkeypatch.setattr(
+            bridge_harvest,
+            "index_changed_resources",
+            AsyncMock(return_value={"enabled": True, "errors": 1}),
+        )
+        monkeypatch.setattr(
+            bridge_harvest,
+            "refresh_cache_for_changed_resources",
+            AsyncMock(return_value={"enabled": True, "errors": 1}),
+        )
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+
+            with pytest.raises(BridgeSyncIncompleteError, match="refresh completed with errors"):
+                await sync_bridge(
+                    changed_since="2026-08-17T15:00:00Z",
+                    client=client,
+                    importer=importer,
+                    repo=repo,
+                )
+
+            run = (await repo.list_sync_runs(limit=1))[0]
+            assert run["bridge_status"] == "failed"
+            assert run["bridge_stats_json"]["refresh_failures"] == {
+                "search_index_refresh": 1,
+                "cache_refresh": 1,
+            }
+            assert await repo.latest_successful_crawl_source_watermark() is None
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_nested_sync_failure_rolls_back_resource_and_counts_import_error(
+        self, monkeypatch
+    ):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-nested-failure"
+        monkeypatch.setattr(
+            bridge_importer,
+            "sync_nested_for_batch",
+            AsyncMock(side_effect=RuntimeError("nested write failed")),
+        )
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            stats = await importer.upsert_records(
+                [
+                    {
+                        "id": resource_id,
+                        "publication_state": "published",
+                        "dct_title_s": "Nested failure",
+                        "document_data_dictionaries": [],
+                    }
+                ],
+                run_started_at=datetime.utcnow(),
+                batch_size=1,
+            )
+
+            assert stats["imported"] == 0
+            assert stats["errors"] == 1
+            assert stats["error_samples"][0]["resource_id"] == resource_id
+            assert (
+                await database.fetch_one(
+                    select(resources.c.id).where(resources.c.id == resource_id)
+                )
+                is None
+            )
+        finally:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_full_sync_invalidates_every_imported_resource_without_rewarming(
+        self, monkeypatch
+    ):
+        repo = BridgeSyncRepository()
+        repo.mark_missing_stale = AsyncMock(return_value=[])
+        repo.delete_missing_resources = AsyncMock(return_value=0)
+        importer = FakeImporter(
+            {"processed": 1, "imported": 1, "skipped": 0, "errors": 0, "deleted": 0}
+        )
+        client = FakeBridgeClient(
+            {
+                "__first__": BridgePage(
+                    data=[{"id": "bridge-full-cache"}],
+                    next_cursor=None,
+                    has_more=False,
+                )
+            }
+        )
+        index_refresh = AsyncMock(return_value={"enabled": True, "errors": 0})
+        cache_refresh = AsyncMock(return_value={"enabled": True, "errors": 0})
+        monkeypatch.setattr(bridge_harvest, "index_changed_resources", index_refresh)
+        monkeypatch.setattr(
+            bridge_harvest,
+            "refresh_cache_for_changed_resources",
+            cache_refresh,
+        )
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            result = await sync_bridge(client=client, importer=importer, repo=repo)
+
+            assert result["stats"]["stage"] == "complete"
+            cache_refresh.assert_awaited_once_with(
+                ["bridge-full-cache"],
+                rewarm=False,
+                warm_generated_assets=False,
+            )
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_batched_sync_always_invalidates_and_fails_on_refresh_errors(self, monkeypatch):
+        repo = BridgeSyncRepository()
+        resource_id = "bridge-batched-cache"
+        importer = FakeImporter(
+            {"processed": 1, "imported": 1, "skipped": 0, "errors": 0, "deleted": 0}
+        )
+        client = FakeBridgeClient(
+            {},
+            records={resource_id: {"id": resource_id}},
+        )
+        index_refresh = AsyncMock(return_value={"enabled": True, "errors": 0})
+        cache_refresh = AsyncMock(return_value={"enabled": True, "errors": 1})
+        monkeypatch.setattr(bridge_batched, "index_changed_resources", index_refresh)
+        monkeypatch.setattr(
+            bridge_batched,
+            "refresh_cache_for_changed_resources",
+            cache_refresh,
+        )
+        monkeypatch.delenv("BRIDGE_BATCH_CACHE_REFRESH_ENABLED", raising=False)
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            run_id = await repo.create_sync_run(bridge_trigger="manual_batched")
+            await repo.update_sync_run(
+                bridge_id=run_id,
+                bridge_stats_json={
+                    "scope": "batched_full",
+                    "stage": "batching",
+                    "total_batches": 1,
+                    "batches_queued": 1,
+                    "batches_completed": 0,
+                    "batches_failed": 0,
+                    "processed": 0,
+                    "imported": 0,
+                    "skipped": 0,
+                    "errors": 0,
+                    "missing": 0,
+                    "deleted": 0,
+                    "retired": 0,
+                },
+            )
+
+            result = await sync_bridge_resource_batch(
+                bridge_id=run_id,
+                resource_ids=[resource_id],
+                batch_number=1,
+                total_batches=1,
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            cache_refresh.assert_awaited_once_with(
+                [resource_id],
+                rewarm=False,
+                warm_generated_assets=False,
+            )
+            assert result["stats"]["errors"] == 1
+            run = await repo.get_sync_run(run_id)
+            assert run is not None
+            assert run["bridge_status"] == "failed"
+            assert run["bridge_error"] == "bridge sync completed with 1 record error(s)"
         finally:
             await database.execute(delete(bridge_sync_runs))
 
@@ -282,6 +631,82 @@ class TestBridgeSyncService:
             ] == [2002, 2003]
             assert updated_entries[0]["definition"] == "Updated street address"
             assert updated_entries[1]["values"] == '["active", "retired"]'
+
+            dictionaries_only_record = {
+                key: value
+                for key, value in updated_record.items()
+                if key != "document_data_dictionary_entries"
+            }
+            dictionaries_only_record["document_data_dictionaries"] = [
+                {
+                    **updated_record["document_data_dictionaries"][0],
+                    "name": "Dictionary-only update",
+                }
+            ]
+            await _sync_record(dictionaries_only_record)
+
+            entries_after_dictionary_only = await database.fetch_all(
+                select(resource_data_dictionary_entries)
+                .where(
+                    resource_data_dictionary_entries.c.resource_data_dictionary_id
+                    == local_dictionary_id
+                )
+                .order_by(resource_data_dictionary_entries.c.position)
+            )
+            assert [
+                entry["legacy_document_data_dictionary_entry_id"]
+                for entry in entries_after_dictionary_only
+            ] == [2002, 2003]
+
+            entries_only_record = {
+                key: value
+                for key, value in updated_record.items()
+                if key
+                not in {
+                    "document_data_dictionaries",
+                    "document_data_dictionary_entries",
+                }
+            }
+            entries_only_record["document_data_dictionary_entries"] = [
+                {
+                    **updated_record["document_data_dictionary_entries"][1],
+                    "definition": "Entries-only update",
+                }
+            ]
+            await _sync_record(entries_only_record)
+
+            dictionary_after_entries_only = await database.fetch_one(
+                select(resource_data_dictionaries).where(
+                    resource_data_dictionaries.c.resource_id == resource_id
+                )
+            )
+            entries_after_entries_only = await database.fetch_all(
+                select(resource_data_dictionary_entries).where(
+                    resource_data_dictionary_entries.c.resource_data_dictionary_id
+                    == local_dictionary_id
+                )
+            )
+            assert dictionary_after_entries_only is not None
+            assert dictionary_after_entries_only["name"] == "Dictionary-only update"
+            assert len(entries_after_entries_only) == 1
+            assert entries_after_entries_only[0]["legacy_document_data_dictionary_entry_id"] == 2003
+            assert entries_after_entries_only[0]["definition"] == "Entries-only update"
+
+            with pytest.raises(BridgeSyncIncompleteError, match="1 record error"):
+                await _sync_record(
+                    {
+                        **entries_only_record,
+                        "document_data_dictionaries": [{"name": "Missing source id"}],
+                    }
+                )
+
+            dictionary_after_malformed_update = await database.fetch_one(
+                select(resource_data_dictionaries).where(
+                    resource_data_dictionaries.c.resource_id == resource_id
+                )
+            )
+            assert dictionary_after_malformed_update is not None
+            assert dictionary_after_malformed_update["name"] == "Dictionary-only update"
 
             await _sync_record(
                 {

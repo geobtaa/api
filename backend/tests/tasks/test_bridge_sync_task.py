@@ -10,6 +10,7 @@ from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.tasks.bridge_sync import (
     _bridge_sync_all_async,
     _incremental_checkpoint,
+    _should_send_failure_report,
     _should_send_report,
 )
 
@@ -21,6 +22,14 @@ def test_bridge_sync_report_trigger_defaults_to_cron(monkeypatch):
     assert _should_send_report("cron") is True
     assert _should_send_report("incremental_cron") is False
     assert _should_send_report("manual") is False
+
+
+def test_bridge_sync_failure_report_includes_incremental_cron(monkeypatch):
+    monkeypatch.delenv("BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS", raising=False)
+
+    assert _should_send_failure_report("incremental_cron") is True
+    assert _should_send_failure_report("nightly_cron") is True
+    assert _should_send_failure_report("manual") is False
 
 
 def test_bridge_sync_report_trigger_can_include_manual(monkeypatch):
@@ -93,6 +102,27 @@ async def test_scheduled_sync_resolves_and_passes_checkpoint(monkeypatch):
         source_high_watermark="2026-08-17T15:30:00Z",
         repo=repo,
     )
+
+
+@pytest.mark.asyncio
+async def test_scheduled_sync_reports_failed_incremental_run(monkeypatch):
+    error = RuntimeError("sync failed")
+    error.bridge_sync_run_id = 42
+    sync_bridge = AsyncMock(side_effect=error)
+    send_report = AsyncMock(return_value={"sent": True})
+    monkeypatch.setattr(bridge_sync_task, "sync_bridge", sync_bridge)
+    monkeypatch.setattr(bridge_sync_task, "send_bridge_sync_report_for_run", send_report)
+    monkeypatch.delenv("BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS", raising=False)
+
+    with pytest.raises(RuntimeError, match="sync failed"):
+        await _bridge_sync_all_async(
+            trigger="incremental_cron",
+            limit=500,
+            changed_since="2026-08-17T15:00:00Z",
+            resource_id=None,
+        )
+
+    send_report.assert_awaited_once_with(42)
 
 
 @pytest.mark.asyncio

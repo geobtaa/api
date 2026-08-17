@@ -302,35 +302,10 @@ class BridgeResourceImporter:
                 stmt = stmt.on_conflict_do_update(index_elements=[resources.c.id], set_=update_map)
                 async with database.transaction():
                     await database.execute(stmt)
-                    try:
-                        await sync_distributions_for_batch(rows)
-                    except Exception as dist_err:
-                        logger.warning(
-                            "Distribution sync failed for bridge batch; continuing. err=%s",
-                            str(dist_err),
-                        )
-                    try:
-                        await sync_document_distributions_for_batch(nested)
-                    except Exception as doc_dist_err:
-                        logger.warning(
-                            "Document distribution sync failed for bridge batch; continuing. "
-                            "err=%s",
-                            str(doc_dist_err),
-                        )
-                    try:
-                        await sync_nested_for_batch(nested)
-                    except Exception as nested_err:
-                        logger.warning(
-                            "Nested bridge sync failed for batch; continuing. err=%s",
-                            str(nested_err),
-                        )
-                    try:
-                        await sync_relationships_for_batch(rows)
-                    except Exception as rel_err:
-                        logger.warning(
-                            "Relationship sync failed for bridge batch; continuing. err=%s",
-                            str(rel_err),
-                        )
+                    await sync_distributions_for_batch(rows)
+                    await sync_document_distributions_for_batch(nested)
+                    await sync_nested_for_batch(nested)
+                    await sync_relationships_for_batch(rows)
                     await self.repo.upsert_resources_seen_batch(seen)
                 return len(rows)
             except Exception as exc:

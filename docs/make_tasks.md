@@ -169,6 +169,7 @@ Useful bridge variables:
 | `BRIDGE_CHANGED_SINCE` | Optional incremental sync cutoff. |
 | `BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS` | Retry overlap before the latest successfully observed source watermark. Defaults to `300`. |
 | `BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS` | Bootstrap window when no successful full or delta crawl exists. Defaults to `24`. |
+| `BRIDGE_SYNC_STALE_AFTER_SECONDS` | Reclaim a running sync that has not recorded progress for this long. Defaults to `21600` (6 hours). |
 | `RESOURCE_ID` / `BRIDGE_RESOURCE_ID` | Single-record sync scope. |
 | `BRIDGE_BATCH_TRIGGER` | Batched reconciliation trigger label. Defaults to `manual_batched`. |
 | `BRIDGE_BATCH_SIZE` | Batched reconciliation resources per Celery task. Defaults to `500`, capped at `1000`. |
@@ -177,7 +178,7 @@ Useful bridge variables:
 | `BRIDGE_STATUS_POLL_SECONDS` | Defaults to `5`. |
 | `KITHE_BRIDGE_URL` | Upstream Kithe Bridge endpoint used by the worker. |
 | `KITHE_BRIDGE_VERIFY_SSL` | Defaults to `true` in code. Set to `false` only for temporary hostname/certificate mismatches. |
-| `BRIDGE_BATCH_CACHE_REFRESH_ENABLED` | Defaults to `false`; set to `true` only when a batched run should also invalidate and rewarm changed resource caches. |
+| `BRIDGE_BATCH_CACHE_REFRESH_ENABLED` | Defaults to `false`; batched runs always invalidate changed resource caches, while `true` also rewarms responses and generated assets. |
 
 Remote bridge reconciliation, monitoring, retry tuning, and cache refresh
 procedures are restricted operations material. Keep public notes focused on
@@ -185,12 +186,19 @@ local targets and code behavior.
 
 The scheduled Bridge crawl runs hourly and resumes from the highest
 `kithe_updated_at` source watermark observed by a successful full or delta
-crawl. An empty crawl retains its previous watermark, so a delayed materialized
-view refresh cannot move the API checkpoint past an unseen record. The retry
-overlap safely reprocesses a small interval; Bridge imports are idempotent. This
-relies on the upstream Bridge record timestamp advancing whenever an exported
-nested distribution, download, licensed access, data dictionary, or asset
-changes.
+crawl. Runs with record, search-index, or cache-refresh errors are marked failed
+and cannot advance that checkpoint. An empty crawl retains its previous
+watermark, so a delayed materialized view refresh cannot move the API checkpoint
+past an unseen record. The retry overlap safely reprocesses a small interval;
+Bridge imports are idempotent. This relies on the upstream Bridge record
+timestamp advancing whenever an exported nested distribution, download,
+licensed access, data dictionary, or asset changes.
+
+Only one standard or batched Bridge sync may be active at a time. A new request
+returns a skipped result that identifies the active run; it does not cancel or
+overlap the in-progress job. Scheduled incremental failures are eligible for a
+failure report by default, while successful hourly runs remain out of the normal
+report trigger list.
 
 The upstream watermark is not retroactive. Records with nested changes that
 predate its deployment need one full Bridge reconciliation after both sides of

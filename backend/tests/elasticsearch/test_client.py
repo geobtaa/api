@@ -9,6 +9,8 @@ from elasticsearch import AsyncElasticsearch
 import app.elasticsearch.client as es_client_mod
 from app.elasticsearch.mappings import INDEX_MAPPING
 
+pytestmark = pytest.mark.xdist_group(name="elasticsearch_client")
+
 # Load environment variables from .env.test file
 load_dotenv(".env.test")
 

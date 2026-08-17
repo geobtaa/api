@@ -693,7 +693,12 @@ async def get_resource_thumbnail_no_cache(
         distribution_context = await fetch_distribution_context(id)
         image_service = ImageService(resource_dict, distribution_context=distribution_context)
 
-        source_url = image_service._get_thumbnail_source_url()
+        thumbnail_asset_url = await _get_thumbnail_asset_url(id)
+        source_url = (
+            image_service.resolve_thumbnail_source_url(thumbnail_asset_url=thumbnail_asset_url)
+            if thumbnail_asset_url
+            else image_service._get_thumbnail_source_url()
+        )
         if not source_url:
             return await _svg_icon_for_resource(resource_dict, variant=variant)
 

@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+import os
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import delete, func, or_, select, text, update
@@ -30,6 +31,44 @@ from db.models import (
 class BridgeSyncRepository:
     """Async repository for bridge sync state and run tracking."""
 
+    _START_LOCK_ID = 4779537259703380313
+    _DEFAULT_STALE_AFTER_SECONDS = 6 * 60 * 60
+
+    @classmethod
+    def _stale_after_seconds(cls) -> int:
+        try:
+            return max(
+                1,
+                int(
+                    os.getenv(
+                        "BRIDGE_SYNC_STALE_AFTER_SECONDS",
+                        str(cls._DEFAULT_STALE_AFTER_SECONDS),
+                    )
+                ),
+            )
+        except ValueError:
+            return cls._DEFAULT_STALE_AFTER_SECONDS
+
+    @staticmethod
+    def _run_heartbeat(run: Dict[str, Any]) -> datetime:
+        stats = BridgeSyncRepository._coerce_stats_json(run.get("bridge_stats_json"))
+        parsed: Optional[datetime] = None
+        for value in (stats.get("updated_at"), run.get("bridge_started_at")):
+            if isinstance(value, str) and value.strip():
+                try:
+                    parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+                except ValueError:
+                    parsed = None
+            elif isinstance(value, datetime):
+                parsed = value
+            if parsed is not None:
+                break
+        if parsed is None:
+            return datetime.utcnow()
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        return parsed
+
     async def create_sync_run(self, bridge_trigger: str) -> int:
         stmt = (
             pg_insert(bridge_sync_runs)
@@ -43,6 +82,69 @@ class BridgeSyncRepository:
         run_id = await database.fetch_val(stmt)
         return int(run_id) if run_id is not None else 0
 
+    async def create_sync_run_if_idle(
+        self,
+        bridge_trigger: str,
+    ) -> Tuple[Optional[int], Optional[int]]:
+        """Atomically create a run unless another Bridge sync is already active."""
+        async with database.transaction():
+            await database.execute(
+                text("SELECT pg_advisory_xact_lock(:lock_id)").bindparams(
+                    lock_id=self._START_LOCK_ID
+                )
+            )
+            active_runs = await database.fetch_all(
+                select(
+                    bridge_sync_runs.c.bridge_id,
+                    bridge_sync_runs.c.bridge_started_at,
+                    bridge_sync_runs.c.bridge_stats_json,
+                )
+                .where(bridge_sync_runs.c.bridge_status == "running")
+                .order_by(bridge_sync_runs.c.bridge_id.desc())
+            )
+            stale_run_ids: List[int] = []
+            stale_run_stats: Dict[int, Dict[str, Any]] = {}
+            stale_after_seconds = self._stale_after_seconds()
+            stale_after = timedelta(seconds=stale_after_seconds)
+            for active_run in active_runs:
+                active_run_dict = dict(active_run)
+                active_run_id = int(active_run_dict["bridge_id"])
+                heartbeat = self._run_heartbeat(active_run_dict)
+                if datetime.utcnow() - heartbeat <= stale_after:
+                    return None, active_run_id
+                stale_run_ids.append(active_run_id)
+                stale_run_stats[active_run_id] = self._coerce_stats_json(
+                    active_run_dict.get("bridge_stats_json")
+                )
+
+            if stale_run_ids:
+                reclaimed_at = datetime.utcnow()
+                for stale_run_id in stale_run_ids:
+                    stale_stats = stale_run_stats[stale_run_id]
+                    stale_stats.update(
+                        {
+                            "stage": "failed",
+                            "stale_reclaimed_at": reclaimed_at.isoformat() + "Z",
+                            "updated_at": reclaimed_at.isoformat() + "Z",
+                        }
+                    )
+                    await database.execute(
+                        update(bridge_sync_runs)
+                        .where(bridge_sync_runs.c.bridge_id == stale_run_id)
+                        .values(
+                            bridge_completed_at=reclaimed_at,
+                            bridge_status="failed",
+                            bridge_stats_json=stale_stats,
+                            bridge_error=(
+                                "stale running bridge sync was reclaimed after "
+                                f"{stale_after_seconds} seconds without a heartbeat"
+                            ),
+                        )
+                    )
+
+            run_id = await self.create_sync_run(bridge_trigger=bridge_trigger)
+            return run_id, None
+
     async def finalize_sync_run(
         self,
         bridge_id: int,
@@ -51,16 +153,20 @@ class BridgeSyncRepository:
         bridge_last_cursor: Optional[str] = None,
         bridge_error: Optional[str] = None,
     ) -> None:
+        values: Dict[str, Any] = {
+            "bridge_completed_at": datetime.utcnow(),
+            "bridge_status": bridge_status,
+        }
+        if bridge_stats_json is not None:
+            values["bridge_stats_json"] = bridge_stats_json
+        if bridge_last_cursor is not None:
+            values["bridge_last_cursor"] = bridge_last_cursor
+        if bridge_error is not None:
+            values["bridge_error"] = bridge_error
         stmt = (
             update(bridge_sync_runs)
             .where(bridge_sync_runs.c.bridge_id == bridge_id)
-            .values(
-                bridge_completed_at=datetime.utcnow(),
-                bridge_status=bridge_status,
-                bridge_stats_json=bridge_stats_json,
-                bridge_last_cursor=bridge_last_cursor,
-                bridge_error=bridge_error,
-            )
+            .values(**values)
         )
         await database.execute(stmt)
 

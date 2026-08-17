@@ -768,6 +768,49 @@ class TestResourceThumbnailNoCacheRemoteFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
+    def test_no_cache_prefers_manual_thumbnail_asset(self, mock_fetch_dist, mock_session, client):
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        resource_id = "test-no-cache-manual"
+        intrinsic_url = "https://example.com/iiif/full/default.jpg"
+        asset_url = "https://example.com/manual-thumbnail.jpg"
+        mock_row = _resource_row(
+            resource_id,
+            f'{{"http://iiif.io/api/image": "{intrinsic_url}"}}',
+        )
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute = AsyncMock(return_value=mock_result)
+        mock_fetch_dist.return_value = MagicMock(by_uri={}, legacy_reference_payload={})
+
+        with (
+            patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_thumbnail_asset_url",
+                new=AsyncMock(return_value=asset_url),
+            ) as mock_get_asset,
+        ):
+            svc = MagicMock()
+            svc.resolve_thumbnail_source_url.return_value = asset_url
+            svc._is_cog_url.return_value = False
+            svc._is_pmtiles_url.return_value = False
+            svc._is_manifest_url.return_value = False
+            svc._standardize_iiif_url.side_effect = lambda url: url
+            svc.download_image = AsyncMock(return_value=_valid_png_bytes())
+            mock_svc_cls.return_value = svc
+
+            response = client.get(f"/resources/{resource_id}/thumbnail/no-cache")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        mock_get_asset.assert_awaited_once_with(resource_id)
+        svc.resolve_thumbnail_source_url.assert_called_once_with(thumbnail_asset_url=asset_url)
+        svc._get_thumbnail_source_url.assert_not_called()
+        svc.download_image.assert_awaited_once_with(asset_url)
+
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
     def test_no_cache_remote_image_resizes_large_jpeg(self, mock_fetch_dist, mock_session, client):
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
