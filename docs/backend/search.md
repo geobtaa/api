@@ -194,7 +194,7 @@ For `relation=within`, Elasticsearch geo-shape semantics require the document en
 
 Important: relation controls eligibility, but the *relevance score* for bbox queries is computed separately (see below).
 
-### BBox relevance score: IoU + (optional) text relevance multiplier
+### BBox relevance score: containment + IoU
 
 Whenever the bbox filter is present (`type=bbox` with `top_left`/`bottom_right`), the search query is wrapped in an Elasticsearch `script_score`.
 
@@ -205,31 +205,39 @@ For each candidate resource, the script computes:
 - `query_area`: area of the query bbox
 - `union_area = doc_area + query_area - intersection_area`
 - `overlapRatio = intersection_area / union_area` (this is an IoU-style overlap)
+- `containmentRatio = intersection_area / doc_area` (the fraction of the resource
+  extent covered by the query)
 
-Then it combines this overlap ratio with Elasticsearch’s *base* score (`_score`) using:
+It combines the two spatial signals and Elasticsearch's *base* score (`_score`) using:
 
-`final_score = baseScore * (0.1 + 0.9 * overlapRatio)`
+`spatialScore = 0.7 * containmentRatio + 0.3 * overlapRatio`
+
+`final_score = baseScore * (1 + 0.8 * spatialScore)`
 
 Where `baseScore` comes from the rest of the query:
 
-- If you are doing a bbox-only search (no `q` and no `adv_q`), the query effectively becomes `match_all`, so `baseScore` is ~constant. In that case, ranking is driven mostly by `overlapRatio` (higher IoU comes first).
+- If you are doing a bbox-only search (no `q` and no `adv_q`), the query effectively becomes `match_all`, so `baseScore` is ~constant. In that case, ranking is driven by the combined containment and IoU score.
 - If you also provide a text query (`q`) and/or advanced query (`adv_q`), then `baseScore` varies by document. In that case, bbox “fit” is a multiplier, not the only signal.
 
 ### Overlap “threshold”: preventing near-zero matches
 
-In addition to the `relation`-based geo-shape filter, bbox searches also apply a hard filter that rejects documents with extremely small IoU:
+In addition to the `relation`-based geo-shape filter, bbox searches also apply a hard filter that rejects documents when the query covers only a trivial fraction of the resource bbox:
 
-- `overlapRatio >= MIN_BBOX_IOU_OVERLAP_RATIO`
+- `containmentRatio >= MIN_BBOX_IOU_OVERLAP_RATIO`
 - Default: `MIN_BBOX_IOU_OVERLAP_RATIO = 0.001` (0.1%)
 
-This threshold affects eligibility (removes “barely touching” results). It does *not* control ordering beyond the fact that low-overlap results get excluded.
+The environment-variable name is retained for backward compatibility. The threshold
+uses document containment rather than IoU so that a city-sized resource fully inside
+a state-sized query remains eligible. It still removes very large resources when the
+query touches less than 0.1% of their bbox. The threshold affects eligibility; the
+combined containment and IoU score controls relevance ordering.
 
 ### Why `Overlap` may not look like “Best Fit” / “Closest Fit”
 
 If you expect “Best Fit” ordering (highest overlap first), there are a few reasons it may not be obvious:
 
 1. **Text relevance can dominate when `q` is present**
-   - Because `final_score` multiplies by `(0.1 + 0.9 * overlapRatio)`, overlap ratio differences are bounded between 0.1 and 1.0.
+   - Because `final_score` multiplies by `(1 + 0.8 * spatialScore)`, the spatial boost is bounded between 1.0 and 1.8.
    - If `baseScore` differs significantly across documents, those differences can reorder results even when some documents overlap the query bbox better.
 
 2. **`Overlap` is not centroid-distance scoring**
@@ -244,16 +252,18 @@ If you expect “Best Fit” ordering (highest overlap first), there are a few r
 
 ### Checking what the backend thinks the “fit” is
 
-The API attaches the computed `bbox_overlap_ratio` into per-resource metadata when a bbox filter is active.
+The API attaches `bbox_overlap_ratio`, `bbox_containment_ratio`, and
+`bbox_spatial_score` to per-resource metadata when a bbox filter is active.
 
 To verify “Best Fit” ordering in practice:
 
 - Request `sort=relevance`
 - Use an empty `q` (bbox-only) so `baseScore` is constant
-- Compare `bbox_overlap_ratio` across results: higher values should correspond to higher `final_score` for bbox-only searches.
+- Compare `bbox_spatial_score` across results: higher values should correspond to higher `final_score` for bbox-only searches.
 
 ### Environment variables
 
 You can tune how aggressively near-zero bbox overlaps are filtered via:
 
-- `MIN_BBOX_IOU_OVERLAP_RATIO` (default `0.001`, meaning 0.1% IoU)
+- `MIN_BBOX_IOU_OVERLAP_RATIO` (default `0.001`; retained name, applied as a
+  minimum document-containment ratio)

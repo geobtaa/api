@@ -14,6 +14,9 @@ from fastapi.testclient import TestClient
 from PIL import Image
 
 from app.api.v1.endpoint_modules.resources import router as resources_router
+from app.api.v1.endpoint_modules.resources.thumbnail import (
+    _current_hot_thumbnail_hash_for_resource,
+)
 from app.tasks.worker import (
     _cog_thumbnail_image_hash,
     _pmtiles_thumbnail_image_hash,
@@ -80,6 +83,42 @@ def _resource_row(id: str, dct_references_s: str, locn_geometry: str | None = No
 
 class TestResourceThumbnailCogFlow:
     """Test COG thumbnail handling in resource thumbnail endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_hot_hash_lookup_uses_manual_asset_source(self):
+        """A cached derived source must not hide the selected manual asset."""
+        resource_id = "test-manual-asset-alias"
+        asset_url = "https://assets.example.edu/manual-thumbnail.png"
+        asset_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+
+        with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._fetch_resource_dict",
+                new=AsyncMock(return_value={"id": resource_id}),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context",
+                new=AsyncMock(return_value=MagicMock()),
+            ),
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_thumbnail_asset_url",
+                new=AsyncMock(return_value=asset_url),
+            ) as mock_get_asset,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.ImageService"
+            ) as mock_service_class,
+        ):
+            service = MagicMock()
+            service.resolve_thumbnail_source_url.return_value = asset_url
+            service.current_thumbnail_hash_for_source_sync.return_value = asset_hash
+            mock_service_class.return_value = service
+
+            result = await _current_hot_thumbnail_hash_for_resource(resource_id)
+
+        assert result == asset_hash
+        mock_get_asset.assert_awaited_once_with(resource_id)
+        service.resolve_thumbnail_source_url.assert_called_once_with(thumbnail_asset_url=asset_url)
+        service.current_thumbnail_hash_for_source_sync.assert_called_once_with(asset_url)
 
     def test_resource_thumbnail_alias_redirect_short_circuits(self, client):
         """Hot resource-id requests should redirect straight to the current immutable asset."""
@@ -149,10 +188,10 @@ class TestResourceThumbnailCogFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
-    def test_native_thumbnail_source_takes_priority_over_bridge_asset(
+    def test_manual_thumbnail_asset_takes_priority_over_native_source(
         self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
-        """Prefer native IIIF/image sources over bridge assets when both exist."""
+        """Prefer a manually selected asset over a derived IIIF source."""
         mock_session_instance = AsyncMock()
         mock_session.return_value.__aenter__.return_value = mock_session_instance
 
@@ -167,10 +206,14 @@ class TestResourceThumbnailCogFlow:
 
         mock_fetch_dist.return_value = MagicMock(by_uri={}, legacy_reference_payload={})
 
-        image_hash = _remote_thumbnail_image_hash(iiif_url)
+        image_hash = _remote_thumbnail_image_hash(asset_url)
         png_bytes = _valid_png_bytes()
 
         with (
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._fast_thumbnail_alias_redirect",
+                new=AsyncMock(return_value=None),
+            ),
             patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
             patch(
                 "app.api.v1.endpoint_modules.resources.thumbnail._get_thumbnail_asset_url",
@@ -183,7 +226,7 @@ class TestResourceThumbnailCogFlow:
         ):
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = iiif_url
-            svc.resolve_thumbnail_source_url.return_value = iiif_url
+            svc.resolve_thumbnail_source_url.return_value = asset_url
             svc.thumbnail_image_hash_for_source_sync.return_value = image_hash
             svc._is_cog_url.return_value = False
             svc._is_pmtiles_url.return_value = False
@@ -196,9 +239,11 @@ class TestResourceThumbnailCogFlow:
             assert resp.status_code == 302
             assert resp.headers["location"] == f"/api/v1/thumbnails/{image_hash}"
             mock_get_asset.assert_awaited_once_with(resource_id)
+            svc.resolve_thumbnail_source_url.assert_called_once_with(thumbnail_asset_url=asset_url)
             mock_probe.assert_not_awaited()
             payload = patch_thumbnail_side_effects["state"].await_args.args[0]
             assert payload.state == "success"
+            assert payload.source_url == asset_url
             assert payload.source_hash == image_hash
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
@@ -720,6 +765,49 @@ class TestResourceThumbnailNoCachePmtilesFlow:
 
 class TestResourceThumbnailNoCacheRemoteFlow:
     """Test direct-image handling in the no-cache thumbnail endpoint."""
+
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
+    def test_no_cache_prefers_manual_thumbnail_asset(self, mock_fetch_dist, mock_session, client):
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        resource_id = "test-no-cache-manual"
+        intrinsic_url = "https://example.com/iiif/full/default.jpg"
+        asset_url = "https://example.com/manual-thumbnail.jpg"
+        mock_row = _resource_row(
+            resource_id,
+            f'{{"http://iiif.io/api/image": "{intrinsic_url}"}}',
+        )
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute = AsyncMock(return_value=mock_result)
+        mock_fetch_dist.return_value = MagicMock(by_uri={}, legacy_reference_payload={})
+
+        with (
+            patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail._get_thumbnail_asset_url",
+                new=AsyncMock(return_value=asset_url),
+            ) as mock_get_asset,
+        ):
+            svc = MagicMock()
+            svc.resolve_thumbnail_source_url.return_value = asset_url
+            svc._is_cog_url.return_value = False
+            svc._is_pmtiles_url.return_value = False
+            svc._is_manifest_url.return_value = False
+            svc._standardize_iiif_url.side_effect = lambda url: url
+            svc.download_image = AsyncMock(return_value=_valid_png_bytes())
+            mock_svc_cls.return_value = svc
+
+            response = client.get(f"/resources/{resource_id}/thumbnail/no-cache")
+
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "image/png"
+        mock_get_asset.assert_awaited_once_with(resource_id)
+        svc.resolve_thumbnail_source_url.assert_called_once_with(thumbnail_asset_url=asset_url)
+        svc._get_thumbnail_source_url.assert_not_called()
+        svc.download_image.assert_awaited_once_with(asset_url)
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")

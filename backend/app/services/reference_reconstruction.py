@@ -68,7 +68,7 @@ def build_effective_reference_payload(
         key_to_uri.update(asset_key_to_uri)
 
     for asset in assets or []:
-        asset_key = _coerce_nonempty_string(asset.get("dct_references_uri_key"))
+        asset_key = resolve_asset_reference_key(asset)
         if not asset_key:
             continue
         uri = key_to_uri.get(asset_key)
@@ -276,6 +276,29 @@ def _extract_asset_file_url(asset: Mapping[str, Any]) -> Optional[str]:
         if file_url:
             return file_url
     return _coerce_nonempty_string(asset.get("file_url"))
+
+
+def resolve_asset_reference_key(asset: Mapping[str, Any]) -> Optional[str]:
+    explicit_key = _coerce_nonempty_string(asset.get("dct_references_uri_key"))
+    if explicit_key:
+        return explicit_key
+
+    file_payload = asset.get("file")
+    metadata = file_payload.get("metadata") if isinstance(file_payload, Mapping) else None
+    candidates = [
+        _extract_asset_file_url(asset),
+        _coerce_nonempty_string(asset.get("title")),
+        (
+            _coerce_nonempty_string(metadata.get("filename"))
+            if isinstance(metadata, Mapping)
+            else None
+        ),
+    ]
+    for candidate in candidates:
+        if candidate and candidate.lower().split("?", 1)[0].split("#", 1)[0].endswith(".pmtiles"):
+            return "pmtiles"
+
+    return None
 
 
 def _coerce_reference_mapping(raw_payload: Any) -> Dict[str, Any]:

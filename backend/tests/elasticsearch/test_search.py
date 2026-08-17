@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from app.elasticsearch.search import (
     BBOX_SPATIAL_BOOST_WEIGHT,
     MIN_BBOX_IOU_OVERLAP_RATIO,
+    _build_bbox_overlap_filter,
     _compute_bbox_spatial_metrics,
     _escape_query_string_brackets,
     _normalize_geo_bbox_bounds,
@@ -183,6 +184,35 @@ class TestElasticsearchSearch:
             "containment_ratio": 0.0,
             "spatial_score": 0.0,
         }
+
+    def test_bbox_overlap_filter_keeps_small_resource_inside_large_query(self):
+        """Issue #318: state-sized searches must retain fully contained city data."""
+        query_bounds = {
+            "q_minx": -98.37,
+            "q_maxx": -89.89,
+            "q_miny": 43.20,
+            "q_maxy": 49.07,
+        }
+        metrics = _compute_bbox_spatial_metrics(
+            d_minx=-93.376,
+            d_maxx=-93.187,
+            d_miny=44.882,
+            d_maxy=45.051,
+            **query_bounds,
+        )
+
+        assert metrics["overlap_ratio"] < MIN_BBOX_IOU_OVERLAP_RATIO
+        assert metrics["containment_ratio"] == pytest.approx(1.0)
+
+        overlap_filter = _build_bbox_overlap_filter(
+            **query_bounds,
+            min_overlap_ratio=MIN_BBOX_IOU_OVERLAP_RATIO,
+        )
+        script = overlap_filter["script"]["script"]
+
+        assert "docContainmentRatio = intersection / docArea" in script["source"]
+        assert "return docContainmentRatio >= params.minOverlapRatio" in script["source"]
+        assert script["params"]["minOverlapRatio"] == MIN_BBOX_IOU_OVERLAP_RATIO
 
     def test_normalize_geo_bbox_bounds_sorts_reversed_non_wrapped_longitudes(self):
         """Small reversed bbox ranges should not be mistaken for antimeridian searches."""
@@ -654,11 +684,12 @@ class TestElasticsearchSearch:
                     assert box["top_left"] == {"lat": 45.0, "lon": -109.0}
                     assert box["bottom_right"] == {"lat": 41.0, "lon": -104.0}
 
-                # BBox searches now apply an overlap-ratio hard filter by default.
+                # BBox searches apply a document-containment hard filter by default.
                 script_filter = next((f for f in filters if "script" in f), None)
                 assert script_filter is not None
                 params = script_filter["script"]["script"]["params"]
                 assert params["minOverlapRatio"] == MIN_BBOX_IOU_OVERLAP_RATIO
+                assert "docContainmentRatio" in script_filter["script"]["script"]["source"]
 
                 script_score = search_query["script_score"]["script"]
                 assert "containmentRatio" in script_score["source"]
