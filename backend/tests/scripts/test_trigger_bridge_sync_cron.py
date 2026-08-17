@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
 
 import scripts.trigger_bridge_sync_cron as trigger_bridge_sync_cron
 
@@ -20,30 +19,9 @@ class _FakeTask:
         return _FakeAsyncResult("bridge-task-123")
 
 
-def test_previous_utc_day_start_iso_z_uses_bridge_local_timezone(monkeypatch):
-    monkeypatch.setenv("BRIDGE_SYNC_LOCAL_TIMEZONE", "America/Chicago")
-
-    now = datetime(2026, 4, 25, 7, 0, 0, tzinfo=timezone.utc)
-
-    assert trigger_bridge_sync_cron._previous_utc_day_start_iso_z(now) == "2026-04-24T05:00:00Z"
-
-
-def test_previous_utc_day_start_iso_z_falls_back_to_chicago_timezone(monkeypatch):
-    monkeypatch.setenv("BRIDGE_SYNC_LOCAL_TIMEZONE", "Not/A_Timezone")
-
-    now = datetime(2026, 4, 25, 7, 0, 0, tzinfo=timezone.utc)
-
-    assert trigger_bridge_sync_cron._previous_utc_day_start_iso_z(now) == "2026-04-24T05:00:00Z"
-
-
-def test_main_enqueues_fire_and_forget_nightly_bridge_sync(monkeypatch, capsys):
+def test_main_enqueues_checkpointed_incremental_bridge_sync(monkeypatch, capsys):
     fake_task = _FakeTask()
     monkeypatch.setattr(trigger_bridge_sync_cron, "bridge_sync_all", fake_task)
-    monkeypatch.setattr(
-        trigger_bridge_sync_cron,
-        "_previous_utc_day_start_iso_z",
-        lambda now=None: "2026-04-24T05:00:00Z",
-    )
     monkeypatch.delenv("BRIDGE_TRIGGER", raising=False)
     monkeypatch.delenv("BRIDGE_LIMIT", raising=False)
     monkeypatch.delenv("CHANGED_SINCE", raising=False)
@@ -53,9 +31,10 @@ def test_main_enqueues_fire_and_forget_nightly_bridge_sync(monkeypatch, capsys):
     assert fake_task.calls == [
         {
             "kwargs": {
-                "trigger": "nightly_cron",
+                "trigger": "incremental_cron",
                 "limit": None,
-                "changed_since": "2026-04-24T05:00:00Z",
+                "changed_since": None,
+                "resume_from_last_success": True,
             },
             "ignore_result": True,
         }
@@ -65,7 +44,26 @@ def test_main_enqueues_fire_and_forget_nightly_bridge_sync(monkeypatch, capsys):
     assert payload == {
         "queued": "kithe_bridge",
         "task_id": "bridge-task-123",
-        "bridge_trigger": "nightly_cron",
+        "bridge_trigger": "incremental_cron",
         "limit": None,
-        "changed_since": "2026-04-24T05:00:00Z",
+        "changed_since": None,
+        "resume_from_last_success": True,
     }
+
+
+def test_main_preserves_explicit_changed_since(monkeypatch, capsys):
+    fake_task = _FakeTask()
+    monkeypatch.setattr(trigger_bridge_sync_cron, "bridge_sync_all", fake_task)
+    monkeypatch.delenv("BRIDGE_TRIGGER", raising=False)
+    monkeypatch.setenv("CHANGED_SINCE", "2026-08-17T10:00:00Z")
+    monkeypatch.setenv("BRIDGE_LIMIT", "250")
+
+    trigger_bridge_sync_cron.main()
+
+    assert fake_task.calls[0]["kwargs"] == {
+        "trigger": "incremental_cron",
+        "limit": 250,
+        "changed_since": "2026-08-17T10:00:00Z",
+        "resume_from_last_success": False,
+    }
+    assert json.loads(capsys.readouterr().out)["resume_from_last_success"] is False

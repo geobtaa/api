@@ -18,6 +18,29 @@ def _thumbnail_url(item, distribution_context=None, hot_only=False):
 
 
 @pytest.mark.asyncio
+async def test_manual_thumbnail_overrides_cached_derived_thumbnail():
+    presenter = ResourcePresenter(session=None)
+    derived_url = f"http://localhost:8000/api/v1/thumbnails/{'a' * 64}"
+    manual_url = f"http://localhost:8000/api/v1/thumbnails/{'b' * 64}"
+    resource = {"meta": {"ui": {"thumbnail_url": derived_url}}}
+
+    with patch(
+        "app.api.v1.utils._hot_thumbnail_url_for_resource",
+        return_value=manual_url,
+    ) as hot_thumbnail:
+        await presenter._apply_thumbnail_asset(
+            resource,
+            {"id": "res-1"},
+            distribution_context=_distribution_context(),
+            thumbnail_asset_url="https://assets.example.edu/manual-thumb.jpg",
+            allow_resource_fallback=True,
+        )
+
+    hot_thumbnail.assert_called_once()
+    assert resource["meta"]["ui"]["thumbnail_url"] == manual_url
+
+
+@pytest.mark.asyncio
 async def test_resource_presenter_full_profile_contract_snapshot():
     presenter = ResourcePresenter(session=None)
     immutable_thumbnail_url = f"http://localhost:8000/api/v1/thumbnails/{'a' * 64}"

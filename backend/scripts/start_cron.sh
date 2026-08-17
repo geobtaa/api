@@ -21,7 +21,7 @@ export BRIDGE_SYNC_LOCAL_TIMEZONE="${BRIDGE_SYNC_LOCAL_TIMEZONE:-${CRON_LOCAL_TI
   printf "ADMIN_USERNAME=%s\n" "${ADMIN_USERNAME}"
   printf "ADMIN_PASSWORD=%s\n" "${ADMIN_PASSWORD}"
   printf "APPLICATION_URL=%s\n" "${APPLICATION_URL}"
-  printf "BRIDGE_TRIGGER=%s\n" "${BRIDGE_TRIGGER:-nightly_cron}"
+  printf "BRIDGE_TRIGGER=%s\n" "${BRIDGE_TRIGGER:-incremental_cron}"
   cat /app/config/crontab
 } | crontab -
 

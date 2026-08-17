@@ -312,6 +312,9 @@ async def _warm_generated_assets_for_changed_resources(
 
 async def refresh_cache_for_changed_resources(
     resource_ids: Iterable[str],
+    *,
+    rewarm: bool = True,
+    warm_generated_assets: bool = True,
 ) -> dict[str, Any]:
     """
     Invalidate and re-warm cached public pages tagged with changed resource IDs.
@@ -322,7 +325,7 @@ async def refresh_cache_for_changed_resources(
     the same cache decorators repopulate Redis without depending on public self-HTTP.
     """
 
-    if not ENDPOINT_CACHE or not _env_bool("BRIDGE_CACHE_REFRESH_ENABLED", True):
+    if not _env_bool("BRIDGE_CACHE_REFRESH_ENABLED", True):
         return {"enabled": False, "resource_ids": 0, "invalidated": 0, "warmed": 0, "errors": 0}
 
     max_warm_urls = _env_int("BRIDGE_CACHE_REWARM_MAX_URLS", 2500)
@@ -355,12 +358,13 @@ async def refresh_cache_for_changed_resources(
         batches += 1
         tags = [f"resource:{rid}" for rid in batch_ids]
 
-        tagged_records = await cache.cached_records_for_tags(tags)
-        tagged_records_count += len(tagged_records)
-        for record in tagged_records:
-            add_warm_path(_warm_path_from_record(record))
-        for path in _default_resource_warm_paths(batch_ids):
-            add_warm_path(path)
+        if ENDPOINT_CACHE and rewarm:
+            tagged_records = await cache.cached_records_for_tags(tags)
+            tagged_records_count += len(tagged_records)
+            for record in tagged_records:
+                add_warm_path(_warm_path_from_record(record))
+            for path in _default_resource_warm_paths(batch_ids):
+                add_warm_path(path)
 
         batch_representation_delete_stats = await delete_resource_representations(
             batch_ids,
@@ -371,9 +375,11 @@ async def refresh_cache_for_changed_resources(
             batch_representation_delete_stats,
         )
 
-        invalidated += await cache.invalidate_tags(tags)
-        batch_generated_assets = await _warm_generated_assets_for_changed_resources(batch_ids)
-        generated_assets = _merge_numeric_stats(generated_assets, batch_generated_assets)
+        if ENDPOINT_CACHE:
+            invalidated += await cache.invalidate_tags(tags)
+        if warm_generated_assets:
+            batch_generated_assets = await _warm_generated_assets_for_changed_resources(batch_ids)
+            generated_assets = _merge_numeric_stats(generated_assets, batch_generated_assets)
 
     warmed = 0
     errors = 0
@@ -405,6 +411,9 @@ async def refresh_cache_for_changed_resources(
 
     stats = {
         "enabled": True,
+        "endpoint_cache_enabled": ENDPOINT_CACHE,
+        "rewarm_enabled": rewarm,
+        "generated_asset_refresh_enabled": warm_generated_assets,
         "resource_ids": len(changed_ids),
         "batch_size": batch_size,
         "batches": batches,

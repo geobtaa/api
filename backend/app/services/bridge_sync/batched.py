@@ -152,6 +152,29 @@ def _add_error_sample(
         )
 
 
+def _refresh_error_count(refresh_stats: Any) -> int:
+    if not isinstance(refresh_stats, dict):
+        return 0
+    errors = int(refresh_stats.get("errors") or 0)
+    if refresh_stats.get("error"):
+        errors += 1
+    return errors
+
+
+def _record_refresh_errors(
+    stats: Dict[str, Any],
+    *,
+    stage: str,
+    refresh_stats: Any,
+) -> None:
+    error_count = _refresh_error_count(refresh_stats)
+    if not error_count:
+        return
+    error = RuntimeError(f"{stage} completed with {error_count} error(s)")
+    _add_error_sample(stats, stage=stage, resource_id=None, error=error)
+    stats["errors"] = int(stats.get("errors") or 0) + error_count - 1
+
+
 async def _fetch_records_with_5xx_retries(
     *,
     client: KitheBridgeClient,
@@ -247,11 +270,23 @@ async def queue_batched_bridge_sync(
     if resource_limit is not None and resource_limit < 0:
         raise ValueError("max_resources must be greater than or equal to 0")
 
-    run_id = await repo.create_sync_run(bridge_trigger=trigger)
-    await repo.cancel_other_running_runs(
-        keep_bridge_id=run_id,
-        reason=f"superseded by batched bridge sync run {run_id}",
-    )
+    run_id, active_run_id = await repo.create_sync_run_if_idle(bridge_trigger=trigger)
+    if run_id is None:
+        stats = {
+            "stage": "skipped",
+            "reason": "another bridge sync run is already active",
+            "active_bridge_id": active_run_id,
+        }
+        logger.info(
+            "Batched Bridge sync skipped because run_id=%s is already active",
+            active_run_id,
+        )
+        return {
+            "bridge_id": active_run_id,
+            "skipped": True,
+            "stats": stats,
+            "queued_batches": 0,
+        }
 
     base_stats: Dict[str, Any] = {
         "scope": "batched_full",
@@ -448,24 +483,34 @@ async def sync_bridge_resource_batch(
                 index_exc,
             )
             batch_stats["search_index_refresh"] = {"enabled": True, "error": str(index_exc)}
-
-    if _env_bool(BATCH_CACHE_REFRESH_ENABLED_ENV, False):
-        cache_refresh_ids = (
-            resource_ids_for_bridge_records(records, include_related=True) + missing_ids
+        _record_refresh_errors(
+            batch_stats,
+            stage="search_index_refresh",
+            refresh_stats=batch_stats.get("search_index_refresh"),
         )
-        if cache_refresh_ids:
-            try:
-                batch_stats["cache_refresh"] = await refresh_cache_for_changed_resources(
-                    cache_refresh_ids
-                )
-            except Exception as cache_exc:
-                logger.warning(
-                    "Bridge batched cache refresh failed for bridge_id=%s batch_number=%s: %s",
-                    bridge_id,
-                    batch_number,
-                    cache_exc,
-                )
-                batch_stats["cache_refresh"] = {"enabled": True, "error": str(cache_exc)}
+
+    cache_refresh_ids = resource_ids_for_bridge_records(records, include_related=True) + missing_ids
+    if cache_refresh_ids:
+        warm_caches = _env_bool(BATCH_CACHE_REFRESH_ENABLED_ENV, False)
+        try:
+            batch_stats["cache_refresh"] = await refresh_cache_for_changed_resources(
+                cache_refresh_ids,
+                rewarm=warm_caches,
+                warm_generated_assets=warm_caches,
+            )
+        except Exception as cache_exc:
+            logger.warning(
+                "Bridge batched cache refresh failed for bridge_id=%s batch_number=%s: %s",
+                bridge_id,
+                batch_number,
+                cache_exc,
+            )
+            batch_stats["cache_refresh"] = {"enabled": True, "error": str(cache_exc)}
+        _record_refresh_errors(
+            batch_stats,
+            stage="cache_refresh",
+            refresh_stats=batch_stats.get("cache_refresh"),
+        )
 
     _finalize_error_stats(batch_stats)
     parent_stats = await repo.record_batched_batch_result(
