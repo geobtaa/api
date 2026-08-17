@@ -1,12 +1,17 @@
 from __future__ import annotations
 
+import json
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Tuple
 
-from sqlalchemy import delete, insert
+from sqlalchemy import delete, insert, or_
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 from db.database import database
 from db.models import (
     resource_assets,
+    resource_data_dictionaries,
+    resource_data_dictionary_entries,
     resource_downloads,
     resource_licensed_accesses,
 )
@@ -15,10 +20,12 @@ from db.models import (
 def _group_by_resource(
     batch: List[Dict[str, Any]],
 ) -> Tuple[
+    Dict[str, Dict[str, List[Dict[str, Any]]]],
     Dict[str, List[Dict[str, Any]]],
     Dict[str, List[Dict[str, Any]]],
     Dict[str, List[Dict[str, Any]]],
 ]:
+    by_data_dictionaries: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
     by_downloads: Dict[str, List[Dict[str, Any]]] = {}
     by_licensed: Dict[str, List[Dict[str, Any]]] = {}
     by_assets: Dict[str, List[Dict[str, Any]]] = {}
@@ -27,6 +34,20 @@ def _group_by_resource(
         rid = str(item.get("resource_id") or "").strip()
         if not rid:
             continue
+
+        if "document_data_dictionaries" in item or "document_data_dictionary_entries" in item:
+            by_data_dictionaries[rid] = {
+                "dictionaries": [
+                    value
+                    for value in (item.get("document_data_dictionaries") or [])
+                    if isinstance(value, dict)
+                ],
+                "entries": [
+                    value
+                    for value in (item.get("document_data_dictionary_entries") or [])
+                    if isinstance(value, dict)
+                ],
+            }
 
         if "document_downloads" in item:
             downloads = by_downloads.setdefault(rid, [])
@@ -43,7 +64,175 @@ def _group_by_resource(
             for asset in item.get("assets") or []:
                 assets.append(asset or {})
 
-    return by_downloads, by_licensed, by_assets
+    return by_data_dictionaries, by_downloads, by_licensed, by_assets
+
+
+def _optional_int(value: Any) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _timestamp(value: Any) -> datetime | None:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
+def _text_value(value: Any) -> str | None:
+    if value is None or isinstance(value, str):
+        return value
+    return json.dumps(value, sort_keys=True)
+
+
+async def _sync_data_dictionaries(
+    grouped: Dict[str, Dict[str, List[Dict[str, Any]]]],
+) -> None:
+    for rid, payload in grouped.items():
+        source_dictionaries = payload.get("dictionaries") or []
+        source_entries = payload.get("entries") or []
+        source_to_local_dictionary_id: Dict[int, int] = {}
+
+        for dictionary in source_dictionaries:
+            source_dictionary_id = _optional_int(dictionary.get("id"))
+            if source_dictionary_id is None:
+                continue
+
+            values: Dict[str, Any] = {
+                "resource_id": rid,
+                "legacy_document_data_dictionary_id": source_dictionary_id,
+            }
+            for field in ("name", "description", "staff_notes"):
+                if field in dictionary:
+                    values[field] = dictionary.get(field)
+            if "tags" in dictionary:
+                values["tags"] = _text_value(dictionary.get("tags")) or ""
+            position = _optional_int(dictionary.get("position"))
+            if position is not None:
+                values["position"] = position
+            for field in ("created_at", "updated_at"):
+                timestamp = _timestamp(dictionary.get(field))
+                if timestamp is not None:
+                    values[field] = timestamp
+
+            stmt = pg_insert(resource_data_dictionaries).values(values)
+            update_values = {
+                "resource_id": stmt.excluded.resource_id,
+                **{
+                    field: stmt.excluded[field]
+                    for field in (
+                        "name",
+                        "description",
+                        "staff_notes",
+                        "tags",
+                        "position",
+                        "updated_at",
+                    )
+                    if field in values
+                },
+            }
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[resource_data_dictionaries.c.legacy_document_data_dictionary_id],
+                set_=update_values,
+            ).returning(resource_data_dictionaries.c.id)
+            local_dictionary_id = await database.fetch_val(stmt)
+            if local_dictionary_id is not None:
+                source_to_local_dictionary_id[source_dictionary_id] = int(local_dictionary_id)
+
+        source_dictionary_ids = list(source_to_local_dictionary_id)
+        delete_stale_dictionaries = delete(resource_data_dictionaries).where(
+            resource_data_dictionaries.c.resource_id == rid
+        )
+        if source_dictionary_ids:
+            delete_stale_dictionaries = delete_stale_dictionaries.where(
+                or_(
+                    resource_data_dictionaries.c.legacy_document_data_dictionary_id.is_(None),
+                    resource_data_dictionaries.c.legacy_document_data_dictionary_id.not_in(
+                        source_dictionary_ids
+                    ),
+                )
+            )
+        await database.execute(delete_stale_dictionaries)
+
+        if not source_to_local_dictionary_id:
+            continue
+
+        source_entry_ids: List[int] = []
+        for entry in source_entries:
+            source_entry_id = _optional_int(entry.get("id"))
+            source_dictionary_id = _optional_int(entry.get("document_data_dictionary_id"))
+            local_dictionary_id = source_to_local_dictionary_id.get(source_dictionary_id or -1)
+            field_name = str(entry.get("field_name") or "").strip()
+            if source_entry_id is None or local_dictionary_id is None or not field_name:
+                continue
+
+            values = {
+                "resource_data_dictionary_id": local_dictionary_id,
+                "legacy_document_data_dictionary_entry_id": source_entry_id,
+                "field_name": field_name,
+                "field_type": _text_value(entry.get("field_type")),
+                "values": _text_value(entry.get("values")),
+                "definition": _text_value(entry.get("definition")),
+                "definition_source": _text_value(entry.get("definition_source")),
+                "parent_field_name": _text_value(entry.get("parent_field_name")),
+                "position": _optional_int(entry.get("position")) or 0,
+            }
+            for field in ("created_at", "updated_at"):
+                timestamp = _timestamp(entry.get(field))
+                if timestamp is not None:
+                    values[field] = timestamp
+
+            stmt = pg_insert(resource_data_dictionary_entries).values(values)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[
+                    resource_data_dictionary_entries.c.legacy_document_data_dictionary_entry_id
+                ],
+                set_={
+                    field: stmt.excluded[field]
+                    for field in (
+                        "resource_data_dictionary_id",
+                        "field_name",
+                        "field_type",
+                        "values",
+                        "definition",
+                        "definition_source",
+                        "parent_field_name",
+                        "position",
+                        "updated_at",
+                    )
+                    if field in values
+                },
+            )
+            await database.execute(stmt)
+            source_entry_ids.append(source_entry_id)
+
+        local_dictionary_ids = list(source_to_local_dictionary_id.values())
+        delete_stale_entries = delete(resource_data_dictionary_entries).where(
+            resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(local_dictionary_ids)
+        )
+        if source_entry_ids:
+            delete_stale_entries = delete_stale_entries.where(
+                or_(
+                    resource_data_dictionary_entries.c.legacy_document_data_dictionary_entry_id.is_(
+                        None
+                    ),
+                    resource_data_dictionary_entries.c.legacy_document_data_dictionary_entry_id.not_in(
+                        source_entry_ids
+                    ),
+                )
+            )
+        await database.execute(delete_stale_entries)
 
 
 async def _sync_downloads(grouped: Dict[str, List[Dict[str, Any]]]) -> None:
@@ -137,6 +326,8 @@ async def sync_nested_for_batch(batch: List[Dict[str, Any]]) -> None:
     Expected batch item shape:
     {
       "resource_id": "...",
+      "document_data_dictionaries": [...],
+      "document_data_dictionary_entries": [...],
       "document_downloads": [...],
       "document_licensed_accesses": [...],
       "assets": [...]
@@ -145,8 +336,10 @@ async def sync_nested_for_batch(batch: List[Dict[str, Any]]) -> None:
     if not batch:
         return
 
-    by_downloads, by_licensed, by_assets = _group_by_resource(batch)
+    by_data_dictionaries, by_downloads, by_licensed, by_assets = _group_by_resource(batch)
 
+    if by_data_dictionaries:
+        await _sync_data_dictionaries(by_data_dictionaries)
     if by_downloads:
         await _sync_downloads(by_downloads)
     if by_licensed:

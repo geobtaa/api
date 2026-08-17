@@ -226,6 +226,8 @@ class BridgeResourceImporter:
             reference_type_id_to_uri,
         )
         for key in (
+            "document_data_dictionaries",
+            "document_data_dictionary_entries",
             "document_distributions",
             "document_downloads",
             "document_licensed_accesses",

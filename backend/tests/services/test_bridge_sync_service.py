@@ -24,6 +24,8 @@ from db.models import (
     bridge_resource_state,
     bridge_sync_runs,
     resource_assets,
+    resource_data_dictionaries,
+    resource_data_dictionary_entries,
     resource_distributions,
     resource_downloads,
     resource_licensed_accesses,
@@ -102,6 +104,238 @@ class TestBridgeSyncService:
             assert result["stats"]["processed"] == 0
             assert result["stats"]["source_high_watermark"] == "2026-08-17T15:30:00Z"
         finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_upserts_and_clears_data_dictionaries(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        resource_id = "bridge-data-dictionary"
+
+        if not database.is_connected:
+            await database.connect()
+
+        async def _sync_record(record):
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            return await sync_bridge(
+                trigger="incremental_cron",
+                limit=500,
+                changed_since="2026-06-23T00:00:00Z",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+        base_record = {
+            "id": resource_id,
+            "import_id": "800",
+            "publication_state": "published",
+            "dct_title_s": "Bridge Data Dictionary",
+            "dct_references_s": "{}",
+            "document_data_dictionaries": [
+                {
+                    "id": 192,
+                    "friendlier_id": resource_id,
+                    "name": "Attribute table",
+                    "created_at": "2026-06-23T17:50:45.944-05:00",
+                    "updated_at": "2026-06-23T17:50:45.944-05:00",
+                }
+            ],
+            "document_data_dictionary_entries": [
+                {
+                    "id": 2001,
+                    "document_data_dictionary_id": 192,
+                    "field_name": "OBJECTID",
+                    "field_type": "Integer",
+                    "values": None,
+                    "definition": "Unique identifier",
+                    "definition_source": "Minneapolis",
+                    "parent_field_name": None,
+                    "position": 0,
+                },
+                {
+                    "id": 2002,
+                    "document_data_dictionary_id": 192,
+                    "field_name": "ADDRESS",
+                    "field_type": "String",
+                    "values": None,
+                    "definition": "Street address",
+                    "definition_source": "Minneapolis",
+                    "parent_field_name": None,
+                    "position": 1,
+                },
+            ],
+        }
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            existing_dictionary_ids = [
+                row["id"]
+                for row in await database.fetch_all(
+                    select(resource_data_dictionaries.c.id).where(
+                        resource_data_dictionaries.c.resource_id == resource_id
+                    )
+                )
+            ]
+            if existing_dictionary_ids:
+                await database.execute(
+                    delete(resource_data_dictionary_entries).where(
+                        resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(
+                            existing_dictionary_ids
+                        )
+                    )
+                )
+            await database.execute(
+                delete(resource_data_dictionaries).where(
+                    resource_data_dictionaries.c.resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            first_result = await _sync_record(base_record)
+
+            assert first_result["stats"]["imported"] == 1
+            dictionary = await database.fetch_one(
+                select(resource_data_dictionaries).where(
+                    resource_data_dictionaries.c.resource_id == resource_id
+                )
+            )
+            assert dictionary is not None
+            assert dictionary["legacy_document_data_dictionary_id"] == 192
+            assert dictionary["name"] == "Attribute table"
+            local_dictionary_id = dictionary["id"]
+
+            entries = await database.fetch_all(
+                select(resource_data_dictionary_entries)
+                .where(
+                    resource_data_dictionary_entries.c.resource_data_dictionary_id
+                    == local_dictionary_id
+                )
+                .order_by(resource_data_dictionary_entries.c.position)
+            )
+            assert [entry["legacy_document_data_dictionary_entry_id"] for entry in entries] == [
+                2001,
+                2002,
+            ]
+            assert entries[1]["definition"] == "Street address"
+
+            updated_record = {
+                **base_record,
+                "document_data_dictionaries": [
+                    {
+                        **base_record["document_data_dictionaries"][0],
+                        "name": "Updated attribute table",
+                    }
+                ],
+                "document_data_dictionary_entries": [
+                    {
+                        **base_record["document_data_dictionary_entries"][1],
+                        "definition": "Updated street address",
+                    },
+                    {
+                        "id": 2003,
+                        "document_data_dictionary_id": 192,
+                        "field_name": "STATUS",
+                        "field_type": "String",
+                        "values": ["active", "retired"],
+                        "definition": "Address status",
+                        "definition_source": "Minneapolis",
+                        "parent_field_name": None,
+                        "position": 2,
+                    },
+                ],
+            }
+            await _sync_record(updated_record)
+
+            updated_dictionary = await database.fetch_one(
+                select(resource_data_dictionaries).where(
+                    resource_data_dictionaries.c.resource_id == resource_id
+                )
+            )
+            assert updated_dictionary is not None
+            assert updated_dictionary["id"] == local_dictionary_id
+            assert updated_dictionary["name"] == "Updated attribute table"
+
+            updated_entries = await database.fetch_all(
+                select(resource_data_dictionary_entries)
+                .where(
+                    resource_data_dictionary_entries.c.resource_data_dictionary_id
+                    == local_dictionary_id
+                )
+                .order_by(resource_data_dictionary_entries.c.position)
+            )
+            assert [
+                entry["legacy_document_data_dictionary_entry_id"] for entry in updated_entries
+            ] == [2002, 2003]
+            assert updated_entries[0]["definition"] == "Updated street address"
+            assert updated_entries[1]["values"] == '["active", "retired"]'
+
+            await _sync_record(
+                {
+                    **base_record,
+                    "document_data_dictionaries": [],
+                    "document_data_dictionary_entries": [],
+                }
+            )
+
+            assert (
+                await database.fetch_val(
+                    select(resource_data_dictionaries.c.id).where(
+                        resource_data_dictionaries.c.resource_id == resource_id
+                    )
+                )
+                is None
+            )
+            assert (
+                await database.fetch_val(
+                    select(resource_data_dictionary_entries.c.id).where(
+                        resource_data_dictionary_entries.c.resource_data_dictionary_id
+                        == local_dictionary_id
+                    )
+                )
+                is None
+            )
+        finally:
+            dictionary_ids = [
+                row["id"]
+                for row in await database.fetch_all(
+                    select(resource_data_dictionaries.c.id).where(
+                        resource_data_dictionaries.c.resource_id == resource_id
+                    )
+                )
+            ]
+            if dictionary_ids:
+                await database.execute(
+                    delete(resource_data_dictionary_entries).where(
+                        resource_data_dictionary_entries.c.resource_data_dictionary_id.in_(
+                            dictionary_ids
+                        )
+                    )
+                )
+            await database.execute(
+                delete(resource_data_dictionaries).where(
+                    resource_data_dictionaries.c.resource_id == resource_id
+                )
+            )
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
             await database.execute(delete(bridge_sync_runs))
 
     @pytest.mark.asyncio(scope="session")
