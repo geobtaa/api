@@ -790,7 +790,13 @@ def _build_bbox_overlap_filter(
     q_maxy: float,
     min_overlap_ratio: float,
 ) -> dict:
-    """Filter out trivial bbox overlaps using IoU overlap ratio."""
+    """Filter out overlaps covering only a trivial fraction of the document bbox.
+
+    The configuration and parameter names retain ``overlap``/``IoU`` for backward
+    compatibility, but eligibility must be based on document containment. Using IoU
+    here incorrectly rejects small resources that are fully inside a much larger
+    search area because the query area dominates the union.
+    """
     return {
         "script": {
             "script": {
@@ -833,13 +839,13 @@ def _build_bbox_overlap_filter(
                         return false;
                     }
 
-                    double unionArea = docArea + queryArea - intersection;
-                    if (unionArea <= 0.0) {
-                        return false;
-                    }
-
-                    double overlapRatio = intersection / unionArea;
-                    return overlapRatio >= params.minOverlapRatio;
+                    // Measure how much of the resource extent is covered by the
+                    // query. A small city dataset fully inside a state-sized query
+                    // should remain eligible even though its IoU is near zero.
+                    // Conversely, a state-sized query touching only a tiny piece
+                    // of a global resource should still be rejected.
+                    double docContainmentRatio = intersection / docArea;
+                    return docContainmentRatio >= params.minOverlapRatio;
                 """,
                 "params": {
                     "qMinX": q_minx,
