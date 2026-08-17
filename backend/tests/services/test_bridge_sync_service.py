@@ -1664,6 +1664,192 @@ class TestBridgeSyncService:
                 pass
 
     @pytest.mark.asyncio(scope="session")
+    async def test_sync_bridge_replaces_deleted_iiif_distributions_with_cog_asset(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+
+        resource_id = "bridge-sync-replace-iiif-with-cog"
+        source_url = "https://example.org/catalog/record"
+        iiif_image_url = "https://example.org/iiif/image"
+        iiif_manifest_url = "https://example.org/iiif/manifest"
+        cog_url = "https://example.org/replacement-cog.tif"
+        stale_references = {
+            "http://schema.org/url": source_url,
+            "http://iiif.io/api/image": iiif_image_url,
+            "http://iiif.io/api/presentation#manifest": iiif_manifest_url,
+        }
+        initial_record = {
+            "id": resource_id,
+            "import_id": "317",
+            "publication_state": "published",
+            "kithe_updated_at": "2026-08-05T20:00:00Z",
+            "dct_title_s": "Bridge Sync Replace IIIF With COG",
+            "dct_description_sm": ["Distribution deletion test"],
+            "dct_references_s": stale_references,
+            "document_distributions": [
+                {
+                    "reference_type_id": 7,
+                    "url": source_url,
+                },
+                {
+                    "reference_type_id": 11,
+                    "url": iiif_image_url,
+                },
+                {
+                    "reference_type_id": 12,
+                    "url": iiif_manifest_url,
+                },
+            ],
+            "assets": [],
+        }
+        replacement_record = {
+            **initial_record,
+            "kithe_updated_at": "2026-08-05T21:00:00Z",
+            # The nested collections are authoritative even if a legacy field
+            # still contains the links that were removed in GEOMG.
+            "dct_references_s": stale_references,
+            "document_distributions": [
+                {
+                    "reference_type_id": 7,
+                    "url": source_url,
+                }
+            ],
+            "assets": [
+                {
+                    "id": "bridge-sync-replacement-cog-asset",
+                    "friendlier_id": "replacement-cog-asset",
+                    "parent_id": "bridge-sync-replacement-cog-parent",
+                    "title": "Replacement COG",
+                    "thumbnail": True,
+                    "dct_references_uri_key": "cog",
+                    "position": 0,
+                    "file": {
+                        "url": cog_url,
+                        "metadata": {"mime_type": "image/tiff"},
+                    },
+                }
+            ],
+        }
+
+        if not database.is_connected:
+            await database.connect()
+
+        async def _sync_record(record, *, changed_since):
+            client = FakeBridgeClient(
+                {
+                    "__first__": BridgePage(
+                        data=[record],
+                        next_cursor=None,
+                        has_more=False,
+                    )
+                }
+            )
+            result = await sync_bridge(
+                trigger="incremental_cron",
+                limit=10,
+                changed_since=changed_since,
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+            return client, result
+
+        try:
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id == resource_id
+                )
+            )
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(resource_distributions).where(
+                    resource_distributions.c.resource_id == resource_id
+                )
+            )
+            await database.execute(
+                delete(resource_assets).where(resource_assets.c.resource_id == resource_id)
+            )
+            await database.execute(delete(resources).where(resources.c.id == resource_id))
+
+            _, initial_result = await _sync_record(
+                initial_record,
+                changed_since="2026-08-05T19:00:00Z",
+            )
+            assert initial_result["stats"]["imported"] == 1
+
+            initial_row = await database.fetch_one(
+                select(resources.c.dct_references_s).where(resources.c.id == resource_id)
+            )
+            assert initial_row is not None
+            assert json.loads(initial_row["dct_references_s"]) == stale_references
+
+            replacement_client, replacement_result = await _sync_record(
+                replacement_record,
+                changed_since="2026-08-05T20:00:00Z",
+            )
+
+            assert replacement_client.calls == [
+                {
+                    "cursor": None,
+                    "limit": 10,
+                    "changed_since": "2026-08-05T20:00:00Z",
+                }
+            ]
+            assert replacement_result["stats"]["imported"] == 1
+            assert replacement_result["stats"]["source_high_watermark"] == ("2026-08-05T21:00:00Z")
+
+            row = await database.fetch_one(
+                select(resources.c.dct_references_s).where(resources.c.id == resource_id)
+            )
+            assert row is not None
+            assert json.loads(row["dct_references_s"]) == {
+                "http://schema.org/url": source_url,
+                "https://github.com/cogeotiff/cog-spec": cog_url,
+            }
+
+            distribution_rows = await database.fetch_all(
+                select(
+                    resource_distributions.c.distribution_type_id,
+                    resource_distributions.c.url,
+                )
+                .where(resource_distributions.c.resource_id == resource_id)
+                .order_by(resource_distributions.c.distribution_type_id)
+            )
+            assert [(row["distribution_type_id"], row["url"]) for row in distribution_rows] == [
+                (5, cog_url),
+                (7, source_url),
+            ]
+
+            asset_rows = await database.fetch_all(
+                select(resource_assets.c.dct_references_uri_key, resource_assets.c.file_url).where(
+                    resource_assets.c.resource_id == resource_id
+                )
+            )
+            assert [(row["dct_references_uri_key"], row["file_url"]) for row in asset_rows] == [
+                ("cog", cog_url)
+            ]
+        finally:
+            try:
+                await database.execute(
+                    delete(bridge_resource_state).where(
+                        bridge_resource_state.c.bridge_resource_id == resource_id
+                    )
+                )
+                await database.execute(delete(bridge_sync_runs))
+                await database.execute(
+                    delete(resource_distributions).where(
+                        resource_distributions.c.resource_id == resource_id
+                    )
+                )
+                await database.execute(
+                    delete(resource_assets).where(resource_assets.c.resource_id == resource_id)
+                )
+                await database.execute(delete(resources).where(resources.c.id == resource_id))
+            except Exception:
+                # Cleanup is best effort; test assertions should report the real failure.
+                pass
+
+    @pytest.mark.asyncio(scope="session")
     async def test_sync_bridge_real_reported_records_ignore_stale_document_downloads(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
