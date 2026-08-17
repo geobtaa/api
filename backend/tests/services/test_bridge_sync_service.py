@@ -1381,7 +1381,7 @@ class TestBridgeSyncService:
                 pass
 
     @pytest.mark.asyncio(scope="session")
-    async def test_sync_bridge_reconstructs_references_from_assets_and_downloads(self):
+    async def test_sync_bridge_reconstructs_unkeyed_pmtiles_asset_reference(self):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
 
@@ -1429,7 +1429,7 @@ class TestBridgeSyncService:
                     "title": "PMTiles asset",
                     "label": None,
                     "thumbnail": False,
-                    "dct_references_uri_key": "pmtiles",
+                    "dct_references_uri_key": "",
                     "position": 3,
                     "file": {
                         "url": "https://example.org/reference.pmtiles",
@@ -1533,7 +1533,7 @@ class TestBridgeSyncService:
                 select(resource_assets).where(resource_assets.c.resource_id == resource_id)
             )
             assert len(asset_rows) == 2
-            assert {row["dct_references_uri_key"] for row in asset_rows} == {"download", "pmtiles"}
+            assert {row["dct_references_uri_key"] for row in asset_rows} == {"download", ""}
         finally:
             try:
                 await database.execute(

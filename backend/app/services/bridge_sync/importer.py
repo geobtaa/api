@@ -20,6 +20,7 @@ from app.services.ogm_harvest.importer import _parse_iso_date, _parse_iso_dateti
 from app.services.reference_reconstruction import (
     REFERENCE_NAME_TO_URI,
     build_effective_reference_payload,
+    resolve_asset_reference_key,
     serialize_reference_payload,
 )
 from app.services.relationship_sync import sync_relationships_for_batch
@@ -189,8 +190,7 @@ class BridgeResourceImporter:
             for asset in record.get("assets") or []:
                 if not isinstance(asset, dict):
                     continue
-                raw_key = asset.get("dct_references_uri_key")
-                key = str(raw_key).strip() if raw_key is not None else ""
+                key = resolve_asset_reference_key(asset)
                 uri = REFERENCE_NAME_TO_URI.get(key)
                 if uri:
                     uris.add(uri)
