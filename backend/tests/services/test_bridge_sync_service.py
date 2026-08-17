@@ -71,6 +71,40 @@ class TestBridgeSyncService:
         create_resource_aux_tables()
 
     @pytest.mark.asyncio(scope="session")
+    async def test_empty_delta_retains_source_high_watermark(self):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        client = FakeBridgeClient(
+            {
+                "__first__": BridgePage(
+                    data=[],
+                    next_cursor=None,
+                    has_more=False,
+                )
+            }
+        )
+
+        if not database.is_connected:
+            await database.connect()
+
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            result = await sync_bridge(
+                trigger="incremental_cron",
+                limit=500,
+                changed_since="2026-08-17T15:25:00Z",
+                source_high_watermark="2026-08-17T15:30:00Z",
+                client=client,
+                importer=importer,
+                repo=repo,
+            )
+
+            assert result["stats"]["processed"] == 0
+            assert result["stats"]["source_high_watermark"] == "2026-08-17T15:30:00Z"
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+
+    @pytest.mark.asyncio(scope="session")
     async def test_queue_batched_bridge_sync_creates_parent_run_and_batch_jobs(self):
         repo = BridgeSyncRepository()
         resource_ids = [
@@ -1788,6 +1822,7 @@ class TestBridgeSyncService:
             assert result["stats"]["missing"] == 0
             assert result["stats"]["deleted"] == 1
             assert result["stats"]["retired"] == 0
+            assert result["stats"]["source_high_watermark"] == ("2026-06-17T13:25:32.923000Z")
             assert result["stats"]["search_index_refresh"]["enabled"] is False
             assert result["stats"]["cache_refresh"]["enabled"] is False
 

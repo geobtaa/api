@@ -9,8 +9,8 @@
 # - The cron container startup sets /etc/localtime before launching cron so
 #   the schedule stays pinned to America/Chicago, including DST. `CRON_TZ`
 #   remains here for cron implementations that support per-file timezones.
-# - The bridge sync delta crawl uses the previous America/Chicago day at
-#   00:00:00 and converts that to UTC for the bridge API.
+# - The bridge sync delta crawl resumes from the latest source timestamp
+#   observed by a successful crawl, with a short retry overlap.
 
 SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -18,9 +18,9 @@ BASH_ENV=/app/scripts/cron_env.sh
 CRON_TZ=America/Chicago
 TZ=America/Chicago
 
-# Daily 2:00 AM: enqueue bridge sync delta crawl (yesterday 00:00:00Z).
+# Hourly at :07: enqueue a checkpointed bridge sync delta crawl.
 # Use venv Python: cron runs with minimal PATH and system python3 lacks requests/etc.
-0 2 * * * /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+7 * * * * /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 
 # Daily 3:00 AM: enqueue blog sync (Celery)
 0 3 * * * /opt/venv/bin/python3 /app/scripts/trigger_blog_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2

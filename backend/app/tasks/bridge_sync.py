@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from datetime import datetime, timedelta, timezone
 from typing import Any, Coroutine, Dict, Optional
 
 from app.services.bridge_sync.batched import (
@@ -9,12 +10,15 @@ from app.services.bridge_sync.batched import (
 )
 from app.services.bridge_sync.harvest import sync_bridge
 from app.services.bridge_sync.report import send_bridge_sync_report_for_run
+from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.tasks.worker import celery_app
 from db.database import database
 
 logger = logging.getLogger(__name__)
 
 _loop: Optional[asyncio.AbstractEventLoop] = None
+DEFAULT_BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS = 300
+DEFAULT_BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS = 24
 
 
 def _get_loop() -> asyncio.AbstractEventLoop:
@@ -39,6 +43,43 @@ def _should_send_report(trigger: str) -> bool:
     return trigger_norm in _report_triggers() or "*" in _report_triggers()
 
 
+def _nonnegative_env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, str(default))
+    try:
+        return max(0, int(raw))
+    except ValueError:
+        return default
+
+
+def _utc_iso_z(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+async def _incremental_checkpoint(
+    repo: BridgeSyncRepository,
+    *,
+    now: Optional[datetime] = None,
+) -> tuple[str, str]:
+    source_high_watermark = await repo.latest_successful_crawl_source_watermark()
+    if source_high_watermark is None:
+        fallback_hours = _nonnegative_env_int(
+            "BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS",
+            DEFAULT_BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS,
+        )
+        source_high_watermark = (now or datetime.now(timezone.utc)) - timedelta(
+            hours=fallback_hours
+        )
+
+    overlap_seconds = _nonnegative_env_int(
+        "BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS",
+        DEFAULT_BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS,
+    )
+    changed_since = source_high_watermark - timedelta(seconds=overlap_seconds)
+    return _utc_iso_z(changed_since), _utc_iso_z(source_high_watermark)
+
+
 @celery_app.task(
     bind=True,
     name="bridge_sync_all",
@@ -51,6 +92,7 @@ def bridge_sync_all(
     limit: Optional[int] = None,
     changed_since: Optional[str] = None,
     resource_id: Optional[str] = None,
+    resume_from_last_success: bool = False,
 ) -> Dict[str, Any]:
     return _run(
         _bridge_sync_all_async(
@@ -58,6 +100,7 @@ def bridge_sync_all(
             limit=limit,
             changed_since=changed_since,
             resource_id=resource_id,
+            resume_from_last_success=resume_from_last_success,
         )
     )
 
@@ -67,15 +110,23 @@ async def _bridge_sync_all_async(
     limit: Optional[int],
     changed_since: Optional[str],
     resource_id: Optional[str],
+    resume_from_last_success: bool = False,
 ) -> Dict[str, Any]:
     if not database.is_connected:
         await database.connect()
+    repo: Optional[BridgeSyncRepository] = None
+    source_high_watermark: Optional[str] = None
+    if resume_from_last_success and not changed_since and not resource_id:
+        repo = BridgeSyncRepository()
+        changed_since, source_high_watermark = await _incremental_checkpoint(repo)
     logger.info(
-        "Bridge sync starting: trigger=%s limit=%s changed_since=%s resource_id=%s",
+        "Bridge sync starting: trigger=%s limit=%s changed_since=%s resource_id=%s "
+        "resume_from_last_success=%s",
         trigger,
         limit,
         changed_since,
         resource_id,
+        resume_from_last_success,
     )
     try:
         result = await sync_bridge(
@@ -83,6 +134,8 @@ async def _bridge_sync_all_async(
             limit=limit,
             changed_since=changed_since,
             resource_id=resource_id,
+            source_high_watermark=source_high_watermark,
+            repo=repo,
         )
     except Exception as exc:
         run_id = getattr(exc, "bridge_sync_run_id", None)

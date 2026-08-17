@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from sqlalchemy import delete, func, or_, select, text, update
@@ -137,6 +137,42 @@ class BridgeSyncRepository:
             select(bridge_sync_runs).where(bridge_sync_runs.c.bridge_id == bridge_id)
         )
         return dict(row) if row else None
+
+    async def latest_successful_crawl_source_watermark(
+        self,
+        recent_limit: int = 1000,
+    ) -> Optional[datetime]:
+        """Return the newest source timestamp observed by a successful crawl."""
+        runs = await self.list_sync_runs(
+            bridge_status="success",
+            limit=recent_limit,
+            offset=0,
+        )
+        latest: Optional[datetime] = None
+        for run in runs:
+            stats = run.get("bridge_stats_json") or {}
+            if not isinstance(stats, dict):
+                stats = {}
+            if stats.get("scope") in {"single", "batched_full"}:
+                continue
+            if stats.get("resource_id"):
+                continue
+            watermark = stats.get("source_high_watermark")
+            if not isinstance(watermark, str) or not watermark.strip():
+                continue
+            try:
+                if watermark.endswith("Z"):
+                    parsed = datetime.fromisoformat(watermark[:-1] + "+00:00")
+                else:
+                    parsed = datetime.fromisoformat(watermark)
+            except ValueError:
+                continue
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            parsed = parsed.astimezone(timezone.utc)
+            if latest is None or parsed > latest:
+                latest = parsed
+        return latest
 
     async def list_resource_ids_for_batched_sync(
         self,

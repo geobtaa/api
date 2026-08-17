@@ -167,6 +167,8 @@ Useful bridge variables:
 | `BRIDGE_TRIGGER` | Defaults to `manual`. |
 | `BRIDGE_LIMIT` | Optional max records to sync. |
 | `BRIDGE_CHANGED_SINCE` | Optional incremental sync cutoff. |
+| `BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS` | Retry overlap before the latest successfully observed source watermark. Defaults to `300`. |
+| `BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS` | Bootstrap window when no successful full or delta crawl exists. Defaults to `24`. |
 | `RESOURCE_ID` / `BRIDGE_RESOURCE_ID` | Single-record sync scope. |
 | `BRIDGE_BATCH_TRIGGER` | Batched reconciliation trigger label. Defaults to `manual_batched`. |
 | `BRIDGE_BATCH_SIZE` | Batched reconciliation resources per Celery task. Defaults to `500`, capped at `1000`. |
@@ -180,6 +182,19 @@ Useful bridge variables:
 Remote bridge reconciliation, monitoring, retry tuning, and cache refresh
 procedures are restricted operations material. Keep public notes focused on
 local targets and code behavior.
+
+The scheduled Bridge crawl runs hourly and resumes from the highest
+`kithe_updated_at` source watermark observed by a successful full or delta
+crawl. An empty crawl retains its previous watermark, so a delayed materialized
+view refresh cannot move the API checkpoint past an unseen record. The retry
+overlap safely reprocesses a small interval; Bridge imports are idempotent. This
+relies on the upstream Bridge record timestamp advancing whenever an exported
+nested distribution, download, licensed access, data dictionary, or asset
+changes.
+
+The upstream watermark is not retroactive. Records with nested changes that
+predate its deployment need one full Bridge reconciliation after both sides of
+the contract are released; later nested changes flow through the hourly delta.
 
 Bridge resources that disappear from Kithe Bridge are deleted locally, not
 converted to suppressed or retired records. A full bridge sync can detect

@@ -16,6 +16,36 @@ from db.database import database
 logger = logging.getLogger(__name__)
 
 
+def _parse_utc_timestamp(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _utc_iso_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _advance_source_high_watermark(
+    current: Optional[datetime],
+    records: list[Dict[str, Any]],
+) -> Optional[datetime]:
+    for record in records:
+        updated_at = _parse_utc_timestamp(record.get("kithe_updated_at"))
+        if updated_at is not None and (current is None or updated_at > current):
+            current = updated_at
+    return current
+
+
 def _merge_stats(total: Dict[str, Any], page_stats: Dict[str, Any]) -> None:
     for key in ("processed", "imported", "skipped", "errors", "deleted"):
         total[key] = int(total.get(key, 0)) + int(page_stats.get(key, 0) or 0)
@@ -48,6 +78,7 @@ async def sync_bridge(
     limit: Optional[int] = None,
     changed_since: Optional[str] = None,
     resource_id: Optional[str] = None,
+    source_high_watermark: Optional[str] = None,
     client: Optional[KitheBridgeClient] = None,
     importer: Optional[BridgeResourceImporter] = None,
     repo: Optional[BridgeSyncRepository] = None,
@@ -78,6 +109,12 @@ async def sync_bridge(
             raise ValueError(
                 f"changed_since must be an ISO-8601 datetime, got {changed_since!r}"
             ) from exc
+
+    source_high_watermark_dt = _parse_utc_timestamp(source_high_watermark)
+    if source_high_watermark and source_high_watermark_dt is None:
+        raise ValueError(
+            f"source_high_watermark must be an ISO-8601 datetime, got {source_high_watermark!r}"
+        )
 
     run_id = await repo.create_sync_run(bridge_trigger=trigger)
     run_started_at = datetime.utcnow()
@@ -110,6 +147,8 @@ async def sync_bridge(
         stats["changed_since"] = changed_since_norm
     if resource_id_norm:
         stats["resource_id"] = resource_id_norm
+    if source_high_watermark_dt is not None:
+        stats["source_high_watermark"] = _utc_iso_z(source_high_watermark_dt)
 
     try:
         if not changed_since_norm and not resource_id_norm:
@@ -133,6 +172,12 @@ async def sync_bridge(
             pages_processed = 1
             found_resource = bool(record)
             page_records = [record] if record else []
+            source_high_watermark_dt = _advance_source_high_watermark(
+                source_high_watermark_dt,
+                page_records,
+            )
+            if source_high_watermark_dt is not None:
+                stats["source_high_watermark"] = _utc_iso_z(source_high_watermark_dt)
             search_refresh_resource_ids.extend(resource_ids_for_bridge_records(page_records))
             cache_refresh_resource_ids.extend(
                 resource_ids_for_bridge_records(page_records, include_related=True)
@@ -168,6 +213,12 @@ async def sync_bridge(
                 pages_processed += 1
 
                 page_records = page.data
+                source_high_watermark_dt = _advance_source_high_watermark(
+                    source_high_watermark_dt,
+                    page_records,
+                )
+                if source_high_watermark_dt is not None:
+                    stats["source_high_watermark"] = _utc_iso_z(source_high_watermark_dt)
                 search_refresh_resource_ids.extend(resource_ids_for_bridge_records(page_records))
                 if changed_since_norm:
                     cache_refresh_resource_ids.extend(
