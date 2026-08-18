@@ -108,6 +108,31 @@ async def test_disconnect_legacy_database_only_closes_pool_opened_by_primer():
 
 
 @pytest.mark.asyncio
+async def test_fetch_relationships_map_uses_public_relationship_service():
+    relationships = {
+        "parent": {
+            "dct:hasPart": [
+                {
+                    "resource_id": "published-child",
+                    "resource_title": "Published child",
+                    "link": "/resources/published-child",
+                }
+            ]
+        }
+    }
+
+    with patch.object(
+        prime_resource_cache.RelationshipService,
+        "get_resource_relationships_map",
+        AsyncMock(return_value=relationships),
+    ) as mock_relationships:
+        result = await prime_resource_cache._fetch_relationships_map(["parent", "parent", ""])
+
+    assert result == relationships
+    mock_relationships.assert_awaited_once_with(["parent"])
+
+
+@pytest.mark.asyncio
 async def test_prime_resource_representation_builds_core_resource_and_stores_cache():
     resource_dict = {"id": "resource-1", "dc_title_s": "Resource 1"}
     processed = {"id": "resource-1", "type": "resources"}
