@@ -14,7 +14,9 @@ from app.services.cache_service import CACHE_ROOT, CacheService, _redis_call
 from app.services.distribution_repository import async_session_factory
 from db.models import generated_resource_representations
 
-RESOURCE_REPRESENTATION_CACHE_VERSION = os.getenv("RESOURCE_REPRESENTATION_CACHE_VERSION", "v1")
+# Bump when representation semantics change so durable rows created by older
+# builders cannot be returned after a deploy.
+RESOURCE_REPRESENTATION_CACHE_VERSION = os.getenv("RESOURCE_REPRESENTATION_CACHE_VERSION", "v2")
 RESOURCE_REPRESENTATION_CACHE_TTL = int(
     os.getenv("RESOURCE_REPRESENTATION_CACHE_TTL", os.getenv("RESOURCE_CACHE_TTL", "86400"))
 )

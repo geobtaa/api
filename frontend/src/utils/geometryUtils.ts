@@ -502,7 +502,7 @@ export type Wgs84Extent = [number, number, number, number];
 
 /**
  * Extract WGS84 extent [minLon, minLat, maxLon, maxLat] from viewer geometry.
- * Handles GeoJSON Feature (with geometry), raw Polygon, and FeatureCollection.
+ * Handles GeoJSON Feature, raw geometry, and FeatureCollection values.
  * Returns null if geometry is invalid or cannot be parsed.
  */
 export function getWgs84ExtentFromViewerGeometry(
@@ -510,23 +510,28 @@ export function getWgs84ExtentFromViewerGeometry(
 ): Wgs84Extent | null {
   if (!geometryForViewer || typeof geometryForViewer !== 'string') return null;
   try {
-    const geom = JSON.parse(geometryForViewer) as Record<string, unknown>;
-    const poly =
-      (geom.geometry as { coordinates?: unknown[] } | undefined) ??
-      (geom.type === 'Polygon' ? (geom as { coordinates?: unknown[] }) : null);
-    const coords = poly?.coordinates?.[0];
-    if (!coords || !Array.isArray(coords)) return null;
-    const lons = coords.map((c: unknown) =>
-      Array.isArray(c) ? (c as number[])[0] : NaN
-    );
-    const lats = coords.map((c: unknown) =>
-      Array.isArray(c) ? (c as number[])[1] : NaN
-    );
+    const parsed = JSON.parse(geometryForViewer) as {
+      type?: string;
+      features?: unknown[];
+    };
+    const candidates =
+      parsed.type === 'FeatureCollection' && Array.isArray(parsed.features)
+        ? parsed.features
+        : [parsed];
+    const pairs = candidates.flatMap((candidate) => {
+      const geometry = geometryToGeoJSONForDisplay(candidate as object);
+      return geometry ? collectLonLatPairs(geometry) : [];
+    });
+    if (pairs.length === 0) return null;
+
+    const lons = pairs.map(([lon]) => lon);
+    const lats = pairs.map(([, lat]) => lat);
     const minX = Math.min(...lons);
     const minY = Math.min(...lats);
     const maxX = Math.max(...lons);
     const maxY = Math.max(...lats);
     if (!Number.isFinite(minX + minY + maxX + maxY)) return null;
+    if (minX < -180 || maxX > 180 || minY < -90 || maxY > 90) return null;
     return [minX, minY, maxX, maxY];
   } catch {
     return null;

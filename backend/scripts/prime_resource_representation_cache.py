@@ -45,6 +45,7 @@ from app.services.distribution_repository import (  # noqa: E402
     build_distribution_context,
     fetch_distribution_context_map,
 )
+from app.services.relationship_service import RelationshipService  # noqa: E402
 from app.services.resource_representation_cache import (  # noqa: E402
     get_cached_resource_representations,
     store_resource_representation,
@@ -54,7 +55,6 @@ from db.database import database  # noqa: E402
 from db.models import (  # noqa: E402
     resource_allmaps,
     resource_assets,
-    resource_relationships,
     resources,
 )
 
@@ -183,42 +183,10 @@ async def _fetch_relationships_map(
         return {}
 
     try:
-        async with async_session_factory() as session:
-            stmt = (
-                select(
-                    resource_relationships.c.subject_id,
-                    resource_relationships.c.predicate,
-                    resource_relationships.c.object_id,
-                    resources.c.dct_title_s,
-                )
-                .select_from(
-                    resource_relationships.join(
-                        resources,
-                        resources.c.id == resource_relationships.c.object_id,
-                    )
-                )
-                .where(resource_relationships.c.subject_id.in_(ids))
-                .order_by(resource_relationships.c.subject_id, resources.c.dct_title_s.asc())
-            )
-            result = await session.execute(stmt)
-            rows = result.fetchall()
+        return await RelationshipService.get_resource_relationships_map(ids)
     except Exception as exc:
         logger.warning("Failed to batch-fetch resource relationships: %s", exc)
         return {}
-
-    relationships_by_id: dict[str, dict[str, list[dict[str, str]]]] = {}
-    for row in rows:
-        mapping = row._mapping
-        resource_id = str(mapping["subject_id"])
-        predicate = str(mapping["predicate"])
-        relationships_by_id.setdefault(resource_id, {}).setdefault(predicate, []).append(
-            {
-                "resource_id": mapping["object_id"],
-                "resource_title": mapping["dct_title_s"],
-                "link": f"/resources/{mapping['object_id']}",
-            }
-        )
-    return relationships_by_id
 
 
 async def _fetch_bridge_asset_download_rows_map(

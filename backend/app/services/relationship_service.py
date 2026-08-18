@@ -15,12 +15,23 @@ RELATIONSHIP_BROWSE_FACET_FIELDS = {
     "hasPart": "dct_isPartOf_sm",
     "pcdm:hasMember": "pcdm_memberOf_sm",
     "hasMember": "pcdm_memberOf_sm",
+    "dct:isSourceOf": "dct_source_sm",
+    "isSourceOf": "dct_source_sm",
+}
+RELATIONSHIP_PREDICATE_ALIASES = {
+    "dct:sourceOf": "dct:isSourceOf",
+    "sourceOf": "isSourceOf",
 }
 PUBLICATION_STATE_PUBLISHED = "published"
 
 
+def _canonical_relationship_predicate(predicate: Any) -> str:
+    value = str(predicate)
+    return RELATIONSHIP_PREDICATE_ALIASES.get(value, value)
+
+
 def _relationship_browse_link(resource_id: str, predicate: str) -> str | None:
-    facet_field = RELATIONSHIP_BROWSE_FACET_FIELDS.get(predicate)
+    facet_field = RELATIONSHIP_BROWSE_FACET_FIELDS.get(_canonical_relationship_predicate(predicate))
     if not facet_field:
         return None
     return f"/search?include_filters[{facet_field}][]={quote(str(resource_id), safe='')}"
@@ -153,13 +164,21 @@ class RelationshipService:
         )
 
         relationships_by_id: Dict[str, Dict] = {}
+        seen_relationships: set[tuple[str, str, str]] = set()
 
         for rel in db_relationships:
             subject_id = str(rel["subject_id"])
+            predicate = _canonical_relationship_predicate(rel["predicate"])
+            object_id = str(rel["object_id"])
+            relationship_key = (subject_id, predicate, object_id)
+            if relationship_key in seen_relationships:
+                continue
+            seen_relationships.add(relationship_key)
+
             relationships = relationships_by_id.setdefault(subject_id, {})
-            if rel["predicate"] not in relationships:
-                relationships[rel["predicate"]] = []
-            relationships[rel["predicate"]].append(
+            if predicate not in relationships:
+                relationships[predicate] = []
+            relationships[predicate].append(
                 {
                     "resource_id": rel["object_id"],
                     "resource_title": rel["dct_title_s"],
@@ -169,7 +188,7 @@ class RelationshipService:
             logger.debug(
                 "Added relationship for %s: %s -> %s",
                 subject_id,
-                rel["predicate"],
+                predicate,
                 rel["object_id"],
             )
 
@@ -188,10 +207,12 @@ class RelationshipService:
         )
 
         summaries_by_id: Dict[str, Dict[str, Any]] = {}
+        seen_relationships: set[tuple[str, str, str]] = set()
 
         for rel in db_relationships:
             subject_id = str(rel["subject_id"])
-            predicate = str(rel["predicate"])
+            predicate = _canonical_relationship_predicate(rel["predicate"])
+            object_id = str(rel["object_id"])
             summary = summaries_by_id.setdefault(
                 subject_id,
                 {
@@ -201,16 +222,21 @@ class RelationshipService:
                 },
             )
             relationships = summary["relationships"].setdefault(predicate, [])
-            relationships.append(
-                {
-                    "resource_id": rel["object_id"],
-                    "resource_title": rel["dct_title_s"],
-                    "link": f"/resources/{rel['object_id']}",
-                }
-            )
+            relationship_key = (subject_id, predicate, object_id)
+            if relationship_key not in seen_relationships:
+                seen_relationships.add(relationship_key)
+                relationships.append(
+                    {
+                        "resource_id": rel["object_id"],
+                        "resource_title": rel["dct_title_s"],
+                        "link": f"/resources/{rel['object_id']}",
+                    }
+                )
 
             total_count = _record_get(rel, "total_count", len(relationships))
-            summary["counts"][predicate] = int(total_count)
+            summary["counts"][predicate] = max(
+                summary["counts"].get(predicate, 0), int(total_count)
+            )
 
             browse_link = _relationship_browse_link(subject_id, predicate)
             if browse_link:

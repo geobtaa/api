@@ -201,6 +201,37 @@ const pmtilesDataWithGeometry = {
   },
 } as Parameters<typeof ResourceViewer>[0]['data'];
 
+const pmtilesDataWithMultiPolygonGeometry = {
+  attributes: { dct_references_s: {} },
+  meta: {
+    ui: {
+      viewer: {
+        protocol: 'pmtiles',
+        endpoint: 'https://example.com/champaign.pmtiles',
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: [
+            [
+              [
+                [-88.3336, 40.0619],
+                [-88.2801, 40.1488],
+                [-88.3336, 40.0619],
+              ],
+            ],
+            [
+              [
+                [-88.277, 40.1212],
+                [-88.2226, 40.1709],
+                [-88.277, 40.1212],
+              ],
+            ],
+          ],
+        },
+      },
+    },
+  },
+} as Parameters<typeof ResourceViewer>[0]['data'];
+
 const wmsDataWithGeometry = {
   attributes: {
     dct_references_s: {},
@@ -377,6 +408,30 @@ describe('ResourceViewer', () => {
         url: 'https://example.com/test.pmtiles',
       });
       expect(mocks.vectorTileLayer).toHaveBeenCalled();
+      expect(mocks.fitInternal).toHaveBeenCalled();
+    });
+
+    it('boots PMTiles when viewer geometry is a MultiPolygon', async () => {
+      render(
+        <ResourceViewer
+          data={pmtilesDataWithMultiPolygonGeometry}
+          pageValue="SHOW"
+        />
+      );
+
+      await act(async () => {
+        await vi.runAllTimersAsync();
+      });
+
+      expect(mocks.pmtilesVectorSource).toHaveBeenCalledWith({
+        url: 'https://example.com/champaign.pmtiles',
+      });
+      expect(mocks.olMap).toHaveBeenCalled();
+      expect(mocks.transformExtent).toHaveBeenCalledWith(
+        [-88.3336, 40.0619, -88.2226, 40.1709],
+        'EPSG:4326',
+        'EPSG:3857'
+      );
       expect(mocks.fitInternal).toHaveBeenCalled();
     });
   });

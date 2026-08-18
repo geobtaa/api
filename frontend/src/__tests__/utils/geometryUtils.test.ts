@@ -778,6 +778,58 @@ describe('geometryUtils', () => {
       ]);
     });
 
+    it('extracts extent across every polygon in a GeoJSON MultiPolygon Feature', () => {
+      const geometryForViewer = JSON.stringify({
+        type: 'Feature',
+        geometry: {
+          type: 'MultiPolygon',
+          coordinates: [
+            [
+              [
+                [-88.3336, 40.0619],
+                [-88.2801, 40.1488],
+                [-88.3336, 40.0619],
+              ],
+            ],
+            [
+              [
+                [-88.277, 40.1212],
+                [-88.2226, 40.1709],
+                [-88.277, 40.1212],
+              ],
+            ],
+          ],
+        },
+        properties: {},
+      });
+
+      expect(getWgs84ExtentFromViewerGeometry(geometryForViewer)).toEqual([
+        -88.3336, 40.0619, -88.2226, 40.1709,
+      ]);
+    });
+
+    it('extracts a combined extent from a GeoJSON FeatureCollection', () => {
+      const geometryForViewer = JSON.stringify({
+        type: 'FeatureCollection',
+        features: [
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [-88.33, 40.06] },
+            properties: {},
+          },
+          {
+            type: 'Feature',
+            geometry: { type: 'Point', coordinates: [-88.22, 40.17] },
+            properties: {},
+          },
+        ],
+      });
+
+      expect(getWgs84ExtentFromViewerGeometry(geometryForViewer)).toEqual([
+        -88.33, 40.06, -88.22, 40.17,
+      ]);
+    });
+
     it('returns null for null, undefined, or empty string', () => {
       expect(getWgs84ExtentFromViewerGeometry(null)).toBeNull();
       expect(getWgs84ExtentFromViewerGeometry(undefined)).toBeNull();

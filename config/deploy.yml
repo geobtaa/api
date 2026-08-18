@@ -102,7 +102,7 @@ env:
     CACHE_LOG_EVENTS:      "false"
     CACHE_VERSION:         "2026-01-14-C"
     # Optional: bump this to force a new cache namespace without flushing Redis
-    CACHE_APP_VERSION:     ""
+    CACHE_APP_VERSION:     "2026-08-18-A"
     API_RESPONSE_DURABLE_CACHE_STORE: database
     VISUAL_ASSET_CACHE_TTL_SECONDS: "604800"
     REDIS_TIMEOUT_SECONDS: "0.5"
