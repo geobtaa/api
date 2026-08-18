@@ -151,6 +151,72 @@ class TestRelationshipService:
         }
 
     @pytest.mark.asyncio
+    async def test_source_of_aliases_are_canonicalized_and_deduplicated(self, monkeypatch):
+        async def fake_fetch_relationship_rows(resource_ids, *, limit_per_predicate=None):
+            assert list(resource_ids) == ["parent-record"]
+            assert limit_per_predicate is None
+            return [
+                {
+                    "subject_id": "parent-record",
+                    "predicate": predicate,
+                    "object_id": "child-record",
+                    "dct_title_s": "Child record",
+                }
+                for predicate in ("dct:isSourceOf", "dct:sourceOf")
+            ]
+
+        monkeypatch.setattr(
+            RelationshipService,
+            "_fetch_relationship_rows",
+            staticmethod(fake_fetch_relationship_rows),
+        )
+
+        relationships = await RelationshipService.get_resource_relationships("parent-record")
+
+        assert relationships == {
+            "dct:isSourceOf": [
+                {
+                    "resource_id": "child-record",
+                    "resource_title": "Child record",
+                    "link": "/resources/child-record",
+                }
+            ]
+        }
+
+    @pytest.mark.asyncio
+    async def test_source_of_summary_uses_derived_records_browse_filter(self, monkeypatch):
+        async def fake_fetch_relationship_rows(resource_ids, *, limit_per_predicate=None):
+            assert list(resource_ids) == ["parent-record"]
+            assert limit_per_predicate == 5
+            return [
+                {
+                    "subject_id": "parent-record",
+                    "predicate": predicate,
+                    "object_id": "child-record",
+                    "dct_title_s": "Child record",
+                    "total_count": 20,
+                }
+                for predicate in ("dct:isSourceOf", "dct:sourceOf")
+            ]
+
+        monkeypatch.setattr(
+            RelationshipService,
+            "_fetch_relationship_rows",
+            staticmethod(fake_fetch_relationship_rows),
+        )
+
+        summaries = await RelationshipService.get_resource_relationship_summaries_map(
+            ["parent-record"]
+        )
+
+        summary = summaries["parent-record"]
+        assert len(summary["relationships"]["dct:isSourceOf"]) == 1
+        assert summary["counts"] == {"dct:isSourceOf": 20}
+        assert summary["browse_links"] == {
+            "dct:isSourceOf": ("/search?include_filters[dct_source_sm][]=parent-record")
+        }
+
+    @pytest.mark.asyncio
     async def test_get_resource_relationships_with_real_database(self):
         """Test getting resource relationships using real database connection."""
         # Use real database connection - will handle connection errors gracefully

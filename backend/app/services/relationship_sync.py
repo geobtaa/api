@@ -15,11 +15,16 @@ RELATIONSHIP_FAMILIES: Tuple[Tuple[str, str, str], ...] = (
     ("dct_relation_sm", "dct:relation", "dct:relation"),
     ("dct_isPartOf_sm", "dct:isPartOf", "dct:hasPart"),
     ("pcdm_memberOf_sm", "pcdm:memberOf", "pcdm:hasMember"),
-    ("dct_source_sm", "dct:source", "dct:sourceOf"),
+    ("dct_source_sm", "dct:source", "dct:isSourceOf"),
     ("dct_isVersionOf_sm", "dct:isVersionOf", "dct:hasVersion"),
     ("dct_replaces_sm", "dct:replaces", "dct:isReplacedBy"),
     ("dct_isReplacedBy_sm", "dct:isReplacedBy", "dct:replaces"),
 )
+
+# Incremental relationship sync briefly used dct:sourceOf for the inverse of
+# dct:source. Keep it in the cleanup set so a subsequent sync removes those
+# legacy rows while emitting only the canonical dct:isSourceOf predicate.
+LEGACY_RELATIONSHIP_PREDICATES: Tuple[str, ...] = ("dct:sourceOf",)
 
 ALL_RELATIONSHIP_PREDICATES: Tuple[str, ...] = tuple(
     sorted(
@@ -28,6 +33,7 @@ ALL_RELATIONSHIP_PREDICATES: Tuple[str, ...] = tuple(
             for _, predicate, inverse in RELATIONSHIP_FAMILIES
             for predicate in (predicate, inverse)
         }
+        | set(LEGACY_RELATIONSHIP_PREDICATES)
     )
 )
 

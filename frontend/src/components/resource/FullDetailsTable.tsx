@@ -47,10 +47,12 @@ const relationshipLabels: { [key: string]: string } = {
   'dct:replaces': 'Replaces...',
   isReplacedBy: 'Is replaced by...',
   'dct:isReplacedBy': 'Is replaced by...',
-  isSourceOf: 'Source records...',
-  'dct:isSourceOf': 'Source records...',
-  source: 'Derived records...',
-  'dct:source': 'Derived records...',
+  isSourceOf: 'Derived records...',
+  'dct:isSourceOf': 'Derived records...',
+  sourceOf: 'Derived records...',
+  'dct:sourceOf': 'Derived records...',
+  source: 'Source record...',
+  'dct:source': 'Source record...',
   isVersionOf: 'Is version of...',
   'dct:isVersionOf': 'Is version of...',
   hasVersion: 'Has version...',
@@ -468,6 +470,10 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
           hasPart: 'dct_isPartOf_sm',
           'pcdm:hasMember': 'pcdm_memberOf_sm',
           hasMember: 'pcdm_memberOf_sm',
+          'dct:isSourceOf': 'dct_source_sm',
+          isSourceOf: 'dct_source_sm',
+          'dct:sourceOf': 'dct_source_sm',
+          sourceOf: 'dct_source_sm',
         };
         const relationshipFacetField =
           relationshipToFacetField[relationshipType] ??
