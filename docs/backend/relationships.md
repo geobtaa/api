@@ -13,6 +13,10 @@ The field `dct_isPartOf_sm` is defined in the index mapping (text + keyword subf
   `resource_relationships` automatically for imported records and unchanged
   resources that point at them. This includes inverse replacement links such as
   `dct:isReplacedBy` from a new record's `dct_replaces_sm` value.
+- **Source direction**: A child stores its parent ID in `dct_source_sm`. The
+  relationship table exposes that as `dct:source` on the child and the inverse
+  `dct:isSourceOf` on the parent. Resource pages label these "Source record"
+  and "Derived records," respectively.
 - **Make task** (from project root):
   ```bash
   make populate-relationships
