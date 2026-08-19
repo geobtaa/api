@@ -278,23 +278,17 @@ export function SearchResults({
                   ) : null}
                 </div>
 
-                {/* Subject and Theme tags */}
+                {/* Resource Type and Theme tags */}
                 {!isCompact && (
                   <>
                     <div className="hidden md:flex flex-col gap-4 flex-1">
                       {(() => {
-                        // Get subjects from dct_subjects_sm or dct_subject_sm
-                        const subjects =
-                          (ogm?.dct_subjects_sm &&
-                          Array.isArray(ogm.dct_subjects_sm) &&
-                          ogm.dct_subjects_sm.length > 0
-                            ? ogm.dct_subjects_sm
-                            : null) ||
-                          (ogm?.dct_subject_sm &&
-                          Array.isArray(ogm.dct_subject_sm) &&
-                          ogm.dct_subject_sm.length > 0
-                            ? ogm.dct_subject_sm
-                            : null);
+                        const resourceTypes =
+                          ogm?.gbl_resourceType_sm &&
+                          Array.isArray(ogm.gbl_resourceType_sm) &&
+                          ogm.gbl_resourceType_sm.length > 0
+                            ? ogm.gbl_resourceType_sm
+                            : null;
 
                         // Get themes from dcat_theme_sm
                         const themes =
@@ -317,25 +311,20 @@ export function SearchResults({
                           return `/search?${params.toString()}`;
                         };
 
-                        // Determine which field name to use for subjects
-                        const subjectField = ogm?.dct_subjects_sm
-                          ? 'dct_subjects_sm'
-                          : 'dct_subject_sm';
-
-                        return (subjects && subjects.length > 0) ||
+                        return (resourceTypes && resourceTypes.length > 0) ||
                           (themes && themes.length > 0) ? (
                           <div className="flex flex-wrap gap-2">
-                            {subjects?.map((subject, index) => {
-                              const subjectValue =
-                                typeof subject === 'string'
-                                  ? subject
-                                  : String(subject);
+                            {resourceTypes?.map((resourceType, index) => {
+                              const resourceTypeValue =
+                                typeof resourceType === 'string'
+                                  ? resourceType
+                                  : String(resourceType);
                               return (
                                 <Link
-                                  key={`subject-${index}`}
+                                  key={`resource-type-${index}`}
                                   to={createTagSearchUrl(
-                                    subjectField,
-                                    subjectValue
+                                    'gbl_resourceType_sm',
+                                    resourceTypeValue
                                   )}
                                   className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 transition-colors"
                                   onClick={(e) => {
@@ -343,7 +332,7 @@ export function SearchResults({
                                     e.stopPropagation();
                                   }}
                                 >
-                                  {subjectValue}
+                                  {resourceTypeValue}
                                 </Link>
                               );
                             })}
