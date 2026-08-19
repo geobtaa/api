@@ -749,6 +749,55 @@ describe('SearchResults Component', () => {
         screen.getByText('Tufts University, Cambridge Grid')
       ).toBeInTheDocument();
     });
+
+    it('displays resource types and themes as filter chips instead of subjects', () => {
+      const resultWithChips: GeoDocument = {
+        ...mockFixtureData[0],
+        attributes: {
+          ogm: {
+            ...mockFixtureData[0].attributes.ogm,
+            gbl_resourceType_sm: ['Topographic maps', 'Digital maps'],
+            dcat_theme_sm: ['Elevation'],
+            dct_subject_sm: ['A long, unnormalized subject heading'],
+            dct_subjects_sm: ['Another subject heading'],
+          },
+        },
+      };
+
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={[resultWithChips]}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      expect(
+        screen.getByRole('link', { name: 'Topographic maps' })
+      ).toHaveAttribute(
+        'href',
+        '/search?include_filters%5Bgbl_resourceType_sm%5D%5B%5D=Topographic+maps'
+      );
+      expect(
+        screen.getByRole('link', { name: 'Digital maps' })
+      ).toHaveAttribute(
+        'href',
+        '/search?include_filters%5Bgbl_resourceType_sm%5D%5B%5D=Digital+maps'
+      );
+      expect(screen.getByRole('link', { name: 'Elevation' })).toHaveAttribute(
+        'href',
+        '/search?include_filters%5Bdcat_theme_sm%5D%5B%5D=Elevation'
+      );
+      expect(
+        screen.queryByText('A long, unnormalized subject heading')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Another subject heading')
+      ).not.toBeInTheDocument();
+    });
   });
 
   describe('Links and Navigation', () => {
