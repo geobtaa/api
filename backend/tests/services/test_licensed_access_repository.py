@@ -9,6 +9,7 @@ def test_institution_name_for_legacy_numeric_code():
     assert institution_name_for_code("01") == "Indiana University"
     assert institution_name_for_code("11") == "The Ohio State University"
     assert institution_name_for_code("14") == "Rutgers University-New Brunswick"
+    assert institution_name_for_code("15") == "Northwestern"
 
 
 def test_institution_name_for_short_code():
