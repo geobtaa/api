@@ -93,7 +93,7 @@ docker compose down
 
 Local URLs:
 
-- Frontend: `http://localhost:3000`
+- Frontend: `http://localhost:5173`
 - API docs: `http://localhost:8000/api/docs`
 - OpenAPI JSON: `http://localhost:8000/api/openapi.json`
 - Flower: `http://localhost:5555`

@@ -97,7 +97,7 @@ traffic can still use the server-side API key without receiving
 `turnstile_required`.
 
 The frontend stores the returned session token in `sessionStorage` so local
-cross-origin dev traffic from `localhost:3000` to `localhost:8000` can carry
+cross-origin Docker traffic from `localhost:5173` to `localhost:8000` can carry
 `X-Turnstile-Session` without relying on cross-origin cookies. Production
 same-origin traffic also receives an HttpOnly cookie.
 
@@ -105,7 +105,7 @@ To review the branded gate shell without Cloudflare keys or backend Turnstile
 verification, run the Vite dev server and open:
 
 ```text
-http://localhost:3000/turnstile-preview
+http://localhost:5173/turnstile-preview
 ```
 
 This route only works in Vite dev mode. It renders the same BTAA Geoportal gate
