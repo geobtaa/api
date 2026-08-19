@@ -61,7 +61,7 @@ workflows, and future agent-facing discovery tools.
 ## Local Proxy
 
 The local browser-facing proxy is provided by the React Router frontend dev
-server at `http://localhost:3000`. It is not a separate service: start the
+server at `http://localhost:5173`. It is not a separate service: start the
 normal Docker stack and open the frontend URL.
 
 ```bash
@@ -74,18 +74,18 @@ but the frontend uses same-origin proxy routes for request paths that should run
 through server-side loaders, carry the server-side API key, or avoid browser
 CORS/rate-limit surprises. Common local proxy routes include:
 
-- `http://localhost:3000/search/results` -> `/api/v1/search`
-- `http://localhost:3000/search/facets/:facetName` ->
+- `http://localhost:5173/search/results` -> `/api/v1/search`
+- `http://localhost:5173/search/facets/:facetName` ->
   `/api/v1/search/facets/:facetName`
-- `http://localhost:3000/map/h3` -> `/api/v1/map/h3`
-- `http://localhost:3000/home/blog-posts` -> `/api/v1/home/blog-posts`
-- `http://localhost:3000/places/suggest` -> `/api/v1/places/suggest`
-- `http://localhost:3000/resources/:id/thumbnail` ->
+- `http://localhost:5173/map/h3` -> `/api/v1/map/h3`
+- `http://localhost:5173/home/blog-posts` -> `/api/v1/home/blog-posts`
+- `http://localhost:5173/places/suggest` -> `/api/v1/places/suggest`
+- `http://localhost:5173/resources/:id/thumbnail` ->
   `/api/v1/resources/:id/thumbnail`
-- `http://localhost:3000/resources/:id/static-map` ->
+- `http://localhost:5173/resources/:id/static-map` ->
   `/api/v1/resources/:id/static-map`
-- `http://localhost:3000/static-maps/...` and
-  `http://localhost:3000/thumbnails/...` for generated map and thumbnail assets
+- `http://localhost:5173/static-maps/...` and
+  `http://localhost:5173/thumbnails/...` for generated map and thumbnail assets
 
 There are two API base URLs to keep straight in local development:
 

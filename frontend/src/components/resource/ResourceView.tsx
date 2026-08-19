@@ -38,7 +38,7 @@ interface ItemData {
 
 // New component for index map
 function IndexMap() {
-  return <div className="viewer-information"></div>;
+  return <div className="viewer-information" aria-live="polite"></div>;
 }
 
 // New component for the attribute table

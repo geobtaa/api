@@ -24,6 +24,7 @@ INSTITUTION_CODE_LABELS: dict[str, str] = {
     "12": "University of Chicago",
     "13": "University of Nebraska-Lincoln",
     "14": "Rutgers University-New Brunswick",
+    "15": "Northwestern",
     "IU": "Indiana University",
     "INDIANA": "Indiana University",
     "UIUC": "University of Illinois Urbana-Champaign",
