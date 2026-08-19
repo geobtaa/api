@@ -264,6 +264,42 @@ describe('FullDetailsTable', () => {
     expect(screen.getByText('Restricted')).toBeInTheDocument();
   });
 
+  it('preserves a year-only Date Issued value', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_issued_s: '1950',
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getByText('Date Issued')).toBeInTheDocument();
+    expect(screen.getByText('1950')).toBeInTheDocument();
+    expect(screen.queryByText('January 1, 1950')).not.toBeInTheDocument();
+  });
+
+  it('formats a full Date Issued value with month and day', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_issued_s: '2019-01-15',
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getByText('January 15, 2019')).toBeInTheDocument();
+  });
+
   it('metadata facet labels use sequential heading level (h3 under h2)', () => {
     const data = {
       ...baseData,

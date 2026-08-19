@@ -360,7 +360,14 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         // IMPORTANT: make this deterministic across SSR/client.
         // Manually parse YYYY-MM-DD to avoid `new Date(string)` ambiguity and timezone offsets.
         // We strictly interpret the date string as UTC YYYY-MM-DD.
-        const valStr = value.toString();
+        const valStr = value.toString().trim();
+
+        // Date Issued often has year-level precision. Preserve that precision instead
+        // of allowing `new Date("2024")` to invent January 1 as a month and day.
+        if (key === 'dct_issued_s' && /^\d{4}$/.test(valStr)) {
+          return valStr;
+        }
+
         // Match YYYY-MM-DD pattern (stripping time if present)
         const match = valStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
