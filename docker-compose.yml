@@ -104,7 +104,7 @@ services:
       - ./frontend/eslint.config.js:/app/eslint.config.js
       - ./frontend/vitest.config.ts:/app/vitest.config.ts
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-5173}:3000"
     depends_on:
       api:
         condition: service_started

@@ -1,8 +1,8 @@
 # Frontend Documentation
 
 The frontend is the React/TypeScript public Geoportal interface for this
-repository. It runs locally as the `frontend` Docker Compose service on port
-3000, or directly with npm from `frontend/`.
+repository. It runs locally as the `frontend` Docker Compose service on host
+port 5173, or directly with npm on port 3000 from `frontend/`.
 
 ## Available Documentation
 
