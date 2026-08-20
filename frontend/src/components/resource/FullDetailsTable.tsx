@@ -47,10 +47,12 @@ const relationshipLabels: { [key: string]: string } = {
   'dct:replaces': 'Replaces...',
   isReplacedBy: 'Is replaced by...',
   'dct:isReplacedBy': 'Is replaced by...',
-  isSourceOf: 'Source records...',
-  'dct:isSourceOf': 'Source records...',
-  source: 'Derived records...',
-  'dct:source': 'Derived records...',
+  isSourceOf: 'Derived records...',
+  'dct:isSourceOf': 'Derived records...',
+  sourceOf: 'Derived records...',
+  'dct:sourceOf': 'Derived records...',
+  source: 'Source record...',
+  'dct:source': 'Source record...',
   isVersionOf: 'Is version of...',
   'dct:isVersionOf': 'Is version of...',
   hasVersion: 'Has version...',
@@ -358,7 +360,14 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
         // IMPORTANT: make this deterministic across SSR/client.
         // Manually parse YYYY-MM-DD to avoid `new Date(string)` ambiguity and timezone offsets.
         // We strictly interpret the date string as UTC YYYY-MM-DD.
-        const valStr = value.toString();
+        const valStr = value.toString().trim();
+
+        // Date Issued often has year-level precision. Preserve that precision instead
+        // of allowing `new Date("2024")` to invent January 1 as a month and day.
+        if (key === 'dct_issued_s' && /^\d{4}$/.test(valStr)) {
+          return valStr;
+        }
+
         // Match YYYY-MM-DD pattern (stripping time if present)
         const match = valStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
 
@@ -468,6 +477,10 @@ export function FullDetailsTable({ data }: FullDetailsTableProps) {
           hasPart: 'dct_isPartOf_sm',
           'pcdm:hasMember': 'pcdm_memberOf_sm',
           hasMember: 'pcdm_memberOf_sm',
+          'dct:isSourceOf': 'dct_source_sm',
+          isSourceOf: 'dct_source_sm',
+          'dct:sourceOf': 'dct_source_sm',
+          sourceOf: 'dct_source_sm',
         };
         const relationshipFacetField =
           relationshipToFacetField[relationshipType] ??

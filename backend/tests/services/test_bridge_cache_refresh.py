@@ -123,6 +123,73 @@ async def test_refresh_cache_for_changed_resources_invalidates_every_changed_id(
 
 
 @pytest.mark.asyncio
+async def test_lightweight_refresh_invalidates_without_rewarming_or_generating(monkeypatch):
+    fake_cache = FakeCacheService()
+    monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
+
+    with (
+        patch.object(cache_refresh, "CacheService", return_value=fake_cache),
+        patch.object(
+            cache_refresh,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True, "redis_deleted": 1}),
+        ) as mock_delete_representations,
+        patch.object(
+            cache_refresh,
+            "_warm_generated_assets_for_changed_resources",
+            new=AsyncMock(),
+        ) as mock_warm_assets,
+    ):
+        stats = await cache_refresh.refresh_cache_for_changed_resources(
+            ["resource-1"],
+            rewarm=False,
+            warm_generated_assets=False,
+        )
+
+    assert stats["resource_ids"] == 1
+    assert stats["rewarm_enabled"] is False
+    assert stats["generated_asset_refresh_enabled"] is False
+    assert stats["warm_urls"] == 0
+    assert stats["warmed"] == 0
+    assert fake_cache.cached_records_calls == []
+    assert fake_cache.invalidate_calls == [["resource:resource-1"]]
+    mock_delete_representations.assert_awaited_once()
+    mock_warm_assets.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_refresh_deletes_representations_when_endpoint_cache_is_disabled(monkeypatch):
+    fake_cache = FakeCacheService()
+    monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", False)
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
+
+    with (
+        patch.object(cache_refresh, "CacheService", return_value=fake_cache),
+        patch.object(
+            cache_refresh,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True, "redis_deleted": 0}),
+        ) as mock_delete_representations,
+    ):
+        stats = await cache_refresh.refresh_cache_for_changed_resources(
+            ["resource-1"],
+            rewarm=False,
+            warm_generated_assets=False,
+        )
+
+    assert stats["enabled"] is True
+    assert stats["endpoint_cache_enabled"] is False
+    assert stats["invalidated"] == 0
+    mock_delete_representations.assert_awaited_once_with(
+        ["resource-1"],
+        cache_service=fake_cache,
+    )
+    assert fake_cache.cached_records_calls == []
+    assert fake_cache.invalidate_calls == []
+
+
+@pytest.mark.asyncio
 async def test_warm_generated_assets_for_changed_resources_warms_all_generated_assets(
     monkeypatch,
 ):

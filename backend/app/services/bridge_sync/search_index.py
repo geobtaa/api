@@ -134,6 +134,7 @@ async def index_changed_resources(resource_ids: Iterable[str]) -> dict[str, Any]
     try:
         await es.indices.refresh(index=index_name)
     except Exception as exc:
+        errors += 1
         logger.warning("Failed refreshing Elasticsearch index after bridge delta: %s", exc)
 
     stats = {

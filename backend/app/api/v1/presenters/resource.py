@@ -486,8 +486,7 @@ class ResourcePresenter:
             if thumbnail_asset_url is RESOURCE_PRESENTATION_UNSET
             else thumbnail_asset_url
         )
-        current_thumbnail_url = ((resource.get("meta") or {}).get("ui") or {}).get("thumbnail_url")
-        if thumb_asset_url and not api_utils._is_immutable_thumbnail_url(current_thumbnail_url):
+        if thumb_asset_url:
             hot_thumbnail_url = api_utils._hot_thumbnail_url_for_resource(
                 resource_dict,
                 distribution_context=distribution_context,

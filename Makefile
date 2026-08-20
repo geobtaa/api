@@ -1692,7 +1692,7 @@ kamal-purge-home-blog-cache: ## Purge home_blog/home endpoint cache on Kamal
 		' "
 	@echo
 
-# Debug Kamal cron container (bridge sync at 2 AM, blog sync at 3 AM).
+# Debug Kamal cron container (hourly bridge sync, blog sync at 3 AM).
 # Uses --reuse to exec into the running cron container (default spawns a new one with no crontab).
 # Usage: make kamal-cron-debug [KAMAL_DEST=prd]
 kamal-cron-debug: ## Debug cron container: crontab, timezone, env
@@ -1714,7 +1714,7 @@ kamal-cron-debug: ## Debug cron container: crontab, timezone, env
 	@echo "--- 4. Script + cron bootstrap ---"
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc 'ls -la /app/scripts/trigger_bridge_sync_cron.py /app/scripts/cron_env.sh /tmp/cron-container-env.sh 2>/dev/null; env -i SHELL=/bin/bash BASH_ENV=/app/scripts/cron_env.sh /bin/bash -lc \"echo REDIS_HOST=\\\$$REDIS_HOST; if [ -n \\\\\"\\\$$DATABASE_URL\\\\\" ]; then echo DATABASE_URL_SET=yes; else echo DATABASE_URL_SET=no; fi; echo PYTHONPATH=\\\$$PYTHONPATH; echo BRIDGE_SYNC_LOCAL_TIMEZONE=\\\$$BRIDGE_SYNC_LOCAL_TIMEZONE\"'"
 
-# Manually run bridge sync trigger from cron container (same as 2 AM job).
+# Manually run bridge sync trigger from cron container (same as hourly job).
 # Usage: make kamal-cron-test-bridge [KAMAL_DEST=prd] [CHANGED_SINCE=2026-04-23T00:00:00Z]
 kamal-cron-test-bridge: ## Run bridge sync trigger script inside cron container (test cron job)
 	@echo "Running trigger_bridge_sync_cron.py inside Kamal cron container..."

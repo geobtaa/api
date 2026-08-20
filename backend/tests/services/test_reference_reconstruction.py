@@ -100,6 +100,28 @@ def test_build_effective_reference_payload_replaces_authoritative_uris():
     }
 
 
+def test_build_effective_reference_payload_infers_unkeyed_pmtiles_asset():
+    pmtiles_url = "https://example.org/asset/abc123/city.pmtiles?download=1"
+
+    payload = build_effective_reference_payload(
+        {},
+        assets=[
+            {
+                "title": "city.pmtiles",
+                "dct_references_uri_key": "",
+                "file": {"url": pmtiles_url},
+            },
+            {
+                "title": "unkeyed-download.zip",
+                "dct_references_uri_key": None,
+                "file": {"url": "https://example.org/unkeyed-download.zip"},
+            },
+        ],
+    )
+
+    assert payload == {"https://github.com/protomaps/PMTiles": pmtiles_url}
+
+
 def test_build_asset_record_from_kithe_model_builds_storage_backed_asset():
     file_data = {
         "storage": "store",

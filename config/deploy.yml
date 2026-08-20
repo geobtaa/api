@@ -102,7 +102,7 @@ env:
     CACHE_LOG_EVENTS:      "false"
     CACHE_VERSION:         "2026-01-14-C"
     # Optional: bump this to force a new cache namespace without flushing Redis
-    CACHE_APP_VERSION:     ""
+    CACHE_APP_VERSION:     "2026-08-18-A"
     API_RESPONSE_DURABLE_CACHE_STORE: database
     VISUAL_ASSET_CACHE_TTL_SECONDS: "604800"
     REDIS_TIMEOUT_SECONDS: "0.5"
@@ -115,6 +115,8 @@ env:
     SEARCH_ENGINE_INDEXING_ENABLED: "<%= ENV.fetch('SEARCH_ENGINE_INDEXING_ENABLED', 'false') %>"
     KITHE_BRIDGE_URL:      https://geomg.lib.umn.edu/api/kithe_bridge
     KITHE_BRIDGE_VERIFY_SSL: "<%= ENV.fetch('KITHE_BRIDGE_VERIFY_SSL', 'true') %>"
+    BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS: "<%= ENV.fetch('BRIDGE_SYNC_CHECKPOINT_OVERLAP_SECONDS', '300') %>"
+    BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS: "<%= ENV.fetch('BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS', '24') %>"
     PYTHONUNBUFFERED:      "1"
     PYTHONPATH:            /app
     # IMPORTANT: tells db/config.py not to rewrite Docker hostnames to localhost:2345

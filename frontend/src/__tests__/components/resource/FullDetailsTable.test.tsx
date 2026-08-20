@@ -53,6 +53,60 @@ describe('FullDetailsTable', () => {
     expect(screen.getByText('Collection records...')).toBeInTheDocument();
   });
 
+  it('labels a child dct:source relationship as its source record', () => {
+    const data = {
+      ...baseData,
+      meta: {
+        ui: {
+          relationships: {
+            'dct:source': [
+              {
+                resource_id: 'parent-record',
+                resource_title: 'Parent record',
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getByText('Source record...')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Parent record' })).toHaveAttribute(
+      'href',
+      '/resources/parent-record'
+    );
+  });
+
+  it('labels canonical and legacy inverse source predicates as derived records', () => {
+    const data = {
+      ...baseData,
+      meta: {
+        ui: {
+          relationships: {
+            'dct:isSourceOf': [
+              {
+                resource_id: 'canonical-child',
+                resource_title: 'Canonical child',
+              },
+            ],
+            'dct:sourceOf': [
+              {
+                resource_id: 'legacy-child',
+                resource_title: 'Legacy child',
+              },
+            ],
+          },
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getAllByText('Derived records...')).toHaveLength(2);
+  });
+
   it('Browse all link for dct:hasPart uses include_filters[dct_isPartOf_sm][]', () => {
     const parentId = 'eee6150b-ce2f-4837-9d17-ce72a0c1c26f';
     const data = {
@@ -117,6 +171,37 @@ describe('FullDetailsTable', () => {
     );
   });
 
+  it('Browse all link for dct:isSourceOf filters children by dct_source_sm', () => {
+    const parentId = 'parent-record';
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: { ...baseData.attributes.ogm, id: parentId },
+      },
+      meta: {
+        ui: {
+          relationships: {
+            'dct:isSourceOf': Array.from({ length: 6 }, (_, i) => ({
+              resource_id: `child-${i}`,
+              resource_title: `Child ${i}`,
+            })),
+          },
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    const browseLink = screen.getByRole('link', {
+      name: /Browse all 6 records/,
+    });
+    expect(browseLink).toHaveAttribute(
+      'href',
+      expect.stringContaining('include_filters[dct_source_sm]')
+    );
+  });
+
   it('does not show Browse all link when 5 or fewer items', () => {
     const data = {
       ...baseData,
@@ -177,6 +262,42 @@ describe('FullDetailsTable', () => {
 
     expect(screen.getByText('Access Rights')).toBeInTheDocument();
     expect(screen.getByText('Restricted')).toBeInTheDocument();
+  });
+
+  it('preserves a year-only Date Issued value', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_issued_s: '1950',
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getByText('Date Issued')).toBeInTheDocument();
+    expect(screen.getByText('1950')).toBeInTheDocument();
+    expect(screen.queryByText('January 1, 1950')).not.toBeInTheDocument();
+  });
+
+  it('formats a full Date Issued value with month and day', () => {
+    const data = {
+      ...baseData,
+      attributes: {
+        ...baseData.attributes,
+        ogm: {
+          ...baseData.attributes.ogm,
+          dct_issued_s: '2019-01-15',
+        },
+      },
+    };
+
+    renderWithRouter(<FullDetailsTable data={data} />);
+
+    expect(screen.getByText('January 15, 2019')).toBeInTheDocument();
   });
 
   it('metadata facet labels use sequential heading level (h3 under h2)', () => {

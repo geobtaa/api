@@ -35,6 +35,8 @@ from sqlalchemy import text
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from db.database import database  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_RESOURCE_WARM_PATHS = (
@@ -168,6 +170,20 @@ def _default_warm_paths(resource_ids: Iterable[str]) -> list[str]:
     ]
 
 
+async def _connect_legacy_database() -> bool:
+    """Open the shared pool before concurrent in-process endpoint requests."""
+    if database.is_connected:
+        return False
+
+    await database.connect()
+    return True
+
+
+async def _disconnect_legacy_database(opened: bool) -> None:
+    if opened and database.is_connected:
+        await database.disconnect()
+
+
 async def purge_resource_caches(
     resource_ids: list[str],
     *,
@@ -232,36 +248,40 @@ async def warm_endpoint_caches(
     if not paths:
         return {"attempted": 0, "warmed": 0, "errors": 0}
 
-    from app.main import app
+    opened_database = await _connect_legacy_database()
+    try:
+        from app.main import app
 
-    counters: Counter[str] = Counter()
-    semaphore = asyncio.Semaphore(max(1, concurrency))
-    transport = httpx.ASGITransport(app=app)
+        counters: Counter[str] = Counter()
+        semaphore = asyncio.Semaphore(max(1, concurrency))
+        transport = httpx.ASGITransport(app=app)
 
-    async with httpx.AsyncClient(
-        transport=transport,
-        base_url="http://resource-cache-refresh.local",
-        timeout=timeout_seconds,
-    ) as client:
+        async with httpx.AsyncClient(
+            transport=transport,
+            base_url="http://resource-cache-refresh.local",
+            timeout=timeout_seconds,
+        ) as client:
 
-        async def warm_one(path: str) -> None:
-            async with semaphore:
-                try:
-                    response = await client.get(path, headers={"Accept": "application/json"})
-                    if 200 <= response.status_code < 300:
-                        counters["warmed"] += 1
-                    else:
+            async def warm_one(path: str) -> None:
+                async with semaphore:
+                    try:
+                        response = await client.get(path, headers={"Accept": "application/json"})
+                        if 200 <= response.status_code < 300:
+                            counters["warmed"] += 1
+                        else:
+                            counters["errors"] += 1
+                            logger.warning(
+                                "Endpoint cache warm returned status=%s path=%s",
+                                response.status_code,
+                                path,
+                            )
+                    except Exception as exc:
                         counters["errors"] += 1
-                        logger.warning(
-                            "Endpoint cache warm returned status=%s path=%s",
-                            response.status_code,
-                            path,
-                        )
-                except Exception as exc:
-                    counters["errors"] += 1
-                    logger.warning("Endpoint cache warm failed path=%s err=%s", path, exc)
+                        logger.warning("Endpoint cache warm failed path=%s err=%s", path, exc)
 
-        await asyncio.gather(*(warm_one(path) for path in paths))
+            await asyncio.gather(*(warm_one(path) for path in paths))
+    finally:
+        await _disconnect_legacy_database(opened_database)
 
     return {
         "attempted": len(paths),

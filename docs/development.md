@@ -26,7 +26,7 @@ with one command.
 
 4. Open the local services:
 
-   - Website: `http://localhost:3000`
+   - Website: `http://localhost:5173`
    - API docs: `http://localhost:8000/api/docs`
    - Flower: `http://localhost:5555`
 
@@ -43,7 +43,7 @@ The local stack is defined in `docker-compose.yml`.
 | Service | Container name | Purpose |
 | --- | --- | --- |
 | `api` | `btaa-geospatial-api-app` | FastAPI app on port 8000 |
-| `frontend` | `btaa-geospatial-api-frontend` | Vite/React dev server on port 3000 |
+| `frontend` | `btaa-geospatial-api-frontend` | Vite/React dev server published on port 5173 |
 | `elasticsearch` | `btaa-geospatial-api-elasticsearch` | Elasticsearch on port 9200 |
 | `paradedb` | `btaa-geospatial-api-paradedb` | PostgreSQL/ParadeDB |
 | `redis` | `btaa-geospatial-api-redis` | Redis cache and Celery broker |

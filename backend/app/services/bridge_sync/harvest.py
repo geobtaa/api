@@ -16,6 +16,40 @@ from db.database import database
 logger = logging.getLogger(__name__)
 
 
+class BridgeSyncIncompleteError(RuntimeError):
+    """Raised when a crawl completed but one or more required sync stages failed."""
+
+
+def _parse_utc_timestamp(value: Any) -> Optional[datetime]:
+    if isinstance(value, datetime):
+        parsed = value
+    elif isinstance(value, str) and value.strip():
+        try:
+            parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
+def _utc_iso_z(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _advance_source_high_watermark(
+    current: Optional[datetime],
+    records: list[Dict[str, Any]],
+) -> Optional[datetime]:
+    for record in records:
+        updated_at = _parse_utc_timestamp(record.get("kithe_updated_at"))
+        if updated_at is not None and (current is None or updated_at > current):
+            current = updated_at
+    return current
+
+
 def _merge_stats(total: Dict[str, Any], page_stats: Dict[str, Any]) -> None:
     for key in ("processed", "imported", "skipped", "errors", "deleted"):
         total[key] = int(total.get(key, 0)) + int(page_stats.get(key, 0) or 0)
@@ -42,12 +76,22 @@ def _merge_stats(total: Dict[str, Any], page_stats: Dict[str, Any]) -> None:
         ]
 
 
+def _refresh_error_count(refresh_stats: Any) -> int:
+    if not isinstance(refresh_stats, dict):
+        return 0
+    errors = int(refresh_stats.get("errors") or 0)
+    if refresh_stats.get("error"):
+        errors += 1
+    return errors
+
+
 async def sync_bridge(
     *,
     trigger: str = "manual",
     limit: Optional[int] = None,
     changed_since: Optional[str] = None,
     resource_id: Optional[str] = None,
+    source_high_watermark: Optional[str] = None,
     client: Optional[KitheBridgeClient] = None,
     importer: Optional[BridgeResourceImporter] = None,
     repo: Optional[BridgeSyncRepository] = None,
@@ -79,11 +123,31 @@ async def sync_bridge(
                 f"changed_since must be an ISO-8601 datetime, got {changed_since!r}"
             ) from exc
 
-    run_id = await repo.create_sync_run(bridge_trigger=trigger)
+    source_high_watermark_dt = _parse_utc_timestamp(source_high_watermark)
+    if source_high_watermark and source_high_watermark_dt is None:
+        raise ValueError(
+            f"source_high_watermark must be an ISO-8601 datetime, got {source_high_watermark!r}"
+        )
+
+    run_id, active_run_id = await repo.create_sync_run_if_idle(bridge_trigger=trigger)
+    if run_id is None:
+        stats = {
+            "stage": "skipped",
+            "reason": "another bridge sync run is already active",
+            "active_bridge_id": active_run_id,
+        }
+        logger.info(
+            "Bridge sync skipped because run_id=%s is already active",
+            active_run_id,
+        )
+        return {
+            "bridge_id": active_run_id,
+            "skipped": True,
+            "stats": stats,
+            "bridge_last_cursor": None,
+        }
+
     run_started_at = datetime.utcnow()
-    await repo.cancel_other_running_runs(
-        keep_bridge_id=run_id, reason=f"superseded by bridge sync run {run_id}"
-    )
 
     cursor: Optional[str] = None
     last_cursor: Optional[str] = None
@@ -110,6 +174,8 @@ async def sync_bridge(
         stats["changed_since"] = changed_since_norm
     if resource_id_norm:
         stats["resource_id"] = resource_id_norm
+    if source_high_watermark_dt is not None:
+        stats["source_high_watermark"] = _utc_iso_z(source_high_watermark_dt)
 
     try:
         if not changed_since_norm and not resource_id_norm:
@@ -133,6 +199,12 @@ async def sync_bridge(
             pages_processed = 1
             found_resource = bool(record)
             page_records = [record] if record else []
+            source_high_watermark_dt = _advance_source_high_watermark(
+                source_high_watermark_dt,
+                page_records,
+            )
+            if source_high_watermark_dt is not None:
+                stats["source_high_watermark"] = _utc_iso_z(source_high_watermark_dt)
             search_refresh_resource_ids.extend(resource_ids_for_bridge_records(page_records))
             cache_refresh_resource_ids.extend(
                 resource_ids_for_bridge_records(page_records, include_related=True)
@@ -168,11 +240,16 @@ async def sync_bridge(
                 pages_processed += 1
 
                 page_records = page.data
+                source_high_watermark_dt = _advance_source_high_watermark(
+                    source_high_watermark_dt,
+                    page_records,
+                )
+                if source_high_watermark_dt is not None:
+                    stats["source_high_watermark"] = _utc_iso_z(source_high_watermark_dt)
                 search_refresh_resource_ids.extend(resource_ids_for_bridge_records(page_records))
-                if changed_since_norm:
-                    cache_refresh_resource_ids.extend(
-                        resource_ids_for_bridge_records(page_records, include_related=True)
-                    )
+                cache_refresh_resource_ids.extend(
+                    resource_ids_for_bridge_records(page_records, include_related=True)
+                )
                 page_stats = await importer.upsert_records(
                     page_records,
                     run_started_at=run_started_at,
@@ -201,6 +278,11 @@ async def sync_bridge(
                     raise RuntimeError("Bridge crawl did not receive next_cursor for the next page")
                 cursor = page.next_cursor
 
+        if int(stats.get("errors") or 0):
+            raise BridgeSyncIncompleteError(
+                f"bridge import completed with {stats['errors']} record error(s)"
+            )
+
         missing_ids = []
         deleted_count = 0
         # Delta crawl (`changed_since`) does not have a complete snapshot, so we
@@ -218,7 +300,7 @@ async def sync_bridge(
             cache_refresh_resource_ids.extend(missing_ids)
         stats.update(
             {
-                "stage": "complete",
+                "stage": "refreshing",
                 "pages_processed": pages_processed,
                 "missing": len(missing_ids),
                 "deleted": int(stats.get("deleted") or 0) + deleted_count,
@@ -240,12 +322,30 @@ async def sync_bridge(
 
         if cache_refresh_resource_ids:
             try:
+                lightweight_full_refresh = not changed_since_norm and not resource_id_norm
                 stats["cache_refresh"] = await refresh_cache_for_changed_resources(
-                    cache_refresh_resource_ids
+                    cache_refresh_resource_ids,
+                    rewarm=not lightweight_full_refresh,
+                    warm_generated_assets=not lightweight_full_refresh,
                 )
             except Exception as cache_exc:
                 logger.warning("Bridge cache refresh failed; continuing. err=%s", cache_exc)
                 stats["cache_refresh"] = {"enabled": True, "error": str(cache_exc)}
+
+        refresh_failures = {
+            "search_index_refresh": _refresh_error_count(stats.get("search_index_refresh")),
+            "cache_refresh": _refresh_error_count(stats.get("cache_refresh")),
+        }
+        refresh_failures = {key: count for key, count in refresh_failures.items() if count}
+        if refresh_failures:
+            stats["refresh_failures"] = refresh_failures
+            raise BridgeSyncIncompleteError(
+                "bridge refresh completed with errors: "
+                + ", ".join(f"{key}={count}" for key, count in refresh_failures.items())
+            )
+
+        stats["stage"] = "complete"
+        stats["updated_at"] = datetime.utcnow().isoformat() + "Z"
 
         await repo.finalize_sync_run(
             bridge_id=run_id,
@@ -263,15 +363,16 @@ async def sync_bridge(
         return {"bridge_id": run_id, "stats": stats, "bridge_last_cursor": last_cursor}
     except Exception as exc:
         logger.error("Bridge sync failed: %s", exc, exc_info=True)
+        failed_stats = {
+            **stats,
+            "stage": "failed",
+            "pages_processed": pages_processed,
+            "updated_at": datetime.utcnow().isoformat() + "Z",
+        }
         try:
             await repo.update_sync_run(
                 bridge_id=run_id,
-                bridge_stats_json={
-                    **stats,
-                    "stage": "failed",
-                    "pages_processed": pages_processed,
-                    "updated_at": datetime.utcnow().isoformat() + "Z",
-                },
+                bridge_stats_json=failed_stats,
                 bridge_last_cursor=last_cursor,
                 bridge_error=str(exc),
             )
@@ -280,6 +381,7 @@ async def sync_bridge(
         await repo.finalize_sync_run(
             bridge_id=run_id,
             bridge_status="failed",
+            bridge_stats_json=failed_stats,
             bridge_last_cursor=last_cursor,
             bridge_error=str(exc),
         )

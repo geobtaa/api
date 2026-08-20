@@ -19,6 +19,12 @@ export default defineConfig({
     // GeoBlacklight's source files import internal modules via `geoblacklight/...`.
     // Map that prefix to the package's source directory so Vite can resolve them.
     alias: {
+      // Local override: GeoBlacklight 5.1.0 still renders legacy OpenIndexMap
+      // property names. Normalize the v1 schema's links and thumbnails locally.
+      "geoblacklight/leaflet/layer_index_map": path.resolve(
+        __dirname,
+        "src/geoblacklight/layer_index_map.ts",
+      ),
       // Local override: GeoBlacklight 5.1.0 does not pass its MAP options to L.map.
       // This keeps the upstream controller intact except for map creation.
       "geoblacklight/controllers/leaflet_viewer_controller": path.resolve(

@@ -3,7 +3,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: ewlarson/btaa-geospatial-api:0.8.9
+    image: ewlarson/btaa-geospatial-api:0.8.12
     container_name: btaa-geospatial-api-app
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:${POSTGRES_PASSWORD}@paradedb:5432/btaa_geospatial_api
@@ -104,7 +104,7 @@ services:
       - ./frontend/eslint.config.js:/app/eslint.config.js
       - ./frontend/vitest.config.ts:/app/vitest.config.ts
     ports:
-      - "3000:3000"
+      - "${FRONTEND_PORT:-5173}:3000"
     depends_on:
       api:
         condition: service_started
