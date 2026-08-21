@@ -7,6 +7,27 @@ function getInfoId(info) {
   return typeof id === 'string' ? id : null;
 }
 
+function stripIiifInfoPath(serviceId) {
+  return serviceId.replace(/\/info\.json$/, '').replace(/\/$/, '');
+}
+
+function hasEquivalentDecodedUrl(left, right) {
+  try {
+    const leftUrl = new URL(left);
+    const rightUrl = new URL(right);
+
+    return (
+      leftUrl.origin === rightUrl.origin &&
+      decodeURIComponent(leftUrl.pathname) ===
+        decodeURIComponent(rightUrl.pathname) &&
+      leftUrl.search === rightUrl.search &&
+      leftUrl.hash === rightUrl.hash
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function getIiifImageApiVersion(info) {
   const context = info['@context'];
   const contextValues = Array.isArray(context) ? context : [context];
@@ -41,8 +62,19 @@ export function getIiifTileFormat(info) {
 
 export function normalizeIiifImageServiceId(imageServiceOrInfoUrl, info) {
   const canonical = getInfoId(info);
-  const serviceId = canonical || imageServiceOrInfoUrl;
-  return serviceId.replace(/\/info\.json$/, '').replace(/\/$/, '');
+  const requestedServiceId = stripIiifInfoPath(imageServiceOrInfoUrl);
+  if (!canonical) return requestedServiceId;
+
+  const canonicalServiceId = stripIiifInfoPath(canonical);
+
+  // Some IIIF servers publish a decoded @id even though encoded slashes are
+  // significant to their request routing. Preserve the working request form
+  // when both URLs otherwise identify the same service.
+  if (hasEquivalentDecodedUrl(requestedServiceId, canonicalServiceId)) {
+    return requestedServiceId;
+  }
+
+  return canonicalServiceId;
 }
 
 export function getIiifMaxNativeZoom(width, height, tileSize) {
