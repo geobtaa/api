@@ -10,6 +10,10 @@ import { BookmarkProvider } from '../../context/BookmarkContext';
 import { vi } from 'vitest';
 import type { GeoDocument } from '../../types/api';
 
+vi.mock('../../components/resource/ResourceViewer', () => ({
+  ResourceViewer: () => <div data-testid="resource-viewer" />,
+}));
+
 // Real fixture data from the /test/fixtures page
 const realFixtureData: GeoDocument[] = [
   {
@@ -598,11 +602,7 @@ describe('ResourceView Component', () => {
         ).toBeGreaterThan(0);
       });
 
-      // ResourceViewer should be rendered when protocol is available
-      expect(
-        screen.getAllByText('Nondigitized paper map with library catalog link')
-          .length
-      ).toBeGreaterThan(0);
+      expect(screen.getByTestId('resource-viewer')).toBeInTheDocument();
     });
 
     it('renders AttributeTable when protocol is wms', async () => {

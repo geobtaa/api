@@ -22,6 +22,10 @@ vi.mock('../../components/resource/AllmapsOverlayViewer', () => ({
   ),
 }));
 
+vi.mock('../../components/resource/ResourceViewer', () => ({
+  ResourceViewer: () => <div data-testid="resource-viewer" />,
+}));
+
 // Mock the API functions to return real fixture data
 vi.mock('../../services/api', () => ({
   fetchResourceDetails: vi.fn(),
@@ -909,11 +913,7 @@ describe('ResourceView Component', () => {
         ).toBeInTheDocument();
       });
 
-      // ResourceViewer should be rendered (it's a complex component, so we check for its container)
-      const viewerContainer = document.querySelector(
-        '.bg-white.rounded-lg.shadow-md'
-      );
-      expect(viewerContainer).toBeInTheDocument();
+      expect(screen.getByTestId('resource-viewer')).toBeInTheDocument();
     });
 
     it('renders AttributeTable when protocol is wms', async () => {
