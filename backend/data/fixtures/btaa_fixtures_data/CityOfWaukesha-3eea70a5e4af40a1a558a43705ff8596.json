@@ -1,5 +1,4 @@
-[
-  {
+{
     "id": "CityOfWaukesha-3eea70a5e4af40a1a558a43705ff8596",
     "dct_identifier_sm": [
       "CityOfWaukesha-3eea70a5e4af40a1a558a43705ff8596"
@@ -48,4 +47,3 @@
     "solr_bboxtype__maxX": -88.1709791,
     "solr_bboxtype__maxY": 43.0649399
   }
-]
