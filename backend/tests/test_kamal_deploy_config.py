@@ -91,6 +91,22 @@ def test_prd_postgres_backup_uses_local_mounted_storage():
     assert "ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api')" in config_text
 
 
+def test_prd_memory_profile_protects_service_headroom():
+    prd_config = _load_deploy_config("config/deploy.prd.yml")
+    config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
+
+    assert prd_config["servers"]["web"]["options"]["memory"] == "5120m"
+    assert prd_config["servers"]["worker"]["options"]["memory"] == "4096m"
+
+    elasticsearch = prd_config["accessories"]["elasticsearch"]
+    assert elasticsearch["options"]["memory"] == "8g"
+    assert elasticsearch["env"]["clear"]["ES_JAVA_OPTS"] == "-Xms4g -Xmx4g"
+
+    redis = prd_config["accessories"]["redis"]
+    assert redis["options"]["memory"] == "18g"
+    assert "ENV.fetch('REDIS_MAXMEMORY', '16gb')" in config_text
+
+
 def test_appsignal_prd_identity():
     prd_env = _load_deploy_config("config/deploy.prd.yml")["env"]["clear"]
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
