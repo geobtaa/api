@@ -39,6 +39,29 @@ def _env_int(name: str, default: int) -> int:
         return default
 
 
+def _configured_server_api_key() -> str | None:
+    """Return a server API key accepted by the normal rate-limit middleware."""
+    for env_name in ("BTAA_GEOSPATIAL_API_KEY", "BTAA_GEOSPATIAL_API_KEYS"):
+        for candidate in os.getenv(env_name, "").split(","):
+            key = candidate.strip()
+            if key:
+                return key
+    return None
+
+
+def _rewarm_request_headers() -> dict[str, str]:
+    headers = {"Accept": "application/json"}
+    api_key = _configured_server_api_key()
+    if api_key:
+        headers["X-API-Key"] = api_key
+    else:
+        logger.warning(
+            "Bridge cache rewarm has no configured server API key; "
+            "requests may be subject to the anonymous rate limit"
+        )
+    return headers
+
+
 def _positive_env_int(name: str, default: int) -> int:
     value = _env_int(name, default)
     if value < 1:
@@ -388,6 +411,7 @@ async def refresh_cache_for_changed_resources(
         from app.main import app
 
         transport = httpx.ASGITransport(app=app)
+        request_headers = _rewarm_request_headers()
         async with httpx.AsyncClient(
             transport=transport,
             base_url="http://bridge-cache-refresh.local",
@@ -395,7 +419,7 @@ async def refresh_cache_for_changed_resources(
         ) as client:
             for path in warm_paths:
                 try:
-                    response = await client.get(path, headers={"Accept": "application/json"})
+                    response = await client.get(path, headers=request_headers)
                     if 200 <= response.status_code < 300:
                         warmed += 1
                     else:
