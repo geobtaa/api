@@ -88,6 +88,17 @@ describe('Leaflet IIIF helpers', () => {
     ).toBe('https://example.com/canonical');
   });
 
+  it('preserves encoded slashes when the decoded IIIF service id would break routing', () => {
+    expect(
+      normalizeIiifImageServiceId(
+        'https://asset.library.wisc.edu/iiif/1711.dl%2F5WA3TYLSGTMK29A/info.json',
+        {
+          '@id': 'https://asset.library.wisc.edu/iiif/1711.dl/5WA3TYLSGTMK29A',
+        }
+      )
+    ).toBe('https://asset.library.wisc.edu/iiif/1711.dl%2F5WA3TYLSGTMK29A');
+  });
+
   it('generates IIIF v2 region tile URLs for the initial zoom level', () => {
     expect(
       getIiifTileUrl({
