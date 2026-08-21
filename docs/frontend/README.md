@@ -24,6 +24,10 @@ Features:
 
 - [Homepage Map Visualization](homepage-map.md) - H3 hex map, featured carousel,
   preview layers, and Allmaps behavior.
+- Resource-page item previews use the `ogm-viewer` web components with the
+  Aardvark record already returned by the resource API. Vite leaves the
+  components un-prebundled and resolves their runtime theme and icon assets in
+  development, then emits those assets during production builds.
 
 Configuration:
 
@@ -39,8 +43,8 @@ The frontend stack currently uses:
 - TypeScript, Vite 7, and React Router dev tooling.
 - Vitest 3, Testing Library, `happy-dom`, axe, and pa11y for tests and
   accessibility checks.
-- Material UI 7, Tailwind, Leaflet, GeoBlacklight frontend components, Allmaps,
-  H3, Recharts, and Lucide icons.
+- Material UI 7, Tailwind, Leaflet, `ogm-viewer`, GeoBlacklight Leaflet layers
+  for homepage previews, Allmaps, H3, Recharts, and Lucide icons.
 
 ## Quick Commands
 

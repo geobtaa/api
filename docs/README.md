@@ -62,7 +62,7 @@ Core runtime technologies:
 | Layer | Current implementation |
 | --- | --- |
 | API | FastAPI app mounted at `/api/v1`, with Swagger at `/api/docs` and OpenAPI JSON at `/api/openapi.json`. |
-| Public web app | React, React Router, TypeScript, Vite, MUI, Leaflet, GeoBlacklight frontend components, and H3 map visualization. |
+| Public web app | React, React Router, TypeScript, Vite, MUI, Leaflet, `ogm-viewer` resource previews, GeoBlacklight Leaflet layers for homepage previews, and H3 map visualization. |
 | Search | Elasticsearch with versioned index builds and alias swaps through `scripts/reindex_atomic.py`. |
 | Database | ParadeDB/PostgreSQL, SQLAlchemy table metadata in `backend/db/models.py`, script-based migrations in `backend/db/migrations/`. |
 | Cache | Redis plus durable database caches for generated API responses, resource representations, and visual assets. |

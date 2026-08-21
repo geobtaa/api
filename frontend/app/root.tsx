@@ -153,7 +153,6 @@ export default function Root() {
         ) : (
           <Providers
             initialThemeId={themeId}
-            locationKey={location.key}
             turnstilePreview={turnstilePreview}
           >
             <Outlet />
