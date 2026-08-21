@@ -29,7 +29,7 @@ servers:
     cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
     options:
       cpus: 1.75
-      memory: 2048m
+      memory: 4096m
 
   cron:
     hosts:
@@ -156,9 +156,18 @@ env:
 
 accessories:
   elasticsearch:
+    options:
+      memory: 8g
     env:
       clear:
         ES_JAVA_OPTS: "-Xms4g -Xmx4g"
       secret:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
+
+  redis:
+    options:
+      memory: 18g
+    env:
+      clear:
+        REDIS_MAXMEMORY: "<%= ENV.fetch('REDIS_MAXMEMORY', '16gb') %>"

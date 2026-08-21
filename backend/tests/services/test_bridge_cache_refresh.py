@@ -123,6 +123,62 @@ async def test_refresh_cache_for_changed_resources_invalidates_every_changed_id(
 
 
 @pytest.mark.asyncio
+async def test_cache_rewarm_uses_server_key_beyond_anonymous_rate_limit(monkeypatch):
+    class FakeResponse:
+        def __init__(self, status_code):
+            self.status_code = status_code
+
+    class RateLimitedAsyncClient:
+        def __init__(self):
+            self.calls = []
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, traceback):
+            return False
+
+        async def get(self, path, *, headers):
+            self.calls.append((path, dict(headers)))
+            authenticated = headers.get("X-API-Key") == "server-api-key"
+            status_code = 200 if authenticated or len(self.calls) <= 10 else 429
+            return FakeResponse(status_code)
+
+    fake_cache = FakeCacheService()
+    fake_cache.cached_records_for_tags = AsyncMock(return_value=[])
+    fake_client = RateLimitedAsyncClient()
+    resource_ids = [f"resource-{index}" for index in range(12)]
+
+    monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
+    monkeypatch.setenv("BTAA_GEOSPATIAL_API_KEY", "server-api-key")
+
+    with (
+        patch.object(cache_refresh, "CacheService", return_value=fake_cache),
+        patch.object(
+            cache_refresh,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True, "redis_deleted": 0}),
+        ),
+        patch.object(cache_refresh.httpx, "ASGITransport", return_value=object()),
+        patch.object(cache_refresh.httpx, "AsyncClient", return_value=fake_client),
+    ):
+        stats = await cache_refresh.refresh_cache_for_changed_resources(
+            resource_ids,
+            warm_generated_assets=False,
+        )
+
+    assert stats["warm_urls"] == 12
+    assert stats["warmed"] == 12
+    assert stats["errors"] == 0
+    assert len(fake_client.calls) == 12
+    assert all(
+        headers == {"Accept": "application/json", "X-API-Key": "server-api-key"}
+        for _path, headers in fake_client.calls
+    )
+
+
+@pytest.mark.asyncio
 async def test_lightweight_refresh_invalidates_without_rewarming_or_generating(monkeypatch):
     fake_cache = FakeCacheService()
     monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
