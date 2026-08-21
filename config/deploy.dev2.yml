@@ -13,7 +13,7 @@ servers:
   worker:
     hosts:
       - lib-geoportal-dev-web-01.oit.umn.edu
-    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -lc 'cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO --concurrency="${CELERY_WORKER_CONCURRENCY:-2}" --prefetch-multiplier=1 --max-tasks-per-child="${CELERY_MAX_TASKS_PER_CHILD:-5000}" --max-memory-per-child="${CELERY_MAX_MEMORY_PER_CHILD_KB:-900000}"'
     options:
       cpus: 0.75
       memory: 1536m

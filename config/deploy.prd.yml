@@ -21,21 +21,23 @@ servers:
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
     options:
       cpus: 8
-      memory: 5120m
+      memory: 6144m
 
   worker:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
-    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -lc 'cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO --concurrency="${CELERY_WORKER_CONCURRENCY:-3}" --prefetch-multiplier=1 --max-tasks-per-child="${CELERY_MAX_TASKS_PER_CHILD:-5000}" --max-memory-per-child="${CELERY_MAX_MEMORY_PER_CHILD_KB:-900000}"'
     options:
-      cpus: 1.75
-      memory: 2048m
+      cpus: 2
+      memory: 4096m
 
   cron:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
     cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
+      cpus: 0.5
+      memory: 1024m
       user: root
 
 proxy:
@@ -112,6 +114,9 @@ env:
     SQLALCHEMY_SYNC_MAX_OVERFLOW: "0"
     SQLALCHEMY_SYNC_POOL_TIMEOUT: "5"
     WEB_UVICORN_WORKERS: "4"
+    CELERY_WORKER_CONCURRENCY: "3"
+    CELERY_MAX_TASKS_PER_CHILD: "5000"
+    CELERY_MAX_MEMORY_PER_CHILD_KB: "900000"
     WEB_INTERNAL_UVICORN_WORKERS: "6"
     WEB_SSR_WORKERS: "4"
     BACKUP_ENABLED: "<%= ENV.fetch('BACKUP_ENABLED', 'true') %>"
@@ -158,7 +163,7 @@ accessories:
   elasticsearch:
     env:
       clear:
-        ES_JAVA_OPTS: "-Xms4g -Xmx4g"
+        ES_JAVA_OPTS: "-Xms2g -Xmx2g"
       secret:
         - AWS_ACCESS_KEY_ID
         - AWS_SECRET_ACCESS_KEY
