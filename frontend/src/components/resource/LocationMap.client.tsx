@@ -1,18 +1,16 @@
 import React, { useEffect, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { normalizeGeometry } from '../../utils/geometryUtils';
+import {
+  normalizeGeometry,
+  type DisplayGeometry,
+} from '../../utils/geometryUtils';
 import { attachBasemapSwitcher } from '../../config/basemaps';
 import { leafletGestureMapOptions } from '../../config/leafletConfig';
 import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
 
 interface LocationMapProps {
-  geometry:
-    | string
-    | GeoJSON.Polygon
-    | GeoJSON.MultiPolygon
-    | { wkt: string }
-    | null; // Accept any format, we'll normalize it
+  geometry: string | DisplayGeometry | { wkt: string } | null; // Accept any format, we'll normalize it
 }
 
 export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
@@ -83,6 +81,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
             opacity: 0.6,
             fillOpacity: 0.1,
           },
+          pointToLayer: (_feature, latlng) =>
+            L.circleMarker(latlng, {
+              radius: 8,
+              color: '#2563eb',
+              weight: 2,
+              opacity: 0.85,
+              fillColor: '#2563eb',
+              fillOpacity: 0.35,
+            }),
         }).addTo(mapRef.current);
 
         // Add a dashed bounding box for MultiPolygon to show full extent
@@ -122,10 +129,15 @@ export const LocationMap: React.FC<LocationMapProps> = ({ geometry }) => {
           }).addTo(mapRef.current);
         }
 
-        // Fit bounds to show the feature
-        mapRef.current.fitBounds(geoJsonLayer.getBounds(), {
-          padding: [20, 20],
-        });
+        if (normalizedGeometry.type === 'Point') {
+          const [lon, lat] = normalizedGeometry.coordinates;
+          mapRef.current.setView([lat, lon], 14);
+        } else {
+          // Fit bounds to show the feature
+          mapRef.current.fitBounds(geoJsonLayer.getBounds(), {
+            padding: [20, 20],
+          });
+        }
       } catch (error) {
         console.error('Error rendering geometry:', error);
       }

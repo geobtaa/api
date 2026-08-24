@@ -1,5 +1,7 @@
 from unittest.mock import MagicMock, call, patch
 
+import staticmaps
+
 from app.services.static_map_service import StaticMapService
 from app.services.visual_asset_cache import cache_visual_asset
 
@@ -278,3 +280,52 @@ def test_multipolygon_extent_does_not_take_short_path_across_antimeridian():
         179.0,
         -179.0,
     ]
+
+
+def test_point_geometry_creates_visible_static_map_marker():
+    service = StaticMapService()
+
+    objects = service._geojson_to_staticmaps_objects(
+        {"type": "Point", "coordinates": [-87.62, 43.08]}
+    )
+
+    assert objects is not None
+    assert len(objects) == 1
+    assert isinstance(objects[0], staticmaps.Marker)
+    assert objects[0].latlng().lng().degrees == -87.62
+    assert objects[0].latlng().lat().degrees == 43.08
+    assert objects[0].size() == 10
+
+
+def test_generate_map_renders_zero_area_bbox_as_point():
+    service = StaticMapService()
+
+    with (
+        patch.object(service, "generate_global_map") as mock_global,
+        patch.object(service, "_render_and_cache", return_value=b"point-map") as mock_render,
+    ):
+        result = service.generate_map(
+            "bike-elevator",
+            "ENVELOPE(-87.62, -87.62, 43.08, 43.08)",
+        )
+
+    assert result == b"point-map"
+    mock_global.assert_not_called()
+    mock_render.assert_called_once()
+
+
+def test_generate_basemap_uses_point_to_set_extent():
+    service = StaticMapService()
+
+    with (
+        patch.object(service, "generate_global_basemap") as mock_global,
+        patch.object(service, "_render_and_cache", return_value=b"point-basemap") as mock_render,
+    ):
+        result = service.generate_basemap(
+            "bike-elevator",
+            "POINT(-87.62 43.08)",
+        )
+
+    assert result == b"point-basemap"
+    mock_global.assert_not_called()
+    mock_render.assert_called_once()

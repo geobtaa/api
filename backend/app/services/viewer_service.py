@@ -99,9 +99,10 @@ def parse_references(
                             http_uri = "http://" + uri[len("https://") :]
                             references.setdefault(http_uri, coerced)
 
-        # Add geometry if present
+        # Prefer the full geometry, but retain bbox-only records as viewer
+        # geometry. ItemViewer accepts both ENVELOPE and minx,miny,maxx,maxy.
         if isinstance(document, dict):
-            geom = document.get("locn_geometry")
+            geom = document.get("locn_geometry") or document.get("dcat_bbox")
         else:
             if hasattr(document, "locn_geometry"):
                 geom = getattr(document, "locn_geometry", None)
@@ -109,6 +110,12 @@ def parse_references(
                 geom = document.get("locn_geometry", None)
             else:
                 geom = None
+
+            if not geom:
+                if hasattr(document, "dcat_bbox"):
+                    geom = getattr(document, "dcat_bbox", None)
+                elif hasattr(document, "get"):
+                    geom = document.get("dcat_bbox", None)
 
         if geom:
             references["locn_geometry"] = geom
