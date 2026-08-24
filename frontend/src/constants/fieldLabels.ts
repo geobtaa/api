@@ -120,7 +120,7 @@ export const FIELD_LABELS: Record<string, FieldConfig> = {
     facet: 'b1g_language_sm',
   },
   b1g_localCollectionLabel_sm: {
-    label: 'Local collection',
+    label: 'Local Collection',
     display: true,
     facet: 'b1g_localCollectionLabel_sm',
   },

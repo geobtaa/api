@@ -18,7 +18,7 @@ describe('facetLabels', () => {
 
     it('returns humanized label for b1g_localCollectionLabel_sm', () => {
       expect(getFacetLabel('b1g_localCollectionLabel_sm')).toBe(
-        'Local collection'
+        'Local Collection'
       );
     });
 
@@ -80,7 +80,7 @@ describe('facetLabels', () => {
       expect(FACET_LABELS['dct_isPartOf_sm']).toBe('Is part of');
       expect(FACET_LABELS['pcdm_memberOf_sm']).toBe('Collection records');
       expect(FACET_LABELS['b1g_localCollectionLabel_sm']).toBe(
-        'Local collection'
+        'Local Collection'
       );
     });
   });

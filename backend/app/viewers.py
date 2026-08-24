@@ -162,6 +162,46 @@ class ItemViewer:
             return None
         return {"type": "MultiPolygon", "coordinates": polygons}
 
+    @staticmethod
+    def _viewer_geometry_from_envelope(
+        minx: float, maxx: float, maxy: float, miny: float
+    ) -> Optional[GeoJSON]:
+        """Normalize an envelope and return consistently ordered viewer GeoJSON."""
+        from app.elasticsearch.index import _normalize_envelope
+
+        normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
+        if normalized_geom is None:
+            logger.error(
+                "Invalid viewer envelope (%s, %s, %s, %s): %s - skipping",
+                minx,
+                maxx,
+                maxy,
+                miny,
+                error_msg,
+            )
+            return None
+
+        if normalized_geom["type"] != "polygon":
+            return {"type": "Point", "coordinates": normalized_geom["coordinates"]}
+
+        ring = normalized_geom["coordinates"][0]
+        xs = [point[0] for point in ring]
+        ys = [point[1] for point in ring]
+        normalized_minx, normalized_maxx = min(xs), max(xs)
+        normalized_miny, normalized_maxy = min(ys), max(ys)
+        return {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [normalized_minx, normalized_maxy],
+                    [normalized_minx, normalized_miny],
+                    [normalized_maxx, normalized_miny],
+                    [normalized_maxx, normalized_maxy],
+                    [normalized_minx, normalized_maxy],
+                ]
+            ],
+        }
+
     def viewer_geometry(self) -> Optional[GeoJSON]:
         """Convert locn_geometry to a GeoJSON object."""
         if not self.references.get("locn_geometry"):
@@ -203,40 +243,44 @@ class ItemViewer:
             except ValueError:
                 return None
 
-            # Import normalization function from elasticsearch module
-            from app.elasticsearch.index import _normalize_envelope
-
-            # Normalize and validate the envelope coordinates
-            normalized_geom, error_msg = _normalize_envelope(minx, maxx, maxy, miny)
-
-            if normalized_geom is None:
-                logger.error(f"Invalid envelope in viewer {geometry}: {error_msg} - skipping")
+            result = self._viewer_geometry_from_envelope(minx, maxx, maxy, miny)
+            if result is None:
                 return None
-
-            # Return the normalized geometry with coordinate ordering
-            # adjusted to match expected test order for ENVELOPE polygons:
-            # [top-left, bottom-left, bottom-right, top-right, close]
-            if normalized_geom["type"] == "polygon":
-                ring = normalized_geom["coordinates"][0]
-                xs = [pt[0] for pt in ring]
-                ys = [pt[1] for pt in ring]
-                minx, maxx = min(xs), max(xs)
-                miny, maxy = min(ys), max(ys)
-                ordered_ring = [
-                    [minx, maxy],
-                    [minx, miny],
-                    [maxx, miny],
-                    [maxx, maxy],
-                    [minx, maxy],
-                ]
-                coords = [ordered_ring]
-                result = {"type": "Polygon", "coordinates": coords}
-            else:
-                result = {"type": "Point", "coordinates": normalized_geom["coordinates"]}
 
             # Cache the result for performance
             self._geometry_cache[geometry] = result
             return result
+
+        point_inner = self._unwrap_wkt(geometry, "POINT")
+        if point_inner is not None:
+            try:
+                coordinates = [float(value) for value in point_inner.split()]
+            except ValueError:
+                return None
+
+            from app.elasticsearch.index import _is_valid_point
+
+            if len(coordinates) < 2 or not _is_valid_point(coordinates):
+                logger.warning(f"Invalid point coordinates in viewer: {geometry} - skipping")
+                return None
+
+            result = {"type": "Point", "coordinates": coordinates[:2]}
+            self._geometry_cache[geometry] = result
+            return result
+
+        # The bridge stores dcat_bbox as minx,miny,maxx,maxy. Bbox-only
+        # records use this path after parse_references aliases it as geometry.
+        bbox_parts = [part.strip() for part in geometry.split(",")]
+        if len(bbox_parts) == 4:
+            try:
+                minx, miny, maxx, maxy = map(float, bbox_parts)
+            except ValueError:
+                pass
+            else:
+                result = self._viewer_geometry_from_envelope(minx, maxx, maxy, miny)
+                if result is not None:
+                    self._geometry_cache[geometry] = result
+                return result
 
         polygon_inner = self._unwrap_wkt(geometry, "POLYGON", layers=2)
         if polygon_inner is not None:

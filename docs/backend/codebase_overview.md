@@ -137,7 +137,8 @@ Caching and generated asset services:
 - `image_service.py`: thumbnail source discovery, IIIF handling, remote image
   caching, PMTiles/COG thumbnail hooks, and immutable thumbnail URLs.
 - `static_map_service.py`: static map generation, basemaps, resource geometry
-  maps, resource-class icons, asset aliases, and durable visual asset links.
+  maps (including point markers), resource-class icons, asset aliases, and
+  durable visual asset links.
 - `thumbnail_alias_service.py`: fast resource-id to thumbnail-hash redirects.
 - `thumbnail_state_service.py`: records thumbnail success, failure, placeholder,
   and source state.

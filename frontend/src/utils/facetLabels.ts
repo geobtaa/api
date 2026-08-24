@@ -19,7 +19,7 @@ export const FACET_LABELS: Record<string, string> = {
   // Relationship / collection filters (Active Filters display)
   dct_isPartOf_sm: 'Is part of',
   pcdm_memberOf_sm: 'Collection records',
-  b1g_localCollectionLabel_sm: 'Local collection',
+  b1g_localCollectionLabel_sm: 'Local Collection',
 };
 
 // Backward-compat mapping for legacy *_agg IDs to new field IDs

@@ -70,9 +70,10 @@ class RelationshipService:
                     resources.c.id == resource_relationships.c.object_id,
                 )
             )
+            # Suppression hides published resources from search results, but
+            # relationship widgets must still link to those direct resource pages.
             .where(
                 resources.c.publication_state == PUBLICATION_STATE_PUBLISHED,
-                resources.c.gbl_suppressed_b.is_not(True),
             )
         )
 

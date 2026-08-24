@@ -191,10 +191,34 @@ export function AdvancedSearchBuilder({
   const buildSearchContext = useCallback(
     (excludeRowId: string): URLSearchParams => {
       const contextParams = new URLSearchParams();
+      const editingRow = rows.find((row) => row.id === excludeRowId);
+
+      // The search backend treats same-field clauses as an OR group when any
+      // positive clause in that group uses OR. Do not constrain autocomplete by
+      // another positive value from that group, or a single-valued facet (such
+      // as Provider) can never suggest the next alternative. Keep other fields
+      // and NOT clauses so suggestion counts still reflect the useful context.
+      const hasSameFieldOrGroup = Boolean(
+        editingRow &&
+        rows.some(
+          (row) =>
+            row.id !== excludeRowId &&
+            row.q.trim().length > 0 &&
+            row.field === editingRow.field &&
+            (row.op === 'OR' || editingRow.op === 'OR')
+        )
+      );
 
       // Get all rows except the one being edited
       const contextRows = rows.filter(
-        (row) => row.id !== excludeRowId && row.q.trim().length > 0
+        (row) =>
+          row.id !== excludeRowId &&
+          row.q.trim().length > 0 &&
+          !(
+            hasSameFieldOrGroup &&
+            row.field === editingRow?.field &&
+            row.op !== 'NOT'
+          )
       );
 
       if (contextRows.length === 0) {

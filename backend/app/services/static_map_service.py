@@ -51,6 +51,27 @@ tile_provider_Carto = staticmaps.TileProvider(
 )
 
 
+class _WebMercatorLine(staticmaps.Line):
+    """Render source segments directly instead of replacing them with geodesics.
+
+    py-staticmaps projects tiles and coordinates with Web Mercator, but its Line
+    implementation first interpolates segments of at least one degree longitude
+    along WGS84 geodesics. Leaflet projects the supplied GeoJSON vertices and
+    connects them directly, so the interpolation makes the same geometry appear
+    bowed or loop around the antimeridian in static maps.
+    """
+
+    def interpolate(self) -> List[Any]:
+        return self._latlngs
+
+
+class _WebMercatorArea(staticmaps.Area):
+    """Area counterpart to _WebMercatorLine with direct projected segments."""
+
+    def interpolate(self) -> List[Any]:
+        return self._latlngs
+
+
 class StaticMapService:
     """Service for generating static maps from bounding boxes."""
 
@@ -151,11 +172,16 @@ class StaticMapService:
         if not (-90 <= ymin <= 90) or not (-90 <= ymax <= 90):
             return False
 
-        # Check for valid min/max relationships
-        if xmin >= xmax or ymin >= ymax:
+        # Check for valid min/max relationships. A zero-area extent in both
+        # dimensions is a legitimate point geometry.
+        if xmin > xmax or ymin > ymax:
             return False
 
-        # Check for zero-area bounding boxes
+        if xmin == xmax and ymin == ymax:
+            return True
+
+        # Very thin one-dimensional or near-zero rectangles are not useful
+        # fallback map extents.
         if (xmax - xmin) < 0.001 or (ymax - ymin) < 0.001:
             return False
 
@@ -299,8 +325,8 @@ class StaticMapService:
     _STROKE_GLOW_WIDTH = 5
     _LINE_WIDTH = 3
     _TRANSPARENT_COLOR = staticmaps.Color(0, 0, 0, 0)
-    _MAP_VARIANT = "static_map_v7"
-    _BASEMAP_VARIANT = "static_basemap_v5"
+    _MAP_VARIANT = "static_map_v9"
+    _BASEMAP_VARIANT = "static_basemap_v7"
     _ASSET_KEY_PREFIX = "static_map_asset"
     _ALIAS_KEY_PREFIX = "static_map_alias"
     _HASH_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
@@ -363,21 +389,13 @@ class StaticMapService:
     def _bbox_points(self, bbox_coords: Tuple[float, float, float, float]) -> list:
         """Convert bbox coords into a closed polygon usable by py-staticmaps."""
         xmin, ymin, xmax, ymax = bbox_coords
-        bbox_width_degrees = xmax - xmin
-        num_segments = max(50, int(bbox_width_degrees * 2))
-        points = []
-        points.append(staticmaps.create_latlng(ymin, xmin))
-        points.append(staticmaps.create_latlng(ymax, xmin))
-        for i in range(1, num_segments):
-            lon = xmin + (xmax - xmin) * (i / num_segments)
-            points.append(staticmaps.create_latlng(ymax, lon))
-        points.append(staticmaps.create_latlng(ymax, xmax))
-        points.append(staticmaps.create_latlng(ymin, xmax))
-        for i in range(num_segments - 1, 0, -1):
-            lon = xmin + (xmax - xmin) * (i / num_segments)
-            points.append(staticmaps.create_latlng(ymin, lon))
-        points.append(points[0])
-        return points
+        return [
+            staticmaps.create_latlng(ymin, xmin),
+            staticmaps.create_latlng(ymax, xmin),
+            staticmaps.create_latlng(ymax, xmax),
+            staticmaps.create_latlng(ymin, xmax),
+            staticmaps.create_latlng(ymin, xmin),
+        ]
 
     def _bbox_area(
         self,
@@ -388,7 +406,7 @@ class StaticMapService:
         width: int,
     ) -> Any:
         """Create a py-staticmaps polygon for the bbox."""
-        return staticmaps.Area(
+        return _WebMercatorArea(
             self._bbox_points(bbox_coords),
             fill_color=fill_color,
             color=color,
@@ -897,7 +915,20 @@ class StaticMapService:
             return [staticmaps.create_latlng(float(lat), float(lon)) for lon, lat in coord_list]
 
         try:
-            if geom_type == "Polygon":
+            if geom_type == "Point":
+                if len(coordinates) < 2:
+                    return None
+                lon, lat = float(coordinates[0]), float(coordinates[1])
+                marker_size = 10 if include_glow else 0
+                objects.append(
+                    staticmaps.Marker(
+                        staticmaps.create_latlng(lat, lon),
+                        color=stroke_color,
+                        size=marker_size,
+                    )
+                )
+
+            elif geom_type == "Polygon":
                 # coordinates: [ exterior_ring, hole1, ... ]; ring is [ [lon,lat], ... ]
                 for ring in coordinates:
                     if len(ring) < 3:
@@ -908,14 +939,14 @@ class StaticMapService:
                         points.append(points[0])
                     # Glow layer first (when requested), then main area
                     if include_glow:
-                        glow_area = staticmaps.Area(
+                        glow_area = _WebMercatorArea(
                             points,
                             fill_color=self._TRANSPARENT_COLOR,
                             color=self._STROKE_GLOW_COLOR,
                             width=self._STROKE_GLOW_WIDTH,
                         )
                         objects.append(glow_area)
-                    area = staticmaps.Area(
+                    area = _WebMercatorArea(
                         points,
                         fill_color=fill_color,
                         color=stroke_color,
@@ -933,14 +964,14 @@ class StaticMapService:
                         if len(points) > 1:
                             points.append(points[0])
                         if include_glow:
-                            glow_area = staticmaps.Area(
+                            glow_area = _WebMercatorArea(
                                 points,
                                 fill_color=self._TRANSPARENT_COLOR,
                                 color=self._STROKE_GLOW_COLOR,
                                 width=self._STROKE_GLOW_WIDTH,
                             )
                             objects.append(glow_area)
-                        area = staticmaps.Area(
+                        area = _WebMercatorArea(
                             points,
                             fill_color=fill_color,
                             color=stroke_color,
@@ -951,22 +982,15 @@ class StaticMapService:
                 # has no dashed stroke, so we draw it solid)
                 bbox = self._extract_bbox_from_geojson(geojson)
                 if bbox:
-                    xmin, ymin, xmax, ymax = bbox
-                    extent_points = [
-                        staticmaps.create_latlng(ymin, xmin),
-                        staticmaps.create_latlng(ymax, xmin),
-                        staticmaps.create_latlng(ymax, xmax),
-                        staticmaps.create_latlng(ymin, xmax),
-                        staticmaps.create_latlng(ymin, xmin),
-                    ]
+                    extent_points = self._bbox_points(bbox)
                     if include_glow:
-                        glow_line = staticmaps.Line(
+                        glow_line = _WebMercatorLine(
                             extent_points,
                             color=self._STROKE_GLOW_COLOR,
                             width=self._STROKE_GLOW_WIDTH,
                         )
                         objects.append(glow_line)
-                    extent_line = staticmaps.Line(
+                    extent_line = _WebMercatorLine(
                         extent_points,
                         color=stroke_color,
                         width=width,
@@ -978,13 +1002,13 @@ class StaticMapService:
                     return None
                 points = coord_to_latlngs(coordinates)
                 if include_glow:
-                    glow_line = staticmaps.Line(
+                    glow_line = _WebMercatorLine(
                         points,
                         color=self._STROKE_GLOW_COLOR,
                         width=self._STROKE_GLOW_WIDTH,
                     )
                     objects.append(glow_line)
-                line = staticmaps.Line(
+                line = _WebMercatorLine(
                     points,
                     color=stroke_color,
                     width=width,
@@ -997,13 +1021,13 @@ class StaticMapService:
                         continue
                     points = coord_to_latlngs(line_coords)
                     if include_glow:
-                        glow_line = staticmaps.Line(
+                        glow_line = _WebMercatorLine(
                             points,
                             color=self._STROKE_GLOW_COLOR,
                             width=self._STROKE_GLOW_WIDTH,
                         )
                         objects.append(glow_line)
-                    line = staticmaps.Line(
+                    line = _WebMercatorLine(
                         points,
                         color=stroke_color,
                         width=width,
@@ -1196,8 +1220,27 @@ class StaticMapService:
                     hydrate_asset=hydrate_asset,
                 )
 
+            # Prefer best geometry only when every coordinate is inside the
+            # renderable Web Mercator latitude range. Staticmaps' center/zoom
+            # math raises at/near the poles, so polar records use the clamped
+            # bbox fallback below.
+            geojson_dict = self._geometry_to_geojson_dict(geometry)
+            if (
+                geojson_dict is None
+                and bbox_coords[0] == bbox_coords[2]
+                and bbox_coords[1] == bbox_coords[3]
+            ):
+                geojson_dict = {
+                    "type": "Point",
+                    "coordinates": [bbox_coords[0], bbox_coords[1]],
+                }
+            map_objects = (
+                self._geojson_to_staticmaps_objects(geojson_dict)
+                if geojson_dict and self._bbox_within_web_mercator(bbox_coords)
+                else None
+            )
             render_bbox = self._renderable_bbox(bbox_coords)
-            if not render_bbox:
+            if not render_bbox and not map_objects:
                 logger.debug(
                     "Using global map for unrenderable Web-Mercator bbox on %s: %s",
                     resource_id,
@@ -1208,17 +1251,6 @@ class StaticMapService:
                     source_signature=source_signature or self.geometry_signature(None),
                     hydrate_asset=hydrate_asset,
                 )
-
-            # Prefer best geometry only when every coordinate is inside the
-            # renderable Web Mercator latitude range. Staticmaps' center/zoom
-            # math raises at/near the poles, so polar records use the clamped
-            # bbox fallback below.
-            geojson_dict = self._geometry_to_geojson_dict(geometry)
-            map_objects = (
-                self._geojson_to_staticmaps_objects(geojson_dict)
-                if geojson_dict and self._bbox_within_web_mercator(bbox_coords)
-                else None
-            )
 
             # Create a context for the map
             context = staticmaps.Context()
@@ -1319,20 +1351,16 @@ class StaticMapService:
                     hydrate_asset=hydrate_asset,
                 )
 
-            render_bbox = self._renderable_bbox(bbox_coords)
-            if not render_bbox:
-                logger.debug(
-                    "Using global basemap for unrenderable Web-Mercator bbox on %s: %s",
-                    resource_id,
-                    bbox_coords,
-                )
-                return self.generate_global_basemap(
-                    resource_id,
-                    source_signature=source_signature or self.geometry_signature(None),
-                    hydrate_asset=hydrate_asset,
-                )
-
             geojson_dict = self._geometry_to_geojson_dict(geometry)
+            if (
+                geojson_dict is None
+                and bbox_coords[0] == bbox_coords[2]
+                and bbox_coords[1] == bbox_coords[3]
+            ):
+                geojson_dict = {
+                    "type": "Point",
+                    "coordinates": [bbox_coords[0], bbox_coords[1]],
+                }
             extent_objects = (
                 self._geojson_to_staticmaps_objects(
                     geojson_dict,
@@ -1344,6 +1372,18 @@ class StaticMapService:
                 if geojson_dict and self._bbox_within_web_mercator(bbox_coords)
                 else None
             )
+            render_bbox = self._renderable_bbox(bbox_coords)
+            if not render_bbox and not extent_objects:
+                logger.debug(
+                    "Using global basemap for unrenderable Web-Mercator bbox on %s: %s",
+                    resource_id,
+                    bbox_coords,
+                )
+                return self.generate_global_basemap(
+                    resource_id,
+                    source_signature=source_signature or self.geometry_signature(None),
+                    hydrate_asset=hydrate_asset,
+                )
 
             context = staticmaps.Context()
             context.set_tile_provider(tile_provider_Carto)
