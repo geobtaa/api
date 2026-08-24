@@ -14,8 +14,8 @@ class TestRelationshipService:
     """Test cases for RelationshipService functionality."""
 
     @pytest.mark.asyncio(scope="session")
-    async def test_relationships_exclude_non_public_targets(self):
-        """Relationship previews and counts include only public target resources."""
+    async def test_relationships_include_suppressed_published_targets(self):
+        """Relationship widgets include suppressed targets that are still published."""
         parent_id = "relationship-visibility-parent"
         visible_id = "relationship-visibility-published"
         draft_id = "relationship-visibility-draft"
@@ -80,7 +80,7 @@ class TestRelationshipService:
                 values=[
                     {
                         "subject_id": parent_id,
-                        "predicate": "dct:hasPart",
+                        "predicate": "dct:source",
                         "object_id": object_id,
                     }
                     for object_id in [visible_id, draft_id, unpublished_id, suppressed_id]
@@ -93,16 +93,21 @@ class TestRelationshipService:
             )
 
             assert relationships == {
-                "dct:hasPart": [
+                "dct:source": [
                     {
                         "resource_id": visible_id,
                         "resource_title": "Published Target",
                         "link": f"/resources/{visible_id}",
-                    }
+                    },
+                    {
+                        "resource_id": suppressed_id,
+                        "resource_title": "Suppressed Target",
+                        "link": f"/resources/{suppressed_id}",
+                    },
                 ]
             }
             assert summaries[parent_id]["relationships"] == relationships
-            assert summaries[parent_id]["counts"] == {"dct:hasPart": 1}
+            assert summaries[parent_id]["counts"] == {"dct:source": 2}
         finally:
             await database.execute(
                 delete(resource_relationships).where(
