@@ -237,3 +237,44 @@ def test_generate_basemap_uses_global_fallback_for_unrenderable_polar_extent():
     assert result == b"global-basemap"
     mock_global.assert_called_once()
     mock_render.assert_not_called()
+
+
+def test_polygon_segments_are_not_replaced_with_geodesic_arcs():
+    service = StaticMapService()
+    geometry = {
+        "type": "Polygon",
+        "coordinates": [[[-115, 55], [-65, 55], [-65, 30], [-115, 30], [-115, 55]]],
+    }
+
+    objects = service._geojson_to_staticmaps_objects(geometry)
+
+    assert objects is not None
+    assert len(objects[-1].interpolate()) == 6
+    assert {round(point.lat().degrees, 6) for point in objects[-1].interpolate()} == {
+        30.0,
+        55.0,
+    }
+
+
+def test_multipolygon_extent_does_not_take_short_path_across_antimeridian():
+    service = StaticMapService()
+    geometry = {
+        "type": "MultiPolygon",
+        "coordinates": [
+            [[[170, 20], [179, 20], [179, 30], [170, 30], [170, 20]]],
+            [[[-179, -30], [-170, -30], [-170, -20], [-179, -20], [-179, -30]]],
+        ],
+    }
+
+    objects = service._geojson_to_staticmaps_objects(geometry)
+
+    assert objects is not None
+    extent_points = objects[-1].interpolate()
+    assert len(extent_points) == 5
+    assert [point.lng().degrees for point in extent_points] == [
+        -179.0,
+        -179.0,
+        179.0,
+        179.0,
+        -179.0,
+    ]
