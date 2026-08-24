@@ -24,6 +24,7 @@ from app.services.reference_reconstruction import (
     serialize_reference_payload,
 )
 from app.services.relationship_sync import sync_relationships_for_batch
+from app.services.temporal_normalization import normalize_or_derive_index_year
 from db.database import database
 from db.models import resources
 
@@ -80,14 +81,11 @@ class BridgeResourceImporter:
         if "import_id" in out and out["import_id"] is not None:
             out["import_id"] = str(out["import_id"])
 
-        if "gbl_indexYear_im" in out:
-            value = out.get("gbl_indexYear_im")
-            if isinstance(value, list):
-                out["gbl_indexYear_im"] = [int(v) for v in value if str(v).isdigit()] or None
-            elif isinstance(value, (int, str)) and str(value).isdigit():
-                out["gbl_indexYear_im"] = [int(value)]
-            else:
-                out["gbl_indexYear_im"] = None
+        if "gbl_indexYear_im" in out or "gbl_dateRange_drsim" in out:
+            out["gbl_indexYear_im"] = normalize_or_derive_index_year(
+                out.get("gbl_indexYear_im"),
+                out.get("gbl_dateRange_drsim"),
+            )
 
         array_fields = {
             c.name

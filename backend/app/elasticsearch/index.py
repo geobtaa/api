@@ -17,6 +17,7 @@ from shapely import wkt as shapely_wkt
 from shapely.geometry import mapping as shapely_mapping
 
 from app.services.language_service import ensure_b1g_language
+from app.services.temporal_normalization import normalize_or_derive_index_year
 from db.database import database
 from db.models import resources
 
@@ -294,6 +295,11 @@ async def process_resource(resource_dict):
             processed_dict[key] = value
 
     ensure_b1g_language(processed_dict)
+    if "gbl_indexYear_im" in processed_dict or "gbl_dateRange_drsim" in processed_dict:
+        processed_dict["gbl_indexYear_im"] = normalize_or_derive_index_year(
+            processed_dict.get("gbl_indexYear_im"),
+            processed_dict.get("gbl_dateRange_drsim"),
+        )
     if processed_dict.get("gbl_suppressed_b") is None:
         processed_dict["gbl_suppressed_b"] = False
 

@@ -20,6 +20,7 @@ from app.services.relationship_sync import (
     sync_relationships_for_batch,
     sync_relationships_for_resource_ids,
 )
+from app.services.temporal_normalization import normalize_or_derive_index_year
 from db.database import database
 from db.models import resources
 
@@ -145,15 +146,14 @@ class OGMResourceImporter:
             if name in record:
                 out[name] = record.get(name)
 
-        # Normalize gbl_indexYear_im to list[int] (db column is ARRAY(Integer))
-        if "gbl_indexYear_im" in out:
-            v = out.get("gbl_indexYear_im")
-            if isinstance(v, list):
-                out["gbl_indexYear_im"] = [int(x) for x in v if str(x).isdigit()] or None
-            elif isinstance(v, (int, str)) and str(v).isdigit():
-                out["gbl_indexYear_im"] = [int(v)]
-            else:
-                out["gbl_indexYear_im"] = None
+        # The legacy application derived the index year from the first date range.
+        # Preserve an explicitly supplied value, but restore that behavior when it
+        # is missing (the bridge and some OGM feeds only provide the date range).
+        if "gbl_indexYear_im" in out or "gbl_dateRange_drsim" in out:
+            out["gbl_indexYear_im"] = normalize_or_derive_index_year(
+                out.get("gbl_indexYear_im"),
+                out.get("gbl_dateRange_drsim"),
+            )
 
         # Array-ish fields: ensure list for Postgres array columns
         array_fields = {
