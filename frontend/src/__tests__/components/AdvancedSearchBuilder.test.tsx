@@ -1,10 +1,17 @@
 import type { ComponentProps } from 'react';
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import {
+  render,
+  screen,
+  fireEvent,
+  act,
+  waitFor,
+} from '@testing-library/react';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import { MemoryRouter } from 'react-router';
 import userEvent from '@testing-library/user-event';
 import { AdvancedSearchBuilder } from '../../components/search/AdvancedSearchBuilder';
+import { fetchFacetValues } from '../../services/api';
 
 describe('AdvancedSearchBuilder', () => {
   const renderBuilder = (
@@ -126,6 +133,55 @@ describe('AdvancedSearchBuilder', () => {
     fireEvent.click(screen.getByRole('button', { name: /close/i }));
 
     expect(onCancel).toHaveBeenCalled();
+  });
+
+  it('does not constrain OR autosuggest by another value on the same field', async () => {
+    const fetchFacetValuesMock = vi.mocked(fetchFacetValues);
+    fetchFacetValuesMock.mockClear();
+
+    renderBuilder({
+      clauses: [
+        { op: 'AND', field: 'dct_spatial_sm', q: 'Wisconsin' },
+        {
+          op: 'AND',
+          field: 'schema_provider_s',
+          q: 'UW-Madison Robinson Map Library',
+        },
+        { op: 'OR', field: 'schema_provider_s', q: 'WisconsinView' },
+      ],
+    });
+
+    fireEvent.focus(screen.getAllByLabelText('Value')[2]);
+
+    await waitFor(() => expect(fetchFacetValuesMock).toHaveBeenCalledOnce());
+    const request = fetchFacetValuesMock.mock.calls[0][0];
+
+    expect(request.facetName).toBe('schema_provider_s');
+    expect(request.qFacet).toBe('WisconsinView');
+    expect(JSON.parse(request.searchParams.get('adv_q') || '[]')).toEqual([
+      { op: 'AND', f: 'dct_spatial_sm', q: 'Wisconsin' },
+    ]);
+  });
+
+  it('keeps same-field AND clauses in autosuggest context', async () => {
+    const fetchFacetValuesMock = vi.mocked(fetchFacetValues);
+    fetchFacetValuesMock.mockClear();
+
+    renderBuilder({
+      clauses: [
+        { op: 'AND', field: 'dct_subject_sm', q: 'Water' },
+        { op: 'AND', field: 'dct_subject_sm', q: 'Rivers' },
+      ],
+    });
+
+    fireEvent.focus(screen.getAllByLabelText('Value')[1]);
+
+    await waitFor(() => expect(fetchFacetValuesMock).toHaveBeenCalledOnce());
+    const request = fetchFacetValuesMock.mock.calls[0][0];
+
+    expect(JSON.parse(request.searchParams.get('adv_q') || '[]')).toEqual([
+      { op: 'AND', f: 'dct_subject_sm', q: 'Water' },
+    ]);
   });
 
   describe('Accessibility', () => {
