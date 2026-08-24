@@ -69,6 +69,33 @@ async def test_process_resource_defaults_missing_suppression_to_false(monkeypatc
 
 
 @pytest.mark.asyncio
+async def test_process_resource_derives_index_year_from_date_range(monkeypatch):
+    async def fake_get_resource_summaries(resource_id):
+        return []
+
+    async def fake_get_spatial_facets(resource_id):
+        return None
+
+    async def fake_get_allmaps_overlay_status(resource_id):
+        return False
+
+    monkeypatch.setattr(index_module, "get_resource_summaries", fake_get_resource_summaries)
+    monkeypatch.setattr(index_module, "get_spatial_facets", fake_get_spatial_facets)
+    monkeypatch.setattr(index_module, "get_allmaps_overlay_status", fake_get_allmaps_overlay_status)
+
+    indexed = await index_module.process_resource(
+        {
+            "id": "bridge-resource",
+            "gbl_indexYear_im": None,
+            "gbl_dateRange_drsim": ["2024-2024"],
+        }
+    )
+
+    assert indexed["gbl_indexYear_im"] == [2024]
+    assert indexed["time_period"] == "2020-2024"
+
+
+@pytest.mark.asyncio
 async def test_process_resource_defaults_ogm_repo_to_btaa(monkeypatch):
     async def fake_get_resource_summaries(resource_id):
         return []
