@@ -309,6 +309,12 @@ def _build_search_aggregations() -> dict:
         "schema_provider_s": {
             "terms": {"field": "schema_provider_s.keyword", "size": DEFAULT_FACET_SIZE}
         },
+        "b1g_localCollectionLabel_sm": {
+            "terms": {
+                "field": "b1g_localCollectionLabel_sm.keyword",
+                "size": DEFAULT_FACET_SIZE,
+            }
+        },
         "b1g_code_s": {"terms": {"field": "b1g_code_s", "size": DEFAULT_FACET_SIZE}},
         "ogm_repo": {"terms": {"field": "ogm_repo.keyword", "size": OGM_REPO_FACET_SIZE}},
         "dct_accessRights_s": {
@@ -2631,6 +2637,7 @@ def process_aggregations(aggregations, search_context: dict):
         "creator_agg": "Creator",
         "dct_publisher_sm": "Publisher",
         "provider_agg": "Provider",
+        "b1g_localCollectionLabel_sm": "Local Collection",
         "b1g_code_s": "B1G Code",
         "ogm_repo": "OGM Repo",
         "access_rights_agg": "Access Rights",

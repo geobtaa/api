@@ -434,6 +434,10 @@ class TestElasticsearchSearch:
 
         aggs = mock_es.search.call_args.kwargs["aggs"]
         assert aggs["global_bucket_agg"] == {"filter": {"term": {"geo_or_near_global": True}}}
+        assert (
+            aggs["b1g_localCollectionLabel_sm"]["terms"]["field"]
+            == "b1g_localCollectionLabel_sm.keyword"
+        )
 
     @pytest.mark.asyncio
     async def test_search_resources_uses_cached_aggregations_when_available(self):
@@ -452,6 +456,9 @@ class TestElasticsearchSearch:
         cached_aggs = {
             "schema_provider_s": {
                 "buckets": [{"key": "Provider A", "doc_count": 1}],
+            },
+            "b1g_localCollectionLabel_sm": {
+                "buckets": [{"key": "John R. Borchert Map Library", "doc_count": 1}],
             },
             "global_bucket_agg": {"doc_count": 1},
         }
@@ -473,6 +480,10 @@ class TestElasticsearchSearch:
         assert "aggs" not in mock_es.search.call_args.kwargs
         assert result["meta"]["mapStats"]["globalCount"] == 1
         assert any(item["id"] == "schema_provider_s" for item in result["included"])
+        local_collection_facet = next(
+            item for item in result["included"] if item["id"] == "b1g_localCollectionLabel_sm"
+        )
+        assert local_collection_facet["attributes"]["label"] == "Local Collection"
 
     @pytest.mark.asyncio
     async def test_map_h3_aggregation_applies_adv_q_to_hexes_and_global_count(self):

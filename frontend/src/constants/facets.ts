@@ -9,6 +9,7 @@ export const CONFIGURED_FACETS = [
   'dct_creator_sm',
   'dct_publisher_sm',
   'schema_provider_s',
+  'b1g_localCollectionLabel_sm',
   'dct_accessRights_s',
   'gbl_georeferenced_b',
   'b1g_georeferenced_allmaps_b',
