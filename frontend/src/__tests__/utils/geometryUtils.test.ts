@@ -18,6 +18,19 @@ describe('geometryUtils', () => {
   });
 
   describe('wktToGeoJSON', () => {
+    describe('Point Parsing', () => {
+      it('converts a WKT point to GeoJSON', () => {
+        expect(wktToGeoJSON('POINT(-87.6200 43.0800)')).toEqual({
+          type: 'Point',
+          coordinates: [-87.62, 43.08],
+        });
+      });
+
+      it('rejects a point outside WGS84 coordinate ranges', () => {
+        expect(wktToGeoJSON('POINT(200 43.08)')).toBeNull();
+      });
+    });
+
     describe('Single Polygon Parsing', () => {
       it('converts a simple WKT polygon to GeoJSON', () => {
         const wkt =
@@ -105,7 +118,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
+          'WKT is not a POINT, POLYGON, MULTIPOLYGON, or ENVELOPE:',
           wkt
         );
 
@@ -192,7 +205,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
+          'WKT is not a POINT, POLYGON, MULTIPOLYGON, or ENVELOPE:',
           wkt
         );
 
@@ -285,12 +298,12 @@ describe('geometryUtils', () => {
           .spyOn(console, 'warn')
           .mockImplementation(() => {});
 
-        const wkt = 'POINT(-96.796 48.756)';
+        const wkt = 'LINESTRING(-96.796 48.756, -90.379 43.429)';
         const result = wktToGeoJSON(wkt);
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
+          'WKT is not a POINT, POLYGON, MULTIPOLYGON, or ENVELOPE:',
           wkt
         );
 
@@ -325,6 +338,15 @@ describe('geometryUtils', () => {
 
   describe('normalizeGeometry', () => {
     describe('GeoJSON Input', () => {
+      it('returns a GeoJSON point as-is', () => {
+        const point: GeoJSON.Point = {
+          type: 'Point',
+          coordinates: [-87.62, 43.08],
+        };
+
+        expect(normalizeGeometry(point)).toBe(point);
+      });
+
       it('returns GeoJSON polygon as-is', () => {
         const polygon: GeoJSON.Polygon = {
           type: 'Polygon',
@@ -379,6 +401,13 @@ describe('geometryUtils', () => {
     });
 
     describe('WKT String Input', () => {
+      it('converts a WKT point string to GeoJSON', () => {
+        expect(normalizeGeometry('POINT(-87.6200 43.0800)')).toEqual({
+          type: 'Point',
+          coordinates: [-87.62, 43.08],
+        });
+      });
+
       it('converts WKT polygon string to GeoJSON', () => {
         const wkt =
           'POLYGON((-96.796 48.756, -90.379 48.756, -90.379 43.429, -96.796 43.429, -96.796 48.756))';
@@ -494,7 +523,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
+          'WKT is not a POINT, POLYGON, MULTIPOLYGON, or ENVELOPE:',
           'INVALID WKT'
         );
 
@@ -511,7 +540,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
+          'WKT is not a POINT, POLYGON, MULTIPOLYGON, or ENVELOPE:',
           'INVALID WKT'
         );
 
@@ -554,7 +583,7 @@ describe('geometryUtils', () => {
 
         expect(result).toBeNull();
         expect(consoleSpy).toHaveBeenCalledWith(
-          'WKT is not a POLYGON, MULTIPOLYGON, or ENVELOPE:',
+          'WKT is not a POINT, POLYGON, MULTIPOLYGON, or ENVELOPE:',
           ''
         );
 
@@ -564,6 +593,18 @@ describe('geometryUtils', () => {
   });
 
   describe('geometryToLeafletFeatures', () => {
+    it('wraps Point in a single Feature', () => {
+      const point: GeoJSON.Point = {
+        type: 'Point',
+        coordinates: [-87.62, 43.08],
+      };
+
+      const features = geometryToLeafletFeatures(point);
+
+      expect(features).toHaveLength(1);
+      expect(features[0].geometry).toEqual(point);
+    });
+
     it('wraps Polygon in single Feature (same as LocationMap)', () => {
       const polygon: GeoJSON.Polygon = {
         type: 'Polygon',
@@ -869,6 +910,13 @@ describe('geometryUtils', () => {
   });
 
   describe('wktToGeoJSON ENVELOPE', () => {
+    it('converts a zero-area ENVELOPE to a GeoJSON Point', () => {
+      expect(wktToGeoJSON('ENVELOPE(-87.62, -87.62, 43.08, 43.08)')).toEqual({
+        type: 'Point',
+        coordinates: [-87.62, 43.08],
+      });
+    });
+
     it('converts ENVELOPE WKT to GeoJSON Polygon', () => {
       const wkt = 'ENVELOPE(-96.796, -90.379, 48.756, 43.429)';
       const result = wktToGeoJSON(wkt);
@@ -934,6 +982,19 @@ describe('geometryUtils', () => {
   });
 
   describe('getHoverGeometryForResult', () => {
+    it('returns a point from WKT locn_geometry', () => {
+      const json = getHoverGeometryForResult({
+        attributes: {
+          ogm: { locn_geometry: 'POINT(-87.6200 43.0800)' },
+        },
+      });
+
+      expect(JSON.parse(json!)).toEqual({
+        type: 'Point',
+        coordinates: [-87.62, 43.08],
+      });
+    });
+
     it('prefers meta.ui.viewer.geometry over locn_geometry (same as resource page LocationMap)', () => {
       const result = {
         attributes: {

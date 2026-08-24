@@ -752,6 +752,7 @@ export function ResourceView({
                         geometry={
                           resourceGeometry as
                             | string
+                            | GeoJSON.Point
                             | GeoJSON.Polygon
                             | GeoJSON.MultiPolygon
                             | { wkt: string }

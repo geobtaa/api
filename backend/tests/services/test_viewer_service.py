@@ -82,6 +82,23 @@ class TestParseReferences:
         assert result["iiif"] == "http://example.com/iiif"
         assert "locn_geometry" not in result
 
+    def test_parse_references_uses_bbox_when_full_geometry_is_missing(self):
+        document = {"dcat_bbox": "-87.62,43.08,-87.62,43.08"}
+
+        result = parse_references(document)
+
+        assert result["locn_geometry"] == "-87.62,43.08,-87.62,43.08"
+
+    def test_parse_references_prefers_full_geometry_over_bbox(self):
+        document = {
+            "locn_geometry": "POINT(-87.62 43.08)",
+            "dcat_bbox": "-88,42,-87,44",
+        }
+
+        result = parse_references(document)
+
+        assert result["locn_geometry"] == "POINT(-87.62 43.08)"
+
     def test_parse_references_with_object_with_getitem(self):
         """Test parsing references from object with __getitem__ method."""
 
@@ -215,6 +232,14 @@ class TestParseReferences:
 
 class TestCreateViewerAttributes:
     """Test cases for create_viewer_attributes function."""
+
+    def test_create_viewer_attributes_for_bbox_only_point(self):
+        result = create_viewer_attributes({"dcat_bbox": "-87.62,43.08,-87.62,43.08"})
+
+        assert result["ui_viewer_geometry"] == {
+            "type": "Point",
+            "coordinates": [-87.62, 43.08],
+        }
 
     @patch("app.services.viewer_service.ItemViewer")
     def test_create_viewer_attributes_with_dict(self, mock_item_viewer):

@@ -106,6 +106,7 @@ const HighlightOverlayController: React.FC<{
 
     try {
       const parsed = JSON.parse(highlightedGeometry) as
+        | GeoJSON.Point
         | GeoJSON.Polygon
         | GeoJSON.MultiPolygon;
       const features = geometryToLeafletFeatures(parsed);
@@ -122,6 +123,15 @@ const HighlightOverlayController: React.FC<{
             fillOpacity: 0.25,
             fillColor: '#f59e0b',
           },
+          pointToLayer: (_feature, latlng) =>
+            L.circleMarker(latlng, {
+              radius: 8,
+              color: '#f59e0b',
+              weight: 3,
+              opacity: 1,
+              fillColor: '#f59e0b',
+              fillOpacity: 0.4,
+            }),
         }
       );
       geoJsonLayer.addTo(map);

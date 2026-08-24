@@ -70,6 +70,30 @@ def test_viewer_geometry_with_geojson():
     assert geometry["coordinates"] == [0, 0]
 
 
+def test_viewer_geometry_with_wkt_point():
+    viewer = ItemViewer({"locn_geometry": "POINT(-87.6200 43.0800)"})
+
+    geometry = viewer.viewer_geometry()
+
+    assert geometry == {"type": "Point", "coordinates": [-87.62, 43.08]}
+
+
+def test_viewer_geometry_with_zero_area_envelope():
+    viewer = ItemViewer({"locn_geometry": "ENVELOPE(-87.62, -87.62, 43.08, 43.08)"})
+
+    geometry = viewer.viewer_geometry()
+
+    assert geometry == {"type": "Point", "coordinates": [-87.62, 43.08]}
+
+
+def test_viewer_geometry_with_zero_area_csv_bbox():
+    viewer = ItemViewer({"locn_geometry": "-87.62,43.08,-87.62,43.08"})
+
+    geometry = viewer.viewer_geometry()
+
+    assert geometry == {"type": "Point", "coordinates": [-87.62, 43.08]}
+
+
 def test_viewer_geometry_with_multipolygon_wkt():
     """MultiPolygon WKT returns GeoJSON MultiPolygon (preserves type for dashed extent)."""
     references = {

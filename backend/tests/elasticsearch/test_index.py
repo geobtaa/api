@@ -7,6 +7,35 @@ import pytest
 import app.elasticsearch.index as index_module
 
 
+def test_process_geometry_indexes_wkt_point():
+    assert index_module.process_geometry("POINT(-87.6200 43.0800)") == {
+        "type": "Point",
+        "coordinates": [-87.62, 43.08],
+    }
+
+
+def test_process_geometry_converts_zero_area_bbox_to_point():
+    assert index_module.process_geometry("-87.62,43.08,-87.62,43.08") == {
+        "type": "point",
+        "coordinates": [-87.62, 43.08],
+    }
+
+
+def test_process_geometry_preserves_near_global_bbox_as_polygon():
+    geometry = index_module.process_geometry("-179.999,-80.000,179.999,80.000")
+
+    assert geometry["type"] == "polygon"
+    assert geometry["coordinates"] == [
+        [
+            [-179.999, 80.0],
+            [179.999, 80.0],
+            [179.999, -80.0],
+            [-179.999, -80.0],
+            [-179.999, 80.0],
+        ]
+    ]
+
+
 @pytest.mark.asyncio
 async def test_process_resource_adds_allmaps_overlay_status(monkeypatch):
     async def fake_get_resource_summaries(resource_id):

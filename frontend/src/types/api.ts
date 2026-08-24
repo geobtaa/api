@@ -127,7 +127,11 @@ export interface GeoDocument {
       viewer?: {
         protocol?: string;
         endpoint?: string;
-        geometry?: string | GeoJSON.Polygon | GeoJSON.MultiPolygon;
+        geometry?:
+          | string
+          | GeoJSON.Point
+          | GeoJSON.Polygon
+          | GeoJSON.MultiPolygon;
       };
       allmaps?: {
         allmaps_id?: string | null;
