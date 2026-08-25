@@ -1,6 +1,6 @@
 [project]
 name = "data-api"
-version = "0.8.16"
+dynamic = ["version"]
 description = "BTAA OpenGeoMetadata API"
 requires-python = ">=3.11"
 authors = [
@@ -80,7 +80,13 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["app", "db"]
+packages = ["app", "app._release", "db"]
+
+[tool.setuptools.dynamic]
+version = {attr = "app.version.APP_VERSION"}
+
+[tool.setuptools.package-data]
+app = ["_release/release.json"]
 
 # Simple Ruff configuration - compatible with v0.11.6
 [tool.ruff]

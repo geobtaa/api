@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.api.v1.endpoint_modules.mcp import router
 from app.main import app
+from app.version import APP_VERSION
 from tests.utils.route_helpers import route_paths
 
 client = TestClient(app)
@@ -35,7 +36,7 @@ class TestMCPEndpoints:
 
         # Check basic service information
         assert data["name"] == "btaa-geospatial-api"
-        assert data["version"] == "0.8.16"
+        assert data["version"] == APP_VERSION
         assert data["description"] == "BTAA Geospatial API MCP Service"
         assert data["protocol"] == "mcp"
         assert "stdio" in data["transports"]

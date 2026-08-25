@@ -2,7 +2,7 @@
 
 {% include-markdown "includes/wip.md" %}
 
-**Version:** 0.8.16   **Status:** *DRAFT*   **Release Date:** 2026-08-25
+**Version:** {{ release.version }}   **Status:** *DRAFT*   **Release Date:** {{ release.release_date }}
 
 ## Editors
 
@@ -46,7 +46,15 @@ The goal of this specification is to enable consistent client and server impleme
 * Client developers (e.g. FastAPI-based geoportals, desktop GIS plugins)  
 * Researchers automating metadata discovery
 
-## Change Log
+## Current Release
+
+{{ release.summary }}
+
+Current and future release history is maintained in
+[GitHub Releases](https://github.com/geobtaa/api/releases). The table below
+preserves earlier specification history.
+
+## Historical Change Log
 
 | Version | Date | Notes |
 | :---- | :---- | :---- |

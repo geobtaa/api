@@ -59,6 +59,7 @@ from app.services.sitemap_service import (
     get_current_sitemap_document,
     is_valid_sitemap_part_name,
 )
+from app.version import APP_VERSION
 from db.async_engine import dispose_app_async_engines
 from db.database import database
 from db.sync_engine import dispose_app_sync_engines
@@ -168,7 +169,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI application
 app = FastAPI(
     title="BTAA Geospatial API",
-    version="0.8.16",
+    version=APP_VERSION,
     lifespan=lifespan,
     docs_url=None,
     redoc_url="/api/redoc",
