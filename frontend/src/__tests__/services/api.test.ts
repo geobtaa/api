@@ -287,6 +287,7 @@ describe('fetchFacetValues', () => {
     await fetchFacetValues({
       facetName: 'dct_spatial_sm',
       searchParams,
+      includeFilterOperator: 'and',
     });
 
     const callUrl = mockFetch.mock.calls[0][0];
@@ -294,6 +295,7 @@ describe('fetchFacetValues', () => {
     const values = url.searchParams.getAll('include_filters[dct_spatial_sm][]');
     expect(values).toContain('Minnesota');
     expect(values).toContain('Wisconsin');
+    expect(url.searchParams.get('include_filter_operator')).toBe('and');
   });
 
   it('forwards exclude_filters parameters', async () => {
@@ -484,6 +486,7 @@ describe('fetchMapH3', () => {
     expect(url.pathname).toBe('/map/h3');
     expect(url.searchParams.get('_v')).toBe('3');
     expect(url.searchParams.get('adv_q')).toBe(advQuery);
+    expect(url.searchParams.get('include_filter_operator')).toBe('and');
   });
 });
 
@@ -619,6 +622,7 @@ describe('fetchSearchResults', () => {
     const fetchUrl = new URL((global.fetch as any).mock.calls[0][0]);
     expect(fetchUrl.pathname).toBe('/search/results');
     expect(fetchUrl.searchParams.get('q')).toBe('maps');
+    expect(fetchUrl.searchParams.get('include_filter_operator')).toBe('and');
 
     const displayedApiUrl = new URL(onApiCall.mock.calls[0][0]);
     expect(displayedApiUrl.pathname).toBe('/api/v1/search');
@@ -633,10 +637,7 @@ describe('fetchSearchResults', () => {
       writable: true,
     });
 
-    window.sessionStorage.setItem(
-      'btaa_turnstile_session',
-      'expired-session'
-    );
+    window.sessionStorage.setItem('btaa_turnstile_session', 'expired-session');
     const turnstileRequired = vi.fn();
     window.addEventListener(TURNSTILE_REQUIRED_EVENT, turnstileRequired);
 
@@ -732,6 +733,7 @@ describe('fetchSearchResults', () => {
     expect(requestUrl.searchParams.get('per_page')).toBe('20');
     expect(requestUrl.searchParams.get('sort')).toBe('year_desc');
     expect(requestUrl.searchParams.get('adv_q')).toBe(advQuery);
+    expect(requestUrl.searchParams.get('include_filter_operator')).toBe('and');
     expect(
       requestUrl.searchParams.getAll('include_filters[gbl_resourceClass_sm][]')
     ).toEqual(['Maps']);

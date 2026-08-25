@@ -49,6 +49,7 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `sort`            | string   | No       | Sort option: `relevance`, `year_desc`, `year_asc`, `title_asc`, `title_desc`                     | `year_desc`                                       |
 | `callback`        | string   | No       | JSONP callback name (for JSONP support)                                                          | `myCallback`                                      |
 | `include_non_public` | boolean | No       | Include unpublished and suppressed records in Elasticsearch-backed responses                      | `true`                                            |
+| `include_filter_operator` | `or` \| `and` | No | Combine repeated values within one include-filter field. The API default is `or`; the web search UI sends `and` for drill-down faceting. | `and` |
 | `fq[spatial_agg][]`         | string[] | No       | Filter by spatial location (maps to `dct_spatial_sm`)                                            | `fq[spatial_agg][]=Minnesota`                     |
 | `fq[resource_type_agg][]`   | string[] | No       | Filter by resource type (maps to `gbl_resourceType_sm`)                                          | `fq[resource_type_agg][]=Map`                     |
 | `fq[resource_class_agg][]`  | string[] | No       | Filter by resource class (maps to `gbl_resourceClass_sm`)                                        | `fq[resource_class_agg][]=Datasets`               |
@@ -98,6 +99,7 @@ Example (illustrative):
 Notes:
 
 - Older clients may still use legacy query params (`fq[...][]`). Newer clients should prefer `include_filters[...][]` / `exclude_filters[...][]`.
+- Repeating a value for one field uses the API-compatible OR default unless `include_filter_operator=and` is supplied. The web search UI always supplies `and`, so every selected facet value narrows the result set. Advanced Boolean clauses remain separate in `adv_q`.
 - Frontends typically **do not need** per-item facet URLs; they can update query params directly.
 
 ## Facet values endpoint (`/api/v1/search/facets/{facet_name}`)
@@ -109,6 +111,10 @@ The facet values endpoint is used for pagination/sorting/search-within-facet. It
   - `attributes.hits`
   - `attributes.label` may be omitted (clients can display `String(value)`)
 - `links.applyTemplate`: single template URL to apply a facet value in the current search context
+
+Pass the same `include_filter_operator` used for the results request so facet
+counts and result totals use identical semantics. The map H3 endpoint accepts
+the option for the same reason.
 
 ## Spatial Facets
 

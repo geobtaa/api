@@ -41,6 +41,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
       key !== "resolution" &&
       key !== "_v" &&
       (key === "adv_q" ||
+        key === "include_filter_operator" ||
         key.startsWith("include_filters[") ||
         key.startsWith("exclude_filters[") ||
         key.startsWith("fq["))

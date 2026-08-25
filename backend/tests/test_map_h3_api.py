@@ -45,6 +45,7 @@ def test_map_h3_returns_resolution_hexes_global_count(mock_agg):
     assert call_kw["q"] == "maps"
     assert call_kw["bbox"] == "-94,44,-92,46"
     assert call_kw["resolution"] == 5
+    assert call_kw["include_filter_operator"] == "or"
 
 
 @patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)
@@ -91,3 +92,23 @@ def test_map_h3_forwards_adv_q(mock_agg):
         {"op": "AND", "f": "dct_title_s", "q": "water"},
         {"op": "AND", "f": "dct_spatial_sm", "q": "Pennsylvania"},
     ]
+
+
+@patch("app.api.v1.endpoint_modules.map.map_h3_aggregation", new_callable=AsyncMock)
+def test_map_h3_forwards_drilldown_filter_operator(mock_agg):
+    mock_agg.return_value = {"resolution": 5, "hexes": [], "globalCount": 7}
+    client = TestClient(_make_app())
+
+    response = client.get(
+        "/api/v1/map/h3",
+        params={
+            "include_filter_operator": "and",
+            "include_filters[dct_spatial_sm][]": [
+                "Indiana",
+                "Indiana--Bloomington",
+            ],
+        },
+    )
+
+    assert response.status_code == 200
+    assert mock_agg.call_args.kwargs["include_filter_operator"] == "and"

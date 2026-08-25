@@ -16,6 +16,7 @@ SEARCH_ALLOWED_PARAMS = [
     "facets",  # Facet filtering for response aggregations
     "meta",  # Include per-resource meta
     "include_non_public",  # Include unpublished/suppressed records in ES-backed results
+    "include_filter_operator",  # Combine repeated include values with and/or
     "callback",  # JSONP callback
     # Explicit facet filter parameters (fq[<field>][]) expected by tests
     "fq[dct_resourceClass_sm][]",
@@ -51,6 +52,7 @@ FACET_ALLOWED_PARAMS = [
     "q_facet",  # Search query to filter facet values
     "adv_q",  # Advanced multi-field search queries
     "include_non_public",  # Include unpublished/suppressed records in ES-backed facet counts
+    "include_filter_operator",  # Combine repeated include values with and/or
     "callback",  # JSONP callback
     # Explicit facet filter parameters (fq[<field>][]) expected by tests
     "fq[dct_resourceClass_sm][]",
