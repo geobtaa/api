@@ -126,16 +126,16 @@ class TestAdvancedSearchQueryStructure:
 
     @pytest.mark.asyncio
     async def test_or_operator_query_structure(self):
-        """Test that OR operator creates correct should clause."""
+        """Test that a leading OR behaves as a single required clause."""
         from app.elasticsearch.search import _build_advanced_query
 
         adv_q = [{"op": "OR", "f": "dct_title_s", "q": "Iowa"}]
         result = _build_advanced_query(adv_q)
 
-        assert len(result["must"]) == 0
-        assert len(result["should"]) == 1
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 0
         assert len(result["must_not"]) == 0
-        assert result["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+        assert result["must"][0]["match"]["dct_title_s"]["query"] == "Iowa"
 
     @pytest.mark.asyncio
     async def test_not_operator_query_structure(self):
@@ -165,10 +165,13 @@ class TestAdvancedSearchQueryStructure:
         validated_queries = validate_adv_q(adv_q)
         result = _build_advanced_query(validated_queries)
 
-        # All should be properly routed after validation normalizes to uppercase
-        assert len(result["must"]) == 1  # AND -> must
-        assert len(result["should"]) == 1  # OR -> should
+        # The OR row joins the preceding positive clause in one required group.
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 0
         assert len(result["must_not"]) == 1  # NOT -> must_not
+        grouped_query = result["must"][0]["bool"]
+        assert grouped_query["minimum_should_match"] == 1
+        assert len(grouped_query["should"]) == 2
 
         # Verify operators were normalized
         assert validated_queries[0]["op"] == "AND"
@@ -505,24 +508,24 @@ class TestAdvancedSearchAllFields:
 
 
 class TestAdvancedSearchOROperator:
-    """Test OR operator behavior, especially when mixed with AND on same field."""
+    """Test ordered AND/OR grouping across advanced-search fields."""
 
     @pytest.mark.asyncio
     async def test_or_operator_single_clause(self):
-        """Test that single OR clause goes to should."""
+        """Test that a single leading OR is still a required clause."""
         from app.elasticsearch.search import _build_advanced_query
 
         adv_q = [{"op": "OR", "f": "dct_title_s", "q": "Iowa"}]
         result = _build_advanced_query(adv_q)
 
-        assert len(result["must"]) == 0
-        assert len(result["should"]) == 1
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 0
         assert len(result["must_not"]) == 0
-        assert result["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+        assert result["must"][0]["match"]["dct_title_s"]["query"] == "Iowa"
 
     @pytest.mark.asyncio
     async def test_and_then_or_same_field_treated_as_or(self):
-        """Test that AND+OR on same field are all treated as OR clauses."""
+        """Test that an OR row joins the preceding row in a required group."""
         from app.elasticsearch.search import _build_advanced_query
 
         # This is the bug case: AND then OR on same field should be OR
@@ -532,18 +535,18 @@ class TestAdvancedSearchOROperator:
         ]
         result = _build_advanced_query(adv_q)
 
-        # Both should be in should_clauses, not must
-        assert len(result["must"]) == 0
-        assert len(result["should"]) == 2
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 0
         assert len(result["must_not"]) == 0
 
-        # Both should be match queries on dct_title_s
-        assert result["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
-        assert result["should"][1]["match"]["dct_title_s"]["query"] == "Wisconsin"
+        group = result["must"][0]["bool"]
+        assert group["minimum_should_match"] == 1
+        assert group["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+        assert group["should"][1]["match"]["dct_title_s"]["query"] == "Wisconsin"
 
     @pytest.mark.asyncio
     async def test_multiple_or_same_field(self):
-        """Test that multiple OR clauses on same field all go to should."""
+        """Test that multiple OR clauses share one nested should group."""
         from app.elasticsearch.search import _build_advanced_query
 
         adv_q = [
@@ -553,13 +556,14 @@ class TestAdvancedSearchOROperator:
         ]
         result = _build_advanced_query(adv_q)
 
-        assert len(result["must"]) == 0
-        assert len(result["should"]) == 3
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 0
         assert len(result["must_not"]) == 0
+        assert len(result["must"][0]["bool"]["should"]) == 3
 
     @pytest.mark.asyncio
-    async def test_or_different_fields_not_treated_as_or(self):
-        """Test that OR clauses on different fields work normally (not all as OR)."""
+    async def test_or_groups_across_different_fields(self):
+        """Test that OR grouping follows row order rather than field identity."""
         from app.elasticsearch.search import _build_advanced_query
 
         adv_q = [
@@ -568,11 +572,48 @@ class TestAdvancedSearchOROperator:
         ]
         result = _build_advanced_query(adv_q)
 
-        # Should work normally: AND in must, OR in should
         assert len(result["must"]) == 1
-        assert len(result["should"]) == 1
-        assert result["must"][0]["match"]["dct_title_s"]["query"] == "Iowa"
-        assert result["should"][0]["match"]["dct_description_sm"]["query"] == "Water"
+        assert len(result["should"]) == 0
+        group = result["must"][0]["bool"]
+        assert group["should"][0]["match"]["dct_title_s"]["query"] == "Iowa"
+        assert group["should"][1]["match"]["dct_description_sm"]["query"] == "Water"
+
+    @pytest.mark.asyncio
+    async def test_required_clause_before_or_group(self):
+        """Test Place AND (Provider A OR Provider B), the issue #48 workflow."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        adv_q = [
+            {"op": "AND", "f": "dct_spatial_sm", "q": "Wisconsin"},
+            {"op": "AND", "f": "schema_provider_s", "q": "Provider A"},
+            {"op": "OR", "f": "schema_provider_s", "q": "Provider B"},
+        ]
+        result = _build_advanced_query(adv_q)
+
+        assert len(result["must"]) == 2
+        assert result["must"][0]["match"]["dct_spatial_sm"]["query"] == "Wisconsin"
+        provider_group = result["must"][1]["bool"]
+        assert provider_group["minimum_should_match"] == 1
+        assert [
+            clause["match"]["schema_provider_s"]["query"] for clause in provider_group["should"]
+        ] == ["Provider A", "Provider B"]
+
+    @pytest.mark.asyncio
+    async def test_multiple_required_or_groups(self):
+        """Test (A OR B) AND (C OR D) produces two required groups."""
+        from app.elasticsearch.search import _build_advanced_query
+
+        result = _build_advanced_query(
+            [
+                {"op": "AND", "f": "dct_title_s", "q": "A"},
+                {"op": "OR", "f": "dct_title_s", "q": "B"},
+                {"op": "AND", "f": "dct_spatial_sm", "q": "C"},
+                {"op": "OR", "f": "dct_spatial_sm", "q": "D"},
+            ]
+        )
+
+        assert len(result["must"]) == 2
+        assert all(len(group["bool"]["should"]) == 2 for group in result["must"])
 
     @pytest.mark.asyncio
     async def test_or_with_not_clause_same_field(self):
@@ -586,10 +627,12 @@ class TestAdvancedSearchOROperator:
         ]
         result = _build_advanced_query(adv_q)
 
-        # Iowa and Wisconsin should both be in should (treated as OR)
-        assert len(result["must"]) == 0
-        assert len(result["should"]) == 2
+        assert len(result["must"]) == 1
+        assert len(result["should"]) == 0
         assert len(result["must_not"]) == 1
+
+        group = result["must"][0]["bool"]
+        assert len(group["should"]) == 2
 
         # NOT clause should be separate
         assert result["must_not"][0]["match"]["dct_title_s"]["query"] == "Minnesota"
@@ -624,10 +667,8 @@ class TestAdvancedSearchOROperator:
                 search_query = call_args.kwargs.get("query")
                 bool_query = search_query["bool"]
 
-                # Should have both in should_clauses (treated as OR)
-                assert "should" in bool_query
-                assert len(bool_query["should"]) == 2
-                assert bool_query["minimum_should_match"] == 1
-
-                # Should NOT have must clauses
-                assert "must" not in bool_query or len(bool_query.get("must", [])) == 0
+                assert len(bool_query["must"]) == 1
+                grouped_query = bool_query["must"][0]["bool"]
+                assert len(grouped_query["should"]) == 2
+                assert grouped_query["minimum_should_match"] == 1
+                assert "should" not in bool_query
