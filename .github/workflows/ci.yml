@@ -278,4 +278,4 @@ jobs:
 
       - name: Build documentation
         working-directory: mkdocs
-        run: mkdocs build --config-file mkdocs.yml --site-dir site
+        run: mkdocs build --site-dir site
