@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from app.api.errors import PUBLIC_ERROR_RESPONSES
 from app.api.schemas import APIRootResponse
 from app.api.v1.utils import create_jsonapi_response
+from app.version import APP_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ async def api_root(request: Request):
         "id": "root",
         "attributes": {
             "api": "BTAA Geospatial API",
-            "version": "0.8.16",
+            "version": APP_VERSION,
             "description": (
                 "A RESTful API that provides access to digitized maps and geospatial data "
                 "resources curated by Big Ten Academic Alliance member libraries."

@@ -23,6 +23,8 @@ plugins:
   - search
   - table-reader
   - include-markdown
+  - markdownextradata:
+      data: ../backend/app/_release
 
 extra_css:
   - stylesheets/extra.css
