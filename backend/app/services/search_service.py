@@ -131,6 +131,7 @@ class SearchService:
         callback: Optional[str] = None,
         facets: Optional[str] = None,
         include_filters: Optional[Dict] = None,
+        include_filter_operator: str = "or",
         exclude_filters: Optional[Dict] = None,
         fq_direct: Optional[Dict] = None,
         adv_q: Optional[list] = None,
@@ -195,6 +196,7 @@ class SearchService:
                 sort=sort_mapping,
                 search_fields=search_fields,
                 include_filters=include_filters,
+                include_filter_operator=include_filter_operator,
                 exclude_filters=exclude_filters,
                 facets=facets,
                 adv_q=adv_q,
@@ -715,7 +717,10 @@ class SearchService:
         # Handle year_range filters
         year_range_filters = {}
         for key, values in raw_params.items():
-            if key.startswith("include_filters[year_range][") and key.endswith("]"):
+            if key in {
+                "include_filters[year_range][start]",
+                "include_filters[year_range][end]",
+            }:
                 sub_key = key[len("include_filters[year_range][") : -1]  # start or end
                 year_range_filters[sub_key] = values[0] if values else None
 
@@ -728,6 +733,7 @@ class SearchService:
                 key.startswith("include_filters[")
                 and key.endswith("][]")
                 and not key.startswith("include_filters[geo][")
+                and not key.startswith("include_filters[year_range][")
             ):
                 field = key[len("include_filters[") : -len("][]")]
                 include_filters[field] = values

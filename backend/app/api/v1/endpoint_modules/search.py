@@ -3,7 +3,7 @@ import json
 import logging
 import os
 import time
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -21,10 +21,12 @@ from app.api.v1.utils import (
     sanitize_for_json,
 )
 from app.elasticsearch.search import (
+    DEFAULT_INCLUDE_FILTER_OPERATOR,
     generate_facet_apply_template,
     get_facet_aggregation_config,
     get_facet_values,
     get_search_criteria,
+    normalize_include_filter_operator,
     process_facet_response,
 )
 from app.services.allmaps_service import fetch_allmaps_attributes_map
@@ -205,6 +207,7 @@ def _build_semantic_search_cache_key(
     fields,
     facets,
     include_filters,
+    include_filter_operator=DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters,
     fq,
     adv_q,
@@ -223,6 +226,7 @@ def _build_semantic_search_cache_key(
         fields=fields or "",
         facets=facets or "",
         include_filters=_canonical_filter_value(include_filters or {}),
+        include_filter_operator=include_filter_operator,
         exclude_filters=_canonical_filter_value(exclude_filters or {}),
         fq=_canonical_filter_value(fq or {}),
         adv_q=adv_q or [],
@@ -419,6 +423,9 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
     callback = params.get("callback")
     request_query_params = params.get("request_query_params")
     include_filters = params.get("include_filters")
+    include_filter_operator = normalize_include_filter_operator(
+        params.get("include_filter_operator")
+    )
     exclude_filters = params.get("exclude_filters")
     fq = params.get("fq")
     adv_q = params.get("adv_q")
@@ -442,6 +449,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         fields=fields,
         facets=facets,
         include_filters=include_filters,
+        include_filter_operator=include_filter_operator,
         exclude_filters=exclude_filters,
         fq=fq,
         adv_q=adv_q,
@@ -487,6 +495,7 @@ async def _handle_search(request: Request, params: dict) -> JSONResponse:
         callback=callback,
         facets=facets,
         include_filters=include_filters,
+        include_filter_operator=include_filter_operator,
         exclude_filters=exclude_filters,
         fq_direct=fq,
         adv_q=adv_q,
@@ -783,6 +792,13 @@ async def search(
             "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
         ),
     ),
+    include_filter_operator: Literal["and", "or"] = Query(
+        DEFAULT_INCLUDE_FILTER_OPERATOR,
+        description=(
+            "How repeated values within one include filter are combined. "
+            "Use 'and' for drill-down faceting; default 'or' preserves API compatibility."
+        ),
+    ),
     include_non_public: bool = Query(
         False,
         description="Include unpublished and suppressed records in Elasticsearch-backed results",
@@ -859,6 +875,7 @@ async def search(
                 "adv_q": parsed_adv_q,
                 "fq": filter_query,
                 "include_filters": include_filters,
+                "include_filter_operator": include_filter_operator,
                 "exclude_filters": exclude_filters,
                 "include_non_public": include_non_public,
             },
@@ -906,6 +923,7 @@ async def search_post(
     Supported keys:
       - q, page, per_page, sort, search_field, fields, facets, meta
       - include_filters, exclude_filters, fq (object of field->values)
+      - include_filter_operator ("and" for drill-down, "or" by default)
       - adv_q (array of query clauses with op, f, q)
       - include_non_public (boolean; default false)
     """
@@ -924,6 +942,17 @@ async def search_post(
     include_non_public = _coerce_request_bool(payload.get("include_non_public", False))
 
     include_filters = payload.get("include_filters")
+    include_filter_operator = str(
+        payload.get("include_filter_operator", DEFAULT_INCLUDE_FILTER_OPERATOR)
+    ).lower()
+    if include_filter_operator not in {"and", "or"}:
+        return api_error_response(
+            status_code=400,
+            code="invalid_include_filter_operator",
+            title="Bad request",
+            detail="include_filter_operator must be 'and' or 'or'",
+            request_id=get_request_id(request),
+        )
     exclude_filters = payload.get("exclude_filters")
     fq = payload.get("fq")
 
@@ -942,6 +971,7 @@ async def search_post(
                 "meta": meta,
                 "callback": callback,
                 "include_filters": include_filters,
+                "include_filter_operator": include_filter_operator,
                 "exclude_filters": exclude_filters,
                 "fq": fq,
                 "adv_q": adv_q,
@@ -977,6 +1007,13 @@ async def get_facet(
         description=(
             "JSON array of advanced query clauses. "
             "Each clause: {'op': 'AND|OR|NOT', 'f': 'dct_title_s', 'q': 'Iowa'}"
+        ),
+    ),
+    include_filter_operator: Literal["and", "or"] = Query(
+        DEFAULT_INCLUDE_FILTER_OPERATOR,
+        description=(
+            "How repeated values within one include filter are combined. "
+            "Use 'and' for drill-down facet counts."
         ),
     ),
     include_non_public: bool = Query(
@@ -1066,6 +1103,7 @@ async def get_facet(
             query=q,
             fq=filter_query,
             include_filters=include_filters,
+            include_filter_operator=include_filter_operator,
             exclude_filters=exclude_filters,
             adv_q=parsed_adv_q,
             q_facet=q_facet,
@@ -1097,6 +1135,7 @@ async def get_facet(
             {
                 "q": q,
                 "include_filters": include_filters,
+                "include_filter_operator": include_filter_operator,
                 "exclude_filters": exclude_filters,
                 "fq": filter_query,
                 "adv_q": parsed_adv_q,

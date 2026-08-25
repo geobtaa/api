@@ -5,6 +5,7 @@ import type { FacetValuesResponse } from '../../types/api';
 
 // Mock fetchFacetValues
 vi.mock('../../services/api', () => ({
+  DRILL_DOWN_INCLUDE_FILTER_OPERATOR: 'and',
   fetchFacetValues: vi.fn(),
 }));
 
@@ -68,6 +69,7 @@ describe('useFacetModal', () => {
       perPage: 10,
       sort: 'count_desc',
       qFacet: undefined,
+      includeFilterOperator: 'and',
     });
     expect(result.current.items).toHaveLength(2);
     expect(result.current.meta).toEqual(mockFacetResponse.meta);
@@ -306,6 +308,7 @@ describe('useFacetModal', () => {
       expect(fetchFacetValues).toHaveBeenCalledWith(
         expect.objectContaining({
           searchParams: expect.any(URLSearchParams),
+          includeFilterOperator: 'and',
         })
       );
     });

@@ -44,11 +44,13 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | Parameter         | Type     | Required | Description                                                                                      | Example Value(s)                                  |
 |-------------------|----------|----------|--------------------------------------------------------------------------------------------------|---------------------------------------------------|
 | `q`               | string   | No       | Search query string                                                                              | `roads minnesota`                                 |
+| `adv_q`           | JSON array | No     | Ordered advanced clauses with `op`, `f`, and `q` keys                                            | `[{"op":"AND","f":"dct_spatial_sm","q":"Wisconsin"}]` |
 | `page`            | integer  | No       | Page number (1-based)                                                                            | `1`, `2`                                          |
 | `per_page`        | integer  | No       | Number of resources per page                                                                         | `10`, `25`                                        |
 | `sort`            | string   | No       | Sort option: `relevance`, `year_desc`, `year_asc`, `title_asc`, `title_desc`                     | `year_desc`                                       |
 | `callback`        | string   | No       | JSONP callback name (for JSONP support)                                                          | `myCallback`                                      |
 | `include_non_public` | boolean | No       | Include unpublished and suppressed records in Elasticsearch-backed responses                      | `true`                                            |
+| `include_filter_operator` | `or` \| `and` | No | Combine repeated values within one include-filter field. The API default is `or`; the web search UI sends `and` for drill-down faceting. | `and` |
 | `fq[spatial_agg][]`         | string[] | No       | Filter by spatial location (maps to `dct_spatial_sm`)                                            | `fq[spatial_agg][]=Minnesota`                     |
 | `fq[resource_type_agg][]`   | string[] | No       | Filter by resource type (maps to `gbl_resourceType_sm`)                                          | `fq[resource_type_agg][]=Map`                     |
 | `fq[resource_class_agg][]`  | string[] | No       | Filter by resource class (maps to `gbl_resourceClass_sm`)                                        | `fq[resource_class_agg][]=Datasets`               |
@@ -62,6 +64,29 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `fq[geo_country_agg][]`     | string[] | No       | Filter by country using spatial facets (maps to `geo_country`)                                   | `fq[geo_country_agg][]=12345|0|United States`     |
 | `fq[geo_region_agg][]`      | string[] | No       | Filter by region/state using spatial facets (maps to `geo_region`)                               | `fq[geo_region_agg][]=12345|0|Minnesota`         |
 | `fq[geo_county_agg][]`      | string[] | No       | Filter by county using spatial facets (maps to `geo_county`)                                     | `fq[geo_county_agg][]=12345|0|MN|Hennepin County` |
+
+## Advanced Boolean queries
+
+The advanced search builder sends its ordered rows in `adv_q`. Each `AND` row
+starts a required positive group, and each `OR` row joins the preceding positive
+group. `NOT` rows are global exclusions. A leading `OR` has no left-hand
+alternative and therefore behaves like a single required clause.
+
+For example:
+
+```json
+[
+  {"op": "AND", "f": "dct_spatial_sm", "q": "Wisconsin"},
+  {"op": "AND", "f": "schema_provider_s", "q": "Provider A"},
+  {"op": "OR", "f": "schema_provider_s", "q": "Provider B"},
+  {"op": "NOT", "f": "dct_accessRights_s", "q": "Restricted"}
+]
+```
+
+is evaluated as `Wisconsin AND (Provider A OR Provider B) AND NOT Restricted`.
+An ordinary `q` parameter, when present, is also required alongside the complete
+advanced expression. Search results, facet-value suggestions, and map counts all
+compile `adv_q` through the same Boolean query builder.
 
 ## Facets in the response (JSON:API `included`)
 
@@ -98,6 +123,7 @@ Example (illustrative):
 Notes:
 
 - Older clients may still use legacy query params (`fq[...][]`). Newer clients should prefer `include_filters[...][]` / `exclude_filters[...][]`.
+- Repeating a value for one field uses the API-compatible OR default unless `include_filter_operator=and` is supplied. The web search UI always supplies `and`, so every selected facet value narrows the result set. Advanced Boolean clauses remain separate in `adv_q`.
 - Frontends typically **do not need** per-item facet URLs; they can update query params directly.
 
 ## Facet values endpoint (`/api/v1/search/facets/{facet_name}`)
@@ -109,6 +135,10 @@ The facet values endpoint is used for pagination/sorting/search-within-facet. It
   - `attributes.hits`
   - `attributes.label` may be omitted (clients can display `String(value)`)
 - `links.applyTemplate`: single template URL to apply a facet value in the current search context
+
+Pass the same `include_filter_operator` used for the results request so facet
+counts and result totals use identical semantics. The map H3 endpoint accepts
+the option for the same reason.
 
 ## Spatial Facets
 

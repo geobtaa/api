@@ -530,13 +530,16 @@ class TestGetFacetValues:
             facet_name="schema_provider_s",
             query=None,
             fq=None,
-            include_filters={"dct_spatial_sm": ["Minnesota"]},
+            include_filters={"dct_spatial_sm": ["Indiana", "Indiana--Bloomington"]},
+            include_filter_operator="and",
             exclude_filters=None,
             adv_q=None,
         )
 
-        # Verify ES was called
         mock_es.search.assert_called_once()
+        filters = mock_es.search.call_args.kwargs["query"]["bool"]["filter"]
+        assert {"term": {"dct_spatial_sm.keyword": "Indiana"}} in filters
+        assert {"term": {"dct_spatial_sm.keyword": "Indiana--Bloomington"}} in filters
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
@@ -718,7 +721,7 @@ class TestGetFacetValues:
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")
     async def test_with_adv_q_or_clause(self, mock_es):
-        """Test facet retrieval with advanced query containing OR clause (should_clauses)."""
+        """Test facet retrieval with a leading OR clause."""
         mock_response = MagicMock()
         mock_response.body = {
             "aggregations": {"facet_values": {"buckets": [{"key": "Provider A", "doc_count": 10}]}}
@@ -734,12 +737,14 @@ class TestGetFacetValues:
             adv_q=[{"op": "OR", "f": "dct_title_s", "q": "Iowa"}],
         )
 
-        # Verify ES was called and should_clauses path was taken
+        # A leading OR has no left-hand alternative, so it is required.
         mock_es.search.assert_called_once()
         call_args = mock_es.search.call_args
         query = call_args.kwargs["query"]
-        assert "should" in query["bool"]
-        assert "minimum_should_match" in query["bool"]
+        assert query["bool"]["must"] == [
+            {"match": {"dct_title_s": {"query": "Iowa", "operator": "and"}}}
+        ]
+        assert "should" not in query["bool"]
 
     @pytest.mark.asyncio
     @patch("app.elasticsearch.search.es")

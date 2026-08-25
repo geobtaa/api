@@ -48,6 +48,22 @@ async def test_search_forwards_hydrate_hits_flag():
 
 
 @pytest.mark.asyncio
+async def test_search_forwards_include_filter_operator():
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {"data": [], "meta": {}, "queryTime": {}}
+
+        await service.search(
+            q="",
+            include_filters={"dct_spatial_sm": ["Indiana", "Indiana--Bloomington"]},
+            include_filter_operator="and",
+        )
+
+    assert mock_search.call_args.kwargs["include_filter_operator"] == "and"
+
+
+@pytest.mark.asyncio
 async def test_search_can_skip_result_sanitization_for_internal_callers():
     service = SearchService()
 
@@ -1074,6 +1090,25 @@ class TestSearchService:
         assert dist["field"] == "dcat_centroid"
         assert dist["distance"] == "25km"
         assert dist["center"] == {"lat": 43.5, "lon": -106.2}
+        assert exclude == {}
+
+    def test_extract_new_style_filters_ignores_array_style_year_range(self):
+        """Malformed year arrays must not replace structured range bounds."""
+        service = SearchService()
+        params = (
+            "include_filters[year_range][start]=1920&"
+            "include_filters[year_range][end]=1929&"
+            "include_filters[year_range][]=1920&"
+            "include_filters[year_range][]=1929&"
+            "include_filters[dcat_theme_sm][]=Boundaries"
+        )
+
+        include, exclude = service.extract_new_style_filters(params)
+
+        assert include == {
+            "year_range": {"start": "1920", "end": "1929"},
+            "dcat_theme_sm": ["Boundaries"],
+        }
         assert exclude == {}
 
     @pytest.mark.asyncio

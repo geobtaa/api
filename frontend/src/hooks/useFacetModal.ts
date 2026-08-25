@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { fetchFacetValues } from '../services/api';
+import {
+  DRILL_DOWN_INCLUDE_FILTER_OPERATOR,
+  fetchFacetValues,
+} from '../services/api';
 import { debugLog } from '../utils/logger';
 import type {
   FacetValue,
@@ -97,6 +100,7 @@ export function useFacetModal({
           perPage: nextPerPage,
           sort: nextSort,
           qFacet: nextQFacet || undefined,
+          includeFilterOperator: DRILL_DOWN_INCLUDE_FILTER_OPERATOR,
         });
 
         debugLog('✅ Facet values response:', {

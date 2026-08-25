@@ -2,7 +2,7 @@
 
 {% include-markdown "includes/wip.md" %}
 
-**Version:** 0.8.15   **Status:** *DRAFT*   **Release Date:** 2026-08-24
+**Version:** 0.8.16   **Status:** *DRAFT*   **Release Date:** 2026-08-25
 
 ## Editors
 
@@ -50,6 +50,7 @@ The goal of this specification is to enable consistent client and server impleme
 
 | Version | Date | Notes |
 | :---- | :---- | :---- |
+| 0.8.16 | 2026-08-25 | Release version metadata updated for the API service, MCP service, Docker image, and public specification. |
 | 0.8.15 | 2026-08-24 | Release version metadata updated for the API service, MCP service, Docker image, and public specification. |
 | 0.8.14 | 2026-08-21 | Release version metadata updated for the API service, MCP service, Docker image, and public specification. |
 | 0.8.13 | 2026-08-21 | Release version metadata updated for the API service, MCP service, Docker image, and public specification. |
