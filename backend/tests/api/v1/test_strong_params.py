@@ -29,10 +29,12 @@ class TestStrongParams:
         assert "sort" in SEARCH_ALLOWED_PARAMS
         assert "callback" in SEARCH_ALLOWED_PARAMS
         assert "include_non_public" in SEARCH_ALLOWED_PARAMS
+        assert "include_filter_operator" in SEARCH_ALLOWED_PARAMS
 
     def test_facet_allowed_params_include_visibility_override(self):
         """Facet links should preserve the diagnostics visibility override."""
         assert "include_non_public" in FACET_ALLOWED_PARAMS
+        assert "include_filter_operator" in FACET_ALLOWED_PARAMS
 
     def test_search_allowed_params_facet_filters(self):
         """Test that SEARCH_ALLOWED_PARAMS contains facet filter parameters."""

@@ -343,6 +343,32 @@ async def test_handle_search_forwards_include_non_public():
     assert search_mock.await_args.kwargs["include_non_public"] is True
 
 
+@pytest.mark.asyncio
+async def test_handle_search_forwards_drilldown_filter_operator():
+    request = _build_request(b"include_filter_operator=and")
+    search_mock = AsyncMock(
+        return_value={
+            "data": [],
+            "meta": {"pages": {"total_count": 0, "total_pages": 0}},
+            "queryTime": {},
+        }
+    )
+
+    with patch("app.api.v1.endpoint_modules.search.SearchService.search", search_mock):
+        response = await _handle_search(
+            request,
+            {
+                "page": 1,
+                "per_page": 20,
+                "meta": True,
+                "include_filter_operator": "and",
+            },
+        )
+
+    assert response.status_code == 200
+    assert search_mock.await_args.kwargs["include_filter_operator"] == "and"
+
+
 def test_semantic_search_cache_key_includes_include_non_public():
     common = {
         "q": "st paul",
@@ -362,6 +388,28 @@ def test_semantic_search_cache_key_includes_include_non_public():
     non_public_key = _build_semantic_search_cache_key(**common, include_non_public=True)
 
     assert public_key != non_public_key
+
+
+def test_semantic_search_cache_key_includes_filter_operator():
+    common = {
+        "q": "",
+        "page": 1,
+        "per_page": 20,
+        "sort": None,
+        "search_field": None,
+        "fields": None,
+        "facets": None,
+        "include_filters": {"dct_spatial_sm": ["Indiana", "Indiana--Bloomington"]},
+        "exclude_filters": {},
+        "fq": {},
+        "adv_q": None,
+        "include_non_public": False,
+    }
+
+    or_key = _build_semantic_search_cache_key(**common, include_filter_operator="or")
+    and_key = _build_semantic_search_cache_key(**common, include_filter_operator="and")
+
+    assert or_key != and_key
 
 
 @pytest.mark.asyncio

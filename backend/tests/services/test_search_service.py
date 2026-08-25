@@ -48,6 +48,22 @@ async def test_search_forwards_hydrate_hits_flag():
 
 
 @pytest.mark.asyncio
+async def test_search_forwards_include_filter_operator():
+    service = SearchService()
+
+    with patch("app.services.search_service.search_resources") as mock_search:
+        mock_search.return_value = {"data": [], "meta": {}, "queryTime": {}}
+
+        await service.search(
+            q="",
+            include_filters={"dct_spatial_sm": ["Indiana", "Indiana--Bloomington"]},
+            include_filter_operator="and",
+        )
+
+    assert mock_search.call_args.kwargs["include_filter_operator"] == "and"
+
+
+@pytest.mark.asyncio
 async def test_search_can_skip_result_sanitization_for_internal_callers():
     service = SearchService()
 

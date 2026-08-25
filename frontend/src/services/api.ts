@@ -27,6 +27,9 @@ export class ApiError extends Error {
   }
 }
 
+export type IncludeFilterOperator = 'and' | 'or';
+export const DRILL_DOWN_INCLUDE_FILTER_OPERATOR: IncludeFilterOperator = 'and';
+
 /**
  * Builds headers for API requests.
  * Authentication (API key) is handled by the NGINX BFF proxy server-side,
@@ -304,9 +307,10 @@ interface FetchOptions {
   useJsonp?: boolean;
 }
 
-function parseApiErrorPayload(
-  errorText: string
-): { message?: string; code?: string } {
+function parseApiErrorPayload(errorText: string): {
+  message?: string;
+  code?: string;
+} {
   if (!errorText) return {};
 
   try {
@@ -501,6 +505,10 @@ export async function fetchSearchResults(
     sourceSearchParams?.get('search_field') || 'all_fields';
 
   url.searchParams.set('search_field', effectiveSearchField);
+  url.searchParams.set(
+    'include_filter_operator',
+    DRILL_DOWN_INCLUDE_FILTER_OPERATOR
+  );
   url.searchParams.set('q', effectiveQuery);
   url.searchParams.set('page', page.toString());
   url.searchParams.set('per_page', resultPerPage.toString());
@@ -668,6 +676,7 @@ interface FetchFacetValuesParams {
   perPage?: number;
   sort?: FacetValuesSort;
   qFacet?: string;
+  includeFilterOperator?: IncludeFilterOperator;
   options?: FetchOptions;
 }
 
@@ -678,6 +687,7 @@ export async function fetchFacetValues({
   perPage = 10,
   sort = 'count_desc',
   qFacet,
+  includeFilterOperator,
   options = defaultFetchOptions,
 }: FetchFacetValuesParams): Promise<FacetValuesResponse> {
   // Check if we are in the browser
@@ -699,6 +709,12 @@ export async function fetchFacetValues({
     );
     if (sort) proxyUrl.searchParams.set('sort', sort);
     if (qFacet) proxyUrl.searchParams.set('q_facet', qFacet);
+    if (includeFilterOperator) {
+      proxyUrl.searchParams.set(
+        'include_filter_operator',
+        includeFilterOperator
+      );
+    }
 
     // Forward relevant global search params
     // We only forward what's necessary to filter the facets correctly
@@ -753,6 +769,9 @@ export async function fetchFacetValues({
   const baseUrl = `${apiBasePath}/search/facets/${facetName}`;
 
   const url = createApiUrl(baseUrl);
+  if (includeFilterOperator) {
+    url.searchParams.set('include_filter_operator', includeFilterOperator);
+  }
 
   const copyParamKeys = ['q', 'adv_q'] as const;
   copyParamKeys.forEach((key) => {
@@ -1135,10 +1154,19 @@ export async function fetchMapH3(
   if (queryString) {
     const params = new URLSearchParams(queryString);
     for (const [k, v] of params) {
-      if (k !== 'q' && k !== 'bbox' && k !== 'resolution')
+      if (
+        k !== 'q' &&
+        k !== 'bbox' &&
+        k !== 'resolution' &&
+        k !== 'include_filter_operator'
+      )
         url.searchParams.append(k, v);
     }
   }
+  url.searchParams.set(
+    'include_filter_operator',
+    DRILL_DOWN_INCLUDE_FILTER_OPERATOR
+  );
   const res = await fetch(url.toString(), {
     headers: { Accept: 'application/json' },
     mode: 'cors',

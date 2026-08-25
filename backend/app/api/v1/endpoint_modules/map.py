@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
@@ -25,6 +25,13 @@ MAP_H3_CACHE_TTL = 7200  # 2 hours
 async def map_h3(
     request: Request,
     q: Optional[str] = Query(None, description="Search query"),
+    include_filter_operator: Literal["and", "or"] = Query(
+        "or",
+        description=(
+            "How repeated values within one include filter are combined; "
+            "use 'and' for drill-down faceting"
+        ),
+    ),
     adv_q: Optional[str] = Query(
         None,
         description=(
@@ -71,6 +78,7 @@ async def map_h3(
             q=q,
             fq=fq or None,
             include_filters=include_filters or None,
+            include_filter_operator=include_filter_operator,
             exclude_filters=exclude_filters or None,
             adv_q=parsed_adv_q,
             bbox=bbox,

@@ -428,13 +428,16 @@ class TestFacetEndpointSuccess:
         mock_sanitize.side_effect = lambda x: x
 
         response = await async_client.get(
-            "/api/v1/search/facets/schema_provider_s?include_filters[dct_spatial_sm][]=Minnesota"
+            "/api/v1/search/facets/schema_provider_s?"
+            "include_filters[dct_spatial_sm][]=Minnesota&"
+            "include_filter_operator=and"
         )
 
         assert response.status_code == 200
         # Verify include_filters were passed to get_facet_values
         call_args = mock_get_facet.call_args
         assert call_args.kwargs["include_filters"] == {"dct_spatial_sm": ["Minnesota"]}
+        assert call_args.kwargs["include_filter_operator"] == "and"
 
     @patch("app.api.v1.endpoint_modules.search.get_facet_values")
     @patch("app.api.v1.endpoint_modules.search.process_facet_response")

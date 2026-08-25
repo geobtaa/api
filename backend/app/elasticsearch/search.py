@@ -5,7 +5,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
-from typing import Optional
+from typing import Literal, Optional
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -53,6 +53,17 @@ SEARCH_FACET_CACHE_NAMESPACE = "search.facets"
 FACET_VALUES_CACHE_NAMESPACE = "search.facet_values"
 PUBLICATION_STATE_FIELD = "publication_state"
 SUPPRESSED_FIELD = "gbl_suppressed_b"
+IncludeFilterOperator = Literal["and", "or"]
+DEFAULT_INCLUDE_FILTER_OPERATOR: IncludeFilterOperator = "or"
+
+
+def normalize_include_filter_operator(value: str | None) -> IncludeFilterOperator:
+    """Normalize the repeated-value include-filter operator.
+
+    The public API keeps its historical OR default. The search UI opts into AND
+    explicitly for drill-down faceting.
+    """
+    return "and" if str(value or "").lower() == "and" else "or"
 
 
 def public_visibility_filter_clauses(*, include_non_public: bool = False) -> list[dict]:
@@ -156,6 +167,27 @@ def _resolve_filter_field(field: str) -> str:
     if field in KEYWORD_FILTER_FIELDS:
         return f"{field}.keyword"
     return field
+
+
+def _build_exact_filter_clauses(
+    field: str,
+    values,
+    include_filter_operator: IncludeFilterOperator = DEFAULT_INCLUDE_FILTER_OPERATOR,
+) -> list[dict]:
+    """Build exact-match clauses for one filter field.
+
+    OR preserves the API's historical ``terms`` behavior. AND emits one
+    ``term`` clause per selected value; sibling clauses in ``bool.filter`` are
+    conjunctive, which produces drill-down faceting for multi-valued fields.
+    """
+    resolved_field = _resolve_filter_field(field)
+    if not isinstance(values, list):
+        return [{"term": {resolved_field: values}}]
+    if not values:
+        return []
+    if include_filter_operator == "and":
+        return [{"term": {resolved_field: value}} for value in values]
+    return [{"terms": {resolved_field: values}}]
 
 
 def get_facet_aggregation_config(facet_name: str) -> dict:
@@ -347,6 +379,7 @@ def _build_search_facet_cache_key(
     search_fields: str | None,
     fq: dict | None,
     include_filters: dict | None,
+    include_filter_operator: IncludeFilterOperator = DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters: dict | None,
     adv_q: Optional[list],
     selected_aggs: tuple[str, ...],
@@ -359,6 +392,7 @@ def _build_search_facet_cache_key(
         search_fields=_normalize_search_fields(search_fields),
         fq=fq or {},
         include_filters=include_filters or {},
+        include_filter_operator=include_filter_operator,
         exclude_filters=exclude_filters or {},
         adv_q=adv_q or [],
         aggs=selected_aggs,
@@ -374,6 +408,7 @@ def _build_facet_values_cache_key(
     query: str | None,
     fq: dict | None,
     include_filters: dict | None,
+    include_filter_operator: IncludeFilterOperator = DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters: dict | None,
     adv_q: Optional[list],
     q_facet: str | None,
@@ -387,6 +422,7 @@ def _build_facet_values_cache_key(
         query=query or "",
         fq=fq or {},
         include_filters=include_filters or {},
+        include_filter_operator=include_filter_operator,
         exclude_filters=exclude_filters or {},
         adv_q=adv_q or [],
         q_facet=q_facet or "",
@@ -1160,6 +1196,7 @@ class SearchParams:
     sort: list | None = None
     search_fields: str | None = None
     include_filters: dict | None = None
+    include_filter_operator: IncludeFilterOperator = DEFAULT_INCLUDE_FILTER_OPERATOR
     exclude_filters: dict | None = None
     facets: str | None = None
     adv_q: list | None = None
@@ -1178,6 +1215,7 @@ class SearchParams:
         sort: list | None,
         search_fields: str | None,
         include_filters: dict | None,
+        include_filter_operator: str | None = DEFAULT_INCLUDE_FILTER_OPERATOR,
         exclude_filters: dict | None,
         facets: str | None,
         adv_q: list | None,
@@ -1193,6 +1231,7 @@ class SearchParams:
             sort=sort,
             search_fields=search_fields,
             include_filters=include_filters,
+            include_filter_operator=normalize_include_filter_operator(include_filter_operator),
             exclude_filters=exclude_filters,
             facets=facets,
             adv_q=adv_q,
@@ -1254,6 +1293,7 @@ class FacetService:
             search_fields=params.search_fields,
             fq=params.fq,
             include_filters=params.include_filters,
+            include_filter_operator=params.include_filter_operator,
             exclude_filters=params.exclude_filters,
             adv_q=params.adv_q,
             selected_aggs=selected_agg_names,
@@ -1394,10 +1434,13 @@ class SearchQueryBuilder:
                     f"Processing filter - Field: {field}, "
                     f"Resolved: {resolved_field}, Values: {values}"
                 )
-                if isinstance(values, list):
-                    filter_clauses.append({"terms": {resolved_field: values}})
-                else:
-                    filter_clauses.append({"term": {resolved_field: values}})
+                filter_clauses.extend(
+                    _build_exact_filter_clauses(
+                        field,
+                        values,
+                        self.params.include_filter_operator,
+                    )
+                )
 
         if self.params.include_filters:
             for field, values in self.params.include_filters.items():
@@ -1417,7 +1460,13 @@ class SearchQueryBuilder:
                     if values and str(values[0]).lower() == "true":
                         filter_clauses.append({"term": {resolved_field: True}})
                 elif isinstance(values, list):
-                    filter_clauses.append({"terms": {resolved_field: values}})
+                    filter_clauses.extend(
+                        _build_exact_filter_clauses(
+                            field,
+                            values,
+                            self.params.include_filter_operator,
+                        )
+                    )
                 else:
                     filter_clauses.append({"term": {resolved_field: values}})
 
@@ -1886,6 +1935,7 @@ class SearchResponseBuilder:
             self.search_criteria,
             overlap_context=execution.overlap_context,
             include_filters=self.params.include_filters,
+            include_filter_operator=self.params.include_filter_operator,
             exclude_filters=self.params.exclude_filters,
             adv_q=self.params.adv_q,
             hydrate_hits=self.params.hydrate_hits,
@@ -1921,6 +1971,7 @@ async def search_resources(
     sort: list = None,
     search_fields: str | None = None,
     include_filters: dict | None = None,
+    include_filter_operator: str | None = DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters: dict | None = None,
     facets: Optional[str] = None,
     adv_q: Optional[list] = None,
@@ -1937,6 +1988,7 @@ async def search_resources(
         sort=sort,
         search_fields=search_fields,
         include_filters=include_filters,
+        include_filter_operator=include_filter_operator,
         exclude_filters=exclude_filters,
         facets=facets,
         adv_q=adv_q,
@@ -2060,6 +2112,7 @@ async def process_search_response(
     search_criteria,
     overlap_context: dict | None = None,
     include_filters: dict | None = None,
+    include_filter_operator: IncludeFilterOperator = DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters: dict | None = None,
     adv_q: Optional[list] = None,
     hydrate_hits: bool = True,
@@ -2240,6 +2293,7 @@ async def process_search_response(
                 {
                     "q": search_criteria.get("query"),
                     "include_filters": include_filters,
+                    "include_filter_operator": include_filter_operator,
                     "exclude_filters": exclude_filters,
                     "fq": search_criteria.get("filters"),
                     "adv_q": adv_q,
@@ -2298,6 +2352,7 @@ async def map_h3_aggregation(
     q: Optional[str] = None,
     fq: Optional[dict] = None,
     include_filters: Optional[dict] = None,
+    include_filter_operator: str | None = DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters: Optional[dict] = None,
     adv_q: Optional[list] = None,
     bbox: Optional[str] = None,
@@ -2312,16 +2367,15 @@ async def map_h3_aggregation(
     index_name = os.getenv("ELASTICSEARCH_INDEX", "btaa_geospatial_api")
     if resolution < 2 or resolution > 8:
         resolution = 5
+    normalized_filter_operator = normalize_include_filter_operator(include_filter_operator)
     filter_clauses = public_visibility_filter_clauses(include_non_public=include_non_public)
     must_not_clauses = []
 
     if fq:
         for field, values in fq.items():
-            resolved = _resolve_filter_field(field)
-            if isinstance(values, list):
-                filter_clauses.append({"terms": {resolved: values}})
-            else:
-                filter_clauses.append({"term": {resolved: values}})
+            filter_clauses.extend(
+                _build_exact_filter_clauses(field, values, normalized_filter_operator)
+            )
 
     if include_filters:
         # Apply location (bbox) filter so hex counts match the search results
@@ -2348,7 +2402,9 @@ async def map_h3_aggregation(
                 if yr["range"]["gbl_indexYear_im"]:
                     filter_clauses.append(yr)
             elif isinstance(values, list):
-                filter_clauses.append({"terms": {resolved: values}})
+                filter_clauses.extend(
+                    _build_exact_filter_clauses(field, values, normalized_filter_operator)
+                )
             else:
                 filter_clauses.append({"term": {resolved: values}})
 
@@ -2560,12 +2616,18 @@ def generate_facet_apply_template(facet_id: str, search_context: dict) -> str:
 
     q = (search_context or {}).get("q") or ""
     include_filters = (search_context or {}).get("include_filters") or {}
+    include_filter_operator = normalize_include_filter_operator(
+        (search_context or {}).get("include_filter_operator")
+    )
     exclude_filters = (search_context or {}).get("exclude_filters") or {}
     fq = (search_context or {}).get("fq") or {}
     adv_q = (search_context or {}).get("adv_q")
     include_non_public = bool((search_context or {}).get("include_non_public"))
 
-    query_params: dict[str, list[str] | str] = {"q": q}
+    query_params: dict[str, list[str] | str] = {
+        "q": q,
+        "include_filter_operator": include_filter_operator,
+    }
     if include_non_public:
         query_params["include_non_public"] = "true"
 
@@ -2752,6 +2814,7 @@ async def get_facet_values(
     query: str = None,
     fq: dict = None,
     include_filters: dict | None = None,
+    include_filter_operator: str | None = DEFAULT_INCLUDE_FILTER_OPERATOR,
     exclude_filters: dict | None = None,
     adv_q: Optional[list] = None,
     q_facet: Optional[str] = None,
@@ -2786,16 +2849,15 @@ async def get_facet_values(
     agg_field = facet_config["field"]
 
     # Build the same filter query structure as search_resources
+    normalized_filter_operator = normalize_include_filter_operator(include_filter_operator)
     filter_clauses = public_visibility_filter_clauses(include_non_public=include_non_public)
     must_not_clauses = []
 
     if fq:
         for field, values in fq.items():
-            resolved_field = _resolve_filter_field(field)
-            if isinstance(values, list):
-                filter_clauses.append({"terms": {resolved_field: values}})
-            else:
-                filter_clauses.append({"term": {resolved_field: values}})
+            filter_clauses.extend(
+                _build_exact_filter_clauses(field, values, normalized_filter_operator)
+            )
 
     if include_filters:
         for field, values in include_filters.items():
@@ -2825,9 +2887,9 @@ async def get_facet_values(
                 if values and str(values[0]).lower() == "true":
                     filter_clauses.append({"term": {resolved_field: True}})
             elif isinstance(values, list):
-                # Use terms to match if ANY of the specified values are present
-                # This matches the behavior of legacy fq filters (OR logic)
-                filter_clauses.append({"terms": {resolved_field: values}})
+                filter_clauses.extend(
+                    _build_exact_filter_clauses(field, values, normalized_filter_operator)
+                )
             else:
                 filter_clauses.append({"term": {resolved_field: values}})
 
@@ -2921,6 +2983,7 @@ async def get_facet_values(
         query=query,
         fq=fq,
         include_filters=include_filters,
+        include_filter_operator=normalized_filter_operator,
         exclude_filters=exclude_filters,
         adv_q=adv_q,
         q_facet=q_facet,
