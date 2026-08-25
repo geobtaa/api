@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 # Create test app
 from app.api.v1.endpoint_modules.root import router
+from app.version import APP_VERSION
 from tests.utils.route_helpers import route_by_path, route_paths
 
 app = FastAPI()
@@ -87,7 +88,7 @@ class TestRootEndpoints:
         # Check attributes
         attributes = api_info["attributes"]
         assert attributes["api"] == "BTAA Geospatial API"
-        assert attributes["version"] == "0.8.16"
+        assert attributes["version"] == APP_VERSION
         assert "description" in attributes
         assert "endpoints" in attributes
         assert isinstance(attributes["endpoints"], list)
@@ -137,7 +138,7 @@ class TestRootEndpoints:
         attributes = data["data"]["attributes"]
         version = attributes["version"]
 
-        assert version == "0.8.16"
+        assert version == APP_VERSION
 
     def test_api_root_with_request_url(self):
         """Test API root with request URL in response."""

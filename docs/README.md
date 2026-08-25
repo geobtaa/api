@@ -15,12 +15,13 @@ classification rules.
 2. Read [backend/codebase_overview.md](backend/codebase_overview.md) for the
    system architecture.
 3. Use [make_tasks.md](make_tasks.md) for safe local command references.
-4. Use [backend/testing.md](backend/testing.md) and
+4. Read [versioning.md](versioning.md) before preparing an application release.
+5. Use [backend/testing.md](backend/testing.md) and
    [frontend/testing.md](frontend/testing.md) before changing behavior.
-5. Use [backend/ogm_harvesting.md](backend/ogm_harvesting.md),
+6. Use [backend/ogm_harvesting.md](backend/ogm_harvesting.md),
    [backend/search.md](backend/search.md), and related backend docs for
    implementation details.
-6. Use the deployment, recovery, analytics, Slack, and performance pages here as
+7. Use the deployment, recovery, analytics, Slack, and performance pages here as
    public stubs only. Full procedures are restricted operations material.
 
 ## Project Folders
@@ -147,6 +148,7 @@ Orientation:
 
 - [development.md](development.md)
 - [make_tasks.md](make_tasks.md)
+- [versioning.md](versioning.md)
 - [cli.md](cli.md)
 - [scripts.md](scripts.md)
 - [security_docs_policy.md](security_docs_policy.md)

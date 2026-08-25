@@ -27,6 +27,7 @@ FROM node:20-bookworm-slim AS frontend_builder
 WORKDIR /frontend
 COPY --from=frontend_deps /frontend/node_modules ./node_modules
 COPY frontend/ ./
+COPY backend/app/_release/release.json /release.json
 ARG VITE_API_BASE_URL
 ARG VITE_USE_JSONP
 ARG VITE_WMS_BASE_URL
@@ -44,7 +45,8 @@ ENV VITE_TURNSTILE_ACTION=${VITE_TURNSTILE_ACTION}
 ENV VITE_TURNSTILE_ENABLED=${VITE_TURNSTILE_ENABLED}
 ENV VITE_GTM_ID=${VITE_GTM_ID}
 ENV VITE_KAMAL_DEST=${VITE_KAMAL_DEST}
-RUN VITE_TURNSTILE_SITE_KEY="${VITE_TURNSTILE_PUBLIC_SITE}" npm run build
+RUN VITE_APP_VERSION="$(node -p 'require("/release.json").version')" \
+    VITE_TURNSTILE_SITE_KEY="${VITE_TURNSTILE_PUBLIC_SITE}" npm run build
 
 FROM node:20-bookworm-slim AS python_deps
 WORKDIR /app/backend
@@ -69,6 +71,8 @@ ENV UV_HTTP_TIMEOUT=300
 ENV PATH="/opt/venv/bin:/root/.local/bin:$PATH"
 RUN python3 -m venv /opt/venv
 COPY backend/pyproject.toml backend/uv.lock ./
+COPY backend/app/version.py ./app/version.py
+COPY backend/app/_release ./app/_release
 RUN mkdir -p app db \
     && touch app/__init__.py db/__init__.py \
     && uv pip install -e . \

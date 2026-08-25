@@ -20,13 +20,14 @@ from mcp.types import (
 from sqlalchemy import func, select
 
 from app.services.search_service import SearchService
+from app.version import APP_VERSION
 from db.models import resources
 from db.session import async_session as app_async_session
 
 logger = logging.getLogger(__name__)
 
 MCP_SERVICE_NAME = "btaa-geospatial-api"
-MCP_SERVICE_VERSION = "0.8.16"
+MCP_SERVICE_VERSION = APP_VERSION
 MCP_SERVICE_DESCRIPTION = "BTAA Geospatial API MCP Service"
 
 
