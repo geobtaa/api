@@ -184,6 +184,75 @@ describe('AdvancedSearchBuilder', () => {
     ]);
   });
 
+  it('removes a cross-field OR group but keeps required and NOT context', async () => {
+    const fetchFacetValuesMock = vi.mocked(fetchFacetValues);
+    fetchFacetValuesMock.mockClear();
+
+    renderBuilder({
+      clauses: [
+        { op: 'AND', field: 'gbl_resourceClass_sm', q: 'Maps' },
+        { op: 'AND', field: 'dct_title_s', q: 'Wisconsin' },
+        { op: 'OR', field: 'schema_provider_s', q: 'WisconsinView' },
+        { op: 'NOT', field: 'dct_accessRights_s', q: 'Restricted' },
+      ],
+    });
+
+    fireEvent.focus(screen.getAllByLabelText('Value')[2]);
+
+    await waitFor(() => expect(fetchFacetValuesMock).toHaveBeenCalledOnce());
+    const request = fetchFacetValuesMock.mock.calls[0][0];
+
+    expect(JSON.parse(request.searchParams.get('adv_q') || '[]')).toEqual([
+      { op: 'AND', f: 'gbl_resourceClass_sm', q: 'Maps' },
+      { op: 'NOT', f: 'dct_accessRights_s', q: 'Restricted' },
+    ]);
+  });
+
+  it('keeps all-fields rows in the advanced Boolean context', async () => {
+    const fetchFacetValuesMock = vi.mocked(fetchFacetValues);
+    fetchFacetValuesMock.mockClear();
+
+    renderBuilder({
+      clauses: [
+        { op: 'AND', field: 'all_fields', q: 'water' },
+        { op: 'AND', field: 'schema_provider_s', q: 'WisconsinView' },
+      ],
+    });
+
+    fireEvent.focus(screen.getAllByLabelText('Value')[1]);
+
+    await waitFor(() => expect(fetchFacetValuesMock).toHaveBeenCalledOnce());
+    const request = fetchFacetValuesMock.mock.calls[0][0];
+
+    expect(request.searchParams.has('q')).toBe(false);
+    expect(JSON.parse(request.searchParams.get('adv_q') || '[]')).toEqual([
+      { op: 'AND', f: 'all_fields', q: 'water' },
+    ]);
+  });
+
+  it('does not constrain a blank OR row by its preceding alternative', async () => {
+    const fetchFacetValuesMock = vi.mocked(fetchFacetValues);
+    fetchFacetValuesMock.mockClear();
+
+    renderBuilder({
+      clauses: [
+        { op: 'AND', field: 'dct_spatial_sm', q: 'Wisconsin' },
+        { op: 'AND', field: 'schema_provider_s', q: 'Provider A' },
+        { op: 'OR', field: 'schema_provider_s', q: '' },
+      ],
+    });
+
+    fireEvent.focus(screen.getAllByLabelText('Value')[2]);
+
+    await waitFor(() => expect(fetchFacetValuesMock).toHaveBeenCalledOnce());
+    const request = fetchFacetValuesMock.mock.calls[0][0];
+
+    expect(request.qFacet).toBeUndefined();
+    expect(JSON.parse(request.searchParams.get('adv_q') || '[]')).toEqual([
+      { op: 'AND', f: 'dct_spatial_sm', q: 'Wisconsin' },
+    ]);
+  });
+
   describe('Accessibility', () => {
     it('has no accessibility violations', async () => {
       const { container } = render(

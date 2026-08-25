@@ -904,6 +904,11 @@ def _build_bbox_overlap_filter(
 def _build_advanced_query(adv_q: list) -> dict:
     """Build Elasticsearch bool query from advanced query clauses.
 
+    Positive clauses are parsed as ordered groups: AND starts a required group,
+    while OR adds an alternative to the preceding positive group. NOT clauses
+    are applied as global exclusions. For example, ``A AND B OR C`` compiles to
+    ``A AND (B OR C)``.
+
     Args:
         adv_q: List of query clause dicts with keys: op, f, q
 
@@ -911,8 +916,8 @@ def _build_advanced_query(adv_q: list) -> dict:
         Dict with must, should, must_not lists for bool query
     """
     must_clauses = []
-    should_clauses = []
     must_not_clauses = []
+    positive_groups: list[list[dict]] = []
 
     # Fields to search when "all_fields" is specified (same as regular q parameter)
     ALL_FIELDS_SEARCH_FIELDS = [
@@ -929,27 +934,6 @@ def _build_advanced_query(adv_q: list) -> dict:
         "gbl_displaynote_sm",
     ]
 
-    # Check if there are any OR clauses
-    has_or_clauses = any(
-        clause.get("op", "").upper() == "OR" for clause in adv_q if clause.get("op")
-    )
-
-    # If there are OR clauses, check if all non-NOT clauses are on the same field
-    # If so, treat them all as OR clauses (even if some are marked as AND)
-    # This handles the case: [{"op":"AND","f":"field","q":"A"}, {"op":"OR","f":"field","q":"B"}]
-    # which should be interpreted as: field contains A OR B
-    treat_all_as_or = False
-    if has_or_clauses:
-        # Get all non-NOT clauses
-        non_not_clauses = [clause for clause in adv_q if clause.get("op", "").upper() != "NOT"]
-        if non_not_clauses:
-            # Check if all non-NOT clauses are on the same field
-            first_field = non_not_clauses[0].get("f")
-            all_same_field = all(clause.get("f") == first_field for clause in non_not_clauses)
-            # If all on same field, treat all non-NOT clauses as OR
-            if all_same_field:
-                treat_all_as_or = True
-
     for clause in adv_q:
         # Extract op, f, q from clause
         operator = clause.get("op")
@@ -959,6 +943,8 @@ def _build_advanced_query(adv_q: list) -> dict:
         # Normalize operator to uppercase
         if operator:
             operator = operator.upper()
+        if operator not in {"AND", "OR", "NOT"}:
+            continue
 
         # Build query based on field type
         if field and field.lower() in ("all_fields", "all", "*"):
@@ -982,22 +968,31 @@ def _build_advanced_query(adv_q: list) -> dict:
             # Use simple match query - Elasticsearch will handle both analyzed and keyword fields
             query_clause = {"match": {field: {"query": phrase, "operator": "and"}}}
 
-        # Route to appropriate clause list based on operator
-        # Special handling: if there are OR clauses and all non-NOT clauses are on the same field,
-        # treat all non-NOT clauses as OR (even if marked as AND)
         if operator == "NOT":
             must_not_clauses.append(query_clause)
-        elif treat_all_as_or:
-            # If we're in "OR mode" (all same field with OR clauses), put everything in should
-            should_clauses.append(query_clause)
-        elif operator == "AND":
-            must_clauses.append(query_clause)
-        elif operator == "OR":
-            should_clauses.append(query_clause)
+        elif operator == "OR" and positive_groups:
+            positive_groups[-1].append(query_clause)
+        else:
+            # AND starts a new required group. A leading OR has no left-hand
+            # operand, so it starts the first group and behaves like one clause.
+            positive_groups.append([query_clause])
+
+    for group in positive_groups:
+        if len(group) == 1:
+            must_clauses.append(group[0])
+        else:
+            must_clauses.append(
+                {
+                    "bool": {
+                        "should": group,
+                        "minimum_should_match": 1,
+                    }
+                }
+            )
 
     return {
         "must": must_clauses,
-        "should": should_clauses,
+        "should": [],
         "must_not": must_not_clauses,
     }
 

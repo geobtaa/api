@@ -525,7 +525,10 @@ class TestElasticsearchSearch:
         with patch("app.elasticsearch.search.es", mock_es):
             await map_h3_aggregation(
                 q="",
-                adv_q=[{"op": "OR", "f": "dct_title_s", "q": "water"}],
+                adv_q=[
+                    {"op": "AND", "f": "dct_title_s", "q": "Iowa"},
+                    {"op": "OR", "f": "dct_title_s", "q": "water"},
+                ],
                 bbox="-80,40,-74,43",
                 resolution=5,
             )
@@ -536,10 +539,13 @@ class TestElasticsearchSearch:
         second_query = mock_es.search.await_args_list[1].kwargs["query"]["bool"]
 
         for bool_query in (first_query, second_query):
-            assert bool_query["should"] == [
-                {"match": {"dct_title_s": {"query": "water", "operator": "and"}}}
+            grouped_query = bool_query["must"][0]["bool"]
+            assert grouped_query["should"] == [
+                {"match": {"dct_title_s": {"query": "Iowa", "operator": "and"}}},
+                {"match": {"dct_title_s": {"query": "water", "operator": "and"}}},
             ]
-            assert bool_query["minimum_should_match"] == 1
+            assert grouped_query["minimum_should_match"] == 1
+            assert "should" not in bool_query
             for visibility_filter in public_visibility_filter_clauses():
                 assert visibility_filter in bool_query["filter"]
 

@@ -191,34 +191,34 @@ export function AdvancedSearchBuilder({
   const buildSearchContext = useCallback(
     (excludeRowId: string): URLSearchParams => {
       const contextParams = new URLSearchParams();
-      const editingRow = rows.find((row) => row.id === excludeRowId);
+      // Parse the same positive groups as the backend. The editing row is kept
+      // in this pass even when blank so a new OR row is recognized as part of
+      // the preceding group before the user types a value.
+      const rowsForGrouping = rows.filter(
+        (row) => row.id === excludeRowId || row.q.trim().length > 0
+      );
+      const positiveGroups: BuilderRow[][] = [];
+      rowsForGrouping.forEach((row) => {
+        if (row.op === 'NOT') return;
 
-      // The search backend treats same-field clauses as an OR group when any
-      // positive clause in that group uses OR. Do not constrain autocomplete by
-      // another positive value from that group, or a single-valued facet (such
-      // as Provider) can never suggest the next alternative. Keep other fields
-      // and NOT clauses so suggestion counts still reflect the useful context.
-      const hasSameFieldOrGroup = Boolean(
-        editingRow &&
-        rows.some(
-          (row) =>
-            row.id !== excludeRowId &&
-            row.q.trim().length > 0 &&
-            row.field === editingRow.field &&
-            (row.op === 'OR' || editingRow.op === 'OR')
-        )
+        if (row.op === 'OR' && positiveGroups.length > 0) {
+          positiveGroups[positiveGroups.length - 1].push(row);
+        } else {
+          positiveGroups.push([row]);
+        }
+      });
+
+      // Suggestions for one OR alternative must not be constrained by sibling
+      // alternatives. Required AND groups and global NOT clauses remain active.
+      const editingGroup = positiveGroups.find((group) =>
+        group.some((row) => row.id === excludeRowId)
+      );
+      const excludedRowIds = new Set(
+        editingGroup?.map((row) => row.id) || [excludeRowId]
       );
 
-      // Get all rows except the one being edited
       const contextRows = rows.filter(
-        (row) =>
-          row.id !== excludeRowId &&
-          row.q.trim().length > 0 &&
-          !(
-            hasSameFieldOrGroup &&
-            row.field === editingRow?.field &&
-            row.op !== 'NOT'
-          )
+        (row) => !excludedRowIds.has(row.id) && row.q.trim().length > 0
       );
 
       if (contextRows.length === 0) {
@@ -226,20 +226,10 @@ export function AdvancedSearchBuilder({
         return contextParams;
       }
 
-      // Check if there's a basic query (all_fields)
-      const basicQueryRow = contextRows.find(
-        (row) => row.field === 'all_fields'
-      );
-      if (basicQueryRow) {
-        contextParams.set('q', basicQueryRow.q.trim());
-      }
-
-      // Build advanced query from non-basic rows
-      const advancedRows = contextRows.filter(
-        (row) => row.field !== 'all_fields'
-      );
-      if (advancedRows.length > 0) {
-        const serialized = advancedRows.map(({ op, field, q }) => ({
+      // Keep every remaining builder row in adv_q, including all_fields, so
+      // autocomplete uses the same AND/OR/NOT expression as the final search.
+      if (contextRows.length > 0) {
+        const serialized = contextRows.map(({ op, field, q }) => ({
           op,
           f: field,
           q: q.trim(),
