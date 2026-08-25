@@ -544,6 +544,10 @@ describe('useSearch', () => {
 
       const { result } = renderUseSearch(params);
 
+      expect(result.current.facets).toEqual([
+        { field: 'gbl_resourceClass_sm', value: 'Maps' },
+      ]);
+
       act(() => {
         result.current.updateSearch({ facets: [] });
       });
@@ -551,6 +555,7 @@ describe('useSearch', () => {
       const urlParams = new URLSearchParams(window.location.search);
       expect(urlParams.get('include_filters[year_range][start]')).toBe('1910');
       expect(urlParams.get('include_filters[year_range][end]')).toBe('1932');
+      expect(urlParams.getAll('include_filters[year_range][]')).toEqual([]);
       expect(
         urlParams.get('include_filters[gbl_resourceClass_sm][]')
       ).toBeNull();

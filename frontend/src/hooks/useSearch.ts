@@ -226,9 +226,11 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
         .forEach((key) => newParams.delete(key));
 
       // Add new include filters
-      facets.forEach(({ field, value }) => {
-        newParams.append(`include_filters[${field}][]`, value);
-      });
+      facets
+        .filter(({ field }) => field !== 'year_range')
+        .forEach(({ field, value }) => {
+          newParams.append(`include_filters[${field}][]`, value);
+        });
     }
 
     if (nextExcludeFacets !== undefined) {

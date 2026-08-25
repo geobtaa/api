@@ -271,7 +271,9 @@ describe('SearchPage Logic', () => {
     const results = createMockApiResponse(mockResults.slice(0, 20));
     renderWithRouter('/search?view=list', results);
 
-    const panel = document.getElementById('search-filters-panel') as HTMLElement;
+    const panel = document.getElementById(
+      'search-filters-panel'
+    ) as HTMLElement;
     expect(panel).toHaveClass('z-50');
     expect(panel).toHaveClass('lg:z-10');
     expect(panel).toHaveClass('lg:top-40');
@@ -425,6 +427,49 @@ describe('SearchPage Logic', () => {
     expect(params.get('include_filters[geo][top_left][lat]')).toBe('41.28');
     expect(params.get('include_filters[geo][bottom_right][lat]')).toBe('34.59');
     expect(params.get('include_filters[gbl_resourceClass_sm][]')).toBeNull();
+  });
+
+  it('preserves a structured year range when removing another facet', async () => {
+    const yearRangeAndFacetsUrl =
+      '/search?q=&view=gallery' +
+      '&include_filters%5Byear_range%5D%5Bstart%5D=1920' +
+      '&include_filters%5Byear_range%5D%5Bend%5D=1929' +
+      '&include_filters%5Bdcat_theme_sm%5D%5B%5D=Boundaries' +
+      '&include_filters%5Bdct_publisher_sm%5D%5B%5D=Wisconsin+Historical+Society';
+
+    const results = createMockApiResponse(mockResults.slice(0, 20));
+    const { router } = renderWithRouter(yearRangeAndFacetsUrl, results, {
+      returnRouter: true,
+    });
+
+    expect(
+      screen.getByRole('button', { name: /Year Range: 1920 - 1929/i })
+    ).toBeInTheDocument();
+
+    await act(async () => {
+      screen
+        .getByRole('button', {
+          name: /Publisher: Wisconsin Historical Society/i,
+        })
+        .click();
+    });
+
+    const params = new URLSearchParams(router.state.location.search);
+    expect(params.get('include_filters[year_range][start]')).toBe('1920');
+    expect(params.get('include_filters[year_range][end]')).toBe('1929');
+    expect(params.getAll('include_filters[year_range][]')).toEqual([]);
+    expect(params.getAll('include_filters[dcat_theme_sm][]')).toEqual([
+      'Boundaries',
+    ]);
+    expect(params.get('include_filters[dct_publisher_sm][]')).toBeNull();
+
+    await act(async () => {
+      screen.getByRole('button', { name: /Theme: Boundaries/i }).click();
+    });
+
+    expect(
+      screen.getByRole('button', { name: /Year Range: 1920 - 1929/i })
+    ).toBeInTheDocument();
   });
 
   it('keeps an empty q param when Clear All is clicked', async () => {

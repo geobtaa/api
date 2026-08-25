@@ -1092,6 +1092,25 @@ class TestSearchService:
         assert dist["center"] == {"lat": 43.5, "lon": -106.2}
         assert exclude == {}
 
+    def test_extract_new_style_filters_ignores_array_style_year_range(self):
+        """Malformed year arrays must not replace structured range bounds."""
+        service = SearchService()
+        params = (
+            "include_filters[year_range][start]=1920&"
+            "include_filters[year_range][end]=1929&"
+            "include_filters[year_range][]=1920&"
+            "include_filters[year_range][]=1929&"
+            "include_filters[dcat_theme_sm][]=Boundaries"
+        )
+
+        include, exclude = service.extract_new_style_filters(params)
+
+        assert include == {
+            "year_range": {"start": "1920", "end": "1929"},
+            "dcat_theme_sm": ["Boundaries"],
+        }
+        assert exclude == {}
+
     @pytest.mark.asyncio
     async def test_search_passes_geospatial_include_filters(self):
         """Search should forward geo include_filters unchanged."""

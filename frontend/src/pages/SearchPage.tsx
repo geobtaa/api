@@ -139,23 +139,23 @@ function SearchContent({
   }, [searchParams, normalizedQuery]);
   const activeFilterCount = React.useMemo(() => {
     const activeFacetKeys = new Set(
-      searchFacets.map((facet) =>
-        facet.field === 'year_range'
-          ? 'year_range'
-          : `${facet.field}\0${facet.value}`
-      )
+      searchFacets.map((facet) => `${facet.field}\0${facet.value}`)
     );
     const activeExcludeKeys = new Set(
       searchExcludeFacets.map((facet) => `${facet.field}\0${facet.value}`)
     );
     const hasGeoFilter =
       searchParams.get('include_filters[geo][type]') === 'bbox';
+    const hasYearRange =
+      searchParams.has('include_filters[year_range][start]') ||
+      searchParams.has('include_filters[year_range][end]');
 
     return (
       activeFacetKeys.size +
       activeExcludeKeys.size +
       advancedQuery.length +
-      (hasGeoFilter ? 1 : 0)
+      (hasGeoFilter ? 1 : 0) +
+      (hasYearRange ? 1 : 0)
     );
   }, [advancedQuery.length, searchFacets, searchExcludeFacets, searchParams]);
   const shouldRenderFilterContent =
@@ -333,12 +333,14 @@ function SearchContent({
             !key.startsWith('include_filters[year_range]')
         )
         .forEach((key) => newParams.delete(key));
-      facets.forEach(({ field, value }) =>
-        newParams.append(
-          `include_filters[${field}][]`,
-          normalizeFacetValueForUrl(field, value)
-        )
-      );
+      facets
+        .filter(({ field }) => field !== 'year_range')
+        .forEach(({ field, value }) =>
+          newParams.append(
+            `include_filters[${field}][]`,
+            normalizeFacetValueForUrl(field, value)
+          )
+        );
     }
 
     if (nextExcludeFacets !== undefined) {

@@ -32,6 +32,9 @@ export function SearchConstraints({
   // Check for geo filter (bbox)
   const geoType = searchParams.get('include_filters[geo][type]');
   const hasGeoFilter = geoType === 'bbox';
+  const yearRangeStart = searchParams.get('include_filters[year_range][start]');
+  const yearRangeEnd = searchParams.get('include_filters[year_range][end]');
+  const hasYearRange = Boolean(yearRangeStart || yearRangeEnd);
 
   // Parse bbox coordinates
   const getBBoxDisplay = (): string | null => {
@@ -77,7 +80,8 @@ export function SearchConstraints({
     excludeFacets.length === 0 &&
     !query &&
     advancedClauses.length === 0 &&
-    !hasGeoFilter
+    !hasGeoFilter &&
+    !hasYearRange
   ) {
     return null;
   }
@@ -125,32 +129,9 @@ export function SearchConstraints({
           ))}
         {/* Helper to display merged Year Range */}
         {(() => {
-          // We look for year_range filters in the facets list to know values,
-          // OR we parse from URL params directly?
-          // Facets prop comes from SearchPage parsing. Let's look at `facets` prop.
-          // It likely contains { field: 'year_range', value: '...' }?
-          // Actually, the search service/page might be passing it weirdly if it's nested structure.
-          // Let's rely on URL params to be safe, or check how `facets` are populated.
-          // The facets list in props is likely flat value lists.
-          // Given the user request "year_range: 1910 | year_range: 1932", it suggests they come as separate items.
+          if (!hasYearRange) return null;
 
-          const rangeFacets = facets.filter((f) => f.field === 'year_range');
-          if (rangeFacets.length === 0) return null;
-
-          // We expect potentially two items, one for start and one for end,
-          // BUT the value might be just the number.
-          // We need to know which is which?
-          // Actually, looking at the URL: ?include_filters[year_range][start]=1910...
-          // The "facets" prop passed here probably comes from `SearchPage` parsing params.
-          // If `SearchPage` blindly pushes keys/values, we might not know which is start/end just from value.
-          // BEST APPROACH: Read from URL params directly for this specific compound filter.
-
-          const start = searchParams.get('include_filters[year_range][start]');
-          const end = searchParams.get('include_filters[year_range][end]');
-
-          if (!start && !end) return null;
-
-          const label = `Year Range: ${start || '?'} - ${end || '?'}`;
+          const label = `Year Range: ${yearRangeStart || '?'} - ${yearRangeEnd || '?'}`;
 
           return (
             <button
