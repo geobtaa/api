@@ -3,12 +3,31 @@ Tests for the SearchService.
 """
 
 from unittest.mock import patch
+from urllib.parse import urlencode
 
 import pytest
 from fastapi import HTTPException
 
 from app.elasticsearch.search import public_visibility_filter_clauses
 from app.services.search_service import SearchService
+
+
+def test_extract_new_style_filters_decodes_query_parameters_once():
+    """Encoded reserved characters must remain part of facet values."""
+    service = SearchService()
+    local_collection = "University of Maryland: U.S. Government Information, Maps, & GIS Services"
+    excluded_publisher = "C++ Maps & Data"
+    query_string = urlencode(
+        [
+            ("include_filters[b1g_localCollectionLabel_sm][]", local_collection),
+            ("exclude_filters[dct_publisher_sm][]", excluded_publisher),
+        ]
+    )
+
+    include, exclude = service.extract_new_style_filters(query_string)
+
+    assert include == {"b1g_localCollectionLabel_sm": [local_collection]}
+    assert exclude == {"dct_publisher_sm": [excluded_publisher]}
 
 
 @pytest.mark.asyncio

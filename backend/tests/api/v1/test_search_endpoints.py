@@ -45,6 +45,32 @@ def _build_request(query_string: bytes) -> Request:
     )
 
 
+def test_search_get_preserves_reserved_characters_in_filter_values(monkeypatch):
+    monkeypatch.setattr("app.services.cache_service.ENDPOINT_CACHE", False)
+    local_collection = "University of Maryland: U.S. Government Information, Maps, & GIS Services"
+    search_mock = AsyncMock(
+        return_value={
+            "data": [],
+            "meta": {"pages": {"total_count": 0, "total_pages": 0}},
+            "queryTime": {},
+        }
+    )
+
+    with patch("app.api.v1.endpoint_modules.search.SearchService.search", search_mock):
+        response = client.get(
+            "/api/v1/search",
+            params={
+                "include_filters[b1g_localCollectionLabel_sm][]": local_collection,
+                "per_page": 1,
+            },
+        )
+
+    assert response.status_code == 200
+    assert search_mock.await_args.kwargs["include_filters"] == {
+        "b1g_localCollectionLabel_sm": [local_collection]
+    }
+
+
 @pytest.fixture(autouse=True)
 def disable_semantic_search_cache_by_default(monkeypatch):
     from app.api.v1.endpoint_modules import search as search_module

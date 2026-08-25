@@ -552,22 +552,10 @@ class SearchService:
             "extract_new_style_filters: Parsing params: %s...",
             params[:200] if params else "None",
         )
-        # parse_qs expects a URL-decoded query string
-        # If params is URL-encoded (contains %5B for [), decode it first
-        from urllib.parse import unquote
-
-        if params and "%5B" in params:
-            # URL-encoded brackets detected, decode first
-            decoded_params = unquote(params)
-            logger.debug(
-                "extract_new_style_filters: Decoded params sample: %s",
-                decoded_params[:200],
-            )
-            raw_params = parse_qs(decoded_params)
-        elif isinstance(params, str):
-            raw_params = parse_qs(params)
-        else:
-            raw_params = parse_qs(str(params))
+        # parse_qs decodes both parameter names and values. Decoding the full
+        # query string first would turn an encoded value such as ``%26`` into
+        # a structural ``&`` separator before parsing it.
+        raw_params = parse_qs(str(params))
         geo_keys: list[str] = []
         if logger.isEnabledFor(logging.DEBUG):
             geo_keys = [k for k in raw_params.keys() if "geo" in k.lower()]
