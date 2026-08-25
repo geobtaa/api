@@ -420,6 +420,152 @@ describe('SearchField', () => {
     });
   });
 
+  it('combines a keyword with active facets on search results', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/search?q=&page=3&view=gallery' +
+            '&include_filters%5Bdcat_theme_sm%5D%5B%5D=Boundaries' +
+            '&include_filters%5Byear_range%5D%5Bstart%5D=1920' +
+            '&include_filters%5Byear_range%5D%5Bend%5D=1929' +
+            '&exclude_filters%5Bdct_accessRights_s%5D%5B%5D=Restricted',
+        ]}
+      >
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <SearchField />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search input' }), {
+      target: { value: 'county' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit search' }));
+
+    await waitFor(() => {
+      const probe = screen.getByTestId('location-probe');
+      const params = new URLSearchParams(
+        probe.getAttribute('data-search') ?? ''
+      );
+
+      expect(params.get('q')).toBe('county');
+      expect(params.get('page')).toBeNull();
+      expect(params.getAll('include_filters[dcat_theme_sm][]')).toEqual([
+        'Boundaries',
+      ]);
+      expect(params.get('include_filters[year_range][start]')).toBe('1920');
+      expect(params.get('include_filters[year_range][end]')).toBe('1929');
+      expect(params.getAll('exclude_filters[dct_accessRights_s][]')).toEqual([
+        'Restricted',
+      ]);
+    });
+  });
+
+  it('keeps advanced clauses when refining from keyword suggestions', async () => {
+    const advancedQuery = JSON.stringify([
+      { op: 'AND', f: 'dct_title_s', q: 'water' },
+      { op: 'OR', f: 'dct_subject_sm', q: 'rivers' },
+      { op: 'NOT', f: 'dct_accessRights_s', q: 'Restricted' },
+    ]);
+    const initialParams = new URLSearchParams();
+    initialParams.set('q', '');
+    initialParams.set('adv_q', advancedQuery);
+    initialParams.set('search_field', 'dct_title_s');
+    initialParams.append('include_filters[gbl_resourceClass_sm][]', 'Datasets');
+
+    render(
+      <MemoryRouter initialEntries={[`/search?${initialParams.toString()}`]}>
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <SearchField />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    const searchInput = screen.getByRole('searchbox', {
+      name: 'Search input',
+    });
+    fireEvent.focus(searchInput);
+    fireEvent.change(searchInput, { target: { value: 'wetlands' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: /see all results for wetlands/i })
+    );
+
+    await waitFor(() => {
+      const probe = screen.getByTestId('location-probe');
+      const params = new URLSearchParams(
+        probe.getAttribute('data-search') ?? ''
+      );
+
+      expect(params.get('q')).toBe('wetlands');
+      expect(params.get('adv_q')).toBe(advancedQuery);
+      expect(params.get('search_field')).toBeNull();
+      expect(params.getAll('include_filters[gbl_resourceClass_sm][]')).toEqual([
+        'Datasets',
+      ]);
+    });
+  });
+
+  it('keeps clean-search behavior outside search results', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={[
+          '/resources/item-1?' +
+            'include_filters%5Bgbl_resourceClass_sm%5D%5B%5D=Maps' +
+            '&include_filters%5Bdct_spatial_sm%5D%5B%5D=Wisconsin' +
+            '&exclude_filters%5Bdct_accessRights_s%5D%5B%5D=Restricted',
+        ]}
+      >
+        <Routes>
+          <Route
+            path="*"
+            element={
+              <>
+                <SearchField />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search input' }), {
+      target: { value: 'lakes' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Submit search' }));
+
+    await waitFor(() => {
+      const probe = screen.getByTestId('location-probe');
+      expect(probe).toHaveAttribute('data-pathname', '/search');
+      const params = new URLSearchParams(
+        probe.getAttribute('data-search') ?? ''
+      );
+
+      expect(params.get('q')).toBe('lakes');
+      expect(params.getAll('include_filters[gbl_resourceClass_sm][]')).toEqual([
+        'Maps',
+      ]);
+      expect(params.get('include_filters[dct_spatial_sm][]')).toBeNull();
+      expect(params.get('exclude_filters[dct_accessRights_s][]')).toBeNull();
+    });
+  });
+
   it('distinguishes same-named geographic areas by place type', async () => {
     fetchNominatimSearchMock.mockResolvedValue({
       data: [

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Search, Settings, X, MapPin } from 'lucide-react';
 import { fetchNominatimSearch } from '../services/api';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 import type { GazetteerPlace } from '../types/api';
 
 function useMediaQuery(query: string): boolean {
@@ -51,6 +51,15 @@ type KeywordSuggestionItem =
 type KeywordSuggestionGroup = 'place' | 'suggestion' | 'see_all';
 
 const NOMINATIM_SUGGESTION_LIMIT = 5;
+
+function isSearchConstraintParam(key: string) {
+  return (
+    key === 'adv_q' ||
+    key.startsWith('include_filters[') ||
+    key.startsWith('exclude_filters[') ||
+    key.startsWith('fq[')
+  );
+}
 
 const PLACE_TYPE_LABELS: Record<string, string> = {
   city: 'City',
@@ -104,6 +113,7 @@ export function SearchField({
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   // Placename autocomplete state
@@ -362,6 +372,15 @@ export function SearchField({
     options?: { searchField?: string }
   ) => {
     const newParams = new URLSearchParams();
+    const isRefiningSearchResults = location.pathname === '/search';
+
+    if (isRefiningSearchResults) {
+      searchParams.forEach((value, key) => {
+        if (isSearchConstraintParam(key)) {
+          newParams.append(key, value);
+        }
+      });
+    }
 
     // Always set q so the search page runs (useSearch requires hasQueryParam = searchParams.has('q'))
     newParams.set('q', nextQuery);
@@ -371,62 +390,62 @@ export function SearchField({
       newParams.set('search_field', nextSearchField);
     }
 
-    // ALWAYS check URL params first for geo filters (source of truth)
-    // This ensures geo filters are preserved even if component state is out of sync
-    const geoType = searchParams.get('include_filters[geo][type]');
-    if (geoType === 'bbox') {
-      const topLeftLat = searchParams.get(
-        'include_filters[geo][top_left][lat]'
-      );
-      const topLeftLon = searchParams.get(
-        'include_filters[geo][top_left][lon]'
-      );
-      const bottomRightLat = searchParams.get(
-        'include_filters[geo][bottom_right][lat]'
-      );
-      const bottomRightLon = searchParams.get(
-        'include_filters[geo][bottom_right][lon]'
-      );
-
-      if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
-        setGeoBBoxParams(
-          newParams,
-          {
-            topLeftLat,
-            topLeftLon,
-            bottomRightLat,
-            bottomRightLon,
-          },
-          getGeoRelationFromParams()
+    if (!isRefiningSearchResults) {
+      // Preserve the existing geo/category behavior outside search results.
+      const geoType = searchParams.get('include_filters[geo][type]');
+      if (geoType === 'bbox') {
+        const topLeftLat = searchParams.get(
+          'include_filters[geo][top_left][lat]'
         );
+        const topLeftLon = searchParams.get(
+          'include_filters[geo][top_left][lon]'
+        );
+        const bottomRightLat = searchParams.get(
+          'include_filters[geo][bottom_right][lat]'
+        );
+        const bottomRightLon = searchParams.get(
+          'include_filters[geo][bottom_right][lon]'
+        );
+
+        if (topLeftLat && topLeftLon && bottomRightLat && bottomRightLon) {
+          setGeoBBoxParams(
+            newParams,
+            {
+              topLeftLat,
+              topLeftLon,
+              bottomRightLat,
+              bottomRightLon,
+            },
+            getGeoRelationFromParams()
+          );
+        }
+      } else if (selectedPlace) {
+        // Fallback to component state if URL params don't have geo filters but we have a selected place
+        const attrs = selectedPlace.attributes;
+        setGeoBBoxParams(newParams, {
+          topLeftLat: attrs.max_latitude.toString(),
+          topLeftLon: attrs.min_longitude.toString(),
+          bottomRightLat: attrs.min_latitude.toString(),
+          bottomRightLon: attrs.max_longitude.toString(),
+        });
       }
-    } else if (selectedPlace) {
-      // Fallback to component state if URL params don't have geo filters but we have a selected place
-      const attrs = selectedPlace.attributes;
-      setGeoBBoxParams(newParams, {
-        topLeftLat: attrs.max_latitude.toString(),
-        topLeftLon: attrs.min_longitude.toString(),
-        bottomRightLat: attrs.min_latitude.toString(),
-        bottomRightLon: attrs.max_longitude.toString(),
-      });
-    }
 
-    // Preserve category filters from current URL
-    const categoryFilters = searchParams.getAll(
-      'include_filters[gbl_resourceClass_sm][]'
-    );
-    const legacyCategoryFilters = searchParams.getAll(
-      'fq[gbl_resourceClass_sm][]'
-    );
+      const categoryFilters = searchParams.getAll(
+        'include_filters[gbl_resourceClass_sm][]'
+      );
+      const legacyCategoryFilters = searchParams.getAll(
+        'fq[gbl_resourceClass_sm][]'
+      );
 
-    if (categoryFilters.length > 0) {
-      categoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
-    } else if (legacyCategoryFilters.length > 0) {
-      legacyCategoryFilters.forEach((value) => {
-        newParams.append('include_filters[gbl_resourceClass_sm][]', value);
-      });
+      if (categoryFilters.length > 0) {
+        categoryFilters.forEach((value) => {
+          newParams.append('include_filters[gbl_resourceClass_sm][]', value);
+        });
+      } else if (legacyCategoryFilters.length > 0) {
+        legacyCategoryFilters.forEach((value) => {
+          newParams.append('include_filters[gbl_resourceClass_sm][]', value);
+        });
+      }
     }
 
     return newParams;
