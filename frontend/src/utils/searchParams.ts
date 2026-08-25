@@ -64,7 +64,8 @@ export function parseSearchParams(searchParams: URLSearchParams) {
     .filter(
       ([key]) =>
         (key.startsWith('fq[') || key.startsWith('include_filters[')) &&
-        !key.startsWith('include_filters[geo]')
+        !key.startsWith('include_filters[geo]') &&
+        !key.startsWith('include_filters[year_range]')
     )
     .map(([key, value]) => {
       const field = key.match(/(?:fq|include_filters)\[(.*?)\]/)?.[1] || '';

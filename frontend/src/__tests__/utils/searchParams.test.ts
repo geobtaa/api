@@ -107,6 +107,25 @@ describe('searchParams', () => {
       });
     });
 
+    it('keeps compound year ranges out of ordinary facets', () => {
+      const searchParams = new URLSearchParams();
+      searchParams.set('include_filters[year_range][start]', '1920');
+      searchParams.set('include_filters[year_range][end]', '1929');
+      searchParams.append(
+        'include_filters[dct_publisher_sm][]',
+        'Wisconsin Historical Society'
+      );
+
+      const result = parseSearchParams(searchParams);
+
+      expect(result.facets).toEqual([
+        {
+          field: 'dct_publisher_sm',
+          value: 'Wisconsin Historical Society',
+        },
+      ]);
+    });
+
     it('ignores non-facet parameters', () => {
       const searchParams = new URLSearchParams({
         q: 'test',
