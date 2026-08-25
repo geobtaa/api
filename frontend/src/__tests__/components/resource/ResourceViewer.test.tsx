@@ -1,556 +1,160 @@
-import { act, render } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => {
-  const fitInternal = vi.fn();
-  const fit = vi.fn();
-  const setCenter = vi.fn();
-  const setResolution = vi.fn();
-  const setViewportSize = vi.fn();
-  const useGeographic = vi.fn();
-  const transformExtent = vi.fn((extent: number[]) => extent);
-  const geoTiff = vi.fn();
-  const pmtilesVectorSource = vi.fn();
-  const vectorTileLayer = vi.fn();
-  const webglTileLayer = vi.fn();
-  const tileLayer = vi.fn();
-  const xyzSource = vi.fn();
-  const style = vi.fn();
-  const stroke = vi.fn();
-  const fill = vi.fn();
-  const circle = vi.fn();
-  const polygonFromExtent = vi.fn((extent: number[]) => ({
-    extent,
-    getFlatCoordinates: () => extent,
-    getStride: () => 2,
-  }));
-  const overlaySource = {
-    getState: vi.fn(() => 'ready'),
-    on: vi.fn(),
-    un: vi.fn(),
-  };
-  const overlay = {
-    getSource: vi.fn(() => overlaySource),
-  };
-  const map = {
-    getSize: vi.fn(() => undefined),
-    updateSize: vi.fn(),
-    renderSync: vi.fn(),
-    on: vi.fn(),
-    setTarget: vi.fn(),
-    getEventPixel: vi.fn(() => [0, 0]),
-    hasFeatureAtPixel: vi.fn(() => false),
-    getViewport: vi.fn(() => ({ style: { cursor: '' } })),
-    getFeaturesAtPixel: vi.fn(() => []),
-  };
-  const view = {
-    getProjection: vi.fn(() => ({ getCode: () => 'EPSG:3857' })),
-    setViewportSize,
-    fitInternal,
-    fit,
-    getCenterInternal: vi.fn(() => [-10381844.95, 5616966.0]),
-    getCenter: vi.fn(() => [-10381844.95, 5616966.0]),
-    setCenter,
-    setResolution,
-    getResolutionForExtentInternal: vi.fn(() => 128),
-  };
-  const olMap = vi.fn(function OlMap() {
-    return map;
-  });
-  const olView = vi.fn(function View() {
-    return view;
-  });
-
-  vectorTileLayer.mockImplementation(function VectorTileLayer() {
-    return overlay;
-  });
-  webglTileLayer.mockImplementation(function WebGLTileLayer() {
-    return overlay;
-  });
-
-  return {
-    circle,
-    fill,
-    fit,
-    fitInternal,
-    geoTiff,
-    map,
-    olMap,
-    olView,
-    overlay,
-    overlaySource,
-    pmtilesVectorSource,
-    polygonFromExtent,
-    setCenter,
-    setResolution,
-    setViewportSize,
-    stroke,
-    style,
-    tileLayer,
-    transformExtent,
-    useGeographic,
-    vectorTileLayer,
-    view,
-    webglTileLayer,
-    xyzSource,
-  };
-});
-
-vi.mock('ol/Map', () => ({
-  default: mocks.olMap,
+const mocks = vi.hoisted(() => ({
+  setAssetBase: vi.fn(),
+  recordConstructor: vi.fn(function MockOgmRecord(
+    this: { json?: Record<string, unknown> },
+    data: Record<string, unknown>
+  ) {
+    this.json = data;
+  }),
 }));
 
-vi.mock('ol/View', () => ({
-  default: mocks.olView,
+vi.mock('ogm-viewer', () => ({}));
+vi.mock('ogm-viewer/lib', () => ({
+  OgmRecord: mocks.recordConstructor,
 }));
-
-vi.mock('ol/control', () => ({
-  FullScreen: vi.fn(function FullScreen() {}),
-  defaults: vi.fn(() => ({
-    extend: vi.fn(() => []),
-  })),
-}));
-
-vi.mock('ol/layer/Tile', () => ({
-  default: mocks.tileLayer,
-}));
-
-vi.mock('ol/source/XYZ', () => ({
-  default: mocks.xyzSource,
-}));
-
-vi.mock('ol/layer/VectorTile.js', () => ({
-  default: mocks.vectorTileLayer,
-}));
-
-vi.mock('ol/layer/WebGLTile.js', () => ({
-  default: mocks.webglTileLayer,
-}));
-
-vi.mock('ol/source/GeoTIFF.js', () => ({
-  default: mocks.geoTiff,
-}));
-
-vi.mock('ol-pmtiles', () => ({
-  PMTilesVectorSource: mocks.pmtilesVectorSource,
-}));
-
-vi.mock('ol/style.js', () => ({
-  Circle: mocks.circle,
-  Fill: mocks.fill,
-  Stroke: mocks.stroke,
-  Style: mocks.style,
-}));
-
-vi.mock('ol/geom/Polygon', () => ({
-  fromExtent: mocks.polygonFromExtent,
-}));
-
-vi.mock('ol/proj', () => ({
-  transformExtent: mocks.transformExtent,
-  useGeographic: mocks.useGeographic,
+vi.mock('ogm-viewer/components/p-BbMGvQFJ.js', () => ({
+  s: mocks.setAssetBase,
 }));
 
 import { ResourceViewer } from '../../../components/resource/ResourceViewer';
 
-const cogDataWithGeometry = {
-  attributes: { dct_references_s: {} },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'cog',
-        endpoint: 'https://example.com/cog.tif',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-97.73743, 30.28753],
-              [-97.73743, 30.28409],
-              [-97.73346, 30.28409],
-              [-97.73346, 30.28753],
-              [-97.73743, 30.28753],
-            ],
-          ],
-        },
-      },
-    },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
+const PMTILES_REFERENCE = 'https://github.com/protomaps/PMTiles';
+const WMS_REFERENCE = 'http://www.opengis.net/def/serviceType/ogc/wms';
 
-const pmtilesDataWithGeometry = {
-  attributes: { dct_references_s: {} },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'pmtiles',
-        endpoint: 'https://example.com/test.pmtiles',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-93.3291, 44.8908],
-              [-93.3291, 45.0512],
-              [-93.1943, 45.0512],
-              [-93.1943, 44.8908],
-              [-93.3291, 44.8908],
-            ],
-          ],
-        },
+function viewerData(id: string, references: string | Record<string, unknown>) {
+  return {
+    id,
+    attributes: {
+      ogm: {
+        id,
+        dct_title_s: `Resource ${id}`,
+        gbl_resourceClass_sm: ['Datasets'],
+        dct_accessRights_s: 'Public',
+        gbl_mdVersion_s: 'Aardvark',
+        gbl_wxsIdentifier_s: 'example-layer',
+        dct_references_s: references,
       },
     },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
-
-const pmtilesDataWithMultiPolygonGeometry = {
-  attributes: { dct_references_s: {} },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'pmtiles',
-        endpoint: 'https://example.com/champaign.pmtiles',
-        geometry: {
-          type: 'MultiPolygon',
-          coordinates: [
-            [
-              [
-                [-88.3336, 40.0619],
-                [-88.2801, 40.1488],
-                [-88.3336, 40.0619],
-              ],
-            ],
-            [
-              [
-                [-88.277, 40.1212],
-                [-88.2226, 40.1709],
-                [-88.277, 40.1212],
-              ],
-            ],
-          ],
-        },
-      },
-    },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
-
-const wmsDataWithGeometry = {
-  attributes: {
-    dct_references_s: {},
-    ogm: {
-      id: 'cook-county-contours',
-      gbl_wxsIdentifier_s: 'Contours',
-    },
-  },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'wms',
-        endpoint:
-          'https://example.com/cook-county/services/contours/MapServer/WMSServer',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-88.2, 41.6],
-              [-88.2, 42.2],
-              [-87.4, 42.2],
-              [-87.4, 41.6],
-              [-88.2, 41.6],
-            ],
-          ],
-        },
-      },
-    },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
-
-const secondWmsDataWithGeometry = {
-  attributes: {
-    dct_references_s: {},
-    ogm: {
-      id: 'cook-county-zoning',
-      gbl_wxsIdentifier_s: 'Zoning',
-    },
-  },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'wms',
-        endpoint:
-          'https://example.com/cook-county/services/zoning/MapServer/WMSServer',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-88.0, 41.7],
-              [-88.0, 42.0],
-              [-87.5, 42.0],
-              [-87.5, 41.7],
-              [-88.0, 41.7],
-            ],
-          ],
-        },
-      },
-    },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
-
-const iiifManifestData = {
-  attributes: { dct_references_s: {} },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'iiif_manifest',
-        endpoint: 'https://example.com/iiif/manifest.json',
-        geometry: {
-          type: 'Polygon',
-          coordinates: [
-            [
-              [-88.0, 41.7],
-              [-88.0, 42.0],
-              [-87.5, 42.0],
-              [-87.5, 41.7],
-              [-88.0, 41.7],
-            ],
-          ],
-        },
-      },
-    },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
-
-const iiifImageDataWithoutGeometry = {
-  attributes: { dct_references_s: {} },
-  meta: {
-    ui: {
-      viewer: {
-        protocol: 'iiif_image',
-        endpoint:
-          'https://cdm17287.contentdm.oclc.org/digital/iiif/wpamaps/2535/info.json',
-      },
-    },
-  },
-} as Parameters<typeof ResourceViewer>[0]['data'];
+  } as Parameters<typeof ResourceViewer>[0]['data'];
+}
 
 describe('ResourceViewer', () => {
-  let rectSpy: ReturnType<typeof vi.spyOn>;
+  beforeAll(() => {
+    if (!customElements.get('ogm-viewer')) {
+      customElements.define(
+        'ogm-viewer',
+        class extends HTMLElement {
+          private currentRecord?: unknown;
 
-  beforeEach(() => {
-    vi.useFakeTimers();
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      cb(0);
-      return 1;
-    });
-    vi.stubGlobal('cancelAnimationFrame', vi.fn());
-    vi.stubGlobal(
-      'ResizeObserver',
-      class ResizeObserver {
-        observe = vi.fn();
-        disconnect = vi.fn();
-      }
-    );
-    rectSpy = vi
-      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
-      .mockReturnValue({
-        width: 1094,
-        height: 600,
-        top: 0,
-        left: 0,
-        right: 1094,
-        bottom: 600,
-        x: 0,
-        y: 0,
-        toJSON: () => ({}),
-      } as DOMRect);
+          get loadedRecord() {
+            return this.currentRecord;
+          }
+
+          async loadRecord(record: unknown) {
+            this.currentRecord = record;
+            this.dispatchEvent(new CustomEvent('previewsLoading'));
+            queueMicrotask(() => {
+              this.dispatchEvent(new CustomEvent('previewsLoaded'));
+            });
+          }
+        }
+      );
+    }
   });
 
   afterEach(() => {
-    rectSpy.mockRestore();
-    vi.useRealTimers();
-    vi.unstubAllGlobals();
     vi.clearAllMocks();
-    mocks.map.getSize.mockReturnValue(undefined);
-    mocks.view.getCenterInternal.mockReturnValue([-10381844.95, 5616966.0]);
-    mocks.overlaySource.getState.mockReturnValue('ready');
   });
 
-  describe('OpenLayers viewer bootstrap', () => {
-    it('fits a COG map using the rendered element size when map size is unavailable', async () => {
-      render(<ResourceViewer data={cogDataWithGeometry} pageValue="SHOW" />);
+  it('loads the Aardvark record into the full OGM viewer', async () => {
+    const references = {
+      [PMTILES_REFERENCE]: 'https://example.com/resource.pmtiles',
+    };
+    const { container } = render(
+      <ResourceViewer data={viewerData('resource-1', references)} />
+    );
 
-      await act(async () => {
-        await vi.runAllTimersAsync();
-      });
+    expect(screen.getByRole('status')).toHaveTextContent('Loading viewer…');
 
-      expect(mocks.olMap).toHaveBeenCalled();
-      expect(mocks.geoTiff).toHaveBeenCalledWith({
-        sources: [{ url: 'https://example.com/cog.tif' }],
-        convertToRGB: true,
-      });
-      expect(mocks.setViewportSize).toHaveBeenCalledWith([1094, 600]);
-      expect(mocks.fitInternal).toHaveBeenCalled();
-      expect(mocks.fitInternal.mock.calls[0][1]).toMatchObject({
-        size: [1094, 600],
-        maxZoom: 19,
-      });
-    });
+    await waitFor(() => expect(mocks.recordConstructor).toHaveBeenCalled());
 
-    it('boots PMTiles through the local layer path and enables geographic mode', async () => {
-      render(
-        <ResourceViewer data={pmtilesDataWithGeometry} pageValue="SHOW" />
-      );
+    expect(mocks.setAssetBase).toHaveBeenCalledWith('/ogm-viewer/');
+    expect(mocks.recordConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'resource-1',
+        gbl_mdVersion_s: 'Aardvark',
+        dct_references_s: JSON.stringify(references),
+      })
+    );
 
-      await act(async () => {
-        await vi.runAllTimersAsync();
-      });
-
-      expect(mocks.useGeographic).toHaveBeenCalled();
-      expect(mocks.pmtilesVectorSource).toHaveBeenCalledWith({
-        url: 'https://example.com/test.pmtiles',
-      });
-      expect(mocks.vectorTileLayer).toHaveBeenCalled();
-      expect(mocks.fitInternal).toHaveBeenCalled();
-    });
-
-    it('boots PMTiles when viewer geometry is a MultiPolygon', async () => {
-      render(
-        <ResourceViewer
-          data={pmtilesDataWithMultiPolygonGeometry}
-          pageValue="SHOW"
-        />
-      );
-
-      await act(async () => {
-        await vi.runAllTimersAsync();
-      });
-
-      expect(mocks.pmtilesVectorSource).toHaveBeenCalledWith({
-        url: 'https://example.com/champaign.pmtiles',
-      });
-      expect(mocks.olMap).toHaveBeenCalled();
-      expect(mocks.transformExtent).toHaveBeenCalledWith(
-        [-88.3336, 40.0619, -88.2226, 40.1709],
-        'EPSG:4326',
-        'EPSG:3857'
-      );
-      expect(mocks.fitInternal).toHaveBeenCalled();
-    });
+    const viewer = container.querySelector('ogm-viewer') as HTMLElement & {
+      loadedRecord?: unknown;
+    };
+    expect(viewer.loadedRecord).toBe(mocks.recordConstructor.mock.instances[0]);
+    expect(viewer).toHaveAttribute('theme', 'light');
+    expect(viewer).toHaveClass('h-[600px]');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
-  describe('Leaflet-backed viewer remounts', () => {
-    it('renders IIIF Image API endpoints through the Leaflet IIIF protocol instead of Mirador', async () => {
-      const { container } = render(
-        <ResourceViewer data={iiifImageDataWithoutGeometry} pageValue="SHOW" />
-      );
-
-      await act(async () => {});
-
-      expect(
-        container.querySelector('iframe[title="Mirador viewer"]')
-      ).toBeNull();
-
-      const viewer = container.querySelector('#leaflet-viewer');
-      expect(viewer).not.toBeNull();
-      expect(viewer?.getAttribute('data-leaflet-viewer-protocol-value')).toBe(
-        'Iiif'
-      );
-      expect(viewer?.getAttribute('data-leaflet-viewer-available-value')).toBe(
-        'true'
-      );
-      expect(viewer?.getAttribute('data-leaflet-viewer-url-value')).toBe(
-        'https://cdm17287.contentdm.oclc.org/digital/iiif/wpamaps/2535/info.json'
-      );
-      expect(viewer?.hasAttribute('data-leaflet-viewer-map-geom-value')).toBe(
-        false
-      );
+  it('preserves serialized references and replaces the record when data changes', async () => {
+    const firstReferences = JSON.stringify({
+      [WMS_REFERENCE]: 'https://example.com/first/wms',
     });
-
-    it('replaces the viewer container when the resource changes', async () => {
-      const { rerender, container } = render(
-        <ResourceViewer data={wmsDataWithGeometry} pageValue="SHOW" />
-      );
-
-      await act(async () => {});
-
-      const firstViewer = container.querySelector('#leaflet-viewer');
-      expect(firstViewer).not.toBeNull();
-      expect(
-        firstViewer?.getAttribute('data-leaflet-viewer-layer-id-value')
-      ).toBe('Contours');
-      expect(
-        JSON.parse(
-          firstViewer?.getAttribute('data-leaflet-viewer-options-value') ?? '{}'
-        )
-      ).toMatchObject({
-        MAP: {
-          gestureHandling: true,
-          scrollWheelZoom: true,
-        },
-        SLEEP: {
-          SLEEP: false,
-        },
-      });
-
-      rerender(
-        <ResourceViewer data={secondWmsDataWithGeometry} pageValue="SHOW" />
-      );
-
-      await act(async () => {});
-
-      const secondViewer = container.querySelector('#leaflet-viewer');
-      expect(secondViewer).not.toBeNull();
-      expect(secondViewer).not.toBe(firstViewer);
-      expect(
-        secondViewer?.getAttribute('data-leaflet-viewer-layer-id-value')
-      ).toBe('Zoning');
-      expect(secondViewer?.getAttribute('data-leaflet-viewer-url-value')).toBe(
-        'https://example.com/cook-county/services/zoning/MapServer/WMSServer'
-      );
+    const secondReferences = JSON.stringify({
+      [WMS_REFERENCE]: 'https://example.com/second/wms',
     });
+    const { container, rerender } = render(
+      <ResourceViewer data={viewerData('resource-1', firstReferences)} />
+    );
+
+    await waitFor(() =>
+      expect(mocks.recordConstructor).toHaveBeenCalledTimes(1)
+    );
+    expect(mocks.recordConstructor).toHaveBeenLastCalledWith(
+      expect.objectContaining({ dct_references_s: firstReferences })
+    );
+
+    rerender(
+      <ResourceViewer data={viewerData('resource-2', secondReferences)} />
+    );
+
+    await waitFor(() =>
+      expect(mocks.recordConstructor).toHaveBeenCalledTimes(2)
+    );
+    expect(mocks.recordConstructor).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: 'resource-2',
+        dct_references_s: secondReferences,
+      })
+    );
+
+    const viewer = container.querySelector('ogm-viewer') as HTMLElement & {
+      loadedRecord?: unknown;
+    };
+    expect(viewer.loadedRecord).toBe(mocks.recordConstructor.mock.instances[1]);
   });
 
-  describe('Mirador viewer iframe', () => {
-    it('loads the local Mirador route with the manifest URL and download-safe sandbox permissions', async () => {
-      const happyDOM = (
-        window as typeof window & {
-          happyDOM?: {
-            settings: {
-              fetch: {
-                interceptor: unknown;
-              };
-            };
-          };
-        }
-      ).happyDOM;
-      const previousInterceptor = happyDOM?.settings.fetch.interceptor;
-      if (happyDOM) {
-        happyDOM.settings.fetch.interceptor = {
-          beforeAsyncRequest: async () =>
-            new window.Response('<!doctype html><html><body></body></html>', {
-              headers: { 'Content-Type': 'text/html' },
-            }),
-        };
-      }
-
-      const { container } = render(
-        <ResourceViewer data={iiifManifestData} pageValue="SHOW" />
-      );
-
-      await act(async () => {});
-
-      const iframe = container.querySelector('iframe[title="Mirador viewer"]');
-      expect(iframe).not.toBeNull();
-
-      const src = iframe?.getAttribute('src');
-      expect(src).toContain('/mirador?');
-      expect(new URL(src ?? '').searchParams.get('manifest')).toBe(
-        'https://example.com/iiif/manifest.json'
-      );
-      expect(iframe?.getAttribute('sandbox')).toContain('allow-downloads');
-      expect(iframe?.getAttribute('sandbox')).toContain('allow-popups');
-
-      if (happyDOM) {
-        happyDOM.settings.fetch.interceptor = previousInterceptor;
-      }
+  it('shows an accessible fallback when the OGM record cannot be loaded', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    mocks.recordConstructor.mockImplementationOnce(function BrokenOgmRecord() {
+      throw new Error('Invalid record');
     });
+
+    render(<ResourceViewer data={viewerData('broken', {})} />);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Item viewer unavailable.'
+    );
+    expect(consoleError).toHaveBeenCalledWith(
+      'Failed to load OGM viewer:',
+      expect.any(Error)
+    );
+
+    consoleError.mockRestore();
   });
 });
