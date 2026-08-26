@@ -386,6 +386,12 @@ describe('ResourceViewer', () => {
         sources: [{ url: 'https://example.com/cog.tif' }],
         convertToRGB: true,
       });
+      expect(mocks.xyzSource).toHaveBeenCalledWith({
+        url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attributions:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      });
       expect(mocks.setViewportSize).toHaveBeenCalledWith([1094, 600]);
       expect(mocks.fitInternal).toHaveBeenCalled();
       expect(mocks.fitInternal.mock.calls[0][1]).toMatchObject({

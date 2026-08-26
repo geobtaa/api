@@ -10,7 +10,7 @@ type BasemapDefinition = {
 
 const BASEMAP_COOKIE_NAME = 'preferred_basemap';
 const BASEMAP_COOKIE_EXPIRY_DAYS = 365;
-const DEFAULT_BASEMAP_KEY = 'cartoLight';
+const DEFAULT_BASEMAP_KEY = 'openStreetMap';
 
 const BASEMAP_DEFINITIONS = {
   cartoLight: {
@@ -25,7 +25,7 @@ const BASEMAP_DEFINITIONS = {
   },
   openStreetMap: {
     label: 'OpenStreetMap',
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     options: {
@@ -58,7 +58,9 @@ export function getSavedBasemapKey(): BasemapKey {
 }
 
 function saveBasemapKey(key: BasemapKey): void {
-  Cookies.set(BASEMAP_COOKIE_NAME, key, { expires: BASEMAP_COOKIE_EXPIRY_DAYS });
+  Cookies.set(BASEMAP_COOKIE_NAME, key, {
+    expires: BASEMAP_COOKIE_EXPIRY_DAYS,
+  });
 }
 
 export function createBasemapLayer(
