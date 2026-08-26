@@ -8,7 +8,7 @@ The homepage features an interactive Leaflet map that combines three main elemen
 2. **Featured Resources Carousel** — Curated examples that showcase different resource types and previews
 3. **Search Here** — Button to search within the current map extent (appears after user pan/zoom)
 
-The map uses a Carto light basemap and is centered south of the continental US so North America appears beneath the search form. Chicago (a dense hex cluster) is positioned for visual prominence via an initial programmatic pan.
+The map uses an OpenStreetMap basemap and is centered south of the continental US so North America appears beneath the search form. Chicago (a dense hex cluster) is positioned for visual prominence via an initial programmatic pan.
 
 ---
 

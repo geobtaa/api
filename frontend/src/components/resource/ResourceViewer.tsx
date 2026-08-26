@@ -45,10 +45,10 @@ interface ResourceViewerProps {
 type ViewerExtent = [number, number, number, number];
 
 const OPENLAYERS_BASEMAP = {
-  url: 'https://{a-d}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+  url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
   attributions:
-    '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="http://carto.com/attributionss">Carto</a>',
-  maxZoom: 18,
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19,
 };
 
 function isFiniteExtent(
