@@ -1,4 +1,10 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from 'react';
 
 interface MapContextType {
   hoveredGeometry: string | null;
@@ -24,11 +30,14 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
   const hoveredIdRef = useRef<string | null>(null);
   hoveredIdRef.current = hoveredResourceId;
 
-  const setGeometryIfHovering = useCallback((resourceId: string, geometry: string | null) => {
-    if (hoveredIdRef.current === resourceId) {
-      setHoveredGeometry(geometry);
-    }
-  }, []);
+  const setGeometryIfHovering = useCallback(
+    (resourceId: string, geometry: string | null) => {
+      if (hoveredIdRef.current === resourceId) {
+        setHoveredGeometry(geometry);
+      }
+    },
+    []
+  );
 
   return (
     <MapContext.Provider

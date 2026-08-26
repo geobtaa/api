@@ -158,7 +158,11 @@ describe('SearchPage Logic', () => {
   const renderWithRouter = (
     initialUrl = '/search',
     searchResults: JsonApiResponse | null = null,
-    options?: { returnRouter?: boolean; clientSearchEnabled?: boolean }
+    options?: {
+      returnRouter?: boolean;
+      clientSearchEnabled?: boolean;
+      isLoading?: boolean;
+    }
   ) => {
     const routes = [
       {
@@ -170,7 +174,7 @@ describe('SearchPage Logic', () => {
                 {/* MapProvider is guarded inside SearchPage, but we can wrap here too just in case context is needed outside */}
                 <SearchPage
                   searchResults={searchResults}
-                  isLoading={false}
+                  isLoading={options?.isLoading ?? false}
                   clientSearchEnabled={options?.clientSearchEnabled}
                 />
               </DebugProvider>
@@ -373,6 +377,43 @@ describe('SearchPage Logic', () => {
       expect(screen.getByTestId('map-result-view')).toBeInTheDocument();
     });
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
+  });
+
+  it('shows compact map pagination with an accurate remaining-result count', async () => {
+    const results = createMockApiResponse(mockResults.slice(0, 20), 21, 1);
+    const { router } = renderWithRouter('/search?view=map', results, {
+      returnRouter: true,
+    });
+
+    expect(
+      screen.getByText(/Showing results 1-20 of 21 for this query/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('navigation', { name: 'Map results pagination' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Previous page' })
+    ).toBeDisabled();
+
+    await act(async () => {
+      screen.getByRole('button', { name: 'See next 1 result' }).click();
+    });
+
+    await waitFor(() => {
+      expect(router.state.location.search).toContain('page=2');
+    });
+  });
+
+  it('does not announce zero map results while a search is loading', () => {
+    renderWithRouter('/search?q=roads&view=map', null, { isLoading: true });
+
+    expect(screen.getByText('Searching…')).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Showing results 0-0 of 0 for this query/i)
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Map results pagination' })
+    ).not.toBeInTheDocument();
   });
 
   it('restores saved gallery view preference when URL has no view param', async () => {

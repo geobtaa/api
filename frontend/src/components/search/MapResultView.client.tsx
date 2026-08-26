@@ -209,7 +209,7 @@ const MapInitialFitController: React.FC<{
   return null;
 };
 
-/** Create a numbered pin icon (circle with number inside) */
+/** Create a numbered map pin icon with an upright result number. */
 function createNumberedPinIcon(
   resultNumber: number,
   isHighlighted: boolean
@@ -249,7 +249,7 @@ function createNumberedPinIcon(
         align-items: center;
         justify-content: center;
         background: transparent;
-        transform: translateX(-50%) rotate(45deg);
+        transform: translateX(-50%);
         color: #fff;
         font-size: ${textSize}px;
         line-height: 1;
@@ -294,9 +294,11 @@ const SpiderfiedMarkers: React.FC<{
     typeof OverlappingMarkerSpiderfier
   > | null>(null);
   const entriesRef = useRef<MarkerEntry[]>([]);
+  const selectedResourceIdRef = useRef(selectedResourceId);
+  selectedResourceIdRef.current = selectedResourceId;
 
   useEffect(() => {
-    if (!map || pins.length === 0) return;
+    if (!map) return;
 
     const oms = new OverlappingMarkerSpiderfier(map, {
       nearbyDistance: 30,
@@ -305,16 +307,33 @@ const SpiderfiedMarkers: React.FC<{
     omsRef.current = oms;
 
     const popup = L.popup();
-    oms.addListener(
-      'click',
-      (marker: L.Marker & { _popupContent?: HTMLElement }) => {
-        if (marker._popupContent) {
-          popup.setContent(marker._popupContent);
-          popup.setLatLng(marker.getLatLng());
-          map.openPopup(popup);
-        }
+    const handleMarkerClick = (
+      marker: L.Marker & { _popupContent?: HTMLElement }
+    ) => {
+      if (marker._popupContent) {
+        popup.setContent(marker._popupContent);
+        popup.setLatLng(marker.getLatLng());
+        map.openPopup(popup);
       }
-    );
+    };
+    oms.addListener('click', handleMarkerClick);
+
+    return () => {
+      oms.removeListener('click', handleMarkerClick);
+      oms.clearMarkers();
+      oms.unspiderfy();
+      if (omsRef.current === oms) {
+        omsRef.current = null;
+      }
+    };
+  }, [map]);
+
+  useEffect(() => {
+    const oms = omsRef.current;
+    if (!map || !oms || pins.length === 0) {
+      entriesRef.current = [];
+      return;
+    }
 
     const entries: MarkerEntry[] = [];
     pins.forEach((p) => {
@@ -344,14 +363,6 @@ const SpiderfiedMarkers: React.FC<{
       container.append(resultLabel, title, idLabel, detailsLink);
       (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent =
         container;
-      (marker as L.Marker & {
-        _resourceId?: string;
-        _hoverGeometry?: string | null;
-      })._resourceId = p.resource.id;
-      (marker as L.Marker & {
-        _resourceId?: string;
-        _hoverGeometry?: string | null;
-      })._hoverGeometry = p.hoverGeometry;
 
       marker.on('mouseover', () => {
         setHoveredResourceId(p.resource.id);
@@ -359,14 +370,18 @@ const SpiderfiedMarkers: React.FC<{
       });
 
       marker.on('mouseout', () => {
-        if (selectedResourceId !== p.resource.id) {
+        if (selectedResourceIdRef.current !== p.resource.id) {
           setHoveredResourceId(null);
           setHoveredGeometry(null);
         }
       });
 
       marker.on('click', () => {
-        const nextSelected = selectedResourceId === p.resource.id ? null : p.resource.id;
+        const nextSelected =
+          selectedResourceIdRef.current === p.resource.id
+            ? null
+            : p.resource.id;
+        selectedResourceIdRef.current = nextSelected;
         setSelectedResourceId(nextSelected);
         setHoveredResourceId(nextSelected);
         setHoveredGeometry(nextSelected ? p.hoverGeometry : null);
@@ -382,19 +397,15 @@ const SpiderfiedMarkers: React.FC<{
     entriesRef.current = entries;
 
     return () => {
-      const oms = omsRef.current;
-      if (oms) {
-        oms.clearMarkers();
-        oms.unspiderfy();
-        entriesRef.current.forEach((e) => map.removeLayer(e.marker));
-        omsRef.current = null;
+      oms.clearMarkers();
+      entries.forEach((entry) => map.removeLayer(entry.marker));
+      if (entriesRef.current === entries) {
         entriesRef.current = [];
       }
     };
   }, [
     map,
     pins,
-    selectedResourceId,
     setHoveredResourceId,
     setHoveredGeometry,
     setSelectedResourceId,

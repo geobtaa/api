@@ -269,6 +269,32 @@ describe('SearchResults Component', () => {
       ).toBeInTheDocument();
     });
 
+    it('visually and semantically highlights the matching map resource', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData.slice(0, 2)}
+            isLoading={false}
+            totalResults={2}
+            currentPage={1}
+            highlightedResourceId={mockFixtureData[0].id}
+          />
+        </TestWrapper>
+      );
+
+      const highlightedArticle = screen
+        .getByText('Nondigitized paper map with library catalog link')
+        .closest('article');
+      const otherArticle = screen
+        .getByText('Point dataset with WMS and WFS')
+        .closest('article');
+
+      expect(highlightedArticle).toHaveClass('ring-2', 'bg-blue-50');
+      expect(highlightedArticle).toHaveAttribute('aria-current', 'true');
+      expect(otherArticle).not.toHaveClass('ring-2');
+      expect(otherArticle).not.toHaveAttribute('aria-current');
+    });
+
     it('shows a restricted access indicator for restricted results', () => {
       render(
         <TestWrapper>

@@ -129,12 +129,16 @@ function SearchContent({
 
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
-  const pageStart = searchTotalResults === 0 ? 0 : Math.min(
-    (page - 1) * perPage + 1,
-    searchTotalResults
-  );
+  const pageStart =
+    searchTotalResults === 0
+      ? 0
+      : Math.min((page - 1) * perPage + 1, searchTotalResults);
   const pageEnd = Math.min(page * perPage, searchTotalResults);
   const totalPages = Math.ceil(searchTotalResults / perPage);
+  const nextPageResultCount = Math.min(
+    perPage,
+    Math.max(searchTotalResults - page * perPage, 0)
+  );
   const activeMapResourceId = hoveredResourceId ?? selectedResourceId;
   const hasNoSearchResults =
     !activeIsLoading &&
@@ -802,35 +806,50 @@ function SearchContent({
                     <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative mt-0 pt-0">
                       {/* Middle Column: Brief Results */}
                       <div className="md:col-span-4 pr-2">
-                        <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
-                          <p>
-                            Showing results {formatCount(pageStart)}-
-                            {formatCount(pageEnd)} of{' '}
-                            {formatCount(searchTotalResults)} for this query.
-                          </p>
-                          <p className="mt-1 text-blue-700">
-                            The map only renders the current page of results. Use
-                            pagination to review other matches.
-                          </p>
-                          {!activeIsLoading && totalPages > 1 && (
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <Pagination
-                                currentPage={page}
-                                totalPages={totalPages}
-                                onPageChange={handlePageChange}
-                              />
-                              {page < totalPages && (
+                        {!activeIsLoading && (
+                          <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                            <p>
+                              Showing results {formatCount(pageStart)}-
+                              {formatCount(pageEnd)} of{' '}
+                              {formatCount(searchTotalResults)} for this query.
+                            </p>
+                            <p className="mt-1 text-blue-700">
+                              The map only renders the current page of results.
+                              Use pagination to review other matches.
+                            </p>
+                            {totalPages > 1 && (
+                              <nav
+                                aria-label="Map results pagination"
+                                className="mt-3 flex flex-wrap items-center gap-2"
+                              >
                                 <button
                                   type="button"
-                                  onClick={() => handlePageChange(page + 1)}
-                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                                  onClick={() => handlePageChange(page - 1)}
+                                  disabled={page <= 1}
+                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  See next 20 results
+                                  Previous page
                                 </button>
-                              )}
-                            </div>
-                          )}
-                        </div>
+                                <span className="text-xs font-medium text-blue-900">
+                                  Page {formatCount(page)} of{' '}
+                                  {formatCount(totalPages)}
+                                </span>
+                                {page < totalPages && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handlePageChange(page + 1)}
+                                    className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700"
+                                  >
+                                    See next {formatCount(nextPageResultCount)}{' '}
+                                    {nextPageResultCount === 1
+                                      ? 'result'
+                                      : 'results'}
+                                  </button>
+                                )}
+                              </nav>
+                            )}
+                          </div>
+                        )}
                         <SearchResults
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}

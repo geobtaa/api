@@ -1,9 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
-import { MapProvider } from '../../../context/MapContext';
+import L from 'leaflet';
+import {
+  MapProvider,
+  useMap as useMapContext,
+} from '../../../context/MapContext';
 import { MapResultView } from '../../../components/search/MapResultView.client';
 import type { GeoDocument } from '../../../types/api';
+
+interface MockOmsInstance {
+  markers: L.Marker[];
+  addMarker: ReturnType<typeof vi.fn>;
+  addListener: ReturnType<typeof vi.fn>;
+  removeListener: ReturnType<typeof vi.fn>;
+  clearMarkers: ReturnType<typeof vi.fn>;
+  unspiderfy: ReturnType<typeof vi.fn>;
+}
+
+const { mockOmsInstances } = vi.hoisted(() => ({
+  mockOmsInstances: [] as MockOmsInstance[],
+}));
 
 const mockFlyToBounds = vi.fn();
 const mockMap = {
@@ -40,12 +57,20 @@ vi.mock('react-leaflet', () => ({
 
 vi.mock('@krozamdev/overlapping-marker-spiderfier', () => ({
   default: vi.fn().mockImplementation(function OverlappingMarkerSpiderfier() {
-    return {
+    const instance = {
+      markers: [] as L.Marker[],
       addMarker: vi.fn(),
       addListener: vi.fn(),
+      removeListener: vi.fn(),
       clearMarkers: vi.fn(),
       unspiderfy: vi.fn(),
     };
+    instance.addMarker.mockImplementation((marker: L.Marker) => {
+      instance.markers.push(marker);
+      return instance;
+    });
+    mockOmsInstances.push(instance);
+    return instance;
   }),
 }));
 
@@ -137,9 +162,21 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   </MemoryRouter>
 );
 
+function MapStateProbe() {
+  const { hoveredResourceId, selectedResourceId } = useMapContext();
+  return (
+    <div
+      data-testid="map-state"
+      data-hovered-resource-id={hoveredResourceId ?? ''}
+      data-selected-resource-id={selectedResourceId ?? ''}
+    />
+  );
+}
+
 describe('MapResultView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockOmsInstances.length = 0;
     mockFlyToBounds.mockClear();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
@@ -193,7 +230,7 @@ describe('MapResultView', () => {
       ).toBeInTheDocument();
     });
 
-    it('accepts resultStartIndex for numbered pins', async () => {
+    it('renders numbered map pins with upright labels', async () => {
       render(
         <TestWrapper>
           <MapResultView
@@ -203,7 +240,48 @@ describe('MapResultView', () => {
         </TestWrapper>
       );
 
-      expect(await screen.findByTestId('map-container')).toBeInTheDocument();
+      await waitFor(() => {
+        expect(mockOmsInstances[0]?.markers).toHaveLength(2);
+      });
+
+      const icon = mockOmsInstances[0].markers[0].options.icon as L.DivIcon;
+      const iconHtml = String(icon.options.html);
+      expect(iconHtml).toContain('>11</span>');
+      expect(iconHtml).toContain('rotate(-45deg)');
+      expect(iconHtml).not.toContain('translateX(-50%) rotate(45deg)');
+    });
+
+    it('keeps the spiderfier stable while a marker is hovered and selected', async () => {
+      render(
+        <TestWrapper>
+          <MapResultView results={mockResultsWithCentroid} />
+          <MapStateProbe />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(mockOmsInstances[0]?.markers).toHaveLength(2);
+      });
+      const oms = mockOmsInstances[0];
+      const marker = oms.markers[0];
+      const mapState = screen.getByTestId('map-state');
+
+      act(() => marker.fire('mouseover'));
+      expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
+
+      act(() => marker.fire('click'));
+      expect(mapState).toHaveAttribute('data-selected-resource-id', 'res-1');
+      expect(mockOmsInstances).toHaveLength(1);
+      expect(oms.clearMarkers).not.toHaveBeenCalled();
+
+      act(() => marker.fire('mouseout'));
+      expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
+
+      act(() => marker.fire('click'));
+      expect(mapState).toHaveAttribute('data-selected-resource-id', '');
+      expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
+      expect(mockOmsInstances).toHaveLength(1);
+      expect(oms.clearMarkers).not.toHaveBeenCalled();
     });
 
     it('accepts highlightedResourceId and highlightedGeometry', async () => {
