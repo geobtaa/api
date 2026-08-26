@@ -1,5 +1,5 @@
 {
-  "version": "0.8.18",
+  "version": "0.8.19",
   "release_date": "2026-08-26",
-  "summary": "Use OpenStreetMap as the default interactive basemap to avoid Carto API key warnings in browser map views."
+  "summary": "Release 0.8.19: Add CARTO API key to kamal secrets file for basemap access."
 }
