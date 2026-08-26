@@ -1,5 +1,5 @@
 {
-  "version": "0.8.17",
-  "release_date": "2026-08-25",
-  "summary": "Fix encoded facet filter values containing reserved characters and centralize release metadata across packaging, API, MCP, frontend builds, and public documentation."
+  "version": "0.8.18",
+  "release_date": "2026-08-26",
+  "summary": "Use OpenStreetMap as the default interactive basemap to avoid Carto API key warnings in browser map views."
 }
