@@ -65,7 +65,14 @@ function SearchContent({
   isLoading,
   clientSearchEnabled = false,
 }: SearchPageProps) {
-  const { hoveredResourceId, hoveredGeometry } = useMap();
+  const {
+    hoveredResourceId,
+    hoveredGeometry,
+    setHoveredResourceId,
+    setHoveredGeometry,
+    selectedResourceId,
+    setSelectedResourceId,
+  } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -122,7 +129,13 @@ function SearchContent({
 
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
+  const pageStart = searchTotalResults === 0 ? 0 : Math.min(
+    (page - 1) * perPage + 1,
+    searchTotalResults
+  );
+  const pageEnd = Math.min(page * perPage, searchTotalResults);
   const totalPages = Math.ceil(searchTotalResults / perPage);
+  const activeMapResourceId = hoveredResourceId ?? selectedResourceId;
   const hasNoSearchResults =
     !activeIsLoading &&
     Boolean(activeSearchResults) &&
@@ -220,6 +233,38 @@ function SearchContent({
   const error =
     resultError ||
     (shouldFetchClientSearch ? hasCurrentClientError || null : null);
+  const currentResultIds = React.useMemo(
+    () => activeSearchResults?.data?.map((result) => result.id) || [],
+    [activeSearchResults?.data]
+  );
+
+  useEffect(() => {
+    if (currentResultIds.length === 0) {
+      if (hoveredResourceId) {
+        setHoveredResourceId(null);
+        setHoveredGeometry(null);
+      }
+      if (selectedResourceId) {
+        setSelectedResourceId(null);
+      }
+      return;
+    }
+
+    if (hoveredResourceId && !currentResultIds.includes(hoveredResourceId)) {
+      setHoveredResourceId(null);
+      setHoveredGeometry(null);
+    }
+    if (selectedResourceId && !currentResultIds.includes(selectedResourceId)) {
+      setSelectedResourceId(null);
+    }
+  }, [
+    currentResultIds,
+    hoveredResourceId,
+    selectedResourceId,
+    setHoveredResourceId,
+    setHoveredGeometry,
+    setSelectedResourceId,
+  ]);
 
   const searchContextRef = useRef(currentContext);
   const trackedAnalyticsKeysRef = useRef<Set<string>>(new Set());
@@ -672,15 +717,7 @@ function SearchContent({
                     <h2 className="text-lg text-gray-600">
                       Showing results{' '}
                       {(() => {
-                        const start = Math.min(
-                          (page - 1) * perPage + 1,
-                          searchTotalResults
-                        );
-                        const end = Math.min(
-                          page * perPage,
-                          searchTotalResults
-                        );
-                        return `${formatCount(start)}-${formatCount(end)}`;
+                        return `${formatCount(pageStart)}-${formatCount(pageEnd)}`;
                       })()}{' '}
                       of {formatCount(searchTotalResults)}
                     </h2>
@@ -765,6 +802,35 @@ function SearchContent({
                     <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative mt-0 pt-0">
                       {/* Middle Column: Brief Results */}
                       <div className="md:col-span-4 pr-2">
+                        <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                          <p>
+                            Showing results {formatCount(pageStart)}-
+                            {formatCount(pageEnd)} of{' '}
+                            {formatCount(searchTotalResults)} for this query.
+                          </p>
+                          <p className="mt-1 text-blue-700">
+                            The map only renders the current page of results. Use
+                            pagination to review other matches.
+                          </p>
+                          {!activeIsLoading && totalPages > 1 && (
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <Pagination
+                                currentPage={page}
+                                totalPages={totalPages}
+                                onPageChange={handlePageChange}
+                              />
+                              {page < totalPages && (
+                                <button
+                                  type="button"
+                                  onClick={() => handlePageChange(page + 1)}
+                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                                >
+                                  See next 20 results
+                                </button>
+                              )}
+                            </div>
+                          )}
+                        </div>
                         <SearchResults
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}
@@ -774,24 +840,15 @@ function SearchContent({
                           variant="compact"
                           searchId={searchId}
                           searchView={currentView}
+                          highlightedResourceId={activeMapResourceId}
                         />
-                        {/* Pagination for map view (inside scrollable column) */}
-                        {!activeIsLoading && totalPages > 1 && (
-                          <div className="mt-4">
-                            <Pagination
-                              currentPage={page}
-                              totalPages={totalPages}
-                              onPageChange={handlePageChange}
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* Right Column: Map */}
                       <div className="md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
                         <MapResultView
                           results={activeSearchResults?.data || []}
-                          highlightedResourceId={hoveredResourceId}
+                          highlightedResourceId={activeMapResourceId}
                           highlightedGeometry={hoveredGeometry}
                           resultStartIndex={(page - 1) * perPage + 1}
                         />

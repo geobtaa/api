@@ -5,6 +5,8 @@ interface MapContextType {
   setHoveredGeometry: (geometry: string | null) => void;
   hoveredResourceId: string | null;
   setHoveredResourceId: (id: string | null) => void;
+  selectedResourceId: string | null;
+  setSelectedResourceId: (id: string | null) => void;
   /** Only updates hoveredGeometry if user is still hovering this resource (avoids race with fetch) */
   setGeometryIfHovering: (resourceId: string, geometry: string | null) => void;
 }
@@ -14,6 +16,9 @@ const MapContext = createContext<MapContextType | undefined>(undefined);
 export function MapProvider({ children }: { children: React.ReactNode }) {
   const [hoveredGeometry, setHoveredGeometry] = useState<string | null>(null);
   const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(
+    null
+  );
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
     null
   );
   const hoveredIdRef = useRef<string | null>(null);
@@ -32,6 +37,8 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
         setHoveredGeometry,
         hoveredResourceId,
         setHoveredResourceId,
+        selectedResourceId,
+        setSelectedResourceId,
         setGeometryIfHovering,
       }}
     >

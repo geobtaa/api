@@ -26,6 +26,7 @@ interface SearchResultsProps {
   variant?: 'default' | 'compact';
   searchId?: string;
   searchView?: 'list' | 'gallery' | 'map';
+  highlightedResourceId?: string | null;
 }
 
 export function SearchResults({
@@ -37,6 +38,7 @@ export function SearchResults({
   variant = 'default',
   searchId,
   searchView = 'list',
+  highlightedResourceId = null,
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
@@ -123,11 +125,17 @@ export function SearchResults({
               : String(description);
 
         const hoverGeometry = getHoverGeometryForResult(result);
+        const isHighlighted = highlightedResourceId === result.id;
         return (
           <article
             key={result.id}
-            className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative group"
+            className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
+              isHighlighted
+                ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
+                : ''
+            }`}
             data-geom={hoverGeometry ?? ''}
+            aria-current={isHighlighted ? 'true' : undefined}
             onMouseEnter={() => {
               setHoveredResourceId?.(result.id);
               if (hoverGeometry) {

@@ -6,6 +6,7 @@ import {
   geometryToLeafletFeatures,
   getBboxFromGeometry,
   getCentroidFromGeometry,
+  getHoverGeometryForResult,
   type Bounds,
 } from '../../utils/geometryUtils';
 import L from 'leaflet';
@@ -13,6 +14,7 @@ import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfie
 import { BasemapSwitcherControl } from '../map/BasemapSwitcherControl';
 import { leafletGestureMapOptions } from '../../config/leafletConfig';
 import { registerLeafletGestureHandling } from '../../config/leafletGestureHandling';
+import { useMap as useMapContext } from '../../context/MapContext';
 
 registerLeafletGestureHandling(L);
 
@@ -212,23 +214,53 @@ function createNumberedPinIcon(
   resultNumber: number,
   isHighlighted: boolean
 ): L.DivIcon {
-  const color = isHighlighted ? '#f59e0b' : '#6366f1';
-  const size = isHighlighted ? 28 : 24;
+  const color = isHighlighted ? '#f59e0b' : '#4f46e5';
+  const borderColor = isHighlighted ? '#7c3aed' : '#312e81';
+  const size = isHighlighted ? 30 : 26;
+  const textSize = isHighlighted ? 12 : 11;
+  const markerHeight = Math.round(size * 1.35);
   return L.divIcon({
     html: `<span style="
-      display: flex; align-items: center; justify-content: center;
-      width: ${size}px; height: ${size}px;
-      border-radius: 50%;
-      background: ${color};
-      color: white;
-      font-size: ${isHighlighted ? 12 : 11}px;
-      font-weight: 600;
-      border: 2px solid white;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    ">${resultNumber}</span>`,
+      position: relative;
+      display: inline-block;
+      width: ${size}px;
+      height: ${markerHeight}px;
+    ">
+      <span style="
+        position: absolute;
+        left: 50%;
+        top: 0;
+        width: ${size}px;
+        height: ${size}px;
+        background: ${color};
+        border: 2px solid ${borderColor};
+        border-radius: 50% 50% 50% 0;
+        transform: translateX(-50%) rotate(-45deg);
+        transform-origin: center center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+      "></span>
+      <span style="
+        position: absolute;
+        left: 50%;
+        top: ${Math.round(size * 0.22)}px;
+        width: ${Math.max(13, Math.round(size * 0.52))}px;
+        height: ${Math.max(13, Math.round(size * 0.52))}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        transform: translateX(-50%) rotate(45deg);
+        color: #fff;
+        font-size: ${textSize}px;
+        line-height: 1;
+        font-weight: 700;
+        font-family: Arial, sans-serif;
+      ">${resultNumber}</span>
+    </span>`,
     className: 'numbered-pin-icon',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    iconSize: [size, markerHeight],
+    iconAnchor: [size / 2, markerHeight - 2],
+    popupAnchor: [0, -Math.round(markerHeight * 0.85)],
   });
 }
 
@@ -239,16 +271,25 @@ interface MarkerEntry {
   resultNumber: number;
 }
 
+interface PinData {
+  resource: GeoDocument;
+  position: [number, number];
+  resultNumber: number;
+  hoverGeometry: string | null;
+}
+
 /** Renders numbered markers with OverlappingMarkerSpiderfier for overlapping pins */
 const SpiderfiedMarkers: React.FC<{
-  pins: {
-    resource: GeoDocument;
-    position: [number, number];
-    resultNumber: number;
-  }[];
+  pins: PinData[];
   highlightedResourceId: string | null;
 }> = ({ pins, highlightedResourceId }) => {
   const map = useMap();
+  const {
+    setHoveredResourceId,
+    setHoveredGeometry,
+    selectedResourceId,
+    setSelectedResourceId,
+  } = useMapContext();
   const omsRef = useRef<InstanceType<
     typeof OverlappingMarkerSpiderfier
   > | null>(null);
@@ -303,6 +344,33 @@ const SpiderfiedMarkers: React.FC<{
       container.append(resultLabel, title, idLabel, detailsLink);
       (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent =
         container;
+      (marker as L.Marker & {
+        _resourceId?: string;
+        _hoverGeometry?: string | null;
+      })._resourceId = p.resource.id;
+      (marker as L.Marker & {
+        _resourceId?: string;
+        _hoverGeometry?: string | null;
+      })._hoverGeometry = p.hoverGeometry;
+
+      marker.on('mouseover', () => {
+        setHoveredResourceId(p.resource.id);
+        setHoveredGeometry(p.hoverGeometry);
+      });
+
+      marker.on('mouseout', () => {
+        if (selectedResourceId !== p.resource.id) {
+          setHoveredResourceId(null);
+          setHoveredGeometry(null);
+        }
+      });
+
+      marker.on('click', () => {
+        const nextSelected = selectedResourceId === p.resource.id ? null : p.resource.id;
+        setSelectedResourceId(nextSelected);
+        setHoveredResourceId(nextSelected);
+        setHoveredGeometry(nextSelected ? p.hoverGeometry : null);
+      });
       marker.addTo(map);
       oms.addMarker(marker);
       entries.push({
@@ -323,7 +391,14 @@ const SpiderfiedMarkers: React.FC<{
         entriesRef.current = [];
       }
     };
-  }, [map, pins]);
+  }, [
+    map,
+    pins,
+    selectedResourceId,
+    setHoveredResourceId,
+    setHoveredGeometry,
+    setSelectedResourceId,
+  ]);
 
   // Update pin color and z-index when highlighted result changes
   useEffect(() => {
@@ -368,13 +443,10 @@ export const MapResultView: React.FC<MapResultViewProps> = ({
             resource: r,
             position: pos as [number, number],
             resultNumber: resultStartIndex + idx,
+            hoverGeometry: getHoverGeometryForResult(r),
           };
         })
-        .filter((f) => f !== null) as {
-        resource: GeoDocument;
-        position: [number, number];
-        resultNumber: number;
-      }[],
+        .filter((f) => f !== null) as PinData[],
     [results, resultStartIndex]
   );
 
