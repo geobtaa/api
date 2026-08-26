@@ -13,16 +13,6 @@ const BASEMAP_COOKIE_EXPIRY_DAYS = 365;
 const DEFAULT_BASEMAP_KEY = 'openStreetMap';
 
 const BASEMAP_DEFINITIONS = {
-  cartoLight: {
-    label: 'Carto Light',
-    url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    options: {
-      subdomains: 'abcd',
-      maxZoom: 20,
-    },
-  },
   openStreetMap: {
     label: 'OpenStreetMap',
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',

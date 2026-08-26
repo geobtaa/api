@@ -31,6 +31,12 @@ describe('basemap preferences', () => {
     expect(getSavedBasemapKey()).toBe('esriWorldImagery');
   });
 
+  it('falls back to OpenStreetMap for the removed Carto preference', () => {
+    mocks.getCookie.mockReturnValue('cartoLight');
+
+    expect(getSavedBasemapKey()).toBe('openStreetMap');
+  });
+
   it('uses the canonical OpenStreetMap tile endpoint and attribution', () => {
     const tileLayer = vi.fn(() => ({}));
     const Leaflet = { tileLayer } as unknown as typeof L;
