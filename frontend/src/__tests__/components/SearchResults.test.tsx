@@ -295,6 +295,58 @@ describe('SearchResults Component', () => {
       expect(otherArticle).not.toHaveAttribute('aria-current');
     });
 
+    it.each([
+      ['below the viewport', { top: 10_000, bottom: 10_100 }, true],
+      ['above the viewport', { top: -200, bottom: -100 }, true],
+      ['inside the viewport', { top: 100, bottom: 200 }, false],
+    ])(
+      'handles a highlighted compact result %s',
+      (_position, bounds, shouldScroll) => {
+        const { rerender } = render(
+          <TestWrapper>
+            <SearchResults
+              results={mockFixtureData.slice(0, 2)}
+              isLoading={false}
+              totalResults={2}
+              currentPage={1}
+              variant="compact"
+            />
+          </TestWrapper>
+        );
+
+        const highlightedArticle = screen
+          .getByText('Nondigitized paper map with library catalog link')
+          .closest('article') as HTMLElement;
+        const scrollIntoView = vi.fn();
+        highlightedArticle.scrollIntoView = scrollIntoView;
+        vi.spyOn(highlightedArticle, 'getBoundingClientRect').mockReturnValue(
+          bounds as DOMRect
+        );
+
+        rerender(
+          <TestWrapper>
+            <SearchResults
+              results={mockFixtureData.slice(0, 2)}
+              isLoading={false}
+              totalResults={2}
+              currentPage={1}
+              variant="compact"
+              highlightedResourceId={mockFixtureData[0].id}
+            />
+          </TestWrapper>
+        );
+
+        if (shouldScroll) {
+          expect(scrollIntoView).toHaveBeenCalledWith({
+            behavior: 'smooth',
+            block: 'center',
+          });
+        } else {
+          expect(scrollIntoView).not.toHaveBeenCalled();
+        }
+      }
+    );
+
     it('shows a restricted access indicator for restricted results', () => {
       render(
         <TestWrapper>

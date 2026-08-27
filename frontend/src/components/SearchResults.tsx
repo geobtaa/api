@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import type { GeoDocument } from '../types/api';
 import { BookOpen } from 'lucide-react';
@@ -46,6 +46,7 @@ export function SearchResults({
     useMap();
   const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const resultCardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const isCompact = variant === 'compact';
   const thumbnailWrapperClass = isCompact ? 'w-24' : 'w-24 md:w-48';
@@ -57,6 +58,26 @@ export function SearchResults({
   const titleClass = isCompact
     ? 'text-sm line-clamp-2'
     : 'text-sm line-clamp-2 md:text-xl';
+
+  useEffect(() => {
+    if (!isCompact || !highlightedResourceId) return;
+
+    const highlightedCard = resultCardRefs.current.get(highlightedResourceId);
+    if (!highlightedCard) return;
+
+    const cardBounds = highlightedCard.getBoundingClientRect();
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight;
+    const isOutsideViewport =
+      cardBounds.top < 0 || cardBounds.bottom > viewportHeight;
+
+    if (isOutsideViewport) {
+      highlightedCard.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+      });
+    }
+  }, [highlightedResourceId, isCompact]);
 
   // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
@@ -129,12 +150,20 @@ export function SearchResults({
         return (
           <article
             key={result.id}
+            ref={(element) => {
+              if (element) {
+                resultCardRefs.current.set(result.id, element);
+              } else {
+                resultCardRefs.current.delete(result.id);
+              }
+            }}
             className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
               isHighlighted
                 ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
                 : ''
             }`}
             data-geom={hoverGeometry ?? ''}
+            data-resource-id={result.id}
             aria-current={isHighlighted ? 'true' : undefined}
             onMouseEnter={() => {
               setHoveredResourceId?.(result.id);
