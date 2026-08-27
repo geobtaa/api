@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useSearchParams } from 'react-router';
 import { SearchResults } from '../components/SearchResults';
-import { Pagination } from '../components/Pagination';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { SearchConstraints } from '../components/search/SearchConstraints';
 import { Header } from '../components/layout/Header';
@@ -722,7 +721,7 @@ function SearchContent({
                       <h2 className="text-lg text-gray-600">Results</h2>
                     ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
                       <h2 className="text-lg text-gray-600">Searching…</h2>
-                    ) : currentView === 'map' && totalPages > 1 ? (
+                    ) : totalPages > 1 ? (
                       <>
                         <h2 className="sr-only">
                           Results {formatCount(pageStart)}-
@@ -730,7 +729,13 @@ function SearchContent({
                           {formatCount(searchTotalResults)}
                         </h2>
                         <nav
-                          aria-label="Map results pagination"
+                          aria-label={`${
+                            currentView === 'map'
+                              ? 'Map'
+                              : currentView === 'gallery'
+                                ? 'Gallery'
+                                : 'List'
+                          } results pagination`}
                           className="flex items-center gap-2 whitespace-nowrap text-base"
                         >
                           <button
@@ -903,17 +908,6 @@ function SearchContent({
                       </div>
                     </div>
                   )}
-
-                  {/* Pagination for List and Grid views (bottom of page) */}
-                  {!activeIsLoading &&
-                    totalPages > 1 &&
-                    (currentView === 'list' || currentView === 'gallery') && (
-                      <Pagination
-                        currentPage={page}
-                        totalPages={totalPages}
-                        onPageChange={handlePageChange}
-                      />
-                    )}
                 </>
               )}
             </div>

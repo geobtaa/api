@@ -444,6 +444,42 @@ describe('SearchPage Logic', () => {
     ).not.toBeInTheDocument();
   });
 
+  it.each([
+    ['list', 'List'],
+    ['gallery', 'Gallery'],
+  ])(
+    'shows compact pagination beside the results summary in %s view',
+    async (view, viewLabel) => {
+      const results = createMockApiResponse(mockResults.slice(0, 20), 21, 1);
+      const { router } = renderWithRouter(`/search?view=${view}`, results, {
+        returnRouter: true,
+      });
+
+      const resultsSummary = screen.getByTestId('results-summary-row');
+      const pagination = screen.getByRole('navigation', {
+        name: `${viewLabel} results pagination`,
+      });
+
+      expect(resultsSummary).toContainElement(pagination);
+      expect(pagination).toHaveClass('whitespace-nowrap');
+      expect(pagination).toHaveTextContent('« Previous|1 - 20 of 21|Next »');
+      expect(
+        screen.getByRole('button', { name: 'Previous results page' })
+      ).toBeDisabled();
+      expect(
+        screen.queryByRole('button', { name: 'Previous page' })
+      ).not.toBeInTheDocument();
+
+      await act(async () => {
+        screen.getByRole('button', { name: 'Next results page' }).click();
+      });
+
+      await waitFor(() => {
+        expect(router.state.location.search).toContain('page=2');
+      });
+    }
+  );
+
   it('restores saved gallery view preference when URL has no view param', async () => {
     localStorage.setItem('b1g_view_preference', 'gallery');
     const results = createMockApiResponse(mockResults.slice(0, 20));
@@ -591,7 +627,7 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByText(/Results 1-20 of 100/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /next page/i })
+      screen.getByRole('button', { name: /next results page/i })
     ).toBeInTheDocument();
   });
 });
