@@ -805,9 +805,12 @@ function SearchContent({
                   {currentView === 'map' && (
                     <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative mt-0 pt-0">
                       {/* Middle Column: Brief Results */}
-                      <div className="md:col-span-4 pr-2">
+                      <div
+                        data-testid="map-results-column"
+                        className="md:col-span-4 pr-2 md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:flex-col"
+                      >
                         {!activeIsLoading && (
-                          <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900">
+                          <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900 md:flex-none">
                             <p>
                               Showing results {formatCount(pageStart)}-
                               {formatCount(pageEnd)} of{' '}

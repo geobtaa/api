@@ -243,6 +243,12 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByTestId('map-result-view')).toBeInTheDocument();
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
+    expect(screen.getByTestId('map-results-column')).toHaveClass(
+      'md:flex',
+      'md:h-[calc(100vh-10rem)]',
+      'md:min-h-0',
+      'md:flex-col'
+    );
   });
 
   it('keeps filters in a mobile drawer until toggled', async () => {

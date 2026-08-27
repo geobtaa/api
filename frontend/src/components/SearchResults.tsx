@@ -46,6 +46,7 @@ export function SearchResults({
     useMap();
   const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const resultListRef = useRef<HTMLDivElement>(null);
   const resultCardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const isCompact = variant === 'compact';
@@ -63,18 +64,31 @@ export function SearchResults({
     if (!isCompact || !highlightedResourceId) return;
 
     const highlightedCard = resultCardRefs.current.get(highlightedResourceId);
-    if (!highlightedCard) return;
+    const resultList = resultListRef.current;
+    if (!highlightedCard || !resultList) return;
 
     const cardBounds = highlightedCard.getBoundingClientRect();
+    const listBounds = resultList.getBoundingClientRect();
     const viewportHeight =
       window.innerHeight || document.documentElement.clientHeight;
+    const visibleListTop = Math.max(listBounds.top, 0);
+    const visibleListBottom = Math.min(listBounds.bottom, viewportHeight);
+    if (visibleListBottom <= visibleListTop) return;
+
     const isOutsideViewport =
-      cardBounds.top < 0 || cardBounds.bottom > viewportHeight;
+      cardBounds.top < visibleListTop || cardBounds.bottom > visibleListBottom;
 
     if (isOutsideViewport) {
-      highlightedCard.scrollIntoView({
+      const cardCenter = (cardBounds.top + cardBounds.bottom) / 2;
+      const visibleListCenter = (visibleListTop + visibleListBottom) / 2;
+      const targetScrollTop = Math.max(
+        0,
+        resultList.scrollTop + cardCenter - visibleListCenter
+      );
+
+      resultList.scrollTo({
+        top: targetScrollTop,
         behavior: 'smooth',
-        block: 'center',
       });
     }
   }, [highlightedResourceId, isCompact]);
@@ -126,7 +140,15 @@ export function SearchResults({
   }
 
   return (
-    <div className="space-y-6">
+    <div
+      ref={resultListRef}
+      data-testid={isCompact ? 'map-results-scroll-container' : undefined}
+      className={`space-y-6 ${
+        isCompact
+          ? 'md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:overscroll-contain md:pr-2 md:pb-32 md:[scrollbar-gutter:stable]'
+          : ''
+      }`}
+    >
       {results.map((result, index) => {
         const ogm = result?.attributes?.ogm;
         const title = ogm?.dct_title_s ?? '(Untitled)';

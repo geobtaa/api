@@ -296,12 +296,12 @@ describe('SearchResults Component', () => {
     });
 
     it.each([
-      ['below the viewport', { top: 10_000, bottom: 10_100 }, true],
-      ['above the viewport', { top: -200, bottom: -100 }, true],
-      ['inside the viewport', { top: 100, bottom: 200 }, false],
+      ['below the visible list', { top: 600, bottom: 700 }, 450],
+      ['above the visible list', { top: -200, bottom: -100 }, 0],
+      ['inside the visible list', { top: 100, bottom: 200 }, null],
     ])(
       'handles a highlighted compact result %s',
-      (_position, bounds, shouldScroll) => {
+      (_position, bounds, expectedScrollTop) => {
         const { rerender } = render(
           <TestWrapper>
             <SearchResults
@@ -317,8 +317,14 @@ describe('SearchResults Component', () => {
         const highlightedArticle = screen
           .getByText('Nondigitized paper map with library catalog link')
           .closest('article') as HTMLElement;
-        const scrollIntoView = vi.fn();
-        highlightedArticle.scrollIntoView = scrollIntoView;
+        const resultList = screen.getByTestId('map-results-scroll-container');
+        const scrollTo = vi.fn();
+        resultList.scrollTo = scrollTo;
+        resultList.scrollTop = 50;
+        vi.spyOn(resultList, 'getBoundingClientRect').mockReturnValue({
+          top: 0,
+          bottom: 500,
+        } as DOMRect);
         vi.spyOn(highlightedArticle, 'getBoundingClientRect').mockReturnValue(
           bounds as DOMRect
         );
@@ -336,16 +342,37 @@ describe('SearchResults Component', () => {
           </TestWrapper>
         );
 
-        if (shouldScroll) {
-          expect(scrollIntoView).toHaveBeenCalledWith({
+        if (expectedScrollTop !== null) {
+          expect(scrollTo).toHaveBeenCalledWith({
+            top: expectedScrollTop,
             behavior: 'smooth',
-            block: 'center',
           });
         } else {
-          expect(scrollIntoView).not.toHaveBeenCalled();
+          expect(scrollTo).not.toHaveBeenCalled();
         }
       }
     );
+
+    it('makes compact map results an independent desktop scroll region', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData.slice(0, 2)}
+            isLoading={false}
+            totalResults={2}
+            currentPage={1}
+            variant="compact"
+          />
+        </TestWrapper>
+      );
+
+      expect(screen.getByTestId('map-results-scroll-container')).toHaveClass(
+        'md:flex-1',
+        'md:overflow-y-auto',
+        'md:overscroll-contain',
+        'md:pb-32'
+      );
+    });
 
     it('shows a restricted access indicator for restricted results', () => {
       render(
