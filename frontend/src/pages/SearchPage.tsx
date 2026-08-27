@@ -67,8 +67,10 @@ function SearchContent({
 }: SearchPageProps) {
   const {
     hoveredResourceId,
+    hoveredResourceSource,
     hoveredGeometry,
     setHoveredResourceId,
+    setHoveredResourceSource,
     setHoveredGeometry,
     selectedResourceId,
     setSelectedResourceId,
@@ -242,6 +244,7 @@ function SearchContent({
     if (currentResultIds.length === 0) {
       if (hoveredResourceId) {
         setHoveredResourceId(null);
+        setHoveredResourceSource(null);
         setHoveredGeometry(null);
       }
       if (selectedResourceId) {
@@ -252,6 +255,7 @@ function SearchContent({
 
     if (hoveredResourceId && !currentResultIds.includes(hoveredResourceId)) {
       setHoveredResourceId(null);
+      setHoveredResourceSource(null);
       setHoveredGeometry(null);
     }
     if (selectedResourceId && !currentResultIds.includes(selectedResourceId)) {
@@ -262,6 +266,7 @@ function SearchContent({
     hoveredResourceId,
     selectedResourceId,
     setHoveredResourceId,
+    setHoveredResourceSource,
     setHoveredGeometry,
     setSelectedResourceId,
   ]);
@@ -867,6 +872,9 @@ function SearchContent({
                           searchId={searchId}
                           searchView={currentView}
                           highlightedResourceId={activeMapResourceId}
+                          autoScrollHighlightedResult={
+                            hoveredResourceSource === 'map'
+                          }
                         />
                       </div>
 

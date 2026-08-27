@@ -296,12 +296,18 @@ describe('SearchResults Component', () => {
     });
 
     it.each([
-      ['below the visible list', { top: 600, bottom: 700 }, 250],
-      ['above the visible list', { top: -200, bottom: -100 }, 0],
-      ['inside the visible list', { top: 100, bottom: 200 }, null],
+      ['below the visible list', { top: 600, bottom: 700 }, 250, true],
+      ['above the visible list', { top: -200, bottom: -100 }, 0, true],
+      ['inside the visible list', { top: 100, bottom: 200 }, null, true],
+      [
+        'below the visible list when automatic scrolling is disabled',
+        { top: 600, bottom: 700 },
+        null,
+        false,
+      ],
     ])(
       'handles a highlighted compact result %s',
-      (_position, bounds, expectedScrollTop) => {
+      (_position, bounds, expectedScrollTop, autoScrollHighlightedResult) => {
         const { rerender } = render(
           <TestWrapper>
             <SearchResults
@@ -339,6 +345,7 @@ describe('SearchResults Component', () => {
               currentPage={1}
               variant="compact"
               highlightedResourceId={mockFixtureData[0].id}
+              autoScrollHighlightedResult={autoScrollHighlightedResult}
             />
           </TestWrapper>
         );

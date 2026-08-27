@@ -181,11 +181,13 @@ const TestWrapper = ({ children }: { children: React.ReactNode }) => (
 );
 
 function MapStateProbe() {
-  const { hoveredResourceId, selectedResourceId } = useMapContext();
+  const { hoveredResourceId, hoveredResourceSource, selectedResourceId } =
+    useMapContext();
   return (
     <div
       data-testid="map-state"
       data-hovered-resource-id={hoveredResourceId ?? ''}
+      data-hovered-resource-source={hoveredResourceSource ?? ''}
       data-selected-resource-id={selectedResourceId ?? ''}
     />
   );
@@ -286,6 +288,7 @@ describe('MapResultView', () => {
 
       act(() => marker.fire('mouseover'));
       expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
+      expect(mapState).toHaveAttribute('data-hovered-resource-source', 'map');
 
       act(() => marker.fire('click'));
       expect(mapState).toHaveAttribute('data-selected-resource-id', 'res-1');
@@ -294,10 +297,12 @@ describe('MapResultView', () => {
 
       act(() => marker.fire('mouseout'));
       expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
+      expect(mapState).toHaveAttribute('data-hovered-resource-source', 'map');
 
       act(() => marker.fire('click'));
       expect(mapState).toHaveAttribute('data-selected-resource-id', '');
       expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
+      expect(mapState).toHaveAttribute('data-hovered-resource-source', '');
       expect(mockOmsInstances).toHaveLength(1);
       expect(oms.clearMarkers).not.toHaveBeenCalled();
     });

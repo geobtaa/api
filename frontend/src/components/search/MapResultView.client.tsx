@@ -288,6 +288,7 @@ const SpiderfiedMarkers: React.FC<{
   const map = useMap();
   const {
     setHoveredResourceId,
+    setHoveredResourceSource,
     setHoveredGeometry,
     selectedResourceId,
     setSelectedResourceId,
@@ -392,6 +393,7 @@ const SpiderfiedMarkers: React.FC<{
           marker.fire('click');
           return;
         }
+        setHoveredResourceSource('map');
         setHoveredResourceId(p.resource.id);
         setHoveredGeometry(p.hoverGeometry);
       });
@@ -399,6 +401,7 @@ const SpiderfiedMarkers: React.FC<{
       marker.on('mouseout', () => {
         if (selectedResourceIdRef.current !== p.resource.id) {
           setHoveredResourceId(null);
+          setHoveredResourceSource(null);
           setHoveredGeometry(null);
         }
       });
@@ -411,6 +414,7 @@ const SpiderfiedMarkers: React.FC<{
             : p.resource.id;
         selectedResourceIdRef.current = nextSelected;
         setSelectedResourceId(nextSelected);
+        setHoveredResourceSource(nextSelected ? 'map' : null);
         setHoveredResourceId(nextSelected);
         setHoveredGeometry(nextSelected ? p.hoverGeometry : null);
       });
@@ -435,6 +439,7 @@ const SpiderfiedMarkers: React.FC<{
     map,
     pins,
     setHoveredResourceId,
+    setHoveredResourceSource,
     setHoveredGeometry,
     setSelectedResourceId,
   ]);

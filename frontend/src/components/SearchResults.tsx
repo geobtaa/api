@@ -27,6 +27,7 @@ interface SearchResultsProps {
   searchId?: string;
   searchView?: 'list' | 'gallery' | 'map';
   highlightedResourceId?: string | null;
+  autoScrollHighlightedResult?: boolean;
 }
 
 export function SearchResults({
@@ -39,11 +40,16 @@ export function SearchResults({
   searchId,
   searchView = 'list',
   highlightedResourceId = null,
+  autoScrollHighlightedResult = false,
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
-  const { setHoveredGeometry, setHoveredResourceId, setGeometryIfHovering } =
-    useMap();
+  const {
+    setHoveredGeometry,
+    setHoveredResourceId,
+    setHoveredResourceSource,
+    setGeometryIfHovering,
+  } = useMap();
   const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
   const resultListRef = useRef<HTMLDivElement>(null);
@@ -61,7 +67,8 @@ export function SearchResults({
     : 'text-sm line-clamp-2 md:text-xl';
 
   useEffect(() => {
-    if (!isCompact || !highlightedResourceId) return;
+    if (!isCompact || !highlightedResourceId || !autoScrollHighlightedResult)
+      return;
 
     const highlightedCard = resultCardRefs.current.get(highlightedResourceId);
     const resultList = resultListRef.current;
@@ -92,7 +99,7 @@ export function SearchResults({
         behavior: 'smooth',
       });
     }
-  }, [highlightedResourceId, isCompact]);
+  }, [autoScrollHighlightedResult, highlightedResourceId, isCompact]);
 
   // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
@@ -187,6 +194,7 @@ export function SearchResults({
             data-resource-id={result.id}
             aria-current={isHighlighted ? 'true' : undefined}
             onMouseEnter={() => {
+              setHoveredResourceSource('results');
               setHoveredResourceId?.(result.id);
               if (hoverGeometry) {
                 setHoveredGeometry(hoverGeometry);
@@ -204,6 +212,7 @@ export function SearchResults({
             onMouseLeave={() => {
               setHoveredGeometry(null);
               setHoveredResourceId?.(null);
+              setHoveredResourceSource(null);
             }}
           >
             <div className="flex">
