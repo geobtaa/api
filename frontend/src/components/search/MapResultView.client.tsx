@@ -388,7 +388,10 @@ const SpiderfiedMarkers: React.FC<{
       };
 
       marker.on('mouseover', () => {
-        if (isCollapsedOverlappingMarker()) return;
+        if (isCollapsedOverlappingMarker()) {
+          marker.fire('click');
+          return;
+        }
         setHoveredResourceId(p.resource.id);
         setHoveredGeometry(p.hoverGeometry);
       });

@@ -296,7 +296,7 @@ describe('SearchResults Component', () => {
     });
 
     it.each([
-      ['below the visible list', { top: 600, bottom: 700 }, 450],
+      ['below the visible list', { top: 600, bottom: 700 }, 250],
       ['above the visible list', { top: -200, bottom: -100 }, 0],
       ['inside the visible list', { top: 100, bottom: 200 }, null],
     ])(

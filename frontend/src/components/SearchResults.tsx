@@ -77,16 +77,15 @@ export function SearchResults({
     const visibleListBottom = Math.min(listBounds.bottom, viewportHeight);
     if (visibleListBottom <= visibleListTop) return;
 
-    const isOutsideViewport =
-      cardBounds.top < visibleListTop || cardBounds.bottom > visibleListBottom;
+    let scrollDelta = 0;
+    if (cardBounds.top < visibleListTop) {
+      scrollDelta = cardBounds.top - visibleListTop;
+    } else if (cardBounds.bottom > visibleListBottom) {
+      scrollDelta = cardBounds.bottom - visibleListBottom;
+    }
 
-    if (isOutsideViewport) {
-      const cardCenter = (cardBounds.top + cardBounds.bottom) / 2;
-      const visibleListCenter = (visibleListTop + visibleListBottom) / 2;
-      const targetScrollTop = Math.max(
-        0,
-        window.scrollY + cardCenter - visibleListCenter
-      );
+    if (scrollDelta !== 0) {
+      const targetScrollTop = Math.max(0, window.scrollY + scrollDelta);
 
       window.scrollTo({
         top: targetScrollTop,

@@ -302,7 +302,7 @@ describe('MapResultView', () => {
       expect(oms.clearMarkers).not.toHaveBeenCalled();
     });
 
-    it('waits for a distinct spiderfied marker before highlighting an overlapping result', async () => {
+    it('spiderfies on hover before highlighting a distinct overlapping result', async () => {
       render(
         <TestWrapper>
           <MapResultView results={mockOverlappingResults} />
@@ -315,8 +315,10 @@ describe('MapResultView', () => {
       });
       const marker = mockOmsInstances[0].markers[0];
       const mapState = screen.getByTestId('map-state');
+      const fire = vi.spyOn(marker, 'fire');
 
       act(() => marker.fire('mouseover'));
+      expect(fire).toHaveBeenCalledWith('click');
       expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
 
       act(() => marker.fire('click'));
