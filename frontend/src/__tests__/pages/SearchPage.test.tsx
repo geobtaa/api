@@ -401,6 +401,7 @@ describe('SearchPage Logic', () => {
 
     expect(map).toContainElement(note);
     expect(resultsSummary).toContainElement(pagination);
+    expect(pagination).toHaveClass('whitespace-nowrap');
     expect(resultsColumn).not.toContainElement(pagination);
     expect(note).not.toContainElement(pagination);
     expect(
@@ -410,8 +411,12 @@ describe('SearchPage Logic', () => {
     expect(
       screen.getByRole('button', { name: 'Previous results page' })
     ).toBeDisabled();
-    expect(screen.getByText('Prev')).toBeInTheDocument();
-    expect(screen.getByText('Next')).toBeInTheDocument();
+    expect(pagination).toHaveTextContent('« Previous|1 - 20 of 21|Next »');
+    expect(
+      Array.from(pagination.querySelectorAll('strong')).map(
+        (element) => element.textContent
+      )
+    ).toEqual(['1', '20', '21']);
 
     await act(async () => {
       screen.getByRole('button', { name: 'Next results page' }).click();

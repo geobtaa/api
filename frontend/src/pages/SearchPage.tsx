@@ -717,41 +717,62 @@ function SearchContent({
                       <h2 className="text-lg text-gray-600">Results</h2>
                     ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
                       <h2 className="text-lg text-gray-600">Searching…</h2>
-                    ) : (
-                      <h2 className="text-lg text-gray-600">
-                        Results {formatCount(pageStart)}-{formatCount(pageEnd)}{' '}
-                        of {formatCount(searchTotalResults)}
-                      </h2>
-                    )}
-                    {!error &&
-                      !activeIsLoading &&
-                      !shouldShowSearchingPlaceholder &&
-                      currentView === 'map' &&
-                      totalPages > 1 && (
+                    ) : currentView === 'map' && totalPages > 1 ? (
+                      <>
+                        <h2 className="sr-only">
+                          Results {formatCount(pageStart)}-
+                          {formatCount(pageEnd)} of{' '}
+                          {formatCount(searchTotalResults)}
+                        </h2>
                         <nav
                           aria-label="Map results pagination"
-                          className="flex items-center gap-1"
+                          className="flex items-center gap-2 whitespace-nowrap text-base"
                         >
                           <button
                             type="button"
                             aria-label="Previous results page"
                             onClick={() => handlePageChange(page - 1)}
                             disabled={page <= 1}
-                            className="inline-flex items-center rounded-md border border-blue-300 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
                           >
-                            Prev
+                            « Previous
                           </button>
+                          <span aria-hidden="true" className="text-gray-300">
+                            |
+                          </span>
+                          <span className="whitespace-nowrap text-gray-600">
+                            <strong className="font-semibold text-gray-900">
+                              {formatCount(pageStart)}
+                            </strong>{' '}
+                            -{' '}
+                            <strong className="font-semibold text-gray-900">
+                              {formatCount(pageEnd)}
+                            </strong>{' '}
+                            of{' '}
+                            <strong className="font-semibold text-gray-900">
+                              {formatCount(searchTotalResults)}
+                            </strong>
+                          </span>
+                          <span aria-hidden="true" className="text-gray-300">
+                            |
+                          </span>
                           <button
                             type="button"
                             aria-label="Next results page"
                             onClick={() => handlePageChange(page + 1)}
                             disabled={page >= totalPages}
-                            className="inline-flex items-center rounded-md border border-blue-300 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
                           >
-                            Next
+                            Next »
                           </button>
                         </nav>
-                      )}
+                      </>
+                    ) : (
+                      <h2 className="text-lg text-gray-600">
+                        Results {formatCount(pageStart)}-{formatCount(pageEnd)}{' '}
+                        of {formatCount(searchTotalResults)}
+                      </h2>
+                    )}
                   </div>
                   {!error && (
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
