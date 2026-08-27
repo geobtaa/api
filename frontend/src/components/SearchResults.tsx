@@ -145,7 +145,7 @@ export function SearchResults({
       data-testid={isCompact ? 'map-results-scroll-container' : undefined}
       className={`space-y-6 ${
         isCompact
-          ? 'md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:overscroll-contain md:pr-2 md:pb-32 md:[scrollbar-gutter:stable]'
+          ? 'md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:overscroll-contain md:pt-1 md:pr-2 md:pb-32 md:pl-1 md:[scrollbar-gutter:stable]'
           : ''
       }`}
     >

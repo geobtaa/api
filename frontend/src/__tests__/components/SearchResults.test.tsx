@@ -370,6 +370,8 @@ describe('SearchResults Component', () => {
         'md:flex-1',
         'md:overflow-y-auto',
         'md:overscroll-contain',
+        'md:pt-1',
+        'md:pl-1',
         'md:pb-32'
       );
     });
