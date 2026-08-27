@@ -705,23 +705,54 @@ function SearchContent({
               )}
             </aside>
 
-            {/* Right column: "Showing results" header + results list / gallery / map view */}
+            {/* Right column: results header + results list / gallery / map view */}
             <div className="lg:col-span-9 flex flex-col pt-0 mt-0">
               {!hasNoSearchResults && (
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  {error ? (
-                    <h2 className="text-lg text-gray-600">Results</h2>
-                  ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
-                    <h2 className="text-lg text-gray-600">Searching…</h2>
-                  ) : (
-                    <h2 className="text-lg text-gray-600">
-                      Showing results{' '}
-                      {(() => {
-                        return `${formatCount(pageStart)}-${formatCount(pageEnd)}`;
-                      })()}{' '}
-                      of {formatCount(searchTotalResults)}
-                    </h2>
-                  )}
+                  <div
+                    data-testid="results-summary-row"
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    {error ? (
+                      <h2 className="text-lg text-gray-600">Results</h2>
+                    ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
+                      <h2 className="text-lg text-gray-600">Searching…</h2>
+                    ) : (
+                      <h2 className="text-lg text-gray-600">
+                        Results {formatCount(pageStart)}-{formatCount(pageEnd)}{' '}
+                        of {formatCount(searchTotalResults)}
+                      </h2>
+                    )}
+                    {!error &&
+                      !activeIsLoading &&
+                      !shouldShowSearchingPlaceholder &&
+                      currentView === 'map' &&
+                      totalPages > 1 && (
+                        <nav
+                          aria-label="Map results pagination"
+                          className="flex items-center gap-1"
+                        >
+                          <button
+                            type="button"
+                            aria-label="Previous results page"
+                            onClick={() => handlePageChange(page - 1)}
+                            disabled={page <= 1}
+                            className="inline-flex items-center rounded-md border border-blue-300 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Prev
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Next results page"
+                            onClick={() => handlePageChange(page + 1)}
+                            disabled={page >= totalPages}
+                            className="inline-flex items-center rounded-md border border-blue-300 bg-white px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Next
+                          </button>
+                        </nav>
+                      )}
+                  </div>
                   {!error && (
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       <button
@@ -805,35 +836,6 @@ function SearchContent({
                         data-testid="map-results-column"
                         className="md:col-span-4 pr-2 md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:flex-col"
                       >
-                        {!activeIsLoading && totalPages > 1 && (
-                          <nav
-                            aria-label="Map results pagination"
-                            className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm md:flex-none"
-                          >
-                            <button
-                              type="button"
-                              aria-label="Previous results page"
-                              onClick={() => handlePageChange(page - 1)}
-                              disabled={page <= 1}
-                              className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              Prev
-                            </button>
-                            <span className="text-xs font-medium text-slate-700">
-                              Page {formatCount(page)} of{' '}
-                              {formatCount(totalPages)}
-                            </span>
-                            <button
-                              type="button"
-                              aria-label="Next results page"
-                              onClick={() => handlePageChange(page + 1)}
-                              disabled={page >= totalPages}
-                              className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
-                              Next
-                            </button>
-                          </nav>
-                        )}
                         <SearchResults
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}

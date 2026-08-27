@@ -219,9 +219,7 @@ describe('SearchPage Logic', () => {
     renderWithRouter('/search?q=grassland&view=map', results);
 
     expect(screen.queryByTestId('geo-filter-map')).not.toBeInTheDocument();
-    expect(
-      screen.queryByText(/Showing results 0-0 of 0/i)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Results 0-0 of 0/i)).not.toBeInTheDocument();
     expect(screen.getByText('No result locations to map.')).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent(
       'No search results found'
@@ -385,7 +383,7 @@ describe('SearchPage Logic', () => {
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
   });
 
-  it('shows compact pagination in the results column and the note on the map', async () => {
+  it('shows compact pagination beside the results summary and the note on the map', async () => {
     const results = createMockApiResponse(mockResults.slice(0, 20), 21, 1);
     const { router } = renderWithRouter('/search?view=map', results, {
       returnRouter: true,
@@ -396,16 +394,19 @@ describe('SearchPage Logic', () => {
       name: 'Map results note',
     });
     const resultsColumn = screen.getByTestId('map-results-column');
+    const resultsSummary = screen.getByTestId('results-summary-row');
     const pagination = screen.getByRole('navigation', {
       name: 'Map results pagination',
     });
 
     expect(map).toContainElement(note);
-    expect(resultsColumn).toContainElement(pagination);
+    expect(resultsSummary).toContainElement(pagination);
+    expect(resultsColumn).not.toContainElement(pagination);
     expect(note).not.toContainElement(pagination);
     expect(
-      screen.queryByText(/Showing results 1-20 of 21 for this query/i)
-    ).not.toBeInTheDocument();
+      screen.getByRole('heading', { name: 'Results 1-20 of 21' })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Page 1 of 2/i)).not.toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Previous results page' })
     ).toBeDisabled();
@@ -425,9 +426,7 @@ describe('SearchPage Logic', () => {
     renderWithRouter('/search?q=roads&view=map', null, { isLoading: true });
 
     expect(screen.getByText('Searching…')).toBeInTheDocument();
-    expect(
-      screen.queryByText(/Showing results 0-0 of 0 for this query/i)
-    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/Results 0-0 of 0/i)).not.toBeInTheDocument();
     expect(
       screen.queryByRole('navigation', { name: 'Map results pagination' })
     ).not.toBeInTheDocument();
@@ -554,9 +553,7 @@ describe('SearchPage Logic', () => {
     renderWithRouter('/search?view=gallery', results);
 
     // Should show 1-20
-    expect(
-      screen.getByText(/Showing results 1-20 of 100/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Results 1-20 of 100/i)).toBeInTheDocument();
   });
 
   it('ignores stale gallery state and keeps Grid paginated', async () => {
@@ -580,9 +577,7 @@ describe('SearchPage Logic', () => {
       expect(screen.getAllByText(/Gallery Result/)).toHaveLength(20);
     });
 
-    expect(
-      screen.getByText(/Showing results 1-20 of 100/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/Results 1-20 of 100/i)).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: /next page/i })
     ).toBeInTheDocument();
