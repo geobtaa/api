@@ -385,24 +385,32 @@ describe('SearchPage Logic', () => {
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
   });
 
-  it('shows compact map pagination with an accurate remaining-result count', async () => {
+  it('shows compact pagination on the results map', async () => {
     const results = createMockApiResponse(mockResults.slice(0, 20), 21, 1);
     const { router } = renderWithRouter('/search?view=map', results, {
       returnRouter: true,
     });
 
+    const map = screen.getByTestId('map-results-map');
+    const note = screen.getByRole('complementary', {
+      name: 'Map results note',
+    });
+
+    expect(map).toContainElement(note);
     expect(
-      screen.getByText(/Showing results 1-20 of 21 for this query/i)
-    ).toBeInTheDocument();
+      screen.queryByText(/Showing results 1-20 of 21 for this query/i)
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('navigation', { name: 'Map results pagination' })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Previous page' })
+      screen.getByRole('button', { name: 'Previous results page' })
     ).toBeDisabled();
+    expect(screen.getByText('Prev')).toBeInTheDocument();
+    expect(screen.getByText('Next')).toBeInTheDocument();
 
     await act(async () => {
-      screen.getByRole('button', { name: 'See next 1 result' }).click();
+      screen.getByRole('button', { name: 'Next results page' }).click();
     });
 
     await waitFor(() => {

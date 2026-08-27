@@ -135,10 +135,6 @@ function SearchContent({
       : Math.min((page - 1) * perPage + 1, searchTotalResults);
   const pageEnd = Math.min(page * perPage, searchTotalResults);
   const totalPages = Math.ceil(searchTotalResults / perPage);
-  const nextPageResultCount = Math.min(
-    perPage,
-    Math.max(searchTotalResults - page * perPage, 0)
-  );
   const activeMapResourceId = hoveredResourceId ?? selectedResourceId;
   const hasNoSearchResults =
     !activeIsLoading &&
@@ -809,50 +805,6 @@ function SearchContent({
                         data-testid="map-results-column"
                         className="md:col-span-4 pr-2 md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:flex-col"
                       >
-                        {!activeIsLoading && (
-                          <div className="mb-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-900 md:flex-none">
-                            <p>
-                              Showing results {formatCount(pageStart)}-
-                              {formatCount(pageEnd)} of{' '}
-                              {formatCount(searchTotalResults)} for this query.
-                            </p>
-                            <p className="mt-1 text-blue-700">
-                              The map only renders the current page of results.
-                              Use pagination to review other matches.
-                            </p>
-                            {totalPages > 1 && (
-                              <nav
-                                aria-label="Map results pagination"
-                                className="mt-3 flex flex-wrap items-center gap-2"
-                              >
-                                <button
-                                  type="button"
-                                  onClick={() => handlePageChange(page - 1)}
-                                  disabled={page <= 1}
-                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  Previous page
-                                </button>
-                                <span className="text-xs font-medium text-blue-900">
-                                  Page {formatCount(page)} of{' '}
-                                  {formatCount(totalPages)}
-                                </span>
-                                {page < totalPages && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handlePageChange(page + 1)}
-                                    className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700"
-                                  >
-                                    See next {formatCount(nextPageResultCount)}{' '}
-                                    {nextPageResultCount === 1
-                                      ? 'result'
-                                      : 'results'}
-                                  </button>
-                                )}
-                              </nav>
-                            )}
-                          </div>
-                        )}
                         <SearchResults
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}
@@ -867,7 +819,50 @@ function SearchContent({
                       </div>
 
                       {/* Right Column: Map */}
-                      <div className="md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
+                      <div
+                        data-testid="map-results-map"
+                        className="relative md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]"
+                      >
+                        {!activeIsLoading && (
+                          <aside
+                            aria-label="Map results note"
+                            className="absolute left-16 right-3 top-3 z-20 rounded-md border border-blue-100 bg-blue-50/95 px-3 py-2 text-sm text-blue-900 shadow-md backdrop-blur-sm sm:left-auto sm:w-80"
+                          >
+                            <p>
+                              The map only renders the current page of results.
+                              Use pagination to review other matches.
+                            </p>
+                            {totalPages > 1 && (
+                              <nav
+                                aria-label="Map results pagination"
+                                className="mt-2 flex flex-wrap items-center gap-2"
+                              >
+                                <button
+                                  type="button"
+                                  aria-label="Previous results page"
+                                  onClick={() => handlePageChange(page - 1)}
+                                  disabled={page <= 1}
+                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Prev
+                                </button>
+                                <span className="text-xs font-medium text-blue-900">
+                                  Page {formatCount(page)} of{' '}
+                                  {formatCount(totalPages)}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Next results page"
+                                  onClick={() => handlePageChange(page + 1)}
+                                  disabled={page >= totalPages}
+                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Next
+                                </button>
+                              </nav>
+                            )}
+                          </aside>
+                        )}
                         <MapResultView
                           results={activeSearchResults?.data || []}
                           highlightedResourceId={activeMapResourceId}
