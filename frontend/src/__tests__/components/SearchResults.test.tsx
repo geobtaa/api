@@ -318,9 +318,10 @@ describe('SearchResults Component', () => {
           .getByText('Nondigitized paper map with library catalog link')
           .closest('article') as HTMLElement;
         const resultList = screen.getByTestId('map-results-scroll-container');
-        const scrollTo = vi.fn();
-        resultList.scrollTo = scrollTo;
-        resultList.scrollTop = 50;
+        const scrollTo = vi
+          .spyOn(window, 'scrollTo')
+          .mockImplementation(() => {});
+        vi.spyOn(window, 'scrollY', 'get').mockReturnValue(50);
         vi.spyOn(resultList, 'getBoundingClientRect').mockReturnValue({
           top: 0,
           bottom: 500,
@@ -353,7 +354,7 @@ describe('SearchResults Component', () => {
       }
     );
 
-    it('makes compact map results a scrollbar-free desktop scroll region that can chain to the page', () => {
+    it('lets compact map results contribute their full height to the page', () => {
       render(
         <TestWrapper>
           <SearchResults
@@ -368,18 +369,14 @@ describe('SearchResults Component', () => {
 
       const resultList = screen.getByTestId('map-results-scroll-container');
 
-      expect(resultList).toHaveClass(
+      expect(resultList).toHaveClass('md:pt-1', 'md:pl-1', 'md:pb-1');
+      expect(resultList).not.toHaveClass(
         'md:flex-1',
         'md:overflow-y-auto',
         'md:overscroll-auto',
-        'scrollbar-hide',
-        'md:pt-1',
-        'md:pl-1',
-        'md:pb-32'
-      );
-      expect(resultList).not.toHaveClass(
         'md:overscroll-contain',
-        'md:[scrollbar-gutter:stable]'
+        'md:[scrollbar-gutter:stable]',
+        'scrollbar-hide'
       );
     });
 

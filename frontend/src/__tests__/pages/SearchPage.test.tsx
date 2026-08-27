@@ -241,11 +241,15 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByTestId('map-result-view')).toBeInTheDocument();
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
-    expect(screen.getByTestId('map-results-column')).toHaveClass(
-      'md:flex',
+    expect(screen.getByTestId('map-results-column')).not.toHaveClass(
       'md:h-[calc(100vh-10rem)]',
-      'md:min-h-0',
-      'md:flex-col'
+      'md:overflow-y-auto'
+    );
+    expect(screen.getByTestId('map-results-map')).toHaveClass(
+      'md:sticky',
+      'md:top-40',
+      'md:self-start',
+      'h-[calc(100vh-10rem)]'
     );
   });
 

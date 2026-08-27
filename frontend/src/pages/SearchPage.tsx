@@ -855,7 +855,7 @@ function SearchContent({
                       {/* Middle Column: Brief Results */}
                       <div
                         data-testid="map-results-column"
-                        className="md:col-span-4 pr-2 md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:flex-col"
+                        className="pr-2 md:col-span-4"
                       >
                         <SearchResults
                           results={activeSearchResults?.data || []}
@@ -873,7 +873,7 @@ function SearchContent({
                       {/* Right Column: Map */}
                       <div
                         data-testid="map-results-map"
-                        className="relative md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]"
+                        className="relative h-[calc(100vh-10rem)] min-w-0 md:sticky md:top-40 md:col-span-5 md:self-start"
                       >
                         {!activeIsLoading && (
                           <aside

@@ -71,7 +71,9 @@ export function SearchResults({
     const listBounds = resultList.getBoundingClientRect();
     const viewportHeight =
       window.innerHeight || document.documentElement.clientHeight;
-    const visibleListTop = Math.max(listBounds.top, 0);
+    const headerBottom =
+      document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
+    const visibleListTop = Math.max(listBounds.top, headerBottom, 0);
     const visibleListBottom = Math.min(listBounds.bottom, viewportHeight);
     if (visibleListBottom <= visibleListTop) return;
 
@@ -83,10 +85,10 @@ export function SearchResults({
       const visibleListCenter = (visibleListTop + visibleListBottom) / 2;
       const targetScrollTop = Math.max(
         0,
-        resultList.scrollTop + cardCenter - visibleListCenter
+        window.scrollY + cardCenter - visibleListCenter
       );
 
-      resultList.scrollTo({
+      window.scrollTo({
         top: targetScrollTop,
         behavior: 'smooth',
       });
@@ -144,9 +146,7 @@ export function SearchResults({
       ref={resultListRef}
       data-testid={isCompact ? 'map-results-scroll-container' : undefined}
       className={`space-y-6 ${
-        isCompact
-          ? 'scrollbar-hide md:min-h-0 md:flex-1 md:overflow-x-hidden md:overflow-y-auto md:overscroll-auto md:pt-1 md:pr-2 md:pb-32 md:pl-1'
-          : ''
+        isCompact ? 'md:pt-1 md:pr-2 md:pb-1 md:pl-1' : ''
       }`}
     >
       {results.map((result, index) => {
