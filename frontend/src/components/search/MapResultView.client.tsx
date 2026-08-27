@@ -278,6 +278,8 @@ interface PinData {
   hoverGeometry: string | null;
 }
 
+const SPIDERFY_NEARBY_DISTANCE = 30;
+
 /** Renders numbered markers with OverlappingMarkerSpiderfier for overlapping pins */
 const SpiderfiedMarkers: React.FC<{
   pins: PinData[];
@@ -301,7 +303,7 @@ const SpiderfiedMarkers: React.FC<{
     if (!map) return;
 
     const oms = new OverlappingMarkerSpiderfier(map, {
-      nearbyDistance: 30,
+      nearbyDistance: SPIDERFY_NEARBY_DISTANCE,
       circleSpiralSwitchover: 9,
     });
     omsRef.current = oms;
@@ -364,7 +366,29 @@ const SpiderfiedMarkers: React.FC<{
       (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent =
         container;
 
+      const isCollapsedOverlappingMarker = () => {
+        if (marker._omsData) return false;
+
+        try {
+          const markerPoint = map.latLngToLayerPoint(marker.getLatLng());
+          const nearbyDistanceSquared = SPIDERFY_NEARBY_DISTANCE ** 2;
+
+          return pins.some((otherPin) => {
+            if (otherPin === p) return false;
+            const otherPoint = map.latLngToLayerPoint(
+              L.latLng(otherPin.position[0], otherPin.position[1])
+            );
+            const deltaX = markerPoint.x - otherPoint.x;
+            const deltaY = markerPoint.y - otherPoint.y;
+            return deltaX ** 2 + deltaY ** 2 < nearbyDistanceSquared;
+          });
+        } catch {
+          return false;
+        }
+      };
+
       marker.on('mouseover', () => {
+        if (isCollapsedOverlappingMarker()) return;
         setHoveredResourceId(p.resource.id);
         setHoveredGeometry(p.hoverGeometry);
       });
@@ -377,6 +401,7 @@ const SpiderfiedMarkers: React.FC<{
       });
 
       marker.on('click', () => {
+        if (isCollapsedOverlappingMarker()) return;
         const nextSelected =
           selectedResourceIdRef.current === p.resource.id
             ? null

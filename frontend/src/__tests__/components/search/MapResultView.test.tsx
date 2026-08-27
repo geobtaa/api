@@ -30,6 +30,9 @@ const mockMap = {
   removeLayer: vi.fn(),
   hasLayer: vi.fn().mockReturnValue(false),
   eachLayer: vi.fn(),
+  latLngToLayerPoint: vi.fn((latLng: L.LatLng) =>
+    L.point(latLng.lng * 100, latLng.lat * 100)
+  ),
 };
 
 vi.mock('leaflet/dist/leaflet.css', () => ({}));
@@ -98,6 +101,21 @@ const mockResultsWithCentroid: GeoDocument[] = [
         id: 'res-2',
         dct_title_s: 'Result Two',
         dcat_centroid: '40.71,-74.00',
+      },
+    },
+  },
+];
+
+const mockOverlappingResults: GeoDocument[] = [
+  mockResultsWithCentroid[0],
+  {
+    id: 'res-overlap',
+    type: 'document',
+    attributes: {
+      ogm: {
+        id: 'res-overlap',
+        dct_title_s: 'Overlapping Result',
+        dcat_centroid: '42.36,-71.09',
       },
     },
   },
@@ -282,6 +300,34 @@ describe('MapResultView', () => {
       expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
       expect(mockOmsInstances).toHaveLength(1);
       expect(oms.clearMarkers).not.toHaveBeenCalled();
+    });
+
+    it('waits for a distinct spiderfied marker before highlighting an overlapping result', async () => {
+      render(
+        <TestWrapper>
+          <MapResultView results={mockOverlappingResults} />
+          <MapStateProbe />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(mockOmsInstances[0]?.markers).toHaveLength(2);
+      });
+      const marker = mockOmsInstances[0].markers[0];
+      const mapState = screen.getByTestId('map-state');
+
+      act(() => marker.fire('mouseover'));
+      expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
+
+      act(() => marker.fire('click'));
+      expect(mapState).toHaveAttribute('data-selected-resource-id', '');
+
+      marker._omsData = {
+        usualPosition: marker.getLatLng(),
+        leg: {} as L.Polyline,
+      };
+      act(() => marker.fire('mouseover'));
+      expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
     });
 
     it('accepts highlightedResourceId and highlightedGeometry', async () => {
