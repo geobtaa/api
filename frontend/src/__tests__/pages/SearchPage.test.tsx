@@ -404,6 +404,9 @@ describe('SearchPage Logic', () => {
     });
 
     expect(map).toContainElement(note);
+    expect(note).toHaveTextContent(
+      'This map only renders the current page of search results. Use pagination to review other matches.'
+    );
     expect(resultsSummary).toContainElement(pagination);
     expect(pagination).toHaveClass('whitespace-nowrap');
     expect(resultsColumn).not.toContainElement(pagination);

@@ -881,8 +881,8 @@ function SearchContent({
                             className="absolute left-16 right-3 top-3 z-20 rounded-md border border-blue-100 bg-blue-50/95 px-3 py-2 text-sm text-blue-900 shadow-md backdrop-blur-sm sm:left-auto sm:w-80"
                           >
                             <p>
-                              The map only renders the current page of results.
-                              Use pagination to review other matches.
+                              This map only renders the current page of search
+                              results. Use pagination to review other matches.
                             </p>
                           </aside>
                         )}
