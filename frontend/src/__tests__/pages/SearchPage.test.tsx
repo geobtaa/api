@@ -385,7 +385,7 @@ describe('SearchPage Logic', () => {
     expect(screen.queryByTestId('gallery-view')).not.toBeInTheDocument();
   });
 
-  it('shows compact pagination on the results map', async () => {
+  it('shows compact pagination in the results column and the note on the map', async () => {
     const results = createMockApiResponse(mockResults.slice(0, 20), 21, 1);
     const { router } = renderWithRouter('/search?view=map', results, {
       returnRouter: true,
@@ -395,14 +395,17 @@ describe('SearchPage Logic', () => {
     const note = screen.getByRole('complementary', {
       name: 'Map results note',
     });
+    const resultsColumn = screen.getByTestId('map-results-column');
+    const pagination = screen.getByRole('navigation', {
+      name: 'Map results pagination',
+    });
 
     expect(map).toContainElement(note);
+    expect(resultsColumn).toContainElement(pagination);
+    expect(note).not.toContainElement(pagination);
     expect(
       screen.queryByText(/Showing results 1-20 of 21 for this query/i)
     ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('navigation', { name: 'Map results pagination' })
-    ).toBeInTheDocument();
     expect(
       screen.getByRole('button', { name: 'Previous results page' })
     ).toBeDisabled();

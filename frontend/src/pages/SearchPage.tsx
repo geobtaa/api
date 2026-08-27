@@ -805,6 +805,35 @@ function SearchContent({
                         data-testid="map-results-column"
                         className="md:col-span-4 pr-2 md:flex md:h-[calc(100vh-10rem)] md:min-h-0 md:flex-col"
                       >
+                        {!activeIsLoading && totalPages > 1 && (
+                          <nav
+                            aria-label="Map results pagination"
+                            className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 shadow-sm md:flex-none"
+                          >
+                            <button
+                              type="button"
+                              aria-label="Previous results page"
+                              onClick={() => handlePageChange(page - 1)}
+                              disabled={page <= 1}
+                              className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Prev
+                            </button>
+                            <span className="text-xs font-medium text-slate-700">
+                              Page {formatCount(page)} of{' '}
+                              {formatCount(totalPages)}
+                            </span>
+                            <button
+                              type="button"
+                              aria-label="Next results page"
+                              onClick={() => handlePageChange(page + 1)}
+                              disabled={page >= totalPages}
+                              className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Next
+                            </button>
+                          </nav>
+                        )}
                         <SearchResults
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}
@@ -832,35 +861,6 @@ function SearchContent({
                               The map only renders the current page of results.
                               Use pagination to review other matches.
                             </p>
-                            {totalPages > 1 && (
-                              <nav
-                                aria-label="Map results pagination"
-                                className="mt-2 flex flex-wrap items-center gap-2"
-                              >
-                                <button
-                                  type="button"
-                                  aria-label="Previous results page"
-                                  onClick={() => handlePageChange(page - 1)}
-                                  disabled={page <= 1}
-                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  Prev
-                                </button>
-                                <span className="text-xs font-medium text-blue-900">
-                                  Page {formatCount(page)} of{' '}
-                                  {formatCount(totalPages)}
-                                </span>
-                                <button
-                                  type="button"
-                                  aria-label="Next results page"
-                                  onClick={() => handlePageChange(page + 1)}
-                                  disabled={page >= totalPages}
-                                  className="inline-flex items-center rounded-md border border-blue-300 bg-white px-3 py-2 text-xs font-medium text-blue-700 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
-                                >
-                                  Next
-                                </button>
-                              </nav>
-                            )}
                           </aside>
                         )}
                         <MapResultView
