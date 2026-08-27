@@ -269,6 +269,32 @@ describe('SearchResults Component', () => {
       ).toBeInTheDocument();
     });
 
+    it('allows list result cards to shrink within the results column', () => {
+      render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData.slice(0, 1)}
+            isLoading={false}
+            totalResults={1}
+            currentPage={1}
+          />
+        </TestWrapper>
+      );
+
+      const article = screen
+        .getByText('Nondigitized paper map with library catalog link')
+        .closest('article');
+      const cardLayout = article?.firstElementChild;
+      const cardContent = Array.from(cardLayout?.children ?? []).find((child) =>
+        child.classList.contains('flex-1')
+      );
+
+      expect(article?.parentElement).toHaveClass('min-w-0');
+      expect(article).toHaveClass('min-w-0');
+      expect(cardLayout).toHaveClass('min-w-0');
+      expect(cardContent).toHaveClass('min-w-0');
+    });
+
     it('visually and semantically highlights the matching map resource', () => {
       render(
         <TestWrapper>

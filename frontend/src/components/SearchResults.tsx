@@ -151,7 +151,7 @@ export function SearchResults({
     <div
       ref={resultListRef}
       data-testid={isCompact ? 'map-results-scroll-container' : undefined}
-      className={`space-y-6 ${
+      className={`min-w-0 space-y-6 ${
         isCompact ? 'md:pt-1 md:pr-2 md:pb-1 md:pl-1' : ''
       }`}
     >
@@ -185,7 +185,7 @@ export function SearchResults({
                 resultCardRefs.current.delete(result.id);
               }
             }}
-            className={`bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
+            className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
               isHighlighted
                 ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
                 : ''
@@ -215,7 +215,7 @@ export function SearchResults({
               setHoveredResourceSource(null);
             }}
           >
-            <div className="flex">
+            <div className="flex min-w-0">
               {/* Thumbnail */}
               <div
                 className={`${thumbnailWrapperClass} flex-shrink-0 relative group/thumb`}
@@ -271,7 +271,9 @@ export function SearchResults({
               <div className="sr-only">Result {getAbsoluteIndex(index)}</div>
 
               {/* Content */}
-              <div className={`flex-1 flex flex-col ${contentPaddingClass}`}>
+              <div
+                className={`min-w-0 flex-1 flex flex-col ${contentPaddingClass}`}
+              >
                 {showDetails && (
                   <pre className="overflow-auto text-xs">
                     {JSON.stringify(result, null, 2)}

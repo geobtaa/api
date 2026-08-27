@@ -710,7 +710,7 @@ function SearchContent({
             </aside>
 
             {/* Right column: results header + results list / gallery / map view */}
-            <div className="lg:col-span-9 flex flex-col pt-0 mt-0">
+            <div className="min-w-0 lg:col-span-9 flex flex-col pt-0 mt-0">
               {!hasNoSearchResults && (
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div
