@@ -353,7 +353,7 @@ describe('SearchResults Component', () => {
       }
     );
 
-    it('makes compact map results an independent desktop scroll region', () => {
+    it('makes compact map results a scrollbar-free desktop scroll region that can chain to the page', () => {
       render(
         <TestWrapper>
           <SearchResults
@@ -366,13 +366,20 @@ describe('SearchResults Component', () => {
         </TestWrapper>
       );
 
-      expect(screen.getByTestId('map-results-scroll-container')).toHaveClass(
+      const resultList = screen.getByTestId('map-results-scroll-container');
+
+      expect(resultList).toHaveClass(
         'md:flex-1',
         'md:overflow-y-auto',
-        'md:overscroll-contain',
+        'md:overscroll-auto',
+        'scrollbar-hide',
         'md:pt-1',
         'md:pl-1',
         'md:pb-32'
+      );
+      expect(resultList).not.toHaveClass(
+        'md:overscroll-contain',
+        'md:[scrollbar-gutter:stable]'
       );
     });
 
