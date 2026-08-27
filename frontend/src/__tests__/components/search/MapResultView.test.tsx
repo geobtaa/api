@@ -30,6 +30,8 @@ const mockMap = {
   removeLayer: vi.fn(),
   hasLayer: vi.fn().mockReturnValue(false),
   eachLayer: vi.fn(),
+  on: vi.fn(),
+  off: vi.fn(),
   latLngToLayerPoint: vi.fn((latLng: L.LatLng) =>
     L.point(latLng.lng * 100, latLng.lat * 100)
   ),
@@ -307,7 +309,7 @@ describe('MapResultView', () => {
       expect(oms.clearMarkers).not.toHaveBeenCalled();
     });
 
-    it('spiderfies on hover before highlighting a distinct overlapping result', async () => {
+    it('keeps collapsed overlapping markers stable until click', async () => {
       render(
         <TestWrapper>
           <MapResultView results={mockOverlappingResults} />
@@ -321,9 +323,11 @@ describe('MapResultView', () => {
       const marker = mockOmsInstances[0].markers[0];
       const mapState = screen.getByTestId('map-state');
       const fire = vi.spyOn(marker, 'fire');
+      const setIcon = vi.spyOn(marker, 'setIcon');
 
       act(() => marker.fire('mouseover'));
-      expect(fire).toHaveBeenCalledWith('click');
+      expect(fire).not.toHaveBeenCalledWith('click');
+      expect(setIcon).not.toHaveBeenCalled();
       expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
 
       act(() => marker.fire('click'));
