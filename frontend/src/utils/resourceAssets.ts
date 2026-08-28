@@ -156,8 +156,17 @@ function isBridgeThumbnailAssetUrl(url: string | undefined): boolean {
   }
 }
 
-function getGeneratedThumbnailUrl(resourceId: string): string {
-  return `/resources/${resourceId}/thumbnail`;
+function getGeneratedThumbnailUrl(
+  resourceId: string,
+  view: SearchResultAssetView
+): string {
+  const thumbnailUrl = `/resources/${resourceId}/thumbnail`;
+
+  // Issue #125 requires list cards to use a thumbnail or an icon-only fallback.
+  // Preserve the existing canonical resolver behavior for gallery/map contexts.
+  return view === 'list'
+    ? `${thumbnailUrl}?variant=icon-gradient`
+    : thumbnailUrl;
 }
 
 export function getThumbnailFallbackUrl(
@@ -167,7 +176,7 @@ export function getThumbnailFallbackUrl(
   if (view === 'gallery') {
     return `/static-maps/${resourceId}/resource-class-icon`;
   }
-  return getGeneratedThumbnailUrl(resourceId);
+  return getGeneratedThumbnailUrl(resourceId, view);
 }
 
 export function getResultPrimaryImageUrl(
@@ -189,7 +198,7 @@ export function getResultPrimaryImageUrl(
     (isGenericResourceThumbnailUrl(normalized) ||
       isBridgeThumbnailAssetUrl(extracted))
   ) {
-    return getGeneratedThumbnailUrl(result.id);
+    return getGeneratedThumbnailUrl(result.id, view);
   }
 
   if (normalized) {
@@ -204,7 +213,7 @@ export function getResultPrimaryImageUrl(
     return getThumbnailFallbackUrl(result.id, view);
   }
 
-  return getGeneratedThumbnailUrl(result.id);
+  return getGeneratedThumbnailUrl(result.id, view);
 }
 
 export function getStaticMapUrl(
