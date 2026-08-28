@@ -103,6 +103,7 @@ def test_build_config_supports_local_target(monkeypatch, tmp_path: Path):
     monkeypatch.setenv("BACKUP_POSTGRES_TARGET", "local")
     monkeypatch.setenv("BACKUP_LOCAL_DIR", str(tmp_path / "backups"))
     monkeypatch.delenv("BACKUP_S3_BUCKET", raising=False)
+    monkeypatch.delenv("BACKUP_RETENTION_COUNT", raising=False)
 
     config = backup._build_config()
 
@@ -110,6 +111,7 @@ def test_build_config_supports_local_target(monkeypatch, tmp_path: Path):
     assert config.bucket is None
     assert config.local_dir == tmp_path / "backups"
     assert config.work_dir == tmp_path / "backups" / ".tmp"
+    assert config.retention_count == 1
 
 
 def test_prune_old_local_backups_keeps_newest_count(tmp_path: Path):

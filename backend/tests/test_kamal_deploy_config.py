@@ -89,6 +89,7 @@ def test_prd_postgres_backup_uses_local_mounted_storage():
     )
     assert "ENV.fetch('BACKUP_POSTGRES_TARGET', 'local')" in config_text
     assert "ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api')" in config_text
+    assert "ENV.fetch('BACKUP_RETENTION_COUNT', '1')" in config_text
 
 
 def test_prd_memory_profile_protects_service_headroom():

@@ -25,7 +25,7 @@ from urllib.parse import unquote, urlsplit, urlunsplit
 DEFAULT_DATABASE_NAME = "btaa_geospatial_api"
 DEFAULT_PREFIX = "btaa-geospatial-api"
 DEFAULT_REQUIRED_DEST = "prd"
-DEFAULT_RETENTION_COUNT = 3
+DEFAULT_RETENTION_COUNT = 1
 LOCK_FILENAME = "postgres-backup.lock"
 
 
