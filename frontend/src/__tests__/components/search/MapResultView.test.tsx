@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import L from 'leaflet';
+import OverlappingMarkerSpiderfier from '@krozamdev/overlapping-marker-spiderfier';
 import {
   MapProvider,
   useMap as useMapContext,
@@ -195,6 +196,19 @@ function MapStateProbe() {
   );
 }
 
+function getOmsListener(
+  oms: MockOmsInstance,
+  eventName: string
+): (marker: L.Marker) => void {
+  const listener = oms.addListener.mock.calls.find(
+    ([event]) => event === eventName
+  )?.[1];
+  if (typeof listener !== 'function') {
+    throw new Error(`Missing ${eventName} listener`);
+  }
+  return listener as (marker: L.Marker) => void;
+}
+
 describe('MapResultView', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -268,9 +282,64 @@ describe('MapResultView', () => {
 
       const icon = mockOmsInstances[0].markers[0].options.icon as L.DivIcon;
       const iconHtml = String(icon.options.html);
-      expect(iconHtml).toContain('>11</span>');
+      expect(iconHtml).toContain('>11.</span>');
       expect(iconHtml).toContain('rotate(-45deg)');
       expect(iconHtml).not.toContain('translateX(-50%) rotate(45deg)');
+      expect(iconHtml).toContain('background: rgb(var(--color-primary));');
+      expect(iconHtml).toContain('border: 2px solid #fff;');
+      expect(iconHtml).not.toContain('#4f46e5');
+      expect(mockOmsInstances[0].markers[0].options.title).toBe('Result 11');
+    });
+
+    it('uses the spiderfier defaults', async () => {
+      render(
+        <TestWrapper>
+          <MapResultView results={mockResultsWithCentroid} />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(mockOmsInstances[0]?.markers).toHaveLength(2);
+      });
+
+      expect(OverlappingMarkerSpiderfier).toHaveBeenCalledWith(mockMap);
+      expect(mockOmsInstances[0].addListener).not.toHaveBeenCalledWith(
+        'spiderfy',
+        expect.any(Function)
+      );
+    });
+
+    it('uses the governed active blue when a pin is highlighted', async () => {
+      const { rerender } = render(
+        <TestWrapper>
+          <MapResultView results={mockResultsWithCentroid} />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(mockOmsInstances[0]?.markers).toHaveLength(2);
+      });
+
+      const marker = mockOmsInstances[0].markers[0];
+      const markerElement = document.createElement('div');
+      const pinShape = document.createElement('span');
+      pinShape.setAttribute('data-result-pin-shape', '');
+      markerElement.append(pinShape);
+      vi.spyOn(marker, 'getElement').mockReturnValue(markerElement);
+
+      rerender(
+        <TestWrapper>
+          <MapResultView
+            results={mockResultsWithCentroid}
+            highlightedResourceId="res-1"
+          />
+        </TestWrapper>
+      );
+
+      await waitFor(() => {
+        expect(pinShape.style.background).toBe('rgb(var(--color-active))');
+        expect(pinShape.style.borderColor).toBe('rgb(var(--color-primary))');
+      });
     });
 
     it('keeps the spiderfier stable while a marker is hovered and selected', async () => {
@@ -292,7 +361,8 @@ describe('MapResultView', () => {
       expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
       expect(mapState).toHaveAttribute('data-hovered-resource-source', 'map');
 
-      act(() => marker.fire('click'));
+      const handleOmsClick = getOmsListener(oms, 'click');
+      act(() => handleOmsClick(marker));
       expect(mapState).toHaveAttribute('data-selected-resource-id', 'res-1');
       expect(mockOmsInstances).toHaveLength(1);
       expect(oms.clearMarkers).not.toHaveBeenCalled();
@@ -301,7 +371,7 @@ describe('MapResultView', () => {
       expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
       expect(mapState).toHaveAttribute('data-hovered-resource-source', 'map');
 
-      act(() => marker.fire('click'));
+      act(() => handleOmsClick(marker));
       expect(mapState).toHaveAttribute('data-selected-resource-id', '');
       expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
       expect(mapState).toHaveAttribute('data-hovered-resource-source', '');
@@ -309,7 +379,7 @@ describe('MapResultView', () => {
       expect(oms.clearMarkers).not.toHaveBeenCalled();
     });
 
-    it('keeps collapsed overlapping markers stable until click', async () => {
+    it('delegates marker clicks to the spiderfier', async () => {
       render(
         <TestWrapper>
           <MapResultView results={mockOverlappingResults} />
@@ -322,23 +392,18 @@ describe('MapResultView', () => {
       });
       const marker = mockOmsInstances[0].markers[0];
       const mapState = screen.getByTestId('map-state');
-      const fire = vi.spyOn(marker, 'fire');
-      const setIcon = vi.spyOn(marker, 'setIcon');
 
       act(() => marker.fire('mouseover'));
-      expect(fire).not.toHaveBeenCalledWith('click');
-      expect(setIcon).not.toHaveBeenCalled();
-      expect(mapState).toHaveAttribute('data-hovered-resource-id', '');
+      expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
+      expect(mapState).toHaveAttribute('data-hovered-resource-source', 'map');
 
       act(() => marker.fire('click'));
       expect(mapState).toHaveAttribute('data-selected-resource-id', '');
 
-      marker._omsData = {
-        usualPosition: marker.getLatLng(),
-        leg: {} as L.Polyline,
-      };
-      act(() => marker.fire('mouseover'));
-      expect(mapState).toHaveAttribute('data-hovered-resource-id', 'res-1');
+      const handleOmsClick = getOmsListener(mockOmsInstances[0], 'click');
+      act(() => handleOmsClick(marker));
+      expect(mapState).toHaveAttribute('data-selected-resource-id', 'res-1');
+      expect(mockMap.openPopup).toHaveBeenCalledTimes(1);
     });
 
     it('accepts highlightedResourceId and highlightedGeometry', async () => {

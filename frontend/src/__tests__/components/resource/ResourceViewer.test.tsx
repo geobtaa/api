@@ -456,6 +456,9 @@ describe('ResourceViewer', () => {
 
       const viewer = container.querySelector('#leaflet-viewer');
       expect(viewer).not.toBeNull();
+      expect(viewer?.getAttribute('data-leaflet-viewer-basemap-value')).toBe(
+        'openstreetmapStandard'
+      );
       expect(viewer?.getAttribute('data-leaflet-viewer-protocol-value')).toBe(
         'Iiif'
       );

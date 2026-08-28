@@ -212,7 +212,8 @@ const MapInitialFitController: React.FC<{
 /** Create a numbered map pin icon with an upright result number. */
 function createNumberedPinIcon(resultNumber: number): L.DivIcon {
   const size = 26;
-  const textSize = 11;
+  const label = `${resultNumber}.`;
+  const textSize = label.length >= 4 ? 9 : label.length === 3 ? 10 : 11;
   const markerHeight = Math.round(size * 1.35);
   return L.divIcon({
     html: `<span style="
@@ -227,8 +228,8 @@ function createNumberedPinIcon(resultNumber: number): L.DivIcon {
         top: 0;
         width: ${size}px;
         height: ${size}px;
-        background: #4f46e5;
-        border: 2px solid #312e81;
+        background: rgb(var(--color-primary));
+        border: 2px solid #fff;
         border-radius: 50% 50% 50% 0;
         transform: translateX(-50%) rotate(-45deg);
         transform-origin: center center;
@@ -238,7 +239,7 @@ function createNumberedPinIcon(resultNumber: number): L.DivIcon {
         position: absolute;
         left: 50%;
         top: ${Math.round(size * 0.22)}px;
-        width: ${Math.max(13, Math.round(size * 0.52))}px;
+        width: ${size - 4}px;
         height: ${Math.max(13, Math.round(size * 0.52))}px;
         display: flex;
         align-items: center;
@@ -250,7 +251,7 @@ function createNumberedPinIcon(resultNumber: number): L.DivIcon {
         line-height: 1;
         font-weight: 700;
         font-family: Arial, sans-serif;
-      " data-result-pin-label>${resultNumber}</span>
+      " data-result-pin-label>${label}</span>
     </span>`,
     className: 'numbered-pin-icon',
     iconSize: [size, markerHeight],
@@ -263,8 +264,6 @@ function createNumberedPinIcon(resultNumber: number): L.DivIcon {
 interface MarkerEntry {
   marker: L.Marker;
   resourceId: string;
-  resultNumber: number;
-  isCollapsedOverlappingMarker: () => boolean;
 }
 
 interface PinData {
@@ -274,27 +273,23 @@ interface PinData {
   hoverGeometry: string | null;
 }
 
-const SPIDERFY_NEARBY_DISTANCE = 30;
-
 function updateMarkerPresentation(
   entry: MarkerEntry,
   highlightedResourceId: string | null
 ) {
   const isHighlighted = entry.resourceId === highlightedResourceId;
-  const isCollapsedOverlap = entry.isCollapsedOverlappingMarker();
   const element = entry.marker.getElement();
 
   if (element) {
     const shape = element.querySelector<HTMLElement>('[data-result-pin-shape]');
     if (shape) {
-      shape.style.background = isHighlighted ? '#f59e0b' : '#4f46e5';
-      shape.style.borderColor = isHighlighted ? '#7c3aed' : '#312e81';
+      shape.style.background = isHighlighted
+        ? 'rgb(var(--color-active))'
+        : 'rgb(var(--color-primary))';
+      shape.style.borderColor = isHighlighted
+        ? 'rgb(var(--color-primary))'
+        : '#fff';
     }
-
-    element.title = isCollapsedOverlap
-      ? `Result ${entry.resultNumber} overlaps nearby results. Click to separate.`
-      : `Result ${entry.resultNumber}`;
-    element.style.cursor = isCollapsedOverlap ? 'zoom-in' : 'pointer';
   }
 
   entry.marker.setZIndexOffset(isHighlighted ? 10000 : 0);
@@ -317,6 +312,7 @@ const SpiderfiedMarkers: React.FC<{
     typeof OverlappingMarkerSpiderfier
   > | null>(null);
   const entriesRef = useRef<MarkerEntry[]>([]);
+  const markerDataRef = useRef<Map<L.Marker, PinData>>(new Map());
   const highlightedResourceIdRef = useRef(highlightedResourceId);
   highlightedResourceIdRef.current = highlightedResourceId;
   const selectedResourceIdRef = useRef(selectedResourceId);
@@ -325,74 +321,75 @@ const SpiderfiedMarkers: React.FC<{
   useEffect(() => {
     if (!map) return;
 
-    const oms = new OverlappingMarkerSpiderfier(map, {
-      nearbyDistance: SPIDERFY_NEARBY_DISTANCE,
-      circleSpiralSwitchover: 9,
-    });
+    const oms = new OverlappingMarkerSpiderfier(map);
     omsRef.current = oms;
 
     const popup = L.popup();
     const handleMarkerClick = (
       marker: L.Marker & { _popupContent?: HTMLElement }
     ) => {
+      const pin = markerDataRef.current.get(marker);
+      if (!pin) return;
+
       if (marker._popupContent) {
         popup.setContent(marker._popupContent);
         popup.setLatLng(marker.getLatLng());
         map.openPopup(popup);
       }
+
+      const nextSelected =
+        selectedResourceIdRef.current === pin.resource.id
+          ? null
+          : pin.resource.id;
+      selectedResourceIdRef.current = nextSelected;
+      setSelectedResourceId(nextSelected);
+      setHoveredResourceSource(nextSelected ? 'map' : null);
+      setHoveredResourceId(nextSelected);
+      setHoveredGeometry(nextSelected ? pin.hoverGeometry : null);
     };
     oms.addListener('click', handleMarkerClick);
+
     const refreshMarkerPresentations = () => {
       entriesRef.current.forEach((entry) =>
         updateMarkerPresentation(entry, highlightedResourceIdRef.current)
       );
     };
-    oms.addListener('spiderfy', refreshMarkerPresentations);
     oms.addListener('unspiderfy', refreshMarkerPresentations);
 
     return () => {
       oms.removeListener('click', handleMarkerClick);
-      oms.removeListener('spiderfy', refreshMarkerPresentations);
       oms.removeListener('unspiderfy', refreshMarkerPresentations);
       oms.clearMarkers();
-      oms.unspiderfy();
+      markerDataRef.current.clear();
       if (omsRef.current === oms) {
         omsRef.current = null;
       }
     };
-  }, [map]);
+  }, [
+    map,
+    setHoveredResourceId,
+    setHoveredResourceSource,
+    setHoveredGeometry,
+    setSelectedResourceId,
+  ]);
 
   useEffect(() => {
     const oms = omsRef.current;
     if (!map || !oms || pins.length === 0) {
       entriesRef.current = [];
+      markerDataRef.current.clear();
       return;
     }
 
+    const markerData = new Map<L.Marker, PinData>();
+    markerDataRef.current = markerData;
     const entries: MarkerEntry[] = [];
     pins.forEach((p) => {
-      const hasNearbyMarker = () => {
-        try {
-          const markerPoint = map.latLngToLayerPoint(L.latLng(p.position));
-          const nearbyDistanceSquared = SPIDERFY_NEARBY_DISTANCE ** 2;
-
-          return pins.some((otherPin) => {
-            if (otherPin === p) return false;
-            const otherPoint = map.latLngToLayerPoint(
-              L.latLng(otherPin.position)
-            );
-            const deltaX = markerPoint.x - otherPoint.x;
-            const deltaY = markerPoint.y - otherPoint.y;
-            return deltaX ** 2 + deltaY ** 2 < nearbyDistanceSquared;
-          });
-        } catch {
-          return false;
-        }
-      };
-
       const marker = L.marker(p.position, {
         icon: createNumberedPinIcon(p.resultNumber),
+        title: `Result ${p.resultNumber}`,
       });
+      markerData.set(marker, p);
       const container = document.createElement('div');
       container.className = 'text-xs min-w-[200px]';
       const resultLabel = document.createElement('span');
@@ -417,12 +414,7 @@ const SpiderfiedMarkers: React.FC<{
       (marker as L.Marker & { _popupContent?: HTMLElement })._popupContent =
         container;
 
-      const isCollapsedOverlappingMarker = () => {
-        return !marker._omsData && hasNearbyMarker();
-      };
-
       marker.on('mouseover', () => {
-        if (isCollapsedOverlappingMarker()) return;
         setHoveredResourceSource('map');
         setHoveredResourceId(p.resource.id);
         setHoveredGeometry(p.hoverGeometry);
@@ -435,43 +427,26 @@ const SpiderfiedMarkers: React.FC<{
           setHoveredGeometry(null);
         }
       });
-
-      marker.on('click', () => {
-        if (isCollapsedOverlappingMarker()) return;
-        const nextSelected =
-          selectedResourceIdRef.current === p.resource.id
-            ? null
-            : p.resource.id;
-        selectedResourceIdRef.current = nextSelected;
-        setSelectedResourceId(nextSelected);
-        setHoveredResourceSource(nextSelected ? 'map' : null);
-        setHoveredResourceId(nextSelected);
-        setHoveredGeometry(nextSelected ? p.hoverGeometry : null);
-      });
       marker.addTo(map);
       oms.addMarker(marker);
       entries.push({
         marker,
         resourceId: p.resource.id,
-        resultNumber: p.resultNumber,
-        isCollapsedOverlappingMarker,
       });
     });
     entriesRef.current = entries;
-    const refreshMarkerPresentations = () => {
-      entries.forEach((entry) =>
-        updateMarkerPresentation(entry, highlightedResourceIdRef.current)
-      );
-    };
-    map.on('zoomend moveend', refreshMarkerPresentations);
-    refreshMarkerPresentations();
+    entries.forEach((entry) =>
+      updateMarkerPresentation(entry, highlightedResourceIdRef.current)
+    );
 
     return () => {
-      map.off('zoomend moveend', refreshMarkerPresentations);
       oms.clearMarkers();
       entries.forEach((entry) => map.removeLayer(entry.marker));
       if (entriesRef.current === entries) {
         entriesRef.current = [];
+      }
+      if (markerDataRef.current === markerData) {
+        markerDataRef.current.clear();
       }
     };
   }, [

@@ -321,71 +321,37 @@ describe('SearchResults Component', () => {
       expect(otherArticle).not.toHaveAttribute('aria-current');
     });
 
-    it.each([
-      ['below the visible list', { top: 600, bottom: 700 }, 250, true],
-      ['above the visible list', { top: -200, bottom: -100 }, 0, true],
-      ['inside the visible list', { top: 100, bottom: 200 }, null, true],
-      [
-        'below the visible list when automatic scrolling is disabled',
-        { top: 600, bottom: 700 },
-        null,
-        false,
-      ],
-    ])(
-      'handles a highlighted compact result %s',
-      (_position, bounds, expectedScrollTop, autoScrollHighlightedResult) => {
-        const { rerender } = render(
-          <TestWrapper>
-            <SearchResults
-              results={mockFixtureData.slice(0, 2)}
-              isLoading={false}
-              totalResults={2}
-              currentPage={1}
-              variant="compact"
-            />
-          </TestWrapper>
-        );
+    it('does not scroll when a compact map result is highlighted', () => {
+      const scrollTo = vi
+        .spyOn(window, 'scrollTo')
+        .mockImplementation(() => {});
+      const { rerender } = render(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData.slice(0, 2)}
+            isLoading={false}
+            totalResults={2}
+            currentPage={1}
+            variant="compact"
+          />
+        </TestWrapper>
+      );
 
-        const highlightedArticle = screen
-          .getByText('Nondigitized paper map with library catalog link')
-          .closest('article') as HTMLElement;
-        const resultList = screen.getByTestId('map-results-scroll-container');
-        const scrollTo = vi
-          .spyOn(window, 'scrollTo')
-          .mockImplementation(() => {});
-        vi.spyOn(window, 'scrollY', 'get').mockReturnValue(50);
-        vi.spyOn(resultList, 'getBoundingClientRect').mockReturnValue({
-          top: 0,
-          bottom: 500,
-        } as DOMRect);
-        vi.spyOn(highlightedArticle, 'getBoundingClientRect').mockReturnValue(
-          bounds as DOMRect
-        );
+      rerender(
+        <TestWrapper>
+          <SearchResults
+            results={mockFixtureData.slice(0, 2)}
+            isLoading={false}
+            totalResults={2}
+            currentPage={1}
+            variant="compact"
+            highlightedResourceId={mockFixtureData[0].id}
+          />
+        </TestWrapper>
+      );
 
-        rerender(
-          <TestWrapper>
-            <SearchResults
-              results={mockFixtureData.slice(0, 2)}
-              isLoading={false}
-              totalResults={2}
-              currentPage={1}
-              variant="compact"
-              highlightedResourceId={mockFixtureData[0].id}
-              autoScrollHighlightedResult={autoScrollHighlightedResult}
-            />
-          </TestWrapper>
-        );
-
-        if (expectedScrollTop !== null) {
-          expect(scrollTo).toHaveBeenCalledWith({
-            top: expectedScrollTop,
-            behavior: 'smooth',
-          });
-        } else {
-          expect(scrollTo).not.toHaveBeenCalled();
-        }
-      }
-    );
+      expect(scrollTo).not.toHaveBeenCalled();
+    });
 
     it('lets compact map results contribute their full height to the page', () => {
       render(

@@ -25,6 +25,17 @@ export default defineConfig({
         __dirname,
         "src/geoblacklight/layer_index_map.ts",
       ),
+      // Keep the upstream Leaflet viewer's basemap catalog OSM-only.
+      "geoblacklight/leaflet/basemaps": path.resolve(
+        __dirname,
+        "src/geoblacklight/basemaps.ts",
+      ),
+      // The registered legacy OpenLayers controller is not used by the React
+      // viewer, but keep its fallback provider on OSM as well.
+      "geoblacklight/openlayers/basemaps": path.resolve(
+        __dirname,
+        "src/geoblacklight/openlayers_basemaps.ts",
+      ),
       // Local override: GeoBlacklight 5.1.0 does not pass its MAP options to L.map.
       // This keeps the upstream controller intact except for map creation.
       "geoblacklight/controllers/leaflet_viewer_controller": path.resolve(

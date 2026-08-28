@@ -8,17 +8,24 @@ This script tests:
 3. Network error handling
 """
 
+import io
 import logging
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
 
+import staticmaps
+
 # Add project root to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.services.static_map_service import StaticMapService  # noqa: E402
+from app.services.static_map_service import (  # noqa: E402
+    OPENSTREETMAP_TILE_PROVIDER,
+    STATIC_MAP_TILE_USER_AGENT,
+    StaticMapService,
+)
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -28,13 +35,16 @@ logger = logging.getLogger(__name__)
 
 
 def test_tile_server_connectivity():
-    """Test if we can reach the Carto tile server."""
-    test_url = "http://a.basemaps.cartocdn.com/rastertiles/light_all/1/0/0.png"
+    """Test if we can reach the configured OpenStreetMap tile server."""
+    test_url = OPENSTREETMAP_TILE_PROVIDER.url(1, 0, 0)
+    if not test_url:
+        logger.error("✗ OpenStreetMap tile provider did not produce a test URL")
+        return False
     logger.info(f"Testing connectivity to tile server: {test_url}")
 
     try:
         req = urllib.request.Request(test_url)
-        req.add_header("User-Agent", "BTAA-Geospatial-API/1.0")
+        req.add_header("User-Agent", STATIC_MAP_TILE_USER_AGENT)
         with urllib.request.urlopen(req, timeout=10) as response:
             status = response.getcode()
             content_length = len(response.read())
@@ -53,27 +63,26 @@ def test_tile_server_connectivity():
 
 
 def test_static_map_generation():
-    """Test static map generation with a sample bounding box."""
+    """Test static map generation with a sample center and zoom."""
     logger.info("Testing static map generation...")
-
-    # Test with a small bounding box (Minneapolis area)
-    test_bbox = "ENVELOPE(-93.5, -93.0, 45.0, 44.9)"
-    test_resource_id = "debug-test-map"
 
     try:
         service = StaticMapService()
-        logger.info(f"Using maps directory: {service.maps_dir}")
+        context = service._map_context()
+        context.set_center(staticmaps.create_latlng(44.9778, -93.2650))
+        context.set_zoom(8)
+        surface = context.render_cairo(256, 256)
+        image_bytes = io.BytesIO()
+        surface.write_to_png(image_bytes)
 
-        # Try to generate a map
-        map_path = service.generate_map(test_resource_id, test_bbox)
-
-        if map_path and map_path.exists():
-            logger.info(f"✓ Successfully generated static map: {map_path}")
-            logger.info(f"  File size: {map_path.stat().st_size} bytes")
+        if image_bytes.tell() > 0:
+            logger.info(
+                "✓ Successfully rendered an OpenStreetMap static map (%s bytes)",
+                image_bytes.tell(),
+            )
             return True
-        else:
-            logger.error("✗ Map generation returned None or file doesn't exist")
-            return False
+        logger.error("✗ Static map rendering produced an empty image")
+        return False
 
     except Exception as e:
         logger.error(f"✗ Error generating static map: {e}", exc_info=True)
@@ -152,9 +161,9 @@ def main():
             "3. DNS resolution may be failing\n"
             "\n"
             "Solutions:\n"
-            "1. Check firewall rules to allow outbound HTTP/HTTPS traffic\n"
-            "2. Verify DNS resolution: nslookup basemaps.cartocdn.com\n"
-            "3. Test manual connection: curl http://a.basemaps.cartocdn.com/rastertiles/light_all/1/0/0.png\n"
+            "1. Check firewall rules to allow outbound HTTPS traffic\n"
+            "2. Verify DNS resolution: nslookup tile.openstreetmap.org\n"
+            "3. Test manual connection: curl https://tile.openstreetmap.org/1/0/0.png\n"
             "4. Consider using a proxy server if outbound traffic must be restricted\n"
         )
 

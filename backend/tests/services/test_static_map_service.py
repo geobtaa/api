@@ -2,8 +2,52 @@ from unittest.mock import MagicMock, call, patch
 
 import staticmaps
 
-from app.services.static_map_service import StaticMapService
+from app.services.static_map_service import (
+    OPENSTREETMAP_TILE_PROVIDER,
+    STATIC_MAP_TILE_USER_AGENT,
+    StaticMapService,
+)
 from app.services.visual_asset_cache import cache_visual_asset
+
+
+def test_map_context_uses_canonical_openstreetmap_tiles_and_application_user_agent():
+    service = StaticMapService()
+
+    with patch("app.services.static_map_service.staticmaps.Context") as context_type:
+        context = context_type.return_value
+        result = service._map_context()
+
+    assert result is context
+    assert OPENSTREETMAP_TILE_PROVIDER.url(4, 3, 6) == ("https://tile.openstreetmap.org/4/3/6.png")
+    assert "OpenStreetMap" in OPENSTREETMAP_TILE_PROVIDER.attribution()
+    context.set_tile_provider.assert_called_once_with(OPENSTREETMAP_TILE_PROVIDER)
+    context._tile_downloader.set_user_agent.assert_called_once_with(STATIC_MAP_TILE_USER_AGENT)
+
+
+def test_static_map_variants_change_with_openstreetmap_provider():
+    service = StaticMapService()
+
+    assert service.geometry_variant() == "static_map_v10"
+    assert service.basemap_variant() == "static_basemap_v8"
+
+
+def test_centered_basemap_respects_openstreetmap_max_zoom():
+    service = StaticMapService()
+    context = MagicMock()
+
+    with (
+        patch.object(service, "_map_context", return_value=context),
+        patch.object(service, "_render_and_cache", return_value=b"map"),
+    ):
+        result = service.generate_centered_basemap(
+            "campus",
+            latitude=44.9778,
+            longitude=-93.2650,
+            zoom=20,
+        )
+
+    assert result == b"map"
+    context.set_zoom.assert_called_once_with(19)
 
 
 def test_get_asset_hash_recovers_alias_from_durable_link():

@@ -8,7 +8,7 @@ import { Header } from '../components/layout/Header';
 import { Footer } from '../components/layout/Footer';
 import type { AdvancedClause, FacetFilter } from '../types/search';
 import { FacetList } from '../components/FacetList';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { Info, SlidersHorizontal, X } from 'lucide-react';
 // import { MapView } from '../components/search/MapView';
 import { MapProvider, useMap } from '../context/MapContext';
 import { SortControl } from '../components/search/SortControl';
@@ -66,7 +66,6 @@ function SearchContent({
 }: SearchPageProps) {
   const {
     hoveredResourceId,
-    hoveredResourceSource,
     hoveredGeometry,
     setHoveredResourceId,
     setHoveredResourceSource,
@@ -877,9 +876,6 @@ function SearchContent({
                           searchId={searchId}
                           searchView={currentView}
                           highlightedResourceId={activeMapResourceId}
-                          autoScrollHighlightedResult={
-                            hoveredResourceSource === 'map'
-                          }
                         />
                       </div>
 
@@ -891,11 +887,14 @@ function SearchContent({
                         {!activeIsLoading && (
                           <aside
                             aria-label="Map results note"
-                            className="absolute left-16 right-3 top-3 z-20 rounded-md border border-blue-100 bg-blue-50/95 px-3 py-2 text-sm text-blue-900 shadow-md backdrop-blur-sm sm:left-auto sm:w-80"
+                            className="absolute left-16 right-3 top-3 z-20 flex items-start gap-2 rounded-md border border-blue-100 bg-blue-50/95 px-3 py-2 text-sm text-blue-900 shadow-md backdrop-blur-sm sm:left-auto sm:w-80 lg:w-auto lg:items-center lg:whitespace-nowrap"
                           >
+                            <Info
+                              aria-hidden="true"
+                              className="h-4 w-4 shrink-0"
+                            />
                             <p>
-                              This map only renders the current page of search
-                              results. Use pagination to review other matches.
+                              This map shows the current page of search results
                             </p>
                           </aside>
                         )}

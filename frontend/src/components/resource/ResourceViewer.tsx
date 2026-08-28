@@ -601,6 +601,7 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
             id="leaflet-viewer"
             className="viewer h-[500px]"
             data-controller="leaflet-viewer"
+            data-leaflet-viewer-basemap-value="openstreetmapStandard"
             data-leaflet-viewer-available-value={available}
             data-leaflet-viewer-map-geom-value={JSON.stringify(geometry)}
             data-leaflet-viewer-layer-id-value={layerIdentifier}

@@ -1,5 +1,5 @@
 {
-  "version": "0.8.20",
+  "version": "0.8.21",
   "release_date": "2026-08-28",
-  "summary": "Improve map hover and list highlighting, pagination clarity, and marker styling, and retain a single production database backup by default."
+  "summary": "Improve search Map View interactions and replace CARTO basemaps with OpenStreetMap across interactive and static maps."
 }
