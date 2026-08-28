@@ -667,7 +667,7 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/resources/nyu-2451-34564/thumbnail"]'
+        'img[src="/resources/nyu-2451-34564/thumbnail?variant=icon-gradient"]'
       );
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
@@ -702,7 +702,7 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/resources/nyu-2451-34564/thumbnail"]'
+        'img[src="/resources/nyu-2451-34564/thumbnail?variant=icon-gradient"]'
       );
       expect(thumbnail).toBeInTheDocument();
     });
@@ -736,7 +736,7 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/resources/nyu-2451-34564/thumbnail"]'
+        'img[src="/resources/nyu-2451-34564/thumbnail?variant=icon-gradient"]'
       );
       expect(thumbnail).toBeInTheDocument();
       expect(thumbnail).toHaveAttribute('alt', '');
@@ -1091,11 +1091,11 @@ describe('SearchResults Component', () => {
       );
 
       const thumbnail = container.querySelector(
-        'img[src="/resources/missing-thumb-test/thumbnail"]'
+        'img[src="/resources/missing-thumb-test/thumbnail?variant=icon-gradient"]'
       );
       expect(thumbnail).toHaveAttribute(
         'src',
-        '/resources/missing-thumb-test/thumbnail'
+        '/resources/missing-thumb-test/thumbnail?variant=icon-gradient'
       );
       expect(thumbnail).toHaveAttribute('alt', '');
     });
