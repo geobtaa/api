@@ -33,47 +33,19 @@ const BASEMAP_DEFINITIONS = {
   },
 } as const satisfies Record<string, BasemapDefinition>;
 
-export type BasemapKey = keyof typeof BASEMAP_DEFINITIONS | 'cartoLight';
-
-function getBasemapDefinitions(): Partial<
-  Record<BasemapKey, BasemapDefinition>
-> {
-  const definitions: Partial<Record<BasemapKey, BasemapDefinition>> = {
-    ...BASEMAP_DEFINITIONS,
-  };
-  const cartoBasemapKey = (import.meta.env.VITE_CARTO_BASEMAP_KEY || '').trim();
-
-  if (cartoBasemapKey) {
-    definitions.cartoLight = {
-      label: 'Carto Light',
-      url: `https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png?key=${encodeURIComponent(cartoBasemapKey)}`,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-      options: {
-        subdomains: 'abcd',
-        maxZoom: 20,
-      },
-    };
-  }
-
-  return definitions;
-}
+export type BasemapKey = keyof typeof BASEMAP_DEFINITIONS;
 
 export function getAvailableBasemapKeys(): BasemapKey[] {
-  return Object.keys(getBasemapDefinitions()) as BasemapKey[];
+  return Object.keys(BASEMAP_DEFINITIONS) as BasemapKey[];
 }
 
-function isBasemapKey(
-  value: string,
-  definitions: Partial<Record<BasemapKey, BasemapDefinition>>
-): value is BasemapKey {
-  return Object.prototype.hasOwnProperty.call(definitions, value);
+function isBasemapKey(value: string): value is BasemapKey {
+  return Object.prototype.hasOwnProperty.call(BASEMAP_DEFINITIONS, value);
 }
 
 export function getSavedBasemapKey(): BasemapKey {
-  const definitions = getBasemapDefinitions();
   const saved = Cookies.get(BASEMAP_COOKIE_NAME);
-  if (saved && isBasemapKey(saved, definitions)) {
+  if (saved && isBasemapKey(saved)) {
     return saved;
   }
   return DEFAULT_BASEMAP_KEY;
@@ -89,10 +61,7 @@ export function createBasemapLayer(
   Leaflet: typeof L,
   key: BasemapKey
 ): L.TileLayer {
-  const config = getBasemapDefinitions()[key];
-  if (!config) {
-    throw new Error(`Basemap "${key}" is not configured`);
-  }
+  const config = BASEMAP_DEFINITIONS[key];
   return Leaflet.tileLayer(config.url, {
     attribution: config.attribution,
     ...config.options,
@@ -104,13 +73,11 @@ export function attachBasemapSwitcher(
   Leaflet: typeof L,
   position: L.ControlPosition = 'topleft'
 ): () => void {
-  const definitions = getBasemapDefinitions();
   const basemapLayers = {} as Record<BasemapKey, L.TileLayer>;
   const labeledLayers: Record<string, L.TileLayer> = {};
 
-  (Object.keys(definitions) as BasemapKey[]).forEach((key) => {
-    const config = definitions[key];
-    if (!config) return;
+  (Object.keys(BASEMAP_DEFINITIONS) as BasemapKey[]).forEach((key) => {
+    const config = BASEMAP_DEFINITIONS[key];
     const layer = createBasemapLayer(Leaflet, key);
     basemapLayers[key] = layer;
     labeledLayers[config.label] = layer;

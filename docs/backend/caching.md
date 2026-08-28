@@ -206,6 +206,8 @@ Deployed TTL, memory, and eviction settings are restricted operations material.
 
 - **Priming for hot paths**:
   - `make prime-thumbnail-cache`, `make prime-static-map-cache`, and `make prime-visual-caches` generate assets ahead of user traffic.
+  - Static-map tile-provider or style changes must bump the generated-map variants so old durable assets are not reused. The OpenStreetMap transition uses `static_map_v10` and `static_basemap_v8`; rerun the static-map primer after upgrading an environment.
+  - The public `tile.openstreetmap.org` service permits normal interactive viewing but [prohibits bulk prefetching](https://operations.osmfoundation.org/policies/tiles/). Do not run a full-corpus static-map primer against that public endpoint; release-wide warming requires an OSM-derived or self-hosted tile source whose terms permit automated static generation. Keep deployed provider and priming details in the restricted operations docs.
   - Run `make resource-aux-init` before first local priming so `generated_visual_assets` and `generated_visual_asset_links` exist.
   - After a Redis reset, priming first tries to rehydrate from durable visual storage before regenerating remote thumbnails or static maps.
   - Full static-map priming defaults to durable assets/links plus small Redis aliases only. Use `PRIME_STATIC_MAP_HYDRATE_ASSETS=1` only for small hotsets when Redis DB 1 should hold the PNG bodies. Full-corpus static-map body hydration is refused unless `PRIME_ALLOW_FULL_HYDRATION=1` is also set.

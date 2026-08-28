@@ -39,16 +39,13 @@ logger = logging.getLogger(__name__)
 
 WEB_MERCATOR_MAX_LATITUDE = 85.05112878
 
-# Custom Carto tile provider (not available in py-staticmaps v0.4.0)
-# Based on: https://github.com/flopp/py-staticmaps/blob/e0266dc40163e87ce42a0ea5d8836a9a4bd92208/staticmaps/tile_provider.py#L132
-# Empty attribution: py-staticmaps skips rendering when attribution is "" (cairo_renderer line 145).
-tile_provider_Carto = staticmaps.TileProvider(
-    "carto",
-    url_pattern="http://$s.basemaps.cartocdn.com/rastertiles/light_all/$z/$x/$y.png",
-    shards=["a", "b", "c", "d"],
-    attribution="",
-    max_zoom=20,
+OPENSTREETMAP_TILE_PROVIDER = staticmaps.TileProvider(
+    "openstreetmap-standard",
+    url_pattern="https://tile.openstreetmap.org/$z/$x/$y.png",
+    attribution=("(C) OpenStreetMap contributors - https://www.openstreetmap.org/copyright"),
+    max_zoom=19,
 )
+STATIC_MAP_TILE_USER_AGENT = "BTAA-Geospatial-Data-API/1.0 (+https://geo.btaa.org/)"
 
 
 class _WebMercatorLine(staticmaps.Line):
@@ -325,8 +322,8 @@ class StaticMapService:
     _STROKE_GLOW_WIDTH = 5
     _LINE_WIDTH = 3
     _TRANSPARENT_COLOR = staticmaps.Color(0, 0, 0, 0)
-    _MAP_VARIANT = "static_map_v9"
-    _BASEMAP_VARIANT = "static_basemap_v7"
+    _MAP_VARIANT = "static_map_v10"
+    _BASEMAP_VARIANT = "static_basemap_v8"
     _ASSET_KEY_PREFIX = "static_map_asset"
     _ALIAS_KEY_PREFIX = "static_map_alias"
     _HASH_RE = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
@@ -378,10 +375,17 @@ class StaticMapService:
         overlay.alpha_composite(icon, (icon_x, icon_y))
         return Image.alpha_composite(rendered, overlay)
 
+    def _map_context(self) -> staticmaps.Context:
+        """Build a map context using the same OpenStreetMap layer as the frontend."""
+        context = staticmaps.Context()
+        context.set_tile_provider(OPENSTREETMAP_TILE_PROVIDER)
+        # py-staticmaps has no public Context setter for its downloader user agent.
+        context._tile_downloader.set_user_agent(STATIC_MAP_TILE_USER_AGENT)
+        return context
+
     def _global_map_context(self) -> staticmaps.Context:
         """Build the shared world-view context for all no-geometry map variants."""
-        context = staticmaps.Context()
-        context.set_tile_provider(tile_provider_Carto)
+        context = self._map_context()
         context.set_center(staticmaps.create_latlng(0, 0))
         context.set_zoom(1)
         return context
@@ -1253,8 +1257,7 @@ class StaticMapService:
                 )
 
             # Create a context for the map
-            context = staticmaps.Context()
-            context.set_tile_provider(tile_provider_Carto)
+            context = self._map_context()
 
             if map_objects:
                 # Use best geometry: actual polygons/lines (same style as show page)
@@ -1385,8 +1388,7 @@ class StaticMapService:
                     hydrate_asset=hydrate_asset,
                 )
 
-            context = staticmaps.Context()
-            context.set_tile_provider(tile_provider_Carto)
+            context = self._map_context()
             if extent_objects:
                 for obj in extent_objects:
                     context.add_object(obj)
@@ -1453,10 +1455,9 @@ class StaticMapService:
                 )
                 return None
 
-            context = staticmaps.Context()
-            context.set_tile_provider(tile_provider_Carto)
+            context = self._map_context()
             context.set_center(staticmaps.create_latlng(latitude, longitude))
-            context.set_zoom(max(1, min(int(zoom), 20)))
+            context.set_zoom(max(1, min(int(zoom), OPENSTREETMAP_TILE_PROVIDER.max_zoom())))
             return self._render_and_cache(
                 context,
                 resource_id,

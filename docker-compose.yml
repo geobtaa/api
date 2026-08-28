@@ -78,7 +78,6 @@ services:
       - VITE_TURNSTILE_ENABLE_LOCAL=${VITE_TURNSTILE_ENABLE_LOCAL:-false}
       - VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY:-}
       - VITE_TURNSTILE_ACTION=${VITE_TURNSTILE_ACTION:-geoportal_gate}
-      - VITE_CARTO_BASEMAP_KEY=${VITE_CARTO_BASEMAP_KEY:-}
       # React Router server-side loaders in dev (runs inside this container)
       - API_BASE_URL=http://api:8000/api/v1
       - BTAA_GEOSPATIAL_API_KEY=${BTAA_GEOSPATIAL_API_KEY:-}
