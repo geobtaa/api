@@ -1,5 +1,5 @@
 {
-  "version": "0.8.19",
-  "release_date": "2026-08-26",
-  "summary": "Release 0.8.19: Add CARTO API key to kamal secrets file for basemap access."
+  "version": "0.8.20",
+  "release_date": "2026-08-28",
+  "summary": "Improve map hover and list highlighting, pagination clarity, and marker styling, and retain a single production database backup by default."
 }
