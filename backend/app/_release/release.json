@@ -1,5 +1,5 @@
 {
-  "version": "0.8.21",
+  "version": "0.8.22",
   "release_date": "2026-08-28",
-  "summary": "Improve search Map View interactions and replace CARTO basemaps with OpenStreetMap across interactive and static maps."
+  "summary": "Restore icon-only fallbacks for search-result list thumbnails so resource-class icons no longer appear over map imagery."
 }
