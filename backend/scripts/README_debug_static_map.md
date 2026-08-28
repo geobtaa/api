@@ -5,25 +5,16 @@ The static map endpoint (`/resources/{id}/static-map`) may fail on servers with 
 
 ## Quick Diagnosis
 
-Run the diagnostic script on your Kamal server:
+Run the diagnostic script from the backend development environment:
 
 ```bash
-# SSH into your server
-kamal app exec -i "python scripts/debug_static_map.py"
-```
-
-Or if you have direct SSH access:
-
-```bash
-ssh your-server
-cd /path/to/app
 python scripts/debug_static_map.py
 ```
 
 ## What the Script Tests
 
 1. **Import Check**: Verifies `py-staticmaps` is installed
-2. **Network Connectivity**: Tests if the server can reach `basemaps.cartocdn.com` (the tile server)
+2. **Network Connectivity**: Tests if the app can reach `tile.openstreetmap.org`
 3. **Map Generation**: Attempts to generate a test static map
 
 ## Expected Output
@@ -42,10 +33,9 @@ python scripts/debug_static_map.py
 
 ## Solutions
 
-### Option 1: Allow Outbound HTTP/HTTPS (Recommended)
-Configure your firewall to allow outbound HTTP (port 80) and HTTPS (port 443) traffic to:
-- `*.basemaps.cartocdn.com`
-- `*.cartocdn.com`
+### Option 1: Allow Outbound HTTPS (Recommended)
+Configure your firewall to allow outbound HTTPS (port 443) traffic to:
+- `tile.openstreetmap.org`
 
 ### Option 2: Use a Proxy Server
 If you must restrict outbound traffic, configure an HTTP proxy:
@@ -84,14 +74,13 @@ Test connectivity directly from the server:
 
 ```bash
 # Test DNS resolution
-nslookup basemaps.cartocdn.com
+nslookup tile.openstreetmap.org
 
 # Test HTTP connection
-curl -v http://a.basemaps.cartocdn.com/rastertiles/light_all/1/0/0.png
+curl -v https://tile.openstreetmap.org/1/0/0.png
 
 # Test with timeout
-curl --max-time 10 http://a.basemaps.cartocdn.com/rastertiles/light_all/1/0/0.png
+curl --max-time 10 https://tile.openstreetmap.org/1/0/0.png
 ```
 
 If these fail, it confirms the firewall is blocking outbound traffic.
-
