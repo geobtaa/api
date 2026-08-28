@@ -92,7 +92,7 @@ KAMAL_REINDEX_REMOVE_LEGACY_INDEX ?= true
 # If unset, the target falls back to APPLICATION_URL from Kamal env.
 KAMAL_API_URL ?=
 KAMAL_CACHE_TYPE ?= search
-KAMAL_BACKUP_RETAIN_COUNT ?= 3
+KAMAL_BACKUP_RETAIN_COUNT ?= 1
 KAMAL_NETWORK_SELF_URL ?=
 KAMAL_NETWORK_EXTERNAL_URLS ?= https://api.github.com https://raw.githubusercontent.com https://gin.btaa.org http://example.com
 KAMAL_NETWORK_CONNECT_TIMEOUT ?= 5
@@ -1644,7 +1644,7 @@ kamal-backup-postgres: ## Run production-gated Postgres backup on Kamal
 	@kamal app exec -d $(KAMAL_DEST) --roles cron --reuse "bash -lc '/opt/venv/bin/python3 /app/scripts/backup_postgres_to_s3.py'"
 
 # Manually run the production-gated Elasticsearch snapshot from the cron container.
-# Usage: make kamal-backup-elasticsearch KAMAL_DEST=prd [KAMAL_BACKUP_RETAIN_COUNT=3]
+# Usage: make kamal-backup-elasticsearch KAMAL_DEST=prd [KAMAL_BACKUP_RETAIN_COUNT=1]
 kamal-backup-elasticsearch: ## Run production-gated Elasticsearch S3 snapshot on Kamal
 	@echo "Running Elasticsearch snapshot on Kamal cron container (KAMAL_DEST=$(KAMAL_DEST))..."
 	@if [ -z "$$KAMAL_SSH_USER" ] || [ -z "$$KAMAL_HOST" ]; then \
