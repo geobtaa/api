@@ -53,7 +53,7 @@ describe('getResultPrimaryImageUrl', () => {
     );
   });
 
-  it('uses generic thumbnail generation for non-gallery contexts', () => {
+  it('uses the icon-only fallback for generic list thumbnails', () => {
     const result = resultWithUi({
       thumbnail_url: '/api/v1/resources/resource-1/thumbnail',
       resource_class_icon_url:
@@ -61,10 +61,25 @@ describe('getResultPrimaryImageUrl', () => {
     });
 
     expect(getResultPrimaryImageUrl(result, 'list')).toBe(
-      '/resources/resource-1/thumbnail'
+      '/resources/resource-1/thumbnail?variant=icon-gradient'
     );
+  });
+
+  it('keeps the canonical map fallback for generic map thumbnails', () => {
+    const result = resultWithUi({
+      thumbnail_url: '/api/v1/resources/resource-1/thumbnail',
+    });
+
     expect(getResultPrimaryImageUrl(result, 'map')).toBe(
       '/resources/resource-1/thumbnail'
+    );
+  });
+
+  it('uses the icon-only fallback when a list result has no thumbnail URL', () => {
+    const result = resultWithUi({});
+
+    expect(getResultPrimaryImageUrl(result, 'list')).toBe(
+      '/resources/resource-1/thumbnail?variant=icon-gradient'
     );
   });
 

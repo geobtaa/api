@@ -623,6 +623,41 @@ class TestResourceThumbnailPmtilesFlow:
 
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
     @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
+    def test_icon_gradient_variant_omits_basemap_background(
+        self, mock_fetch_dist, mock_session, client
+    ):
+        """List-view icon fallbacks must not include location-map imagery."""
+        mock_session_instance = AsyncMock()
+        mock_session.return_value.__aenter__.return_value = mock_session_instance
+
+        mock_row = _resource_row("test-list-icon", "{}")
+        mock_result = MagicMock()
+        mock_result.fetchone.return_value = mock_row
+        mock_session_instance.execute = AsyncMock(return_value=mock_result)
+
+        mock_fetch_dist.return_value = MagicMock(by_uri={}, legacy_reference_payload={})
+
+        with (
+            patch("app.api.v1.endpoint_modules.resources.thumbnail.ImageService") as mock_svc_cls,
+            patch(
+                "app.api.v1.endpoint_modules.resources.thumbnail.StaticMapService"
+            ) as mock_map_service_cls,
+        ):
+            svc = MagicMock()
+            svc._get_thumbnail_source_url.return_value = None
+            svc.resolve_thumbnail_source_url.return_value = None
+            mock_svc_cls.return_value = svc
+
+            resp = client.get("/resources/test-list-icon/thumbnail?variant=icon-gradient")
+
+            assert resp.status_code == 200
+            assert resp.headers["content-type"] == "image/svg+xml"
+            assert "data:image/png;base64," not in resp.text
+            assert 'id="iconGrad"' in resp.text
+            mock_map_service_cls.assert_not_called()
+
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.async_session")
+    @patch("app.api.v1.endpoint_modules.resources.thumbnail.fetch_distribution_context")
     def test_pmtiles_skip_marker_marks_placeheld(
         self, mock_fetch_dist, mock_session, client, patch_thumbnail_side_effects
     ):
