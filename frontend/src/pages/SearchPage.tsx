@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useSearchParams } from 'react-router';
 import { SearchResults } from '../components/SearchResults';
-import { Pagination } from '../components/Pagination';
 import { ErrorMessage } from '../components/ErrorMessage';
 import { SearchConstraints } from '../components/search/SearchConstraints';
 import { Header } from '../components/layout/Header';
@@ -65,7 +64,16 @@ function SearchContent({
   isLoading,
   clientSearchEnabled = false,
 }: SearchPageProps) {
-  const { hoveredResourceId, hoveredGeometry } = useMap();
+  const {
+    hoveredResourceId,
+    hoveredResourceSource,
+    hoveredGeometry,
+    setHoveredResourceId,
+    setHoveredResourceSource,
+    setHoveredGeometry,
+    selectedResourceId,
+    setSelectedResourceId,
+  } = useMap();
   const [searchParams, setSearchParams] = useSearchParams();
   const { accordion, setAccordion } = useFacetAccordion();
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -122,7 +130,13 @@ function SearchContent({
 
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
+  const pageStart =
+    searchTotalResults === 0
+      ? 0
+      : Math.min((page - 1) * perPage + 1, searchTotalResults);
+  const pageEnd = Math.min(page * perPage, searchTotalResults);
   const totalPages = Math.ceil(searchTotalResults / perPage);
+  const activeMapResourceId = hoveredResourceId ?? selectedResourceId;
   const hasNoSearchResults =
     !activeIsLoading &&
     Boolean(activeSearchResults) &&
@@ -220,6 +234,41 @@ function SearchContent({
   const error =
     resultError ||
     (shouldFetchClientSearch ? hasCurrentClientError || null : null);
+  const currentResultIds = React.useMemo(
+    () => activeSearchResults?.data?.map((result) => result.id) || [],
+    [activeSearchResults?.data]
+  );
+
+  useEffect(() => {
+    if (currentResultIds.length === 0) {
+      if (hoveredResourceId) {
+        setHoveredResourceId(null);
+        setHoveredResourceSource(null);
+        setHoveredGeometry(null);
+      }
+      if (selectedResourceId) {
+        setSelectedResourceId(null);
+      }
+      return;
+    }
+
+    if (hoveredResourceId && !currentResultIds.includes(hoveredResourceId)) {
+      setHoveredResourceId(null);
+      setHoveredResourceSource(null);
+      setHoveredGeometry(null);
+    }
+    if (selectedResourceId && !currentResultIds.includes(selectedResourceId)) {
+      setSelectedResourceId(null);
+    }
+  }, [
+    currentResultIds,
+    hoveredResourceId,
+    selectedResourceId,
+    setHoveredResourceId,
+    setHoveredResourceSource,
+    setHoveredGeometry,
+    setSelectedResourceId,
+  ]);
 
   const searchContextRef = useRef(currentContext);
   const trackedAnalyticsKeysRef = useRef<Set<string>>(new Set());
@@ -660,31 +709,81 @@ function SearchContent({
               )}
             </aside>
 
-            {/* Right column: "Showing results" header + results list / gallery / map view */}
-            <div className="lg:col-span-9 flex flex-col pt-0 mt-0">
+            {/* Right column: results header + results list / gallery / map view */}
+            <div className="min-w-0 lg:col-span-9 flex flex-col pt-0 mt-0">
               {!hasNoSearchResults && (
                 <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  {error ? (
-                    <h2 className="text-lg text-gray-600">Results</h2>
-                  ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
-                    <h2 className="text-lg text-gray-600">Searching…</h2>
-                  ) : (
-                    <h2 className="text-lg text-gray-600">
-                      Showing results{' '}
-                      {(() => {
-                        const start = Math.min(
-                          (page - 1) * perPage + 1,
-                          searchTotalResults
-                        );
-                        const end = Math.min(
-                          page * perPage,
-                          searchTotalResults
-                        );
-                        return `${formatCount(start)}-${formatCount(end)}`;
-                      })()}{' '}
-                      of {formatCount(searchTotalResults)}
-                    </h2>
-                  )}
+                  <div
+                    data-testid="results-summary-row"
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    {error ? (
+                      <h2 className="text-lg text-gray-600">Results</h2>
+                    ) : activeIsLoading || shouldShowSearchingPlaceholder ? (
+                      <h2 className="text-lg text-gray-600">Searching…</h2>
+                    ) : totalPages > 1 ? (
+                      <>
+                        <h2 className="sr-only">
+                          Results {formatCount(pageStart)}-
+                          {formatCount(pageEnd)} of{' '}
+                          {formatCount(searchTotalResults)}
+                        </h2>
+                        <nav
+                          aria-label={`${
+                            currentView === 'map'
+                              ? 'Map'
+                              : currentView === 'gallery'
+                                ? 'Gallery'
+                                : 'List'
+                          } results pagination`}
+                          className="flex items-center gap-2 whitespace-nowrap text-base"
+                        >
+                          <button
+                            type="button"
+                            aria-label="Previous results page"
+                            onClick={() => handlePageChange(page - 1)}
+                            disabled={page <= 1}
+                            className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
+                          >
+                            « Previous
+                          </button>
+                          <span aria-hidden="true" className="text-gray-300">
+                            |
+                          </span>
+                          <span className="whitespace-nowrap text-gray-600">
+                            <strong className="font-semibold text-gray-900">
+                              {formatCount(pageStart)}
+                            </strong>{' '}
+                            -{' '}
+                            <strong className="font-semibold text-gray-900">
+                              {formatCount(pageEnd)}
+                            </strong>{' '}
+                            of{' '}
+                            <strong className="font-semibold text-gray-900">
+                              {formatCount(searchTotalResults)}
+                            </strong>
+                          </span>
+                          <span aria-hidden="true" className="text-gray-300">
+                            |
+                          </span>
+                          <button
+                            type="button"
+                            aria-label="Next results page"
+                            onClick={() => handlePageChange(page + 1)}
+                            disabled={page >= totalPages}
+                            className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
+                          >
+                            Next »
+                          </button>
+                        </nav>
+                      </>
+                    ) : (
+                      <h2 className="text-lg text-gray-600">
+                        Results {formatCount(pageStart)}-{formatCount(pageEnd)}{' '}
+                        of {formatCount(searchTotalResults)}
+                      </h2>
+                    )}
+                  </div>
                   {!error && (
                     <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                       <button
@@ -764,7 +863,10 @@ function SearchContent({
                   {currentView === 'map' && (
                     <div className="grid grid-cols-1 md:grid-cols-9 gap-4 relative mt-0 pt-0">
                       {/* Middle Column: Brief Results */}
-                      <div className="md:col-span-4 pr-2">
+                      <div
+                        data-testid="map-results-column"
+                        className="pr-2 md:col-span-4"
+                      >
                         <SearchResults
                           results={activeSearchResults?.data || []}
                           isLoading={activeIsLoading}
@@ -774,41 +876,38 @@ function SearchContent({
                           variant="compact"
                           searchId={searchId}
                           searchView={currentView}
+                          highlightedResourceId={activeMapResourceId}
+                          autoScrollHighlightedResult={
+                            hoveredResourceSource === 'map'
+                          }
                         />
-                        {/* Pagination for map view (inside scrollable column) */}
-                        {!activeIsLoading && totalPages > 1 && (
-                          <div className="mt-4">
-                            <Pagination
-                              currentPage={page}
-                              totalPages={totalPages}
-                              onPageChange={handlePageChange}
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* Right Column: Map */}
-                      <div className="md:col-span-5 min-w-0 sticky top-40 h-[calc(100vh-10rem)]">
+                      <div
+                        data-testid="map-results-map"
+                        className="relative h-[calc(100vh-10rem)] min-w-0 md:sticky md:top-40 md:col-span-5 md:self-start"
+                      >
+                        {!activeIsLoading && (
+                          <aside
+                            aria-label="Map results note"
+                            className="absolute left-16 right-3 top-3 z-20 rounded-md border border-blue-100 bg-blue-50/95 px-3 py-2 text-sm text-blue-900 shadow-md backdrop-blur-sm sm:left-auto sm:w-80"
+                          >
+                            <p>
+                              This map only renders the current page of search
+                              results. Use pagination to review other matches.
+                            </p>
+                          </aside>
+                        )}
                         <MapResultView
                           results={activeSearchResults?.data || []}
-                          highlightedResourceId={hoveredResourceId}
+                          highlightedResourceId={activeMapResourceId}
                           highlightedGeometry={hoveredGeometry}
                           resultStartIndex={(page - 1) * perPage + 1}
                         />
                       </div>
                     </div>
                   )}
-
-                  {/* Pagination for List and Grid views (bottom of page) */}
-                  {!activeIsLoading &&
-                    totalPages > 1 &&
-                    (currentView === 'list' || currentView === 'gallery') && (
-                      <Pagination
-                        currentPage={page}
-                        totalPages={totalPages}
-                        onPageChange={handlePageChange}
-                      />
-                    )}
                 </>
               )}
             </div>

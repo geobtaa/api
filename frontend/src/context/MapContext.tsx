@@ -1,10 +1,20 @@
-import React, { createContext, useCallback, useContext, useRef, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useRef,
+  useState,
+} from 'react';
 
 interface MapContextType {
   hoveredGeometry: string | null;
   setHoveredGeometry: (geometry: string | null) => void;
   hoveredResourceId: string | null;
   setHoveredResourceId: (id: string | null) => void;
+  hoveredResourceSource: 'map' | 'results' | null;
+  setHoveredResourceSource: (source: 'map' | 'results' | null) => void;
+  selectedResourceId: string | null;
+  setSelectedResourceId: (id: string | null) => void;
   /** Only updates hoveredGeometry if user is still hovering this resource (avoids race with fetch) */
   setGeometryIfHovering: (resourceId: string, geometry: string | null) => void;
 }
@@ -16,14 +26,23 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
   const [hoveredResourceId, setHoveredResourceId] = useState<string | null>(
     null
   );
+  const [hoveredResourceSource, setHoveredResourceSource] = useState<
+    'map' | 'results' | null
+  >(null);
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(
+    null
+  );
   const hoveredIdRef = useRef<string | null>(null);
   hoveredIdRef.current = hoveredResourceId;
 
-  const setGeometryIfHovering = useCallback((resourceId: string, geometry: string | null) => {
-    if (hoveredIdRef.current === resourceId) {
-      setHoveredGeometry(geometry);
-    }
-  }, []);
+  const setGeometryIfHovering = useCallback(
+    (resourceId: string, geometry: string | null) => {
+      if (hoveredIdRef.current === resourceId) {
+        setHoveredGeometry(geometry);
+      }
+    },
+    []
+  );
 
   return (
     <MapContext.Provider
@@ -32,6 +51,10 @@ export function MapProvider({ children }: { children: React.ReactNode }) {
         setHoveredGeometry,
         hoveredResourceId,
         setHoveredResourceId,
+        hoveredResourceSource,
+        setHoveredResourceSource,
+        selectedResourceId,
+        setSelectedResourceId,
         setGeometryIfHovering,
       }}
     >

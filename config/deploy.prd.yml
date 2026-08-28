@@ -118,7 +118,7 @@ env:
     BACKUP_REQUIRED_DEST: prd
     BACKUP_POSTGRES_TARGET: "<%= ENV.fetch('BACKUP_POSTGRES_TARGET', 'local') %>"
     BACKUP_LOCAL_DIR: "<%= ENV.fetch('BACKUP_LOCAL_DIR', '/var/backups/btaa-geospatial-api') %>"
-    BACKUP_RETENTION_COUNT: "<%= ENV.fetch('BACKUP_RETENTION_COUNT', '3') %>"
+    BACKUP_RETENTION_COUNT: "<%= ENV.fetch('BACKUP_RETENTION_COUNT', '1') %>"
     BACKUP_S3_BUCKET: "<%= ENV.fetch('BACKUP_S3_BUCKET', '') %>"
     BACKUP_S3_PREFIX: "<%= ENV.fetch('BACKUP_S3_PREFIX', 'btaa-geospatial-api') %>"
     BACKUP_S3_REGION: "<%= ENV.fetch('BACKUP_S3_REGION', ENV.fetch('AWS_REGION', 'us-east-2')) %>"

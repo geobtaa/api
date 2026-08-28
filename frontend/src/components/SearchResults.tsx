@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router';
 import type { GeoDocument } from '../types/api';
 import { BookOpen } from 'lucide-react';
@@ -26,6 +26,8 @@ interface SearchResultsProps {
   variant?: 'default' | 'compact';
   searchId?: string;
   searchView?: 'list' | 'gallery' | 'map';
+  highlightedResourceId?: string | null;
+  autoScrollHighlightedResult?: boolean;
 }
 
 export function SearchResults({
@@ -37,13 +39,21 @@ export function SearchResults({
   variant = 'default',
   searchId,
   searchView = 'list',
+  highlightedResourceId = null,
+  autoScrollHighlightedResult = false,
 }: SearchResultsProps) {
   const { showDetails } = useDebug();
   const location = useLocation();
-  const { setHoveredGeometry, setHoveredResourceId, setGeometryIfHovering } =
-    useMap();
+  const {
+    setHoveredGeometry,
+    setHoveredResourceId,
+    setHoveredResourceSource,
+    setGeometryIfHovering,
+  } = useMap();
   const { isBookmarked } = useBookmarks();
   const [imageErrors, setImageErrors] = useState<Set<string>>(new Set());
+  const resultListRef = useRef<HTMLDivElement>(null);
+  const resultCardRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   const isCompact = variant === 'compact';
   const thumbnailWrapperClass = isCompact ? 'w-24' : 'w-24 md:w-48';
@@ -55,6 +65,41 @@ export function SearchResults({
   const titleClass = isCompact
     ? 'text-sm line-clamp-2'
     : 'text-sm line-clamp-2 md:text-xl';
+
+  useEffect(() => {
+    if (!isCompact || !highlightedResourceId || !autoScrollHighlightedResult)
+      return;
+
+    const highlightedCard = resultCardRefs.current.get(highlightedResourceId);
+    const resultList = resultListRef.current;
+    if (!highlightedCard || !resultList) return;
+
+    const cardBounds = highlightedCard.getBoundingClientRect();
+    const listBounds = resultList.getBoundingClientRect();
+    const viewportHeight =
+      window.innerHeight || document.documentElement.clientHeight;
+    const headerBottom =
+      document.querySelector('header')?.getBoundingClientRect().bottom ?? 0;
+    const visibleListTop = Math.max(listBounds.top, headerBottom, 0);
+    const visibleListBottom = Math.min(listBounds.bottom, viewportHeight);
+    if (visibleListBottom <= visibleListTop) return;
+
+    let scrollDelta = 0;
+    if (cardBounds.top < visibleListTop) {
+      scrollDelta = cardBounds.top - visibleListTop;
+    } else if (cardBounds.bottom > visibleListBottom) {
+      scrollDelta = cardBounds.bottom - visibleListBottom;
+    }
+
+    if (scrollDelta !== 0) {
+      const targetScrollTop = Math.max(0, window.scrollY + scrollDelta);
+
+      window.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth',
+      });
+    }
+  }, [autoScrollHighlightedResult, highlightedResourceId, isCompact]);
 
   // Calculate absolute index in full result set (1-based)
   const getAbsoluteIndex = (relativeIndex: number) => {
@@ -103,7 +148,13 @@ export function SearchResults({
   }
 
   return (
-    <div className="space-y-6">
+    <div
+      ref={resultListRef}
+      data-testid={isCompact ? 'map-results-scroll-container' : undefined}
+      className={`min-w-0 space-y-6 ${
+        isCompact ? 'md:pt-1 md:pr-2 md:pb-1 md:pl-1' : ''
+      }`}
+    >
       {results.map((result, index) => {
         const ogm = result?.attributes?.ogm;
         const title = ogm?.dct_title_s ?? '(Untitled)';
@@ -123,12 +174,27 @@ export function SearchResults({
               : String(description);
 
         const hoverGeometry = getHoverGeometryForResult(result);
+        const isHighlighted = highlightedResourceId === result.id;
         return (
           <article
             key={result.id}
-            className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow relative group"
+            ref={(element) => {
+              if (element) {
+                resultCardRefs.current.set(result.id, element);
+              } else {
+                resultCardRefs.current.delete(result.id);
+              }
+            }}
+            className={`min-w-0 bg-white rounded-lg shadow-md hover:shadow-lg transition-all relative group ${
+              isHighlighted
+                ? 'ring-2 ring-blue-500/80 bg-blue-50 shadow-md'
+                : ''
+            }`}
             data-geom={hoverGeometry ?? ''}
+            data-resource-id={result.id}
+            aria-current={isHighlighted ? 'true' : undefined}
             onMouseEnter={() => {
+              setHoveredResourceSource('results');
               setHoveredResourceId?.(result.id);
               if (hoverGeometry) {
                 setHoveredGeometry(hoverGeometry);
@@ -146,9 +212,10 @@ export function SearchResults({
             onMouseLeave={() => {
               setHoveredGeometry(null);
               setHoveredResourceId?.(null);
+              setHoveredResourceSource(null);
             }}
           >
-            <div className="flex">
+            <div className="flex min-w-0">
               {/* Thumbnail */}
               <div
                 className={`${thumbnailWrapperClass} flex-shrink-0 relative group/thumb`}
@@ -204,7 +271,9 @@ export function SearchResults({
               <div className="sr-only">Result {getAbsoluteIndex(index)}</div>
 
               {/* Content */}
-              <div className={`flex-1 flex flex-col ${contentPaddingClass}`}>
+              <div
+                className={`min-w-0 flex-1 flex flex-col ${contentPaddingClass}`}
+              >
                 {showDetails && (
                   <pre className="overflow-auto text-xs">
                     {JSON.stringify(result, null, 2)}
