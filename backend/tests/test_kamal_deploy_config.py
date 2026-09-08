@@ -96,7 +96,7 @@ def test_prd_memory_profile_protects_service_headroom():
     prd_config = _load_deploy_config("config/deploy.prd.yml")
     config_text = (REPO_ROOT / "config/deploy.prd.yml").read_text()
 
-    assert prd_config["servers"]["web"]["options"]["memory"] == "5120m"
+    assert prd_config["servers"]["web"]["options"]["memory"] == "6144m"
     assert prd_config["servers"]["worker"]["options"]["memory"] == "4096m"
 
     elasticsearch = prd_config["accessories"]["elasticsearch"]

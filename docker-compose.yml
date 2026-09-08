@@ -33,6 +33,7 @@ services:
       - KITHE_BRIDGE_REQUEST_TIMEOUT=${KITHE_BRIDGE_REQUEST_TIMEOUT:-30}
       # Allow .env to control endpoint caching (default: true)
       - ENDPOINT_CACHE=${ENDPOINT_CACHE:-true}
+      - CACHE_REDIS_COMPRESSION_ENABLED=${CACHE_REDIS_COMPRESSION_ENABLED:-false}
       # Optional: emit X-Cache headers when caching is enabled
       - CACHE_DEBUG_HEADERS=${CACHE_DEBUG_HEADERS:-false}
       - GAZETTEER_CACHE_TTL=3600
