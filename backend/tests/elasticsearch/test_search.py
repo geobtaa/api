@@ -10,6 +10,12 @@ from fastapi import HTTPException
 from app.elasticsearch.search import (
     BBOX_SPATIAL_BOOST_WEIGHT,
     MIN_BBOX_IOU_OVERLAP_RATIO,
+    SearchFacetSelection,
+    SearchParams,
+    SearchQueryBuilder,
+    _accession_day_query,
+    _build_advanced_query,
+    _build_all_fields_query,
     _build_bbox_overlap_filter,
     _build_exact_filter_clauses,
     _compute_bbox_spatial_metrics,
@@ -1473,3 +1479,44 @@ class TestElasticsearchSearch:
                 assert len(sort_param) >= 1
                 assert sort_param[0] == {"gbl_indexYear_im": "asc"}
                 assert "gbl_indexyear_im" not in str(sort_param)  # Should not use lowercase
+
+
+@pytest.mark.parametrize("query", ['"20d-0006"', "missing_bbox", "ordinary words"])
+def test_record_groupings_in_all_fields_search(query):
+    params = SearchParams(query=query)
+    builder = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ()))
+    regular = builder._build_text_query_clause(query)
+    advanced = _build_advanced_query([{"op": "AND", "f": "all_fields", "q": query}])
+    assert regular == advanced["must"][0]
+    assert regular["query_string"]["query"] == query
+    assert "b1g_code_s" in regular["query_string"]["fields"]
+    assert "b1g_adminTags_sm" in regular["query_string"]["fields"]
+    # Date fields must not receive arbitrary text, which would cause parse errors.
+    assert "b1g_dateAccessioned_s" not in regular["query_string"]["fields"]
+
+
+@pytest.mark.parametrize("field", ["b1g_dateAccessioned_s", "b1g_dateAccessioned_dt"])
+@pytest.mark.parametrize("query", ["2026-06-30", '"2026-06-30"'])
+def test_accession_day_search_supports_both_field_names(field, query):
+    expected = {
+        "range": {
+            field: {
+                "gte": "2026-06-30T00:00:00Z",
+                "lt": "2026-06-30T00:00:00Z||+1d",
+            }
+        }
+    }
+    params = SearchParams(query=query, search_fields=field)
+    builder = SearchQueryBuilder(params, params.criteria(), SearchFacetSelection({}, ()))
+    assert builder._build_text_query_clause(query) == expected
+    advanced = _build_advanced_query([{"op": "NOT", "f": field, "q": query}])
+    assert advanced["must_not"] == [expected]
+    all_fields = _build_all_fields_query(query)["bool"]
+    assert all_fields["minimum_should_match"] == 1
+    assert expected in all_fields["should"][1]["bool"]["should"]
+
+
+@pytest.mark.parametrize("query", ["2026-02-30", "2026-13-01", "missing_bbox", "2026", "20260630"])
+def test_non_dates_do_not_add_accession_range(query):
+    assert _accession_day_query(query) is None
+    assert "query_string" in _build_all_fields_query(query)
