@@ -3,6 +3,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useSearchParams } from 'react-router';
 import { cellToBoundary } from 'h3-js';
+import { h3CellGeometry } from '../../utils/h3Geometry';
 import { fetchMapH3 } from '../../services/api';
 import { HexLayerToggleControl } from '../map/HexLayerToggleControl';
 import { MapGeosearchControl } from '../map/MapGeosearchControl';
@@ -489,18 +490,10 @@ export function GeospatialFilterMap({
 
         const maxCount = Math.max(...res.hexes.map((h) => h.count), 1);
         const features = res.hexes.map((h) => {
-          const vs = cellToBoundary(h.h3);
-          const ring = vs.map(
-            ([lat, lng]: [number, number]) => [lng, lat] as [number, number]
-          );
-          ring.push(ring[0]);
           return {
             type: 'Feature' as const,
             properties: { h3: h.h3, count: h.count },
-            geometry: {
-              type: 'Polygon' as const,
-              coordinates: [ring],
-            },
+            geometry: h3CellGeometry(h.h3),
           };
         });
         const fc = { type: 'FeatureCollection' as const, features };
