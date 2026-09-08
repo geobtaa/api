@@ -38,6 +38,27 @@ search-cache clear workflow invalidates them.
 
 Caching can be turned on/off globally via env.
 
+### Redis response-record compression
+
+Set `CACHE_REDIS_COMPRESSION_ENABLED=true` in the API process environment to
+compress endpoint response records in Redis. Writing compressed records is
+disabled by default; readers always accept both legacy JSON and the versioned
+compressed format. Enable writes only after all processes sharing the cache
+have compatible readers. Disabling writes still allows existing compressed
+entries to be read until they expire.
+
+Records of at least 4 KiB use zlib level 1 only when the encoded value saves at
+least 10%. Records larger than 16 MiB remain uncompressed; decompression is
+bounded to 16 MiB. Corrupt or unsupported records follow the normal durable
+cache fallback. TTLs, tags, ETags, HTTP bodies, and durable PostgreSQL records
+are unchanged. This setting does not compress visual assets or the generic
+JSON cache used for resource representations.
+
+Verify locally with a response larger than 4 KiB: compare its body and ETag
+on the initial request and subsequent cache hit, inspect Redis `MEMORY USAGE`,
+and compare request latency with compression enabled and disabled. Detailed
+deployment and rollback procedures belong in the restricted operations docs.
+
 ---
 
 ## Enable caching

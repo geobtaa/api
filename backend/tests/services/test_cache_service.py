@@ -14,6 +14,7 @@ from app.services.cache_service import (
     cached_endpoint,
     invalidate_cache_with_prefix,
 )
+from app.services.response_cache_codec import COMPRESSION_PREFIX, decode_response_record
 
 
 class FakeRedisPipeline:
@@ -359,6 +360,112 @@ class TestCacheServiceDurableResponses:
         mock_store_durable.assert_awaited_once()
         assert mock_store_durable.await_args.kwargs["namespace"] == "search_ns"
         assert set(mock_store_durable.await_args.kwargs["tags"]) == {"search", "resource:r1"}
+
+    @pytest.mark.asyncio
+    async def test_compressed_record_keeps_ttl_and_durable_payload(self):
+        record = {"schema": 2, "body_b64": "e30=" * 3000, "etag": 'W/"original"'}
+        fake_redis = FakeRedis()
+        with (
+            patch("app.services.cache_service.ENDPOINT_CACHE", True),
+            patch("app.services.cache_service.CACHE_REDIS_COMPRESSION_ENABLED", True),
+            patch(
+                "app.services.cache_service.store_durable_api_response", new=AsyncMock()
+            ) as store,
+            patch("app.services.cache_service.get_durable_api_response", new=AsyncMock()) as get,
+        ):
+            service = CacheService()
+            service._redis_client = fake_redis
+            assert await service.set_record("key", record, 123, namespace="resource")
+            key, encoded, ttl, _ = fake_redis.set_calls[0]
+            assert (key, ttl) == ("key", 123)
+            assert encoded.startswith(COMPRESSION_PREFIX)
+            assert decode_response_record(encoded) == record
+            assert store.await_args.args == ("key", record)
+            fake_redis.get_value = encoded
+            # Turning writes off must not prevent reading existing compressed entries.
+            with patch("app.services.cache_service.CACHE_REDIS_COMPRESSION_ENABLED", False):
+                assert await service.get_record("key") == record
+            get.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_corrupt_compressed_record_recovers_from_durable_cache(self):
+        record = {"schema": 2, "body_b64": "e30=", "hard_exp": time.time() + 60}
+        fake_redis = FakeRedis(get_value=COMPRESSION_PREFIX + b"broken")
+        with (
+            patch("app.services.cache_service.ENDPOINT_CACHE", True),
+            patch(
+                "app.services.cache_service.get_durable_api_response",
+                new=AsyncMock(return_value=(record, set(), "resource")),
+            ),
+            patch(
+                "app.services.cache_service.store_durable_api_response", new=AsyncMock()
+            ) as store,
+        ):
+            service = CacheService()
+            service._redis_client = fake_redis
+            assert await service.get_record("key") == record
+            assert decode_response_record(fake_redis.set_calls[0][1]) == record
+            store.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_compressed_http_hit_preserves_body_etag_and_conditional_response(self):
+        from fastapi import FastAPI, Request
+        from fastapi.responses import JSONResponse
+        from httpx import ASGITransport, AsyncClient
+
+        class MemoryRedis(FakeRedis):
+            def __init__(self):
+                super().__init__()
+                self.values = {}
+
+            async def get(self, key):
+                return self.values.get(key)
+
+            async def set(self, key, value, ex=None, nx=False):
+                if nx and key in self.values:
+                    return False
+                self.values[key] = value
+                return await super().set(key, value, ex=ex, nx=nx)
+
+        redis = MemoryRedis()
+        with (
+            patch("app.services.cache_service.ENDPOINT_CACHE", True),
+            patch("app.services.cache_service.CACHE_REDIS_COMPRESSION_ENABLED", True),
+            patch("app.services.cache_service.CACHE_DEBUG_HEADERS", True),
+            patch(
+                "app.services.cache_service.get_durable_api_response",
+                new=AsyncMock(return_value=None),
+            ),
+            patch("app.services.cache_service.store_durable_api_response", new=AsyncMock()),
+        ):
+            service = CacheService()
+            service._redis_client = redis
+            app = FastAPI()
+            calls = 0
+
+            @app.get("/compressed")
+            @cached_endpoint(ttl=60)
+            async def endpoint(request: Request):
+                nonlocal calls
+                calls += 1
+                return JSONResponse({"data": [{"title": "Example resource"}] * 500})
+
+            async with AsyncClient(
+                transport=ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                first = await client.get("/compressed")
+                second = await client.get("/compressed")
+                conditional = await client.get(
+                    "/compressed", headers={"If-None-Match": first.headers["etag"]}
+                )
+            assert first.status_code == second.status_code == 200
+            assert first.content == second.content
+            assert first.headers["etag"] == second.headers["etag"]
+            assert second.headers["x-cache"] == "HIT"
+            assert conditional.status_code == 304
+            assert conditional.content == b""
+            assert calls == 1
+            assert any(value.startswith(COMPRESSION_PREFIX) for value in redis.values.values())
 
     @pytest.mark.asyncio
     async def test_invalidate_tags_deletes_durable_responses_even_without_redis(self):
