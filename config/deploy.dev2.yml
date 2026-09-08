@@ -86,6 +86,14 @@ env:
     WEB_SSR_WORKERS: "3"
 
 accessories:
+  redis:
+    options:
+      memory: 14g
+    env:
+      clear:
+        REDIS_MAXMEMORY: "12gb"
+        REDIS_MAXMEMORY_POLICY: "volatile-lru"
+
   elasticsearch:
     env:
       clear:
