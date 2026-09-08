@@ -12,21 +12,25 @@ packages within the existing version ranges and raised the tar override to
 `^7.5.21`. The lockfiles were regenerated with the package managers.
 
 Comparing every reported vulnerable range against the updated lockfiles places
-92 of the 96 original dependency alerts outside their vulnerable ranges:
+89 of the 96 original dependency alerts outside their vulnerable ranges:
 
 | Manifest group | Critical | High | Medium | Low | Total |
 | --- | ---: | ---: | ---: | ---: | ---: |
 | Backend | 0 | 28 | 12 | 2 | 42 |
-| Frontend | 1 | 25 | 19 | 5 | 50 |
+| Frontend | 1 | 25 | 17 | 4 | 47 |
 
-These are expected reductions, not confirmed GitHub closures. GitHub must ingest
-the updated manifests on its monitored branch. Some backend advisories appear
+The post-merge GitHub scan confirmed this reduction. The original estimate of
+92 was incorrect: two qs alerts and one esbuild alert remained because vulnerable
+nested versions were still installed. Some backend advisories appear
 against both the manifest and lockfile; these counts represent alerts, not
 unique vulnerabilities. The fresh npm audit additionally reports 17 affected
 package entries, including parent packages and findings outside the original
 GitHub snapshot; its counts are not directly comparable to Dependabot alerts.
 
-## Remaining priorities
+## Remaining priorities after the first update
+
+See [the follow-up review](remaining_alerts_2026-09-08.md) for the subsequent
+patches and accepted exceptions.
 
 - [Jaeger propagator #352](https://github.com/geobtaa/api/security/dependabot/352):
   high-severity malformed-header denial of service. Upgrade the OpenTelemetry
