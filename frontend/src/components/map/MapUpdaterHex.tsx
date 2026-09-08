@@ -2,6 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { GeoJSON, useMap, useMapEvents } from 'react-leaflet';
 import { cellToBoundary } from 'h3-js';
+import {
+  h3CellGeometry,
+  getHexBoundingBox,
+  type HexBoundingBox,
+} from '../../utils/h3Geometry';
+export type { HexBoundingBox } from '../../utils/h3Geometry';
 import type { MapFeatureClickPayload } from '../../types/map';
 import { useMapH3 } from '../../hooks/useMapH3';
 import { formatCount } from '../../utils/formatNumber';
@@ -74,25 +80,6 @@ function getColor(intensity: number): string {
 }
 
 export type HexHoverData = { h3: string; count: number; resolution: number };
-export type HexBoundingBox = {
-  west: number;
-  south: number;
-  east: number;
-  north: number;
-};
-
-function getHexBoundingBox(h3Index: string): HexBoundingBox {
-  const vertices = cellToBoundary(h3Index);
-  const lats = vertices.map(([lat]) => lat);
-  const lngs = vertices.map(([, lng]) => lng);
-  return {
-    west: Math.min(...lngs),
-    south: Math.min(...lats),
-    east: Math.max(...lngs),
-    north: Math.max(...lats),
-  };
-}
-
 export function MapUpdaterHex({
   searchQuery,
   onFeatureClick,
@@ -220,16 +207,10 @@ export function MapUpdaterHex({
 
   const maxCount = Math.max(...hexesToRender.map((h) => h.count), 1);
   const features = hexesToRender.map((h) => {
-    const vs = cellToBoundary(h.h3);
-    const ring = vs.map(([lat, lng]) => [lng, lat] as [number, number]);
-    ring.push(ring[0]);
     return {
       type: 'Feature' as const,
       properties: { h3: h.h3, count: h.count },
-      geometry: {
-        type: 'Polygon' as const,
-        coordinates: [ring],
-      },
+      geometry: h3CellGeometry(h.h3),
     };
   });
 

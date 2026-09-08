@@ -98,6 +98,7 @@ env:
     REDIS_TTL:             "604800"
     LOG_LEVEL:             DEBUG
     ENDPOINT_CACHE:        "true"
+    CACHE_REDIS_COMPRESSION_ENABLED: "<%= ENV.fetch('CACHE_REDIS_COMPRESSION_ENABLED', 'false') %>"
     CACHE_DEBUG_HEADERS:   "true"
     CACHE_LOG_EVENTS:      "false"
     CACHE_VERSION:         "2026-01-14-C"

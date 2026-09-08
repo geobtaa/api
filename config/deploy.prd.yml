@@ -21,12 +21,12 @@ servers:
     cmd: bash -lc "/app/scripts/start_web_singlehost.sh"
     options:
       cpus: 8
-      memory: 5120m
+      memory: 6144m
 
   worker:
     hosts:
       - lib-geoportal-prd-web-01.oit.umn.edu
-    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO"
+    cmd: bash -c "cd /app/backend && exec /opt/venv/bin/celery -A app.tasks.worker worker --loglevel=INFO --concurrency=2"
     options:
       cpus: 1.75
       memory: 4096m

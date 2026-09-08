@@ -24,6 +24,7 @@ from app.services.durable_response_cache import (
     get_durable_api_response,
     store_durable_api_response,
 )
+from app.services.response_cache_codec import decode_response_record, encode_response_record
 
 # Load environment variables from .env file
 load_dotenv()
@@ -40,6 +41,9 @@ REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 ENDPOINT_CACHE = os.getenv("ENDPOINT_CACHE", "false").lower() == "true"
 CACHE_DEBUG_HEADERS = os.getenv("CACHE_DEBUG_HEADERS", "false").lower() == "true"
 CACHE_LOG_EVENTS = os.getenv("CACHE_LOG_EVENTS", "false").lower() == "true"
+CACHE_REDIS_COMPRESSION_ENABLED = (
+    os.getenv("CACHE_REDIS_COMPRESSION_ENABLED", "false").lower() == "true"
+)
 
 # Default cache expiration (12 hours)
 DEFAULT_CACHE_TTL = int(os.getenv("CACHE_TTL", 43200))
@@ -475,7 +479,7 @@ class CacheService:
             try:
                 raw = await _redis_call(self._redis_client.get(key))
                 if raw:
-                    record = json.loads(raw)
+                    record = decode_response_record(raw)
                     if isinstance(record, dict) and record.get("schema") == RECORD_SCHEMA_VERSION:
                         return record
             except Exception as e:
@@ -519,7 +523,7 @@ class CacheService:
         redis_ok = False
         try:
             if self._redis_client:
-                raw = json.dumps(record, separators=(",", ":"), sort_keys=True).encode("utf-8")
+                raw = encode_response_record(record, compress=CACHE_REDIS_COMPRESSION_ENABLED)
                 redis_ok = bool(await _redis_call(self._redis_client.set(key, raw, ex=ttl_seconds)))
         except Exception as e:
             logger.error(f"Error setting record cache: {str(e)}")

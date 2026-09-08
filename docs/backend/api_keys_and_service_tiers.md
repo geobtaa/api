@@ -221,7 +221,7 @@ Each user or application should have their own API key.
 
 ### Q: Are API keys secure?
 
-**A**: Yes. API keys are stored using industry-standard hashing (SHA-256), similar to how passwords are stored. The actual key is only shown once when it's created—after that, only hashed versions are stored. Always treat your API key like a password and keep it secure.
+**A**: Newly created API keys are stored as PBKDF2-HMAC-SHA256 hashes with 600,000 iterations. Older SHA-256 hashes remain supported for compatibility and are upgraded after successful validation. The actual key is only shown once when it is created. Always treat your API key like a password and keep it secure. Legacy SHA-256 hashing is not suitable for storing human-chosen passwords.
 
 ## Summary
 
