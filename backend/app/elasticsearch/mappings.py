@@ -165,6 +165,7 @@ INDEX_MAPPING = {
             "b1g_status_s": {"type": "keyword"},
             "b1g_dct_accrualMethod_s": {"type": "keyword"},
             "b1g_dct_accrualPeriodicity_s": {"type": "keyword"},
+            "b1g_dateAccessioned_dt": {"type": "date", "ignore_malformed": True},
             "b1g_dateAccessioned_s": {"type": "date", "ignore_malformed": True},
             "b1g_dateRetired_s": {"type": "date", "ignore_malformed": True},
             "b1g_child_record_b": {"type": "boolean"},

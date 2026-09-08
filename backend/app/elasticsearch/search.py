@@ -5,6 +5,7 @@ import os
 import re
 import time
 from dataclasses import dataclass
+from datetime import date
 from typing import Literal, Optional
 from urllib.parse import urlencode
 
@@ -901,6 +902,61 @@ def _build_bbox_overlap_filter(
     }
 
 
+ALL_FIELDS_SEARCH_FIELDS = [
+    "id^5",
+    "dct_title_s^3",
+    "dct_description_sm^2",
+    "summary^2",
+    "dct_creator_sm^2",
+    "dct_subject_sm^1.5",
+    "dcat_keyword_sm^1.5",
+    "dct_publisher_sm",
+    "schema_provider_s",
+    "dct_spatial_sm",
+    "gbl_displaynote_sm",
+    "b1g_code_s",
+    "b1g_adminTags_sm",
+]
+
+ACCESSION_DATE_FIELDS = {"b1g_dateAccessioned_s", "b1g_dateAccessioned_dt"}
+
+
+def _accession_day_query(query: str, field: str | None = None) -> dict | None:
+    """Match a complete UTC accession day, including non-midnight timestamps."""
+    day = query.strip().removeprefix('"').removesuffix('"')
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", day):
+        return None
+    try:
+        date.fromisoformat(day)
+    except ValueError:
+        return None
+    bounds = {"gte": f"{day}T00:00:00Z", "lt": f"{day}T00:00:00Z||+1d"}
+    if field:
+        return {"range": {field: bounds}}
+    return {
+        "bool": {
+            "should": [{"range": {name: bounds}} for name in sorted(ACCESSION_DATE_FIELDS)],
+            "minimum_should_match": 1,
+        }
+    }
+
+
+def _build_all_fields_query(query: str) -> dict:
+    text_query = {
+        "query_string": {
+            "query": _escape_query_string_brackets(query),
+            "fields": ALL_FIELDS_SEARCH_FIELDS,
+            "default_operator": "AND",
+            "analyze_wildcard": True,
+            "allow_leading_wildcard": True,
+        }
+    }
+    day_query = _accession_day_query(query)
+    if day_query:
+        return {"bool": {"should": [text_query, day_query], "minimum_should_match": 1}}
+    return text_query
+
+
 def _build_advanced_query(adv_q: list) -> dict:
     """Build Elasticsearch bool query from advanced query clauses.
 
@@ -919,21 +975,6 @@ def _build_advanced_query(adv_q: list) -> dict:
     must_not_clauses = []
     positive_groups: list[list[dict]] = []
 
-    # Fields to search when "all_fields" is specified (same as regular q parameter)
-    ALL_FIELDS_SEARCH_FIELDS = [
-        "id^5",
-        "dct_title_s^3",
-        "dct_description_sm^2",
-        "summary^2",
-        "dct_creator_sm^2",
-        "dct_subject_sm^1.5",
-        "dcat_keyword_sm^1.5",
-        "dct_publisher_sm",
-        "schema_provider_s",
-        "dct_spatial_sm",
-        "gbl_displaynote_sm",
-    ]
-
     for clause in adv_q:
         # Extract op, f, q from clause
         operator = clause.get("op")
@@ -951,22 +992,17 @@ def _build_advanced_query(adv_q: list) -> dict:
             # For "all_fields", use query_string across multiple fields
             # (same as regular q parameter). query_string handles quotes natively,
             # so use the original query text
-            query_clause = {
-                "query_string": {
-                    "query": _escape_query_string_brackets(query),
-                    "fields": ALL_FIELDS_SEARCH_FIELDS,
-                    "default_operator": "AND",
-                    "analyze_wildcard": True,
-                    "allow_leading_wildcard": True,
-                }
-            }
+            query_clause = _build_all_fields_query(query)
         else:
             # For specific fields, use match query
             # Check if query is a phrase (wrapped in quotes) and extract it
             is_phrase = len(query) >= 2 and query.startswith('"') and query.endswith('"')
             phrase = query[1:-1] if is_phrase else query
             # Use simple match query - Elasticsearch will handle both analyzed and keyword fields
-            query_clause = {"match": {field: {"query": phrase, "operator": "and"}}}
+            if field in ACCESSION_DATE_FIELDS:
+                query_clause = _accession_day_query(query, field) or {"match": {field: phrase}}
+            else:
+                query_clause = {"match": {field: {"query": phrase, "operator": "and"}}}
 
         if operator == "NOT":
             must_not_clauses.append(query_clause)
@@ -1528,6 +1564,9 @@ class SearchQueryBuilder:
             requested_fields = [
                 f.strip() for f in self.params.search_fields.split(",") if f.strip()
             ]
+            if len(requested_fields) == 1 and requested_fields[0] in ACCESSION_DATE_FIELDS:
+                field = requested_fields[0]
+                return _accession_day_query(query_text, field) or {"match": {field: phrase}}
             expanded_fields = []
             for field_name in requested_fields:
                 expanded_fields.append(field_name)
@@ -1542,27 +1581,7 @@ class SearchQueryBuilder:
                 }
             }
 
-        return {
-            "query_string": {
-                "query": _escape_query_string_brackets(query_text),
-                "fields": [
-                    "id^5",
-                    "dct_title_s^3",
-                    "dct_description_sm^2",
-                    "summary^2",
-                    "dct_creator_sm^2",
-                    "dct_subject_sm^1.5",
-                    "dcat_keyword_sm^1.5",
-                    "dct_publisher_sm",
-                    "schema_provider_s",
-                    "dct_spatial_sm",
-                    "gbl_displaynote_sm",
-                ],
-                "default_operator": "AND",
-                "analyze_wildcard": True,
-                "allow_leading_wildcard": True,
-            }
-        }
+        return _build_all_fields_query(query_text)
 
     def _build_bool_query(
         self,
@@ -2448,30 +2467,7 @@ async def map_h3_aggregation(
     combined_must_not = list(must_not_clauses)
 
     if q and str(q).strip():
-        escaped_q = _escape_query_string_brackets(str(q).strip())
-        must_clauses.append(
-            {
-                "query_string": {
-                    "query": escaped_q,
-                    "fields": [
-                        "id^5",
-                        "dct_title_s^3",
-                        "dct_description_sm^2",
-                        "summary^2",
-                        "dct_creator_sm^2",
-                        "dct_subject_sm^1.5",
-                        "dcat_keyword_sm^1.5",
-                        "dct_publisher_sm",
-                        "schema_provider_s",
-                        "dct_spatial_sm",
-                        "gbl_displaynote_sm",
-                    ],
-                    "default_operator": "AND",
-                    "analyze_wildcard": True,
-                    "allow_leading_wildcard": True,
-                }
-            }
-        )
+        must_clauses.append(_build_all_fields_query(str(q).strip()))
 
     if adv_q:
         advanced_query_structure = _build_advanced_query(adv_q)
@@ -2909,29 +2905,7 @@ async def get_facet_values(
         is_phrase = len(query_text) >= 2 and query_text.startswith('"') and query_text.endswith('"')
         _phrase = query_text[1:-1] if is_phrase else query_text  # Unused but kept for consistency
 
-        must_clauses.append(
-            {
-                "query_string": {
-                    "query": _escape_query_string_brackets(query_text),
-                    "fields": [
-                        "id^5",
-                        "dct_title_s^3",
-                        "dct_description_sm^2",
-                        "summary^2",
-                        "dct_creator_sm^2",
-                        "dct_subject_sm^1.5",
-                        "dcat_keyword_sm^1.5",
-                        "dct_publisher_sm",
-                        "schema_provider_s",
-                        "dct_spatial_sm",
-                        "gbl_displaynote_sm",
-                    ],
-                    "default_operator": "AND",
-                    "analyze_wildcard": True,
-                    "allow_leading_wildcard": True,
-                }
-            }
-        )
+        must_clauses.append(_build_all_fields_query(query_text))
 
     # Build advanced query clauses if provided
     if adv_q:

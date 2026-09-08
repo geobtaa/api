@@ -65,6 +65,30 @@ The `/api/v1/search` endpoint supports a variety of query and filter parameters 
 | `fq[geo_region_agg][]`      | string[] | No       | Filter by region/state using spatial facets (maps to `geo_region`)                               | `fq[geo_region_agg][]=12345|0|Minnesota`         |
 | `fq[geo_county_agg][]`      | string[] | No       | Filter by county using spatial facets (maps to `geo_county`)                                     | `fq[geo_county_agg][]=12345|0|MN|Hennepin County` |
 
+## Record group searches
+
+Keyword search includes the source Code (`b1g_code_s`) and administrative Tags
+(`b1g_adminTags_sm`). For example, share `/search?q=%2220d-0006%22` for a code
+or `/search?q=missing_bbox` for a tag. These keyword fields match whole values;
+ordinary searches retain the existing title and description relevance boosts.
+
+An ISO day query such as `/search?q=2026-06-30` also matches records accessioned
+on that UTC day, including timestamps after midnight. It can also match text
+containing that date. To restrict matches to accession dates, use an advanced
+clause (supported by results, facets, and maps):
+
+```json
+[{"op":"AND","f":"b1g_dateAccessioned_dt","q":"2026-06-30"}]
+```
+
+Both `b1g_dateAccessioned_dt` and the legacy `b1g_dateAccessioned_s` field are
+supported in advanced clauses and the API's `search_field` parameter. For
+example: `/api/v1/search?search_field=b1g_dateAccessioned_dt&q=2026-06-30`.
+Day matching starts at midnight UTC and excludes midnight of the next day.
+Publication and suppression filters still apply to all group searches. Keyword day searches check both accession-date fields; field-specific searches
+check only the selected field. The index mapping explicitly declares the `_dt`
+field as a date. Use `make reindex` to rebuild a local index with this mapping.
+
 ## Advanced Boolean queries
 
 The advanced search builder sends its ordered rows in `adv_q`. Each `AND` row
