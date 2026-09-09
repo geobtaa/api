@@ -1,18 +1,15 @@
 /* eslint-disable react-refresh/only-export-components */
 import type { LoaderFunctionArgs, MetaFunction } from 'react-router';
-import { analyticsReports } from '../../src/config/analyticsReports';
+import { selectedAnalyticsReport } from '../../src/config/analyticsReports';
 import { AnalyticsPage } from '../../src/pages/AnalyticsPage';
 import { buildSeoMeta } from '../../src/config/seo';
 
 const description =
-  'Compare July and August 2026 API traffic and discovery activity, with detailed July resource, collection, and member reports.';
+  'Compare July and August 2026 API traffic and discovery activity, with monthly resource, member, discovery, and reliability reports.';
 
 export function loader({ request }: LoaderFunctionArgs) {
   const url = new URL(request.url);
-  const report =
-    analyticsReports.find(
-      (entry) => entry.id === url.searchParams.get('report')
-    ) ?? analyticsReports[0];
+  const report = selectedAnalyticsReport(url.searchParams);
   return { currentUrl: url.href, report };
 }
 

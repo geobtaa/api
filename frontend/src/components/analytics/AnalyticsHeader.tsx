@@ -1,4 +1,4 @@
-import { Link } from 'react-router';
+import { Link, useSearchParams } from 'react-router';
 
 import {
   analyticsReports,
@@ -11,6 +11,7 @@ export function AnalyticsHeader({
 }: {
   activeReport: AnalyticsReport;
 }) {
+  const [params] = useSearchParams();
   return (
     <header className="analytics-header">
       <a className="analytics-skip-link" href="#analytics-main">
@@ -31,7 +32,7 @@ export function AnalyticsHeader({
         {analyticsReports.map((report) => (
           <Link
             key={report.id}
-            to={analyticsReportHref(report.id)}
+            to={analyticsReportHref(report.id, params.get('month'))}
             aria-current={report.id === activeReport ? 'page' : undefined}
           >
             {report.label}

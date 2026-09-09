@@ -1,3 +1,5 @@
+import * as augustReports from '../data/analytics/reportsAugust2026';
+import { augustDailyActivity } from '../data/analytics/august2026';
 import {
   Activity,
   ArrowDownRight,
@@ -28,6 +30,16 @@ import {
   YAxis,
 } from 'recharts';
 import { useState } from 'react';
+import {
+  augustTopResources,
+  augustTopCollections,
+  augustTopDownloadedResources,
+  augustDownloadSummary,
+} from '../data/analytics/popularAugust2026';
+import {
+  analyticsMonth,
+  selectedAnalyticsReport,
+} from '../config/analyticsReports';
 import { AUGUST_2026_SUMMARY } from '../data/analytics/august2026';
 import { MonthlyComparison } from '../components/analytics/MonthlyComparison';
 import { Footer } from '../components/layout/Footer';
@@ -40,24 +52,24 @@ import { Seo } from '../components/Seo';
 import { BTAA_PARTNER_INSTITUTIONS } from '../constants/partnerInstitutions';
 import {
   JULY_2026_SUMMARY,
-  MEMBER_JULY_SUMMARY,
-  dailyActivity,
-  discoveryViews,
-  memberPerformance,
-  peakApiTrafficBreakdown,
-  requestMix,
-  resourceClassFilters,
-  topCollections,
-  topDownloadedResources,
-  topResources,
-  topSearchTerms,
-  topZeroResultQueries,
+  MEMBER_JULY_SUMMARY as julyMEMBER_JULY_SUMMARY,
+  dailyActivity as julyDailyActivity,
+  discoveryViews as julyDiscoveryViews,
+  memberPerformance as julyMemberPerformance,
+  peakApiTrafficBreakdown as julyPeakApiTrafficBreakdown,
+  requestMix as julyRequestMix,
+  resourceClassFilters as julyResourceClassFilters,
+  topCollections as julyTopCollections,
+  topDownloadedResources as julyTopDownloadedResources,
+  topResources as julyTopResources,
+  topSearchTerms as julyTopSearchTerms,
+  topZeroResultQueries as julyTopZeroResultQueries,
   type CollectionChartEntry,
   type ResourceChartEntry,
 } from '../data/analytics/july2026';
 import {
-  memberDailySeries,
-  memberTopContent,
+  memberDailySeries as julyMemberDailySeries,
+  memberTopContent as julyMemberTopContent,
   type MemberContentEntry,
 } from '../data/analytics/memberJuly2026';
 import { getResourceIcon } from '../utils/resourceIcons';
@@ -69,42 +81,6 @@ const compactNumber = new Intl.NumberFormat('en-US', {
 });
 
 const wholeNumber = new Intl.NumberFormat('en-US');
-
-const memberSelectorEntries = BTAA_PARTNER_INSTITUTIONS.flatMap(
-  (institution) => {
-    const member = memberPerformance.find(
-      (entry) => entry.slug === institution.slug
-    );
-    return member ? [member] : [];
-  }
-);
-
-const allMemberDailySeries = {
-  views: Array.from({ length: 31 }, (_, index) =>
-    memberPerformance.reduce(
-      (total, member) => total + memberDailySeries[member.code].views[index],
-      0
-    )
-  ),
-  downloads: Array.from({ length: 31 }, (_, index) =>
-    memberPerformance.reduce(
-      (total, member) =>
-        total + memberDailySeries[member.code].downloads[index],
-      0
-    )
-  ),
-};
-
-const allMemberTopContent = {
-  viewed: memberPerformance
-    .flatMap((member) => memberTopContent[member.code].viewed)
-    .sort((a, b) => b.views - a.views)
-    .slice(0, 3),
-  downloaded: memberPerformance
-    .flatMap((member) => memberTopContent[member.code].downloaded)
-    .sort((a, b) => b.downloads - a.downloads)
-    .slice(0, 3),
-};
 
 function formatCompact(value: number) {
   return compactNumber.format(value);
@@ -149,13 +125,19 @@ function resourceMomentum(resource: ResourceChartEntry) {
   return { label: 'Even', direction: 'flat' as const };
 }
 
-function MomentumBadge({ resource }: { resource: ResourceChartEntry }) {
+function MomentumBadge({
+  resource,
+  month,
+}: {
+  resource: ResourceChartEntry;
+  month: string;
+}) {
   const momentum = resourceMomentum(resource);
 
   return (
     <span
       className={`analytics-momentum analytics-momentum--${momentum.direction}`}
-      title="All tracked interactions in July 16–31 compared with July 1–15"
+      title={`All tracked interactions in ${month} 16–31 compared with ${month} 1–15`}
     >
       {momentum.direction === 'up' && (
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
@@ -210,9 +192,11 @@ function RankingThumbnail({
 function ResourceRankingRow({
   resource,
   rank,
+  month,
 }: {
   resource: ResourceChartEntry;
   rank: number;
+  month: string;
 }) {
   const isLeader = rank === 1;
 
@@ -249,7 +233,7 @@ function ResourceRankingRow({
         <span>actions</span>
       </div>
       <div className="analytics-ranking-trend">
-        <MomentumBadge resource={resource} />
+        <MomentumBadge resource={resource} month={month} />
         <span>2H pulse</span>
       </div>
       <Link
@@ -317,18 +301,133 @@ function MemberContentList({
 }
 
 export function AnalyticsPage() {
-  const [searchParams] = useSearchParams();
-  const report =
-    analyticsReports.find((entry) => entry.id === searchParams.get('report')) ??
-    analyticsReports[0];
+  const [searchParams, setSearchParams] = useSearchParams();
+  const report = selectedAnalyticsReport(searchParams);
+  const reportMonth = analyticsMonth(searchParams);
+  const isAugust = reportMonth === 'August';
+  const topResources = isAugust ? augustTopResources : julyTopResources;
+  const topCollections = isAugust ? augustTopCollections : julyTopCollections;
+  const topDownloadedResources = isAugust
+    ? augustTopDownloadedResources
+    : julyTopDownloadedResources;
+  const contentSummary = isAugust ? AUGUST_2026_SUMMARY : JULY_2026_SUMMARY;
+  const downloadResourceCount = isAugust
+    ? augustDownloadSummary.resources
+    : 695;
+  const topDownloadClicks = topDownloadedResources.reduce(
+    (sum, row) => sum + row.clicks,
+    0
+  );
+  const summary = isAugust ? AUGUST_2026_SUMMARY : JULY_2026_SUMMARY;
+  const memberSummary = isAugust
+    ? augustReports.augustMemberSummary
+    : julyMEMBER_JULY_SUMMARY;
+  const memberPerformance = isAugust
+    ? augustReports.augustMembers
+    : julyMemberPerformance;
+  const memberDailySeries = isAugust
+    ? augustReports.augustMemberDailySeries
+    : julyMemberDailySeries;
+  const memberTopContent = isAugust
+    ? augustReports.augustMemberTopContent
+    : julyMemberTopContent;
+  const monthShort = isAugust ? 'Aug' : 'Jul';
+  const dailyActivity = isAugust
+    ? augustDailyActivity.map((row, index) => ({
+        ...row,
+        day: `Aug ${index + 1}`,
+      }))
+    : julyDailyActivity;
+  const discoveryViews = isAugust
+    ? augustReports.augustDiscoveryViews
+    : julyDiscoveryViews;
+  const resourceClassFilters = isAugust
+    ? augustReports.augustResourceClassFilters
+    : julyResourceClassFilters;
+  const topSearchTerms = isAugust
+    ? augustReports.augustTopSearchTerms
+    : julyTopSearchTerms;
+  const topZeroResultQueries = isAugust
+    ? augustReports.augustTopZeroResultQueries
+    : julyTopZeroResultQueries;
+  const requestMix = isAugust ? augustReports.augustRequestMix : julyRequestMix;
+  const peakApiTrafficBreakdown = isAugust
+    ? augustReports.augustPeakApiTrafficBreakdown
+    : julyPeakApiTrafficBreakdown;
+  const inventoryDate = isAugust ? 'September 9, 2026' : 'August 20, 2026';
+  const zeroQueries = isAugust
+    ? augustReports.augustZeroResultBreakdown
+    : { with_query: 758, without_query: 340 };
+  const peakActivity = dailyActivity.reduce((peak, row) =>
+    row.events > peak.events ? row : peak
+  );
+  const peakTraffic = dailyActivity.reduce((peak, row) =>
+    row.requests > peak.requests ? row : peak
+  );
+  const viewLeader = [...memberPerformance].sort(
+    (a, b) => b.resourceViews - a.resourceViews
+  )[0];
+  const downloadLeader = [...memberPerformance].sort(
+    (a, b) => b.downloadClicks - a.downloadClicks
+  )[0];
+  const reachLeader = [...memberPerformance].sort(
+    (a, b) => b.activeResources - a.activeResources
+  )[0];
+  const mapView = discoveryViews.find((row) => row.label === 'Map')!;
+  let viewPercent = 0;
+  const discoveryGradient = `conic-gradient(${discoveryViews
+    .map((row) => {
+      const start = viewPercent;
+      viewPercent += (row.count / summary.searches) * 100;
+      return `${row.color} ${start}% ${viewPercent}%`;
+    })
+    .join(',')})`;
+  const changeMonth = (value: string) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('month', value);
+    setSearchParams(params);
+  };
+  const memberSelectorEntries = BTAA_PARTNER_INSTITUTIONS.flatMap(
+    (institution) => {
+      const member = memberPerformance.find(
+        (entry) => entry.slug === institution.slug
+      );
+      return member ? [member] : [];
+    }
+  );
+
+  const allMemberDailySeries = {
+    views: Array.from({ length: 31 }, (_, index) =>
+      memberPerformance.reduce(
+        (total, member) => total + memberDailySeries[member.code].views[index],
+        0
+      )
+    ),
+    downloads: Array.from({ length: 31 }, (_, index) =>
+      memberPerformance.reduce(
+        (total, member) =>
+          total + memberDailySeries[member.code].downloads[index],
+        0
+      )
+    ),
+  };
+
+  const allMemberTopContent = {
+    viewed: memberPerformance
+      .flatMap((member) => memberTopContent[member.code].viewed)
+      .sort((a, b) => b.views - a.views)
+      .slice(0, 3),
+    downloaded: memberPerformance
+      .flatMap((member) => memberTopContent[member.code].downloaded)
+      .sort((a, b) => b.downloads - a.downloads)
+      .slice(0, 3),
+  };
+
   const activeReport = report.id;
   const [selectedMemberCode, setSelectedMemberCode] = useState('all');
-  const zeroResultRate =
-    (JULY_2026_SUMMARY.zeroResultSearches / JULY_2026_SUMMARY.searches) * 100;
+  const zeroResultRate = (summary.zeroResultSearches / summary.searches) * 100;
   const requestReliability =
-    ((JULY_2026_SUMMARY.requests - JULY_2026_SUMMARY.serverErrors) /
-      JULY_2026_SUMMARY.requests) *
-    100;
+    ((summary.requests - summary.serverErrors) / summary.requests) * 100;
   const maxCollectionSearches = topCollections[0].searches;
   const maxDownloadClicks = topDownloadedResources[0].clicks;
   const maxClassFilters = resourceClassFilters[0].count;
@@ -336,12 +435,11 @@ export function AnalyticsPage() {
     (a, b) => b.resourceViews - a.resourceViews
   );
   const memberImpressionShare =
-    (MEMBER_JULY_SUMMARY.impressions / JULY_2026_SUMMARY.impressions) * 100;
+    (memberSummary.impressions / summary.impressions) * 100;
   const memberViewShare =
-    (MEMBER_JULY_SUMMARY.resourceViews / JULY_2026_SUMMARY.resourceViews) * 100;
+    (memberSummary.resourceViews / summary.resourceViews) * 100;
   const memberDownloadShare =
-    (MEMBER_JULY_SUMMARY.downloadClicks / JULY_2026_SUMMARY.downloadClicks) *
-    100;
+    (memberSummary.downloadClicks / summary.downloadClicks) * 100;
   const selectedMember =
     selectedMemberCode === 'all'
       ? null
@@ -356,23 +454,23 @@ export function AnalyticsPage() {
     : allMemberTopContent;
   const selectedDailyActivity = selectedDailySeries.views.map(
     (views, index) => ({
-      day: `Jul ${index + 1}`,
+      day: `${monthShort} ${index + 1}`,
       views,
       downloads: selectedDailySeries.downloads[index],
     })
   );
   const selectedCatalogRecords =
-    selectedMember?.catalogRecords ?? MEMBER_JULY_SUMMARY.catalogRecords;
+    selectedMember?.catalogRecords ?? memberSummary.catalogRecords;
   const selectedActiveResources =
-    selectedMember?.activeResources ?? MEMBER_JULY_SUMMARY.activeResources;
+    selectedMember?.activeResources ?? memberSummary.activeResources;
   const selectedImpressions =
-    selectedMember?.impressions ?? MEMBER_JULY_SUMMARY.impressions;
+    selectedMember?.impressions ?? memberSummary.impressions;
   const selectedResourceViews =
-    selectedMember?.resourceViews ?? MEMBER_JULY_SUMMARY.resourceViews;
+    selectedMember?.resourceViews ?? memberSummary.resourceViews;
   const selectedDownloadClicks =
-    selectedMember?.downloadClicks ?? MEMBER_JULY_SUMMARY.downloadClicks;
+    selectedMember?.downloadClicks ?? memberSummary.downloadClicks;
   const selectedSourceClicks =
-    selectedMember?.sourceClicks ?? MEMBER_JULY_SUMMARY.sourceClicks;
+    selectedMember?.sourceClicks ?? memberSummary.sourceClicks;
   const activeResourceRate =
     (selectedActiveResources / selectedCatalogRecords) * 100;
   const peakMemberDay = selectedDailyActivity.reduce((peak, day) =>
@@ -383,7 +481,7 @@ export function AnalyticsPage() {
     <div className="analytics-page min-h-screen bg-gray-50">
       <Seo
         title={`${report.label} — Analytics — ${report.period}`}
-        description="Compare July and August 2026 API traffic and discovery activity, with detailed July resource, collection, and member reports."
+        description="Compare July and August 2026 API traffic and discovery activity, with monthly resource, member, discovery, and reliability reports."
       />
       <AnalyticsHeader activeReport={activeReport} />
 
@@ -415,7 +513,17 @@ export function AnalyticsPage() {
                     aria-label="Dashboard month"
                   >
                     <CalendarDays className="h-4 w-4" aria-hidden />
-                    <span>August 2026</span>
+                    <label htmlFor="overview-month" className="sr-only">
+                      Reporting month
+                    </label>
+                    <select
+                      id="overview-month"
+                      value={isAugust ? '2026-08' : '2026-07'}
+                      onChange={(event) => changeMonth(event.target.value)}
+                    >
+                      <option value="2026-08">August 2026</option>
+                      <option value="2026-07">July 2026</option>
+                    </select>
                   </div>
                 </div>
 
@@ -438,45 +546,37 @@ export function AnalyticsPage() {
 
                 <div
                   className="analytics-hero-stats"
-                  aria-label="August 2026 highlights"
+                  aria-label={`${reportMonth} 2026 highlights`}
                 >
                   <div>
                     <span>01</span>
-                    <strong>
-                      {formatCompact(AUGUST_2026_SUMMARY.requests)}
-                    </strong>
-                    <p>August API requests recorded</p>
+                    <strong>{formatCompact(summary.requests)}</strong>
+                    <p>{reportMonth} API requests recorded</p>
                     <small>Includes bots, probes, and browser traffic</small>
                   </div>
                   <div>
                     <span>02</span>
-                    <strong>
-                      {formatCompact(AUGUST_2026_SUMMARY.resourceViews)}
-                    </strong>
+                    <strong>{formatCompact(summary.resourceViews)}</strong>
                     <p>resource views</p>
                     <small>
-                      {formatCompact(AUGUST_2026_SUMMARY.impressions)}{' '}
-                      discoveries shown
+                      {formatCompact(summary.impressions)} discoveries shown
                     </small>
                   </div>
                   <div>
                     <span>03</span>
-                    <strong>
-                      {formatCompact(AUGUST_2026_SUMMARY.searches)}
-                    </strong>
+                    <strong>{formatCompact(summary.searches)}</strong>
                     <p>searches launched</p>
-                    <small>August 1–31, 2026</small>
+                    <small>{reportMonth} 1–31, 2026</small>
                   </div>
                   <div>
                     <span>04</span>
                     <strong>
-                      {wholeNumber.format(AUGUST_2026_SUMMARY.downloadClicks)}
+                      {wholeNumber.format(summary.downloadClicks)}
                     </strong>
                     <p>download clicks</p>
                     <small>
-                      Plus{' '}
-                      {wholeNumber.format(AUGUST_2026_SUMMARY.resultClicks)}{' '}
-                      result opens
+                      Plus {wholeNumber.format(summary.resultClicks)} result
+                      opens
                     </small>
                   </div>
                 </div>
@@ -498,10 +598,17 @@ export function AnalyticsPage() {
                   .map((entry) => (
                     <Link
                       key={entry.id}
-                      to={analyticsReportHref(entry.id)}
+                      to={analyticsReportHref(
+                        entry.id,
+                        searchParams.get('month')
+                      )}
                       className="analytics-panel analytics-report-card"
                     >
-                      <span>{entry.period}</span>
+                      <span>
+                        {entry.id === 'comparison'
+                          ? entry.period
+                          : `${reportMonth} 2026`}
+                      </span>
                       <h3>
                         {entry.label} <span aria-hidden="true">→</span>
                       </h3>
@@ -516,6 +623,23 @@ export function AnalyticsPage() {
             <p>{report.period} · Monthly analytics</p>
             <h1>{report.label}</h1>
             <span>{report.description}</span>
+            {activeReport !== 'comparison' && (
+              <div className="analytics-content-month">
+                <label htmlFor="report-month">Reporting month</label>
+                <select
+                  id="report-month"
+                  value={isAugust ? '2026-08' : '2026-07'}
+                  onChange={(event) => {
+                    const params = new URLSearchParams(searchParams);
+                    params.set('month', event.target.value);
+                    setSearchParams(params);
+                  }}
+                >
+                  <option value="2026-08">August 2026</option>
+                  <option value="2026-07">July 2026</option>
+                </select>
+              </div>
+            )}
           </div>
         )}
 
@@ -525,8 +649,8 @@ export function AnalyticsPage() {
             <section id="charts" className="analytics-section">
               <SectionHeading
                 eyebrow="Popularity charts"
-                title="July’s top resources and collections"
-                description="Ranked by resource detail views. Momentum compares all tracked interactions in the first and second halves of July."
+                title={`${reportMonth}’s top resources and collections`}
+                description={`Ranked by resource detail views. Momentum compares all tracked interactions in the first and second halves of ${reportMonth}.`}
               />
 
               <div className="analytics-charts-grid">
@@ -551,6 +675,7 @@ export function AnalyticsPage() {
                         key={resource.id}
                         resource={resource}
                         rank={index + 1}
+                        month={reportMonth}
                       />
                     ))}
                   </div>
@@ -593,8 +718,9 @@ export function AnalyticsPage() {
                   <div className="analytics-chart-note">
                     <Layers3 className="h-5 w-5" aria-hidden />
                     <p>
-                      Urban Base Layers held the top spot, while historical maps
-                      claimed five positions in the collection top 10.
+                      {isAugust
+                        ? `${topCollections[0].title} led August with ${topCollections[0].searches} filtered searches.`
+                        : 'Urban Base Layers held the top spot, while historical maps claimed five positions in the collection top 10.'}
                     </p>
                   </div>
                 </aside>
@@ -610,8 +736,8 @@ export function AnalyticsPage() {
                     <span>Top download clicks</span>
                   </div>
                   <small>
-                    {wholeNumber.format(JULY_2026_SUMMARY.downloadClicks)}{' '}
-                    across all resources
+                    {wholeNumber.format(contentSummary.downloadClicks)} across
+                    all resources
                   </small>
                 </div>
                 <div className="analytics-download-legend" aria-hidden="true">
@@ -658,13 +784,26 @@ export function AnalyticsPage() {
                   ))}
                 </ol>
                 <p className="analytics-download-note">
-                  The top 10 account for 55 of 933 clicks (5.9%), revealing a
-                  broad long tail across 695 resources. A click records
-                  selection of a catalog download link; completion on an
-                  external provider site cannot be verified. Visits are distinct
-                  tracked visit tokens.
+                  The top {topDownloadedResources.length} account for{' '}
+                  {topDownloadClicks} of {contentSummary.downloadClicks} clicks
+                  (
+                  {(
+                    (topDownloadClicks / contentSummary.downloadClicks) *
+                    100
+                  ).toFixed(1)}
+                  %), across {downloadResourceCount} resources with download
+                  clicks. A click records selection of a catalog download link;
+                  completion on an external provider site cannot be verified.
+                  Visits are distinct tracked visit tokens.
                 </p>
               </article>
+              <p className="analytics-comparison-note">
+                {reportMonth} 1–31, 2026 (UTC) · Exported{' '}
+                {contentSummary.exportedAt}. Rankings use recorded interactions
+                and catalog metadata at export. Actions are tracked events other
+                than resource views; momentum compares days 16–31 with days
+                1–15.
+              </p>
             </section>
           )}
 
@@ -673,7 +812,7 @@ export function AnalyticsPage() {
               <SectionHeading
                 eyebrow="Member overview"
                 title="How BTAA member content performed"
-                description="Start with the full alliance, then choose any campus to follow its catalog footprint, daily attention, downloads, and leading content across July."
+                description={`Start with the full alliance, then choose any campus to follow its catalog footprint, daily attention, downloads, and leading content across ${reportMonth}.`}
               />
 
               <div className="analytics-panel analytics-campus-selector">
@@ -705,7 +844,7 @@ export function AnalyticsPage() {
                         key={member.code}
                         type="button"
                         className={`analytics-campus-filter${selectedMemberCode === member.code ? ' analytics-campus-filter--active' : ''}`}
-                        aria-label={`Show ${member.name} July report`}
+                        aria-label={`Show ${member.name} ${reportMonth} report`}
                         aria-pressed={selectedMemberCode === member.code}
                         title={member.name}
                         onClick={() => setSelectedMemberCode(member.code)}
@@ -741,8 +880,8 @@ export function AnalyticsPage() {
                     <h3>{selectedMember?.name ?? 'All BTAA member content'}</h3>
                     <small>
                       {selectedMember
-                        ? `Contribution stream ${selectedMember.code} · July 1–31, 2026`
-                        : '17 member contribution streams · July 1–31, 2026'}
+                        ? `Contribution stream ${selectedMember.code} · ${reportMonth} 1–31, 2026`
+                        : `17 member contribution streams · ${reportMonth} 1–31, 2026`}
                     </small>
                   </div>
                 </div>
@@ -758,10 +897,10 @@ export function AnalyticsPage() {
                 <article>
                   <span>Catalog footprint</span>
                   <strong>{wholeNumber.format(selectedCatalogRecords)}</strong>
-                  <p>published records in the August 20 catalog snapshot</p>
+                  <p>published catalog inventory as of {inventoryDate}</p>
                 </article>
                 <article>
-                  <span>July reach</span>
+                  <span>{reportMonth} reach</span>
                   <strong>{wholeNumber.format(selectedActiveResources)}</strong>
                   <p>
                     {activeResourceRate.toFixed(1)}% of the catalog appeared in
@@ -811,7 +950,7 @@ export function AnalyticsPage() {
                   <div
                     className="analytics-member-rechart"
                     role="img"
-                    aria-label={`${selectedMember?.name ?? 'All BTAA member content'} daily resource views and download clicks from July 1 through July 31, 2026. Views peaked at ${peakMemberDay.views} on ${peakMemberDay.day}.`}
+                    aria-label={`${selectedMember?.name ?? 'All BTAA member content'} daily resource views and download clicks from ${reportMonth} 1 through ${reportMonth} 31, 2026. Views peaked at ${peakMemberDay.views} on ${peakMemberDay.day}.`}
                   >
                     <ResponsiveContainer
                       width="100%"
@@ -934,10 +1073,12 @@ export function AnalyticsPage() {
                       <Eye className="h-5 w-5" aria-hidden />
                       <span>Attention leader</span>
                     </div>
-                    <strong>Chicago</strong>
+                    <strong>{viewLeader.shortName}</strong>
                     <p>
-                      1,458 resource views and 323 source-site clicks—the
-                      month’s strongest member-level attention signal.
+                      {wholeNumber.format(viewLeader.resourceViews)} resource
+                      views and {wholeNumber.format(viewLeader.sourceClicks)}{' '}
+                      source-site clicks—the month’s leading member by resource
+                      views.
                     </p>
                   </article>
                   <article className="analytics-panel">
@@ -945,21 +1086,21 @@ export function AnalyticsPage() {
                       <Download className="h-5 w-5" aria-hidden />
                       <span>Download leader</span>
                     </div>
-                    <strong>Michigan State</strong>
+                    <strong>{downloadLeader.shortName}</strong>
                     <p>
-                      138 download clicks, ahead of Wisconsin at 123 and Indiana
-                      at 103.
+                      {wholeNumber.format(downloadLeader.downloadClicks)}{' '}
+                      download clicks, the most among member contributions.
                     </p>
                   </article>
                   <article className="analytics-panel">
                     <div>
                       <Layers3 className="h-5 w-5" aria-hidden />
-                      <span>Broadest July reach</span>
+                      <span>Broadest {reportMonth} reach</span>
                     </div>
-                    <strong>Minnesota</strong>
+                    <strong>{reachLeader.shortName}</strong>
                     <p>
-                      3,082 distinct records appeared in a search or received a
-                      tracked action.
+                      {wholeNumber.format(reachLeader.activeResources)} distinct
+                      records appeared in a search or received a tracked action.
                     </p>
                   </article>
                 </div>
@@ -979,15 +1120,15 @@ export function AnalyticsPage() {
                   <div className="analytics-member-table-wrap">
                     <table>
                       <caption className="sr-only">
-                        July 2026 performance for BTAA member-contributed
-                        catalog content
+                        {reportMonth} 2026 performance for BTAA
+                        member-contributed catalog content
                       </caption>
                       <thead>
                         <tr>
                           <th scope="col">Rank</th>
                           <th scope="col">Member</th>
                           <th scope="col">Catalog</th>
-                          <th scope="col">July active</th>
+                          <th scope="col">{reportMonth} active</th>
                           <th scope="col">Impressions</th>
                           <th scope="col">Views</th>
                           <th scope="col">Downloads</th>
@@ -1051,13 +1192,15 @@ export function AnalyticsPage() {
               )}
 
               <p className="analytics-member-method analytics-panel">
-                Catalog counts are published, unsuppressed records in the August
-                20 snapshot. “July active” means a distinct record with at least
-                one search impression or tracked action. School attribution
-                follows the BTAA contribution code rather than the provider
-                label, which often names an originating public agency. Downloads
-                and source-site visits are link clicks, not verified
-                completions.
+                Activity period: {reportMonth} 1–31, 2026. Catalog inventory:
+                published, unsuppressed records as of {inventoryDate}, when this
+                report was exported. The inventory is a point-in-time count, not
+                an activity total or month-end count. “{reportMonth} active”
+                means a distinct record with at least one search impression or
+                tracked action during {reportMonth}. School attribution follows
+                the BTAA contribution code rather than the provider label, which
+                often names an originating public agency. Downloads and
+                source-site visits are link clicks, not verified completions.
               </p>
             </section>
           )}
@@ -1067,7 +1210,7 @@ export function AnalyticsPage() {
               <SectionHeading
                 eyebrow="Daily activity"
                 title="Activity across the month"
-                description="Product interactions and searches rose together through the month, with July 24 delivering the biggest engagement day."
+                description={`Daily interactions and searches across ${reportMonth}. ${peakActivity.day} recorded the most interactions.`}
               />
 
               <div className="analytics-pulse-grid">
@@ -1091,7 +1234,7 @@ export function AnalyticsPage() {
                   <div
                     className="analytics-rechart"
                     role="img"
-                    aria-label="Daily interactions and searches from July 1 through July 31, 2026. Interactions peaked at 766 on July 24."
+                    aria-label={`Daily interactions and searches from ${reportMonth} 1 through ${reportMonth} 31, 2026. Interactions peaked at ${peakActivity.events} on ${peakActivity.day}.`}
                   >
                     <ResponsiveContainer
                       width="100%"
@@ -1175,9 +1318,12 @@ export function AnalyticsPage() {
                     </ResponsiveContainer>
                   </div>
                   <figcaption>
-                    <span>Jul 1</span>
-                    <strong>Peak: 766 interactions · Jul 24</strong>
-                    <span>Jul 31</span>
+                    <span>{monthShort} 1</span>
+                    <strong>
+                      Peak: {wholeNumber.format(peakActivity.events)}{' '}
+                      interactions · {peakActivity.day}
+                    </strong>
+                    <span>{monthShort} 31</span>
                   </figcaption>
                 </figure>
 
@@ -1187,10 +1333,10 @@ export function AnalyticsPage() {
                       <Zap className="h-5 w-5" aria-hidden />
                       <span>Peak API traffic</span>
                     </div>
-                    <strong>34,574</strong>
+                    <strong>{wholeNumber.format(peakTraffic.requests)}</strong>
                     <p>
-                      raw HTTP requests on July 29, including bots and automated
-                      health probes
+                      raw HTTP requests on {peakTraffic.day}, including bots and
+                      automated health probes
                     </p>
                   </div>
                   <div className="analytics-signal-card">
@@ -1198,9 +1344,7 @@ export function AnalyticsPage() {
                       <Eye className="h-5 w-5" aria-hidden />
                       <span>Discovery surface</span>
                     </div>
-                    <strong>
-                      {formatCompact(JULY_2026_SUMMARY.impressions)}
-                    </strong>
+                    <strong>{formatCompact(summary.impressions)}</strong>
                     <p>resource cards appeared across search result views</p>
                   </div>
                   <div className="analytics-signal-card">
@@ -1209,9 +1353,7 @@ export function AnalyticsPage() {
                       <span>Engaged visits</span>
                     </div>
                     <strong>
-                      {wholeNumber.format(
-                        JULY_2026_SUMMARY.uniqueEngagedVisits
-                      )}
+                      {wholeNumber.format(summary.uniqueEngagedVisits)}
                     </strong>
                     <p>
                       distinct visit tokens generated a tracked product event
@@ -1227,7 +1369,7 @@ export function AnalyticsPage() {
               <SectionHeading
                 eyebrow="Discovery patterns"
                 title="What visitors looked for"
-                description="The strongest demand signals came from map-led exploration, historical collections, and a geographically adventurous query mix."
+                description={`Search views, query terms, filters, and zero-result searches recorded during ${reportMonth}.`}
               />
 
               <div className="analytics-insights-grid">
@@ -1242,10 +1384,15 @@ export function AnalyticsPage() {
                     <div
                       className="analytics-donut"
                       role="img"
-                      aria-label="Map view 85.6 percent, gallery view 7.9 percent, list view 6.5 percent"
+                      aria-label={discoveryViews
+                        .map(
+                          (row) => `${row.label} view ${row.percent} percent`
+                        )
+                        .join(', ')}
+                      style={{ background: discoveryGradient }}
                     >
                       <div>
-                        <strong>86%</strong>
+                        <strong>{Math.round(mapView.percent)}%</strong>
                         <span>map view</span>
                       </div>
                     </div>
@@ -1263,7 +1410,8 @@ export function AnalyticsPage() {
                     </ul>
                   </div>
                   <p className="analytics-card-footnote">
-                    The map generated 5,524 of 6,457 rendered searches.
+                    The map generated {wholeNumber.format(mapView.count)} of{' '}
+                    {wholeNumber.format(summary.searches)} rendered searches.
                   </p>
                 </article>
 
@@ -1332,8 +1480,7 @@ export function AnalyticsPage() {
                     <strong>{zeroResultRate.toFixed(1)}%</strong>
                     <h3>of searches returned zero results</h3>
                     <span>
-                      That’s{' '}
-                      {wholeNumber.format(JULY_2026_SUMMARY.zeroResultSearches)}{' '}
+                      That’s {wholeNumber.format(summary.zeroResultSearches)}{' '}
                       moments to improve metadata, spelling support, or query
                       guidance.
                     </span>
@@ -1365,7 +1512,9 @@ export function AnalyticsPage() {
                       ))}
                     </ol>
                     <p>
-                      758 zero-result searches included query text; 340 were
+                      {wholeNumber.format(zeroQueries.with_query)} zero-result
+                      searches included query text;{' '}
+                      {wholeNumber.format(zeroQueries.without_query)} were
                       filter-only searches with no query.
                     </p>
                   </div>
@@ -1406,15 +1555,15 @@ export function AnalyticsPage() {
                   <div className="analytics-performance-stats">
                     <div>
                       <span>Median response</span>
-                      <strong>{JULY_2026_SUMMARY.medianResponseMs} ms</strong>
+                      <strong>{summary.medianResponseMs} ms</strong>
                     </div>
                     <div>
                       <span>95th percentile</span>
-                      <strong>{JULY_2026_SUMMARY.p95ResponseMs} ms</strong>
+                      <strong>{summary.p95ResponseMs} ms</strong>
                     </div>
                     <div>
                       <span>Server errors</span>
-                      <strong>{JULY_2026_SUMMARY.serverErrors}</strong>
+                      <strong>{summary.serverErrors}</strong>
                     </div>
                   </div>
                 </article>
@@ -1425,9 +1574,7 @@ export function AnalyticsPage() {
                       <CircleGauge className="h-5 w-5" aria-hidden />
                       <span>Request mix</span>
                     </div>
-                    <small>
-                      {formatCompact(JULY_2026_SUMMARY.requests)} total
-                    </small>
+                    <small>{formatCompact(summary.requests)} total</small>
                   </div>
                   <div className="analytics-request-bar" aria-hidden="true">
                     {requestMix.map((item) => (
@@ -1458,9 +1605,12 @@ export function AnalyticsPage() {
                   <div className="analytics-panel-header">
                     <div>
                       <Activity className="h-5 w-5" aria-hidden />
-                      <span>July 29 API traffic separation</span>
+                      <span>{peakTraffic.day} API traffic separation</span>
                     </div>
-                    <small>34,574 raw HTTP requests</small>
+                    <small>
+                      {wholeNumber.format(peakTraffic.requests)} raw HTTP
+                      requests
+                    </small>
                   </div>
                   <div className="analytics-api-table-wrap">
                     <table>
@@ -1486,31 +1636,43 @@ export function AnalyticsPage() {
                   </div>
                   <p>
                     Turnstile status checks and API documentation probes made up
-                    84.1% of the peak. The table describes infrastructure load,
-                    not visitor search demand.
+                    {(
+                      ((peakApiTrafficBreakdown[0].count +
+                        peakApiTrafficBreakdown[1].count) /
+                        peakTraffic.requests) *
+                      100
+                    ).toFixed(1)}
+                    % of the peak. The table describes infrastructure load, not
+                    visitor search demand.
                   </p>
                 </article>
               </div>
             </section>
           )}
 
-          {activeReport !== 'overview' && activeReport !== 'comparison' && (
-            <section className="analytics-method-note" aria-label="Data notes">
-              <div>
-                <Download className="h-5 w-5" aria-hidden />
-                <strong>Verified July snapshot</strong>
-              </div>
-              <p>
-                Built from reconciled API, search, impression, and event exports
-                covering July 1–31, 2026. Raw request records remain outside
-                this application; this page contains aggregate metrics and
-                public catalog metadata only.
-              </p>
-              <span>
-                7 analytics tables · 1 catalog snapshot · 31 complete days
-              </span>
-            </section>
-          )}
+          {activeReport !== 'overview' &&
+            activeReport !== 'comparison' &&
+            activeReport !== 'content' && (
+              <section
+                className="analytics-method-note"
+                aria-label="Data notes"
+              >
+                <div>
+                  <Download className="h-5 w-5" aria-hidden />
+                  <strong>Verified {reportMonth} snapshot</strong>
+                </div>
+                <p>
+                  Built from reconciled API, search, impression, and event
+                  exports covering {reportMonth} 1–31, 2026 (UTC). Exported{' '}
+                  {summary.exportedAt}. Raw request records remain outside this
+                  application; this page contains aggregate metrics and public
+                  catalog metadata only.
+                </p>
+                <span>
+                  7 analytics tables · 1 catalog snapshot · 31 complete days
+                </span>
+              </section>
+            )}
         </div>
       </main>
 

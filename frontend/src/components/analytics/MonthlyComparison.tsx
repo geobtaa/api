@@ -318,8 +318,8 @@ export function MonthlyComparison() {
       <p className="analytics-comparison-note">
         August covers August 1–31, 2026 (UTC), exported{' '}
         {AUGUST_2026_SUMMARY.exportedAt}. July uses the preserved August 20
-        export. Detailed July rankings and campus reports are available from the
-        report navigation.
+        export. Monthly rankings and campus reports for both months are
+        available from the report navigation.
       </p>
     </section>
   );

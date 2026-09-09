@@ -37,7 +37,7 @@ vi.mock('recharts', () => ({
 }));
 
 describe('AnalyticsPage', () => {
-  function renderPage(report = 'members') {
+  function renderPage(report = 'members&month=2026-07') {
     window.history.replaceState({}, '', `/analytics?report=${report}`);
     return render(
       <HelmetProvider>
@@ -87,7 +87,7 @@ describe('AnalyticsPage', () => {
   });
 
   it('opens popular content directly without unrelated reports', () => {
-    renderPage('content');
+    renderPage('content&month=2026-07');
     expect(
       screen.getByRole('heading', { name: 'Popular content', level: 1 })
     ).toBeInTheDocument();
@@ -109,6 +109,88 @@ describe('AnalyticsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('defaults popular content to August and preserves July through the month selector', () => {
+    renderPage('content');
+    expect(
+      screen.getByRole('combobox', { name: 'Reporting month' })
+    ).toHaveValue('2026-08');
+    expect(
+      screen.getByRole('heading', {
+        name: 'August’s top resources and collections',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Rivers, Nepal, 2013' })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/55 of 812 clicks/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/598 resources with download clicks/)
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByTitle(
+        'All tracked interactions in August 16–31 compared with August 1–15'
+      )
+    ).toHaveLength(10);
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    expect(window.location.search).toBe('?report=content&month=2026-07');
+    expect(
+      screen.getByRole('heading', {
+        name: 'July’s top resources and collections',
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/55 of 933 clicks/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Rivers, Nepal, 2013' })
+    ).not.toBeInTheDocument();
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-08' } }
+    );
+    expect(
+      screen.getByRole('heading', {
+        name: 'August’s top resources and collections',
+      })
+    ).toBeInTheDocument();
+  });
+
+  it('uses August in every detailed report and keeps month selection between tabs', () => {
+    renderPage('members');
+    expect(
+      screen.getByRole('combobox', { name: 'Reporting month' })
+    ).toHaveValue('2026-08');
+    expect(screen.getByText(/Activity period: August 1–31/)).toHaveTextContent(
+      'September 9, 2026'
+    );
+    expect(screen.getByText('10,850')).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
+    fireEvent.click(within(nav).getByRole('link', { name: 'Daily activity' }));
+    expect(screen.getByText('49,258')).toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole('link', { name: 'Discovery' }));
+    expect(screen.getByRole('link', { name: 'wetlands' })).toBeInTheDocument();
+    expect(screen.getByText(/5,744 of 7,545/)).toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole('link', { name: 'API reliability' }));
+    expect(screen.getByText('127 ms')).toBeInTheDocument();
+    expect(
+      screen.getByText('Aug 1 API traffic separation')
+    ).toBeInTheDocument();
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    expect(screen.getByText('29 ms')).toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole('link', { name: 'Discovery' }));
+    expect(window.location.search).toBe('?report=discovery&month=2026-07');
+    expect(
+      screen.getByRole('link', { name: 'turkey maps' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'wetlands' })
+    ).not.toBeInTheDocument();
+  });
+
   it('falls back to overview for an unknown report', () => {
     renderPage('unknown');
     expect(
@@ -119,6 +201,9 @@ describe('AnalyticsPage', () => {
   it('filters the report to a campus and restores the alliance view', () => {
     renderPage();
 
+    expect(
+      screen.getByText(/Activity period: July 1–31, 2026/)
+    ).toHaveTextContent('as of August 20, 2026');
     const chicagoFilter = screen.getByRole('button', {
       name: 'Show University of Chicago July report',
     });
@@ -175,10 +260,16 @@ describe('AnalyticsPage', () => {
     'overview',
     'comparison',
     'content',
+    'content&month=2026-07',
     'members',
     'activity',
     'discovery',
     'platform',
+    'overview&month=2026-07',
+    'members&month=2026-07',
+    'activity&month=2026-07',
+    'discovery&month=2026-07',
+    'platform&month=2026-07',
   ])(
     'has no detectable WCAG violations in %s',
     async (report) => {
@@ -191,7 +282,7 @@ describe('AnalyticsPage', () => {
   );
 
   it('uses the local thumbnail route and falls back to a resource icon', () => {
-    renderPage('content');
+    renderPage('content&month=2026-07');
 
     const thumbnail = screen.getByTestId(
       'analytics-thumbnail-95dcf338-fc27-4d3b-8883-967b3223933b'
