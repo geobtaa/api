@@ -2727,3 +2727,37 @@
     gap: 0.75rem;
   }
 }
+
+.analytics-hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 1.5rem;
+}
+
+.analytics-hero-topline {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: start;
+}
+
+.analytics-hero-copy {
+  grid-column: 1;
+  grid-row: 1;
+  padding-top: 0;
+}
+
+.analytics-hero-stats {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 640px) {
+  .analytics-hero-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analytics-hero-topline {
+    grid-column: 1;
+    grid-row: 2;
+    margin-bottom: 1.5rem;
+  }
+}
