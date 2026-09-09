@@ -3,7 +3,8 @@ export const analyticsReports = [
     id: 'overview',
     label: 'Overview',
     period: 'August 2026',
-    description: 'Latest monthly highlights and a guide to the reports.',
+    description:
+      'Monthly highlights, daily interactions, searches, and traffic peaks.',
   },
   {
     id: 'comparison',
@@ -25,12 +26,6 @@ export const analyticsReports = [
     period: 'August 2026',
     description:
       'Review alliance contributions or focus on an individual campus.',
-  },
-  {
-    id: 'activity',
-    label: 'Daily activity',
-    period: 'August 2026',
-    description: 'Follow daily interactions, searches, and traffic peaks.',
   },
   {
     id: 'discovery',
@@ -72,8 +67,11 @@ export function analyticsMonth(params: URLSearchParams) {
 }
 
 export function selectedAnalyticsReport(params: URLSearchParams) {
+  // Preserve existing Daily activity links as aliases for the merged overview.
+  const reportId =
+    params.get('report') === 'activity' ? 'overview' : params.get('report');
   const report =
-    analyticsReports.find((entry) => entry.id === params.get('report')) ??
+    analyticsReports.find((entry) => entry.id === reportId) ??
     analyticsReports[0];
   return report.id === 'comparison'
     ? report

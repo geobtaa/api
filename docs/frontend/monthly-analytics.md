@@ -8,12 +8,12 @@ Report links preserve selection in the URL and support reloads and browser histo
 
 | URL | Report | Period |
 | --- | --- | --- |
-| `/analytics` | Overview | August 2026 |
+| `/analytics` | Overview, daily activity, and traffic peaks | August 2026 |
 | `/analytics?report=comparison` | Portal/member comparisons, daily trends, CSV | July–August 2026 |
 | `/analytics?report=content` | Popular resources, collections, downloads (default) | August 2026 |
 | `/analytics?report=content&month=2026-07` | Preserved popular-content report | July 2026 |
 | `/analytics?report=members` | Alliance and campus detail | August 2026 |
-| `/analytics?report=activity` | Daily activity and traffic peaks | August 2026 |
+| `/analytics?report=activity` | Legacy alias for Overview | August 2026 |
 | `/analytics?report=discovery` | Search terms, filters, zero results | August 2026 |
 | `/analytics?report=clients` | Clients, channels, key attribution, MCP/QGIS signals | August 2026 |
 | `/analytics?report=platform` | API traffic and reliability | August 2026 |
