@@ -1275,7 +1275,7 @@ export function AnalyticsPage() {
                           labelStyle={{ color: '#111827', fontWeight: 600 }}
                         />
                         <Area
-                          type="monotone"
+                          type="linear"
                           dataKey="events"
                           name="Interactions"
                           stroke="#2563EB"
@@ -1284,7 +1284,7 @@ export function AnalyticsPage() {
                           isAnimationActive={false}
                         />
                         <Line
-                          type="monotone"
+                          type="linear"
                           dataKey="searches"
                           name="Searches"
                           stroke="#003C5B"
