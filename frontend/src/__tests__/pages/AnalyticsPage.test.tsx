@@ -25,6 +25,7 @@ vi.mock('recharts', () => ({
       }
     />
   ),
+  LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
   Line: () => null,
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
@@ -55,7 +56,7 @@ describe('AnalyticsPage', () => {
         level: 1,
       })
     ).toBeInTheDocument();
-    expect(screen.getByText('613.1K')).toBeInTheDocument();
+    expect(screen.getByText('598.9K')).toBeInTheDocument();
     expect(
       screen.getAllByRole('link', {
         name: 'Emporium, Pennsylvania, 1892',

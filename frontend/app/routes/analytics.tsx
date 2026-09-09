@@ -4,7 +4,7 @@ import { AnalyticsPage } from '../../src/pages/AnalyticsPage';
 import { buildSeoMeta } from '../../src/config/seo';
 
 const description =
-  'The July 2026 monthly pulse for discovery, resources, collections, and platform activity across the BTAA Geoportal.';
+  'Compare July and August 2026 API traffic and discovery activity, with detailed July resource, collection, and member reports.';
 
 export function loader({ request }: LoaderFunctionArgs) {
   return { currentUrl: new URL(request.url).href };
@@ -12,7 +12,7 @@ export function loader({ request }: LoaderFunctionArgs) {
 
 export const meta: MetaFunction<typeof loader> = ({ data }) =>
   buildSeoMeta({
-    title: 'Geo Charts — July 2026',
+    title: 'Geo Charts — July–August 2026',
     description,
     url: data?.currentUrl,
   });
