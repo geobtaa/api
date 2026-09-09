@@ -1187,8 +1187,8 @@ export function AnalyticsPage() {
           {activeReport === 'overview' && (
             <section id="pulse" className="analytics-section">
               <SectionHeading
-                eyebrow="Daily activity"
-                title="Activity across the month"
+                eyebrow="Monthly trends"
+                title="Day by day"
                 description={`Daily interactions and searches across ${reportMonth}. ${peakActivity.day} recorded the most interactions.`}
               />
 
@@ -1197,7 +1197,7 @@ export function AnalyticsPage() {
                   <div className="analytics-panel-header">
                     <div>
                       <Activity className="h-5 w-5" aria-hidden />
-                      <span>Daily audience activity</span>
+                      <span>Interactions and searches</span>
                     </div>
                     <div className="analytics-chart-key" aria-hidden="true">
                       <span>
