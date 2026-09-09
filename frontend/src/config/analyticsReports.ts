@@ -40,6 +40,13 @@ export const analyticsReports = [
       'Understand search terms, filters, and searches without results.',
   },
   {
+    id: 'clients',
+    label: 'Clients & API keys',
+    period: 'August 2026',
+    description:
+      'Explore declared clients, API key attribution, and MCP and GIS request signals.',
+  },
+  {
     id: 'platform',
     label: 'API reliability',
     period: 'August 2026',

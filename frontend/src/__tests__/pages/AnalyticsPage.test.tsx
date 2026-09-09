@@ -191,6 +191,29 @@ describe('AnalyticsPage', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('opens client reporting from navigation and switches its reporting month', () => {
+    renderPage('overview');
+    fireEvent.click(
+      within(
+        screen.getByRole('navigation', { name: 'Analytics reports' })
+      ).getByRole('link', { name: 'Clients & API keys' })
+    );
+    expect(
+      screen.getByRole('heading', { name: 'Clients & API keys', level: 1 })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('table', { name: 'August 2026 declared client usage' })
+    ).toBeInTheDocument();
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    expect(
+      screen.getByRole('table', { name: 'July 2026 declared client usage' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Not available')).toBeInTheDocument();
+  });
+
   it('falls back to overview for an unknown report', () => {
     renderPage('unknown');
     expect(
@@ -265,6 +288,8 @@ describe('AnalyticsPage', () => {
     'activity',
     'discovery',
     'platform',
+    'clients',
+    'clients&month=2026-07',
     'overview&month=2026-07',
     'members&month=2026-07',
     'activity&month=2026-07',

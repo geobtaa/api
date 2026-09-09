@@ -2614,3 +2614,26 @@
   background: white;
   color: #1e293b;
 }
+
+.analytics-client-highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 1rem;
+}
+
+.analytics-client-highlights h2 {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.analytics-client-highlights strong {
+  display: block;
+  margin-block: 0.75rem;
+  font-size: 1.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.analytics-client-highlights p {
+  font-size: 0.85rem;
+  color: var(--analytics-text-secondary);
+}
