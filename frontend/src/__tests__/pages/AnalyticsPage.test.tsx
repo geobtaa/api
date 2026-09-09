@@ -57,6 +57,10 @@ describe('AnalyticsPage', () => {
       })
     ).toBeInTheDocument();
     expect(screen.getByText('598.9K')).toBeInTheDocument();
+    expect(screen.getByTestId('activity-chart')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Daily activity' })
+    ).not.toBeInTheDocument();
     expect(screen.queryByTestId('header')).not.toBeInTheDocument();
     expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
@@ -166,7 +170,7 @@ describe('AnalyticsPage', () => {
     );
     expect(screen.getByText('10,850')).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
-    fireEvent.click(within(nav).getByRole('link', { name: 'Daily activity' }));
+    fireEvent.click(within(nav).getByRole('link', { name: 'Overview' }));
     expect(screen.getByText('49,258')).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'Discovery' }));
     expect(screen.getByRole('link', { name: 'wetlands' })).toBeInTheDocument();
@@ -212,6 +216,22 @@ describe('AnalyticsPage', () => {
       screen.getByRole('table', { name: 'July 2026 declared client usage' })
     ).toBeInTheDocument();
     expect(screen.getByText('Not available')).toBeInTheDocument();
+  });
+
+  it('keeps old daily activity links working with the selected month', () => {
+    renderPage('activity&month=2026-07');
+    expect(
+      screen.getByRole('heading', { name: 'Monthly analytics dashboard' })
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('activity-chart')).toBeInTheDocument();
+    expect(
+      screen.getByRole('combobox', { name: 'Reporting month' })
+    ).toHaveValue('2026-07');
+    expect(
+      screen.getByRole('img', {
+        name: /Daily interactions and searches from July 1/,
+      })
+    ).toBeInTheDocument();
   });
 
   it('falls back to overview for an unknown report', () => {

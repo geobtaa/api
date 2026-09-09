@@ -583,41 +583,6 @@ export function AnalyticsPage() {
                 </div>
               </div>
             </section>
-
-            <section
-              className="analytics-shell analytics-report-directory"
-              aria-labelledby="reports-title"
-            >
-              <h2 id="reports-title">Explore the reports</h2>
-              <p>
-                Choose a focused report. Each report shows its available
-                reporting period.
-              </p>
-              <div className="analytics-report-cards">
-                {analyticsReports
-                  .filter((entry) => entry.id !== 'overview')
-                  .map((entry) => (
-                    <Link
-                      key={entry.id}
-                      to={analyticsReportHref(
-                        entry.id,
-                        searchParams.get('month')
-                      )}
-                      className="analytics-panel analytics-report-card"
-                    >
-                      <span>
-                        {entry.id === 'comparison'
-                          ? entry.period
-                          : `${reportMonth} 2026`}
-                      </span>
-                      <h3>
-                        {entry.label} <span aria-hidden="true">→</span>
-                      </h3>
-                      <p>{entry.description}</p>
-                    </Link>
-                  ))}
-              </div>
-            </section>
           </>
         ) : (
           <div className="analytics-shell analytics-report-intro">
@@ -1209,7 +1174,7 @@ export function AnalyticsPage() {
             </section>
           )}
 
-          {activeReport === 'activity' && (
+          {activeReport === 'overview' && (
             <section id="pulse" className="analytics-section">
               <SectionHeading
                 eyebrow="Daily activity"
@@ -1364,6 +1329,43 @@ export function AnalyticsPage() {
                     </p>
                   </div>
                 </aside>
+              </div>
+            </section>
+          )}
+
+          {activeReport === 'overview' && (
+            <section
+              className="analytics-report-directory"
+              aria-labelledby="reports-title"
+            >
+              <h2 id="reports-title">Explore the reports</h2>
+              <p>
+                Choose a focused report. Each report shows its available
+                reporting period.
+              </p>
+              <div className="analytics-report-cards">
+                {analyticsReports
+                  .filter((entry) => entry.id !== 'overview')
+                  .map((entry) => (
+                    <Link
+                      key={entry.id}
+                      to={analyticsReportHref(
+                        entry.id,
+                        searchParams.get('month')
+                      )}
+                      className="analytics-panel analytics-report-card"
+                    >
+                      <span>
+                        {entry.id === 'comparison'
+                          ? entry.period
+                          : `${reportMonth} 2026`}
+                      </span>
+                      <h3>
+                        {entry.label} <span aria-hidden="true">→</span>
+                      </h3>
+                      <p>{entry.description}</p>
+                    </Link>
+                  ))}
               </div>
             </section>
           )}
@@ -1654,8 +1656,7 @@ export function AnalyticsPage() {
             </section>
           )}
 
-          {activeReport !== 'overview' &&
-            activeReport !== 'comparison' &&
+          {activeReport !== 'comparison' &&
             activeReport !== 'content' &&
             activeReport !== 'clients' && (
               <section
