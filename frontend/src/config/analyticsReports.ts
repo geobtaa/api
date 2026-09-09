@@ -21,18 +21,18 @@ export const analyticsReports = [
       'Explore leading resources, collections, and download activity.',
   },
   {
+    id: 'discovery',
+    label: 'Searches',
+    period: 'August 2026',
+    description:
+      'Understand search terms, filters, and searches without results.',
+  },
+  {
     id: 'members',
     label: 'Members',
     period: 'August 2026',
     description:
       'Review alliance contributions or focus on an individual campus.',
-  },
-  {
-    id: 'discovery',
-    label: 'Discovery',
-    period: 'August 2026',
-    description:
-      'Understand search terms, filters, and searches without results.',
   },
   {
     id: 'clients',

@@ -172,7 +172,7 @@ describe('AnalyticsPage', () => {
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     fireEvent.click(within(nav).getByRole('link', { name: 'Overview' }));
     expect(screen.getByText('49,258')).toBeInTheDocument();
-    fireEvent.click(within(nav).getByRole('link', { name: 'Discovery' }));
+    fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
     expect(screen.getByRole('link', { name: 'wetlands' })).toBeInTheDocument();
     expect(screen.getByText(/5,744 of 7,545/)).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'API reliability' }));
@@ -185,7 +185,7 @@ describe('AnalyticsPage', () => {
       { target: { value: '2026-07' } }
     );
     expect(screen.getByText('29 ms')).toBeInTheDocument();
-    fireEvent.click(within(nav).getByRole('link', { name: 'Discovery' }));
+    fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
     expect(window.location.search).toBe('?report=discovery&month=2026-07');
     expect(
       screen.getByRole('link', { name: 'turkey maps' })
@@ -232,6 +232,40 @@ describe('AnalyticsPage', () => {
         name: /Daily interactions and searches from July 1/,
       })
     ).toBeInTheDocument();
+  });
+
+  it('shows expanded zero-result queries and facet usage for each month', () => {
+    renderPage('discovery');
+    expect(
+      screen.getByRole('heading', { name: 'Searches', level: 1 })
+    ).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
+    const labels = within(nav)
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+    expect(labels.indexOf('Searches')).toBe(
+      labels.indexOf('Popular content') + 1
+    );
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Zero-result queries' })
+      ).getAllByRole('listitem')
+    ).toHaveLength(50);
+    const chart = screen.getByRole('region', {
+      name: 'Facet category usage chart',
+    });
+    expect(within(chart).getByText('1,515')).toBeInTheDocument();
+    expect(within(chart).getByText('Map bounds')).toBeInTheDocument();
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Zero-result queries' })
+      ).getAllByRole('listitem')
+    ).toHaveLength(34);
+    expect(within(chart).getByText('1,521')).toBeInTheDocument();
   });
 
   it('falls back to overview for an unknown report', () => {

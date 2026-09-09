@@ -2637,3 +2637,23 @@
   font-size: 0.85rem;
   color: var(--analytics-text-secondary);
 }
+
+.analytics-facet-card {
+  grid-column: 1 / -1;
+}
+.analytics-facet-card h3 {
+  margin: 0;
+  font: inherit;
+}
+.analytics-search-scroll {
+  max-height: 480px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.analytics-search-scroll:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+.analytics-zero-query-list li a {
+  overflow-wrap: anywhere;
+}

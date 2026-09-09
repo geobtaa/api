@@ -174,3 +174,18 @@ Run the client report tests alongside the dashboard tests:
 ```bash
 npm test -- --run src/__tests__/components/ClientUsageReport.test.tsx src/__tests__/pages/AnalyticsPage.test.tsx
 ```
+
+### Searches: query rankings and facet usage
+
+The Searches tab follows Popular content and keeps the existing `report=discovery`
+URL. `searches2026.ts` contains full-month July and August aggregates exported
+September 9. Zero-result rankings include up to 50 trimmed, non-empty queries
+with at least three zero-result searches, sorted by count then query text (34
+qualifying July rows; 50 August rows shown). Query casing is preserved.
+
+Facet usage counts distinct search IDs per constraint category, combining
+`include_filters`, `exclude_filters`, `f`, and `fq` keys. Empty arrays, nulls, and
+empty strings are excluded. Nested map bounds and year-range parameters count
+once per search and category. Categories overlap, so their totals should not be
+summed into a search total. This measures filters present in recorded searches,
+not facet clicks. The chart includes geographic constraints alongside facets.
