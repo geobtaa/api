@@ -196,7 +196,7 @@ export function MonthlyComparison() {
               <YAxis width={65} />
               <Tooltip />
               <Line
-                type="monotone"
+                type="linear"
                 dataKey="July"
                 stroke="#6d28d9"
                 strokeDasharray="5 4"
@@ -204,7 +204,7 @@ export function MonthlyComparison() {
                 dot={false}
               />
               <Line
-                type="monotone"
+                type="linear"
                 dataKey="August"
                 stroke="#0f766e"
                 strokeWidth={2}

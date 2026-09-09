@@ -197,3 +197,6 @@ and action layout. Use Lucide outline icons and the analytics color variables.
 Table headers, numeric alignment, notes, and panel spacing share rules in
 `analytics.css`; preserve text alignment for descriptive columns. Report section
 headings stack on narrower screens, and wide tables retain horizontal scrolling.
+
+All analytics line and area series use linear interpolation: straight segments
+between recorded daily values, with no smoothing or curved lines.

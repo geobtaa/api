@@ -991,7 +991,7 @@ export function AnalyticsPage() {
                           labelStyle={{ color: '#111827', fontWeight: 600 }}
                         />
                         <Area
-                          type="monotone"
+                          type="linear"
                           dataKey="views"
                           name="Resource views"
                           stroke="#2563EB"
@@ -1000,7 +1000,7 @@ export function AnalyticsPage() {
                           isAnimationActive={false}
                         />
                         <Line
-                          type="monotone"
+                          type="linear"
                           dataKey="downloads"
                           name="Download clicks"
                           stroke="#047857"
