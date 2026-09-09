@@ -1,3 +1,5 @@
+import { Activity, BarChart3, Users, Download } from 'lucide-react';
+import { ReportPanelHeader } from './ReportPanelHeader';
 import { useState } from 'react';
 import {
   CartesianGrid,
@@ -108,12 +110,11 @@ export function MonthlyComparison() {
         </div>
       </div>
       <div className="analytics-panel analytics-comparison-panel">
-        <div className="analytics-comparison-toolbar">
-          <h3>Portal totals</h3>
+        <ReportPanelHeader title="Portal totals" icon={BarChart3}>
           <a href={csvHref} download="analytics-july-august-2026.csv">
-            Download comparison CSV
+            <Download aria-hidden="true" /> Download comparison CSV
           </a>
-        </div>
+        </ReportPanelHeader>
         <div
           className="analytics-comparison-scroll"
           tabIndex={0}
@@ -162,8 +163,7 @@ export function MonthlyComparison() {
         </p>
       </div>
       <div className="analytics-panel analytics-comparison-panel">
-        <div className="analytics-comparison-toolbar">
-          <h3>Daily comparison</h3>
+        <ReportPanelHeader title="Daily comparison" icon={Activity}>
           <label>
             Daily metric{' '}
             <select
@@ -179,7 +179,7 @@ export function MonthlyComparison() {
               ))}
             </select>
           </label>
-        </div>
+        </ReportPanelHeader>
         <p className="analytics-comparison-note">
           Aligned by day of month. July is the dashed purple line; August is the
           solid teal line.
@@ -247,8 +247,7 @@ export function MonthlyComparison() {
         </details>
       </div>
       <div className="analytics-panel analytics-comparison-panel">
-        <div className="analytics-comparison-toolbar">
-          <h3>Member comparison</h3>
+        <ReportPanelHeader title="Member comparison" icon={Users}>
           <label>
             Member metric{' '}
             <select
@@ -266,7 +265,7 @@ export function MonthlyComparison() {
               ))}
             </select>
           </label>
-        </div>
+        </ReportPanelHeader>
         <div
           className="analytics-comparison-scroll"
           tabIndex={0}

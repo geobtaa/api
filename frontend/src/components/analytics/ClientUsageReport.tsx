@@ -1,3 +1,12 @@
+import {
+  Activity,
+  KeyRound,
+  Network,
+  Server,
+  Users,
+  Download,
+} from 'lucide-react';
+import { ReportPanelHeader } from './ReportPanelHeader';
 import { clientSnapshots } from '../../data/analytics/clients2026';
 
 const number = new Intl.NumberFormat('en-US');
@@ -43,12 +52,18 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
     >
       <div className="analytics-client-highlights">
         <article className="analytics-panel analytics-comparison-panel">
-          <h2>Recorded API requests</h2>
+          <h2>
+            <Activity aria-hidden="true" />
+            Recorded API requests
+          </h2>
           <strong>{number.format(requests)}</strong>
           <p>All logged HTTP traffic</p>
         </article>
         <article className="analytics-panel analytics-comparison-panel">
-          <h2>Requests with a client name</h2>
+          <h2>
+            <Users aria-hidden="true" />
+            Requests with a client name
+          </h2>
           <strong>{number.format(namedRequests)}</strong>
           <p>
             {((namedRequests / requests) * 100).toFixed(2)}% attribution
@@ -56,28 +71,34 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           </p>
         </article>
         <article className="analytics-panel analytics-comparison-panel">
-          <h2>API keys identified in logs</h2>
+          <h2>
+            <KeyRound aria-hidden="true" />
+            API keys identified in logs
+          </h2>
           <strong>{snapshot.recordedKeys}</strong>
           <p>Historical key attribution is missing</p>
         </article>
       </div>
       <article className="analytics-panel analytics-comparison-panel">
-        <div className="analytics-comparison-toolbar">
-          <h2>Declared clients and channels</h2>
+        <ReportPanelHeader
+          title="Declared clients and channels"
+          icon={Users}
+          level={2}
+        >
           <a
             download={`api-clients-${month}.csv`}
             href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`}
           >
-            Download client CSV
+            <Download aria-hidden="true" /> Download client CSV
           </a>
-        </div>
+        </ReportPanelHeader>
         <div
           className="analytics-comparison-scroll"
           role="region"
           aria-label="Client usage table"
           tabIndex={0}
         >
-          <table className="analytics-comparison-table">
+          <table className="analytics-comparison-table analytics-client-table">
             <caption className="sr-only">
               {period} 2026 declared client usage
             </caption>
@@ -114,7 +135,11 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">
-        <h2>API key attribution</h2>
+        <ReportPanelHeader
+          title="API key attribution"
+          icon={KeyRound}
+          level={2}
+        />
         <div
           className="analytics-comparison-scroll"
           role="region"
@@ -152,7 +177,11 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">
-        <h2>MCP and QGIS signals</h2>
+        <ReportPanelHeader
+          title="MCP and QGIS signals"
+          icon={Network}
+          level={2}
+        />
         <div
           className="analytics-comparison-scroll"
           role="region"
@@ -205,7 +234,11 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">
-        <h2>API request surfaces</h2>
+        <ReportPanelHeader
+          title="API request surfaces"
+          icon={Server}
+          level={2}
+        />
         <div
           className="analytics-comparison-scroll"
           role="region"
