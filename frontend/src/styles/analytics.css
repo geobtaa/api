@@ -2416,3 +2416,160 @@
   cursor: pointer;
   padding: 0.5rem 0;
 }
+
+.analytics-header {
+  background: #fff;
+  border-bottom: 1px solid var(--analytics-border);
+}
+
+.analytics-header-brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-block: 1.25rem;
+}
+
+.analytics-brand {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--analytics-text);
+}
+
+.analytics-brand > span {
+  margin-right: 0.5rem;
+  font-weight: 800;
+  color: #075985;
+}
+
+.analytics-portal-link {
+  font-size: 0.875rem;
+  color: var(--analytics-text-secondary);
+}
+
+.analytics-report-nav {
+  display: flex;
+  gap: 0.35rem 1.5rem;
+  flex-wrap: wrap;
+}
+
+.analytics-report-nav a {
+  padding-block: 0.85rem;
+  border-bottom: 3px solid transparent;
+  color: var(--analytics-text-secondary);
+  font-size: 0.875rem;
+}
+
+.analytics-report-nav a[aria-current='page'] {
+  color: #075985;
+  border-bottom-color: #075985;
+  font-weight: 700;
+}
+
+.analytics-skip-link {
+  position: absolute;
+  top: -5rem;
+  left: 1rem;
+  z-index: 100;
+  background: white;
+  padding: 0.75rem;
+}
+
+.analytics-skip-link:focus {
+  top: 0.5rem;
+}
+
+.analytics-report-intro {
+  padding-block: 2rem;
+  background: white;
+  border-bottom: 1px solid var(--analytics-border);
+}
+
+.analytics-report-intro > p,
+.analytics-report-card > span {
+  color: #075985;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.analytics-report-intro h1 {
+  margin-block: 0.5rem;
+  font-size: clamp(1.6rem, 3vw, 2.25rem);
+  font-weight: 700;
+}
+
+.analytics-report-intro > span,
+.analytics-report-directory > p,
+.analytics-report-card p {
+  color: var(--analytics-text-secondary);
+  line-height: 1.6;
+}
+
+.analytics-report-directory {
+  padding-block: 2rem;
+}
+
+.analytics-report-directory h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.analytics-report-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.analytics-report-card {
+  display: block;
+  padding: 1.5rem;
+}
+
+.analytics-report-card:hover {
+  border-color: #075985;
+}
+
+.analytics-report-card h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-block: 0.75rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.analytics-report-card p {
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .analytics-report-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .analytics-report-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analytics-report-nav {
+    gap: 0.25rem 1rem;
+  }
+}
+
+.analytics-hero-copy {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.analytics-hero-note {
+  max-width: 48rem;
+}
+
+.analytics-content:empty {
+  display: none;
+}

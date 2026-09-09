@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
 import { HelmetProvider } from 'react-helmet-async';
 import type { ReactNode } from 'react';
@@ -37,7 +37,8 @@ vi.mock('recharts', () => ({
 }));
 
 describe('AnalyticsPage', () => {
-  function renderPage() {
+  function renderPage(report = 'members') {
+    window.history.replaceState({}, '', `/analytics?report=${report}`);
     return render(
       <HelmetProvider>
         <BrowserRouter>
@@ -47,20 +48,51 @@ describe('AnalyticsPage', () => {
     );
   }
 
-  it('renders the July dashboard and ranked catalog links', () => {
-    renderPage();
-
+  it('shows an overview and navigates between focused reports', () => {
+    renderPage('overview');
     expect(
       screen.getByRole('heading', {
-        name: /monthly analytics dashboard/i,
+        name: 'Monthly analytics dashboard',
         level: 1,
       })
     ).toBeInTheDocument();
     expect(screen.getByText('598.9K')).toBeInTheDocument();
+    expect(screen.queryByTestId('header')).not.toBeInTheDocument();
+    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
+    expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    fireEvent.click(
+      within(nav).getByRole('link', { name: 'Month comparison' })
+    );
+    expect(window.location.search).toBe('?report=comparison');
     expect(
-      screen.getAllByRole('link', {
-        name: 'Emporium, Pennsylvania, 1892',
-      })[0]
+      screen.getByRole('heading', { name: 'Month comparison', level: 1 })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('table', { name: /portal totals/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText('598.9K')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', {
+        name: 'How BTAA member content performed',
+      })
+    ).not.toBeInTheDocument();
+    fireEvent.click(within(nav).getByRole('link', { name: 'Overview' }));
+    expect(window.location.search).toBe('');
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('opens popular content directly without unrelated reports', () => {
+    renderPage('content');
+    expect(
+      screen.getByRole('heading', { name: 'Popular content', level: 1 })
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByRole('link', { name: 'Emporium, Pennsylvania, 1892' })[0]
     ).toHaveAttribute(
       'href',
       '/resources/95dcf338-fc27-4d3b-8883-967b3223933b'
@@ -68,53 +100,20 @@ describe('AnalyticsPage', () => {
     expect(
       screen.getByRole('link', { name: 'Urban Base Layers Collection' })
     ).toHaveAttribute('href', '/resources/b1g_urbanBaseLayers');
-    expect(screen.getByTestId('activity-chart')).toBeInTheDocument();
-    expect(screen.getByTestId('member-activity-chart')).toBeInTheDocument();
-    expect(screen.getByText('99.997%')).toBeInTheDocument();
+    expect(screen.queryByTestId('activity-chart')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('heading', { name: 'Top zero-result queries' })
+      screen.queryByTestId('member-activity-chart')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'API requests and reliability' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('falls back to overview for an unknown report', () => {
+    renderPage('unknown');
+    expect(
+      screen.getByRole('heading', { name: 'Monthly analytics dashboard' })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: '14.271281, 44.702708' })
-    ).toHaveAttribute('href', '/search?q=14.271281%2C%2044.702708');
-    expect(
-      screen.getByText(/758 zero-result searches included query text/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getAllByRole('link', {
-        name: "Map of Home Owners' Loan Corporation [Los Angeles, California] {1939}",
-      })[0]
-    ).toHaveAttribute(
-      'href',
-      '/resources/2f3c06da-21a0-410f-b230-be07165aeb89'
-    );
-    expect(
-      screen.getByRole('heading', { name: 'API requests and reliability' })
-    ).toBeInTheDocument();
-    expect(screen.getByText('Turnstile status checks')).toBeInTheDocument();
-    expect(screen.getByText(/84.1% of the peak/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', {
-        name: 'How BTAA member content performed',
-      })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/69\.4% of search impressions/i)
-    ).toBeInTheDocument();
-    expect(screen.getByText(/64\.8% of portal views/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/63\.1% of all download clicks/i)
-    ).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Chicago' })).toHaveAttribute(
-      'href',
-      '/search?include_filters%5Bb1g_code_s%5D%5B%5D=12'
-    );
-    expect(
-      screen.getAllByRole('link', {
-        name: /KH-4a: Declassified Satellite Imagery/i,
-      })[0]
-    ).toHaveAttribute('href', '/resources/camel-1022954');
-    expect(screen.getByText(/17 contributing institutions/i)).toBeVisible();
   });
 
   it('filters the report to a campus and restores the alliance view', () => {
@@ -172,15 +171,27 @@ describe('AnalyticsPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('has no detectable WCAG 2.2 A or AA violations', async () => {
-    const { container } = renderPage();
-    const results = await axeWithWCAG22(container);
+  it.each([
+    'overview',
+    'comparison',
+    'content',
+    'members',
+    'activity',
+    'discovery',
+    'platform',
+  ])(
+    'has no detectable WCAG violations in %s',
+    async (report) => {
+      const { container } = renderPage(report);
+      const results = await axeWithWCAG22(container);
 
-    expect(results.violations).toHaveLength(0);
-  }, 15_000);
+      expect(results.violations).toHaveLength(0);
+    },
+    15_000
+  );
 
   it('uses the local thumbnail route and falls back to a resource icon', () => {
-    renderPage();
+    renderPage('content');
 
     const thumbnail = screen.getByTestId(
       'analytics-thumbnail-95dcf338-fc27-4d3b-8883-967b3223933b'

@@ -1,11 +1,30 @@
 # Monthly analytics dashboard
 
-The public `/analytics` page shows the latest monthly highlights, an August versus
-July 2026 comparison, and the original detailed July report. It uses checked-in
-aggregate snapshots, not live queries. Comparison tables show absolute values,
-changes relative to July, and downloadable CSV totals for the portal and members.
-Daily charts align dates by day of month, with selectable metrics and an exact
-values table. Member comparisons have a separate metric selector.
+The public `/analytics` landing page shows August highlights and a report directory.
+An analytics-specific header replaces the Geoportal search form and navigation,
+with a single link back to the Geoportal. Only the selected report is rendered.
+
+Report links preserve selection in the URL and support reloads and browser history:
+
+| URL | Report | Period |
+| --- | --- | --- |
+| `/analytics` | Overview | August 2026 |
+| `/analytics?report=comparison` | Portal/member comparisons, daily trends, CSV | July–August 2026 |
+| `/analytics?report=content` | Popular resources, collections, downloads | July 2026 |
+| `/analytics?report=members` | Alliance and campus detail | July 2026 |
+| `/analytics?report=activity` | Daily activity and traffic peaks | July 2026 |
+| `/analytics?report=discovery` | Search terms, filters, zero results | July 2026 |
+| `/analytics?report=platform` | API traffic and reliability | July 2026 |
+
+Unknown report values show the overview. Navigation marks the current report and
+wraps on small screens; a skip link leads to the report. Detailed reports show their
+period prominently and do not repeat August summary cards. The original July
+snapshots remain available within the relevant reports.
+
+The page uses checked-in aggregates, not live queries. Comparison tables show
+absolute values, changes relative to July, and downloadable CSV totals. Daily
+charts align dates by day of month, with selectable metrics and an exact values
+table. Member comparisons have a separate metric selector.
 
 ## Snapshot definitions
 
