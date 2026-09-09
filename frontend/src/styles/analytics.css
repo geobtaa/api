@@ -2573,3 +2573,20 @@
 .analytics-content:empty {
   display: none;
 }
+
+.analytics-content-month {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+}
+
+.analytics-content-month select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #64748b;
+  border-radius: 0.35rem;
+  background: white;
+  color: #1e293b;
+}

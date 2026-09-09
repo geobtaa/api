@@ -15,34 +15,34 @@ export const analyticsReports = [
   {
     id: 'content',
     label: 'Popular content',
-    period: 'July 2026',
+    period: 'August 2026',
     description:
       'Explore leading resources, collections, and download activity.',
   },
   {
     id: 'members',
     label: 'Members',
-    period: 'July 2026',
+    period: 'August 2026',
     description:
       'Review alliance contributions or focus on an individual campus.',
   },
   {
     id: 'activity',
     label: 'Daily activity',
-    period: 'July 2026',
+    period: 'August 2026',
     description: 'Follow daily interactions, searches, and traffic peaks.',
   },
   {
     id: 'discovery',
     label: 'Discovery',
-    period: 'July 2026',
+    period: 'August 2026',
     description:
       'Understand search terms, filters, and searches without results.',
   },
   {
     id: 'platform',
     label: 'API reliability',
-    period: 'July 2026',
+    period: 'August 2026',
     description:
       'Inspect request traffic, response times, and service reliability.',
   },
@@ -50,6 +50,25 @@ export const analyticsReports = [
 
 export type AnalyticsReport = (typeof analyticsReports)[number]['id'];
 
-export function analyticsReportHref(report: AnalyticsReport) {
-  return report === 'overview' ? '/analytics' : `/analytics?report=${report}`;
+export function analyticsReportHref(
+  report: AnalyticsReport,
+  month?: string | null
+) {
+  const params = new URLSearchParams();
+  if (report !== 'overview') params.set('report', report);
+  if (month === '2026-07' || month === '2026-08') params.set('month', month);
+  return `/analytics${params.size ? `?${params}` : ''}`;
+}
+
+export function analyticsMonth(params: URLSearchParams) {
+  return params.get('month') === '2026-07' ? 'July' : 'August';
+}
+
+export function selectedAnalyticsReport(params: URLSearchParams) {
+  const report =
+    analyticsReports.find((entry) => entry.id === params.get('report')) ??
+    analyticsReports[0];
+  return report.id === 'comparison'
+    ? report
+    : { ...report, period: `${analyticsMonth(params)} 2026` };
 }

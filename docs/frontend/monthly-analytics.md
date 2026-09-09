@@ -1,6 +1,6 @@
 # Monthly analytics dashboard
 
-The public `/analytics` landing page shows August highlights and a report directory.
+The public `/analytics` landing page shows the selected month’s highlights and a report directory.
 An analytics-specific header replaces the Geoportal search form and navigation,
 with a single link back to the Geoportal. Only the selected report is rendered.
 
@@ -10,14 +10,18 @@ Report links preserve selection in the URL and support reloads and browser histo
 | --- | --- | --- |
 | `/analytics` | Overview | August 2026 |
 | `/analytics?report=comparison` | Portal/member comparisons, daily trends, CSV | July–August 2026 |
-| `/analytics?report=content` | Popular resources, collections, downloads | July 2026 |
-| `/analytics?report=members` | Alliance and campus detail | July 2026 |
-| `/analytics?report=activity` | Daily activity and traffic peaks | July 2026 |
-| `/analytics?report=discovery` | Search terms, filters, zero results | July 2026 |
-| `/analytics?report=platform` | API traffic and reliability | July 2026 |
+| `/analytics?report=content` | Popular resources, collections, downloads (default) | August 2026 |
+| `/analytics?report=content&month=2026-07` | Preserved popular-content report | July 2026 |
+| `/analytics?report=members` | Alliance and campus detail | August 2026 |
+| `/analytics?report=activity` | Daily activity and traffic peaks | August 2026 |
+| `/analytics?report=discovery` | Search terms, filters, zero results | August 2026 |
+| `/analytics?report=platform` | API traffic and reliability | August 2026 |
 
 Unknown report values show the overview. Navigation marks the current report and
-wraps on small screens; a skip link leads to the report. Detailed reports show their
+wraps on small screens; a skip link leads to the report. All single-month reports default to August and have a month selector. Add
+`month=2026-07` to any report URL to view July, or `month=2026-08` for August.
+Navigation preserves the selected month. Unknown months fall back to August.
+The comparison report always compares both months. Detailed reports show their
 period prominently and do not repeat August summary cards. The original July
 snapshots remain available within the relevant reports.
 
@@ -73,9 +77,61 @@ Member attribution can differ when recalculated against a later catalog.
 Run from `frontend/`:
 
 ```bash
-npm test -- --run src/__tests__/pages/AnalyticsPage.test.tsx src/__tests__/components/MonthlyComparison.test.tsx
+npm test -- --run src/__tests__/pages/AnalyticsPage.test.tsx src/__tests__/components/MonthlyComparison.test.tsx src/__tests__/components/AugustAnalyticsData.test.ts
 ```
 
 The tests cover displayed comparisons, metric switching, CSV values, zero
 baselines, data reconciliation, and full-page accessibility. Also run focused
 ESLint/Prettier checks and `npm run build` when changing the page.
+
+## Popular content snapshots
+
+`popularAugust2026.ts` was calculated from events and searches from August 1
+inclusive through September 1 exclusive (UTC), exported September 9, 2026.
+July's arrays remain unchanged. The month selector updates rankings, totals,
+notes, momentum tooltips, dates, and the URL together.
+
+- Resources rank by `resource_view` count. Actions count all other event types.
+  Momentum counts all events in days 16–31 versus days 1–15.
+- Download rankings count `download_click`, with distinct non-null visit tokens
+  per resource. Labels are distinct recorded download labels. August totals are
+  812 clicks across 598 resource IDs; the top ten contribute 55 clicks.
+- Collection rankings count searches containing collection or local-collection
+  inclusion constraints. Both `include_filters[...][]` and `f[...][]` aliases
+  are recognized; duplicate values/aliases within one search count once. Exclusion
+  filters do not count. A search using multiple collections counts for each.
+- Resource rankings join the catalog at export for titles and metadata. Records
+  absent from that catalog cannot be ranked by title. All-resource download totals
+  include all recorded resource IDs. Ties use resource ID; collection ties use
+  kind and filter value. No publication-state restriction is applied to rankings.
+- Catalog inventory in the July member report is a point-in-time August 20 count used
+  alongside July 1–31 activity. It is not an August activity total or an August 31
+  inventory snapshot.
+
+## August detail reports
+
+`reportsAugust2026.ts` contains member, discovery, and API aggregate exports from
+September 9. August daily activity and portal totals are in `august2026.ts`.
+All activity windows include August 1 and exclude September 1 (UTC).
+
+Member inventory and active-resource counts use the eligible catalog as of
+September 9, not a reconstructed August 31 inventory. Active resources are the
+union of resource IDs with an event or impression during August, joined to that
+catalog. Daily member views/downloads and top-three content use the same eligible
+catalog and reconcile with member totals. Leader callouts are calculated from the
+selected month's member metrics.
+
+Search terms group trimmed, non-empty queries with a deterministic alphabetical
+tie break; zero-result terms also require `zero_results`. View shares use all
+searches as denominator. Resource-class filters follow the inclusion-filter
+normalization and per-search deduplication described above for collections.
+
+API request mix groups `/api/docs`, `/api/v1/turnstile/status`,
+`/api/v1/analytics/events`, and all other endpoints. Peak-day tables add resource,
+thumbnail, and crawler categories. The peak day is selected by total requests,
+with the earliest date winning ties. Monthly category totals and peak-day
+category totals reconcile with their corresponding request counts. Daily peaks,
+response percentiles, search shares, donut segments, and descriptive callouts
+all follow the selected month.
+
+July datasets are preserved rather than recalculated against today's catalog.
