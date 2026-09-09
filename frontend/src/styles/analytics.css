@@ -2423,6 +2423,8 @@
 }
 
 .analytics-header-brand {
+  background: #003c5b;
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2431,20 +2433,42 @@
 }
 
 .analytics-brand {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--analytics-text);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: #fff;
 }
 
-.analytics-brand > span {
-  margin-right: 0.5rem;
-  font-weight: 800;
-  color: #075985;
+.analytics-brand-logo {
+  width: auto;
+  height: clamp(3rem, 6vw, 4.5rem);
+  object-fit: contain;
+}
+
+.analytics-brand-lockup {
+  display: grid;
+  gap: 0.15rem;
+  padding-left: 1rem;
+  border-left: 1px solid rgb(255 255 255 / 60%);
+  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-weight: 600;
+}
+
+.analytics-brand-context {
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.08em;
 }
 
 .analytics-portal-link {
   font-size: 0.875rem;
-  color: var(--analytics-text-secondary);
+  color: #fff;
+}
+
+@media (max-width: 480px) {
+  .analytics-header-brand {
+    flex-wrap: wrap;
+  }
 }
 
 .analytics-report-nav {

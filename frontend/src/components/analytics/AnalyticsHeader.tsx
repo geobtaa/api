@@ -19,7 +19,15 @@ export function AnalyticsHeader({
       </a>
       <div className="analytics-shell analytics-header-brand">
         <Link to="/analytics" className="analytics-brand">
-          <span>BTAA</span> Analytics
+          <img
+            src="/btaa-logo.png"
+            alt="Big Ten Academic Alliance"
+            className="analytics-brand-logo"
+          />
+          <span className="analytics-brand-lockup">
+            <span>Geoportal</span>
+            <span className="analytics-brand-context">Analytics</span>
+          </span>
         </Link>
         <Link to="/" className="analytics-portal-link">
           Back to Geoportal <span aria-hidden="true">↗</span>
