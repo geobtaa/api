@@ -15,6 +15,7 @@ Report links preserve selection in the URL and support reloads and browser histo
 | `/analytics?report=members` | Alliance and campus detail | August 2026 |
 | `/analytics?report=activity` | Daily activity and traffic peaks | August 2026 |
 | `/analytics?report=discovery` | Search terms, filters, zero results | August 2026 |
+| `/analytics?report=clients` | Clients, channels, key attribution, MCP/QGIS signals | August 2026 |
 | `/analytics?report=platform` | API traffic and reliability | August 2026 |
 
 Unknown report values show the overview. Navigation marks the current report and
@@ -135,3 +136,41 @@ response percentiles, search shares, donut segments, and descriptive callouts
 all follow the selected month.
 
 July datasets are preserved rather than recalculated against today's catalog.
+
+## Clients and API keys
+
+`clients2026.ts` contains aggregates exported September 9 for July and August.
+The Clients & API keys report follows the common month selector and provides a
+client CSV. It separates three different attribution dimensions:
+
+- Declared `client_name` and `client_channel` identify callers when provided.
+  Request counts come from `analytics_daily_api_usage_metrics`; search and event
+  counts are grouped independently from their respective raw event tables. Missing
+  or blank names/channels are labeled **Not declared**. Counts are not added
+  across these different measures.
+- API key coverage counts requests with and without `api_key_id`. Both months
+  have zero recorded key IDs. This is missing historical attribution, not evidence
+  that no API keys were configured or used. The report cannot assign usage to a
+  configured key such as `btaa_geoportal`. No key values, hashes, or private key
+  owner labels are exported.
+- Endpoint surfaces describe requested routes, not client applications. MCP counts
+  requests to `/api/v1/mcp` and descendants. OGC routes are not assumed to be QGIS.
+  API documentation includes docs, OpenAPI JSON, and ReDoc; access checks include
+  status and verification. Thus these categories are broader than the abbreviated
+  request mix on the reliability report. Categories are mutually exclusive and
+  sum to the monthly request total.
+
+Both monthly request rollups cover all 31 days and match the existing request
+summaries exactly. August raw logs independently confirm missing key attribution.
+The QGIS signal checks declared client `qgis-plugin` / channel `qgis`, and separately
+counts raw user agents containing QGIS (case insensitive). August has no such
+matches. July user-agent matching is unavailable because its raw request logs have
+expired; its rollups do not retain user agents. Zero matches do not prove zero
+QGIS usage. MCP HTTP requests do not measure successful tool calls or individual
+WebSocket messages. Application signals can overlap with endpoint categories.
+
+Run the client report tests alongside the dashboard tests:
+
+```bash
+npm test -- --run src/__tests__/components/ClientUsageReport.test.tsx src/__tests__/pages/AnalyticsPage.test.tsx
+```

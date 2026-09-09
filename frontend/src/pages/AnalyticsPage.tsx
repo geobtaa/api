@@ -1,3 +1,4 @@
+import { ClientUsageReport } from '../components/analytics/ClientUsageReport';
 import * as augustReports from '../data/analytics/reportsAugust2026';
 import { augustDailyActivity } from '../data/analytics/august2026';
 import {
@@ -645,6 +646,9 @@ export function AnalyticsPage() {
 
         <div className="analytics-shell analytics-content">
           {activeReport === 'comparison' && <MonthlyComparison />}
+          {activeReport === 'clients' && (
+            <ClientUsageReport month={isAugust ? '2026-08' : '2026-07'} />
+          )}
           {activeReport === 'content' && (
             <section id="charts" className="analytics-section">
               <SectionHeading
@@ -1652,7 +1656,8 @@ export function AnalyticsPage() {
 
           {activeReport !== 'overview' &&
             activeReport !== 'comparison' &&
-            activeReport !== 'content' && (
+            activeReport !== 'content' &&
+            activeReport !== 'clients' && (
               <section
                 className="analytics-method-note"
                 aria-label="Data notes"
