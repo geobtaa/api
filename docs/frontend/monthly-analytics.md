@@ -189,3 +189,11 @@ empty strings are excluded. Nested map bounds and year-range parameters count
 once per search and category. Categories overlap, so their totals should not be
 summed into a search total. This measures filters present in recorded searches,
 not facet clicks. The chart includes geographic constraints alongside facets.
+
+### Shared report presentation
+
+Comparison and client panels use `ReportPanelHeader` for the shared icon, title,
+and action layout. Use Lucide outline icons and the analytics color variables.
+Table headers, numeric alignment, notes, and panel spacing share rules in
+`analytics.css`; preserve text alignment for descriptive columns. Report section
+headings stack on narrower screens, and wide tables retain horizontal scrolling.

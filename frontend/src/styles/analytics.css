@@ -2343,34 +2343,6 @@
   margin-top: 1.25rem;
 }
 
-.analytics-comparison-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.analytics-comparison-toolbar h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
-}
-
-.analytics-comparison-toolbar a {
-  color: #075985;
-  text-decoration: underline;
-}
-
-.analytics-comparison-toolbar select {
-  margin-left: 0.5rem;
-  padding: 0.4rem;
-  border: 1px solid #64748b;
-  border-radius: 0.35rem;
-  background: white;
-  color: #1e293b;
-}
-
 .analytics-comparison-scroll {
   overflow-x: auto;
 }
@@ -2656,4 +2628,119 @@
 }
 .analytics-zero-query-list li a {
   overflow-wrap: anywhere;
+}
+
+/* Shared presentation for report panels, icons, and tabular metrics. */
+.analytics-panel-header h2,
+.analytics-panel-header h3 {
+  margin: 0;
+  font: inherit;
+}
+.analytics-panel-header svg,
+.analytics-client-highlights h2 svg {
+  width: 1.125rem;
+  height: 1.125rem;
+  flex-shrink: 0;
+  stroke-width: 1.75;
+  color: var(--analytics-brand);
+}
+.analytics-report-panel-header {
+  margin: -1.5rem -1.5rem 1rem;
+  flex-wrap: wrap;
+}
+.analytics-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.8rem;
+}
+.analytics-panel-actions a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--analytics-brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.analytics-panel-actions select {
+  margin-left: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--analytics-border);
+  border-radius: 6px;
+  background: var(--analytics-surface);
+  color: var(--analytics-text);
+  font: inherit;
+}
+.analytics-client-highlights .analytics-comparison-panel {
+  margin-top: 0;
+}
+.analytics-client-highlights h2 {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--analytics-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.analytics-client-highlights strong {
+  color: var(--analytics-brand);
+  font-variant-numeric: tabular-nums;
+}
+.analytics-member-selection-brand > span {
+  background: var(--analytics-brand);
+}
+.analytics-comparison-table,
+.analytics-member-report table,
+.analytics-api-breakdown-card table {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-comparison-table thead th,
+.analytics-member-report thead th,
+.analytics-api-breakdown-card thead th {
+  color: var(--analytics-text-secondary);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.analytics-comparison-table tbody th,
+.analytics-member-report tbody th,
+.analytics-api-breakdown-card tbody th {
+  color: var(--analytics-text);
+  font-weight: 600;
+}
+.analytics-comparison-table tbody td {
+  color: var(--analytics-text-secondary);
+}
+.analytics-comparison-table tbody tr:hover,
+.analytics-api-breakdown-card tbody tr:hover {
+  background: var(--analytics-surface-subtle);
+}
+.analytics-api-breakdown-card th:nth-child(2),
+.analytics-api-breakdown-card th:nth-child(3),
+.analytics-api-breakdown-card td:nth-child(2),
+.analytics-api-breakdown-card td:nth-child(3) {
+  text-align: right;
+}
+.analytics-client-table th:nth-child(2),
+.analytics-client-table td:nth-child(2) {
+  text-align: left;
+}
+.analytics-comparison-note,
+.analytics-card-footnote {
+  font-size: 0.75rem;
+  line-height: 1.6;
+}
+.analytics-section-heading > div {
+  display: grid;
+  grid-template-columns: minmax(14rem, 1fr) minmax(0, 1.6fr);
+}
+@media (max-width: 900px) {
+  .analytics-section-heading,
+  .analytics-section-heading > div {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
 }
