@@ -28,6 +28,8 @@ import {
   YAxis,
 } from 'recharts';
 import { useState } from 'react';
+import { AUGUST_2026_SUMMARY } from '../data/analytics/august2026';
+import { MonthlyComparison } from '../components/analytics/MonthlyComparison';
 import { Footer } from '../components/layout/Footer';
 import { Header } from '../components/layout/Header';
 import { Seo } from '../components/Seo';
@@ -371,8 +373,8 @@ export function AnalyticsPage() {
   return (
     <div className="min-h-screen bg-gray-50">
       <Seo
-        title="Monthly API and discovery analytics — July 2026"
-        description="The July 2026 monthly snapshot of API traffic, discovery activity, popular resources, collections, and downloads across the BTAA Geoportal."
+        title="Monthly API and discovery analytics — July–August 2026"
+        description="Compare July and August 2026 API traffic and discovery activity, with detailed July resource, collection, and member reports."
       />
       <Header />
 
@@ -399,7 +401,7 @@ export function AnalyticsPage() {
                 aria-label="Dashboard month"
               >
                 <CalendarDays className="h-4 w-4" aria-hidden />
-                <span>{JULY_2026_SUMMARY.month}</span>
+                <span>July–August 2026</span>
               </div>
             </div>
 
@@ -420,39 +422,39 @@ export function AnalyticsPage() {
 
             <div
               className="analytics-hero-stats"
-              aria-label="Monthly highlights"
+              aria-label="August 2026 highlights"
             >
               <div>
                 <span>01</span>
-                <strong>{formatCompact(JULY_2026_SUMMARY.requests)}</strong>
-                <p>API requests recorded</p>
+                <strong>{formatCompact(AUGUST_2026_SUMMARY.requests)}</strong>
+                <p>August API requests recorded</p>
                 <small>Includes bots, probes, and browser traffic</small>
               </div>
               <div>
                 <span>02</span>
                 <strong>
-                  {formatCompact(JULY_2026_SUMMARY.resourceViews)}
+                  {formatCompact(AUGUST_2026_SUMMARY.resourceViews)}
                 </strong>
                 <p>resource views</p>
                 <small>
-                  {formatCompact(JULY_2026_SUMMARY.impressions)} discoveries
+                  {formatCompact(AUGUST_2026_SUMMARY.impressions)} discoveries
                   shown
                 </small>
               </div>
               <div>
                 <span>03</span>
-                <strong>{formatCompact(JULY_2026_SUMMARY.searches)}</strong>
+                <strong>{formatCompact(AUGUST_2026_SUMMARY.searches)}</strong>
                 <p>searches launched</p>
-                <small>Map view led 86% of sessions</small>
+                <small>August 1–31, 2026</small>
               </div>
               <div>
                 <span>04</span>
                 <strong>
-                  {wholeNumber.format(JULY_2026_SUMMARY.downloadClicks)}
+                  {wholeNumber.format(AUGUST_2026_SUMMARY.downloadClicks)}
                 </strong>
                 <p>download clicks</p>
                 <small>
-                  Plus {wholeNumber.format(JULY_2026_SUMMARY.resultClicks)}{' '}
+                  Plus {wholeNumber.format(AUGUST_2026_SUMMARY.resultClicks)}{' '}
                   result opens
                 </small>
               </div>
@@ -462,19 +464,19 @@ export function AnalyticsPage() {
 
         <nav className="analytics-subnav" aria-label="Analytics sections">
           <div className="analytics-shell">
-            <a href="#charts">The charts</a>
+            <a href="#comparison">July vs. August</a>
+            <a href="#charts">July charts</a>
             <a href="#downloads">Downloads</a>
             <a href="#members">Members</a>
             <a href="#pulse">Daily pulse</a>
             <a href="#discovery">Discovery</a>
             <a href="#platform">Platform</a>
-            <span>
-              Static snapshot · Exported {JULY_2026_SUMMARY.exportedAt}
-            </span>
+            <span>July detail · Exported {JULY_2026_SUMMARY.exportedAt}</span>
           </div>
         </nav>
 
         <div className="analytics-shell analytics-content">
+          <MonthlyComparison />
           <section id="charts" className="analytics-section">
             <SectionHeading
               eyebrow="Popularity charts"
