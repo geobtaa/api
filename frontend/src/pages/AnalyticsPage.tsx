@@ -1,3 +1,5 @@
+import { searchSnapshots } from '../data/analytics/searches2026';
+import { FACET_LABELS } from '../utils/facetLabels';
 import { ClientUsageReport } from '../components/analytics/ClientUsageReport';
 import * as augustReports from '../data/analytics/reportsAugust2026';
 import { augustDailyActivity } from '../data/analytics/august2026';
@@ -64,7 +66,6 @@ import {
   topDownloadedResources as julyTopDownloadedResources,
   topResources as julyTopResources,
   topSearchTerms as julyTopSearchTerms,
-  topZeroResultQueries as julyTopZeroResultQueries,
   type CollectionChartEntry,
   type ResourceChartEntry,
 } from '../data/analytics/july2026';
@@ -348,9 +349,22 @@ export function AnalyticsPage() {
   const topSearchTerms = isAugust
     ? augustReports.augustTopSearchTerms
     : julyTopSearchTerms;
-  const topZeroResultQueries = isAugust
-    ? augustReports.augustTopZeroResultQueries
-    : julyTopZeroResultQueries;
+  const searchSnapshot = searchSnapshots[isAugust ? '2026-08' : '2026-07'];
+  const topZeroResultQueries = searchSnapshot.zeroQueries;
+  const facetLabels: Record<string, string> = {
+    ...FACET_LABELS,
+    geo: 'Map bounds',
+    year_range: 'Year range',
+    b1g_code_s: 'BTAA member',
+    dct_issued_s: 'Date issued',
+    dct_provenance_s: 'Provenance',
+    'dct:isSourceOf_agg': 'Is source of',
+    'dct:sourceOf_agg': 'Source of',
+    h3_res2: 'Map cells (resolution 2)',
+    h3_res4: 'Map cells (resolution 4)',
+    h3_res5: 'Map cells (resolution 5)',
+    h3_res7: 'Map cells (resolution 7)',
+  };
   const requestMix = isAugust ? augustReports.augustRequestMix : julyRequestMix;
   const peakApiTrafficBreakdown = isAugust
     ? augustReports.augustPeakApiTrafficBreakdown
@@ -1373,7 +1387,7 @@ export function AnalyticsPage() {
           {activeReport === 'discovery' && (
             <section id="discovery" className="analytics-section">
               <SectionHeading
-                eyebrow="Discovery patterns"
+                eyebrow="Search patterns"
                 title="What visitors looked for"
                 description={`Search views, query terms, filters, and zero-result searches recorded during ${reportMonth}.`}
               />
@@ -1475,6 +1489,53 @@ export function AnalyticsPage() {
                   </ul>
                 </article>
 
+                <article className="analytics-panel analytics-format-card analytics-facet-card">
+                  <div className="analytics-panel-header">
+                    <div>
+                      <BarChart3 className="h-5 w-5" aria-hidden />
+                      <h3>Most-used facet categories</h3>
+                    </div>
+                    <small>searches using each category</small>
+                  </div>
+                  <div
+                    className="analytics-search-scroll"
+                    role="region"
+                    aria-label="Facet category usage chart"
+                    tabIndex={0}
+                  >
+                    <ul>
+                      {searchSnapshot.facets.map((facet) => (
+                        <li key={facet.field}>
+                          <div>
+                            <span>
+                              {facetLabels[facet.field] ?? facet.field}
+                            </span>
+                            <strong>{wholeNumber.format(facet.count)}</strong>
+                          </div>
+                          <div
+                            className="analytics-format-track"
+                            aria-hidden="true"
+                          >
+                            <i
+                              style={{
+                                width: `${(facet.count / searchSnapshot.facets[0].count) * 100}%`,
+                                backgroundColor: '#2563EB',
+                              }}
+                            />
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                  <p className="analytics-card-footnote">
+                    Each search counts once per category, including exclusion
+                    filters and legacy filter formats. Searches can use several
+                    categories. Map bounds and year ranges are included; these
+                    counts describe filters present in searches, not facet
+                    clicks.
+                  </p>
+                </article>
+
                 <article className="analytics-panel analytics-opportunity-card">
                   <div className="analytics-opportunity-summary">
                     <div className="analytics-opportunity-heading">
@@ -1504,19 +1565,30 @@ export function AnalyticsPage() {
                       </div>
                       <small>searches</small>
                     </div>
-                    <ol>
-                      {topZeroResultQueries.map((query, index) => (
-                        <li key={query.term}>
-                          <span>{String(index + 1).padStart(2, '0')}</span>
-                          <Link
-                            to={`/search?q=${encodeURIComponent(query.term)}`}
-                          >
-                            {query.term}
-                          </Link>
-                          <strong>{query.count}</strong>
-                        </li>
-                      ))}
-                    </ol>
+                    <p>
+                      Showing up to 50 queries with at least 3 zero-result
+                      searches, ranked by frequency.
+                    </p>
+                    <div
+                      className="analytics-search-scroll"
+                      role="region"
+                      aria-label="Zero-result queries"
+                      tabIndex={0}
+                    >
+                      <ol>
+                        {topZeroResultQueries.map((query, index) => (
+                          <li key={query.term}>
+                            <span>{String(index + 1).padStart(2, '0')}</span>
+                            <Link
+                              to={`/search?q=${encodeURIComponent(query.term)}`}
+                            >
+                              {query.term}
+                            </Link>
+                            <strong>{query.count}</strong>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
                     <p>
                       {wholeNumber.format(zeroQueries.with_query)} zero-result
                       searches included query text;{' '}
