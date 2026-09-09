@@ -546,7 +546,6 @@ export function AnalyticsPage() {
                     <h1 id="analytics-title">Monthly analytics dashboard</h1>
                   </div>
                   <div className="analytics-hero-note">
-                    <BarChart3 className="h-5 w-5" aria-hidden />
                     <p>
                       A combined view of raw API traffic and visitor discovery
                       activity. Infrastructure requests are separated from
