@@ -519,10 +519,6 @@ export function AnalyticsPage() {
 
               <div className="analytics-shell analytics-hero-inner">
                 <div className="analytics-hero-topline">
-                  <div className="analytics-live-badge">
-                    <span aria-hidden="true" />
-                    Verified monthly snapshot
-                  </div>
                   <div
                     className="analytics-month-picker"
                     aria-label="Dashboard month"

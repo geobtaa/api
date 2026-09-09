@@ -59,11 +59,10 @@
 .analytics-hero-topline {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 1rem;
 }
 
-.analytics-live-badge,
 .analytics-month-picker {
   display: inline-flex;
   min-height: 2.25rem;
@@ -73,21 +72,6 @@
   padding: 0.45rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-}
-
-.analytics-live-badge {
-  border: 1px solid var(--analytics-active-light);
-  background: var(--analytics-active-soft);
-  color: #1e40af;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.analytics-live-badge > span {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: var(--analytics-active);
 }
 
 .analytics-month-picker {
@@ -2095,7 +2079,6 @@
     flex-direction: column;
   }
 
-  .analytics-live-badge,
   .analytics-month-picker {
     align-self: flex-start;
   }
