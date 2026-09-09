@@ -25,8 +25,7 @@ export function AnalyticsHeader({
             className="analytics-brand-logo"
           />
           <span className="analytics-brand-lockup">
-            <span>Geoportal</span>
-            <span className="analytics-brand-context">Analytics</span>
+            <span>API Analytics</span>
           </span>
         </Link>
         <Link to="/" className="analytics-portal-link">
