@@ -320,3 +320,41 @@ If a raw field needs to survive beyond raw retention:
 - [Backend Scripts](scripts.md)
 - [Deployment](deployment.md)
 - [Makefile Tasks](../make_tasks.md)
+
+
+### Durable resource impression history
+
+`analytics_daily_resource_impressions` retains one row per UTC day and resource,
+with an impression count. It contains no visitor tokens or search identifiers
+and is not subject to raw-partition expiry. This preserves distinct resource
+reach and permits later grouping by Provider or contribution code. Historical
+catalog attribution still requires a catalog snapshot; current metadata is not
+necessarily the metadata that existed when an impression occurred.
+
+Daily maintenance archives completed days. Immediately before expiring a raw
+impression partition, it locks that partition, refreshes its aggregates, and
+compares counts for **every resource/day**. Any mismatch aborts the transaction
+and preserves the raw partition. A final pass includes late-arriving impressions;
+repeat aggregation replaces counts instead of incrementing them. Maintenance
+runs are serialized, and aggregation uses UTC. Search-level impression totals
+are also refreshed before the raw partition is removed.
+
+For local recovery from a complete CSV export, validate the independently known
+monthly count before writing aggregates:
+
+```sh
+cd backend
+PYTHONPATH=. python scripts/recover_resource_impressions.py /path/to/impressions.csv.gz \
+  --month 2026-07 --expected-count 99482
+```
+
+Add `--write` to persist the verified resource/day counts in the configured local
+database. Conflicting saved counts abort the transaction. Repeated imports are
+idempotent. The importer rejects duplicate IDs, missing resource IDs, records
+outside the requested month, and totals that do not reconcile. Raw exports must
+remain outside version control; dashboard snapshots contain aggregates only.
+
+The PostgreSQL regression suite uses `ANALYTICS_TEST_DATABASE_URL` pointing to an
+isolated test database and covers raw expiry, wrong attribution, late records,
+repeated imports, and retention failure. Deployment and backup procedures belong
+in the restricted operations documentation.

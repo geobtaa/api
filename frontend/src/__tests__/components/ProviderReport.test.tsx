@@ -123,7 +123,11 @@ it('reconciles every exported provider against coverage and daily counts', async
       );
     }
   }
-  expect(providerSnapshots['2026-07']?.totals.impressions).toBeNull();
+  expect(providerSnapshots['2026-07']?.impressionsAvailable).toBe(true);
+  expect(providerSnapshots['2026-07']?.totals.impressions).toBeGreaterThan(0);
+  expect(providerSnapshots['2026-07']?.totals.activeResources).toBeGreaterThan(
+    0
+  );
   expect(
     providerSnapshots['2026-08']?.groups.find(
       (g) => g.provider === 'The Ohio State University'

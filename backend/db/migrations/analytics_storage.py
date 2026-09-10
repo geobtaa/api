@@ -139,9 +139,7 @@ RAW_ANALYTICS_TABLES: Tuple[RawAnalyticsTableConfig, ...] = (
                 True,
             ),
         ),
-        unique_constraints=(
-            ("uq_analytics_searches_identity", ("search_id", "partition_month")),
-        ),
+        unique_constraints=(("uq_analytics_searches_identity", ("search_id", "partition_month")),),
         indexes=(
             ("ix_analytics_searches_visit_token", ("visit_token",)),
             ("ix_analytics_searches_occurred_at", ("occurred_at",)),
@@ -187,9 +185,7 @@ RAW_ANALYTICS_TABLES: Tuple[RawAnalyticsTableConfig, ...] = (
                 True,
             ),
         ),
-        unique_constraints=(
-            ("uq_analytics_events_identity", ("event_id", "partition_month")),
-        ),
+        unique_constraints=(("uq_analytics_events_identity", ("event_id", "partition_month")),),
         indexes=(
             ("ix_analytics_events_event_type", ("event_type",)),
             ("ix_analytics_events_visit_token", ("visit_token",)),
@@ -202,12 +198,16 @@ RAW_ANALYTICS_TABLES: Tuple[RawAnalyticsTableConfig, ...] = (
 
 
 def _table_exists(conn: Connection, table_name: str) -> bool:
-    return bool(conn.execute(text("SELECT to_regclass(:name)"), {"name": f"public.{table_name}"}).scalar())
+    return bool(
+        conn.execute(text("SELECT to_regclass(:name)"), {"name": f"public.{table_name}"}).scalar()
+    )
 
 
 def _sequence_exists(conn: Connection, sequence_name: str) -> bool:
     return bool(
-        conn.execute(text("SELECT to_regclass(:name)"), {"name": f"public.{sequence_name}"}).scalar()
+        conn.execute(
+            text("SELECT to_regclass(:name)"), {"name": f"public.{sequence_name}"}
+        ).scalar()
     )
 
 
@@ -297,18 +297,14 @@ def _ensure_column(conn: Connection, table_name: str, column: ColumnSpec) -> Non
     if column.set_not_null:
         conn.execute(
             text(
-                f"ALTER TABLE {_ident(table_name)} "
-                f"ALTER COLUMN {_ident(column.name)} SET NOT NULL"
+                f"ALTER TABLE {_ident(table_name)} ALTER COLUMN {_ident(column.name)} SET NOT NULL"
             )
         )
 
 
 def _existing_month_span(conn: Connection, table_name: str) -> Tuple[date, date]:
     row = conn.execute(
-        text(
-            f"SELECT MIN(partition_month), MAX(partition_month) "
-            f"FROM {_ident(table_name)}"
-        )
+        text(f"SELECT MIN(partition_month), MAX(partition_month) FROM {_ident(table_name)}")
     ).one()
     current = _month_start(date.today())
     min_month = row[0] or current
@@ -412,9 +408,7 @@ def _convert_heap_table_to_partitioned(conn: Connection, config: RawAnalyticsTab
     logger.info("Converting %s to monthly partitions", config.table_name)
     min_month, max_month = _existing_month_span(conn, config.table_name)
 
-    conn.execute(
-        text(f"ALTER TABLE {_ident(config.table_name)} RENAME TO {_ident(backup_table)}")
-    )
+    conn.execute(text(f"ALTER TABLE {_ident(config.table_name)} RENAME TO {_ident(backup_table)}"))
     conn.execute(
         text(
             f"ALTER TABLE {_ident(backup_table)} "
@@ -433,7 +427,8 @@ def _convert_heap_table_to_partitioned(conn: Connection, config: RawAnalyticsTab
     conn.execute(
         text(
             f"CREATE TABLE {_ident(config.table_name)} "
-            f"(LIKE {_ident(backup_table)} INCLUDING DEFAULTS INCLUDING GENERATED INCLUDING STORAGE INCLUDING COMMENTS) "
+            f"(LIKE {_ident(backup_table)} INCLUDING DEFAULTS INCLUDING GENERATED "
+            "INCLUDING STORAGE INCLUDING COMMENTS) "
             "PARTITION BY RANGE (partition_month)"
         )
     )
@@ -450,12 +445,65 @@ def _convert_heap_table_to_partitioned(conn: Connection, config: RawAnalyticsTab
     sequence_name = f"{config.table_name}_id_seq"
     if _sequence_exists(conn, sequence_name):
         conn.execute(
-            text(
-                f"ALTER SEQUENCE {_ident(sequence_name)} "
-                f"OWNED BY {_ident(config.table_name)}.id"
-            )
+            text(f"ALTER SEQUENCE {_ident(sequence_name)} OWNED BY {_ident(config.table_name)}.id")
         )
     conn.execute(text(f"DROP TABLE {_ident(backup_table)}"))
+
+
+def _ensure_resource_impression_schema(conn: Connection) -> None:
+    # Durable aggregates deliberately contain no search IDs or visitor tokens.
+    conn.execute(
+        text("""
+        CREATE TABLE IF NOT EXISTS analytics_daily_resource_impressions (
+            metric_date date NOT NULL,
+            resource_id varchar(255) NOT NULL,
+            impression_count bigint NOT NULL CHECK (impression_count >= 0),
+            updated_at timestamp NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (metric_date, resource_id)
+        )
+    """)
+    )
+
+
+def _rollup_resource_impressions(conn: Connection, start_date: date, end_date: date) -> None:
+    conn.execute(
+        text("""
+        INSERT INTO analytics_daily_resource_impressions
+            (metric_date, resource_id, impression_count, updated_at)
+        SELECT occurred_at::date, resource_id, count(*), NOW()
+        FROM analytics_search_impressions
+        WHERE occurred_at >= :start_date AND occurred_at < :end_date + INTERVAL '1 day'
+        GROUP BY occurred_at::date, resource_id
+        ON CONFLICT (metric_date, resource_id) DO UPDATE
+        SET impression_count = EXCLUDED.impression_count, updated_at = NOW()
+    """),
+        {"start_date": start_date, "end_date": end_date},
+    )
+
+
+def _resource_impressions_reconcile(conn: Connection, start_date: date, end_date: date) -> bool:
+    # Compare every resource/day, not just a total that could hide misattribution.
+    return bool(
+        conn.execute(
+            text("""
+        WITH raw AS (
+            SELECT occurred_at::date AS metric_date, resource_id, count(*) AS n
+            FROM analytics_search_impressions
+            WHERE occurred_at >= :start_date AND occurred_at < :end_date + INTERVAL '1 day'
+            GROUP BY occurred_at::date, resource_id
+        ), saved AS (
+            SELECT metric_date, resource_id, impression_count AS n
+            FROM analytics_daily_resource_impressions
+            WHERE metric_date BETWEEN :start_date AND :end_date
+        )
+        SELECT NOT EXISTS (
+            SELECT 1 FROM raw FULL JOIN saved USING (metric_date, resource_id)
+            WHERE raw.n IS DISTINCT FROM saved.n
+        )
+    """),
+            {"start_date": start_date, "end_date": end_date},
+        ).scalar()
+    )
 
 
 def ensure_analytics_storage_schema(engine: Engine | None = None) -> Dict[str, int]:
@@ -464,6 +512,7 @@ def ensure_analytics_storage_schema(engine: Engine | None = None) -> Dict[str, i
     summary = {"converted_tables": 0, "created_partitions": 0}
     try:
         with engine.begin() as conn:
+            _ensure_resource_impression_schema(conn)
             for config in RAW_ANALYTICS_TABLES:
                 if not _table_exists(conn, config.table_name):
                     continue
@@ -511,10 +560,7 @@ def _set_maintenance_state_date(conn: Connection, job_name: str, processed_date:
 
 def _first_raw_metric_date(conn: Connection, table_name: str, timestamp_column: str) -> date | None:
     return conn.execute(
-        text(
-            f"SELECT MIN({_ident(timestamp_column)}::date) "
-            f"FROM {_ident(table_name)}"
-        )
+        text(f"SELECT MIN({_ident(timestamp_column)}::date) FROM {_ident(table_name)}")
     ).scalar()
 
 
@@ -563,7 +609,8 @@ def _rollup_api_usage(conn: Connection, start_date: date, end_date: date) -> Non
                 client_channel,
                 source_host,
                 COUNT(*) AS requests_count,
-                COUNT(DISTINCT visit_token) FILTER (WHERE visit_token IS NOT NULL) AS unique_visits_count,
+                COUNT(DISTINCT visit_token) FILTER (WHERE visit_token IS NOT NULL)
+                    AS unique_visits_count,
                 ROUND(AVG(response_time_ms)::numeric, 2) AS avg_response_time_ms,
                 NOW() AS updated_at
             FROM analytics_api_usage_logs
@@ -755,7 +802,11 @@ def _rollup_job_window(
     if first_available is None:
         return 0
 
-    start_date = max(first_available, last_processed + timedelta(days=1)) if last_processed else first_available
+    start_date = (
+        max(first_available, last_processed + timedelta(days=1))
+        if last_processed
+        else first_available
+    )
     end_date = date.today() - timedelta(days=1)
     if start_date > end_date:
         return 0
@@ -787,7 +838,7 @@ def _drop_expired_partitions(conn: Connection, config: RawAnalyticsTableConfig) 
             JOIN pg_class parent ON parent.oid = pg_inherits.inhparent
             JOIN pg_class child ON child.oid = pg_inherits.inhrelid
             JOIN pg_namespace n ON n.oid = child.relnamespace
-            WHERE n.nspname = 'public'
+            WHERE n.nspname = current_schema()
               AND parent.relname = :table_name
             ORDER BY child.relname
             """
@@ -805,6 +856,14 @@ def _drop_expired_partitions(conn: Connection, config: RawAnalyticsTableConfig) 
             continue
         if last_processed < (partition_end - timedelta(days=1)):
             continue
+        if config.table_name == "analytics_search_impressions":
+            # Lock before the final pass so late inserts cannot race verification/drop.
+            conn.execute(text(f"LOCK TABLE {_ident(partition_name)} IN ACCESS EXCLUSIVE MODE"))
+            month_end = partition_end - timedelta(days=1)
+            _rollup_resource_impressions(conn, partition_month, month_end)
+            if not _resource_impressions_reconcile(conn, partition_month, month_end):
+                raise RuntimeError(f"Impression archive does not reconcile for {partition_month}")
+            _rollup_search_metrics(conn, partition_month, month_end)
         conn.execute(text(f"DROP TABLE IF EXISTS {_ident(partition_name)}"))
         dropped += 1
     return dropped
@@ -819,11 +878,22 @@ def run_analytics_maintenance(engine: Engine | None = None) -> Dict[str, int]:
         "api_rollup_windows": 0,
         "search_rollup_windows": 0,
         "resource_rollup_windows": 0,
+        "impression_rollup_windows": 0,
         "dropped_partitions": 0,
     }
     try:
         summary.update(ensure_analytics_storage_schema(engine))
         with engine.begin() as conn:
+            conn.execute(text("SET LOCAL TIME ZONE 'UTC'"))
+            # Serialize maintenance, including its retention checks.
+            conn.execute(text("SELECT pg_advisory_xact_lock(7020260910)"))
+            summary["impression_rollup_windows"] = _rollup_job_window(
+                conn,
+                "analytics_resource_impression_rollup",
+                "analytics_search_impressions",
+                "occurred_at",
+                _rollup_resource_impressions,
+            )
             summary["api_rollup_windows"] = _rollup_job_window(
                 conn,
                 "analytics_api_usage_rollup",

@@ -1,14 +1,22 @@
 {
   "2026-07": {
-    "impressionsAvailable": false,
+    "impressionsAvailable": true,
+    "impressionSource": "Recovered July export, preserved as daily resource impression aggregates.",
     "notes": [
       "Provider and code coverage use published, unsuppressed catalog records at export.",
-      "July impression and active-resource metrics are unavailable because resource-level impressions expired; preserved historical code reports remain unchanged."
+      "Resource-level impression coverage reconciles with the original monthly total.",
+      "July impressions were recovered from the complete original CSV export."
     ],
     "month": "2026-07",
     "catalogSnapshotDate": "2026-09-10",
-    "exportedAt": "2026-09-10T15:56:25.798050+00:00",
+    "exportedAt": "2026-09-10T16:22:41.924929+00:00",
     "portalTotals": {
+      "events": 16824,
+      "impressions": 99482,
+      "views": 12200,
+      "downloads": 933
+    },
+    "retainedRows": {
       "events": 16824,
       "views": 12200,
       "downloads": 933,
@@ -16,21 +24,21 @@
     },
     "totals": {
       "catalogRecords": 147665,
-      "activeResources": null,
+      "activeResources": 27335,
       "resourceViews": 10858,
       "downloadClicks": 822,
       "sourceClicks": 1007,
-      "impressions": null
+      "impressions": 97175
     },
     "groups": [
       {
-        "provider": "American Geographical Society Library – UWM Libraries",
+        "provider": "American Geographical Society Library \u2013 UWM Libraries",
         "catalogRecords": 895,
-        "activeResources": null,
+        "activeResources": 152,
         "resourceViews": 30,
         "downloadClicks": 6,
         "sourceClicks": 4,
-        "impressions": null,
+        "impressions": 298,
         "id": "0",
         "daily": [
           {
@@ -233,11 +241,11 @@
       {
         "provider": "BTAA-GIN",
         "catalogRecords": 207,
-        "activeResources": null,
+        "activeResources": 121,
         "resourceViews": 157,
         "downloadClicks": 10,
         "sourceClicks": 1,
-        "impressions": null,
+        "impressions": 2219,
         "id": "1",
         "daily": [
           {
@@ -440,11 +448,11 @@
       {
         "provider": "Cornell",
         "catalogRecords": 473,
-        "activeResources": null,
+        "activeResources": 173,
         "resourceViews": 18,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null,
+        "impressions": 366,
         "id": "2",
         "daily": [
           {
@@ -628,11 +636,11 @@
       {
         "provider": "Harvard",
         "catalogRecords": 56,
-        "activeResources": null,
+        "activeResources": 56,
         "resourceViews": 58,
         "downloadClicks": 8,
         "sourceClicks": 6,
-        "impressions": null,
+        "impressions": 440,
         "id": "3",
         "daily": [
           {
@@ -835,11 +843,11 @@
       {
         "provider": "Indiana University",
         "catalogRecords": 15492,
-        "activeResources": null,
+        "activeResources": 1596,
         "resourceViews": 800,
         "downloadClicks": 94,
         "sourceClicks": 21,
-        "impressions": null,
+        "impressions": 3740,
         "id": "4",
         "daily": [
           {
@@ -1013,7 +1021,7 @@
           },
           {
             "id": "VAC9619-000190",
-            "title": "M-34-36-Г Дубенка (Dubienka, Poland)",
+            "title": "M-34-36-\u0413 \u0414\u0443\u0431\u0435\u043d\u043a\u0430 (Dubienka, Poland)",
             "views": 18,
             "downloads": 0
           }
@@ -1042,11 +1050,11 @@
       {
         "provider": "Michigan State University",
         "catalogRecords": 1171,
-        "activeResources": null,
+        "activeResources": 385,
         "resourceViews": 189,
         "downloadClicks": 16,
         "sourceClicks": 2,
-        "impressions": null,
+        "impressions": 1469,
         "id": "5",
         "daily": [
           {
@@ -1249,11 +1257,11 @@
       {
         "provider": "Northwestern University",
         "catalogRecords": 252,
-        "activeResources": null,
+        "activeResources": 158,
         "resourceViews": 56,
         "downloadClicks": 0,
         "sourceClicks": 4,
-        "impressions": null,
+        "impressions": 937,
         "id": "6",
         "daily": [
           {
@@ -1437,11 +1445,11 @@
       {
         "provider": "Pennsylvania State University",
         "catalogRecords": 14348,
-        "activeResources": null,
+        "activeResources": 1875,
         "resourceViews": 659,
         "downloadClicks": 14,
         "sourceClicks": 15,
-        "impressions": null,
+        "impressions": 6792,
         "id": "7",
         "daily": [
           {
@@ -1644,11 +1652,11 @@
       {
         "provider": "Princeton",
         "catalogRecords": 9287,
-        "activeResources": null,
+        "activeResources": 2133,
         "resourceViews": 548,
         "downloadClicks": 46,
         "sourceClicks": 89,
-        "impressions": null,
+        "impressions": 7888,
         "id": "8",
         "daily": [
           {
@@ -1810,7 +1818,7 @@
         "topViews": [
           {
             "id": "princeton-dc1c18dt372",
-            "title": "Hozat-Dersim / Erkan-ı Harbiye Umumiye.",
+            "title": "Hozat-Dersim / Erkan-\u0131 Harbiye Umumiye.",
             "views": 13,
             "downloads": 0
           },
@@ -1851,11 +1859,11 @@
       {
         "provider": "Purdue University",
         "catalogRecords": 118,
-        "activeResources": null,
+        "activeResources": 106,
         "resourceViews": 45,
         "downloadClicks": 2,
         "sourceClicks": 4,
-        "impressions": null,
+        "impressions": 753,
         "id": "9",
         "daily": [
           {
@@ -2052,11 +2060,11 @@
       {
         "provider": "Rutgers University-New Brunswick",
         "catalogRecords": 4554,
-        "activeResources": null,
+        "activeResources": 918,
         "resourceViews": 164,
         "downloadClicks": 68,
         "sourceClicks": 10,
-        "impressions": null,
+        "impressions": 2303,
         "id": "10",
         "daily": [
           {
@@ -2259,11 +2267,11 @@
       {
         "provider": "Stanford",
         "catalogRecords": 17686,
-        "activeResources": null,
+        "activeResources": 1402,
         "resourceViews": 487,
         "downloadClicks": 169,
         "sourceClicks": 21,
-        "impressions": null,
+        "impressions": 3376,
         "id": "11",
         "daily": [
           {
@@ -2466,11 +2474,11 @@
       {
         "provider": "Texas",
         "catalogRecords": 2676,
-        "activeResources": null,
+        "activeResources": 417,
         "resourceViews": 144,
         "downloadClicks": 6,
         "sourceClicks": 3,
-        "impressions": null,
+        "impressions": 1353,
         "id": "12",
         "daily": [
           {
@@ -2673,11 +2681,11 @@
       {
         "provider": "The Ohio State University",
         "catalogRecords": 256,
-        "activeResources": null,
+        "activeResources": 154,
         "resourceViews": 24,
         "downloadClicks": 0,
         "sourceClicks": 4,
-        "impressions": null,
+        "impressions": 447,
         "id": "13",
         "daily": [
           {
@@ -2861,11 +2869,11 @@
       {
         "provider": "University of Chicago",
         "catalogRecords": 8935,
-        "activeResources": null,
+        "activeResources": 2139,
         "resourceViews": 1340,
         "downloadClicks": 2,
         "sourceClicks": 308,
-        "impressions": null,
+        "impressions": 7781,
         "id": "14",
         "daily": [
           {
@@ -3047,7 +3055,7 @@
         "topDownloads": [
           {
             "id": "232539d6-1afc-42d7-84b5-759e24062688",
-            "title": "Insulæ Americanæ in Oceano Septentrionali ac regiones adiacentes, a C. de May usque ad Lineam Æquinoctialem",
+            "title": "Insul\u00e6 American\u00e6 in Oceano Septentrionali ac regiones adiacentes, a C. de May usque ad Lineam \u00c6quinoctialem",
             "views": 1,
             "downloads": 1
           },
@@ -3062,11 +3070,11 @@
       {
         "provider": "University of Illinois Urbana-Champaign",
         "catalogRecords": 2499,
-        "activeResources": null,
+        "activeResources": 462,
         "resourceViews": 162,
         "downloadClicks": 0,
         "sourceClicks": 3,
-        "impressions": null,
+        "impressions": 1195,
         "id": "15",
         "daily": [
           {
@@ -3250,11 +3258,11 @@
       {
         "provider": "University of Iowa",
         "catalogRecords": 3470,
-        "activeResources": null,
+        "activeResources": 871,
         "resourceViews": 137,
         "downloadClicks": 0,
         "sourceClicks": 4,
-        "impressions": null,
+        "impressions": 2226,
         "id": "16",
         "daily": [
           {
@@ -3438,11 +3446,11 @@
       {
         "provider": "University of Maryland",
         "catalogRecords": 271,
-        "activeResources": null,
+        "activeResources": 121,
         "resourceViews": 37,
         "downloadClicks": 2,
         "sourceClicks": 2,
-        "impressions": null,
+        "impressions": 1043,
         "id": "17",
         "daily": [
           {
@@ -3639,11 +3647,11 @@
       {
         "provider": "University of Michigan",
         "catalogRecords": 1334,
-        "activeResources": null,
+        "activeResources": 665,
         "resourceViews": 218,
         "downloadClicks": 0,
         "sourceClicks": 13,
-        "impressions": null,
+        "impressions": 4368,
         "id": "18",
         "daily": [
           {
@@ -3827,11 +3835,11 @@
       {
         "provider": "University of Minnesota",
         "catalogRecords": 7518,
-        "activeResources": null,
+        "activeResources": 2227,
         "resourceViews": 719,
         "downloadClicks": 48,
         "sourceClicks": 31,
-        "impressions": null,
+        "impressions": 6445,
         "id": "19",
         "daily": [
           {
@@ -4034,11 +4042,11 @@
       {
         "provider": "University of Nebraska-Lincoln",
         "catalogRecords": 431,
-        "activeResources": null,
+        "activeResources": 52,
         "resourceViews": 11,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null,
+        "impressions": 68,
         "id": "20",
         "daily": [
           {
@@ -4222,11 +4230,11 @@
       {
         "provider": "University of Wisconsin-Madison",
         "catalogRecords": 10945,
-        "activeResources": null,
+        "activeResources": 2070,
         "resourceViews": 433,
         "downloadClicks": 120,
         "sourceClicks": 26,
-        "impressions": null,
+        "impressions": 10064,
         "id": "21",
         "daily": [
           {
@@ -4429,11 +4437,11 @@
       {
         "provider": null,
         "catalogRecords": 44791,
-        "activeResources": null,
+        "activeResources": 9082,
         "resourceViews": 4422,
         "downloadClicks": 211,
         "sourceClicks": 436,
-        "impressions": null,
+        "impressions": 31604,
         "id": "22",
         "daily": [
           {
@@ -4638,318 +4646,312 @@
       {
         "label": "Missing contribution code",
         "catalogRecords": 20,
-        "activeResources": null,
+        "activeResources": 5,
         "resourceViews": 27,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 75
       },
       {
         "label": "Other contribution codes",
         "catalogRecords": 45009,
-        "activeResources": null,
+        "activeResources": 7660,
         "resourceViews": 3716,
         "downloadClicks": 312,
         "sourceClicks": 382,
-        "impressions": null
+        "impressions": 23302
       },
       {
-        "label": "University code 01–17",
+        "label": "University code 01\u201317",
         "catalogRecords": 102636,
-        "activeResources": null,
+        "activeResources": 19670,
         "resourceViews": 7115,
         "downloadClicks": 510,
         "sourceClicks": 625,
-        "impressions": null
+        "impressions": 73798
       }
     ],
     "codePrefixes": [
       {
         "prefix": "",
         "catalogRecords": 16,
-        "activeResources": null,
+        "activeResources": 1,
         "resourceViews": 11,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 18
       },
       {
         "prefix": "01",
         "catalogRecords": 15779,
-        "activeResources": null,
+        "activeResources": 1659,
         "resourceViews": 844,
         "downloadClicks": 94,
         "sourceClicks": 24,
-        "impressions": null
+        "impressions": 3868
       },
       {
         "prefix": "02",
         "catalogRecords": 2958,
-        "activeResources": null,
+        "activeResources": 728,
         "resourceViews": 258,
         "downloadClicks": 3,
         "sourceClicks": 14,
-        "impressions": null
+        "impressions": 3265
       },
       {
         "prefix": "03",
         "catalogRecords": 4188,
-        "activeResources": null,
+        "activeResources": 1006,
         "resourceViews": 186,
         "downloadClicks": 1,
         "sourceClicks": 10,
-        "impressions": null
+        "impressions": 3437
       },
       {
         "prefix": "04",
         "catalogRecords": 4108,
-        "activeResources": null,
+        "activeResources": 649,
         "resourceViews": 195,
         "downloadClicks": 2,
         "sourceClicks": 21,
-        "impressions": null
+        "impressions": 2460
       },
       {
         "prefix": "05",
         "catalogRecords": 14237,
-        "activeResources": null,
+        "activeResources": 2995,
         "resourceViews": 860,
         "downloadClicks": 69,
         "sourceClicks": 47,
-        "impressions": null
+        "impressions": 8139
       },
       {
         "prefix": "06",
         "catalogRecords": 4368,
-        "activeResources": null,
+        "activeResources": 1846,
         "resourceViews": 859,
         "downloadClicks": 131,
         "sourceClicks": 54,
-        "impressions": null
+        "impressions": 11255
       },
       {
         "prefix": "07",
         "catalogRecords": 1811,
-        "activeResources": null,
+        "activeResources": 828,
         "resourceViews": 253,
         "downloadClicks": 0,
         "sourceClicks": 22,
-        "impressions": null
+        "impressions": 4738
       },
       {
         "prefix": "08",
         "catalogRecords": 15974,
-        "activeResources": null,
+        "activeResources": 2217,
         "resourceViews": 784,
         "downloadClicks": 17,
         "sourceClicks": 21,
-        "impressions": null
+        "impressions": 7747
       },
       {
         "prefix": "09",
         "catalogRecords": 839,
-        "activeResources": null,
+        "activeResources": 198,
         "resourceViews": 135,
         "downloadClicks": 2,
         "sourceClicks": 13,
-        "impressions": null
+        "impressions": 976
       },
       {
         "prefix": "10",
         "catalogRecords": 14753,
-        "activeResources": null,
+        "activeResources": 2728,
         "resourceViews": 475,
         "downloadClicks": 120,
         "sourceClicks": 24,
-        "impressions": null
+        "impressions": 12058
       },
       {
         "prefix": "11",
         "catalogRecords": 1368,
-        "activeResources": null,
+        "activeResources": 366,
         "resourceViews": 197,
         "downloadClicks": 0,
         "sourceClicks": 11,
-        "impressions": null
+        "impressions": 829
       },
       {
         "prefix": "12",
         "catalogRecords": 10399,
-        "activeResources": null,
+        "activeResources": 2469,
         "resourceViews": 1437,
         "downloadClicks": 2,
         "sourceClicks": 323,
-        "impressions": null
+        "impressions": 9329
       },
       {
         "prefix": "13",
         "catalogRecords": 1091,
-        "activeResources": null,
+        "activeResources": 182,
         "resourceViews": 37,
         "downloadClicks": 0,
         "sourceClicks": 2,
-        "impressions": null
+        "impressions": 256
       },
       {
         "prefix": "14",
         "catalogRecords": 5709,
-        "activeResources": null,
+        "activeResources": 1141,
         "resourceViews": 290,
         "downloadClicks": 69,
         "sourceClicks": 16,
-        "impressions": null
+        "impressions": 2798
       },
       {
         "prefix": "15",
         "catalogRecords": 252,
-        "activeResources": null,
+        "activeResources": 158,
         "resourceViews": 56,
         "downloadClicks": 0,
         "sourceClicks": 4,
-        "impressions": null
+        "impressions": 937
       },
       {
         "prefix": "16",
         "catalogRecords": 3462,
-        "activeResources": null,
+        "activeResources": 291,
         "resourceViews": 183,
         "downloadClicks": 0,
         "sourceClicks": 10,
-        "impressions": null
+        "impressions": 948
       },
       {
         "prefix": "17",
         "catalogRecords": 1340,
-        "activeResources": null,
+        "activeResources": 209,
         "resourceViews": 66,
         "downloadClicks": 0,
         "sourceClicks": 9,
-        "impressions": null
+        "impressions": 758
       },
       {
         "prefix": "20",
         "catalogRecords": 31368,
-        "activeResources": null,
+        "activeResources": 4516,
         "resourceViews": 1454,
         "downloadClicks": 299,
         "sourceClicks": 157,
-        "impressions": null
+        "impressions": 14363
       },
       {
         "prefix": "55",
         "catalogRecords": 2,
-        "activeResources": null,
+        "activeResources": 1,
         "resourceViews": 0,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 2
       },
       {
         "prefix": "77",
         "catalogRecords": 60,
-        "activeResources": null,
+        "activeResources": 33,
         "resourceViews": 45,
         "downloadClicks": 3,
         "sourceClicks": 6,
-        "impressions": null
+        "impressions": 83
       },
       {
         "prefix": "88",
         "catalogRecords": 215,
-        "activeResources": null,
+        "activeResources": 65,
         "resourceViews": 23,
         "downloadClicks": 0,
         "sourceClicks": 5,
-        "impressions": null
+        "impressions": 126
       },
       {
         "prefix": "99",
         "catalogRecords": 13044,
-        "activeResources": null,
+        "activeResources": 2843,
         "resourceViews": 1813,
         "downloadClicks": 0,
         "sourceClicks": 187,
-        "impressions": null
+        "impressions": 5939
       },
       {
         "prefix": "b0",
         "catalogRecords": 1,
-        "activeResources": null,
+        "activeResources": 1,
         "resourceViews": 6,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 19
       },
       {
         "prefix": "b1",
         "catalogRecords": 197,
-        "activeResources": null,
+        "activeResources": 112,
         "resourceViews": 145,
         "downloadClicks": 10,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 2172
       },
       {
         "prefix": "b3",
         "catalogRecords": 1,
-        "activeResources": null,
+        "activeResources": 1,
         "resourceViews": 28,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 43
       },
       {
         "prefix": "ba",
         "catalogRecords": 1,
-        "activeResources": null,
+        "activeResources": 1,
         "resourceViews": 11,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 19
       },
       {
         "prefix": "ge",
         "catalogRecords": 2,
-        "activeResources": null,
+        "activeResources": 2,
         "resourceViews": 0,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 4
       },
       {
         "prefix": "r0",
         "catalogRecords": 7,
-        "activeResources": null,
+        "activeResources": 4,
         "resourceViews": 6,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 13
       },
       {
         "prefix": "w0",
         "catalogRecords": 111,
-        "activeResources": null,
+        "activeResources": 81,
         "resourceViews": 185,
         "downloadClicks": 0,
         "sourceClicks": 27,
-        "impressions": null
+        "impressions": 519
       },
       {
         "prefix": null,
         "catalogRecords": 4,
-        "activeResources": null,
+        "activeResources": 4,
         "resourceViews": 16,
         "downloadClicks": 0,
         "sourceClicks": 0,
-        "impressions": null
+        "impressions": 57
       }
-    ],
-    "retainedRows": {
-      "events": 16824,
-      "views": 12200,
-      "downloads": 933,
-      "impressions": 0
-    }
+    ]
   },
   "2026-08": {
     "impressionsAvailable": true,
@@ -4976,7 +4978,7 @@
     },
     "groups": [
       {
-        "provider": "American Geographical Society Library – UWM Libraries",
+        "provider": "American Geographical Society Library \u2013 UWM Libraries",
         "catalogRecords": 895,
         "activeResources": 223,
         "resourceViews": 38,
@@ -6783,7 +6785,7 @@
           },
           {
             "id": "princeton-dcns064j864",
-            "title": "Völkerkarte des westlichen Kleinasien : nach eigenen Erkundungen auf Reisen 1900-1904 / von Prof. Dr. A. Philippson.",
+            "title": "V\u00f6lkerkarte des westlichen Kleinasien : nach eigenen Erkundungen auf Reisen 1900-1904 / von Prof. Dr. A. Philippson.",
             "views": 1,
             "downloads": 2
           }
@@ -8934,7 +8936,7 @@
           },
           {
             "id": "p16022coll205:1110",
-            "title": "Plan de Paris, Métropolitain et Nord-Sud",
+            "title": "Plan de Paris, Me\u0301tropolitain et Nord-Sud",
             "views": 1,
             "downloads": 5
           },
@@ -9569,7 +9571,7 @@
         "impressions": 29647
       },
       {
-        "label": "University code 01–17",
+        "label": "University code 01\u201317",
         "catalogRecords": 102636,
         "activeResources": 19835,
         "resourceViews": 10850,
