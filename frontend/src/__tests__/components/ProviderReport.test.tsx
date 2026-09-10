@@ -86,3 +86,47 @@ it('keeps university, agency, and missing providers separate and exports the sel
     screen.queryByRole('link', { name: 'Browse this provider' })
   ).not.toBeInTheDocument();
 });
+
+it('reconciles every exported provider against coverage and daily counts', async () => {
+  const { providerSnapshots } =
+    await import('../../data/analytics/providers2026');
+  for (const snapshot of Object.values(providerSnapshots)) {
+    expect(snapshot).toBeDefined();
+    if (!snapshot) continue;
+    for (const key of [
+      'catalogRecords',
+      'resourceViews',
+      'downloadClicks',
+      'sourceClicks',
+      'impressions',
+      'activeResources',
+    ] as const) {
+      if (snapshot.totals[key] === null) {
+        expect(snapshot.groups.every((group) => group[key] === null)).toBe(
+          true
+        );
+      } else {
+        expect(
+          snapshot.groups.reduce((n, group) => n + (group[key] ?? 0), 0)
+        ).toBe(snapshot.totals[key]);
+        expect(
+          snapshot.codeCoverage.reduce((n, group) => n + (group[key] ?? 0), 0)
+        ).toBe(snapshot.totals[key]);
+      }
+    }
+    for (const group of snapshot.groups) {
+      expect(group.daily.reduce((n, day) => n + day.views, 0)).toBe(
+        group.resourceViews
+      );
+      expect(group.daily.reduce((n, day) => n + day.downloads, 0)).toBe(
+        group.downloadClicks
+      );
+    }
+  }
+  expect(providerSnapshots['2026-07']?.totals.impressions).toBeNull();
+  expect(
+    providerSnapshots['2026-08']?.groups.find(
+      (g) => g.provider === 'The Ohio State University'
+    )?.catalogRecords
+  ).toBe(256);
+});

@@ -2,11 +2,11 @@ import snapshots from './providerSnapshots.json';
 
 export type Counts = {
   catalogRecords: number;
-  activeResources: number;
+  activeResources: number | null;
   resourceViews: number;
   downloadClicks: number;
   sourceClicks: number;
-  impressions: number;
+  impressions: number | null;
 };
 type Top = { id: string; title: string; views: number; downloads: number };
 export type ProviderGroup = Counts & {
@@ -22,6 +22,8 @@ export type ProviderSnapshot = {
   exportedAt: string;
   totals: Counts;
   groups: ProviderGroup[];
+  impressionsAvailable?: boolean;
+  codePrefixes?: (Counts & { prefix: string | null })[];
   codeCoverage: (Counts & { label: string })[];
 };
 export const providerSnapshots = snapshots as Partial<

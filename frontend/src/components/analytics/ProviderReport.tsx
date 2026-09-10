@@ -17,6 +17,8 @@ import {
   type Counts,
 } from '../../data/analytics/providers2026';
 const number = new Intl.NumberFormat('en-US');
+const display = (value: number | null) =>
+  value === null ? 'Unavailable' : number.format(value);
 const columns: [keyof Counts, string][] = [
   ['catalogRecords', 'Catalog records'],
   ['activeResources', 'Active records'],
@@ -97,6 +99,15 @@ export function ProviderReport({
         Other agencies retain their own names; blank values appear as Missing
         provider.
       </p>
+      {snapshot.impressionsAvailable === false && (
+        <p className="analytics-comparison-note" role="note">
+          July’s resource-level search impressions have expired. Impressions and
+          active-record reach are unavailable in this recalculation, not zero.
+          Views, clicks, and daily series use complete July event records. The
+          historical contribution-code report retains its previously exported
+          figures.
+        </p>
+      )}
       <div className="analytics-client-highlights">
         {columns.map(([key, label]) => (
           <article
@@ -104,7 +115,7 @@ export function ProviderReport({
             key={key}
           >
             <h2>{label}</h2>
-            <strong>{number.format(counts[key])}</strong>
+            <strong>{display(counts[key])}</strong>
           </article>
         ))}
       </div>
@@ -236,7 +247,7 @@ export function ProviderReport({
                 <tr key={row.id}>
                   <th scope="row">{row.provider ?? 'Missing provider'}</th>
                   {columns.map(([key]) => (
-                    <td key={key}>{number.format(row[key])}</td>
+                    <td key={key}>{display(row[key])}</td>
                   ))}
                 </tr>
               ))}

@@ -1,3 +1,4 @@
+import { CodeCoverage } from '../components/analytics/CodeCoverage';
 import { ProviderReport } from '../components/analytics/ProviderReport';
 import { providerSnapshots } from '../data/analytics/providers2026';
 import { ReportSources } from '../components/analytics/ReportSources';
@@ -1252,6 +1253,7 @@ export function AnalyticsPage() {
                 </article>
               )}
 
+              <CodeCoverage month={snapshotMonth} />
               <section
                 className="analytics-panel analytics-report-sources"
                 aria-label="Outside the university code groups"

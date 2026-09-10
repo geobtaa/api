@@ -227,9 +227,18 @@ Members accepts `grouping=code` (the default historical snapshot) or
   licensed databases, BTAA-GIN curated datasets, and Other. Those classifications
   are not inferred from resource titles or copied into catalog attribution.
 
-`providerSnapshots.json` is empty until a verified export is available. The UI
-explicitly reports **awaiting data export** and shows no substitute code-based
-numbers in Provider mode. This is a pending data dependency, not zero usage.
+`providerSnapshots.json` contains July/August Provider aggregates exported
+September 10, 2026 against that day's catalog. August has full event and impression
+coverage. July events still reconcile with the original snapshot, but its raw
+resource-level impressions have expired. July Provider impression and active-record
+counts are therefore null and displayed as **Unavailable**, never zero. Existing
+historical contribution-code snapshots are preserved.
+
+The code-coverage table uses the same new catalog attribution as Provider mode,
+including other/missing prefixes. It is explicitly separate from historical
+university charts. Prefix details are shown as stored, without assigning unverified
+harvest-operation categories. BTAA-GIN is an exact Provider value; missing Provider
+values form their own group.
 
 The read-only `backend/scripts/export_provider_analytics_2026.py` exporter creates
 provider metrics, daily series, top content, and contribution-code coverage. For
@@ -240,9 +249,10 @@ PYTHONPATH=. python scripts/export_provider_analytics_2026.py --output /tmp/prov
 ```
 
 Before replacing the checked-in JSON, review its aggregates, run report tests,
-and verify the catalog/export dates. The exporter refuses incomplete July/August
-raw history by comparing event and impression counts with the original portal
-snapshots. It joins separately aggregated event and impression counts to avoid
+and verify the catalog/export dates. The exporter refuses changed/incomplete event history and incomplete August
+impressions by comparing with the original portal snapshots. The explicit July
+exception permits expired impressions only when no rows remain; it marks both
+impressions and reach unavailable. It joins separately aggregated event and impression counts to avoid
 multiplication; provider totals and code-coverage totals must reconcile with the
 same eligible catalog. Provider attribution is at the new export date, not a
 reconstruction of July/August month-end metadata. Existing code reports and
