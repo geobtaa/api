@@ -311,8 +311,9 @@ If a raw field needs to survive beyond raw retention:
 
 - `analytics_daily_search_metrics` and `analytics_daily_resource_metrics` do not include the current day until the next maintenance run.
 - `analytics_daily_resource_metrics` summarizes resource-scoped events. Events without `resource_id` are not preserved there.
-- Search impression counts are preserved in `analytics_daily_search_metrics`; there is not currently a separate daily impression rollup table.
+- Search impression totals are preserved in `analytics_daily_search_metrics`; per-resource daily counts are also preserved in `analytics_daily_resource_impressions` independently of raw impression retention.
 - Raw data outside retention windows is intentionally discarded once its month is safely rolled up.
+- Published dashboard snapshots preserve their exported fields, but the current exporters still depend on expiring raw history for some metrics. See the [pre-merge reporting audit](../frontend/analytics-merge-readiness.md) for the remaining durability and automatic-publication requirements.
 
 ## Related Docs
 
