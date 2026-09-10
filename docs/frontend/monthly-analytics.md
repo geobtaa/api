@@ -205,3 +205,45 @@ The data-notes panel offers a JSON download of the selected month's report
 aggregates, rankings, daily series, and all member segments. The export includes
 period bounds, catalog/export dates, and attribution limitations. It is not a
 raw-log or full-catalog download; campus selection does not narrow the snapshot.
+
+## Sources and member grouping modes
+
+Every report includes a visible **Sources and grouping** section describing
+its input tables/snapshots, period, grouping rules, and interpretation limits.
+
+Members accepts `grouping=code` (the default historical snapshot) or
+`grouping=provider`. These are distinct attribution dimensions:
+
+- Code uses the first two characters of `b1g_code_s`, restricted to 01–17.
+  A university bucket includes agency content in that contribution stream.
+  Other and missing prefixes were omitted from the original member exports.
+- Provider groups exact non-blank `schema_provider_s` values independently of
+  codes. Agencies retain their own names; missing/blank providers share a
+  Missing provider bucket. Browse links use the exact Provider facet value.
+  A federal agency or BTAA-named provider is not automatically mapped to a school.
+- The portal-minus-member remainder also includes ineligible/unmatched catalog
+  records, so it must not be labeled as an Other-institutions total.
+- The harvest-operations report groups harvest records; it also has OpenGeoMetadata,
+  licensed databases, BTAA-GIN curated datasets, and Other. Those classifications
+  are not inferred from resource titles or copied into catalog attribution.
+
+`providerSnapshots.json` is empty until a verified export is available. The UI
+explicitly reports **awaiting data export** and shows no substitute code-based
+numbers in Provider mode. This is a pending data dependency, not zero usage.
+
+The read-only `backend/scripts/export_provider_analytics_2026.py` exporter creates
+provider metrics, daily series, top content, and contribution-code coverage. For
+local development, run from `backend/` with a configured analytics database:
+
+```sh
+PYTHONPATH=. python scripts/export_provider_analytics_2026.py --output /tmp/providerSnapshots.json
+```
+
+Before replacing the checked-in JSON, review its aggregates, run report tests,
+and verify the catalog/export dates. The exporter refuses incomplete July/August
+raw history by comparing event and impression counts with the original portal
+snapshots. It joins separately aggregated event and impression counts to avoid
+multiplication; provider totals and code-coverage totals must reconcile with the
+same eligible catalog. Provider attribution is at the new export date, not a
+reconstruction of July/August month-end metadata. Existing code reports and
+month-comparison figures retain their original snapshots and dates.
