@@ -2761,3 +2761,22 @@
     margin-bottom: 1.5rem;
   }
 }
+
+.analytics-method-note > div {
+  flex-direction: column;
+  align-items: flex-start;
+}
+.analytics-snapshot-download {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--analytics-brand);
+  text-transform: none;
+  letter-spacing: normal;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.analytics-snapshot-download:focus-visible {
+  outline: 2px solid var(--analytics-active);
+  outline-offset: 4px;
+}

@@ -268,6 +268,34 @@ describe('AnalyticsPage', () => {
     expect(within(chart).getByText('1,521')).toBeInTheDocument();
   });
 
+  it('downloads the selected month report snapshot with provenance and member data', () => {
+    renderPage('members');
+    const readSnapshot = () => {
+      const link = screen.getByRole('link', {
+        name: 'Download snapshot (JSON)',
+      });
+      const href = link.getAttribute('href')!;
+      return {
+        link,
+        data: JSON.parse(decodeURIComponent(href.slice(href.indexOf(',') + 1))),
+      };
+    };
+    const august = readSnapshot();
+    expect(august.link).toHaveAttribute('download', 'analytics-2026-08.json');
+    expect(august.data.summary.requests).toBe(598931);
+    expect(august.data.members.performance).toHaveLength(17);
+    expect(august.data.dailyActivity).toHaveLength(31);
+    expect(august.data.notes.join(' ')).toContain('not the Provider facet');
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    const july = readSnapshot();
+    expect(july.link).toHaveAttribute('download', 'analytics-2026-07.json');
+    expect(july.data.month).toBe('2026-07');
+    expect(july.data.summary.requests).toBe(613131);
+  });
+
   it('falls back to overview for an unknown report', () => {
     renderPage('unknown');
     expect(

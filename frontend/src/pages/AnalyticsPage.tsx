@@ -1,3 +1,4 @@
+import { clientSnapshots } from '../data/analytics/clients2026';
 import { searchSnapshots } from '../data/analytics/searches2026';
 import { FACET_LABELS } from '../utils/facetLabels';
 import { ClientUsageReport } from '../components/analytics/ClientUsageReport';
@@ -373,6 +374,54 @@ export function AnalyticsPage() {
   const zeroQueries = isAugust
     ? augustReports.augustZeroResultBreakdown
     : { with_query: 758, without_query: 340 };
+  const snapshotMonth = isAugust ? '2026-08' : '2026-07';
+  const snapshotHref = `data:application/json;charset=utf-8,${encodeURIComponent(
+    JSON.stringify(
+      {
+        schemaVersion: 1,
+        month: snapshotMonth,
+        period: {
+          start: `${snapshotMonth}-01`,
+          endExclusive: isAugust ? '2026-09-01' : '2026-08-01',
+          timezone: 'UTC',
+        },
+        exportedAt: summary.exportedAt,
+        catalogSnapshotDate: inventoryDate,
+        notes: [
+          'Checked-in report aggregates and published rankings, not raw analytics records or a complete catalog export.',
+          'Includes all member segments regardless of the selected campus.',
+          'Members are grouped by the first two characters of b1g_code_s, not the Provider facet.',
+          'Catalog inventory is a point-in-time snapshot, not month-end inventory.',
+          'Zero-result query counts combine searches with different constraints; query text alone does not reproduce those searches.',
+        ],
+        summary,
+        dailyActivity,
+        members: {
+          summary: memberSummary,
+          performance: memberPerformance,
+          dailySeries: memberDailySeries,
+          topContent: memberTopContent,
+        },
+        content: {
+          topResources,
+          topCollections,
+          topDownloadedResources,
+          downloadResourceCount,
+        },
+        searches: {
+          views: discoveryViews,
+          topSearchTerms,
+          resourceClassFilters,
+          zeroResultBreakdown: zeroQueries,
+          ...searchSnapshot,
+        },
+        clients: clientSnapshots[snapshotMonth],
+        platform: { requestMix, peakApiTrafficBreakdown },
+      },
+      null,
+      2
+    )
+  )}`;
   const peakActivity = dailyActivity.reduce((peak, row) =>
     row.events > peak.events ? row : peak
   );
@@ -1731,8 +1780,15 @@ export function AnalyticsPage() {
                 aria-label="Data notes"
               >
                 <div>
-                  <Download className="h-5 w-5" aria-hidden />
-                  <strong>Verified {reportMonth} snapshot</strong>
+                  <strong>{reportMonth} report data</strong>
+                  <a
+                    className="analytics-snapshot-download"
+                    href={snapshotHref}
+                    download={`analytics-${snapshotMonth}.json`}
+                  >
+                    <Download className="h-5 w-5" aria-hidden />
+                    Download snapshot (JSON)
+                  </a>
                 </div>
                 <p>
                   Built from reconciled API, search, impression, and event
