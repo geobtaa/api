@@ -2,8 +2,8 @@
 
 Read-only: retains aggregate counts and public catalog metadata, never visitor
 identifiers or raw analytics records. Run against a database with complete raw
-events for these months and August search impressions. Expired July impressions
-are explicitly exported as unavailable, along with active-resource reach.
+events for these months and durable daily resource impression aggregates.
+Recovered exports and retained raw impressions must reconcile with monthly totals.
 Historical report totals are checked before accepting an export; catalog
 attribution uses the export date.
 """
@@ -36,8 +36,8 @@ METRICS = (
       count(*) FILTER (WHERE event_type='visit_source_click') AS sources
       FROM analytics_events WHERE occurred_at>=:start AND occurred_at<:end
       GROUP BY resource_id),
-    impressions AS (SELECT resource_id, count(*) AS impressions
-      FROM analytics_search_impressions WHERE occurred_at>=:start AND occurred_at<:end
+    impressions AS (SELECT resource_id, sum(impression_count) AS impressions
+      FROM analytics_daily_resource_impressions WHERE metric_date>=:start AND metric_date<:end
       GROUP BY resource_id),
     metrics AS (SELECT r.*, coalesce(e.events,0) AS events,
       coalesce(e.views,0) AS views, coalesce(e.downloads,0) AS downloads,
@@ -64,12 +64,12 @@ def export_month(connection, month):
         count(*) FILTER (WHERE event_type='resource_view') AS views,
         count(*) FILTER (WHERE event_type='download_click') AS downloads
         FROM analytics_events WHERE occurred_at>=:start AND occurred_at<:end""")[0]
-    observed["impressions"] = query("""SELECT count(*) AS count FROM analytics_search_impressions
-        WHERE occurred_at>=:start AND occurred_at<:end""")[0]["count"]
+    observed["impressions"] = query("""SELECT coalesce(sum(impression_count),0) AS count
+        FROM analytics_daily_resource_impressions
+        WHERE metric_date>=:start AND metric_date<:end""")[0]["count"]
     impressions_available = observed["impressions"] == EXPECTED[month]["impressions"]
-    allowed_expired_impressions = month == "2026-07" and observed["impressions"] == 0
     events_match = all(observed[k] == EXPECTED[month][k] for k in ("events", "views", "downloads"))
-    if not events_match or not (impressions_available or allowed_expired_impressions):
+    if not events_match or not impressions_available:
         raise ValueError(
             f"Incomplete or changed {month} history: {observed}; expected {EXPECTED[month]}"
         )
@@ -131,20 +131,19 @@ def export_month(connection, month):
     for key, value in totals.items():
         assert sum(g[key] for g in groups) == value
         assert sum(g[key] for g in coverage) == value
-    if not impressions_available:
-        for row in [totals, *groups, *coverage, *code_prefixes]:
-            row["impressions"] = None
-            row["activeResources"] = None
     return {
-        "impressionsAvailable": impressions_available,
+        "impressionsAvailable": True,
+        "impressionSource": (
+            "Recovered July export, preserved as daily resource impression aggregates."
+            if month == "2026-07"
+            else "Daily resource impression aggregates from retained raw records."
+        ),
         "notes": [
             "Provider and code coverage use published, unsuppressed catalog records at export.",
-            (
-                "July impression and active-resource metrics are unavailable because "
-                "resource-level impressions expired; historical code reports remain unchanged."
-            )
-            if not impressions_available
-            else "Resource-level impression coverage reconciles with the original monthly total.",
+            "Resource-level impression coverage reconciles with the original monthly total.",
+            "July impressions were recovered from the complete original CSV export."
+            if month == "2026-07"
+            else "August impressions were aggregated from retained raw records.",
         ],
         "month": month,
         "catalogSnapshotDate": connection.execute(text("SELECT current_date")).scalar().isoformat(),

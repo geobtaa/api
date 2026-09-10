@@ -97,7 +97,7 @@ export function ProviderReport({
         independent of contribution codes. Inventory and attribution use the
         catalog on {snapshot.catalogSnapshotDate}; activity covers {month}, UTC.
         Other agencies retain their own names; blank values appear as Missing
-        provider.
+        provider. {snapshot.impressionSource}
       </p>
       {snapshot.impressionsAvailable === false && (
         <p className="analytics-comparison-note" role="note">

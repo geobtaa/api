@@ -23,6 +23,7 @@ export type ProviderSnapshot = {
   totals: Counts;
   groups: ProviderGroup[];
   impressionsAvailable?: boolean;
+  impressionSource?: string;
   codePrefixes?: (Counts & { prefix: string | null })[];
   codeCoverage: (Counts & { label: string })[];
 };
