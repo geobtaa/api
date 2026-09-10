@@ -38,7 +38,9 @@ vi.mock('recharts', () => ({
   YAxis: () => null,
 }));
 
-describe('AnalyticsPage', () => {
+// Full snapshot tables and multi-report navigation can exceed Vitest's five-second
+// default on shared CI runners. Keep this budget local; WCAG audits retain 60 seconds.
+describe('AnalyticsPage', { timeout: 30_000 }, () => {
   function renderPage(report = 'members&month=2026-07') {
     window.history.replaceState({}, '', `/analytics?report=${report}`);
     return render(
