@@ -1,0 +1,424 @@
+{
+  "exportedAt": "2026-09-10T19:01:20.071209+00:00",
+  "source": "analytics_searches",
+  "grouping": "Trimmed non-empty query, case preserved; filters and views combined",
+  "rankingLimit": 50,
+  "months": {
+    "2026-07": {
+      "searches": 6457,
+      "withQuery": 2124,
+      "distinctQueries": 1103,
+      "rankedSearches": 559,
+      "queries": [
+        {
+          "term": "turkey  maps",
+          "count": 72
+        },
+        {
+          "term": "-sanborn",
+          "count": 36
+        },
+        {
+          "term": "michigan",
+          "count": 23
+        },
+        {
+          "term": "caucasus maps",
+          "count": 22
+        },
+        {
+          "term": "siberia russia",
+          "count": 22
+        },
+        {
+          "term": "pasda",
+          "count": 20
+        },
+        {
+          "term": "asia minor",
+          "count": 18
+        },
+        {
+          "term": "sanborn",
+          "count": 18
+        },
+        {
+          "term": "14.271281, 44.702708",
+          "count": 17
+        },
+        {
+          "term": "russia maps",
+          "count": 17
+        },
+        {
+          "term": "spain",
+          "count": 14
+        },
+        {
+          "term": "amtrak stations",
+          "count": 11
+        },
+        {
+          "term": "siberia maps",
+          "count": 11
+        },
+        {
+          "term": "turkey history ottoman empire, maps",
+          "count": 11
+        },
+        {
+          "term": "37.117777, 50.081111",
+          "count": 10
+        },
+        {
+          "term": "Iran",
+          "count": 10
+        },
+        {
+          "term": "kazakhstan maps",
+          "count": 10
+        },
+        {
+          "term": "Vermont",
+          "count": 10
+        },
+        {
+          "term": "Algiers",
+          "count": 9
+        },
+        {
+          "term": "Fire insurance",
+          "count": 9
+        },
+        {
+          "term": "Qom",
+          "count": 9
+        },
+        {
+          "term": "bangladesh",
+          "count": 8
+        },
+        {
+          "term": "\"Great Lakes\"",
+          "count": 8
+        },
+        {
+          "term": "karafuto",
+          "count": 8
+        },
+        {
+          "term": "PATERSON",
+          "count": 8
+        },
+        {
+          "term": "water",
+          "count": 8
+        },
+        {
+          "term": "Illinois",
+          "count": 7
+        },
+        {
+          "term": "Land Cover",
+          "count": 7
+        },
+        {
+          "term": "Soudan mine",
+          "count": 7
+        },
+        {
+          "term": "west africa",
+          "count": 7
+        },
+        {
+          "term": "wisconsin",
+          "count": 7
+        },
+        {
+          "term": "ایران قم سال  میلادی1963",
+          "count": 7
+        },
+        {
+          "term": "africa, west",
+          "count": 6
+        },
+        {
+          "term": "chicago",
+          "count": 6
+        },
+        {
+          "term": "egypt",
+          "count": 6
+        },
+        {
+          "term": "egypt maps",
+          "count": 6
+        },
+        {
+          "term": "gulf of america",
+          "count": 6
+        },
+        {
+          "term": "india",
+          "count": 6
+        },
+        {
+          "term": "West Africa",
+          "count": 6
+        },
+        {
+          "term": "Wisconsin Cropland Data Layer",
+          "count": 6
+        },
+        {
+          "term": "81 Fairview Ave edison",
+          "count": 5
+        },
+        {
+          "term": "Aerial photo 08234",
+          "count": 5
+        },
+        {
+          "term": "antarctica",
+          "count": 5
+        },
+        {
+          "term": "Anthracite Surface Mine Permits",
+          "count": 5
+        },
+        {
+          "term": "armenia maps",
+          "count": 5
+        },
+        {
+          "term": "atlantic city",
+          "count": 5
+        },
+        {
+          "term": "baku",
+          "count": 5
+        },
+        {
+          "term": "business license",
+          "count": 5
+        },
+        {
+          "term": "Carbondale, PA",
+          "count": 5
+        },
+        {
+          "term": "central asia maps",
+          "count": 5
+        }
+      ]
+    },
+    "2026-08": {
+      "searches": 7545,
+      "withQuery": 3021,
+      "distinctQueries": 1718,
+      "rankedSearches": 652,
+      "queries": [
+        {
+          "term": "wetlands",
+          "count": 95
+        },
+        {
+          "term": "iran maps",
+          "count": 67
+        },
+        {
+          "term": "sanborn",
+          "count": 31
+        },
+        {
+          "term": "austin",
+          "count": 21
+        },
+        {
+          "term": "Washington county iowa",
+          "count": 20
+        },
+        {
+          "term": "iran",
+          "count": 19
+        },
+        {
+          "term": "redlining",
+          "count": 17
+        },
+        {
+          "term": "bloomington",
+          "count": 16
+        },
+        {
+          "term": "Austin",
+          "count": 15
+        },
+        {
+          "term": "campus",
+          "count": 14
+        },
+        {
+          "term": "crime",
+          "count": 14
+        },
+        {
+          "term": "london",
+          "count": 14
+        },
+        {
+          "term": "\"new york city\"",
+          "count": 13
+        },
+        {
+          "term": "highways",
+          "count": 12
+        },
+        {
+          "term": "iowa",
+          "count": 12
+        },
+        {
+          "term": "Iran",
+          "count": 12
+        },
+        {
+          "term": "central asia maps",
+          "count": 11
+        },
+        {
+          "term": "chicago",
+          "count": 10
+        },
+        {
+          "term": "europe",
+          "count": 10
+        },
+        {
+          "term": "minneapolis",
+          "count": 10
+        },
+        {
+          "term": "baltimore",
+          "count": 9
+        },
+        {
+          "term": "indiana field survey iran hardin i 38l",
+          "count": 9
+        },
+        {
+          "term": "lakes rivers AND minneapolis",
+          "count": 9
+        },
+        {
+          "term": "maryland",
+          "count": 9
+        },
+        {
+          "term": "pottstown",
+          "count": 9
+        },
+        {
+          "term": "32.503232, 44.449000",
+          "count": 8
+        },
+        {
+          "term": "austin minnesota",
+          "count": 8
+        },
+        {
+          "term": "Bay and harbor of New York",
+          "count": 8
+        },
+        {
+          "term": "black sea maps",
+          "count": 8
+        },
+        {
+          "term": "Henderson ky",
+          "count": 8
+        },
+        {
+          "term": "Iowa City Sanborn, 1883",
+          "count": 8
+        },
+        {
+          "term": "openindexmap",
+          "count": 8
+        },
+        {
+          "term": "South America",
+          "count": 8
+        },
+        {
+          "term": "31.971794,48.809872",
+          "count": 7
+        },
+        {
+          "term": "9266 town line rd Larsen wi",
+          "count": 7
+        },
+        {
+          "term": "alaska",
+          "count": 7
+        },
+        {
+          "term": "archaeological sites",
+          "count": 7
+        },
+        {
+          "term": "italia",
+          "count": 7
+        },
+        {
+          "term": "minnesota",
+          "count": 7
+        },
+        {
+          "term": "photos",
+          "count": 7
+        },
+        {
+          "term": "wisconsin",
+          "count": 7
+        },
+        {
+          "term": "32.654583, 44.405139",
+          "count": 6
+        },
+        {
+          "term": "American Geographical Society of New York",
+          "count": 6
+        },
+        {
+          "term": "County map of the states of Iowa and Missouri",
+          "count": 6
+        },
+        {
+          "term": "crimea maps",
+          "count": 6
+        },
+        {
+          "term": "farley iowa",
+          "count": 6
+        },
+        {
+          "term": "frogtown",
+          "count": 6
+        },
+        {
+          "term": "indiana",
+          "count": 6
+        },
+        {
+          "term": "iraq",
+          "count": 6
+        },
+        {
+          "term": "Kitchin, Thomas",
+          "count": 6
+        }
+      ]
+    }
+  }
+}

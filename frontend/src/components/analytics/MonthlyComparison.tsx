@@ -1,3 +1,4 @@
+import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, BarChart3, Users, Download } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
 import { useState } from 'react';
@@ -121,7 +122,7 @@ export function MonthlyComparison() {
           role="region"
           aria-label="Portal comparison table"
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
               July and August 2026 portal totals and changes
             </caption>
@@ -153,7 +154,7 @@ export function MonthlyComparison() {
                 );
               })}
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
           API requests include bots and probes. Engaged visits are distinct
@@ -221,7 +222,7 @@ export function MonthlyComparison() {
             role="region"
             aria-label="Daily comparison table"
           >
-            <table className="analytics-comparison-table">
+            <AnalyticsTable className="analytics-comparison-table">
               <caption className="sr-only">
                 Daily {dailyMetrics[dailyMetric].toLowerCase()} in July and
                 August 2026
@@ -242,7 +243,7 @@ export function MonthlyComparison() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </AnalyticsTable>
           </div>
         </details>
       </div>
@@ -272,7 +273,7 @@ export function MonthlyComparison() {
           role="region"
           aria-label="Member comparison table"
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
               Member {memberMetrics[memberMetric].toLowerCase()} in July and
               August 2026
@@ -305,7 +306,7 @@ export function MonthlyComparison() {
                 );
               })}
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
           Member attribution follows contribution-code prefixes for published,

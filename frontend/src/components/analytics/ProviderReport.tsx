@@ -1,3 +1,4 @@
+import { AnalyticsTable } from './AnalyticsTable';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Activity, Download, List, Users } from 'lucide-react';
@@ -164,7 +165,7 @@ export function ProviderReport({
             role="region"
             aria-label="Provider daily values"
           >
-            <table className="analytics-comparison-table">
+            <AnalyticsTable className="analytics-comparison-table">
               <caption className="sr-only">
                 Provider daily views and downloads
               </caption>
@@ -186,7 +187,7 @@ export function ProviderReport({
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </AnalyticsTable>
           </div>
         </details>
       </div>
@@ -230,7 +231,7 @@ export function ProviderReport({
           role="region"
           aria-label="Provider totals table"
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">{month} Provider totals</caption>
             <thead>
               <tr>
@@ -252,7 +253,7 @@ export function ProviderReport({
                 </tr>
               ))}
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
       </div>
     </section>

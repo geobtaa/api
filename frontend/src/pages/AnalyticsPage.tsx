@@ -1,3 +1,17 @@
+import {
+  AccessSummary,
+  AudienceReport,
+  OutlinkedResources,
+} from '../components/analytics/DiscoveryOutcomes';
+import { outcomes } from '../data/analytics/outcomes';
+import { ZeroResultReport } from '../components/analytics/ZeroResultReport';
+import { AllTimeAnalyticsPage } from '../components/analytics/AllTimeAnalyticsPage';
+import {
+  queryCategory,
+  queryCategoryMethod,
+} from '../data/analytics/queryCategories';
+import topSearches from '../data/analytics/topSearches2026.json';
+import { AnalyticsTable } from '../components/analytics/AnalyticsTable';
 import { CodeCoverage } from '../components/analytics/CodeCoverage';
 import { ProviderReport } from '../components/analytics/ProviderReport';
 import { providerSnapshots } from '../data/analytics/providers2026';
@@ -70,7 +84,6 @@ import {
   topCollections as julyTopCollections,
   topDownloadedResources as julyTopDownloadedResources,
   topResources as julyTopResources,
-  topSearchTerms as julyTopSearchTerms,
   type CollectionChartEntry,
   type ResourceChartEntry,
 } from '../data/analytics/july2026';
@@ -353,9 +366,35 @@ export function AnalyticsPage() {
   const resourceClassFilters = isAugust
     ? augustReports.augustResourceClassFilters
     : julyResourceClassFilters;
-  const topSearchTerms = isAugust
-    ? augustReports.augustTopSearchTerms
-    : julyTopSearchTerms;
+  const topSearchSnapshot =
+    topSearches.months[isAugust ? '2026-08' : '2026-07'];
+  const topSearchTerms = topSearchSnapshot.queries.map((query, index) => ({
+    ...query,
+    rank: index + 1,
+    category: queryCategory(query.term),
+  }));
+  const [selectedQueryCategory, setQueryCategoryFilter] = useState('all');
+  const queryCategoryCounts = Array.from(
+    new Set(topSearchTerms.map((query) => query.category))
+  )
+    .sort()
+    .map((category) => ({
+      category,
+      queries: topSearchTerms.filter((query) => query.category === category)
+        .length,
+      searches: topSearchTerms
+        .filter((query) => query.category === category)
+        .reduce((sum, query) => sum + query.count, 0),
+    }));
+  const queryCategoryFilter = queryCategoryCounts.some(
+    ({ category }) => category === selectedQueryCategory
+  )
+    ? selectedQueryCategory
+    : 'all';
+  const visibleSearchTerms = topSearchTerms.filter(
+    (query) =>
+      queryCategoryFilter === 'all' || query.category === queryCategoryFilter
+  );
   const searchSnapshot = searchSnapshots[isAugust ? '2026-08' : '2026-07'];
   const topZeroResultQueries = searchSnapshot.zeroQueries;
   const facetLabels: Record<string, string> = {
@@ -400,6 +439,11 @@ export function AnalyticsPage() {
           'Catalog inventory is a point-in-time snapshot, not month-end inventory.',
           'Zero-result query counts combine searches with different constraints; query text alone does not reproduce those searches.',
         ],
+        discoveryOutcomes: {
+          measurementDefinitions: outcomes.measurementDefinitions,
+          exportedAt: outcomes.exportedAt,
+          ...outcomes.periods[snapshotMonth],
+        },
         summary,
         dailyActivity,
         providerGrouping: providerSnapshots[snapshotMonth] ?? {
@@ -420,6 +464,11 @@ export function AnalyticsPage() {
         searches: {
           views: discoveryViews,
           topSearchTerms,
+          queryCategoryMethod,
+          topSearchCoverage: {
+            ...topSearchSnapshot,
+            exportedAt: topSearches.exportedAt,
+          },
           resourceClassFilters,
           zeroResultBreakdown: zeroQueries,
           ...searchSnapshot,
@@ -498,7 +547,6 @@ export function AnalyticsPage() {
 
   const activeReport = report.id;
   const [selectedMemberCode, setSelectedMemberCode] = useState('all');
-  const zeroResultRate = (summary.zeroResultSearches / summary.searches) * 100;
   const requestReliability =
     ((summary.requests - summary.serverErrors) / summary.requests) * 100;
   const maxCollectionSearches = topCollections[0].searches;
@@ -550,6 +598,10 @@ export function AnalyticsPage() {
     day.views > peak.views ? day : peak
   );
 
+  if (searchParams.get('month') === 'all' && activeReport !== 'comparison') {
+    return <AllTimeAnalyticsPage reportId={activeReport} />;
+  }
+
   return (
     <div className="analytics-page min-h-screen bg-gray-50">
       <Seo
@@ -592,6 +644,7 @@ export function AnalyticsPage() {
                     >
                       <option value="2026-08">August 2026</option>
                       <option value="2026-07">July 2026</option>
+                      <option value="all">All time (since July 1)</option>
                     </select>
                   </div>
                 </div>
@@ -605,9 +658,9 @@ export function AnalyticsPage() {
                   </div>
                   <div className="analytics-hero-note">
                     <p>
-                      A combined view of raw API traffic and visitor discovery
-                      activity. Infrastructure requests are separated from
-                      product engagement throughout.
+                      How people search for resources, view records, and follow
+                      source or download links. Explore audience coverage and
+                      access outcomes below.
                     </p>
                   </div>
                 </div>
@@ -618,9 +671,12 @@ export function AnalyticsPage() {
                 >
                   <div>
                     <span>01</span>
-                    <strong>{formatCompact(summary.requests)}</strong>
-                    <p>{reportMonth} API requests recorded</p>
-                    <small>Includes bots, probes, and browser traffic</small>
+                    <strong>{formatCompact(summary.searches)}</strong>
+                    <p>Search result pages</p>
+                    <small>
+                      {reportMonth} 1–31, 2026 · includes filter changes and
+                      pagination
+                    </small>
                   </div>
                   <div>
                     <span>02</span>
@@ -632,9 +688,13 @@ export function AnalyticsPage() {
                   </div>
                   <div>
                     <span>03</span>
-                    <strong>{formatCompact(summary.searches)}</strong>
-                    <p>searches launched</p>
-                    <small>{reportMonth} 1–31, 2026</small>
+                    <strong>
+                      {wholeNumber.format(
+                        outcomes.periods[snapshotMonth].totals.sources
+                      )}
+                    </strong>
+                    <p>Source-site clicks</p>
+                    <small>Clicks to authoritative source links</small>
                   </div>
                   <div>
                     <span>04</span>
@@ -670,6 +730,7 @@ export function AnalyticsPage() {
                 >
                   <option value="2026-08">August 2026</option>
                   <option value="2026-07">July 2026</option>
+                  <option value="all">All time (since July 1)</option>
                 </select>
               </div>
             )}
@@ -680,6 +741,12 @@ export function AnalyticsPage() {
           {activeReport === 'comparison' && <MonthlyComparison />}
           {activeReport === 'clients' && (
             <ClientUsageReport month={isAugust ? '2026-08' : '2026-07'} />
+          )}
+          {activeReport === 'content' && (
+            <>
+              <AccessSummary period={snapshotMonth} />
+              <OutlinkedResources period={snapshotMonth} />
+            </>
           )}
           {activeReport === 'content' && (
             <section id="charts" className="analytics-section">
@@ -1180,7 +1247,7 @@ export function AnalyticsPage() {
                     </small>
                   </div>
                   <div className="analytics-member-table-wrap">
-                    <table>
+                    <AnalyticsTable>
                       <caption className="sr-only">
                         {reportMonth} 2026 performance for BTAA
                         member-contributed catalog content
@@ -1248,7 +1315,7 @@ export function AnalyticsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </AnalyticsTable>
                   </div>
                 </article>
               )}
@@ -1312,6 +1379,12 @@ export function AnalyticsPage() {
             </section>
           )}
 
+          {activeReport === 'overview' && (
+            <>
+              <AccessSummary period={snapshotMonth} />
+              <AudienceReport key={snapshotMonth} period={snapshotMonth} />
+            </>
+          )}
           {activeReport === 'overview' && (
             <section id="pulse" className="analytics-section">
               <SectionHeading
@@ -1511,9 +1584,106 @@ export function AnalyticsPage() {
           {activeReport === 'discovery' && (
             <section id="discovery" className="analytics-section">
               <SectionHeading
+                eyebrow="Query ranking"
+                title="Top 50 searches"
+                description={`The most frequently recorded queries in ${reportMonth} 2026. ${wholeNumber.format(topSearchSnapshot.withQuery)} searches included query text, across ${wholeNumber.format(topSearchSnapshot.distinctQueries)} distinct queries.`}
+              />
+              <article className="analytics-panel analytics-top-searches">
+                <div className="analytics-panel-header">
+                  <div>
+                    <Search className="h-5 w-5" aria-hidden />
+                    <span>Most frequent queries</span>
+                  </div>
+                  <small>
+                    {wholeNumber.format(topSearchSnapshot.rankedSearches)}{' '}
+                    searches across these 50 queries
+                  </small>
+                </div>
+                <div className="analytics-top-searches-body">
+                  <div className="analytics-query-category-filter">
+                    <label htmlFor="query-category">Query category</label>
+                    <select
+                      id="query-category"
+                      value={queryCategoryFilter}
+                      onChange={(event) =>
+                        setQueryCategoryFilter(event.target.value)
+                      }
+                    >
+                      <option value="all">All categories · 50 queries</option>
+                      {queryCategoryCounts.map(
+                        ({ category, queries, searches }) => (
+                          <option key={category} value={category}>
+                            {category} · {queries}{' '}
+                            {queries === 1 ? 'query' : 'queries'} · {searches}{' '}
+                            searches
+                          </option>
+                        )
+                      )}
+                    </select>
+                    <p>
+                      Suggested from query text; each query has one primary
+                      category. Counts in the menu cover these top 50 queries
+                      only.
+                    </p>
+                  </div>
+                  <div
+                    className="analytics-top-searches-table"
+                    role="region"
+                    aria-label="Top 50 searches"
+                    tabIndex={0}
+                  >
+                    <AnalyticsTable className="analytics-comparison-table">
+                      <caption className="sr-only">
+                        {reportMonth} 2026 top 50 searches
+                      </caption>
+                      <thead>
+                        <tr>
+                          <th scope="col">Rank</th>
+                          <th scope="col">Query</th>
+                          <th scope="col">Category</th>
+                          <th scope="col">Searches</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {visibleSearchTerms.map((query) => (
+                          <tr key={query.term}>
+                            <td>{query.rank}</td>
+                            <th scope="row">
+                              <Link
+                                to={`/search?q=${encodeURIComponent(query.term)}`}
+                              >
+                                {query.term}
+                              </Link>
+                            </th>
+                            <td>{query.category}</td>
+                            <td>{wholeNumber.format(query.count)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </AnalyticsTable>
+                  </div>
+                  <p className="analytics-card-footnote">
+                    {queryCategoryMethod} Counts include successful and
+                    zero-result searches, grouped by trimmed query text with
+                    case preserved. Filters and views are combined; links repeat
+                    the query text only. Empty queries are excluded. Exported{' '}
+                    {new Date(topSearches.exportedAt).toLocaleDateString(
+                      'en-US',
+                      {
+                        timeZone: 'UTC',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      }
+                    )}
+                    .
+                  </p>
+                </div>
+              </article>
+              <SectionHeading
                 eyebrow="Search patterns"
-                title="What visitors looked for"
-                description={`Search views, query terms, filters, and zero-result searches recorded during ${reportMonth}.`}
+                title="Views, filters, and zero results"
+                description={`How searches were viewed and refined during ${reportMonth}.`}
               />
 
               <div className="analytics-insights-grid">
@@ -1557,29 +1727,6 @@ export function AnalyticsPage() {
                     The map generated {wholeNumber.format(mapView.count)} of{' '}
                     {wholeNumber.format(summary.searches)} rendered searches.
                   </p>
-                </article>
-
-                <article className="analytics-panel analytics-search-card">
-                  <div className="analytics-panel-header">
-                    <div>
-                      <Search className="h-5 w-5" aria-hidden />
-                      <span>Top search terms</span>
-                    </div>
-                    <small>non-empty queries</small>
-                  </div>
-                  <ol>
-                    {topSearchTerms.map((query, index) => (
-                      <li key={query.term}>
-                        <span>{String(index + 1).padStart(2, '0')}</span>
-                        <Link
-                          to={`/search?q=${encodeURIComponent(query.term)}`}
-                        >
-                          {query.term}
-                        </Link>
-                        <strong>{query.count}</strong>
-                      </li>
-                    ))}
-                  </ol>
                 </article>
 
                 <article className="analytics-panel analytics-format-card">
@@ -1660,67 +1807,15 @@ export function AnalyticsPage() {
                   </p>
                 </article>
 
-                <article className="analytics-panel analytics-opportunity-card">
-                  <div className="analytics-opportunity-summary">
-                    <div className="analytics-opportunity-heading">
-                      <div className="analytics-opportunity-icon">
-                        <CircleGauge className="h-7 w-7" aria-hidden />
-                      </div>
-                      <p>Search opportunity</p>
-                    </div>
-                    <strong>{zeroResultRate.toFixed(1)}%</strong>
-                    <h3>of searches returned zero results</h3>
-                    <span>
-                      That’s {wholeNumber.format(summary.zeroResultSearches)}{' '}
-                      moments to improve metadata, spelling support, or query
-                      guidance.
-                    </span>
-                    <Link to="/feedback">
-                      Share a discovery idea
-                      <ArrowRight className="h-4 w-4" aria-hidden />
-                    </Link>
-                  </div>
-
-                  <div className="analytics-zero-query-list">
-                    <div className="analytics-zero-query-header">
-                      <div>
-                        <Search className="h-5 w-5" aria-hidden />
-                        <h3>Top zero-result queries</h3>
-                      </div>
-                      <small>searches</small>
-                    </div>
-                    <p>
-                      Showing up to 50 queries with at least 3 zero-result
-                      searches, ranked by frequency.
-                    </p>
-                    <div
-                      className="analytics-search-scroll"
-                      role="region"
-                      aria-label="Zero-result queries"
-                      tabIndex={0}
-                    >
-                      <ol>
-                        {topZeroResultQueries.map((query, index) => (
-                          <li key={query.term}>
-                            <span>{String(index + 1).padStart(2, '0')}</span>
-                            <Link
-                              to={`/search?q=${encodeURIComponent(query.term)}`}
-                            >
-                              {query.term}
-                            </Link>
-                            <strong>{query.count}</strong>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
-                    <p>
-                      {wholeNumber.format(zeroQueries.with_query)} zero-result
-                      searches included query text;{' '}
-                      {wholeNumber.format(zeroQueries.without_query)} were
-                      filter-only searches with no query.
-                    </p>
-                  </div>
-                </article>
+                <ZeroResultReport
+                  periodKey={snapshotMonth}
+                  key={snapshotMonth}
+                  period={`${reportMonth} 2026`}
+                  searches={summary.searches}
+                  zeroResults={summary.zeroResultSearches}
+                  withQuery={zeroQueries.with_query}
+                  queries={topZeroResultQueries}
+                />
               </div>
             </section>
           )}
@@ -1815,7 +1910,7 @@ export function AnalyticsPage() {
                     </small>
                   </div>
                   <div className="analytics-api-table-wrap">
-                    <table>
+                    <AnalyticsTable label="API traffic breakdown">
                       <thead>
                         <tr>
                           <th scope="col">Traffic type</th>
@@ -1834,7 +1929,7 @@ export function AnalyticsPage() {
                           </tr>
                         ))}
                       </tbody>
-                    </table>
+                    </AnalyticsTable>
                   </div>
                   <p>
                     Turnstile status checks and API documentation probes made up

@@ -58,7 +58,8 @@ export function analyticsReportHref(
 ) {
   const params = new URLSearchParams();
   if (report !== 'overview') params.set('report', report);
-  if (month === '2026-07' || month === '2026-08') params.set('month', month);
+  if (month === '2026-07' || month === '2026-08' || month === 'all')
+    params.set('month', month);
   return `/analytics${params.size ? `?${params}` : ''}`;
 }
 
@@ -75,5 +76,11 @@ export function selectedAnalyticsReport(params: URLSearchParams) {
     analyticsReports[0];
   return report.id === 'comparison'
     ? report
-    : { ...report, period: `${analyticsMonth(params)} 2026` };
+    : {
+        ...report,
+        period:
+          params.get('month') === 'all'
+            ? 'All time'
+            : `${analyticsMonth(params)} 2026`,
+      };
 }

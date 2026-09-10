@@ -178,10 +178,16 @@ npm test -- --run src/__tests__/components/ClientUsageReport.test.tsx src/__test
 ### Searches: query rankings and facet usage
 
 The Searches tab follows Popular content and keeps the existing `report=discovery`
-URL. `searches2026.ts` contains full-month July and August aggregates exported
-September 9. Zero-result rankings include up to 50 trimmed, non-empty queries
-with at least three zero-result searches, sorted by count then query text (34
-qualifying July rows; 50 August rows shown). Query casing is preserved.
+URL. `searches2026.ts` combines September 9 facet aggregates with
+`zeroResultQueries2026.json`, exported September 10 for the full months of July
+and August. Each month now contains its top 100 trimmed, non-empty zero-result
+queries, with no minimum-frequency cutoff. Ordering is count descending then
+query text ascending using database collation; query casing is preserved.
+July has 545 eligible distinct queries and its top 100 represent 268 searches;
+August has 885 and its top 100 represent 298. Both rankings end at count two;
+one-event queries remain eligible but rank below the top 100. Original published
+rows and facet aggregates are unchanged. The JSON download includes the query
+ranking export date and coverage separately from the original monthly export date.
 
 Facet usage counts distinct search IDs per constraint category, combining
 `include_filters`, `exclude_filters`, `f`, and `fq` keys. Empty arrays, nulls, and
@@ -189,6 +195,33 @@ empty strings are excluded. Nested map bounds and year-range parameters count
 once per search and category. Categories overlap, so their totals should not be
 summed into a search total. This measures filters present in recorded searches,
 not facet clicks. The chart includes geographic constraints alongside facets.
+
+See the [August zero-result query review](zero-result-query-review-2026-08.md)
+for the completed category inventory of all 100 August queries and linked
+recovery issues. Category counts describe this ranking, not every zero-result
+search in the month.
+
+The read-only `backend/scripts/export_zero_result_queries_2026.py` exporter
+produces top-100 rankings for both months. It removes the
+minimum-three cutoff, preserves trimming/case and database alphabetical tie
+ordering, and records the distinct eligible query count and ranked event total.
+It refuses incomplete or changed history by reconciling search totals,
+zero-result totals, and blank/non-blank counts against the published baseline.
+Both months are read in one consistent, read-only transaction.
+
+For local development, run from `backend/` against a configured analytics
+database with complete monthly history:
+
+```sh
+PYTHONPATH=. python scripts/export_zero_result_queries_2026.py --output /tmp/zero-result-queries-2026.json
+```
+
+Review query text before publishing this aggregate; it can contain addresses,
+coordinates, or names. After a successful export, update the snapshot, report
+labels, focused report tests, category inventory, and linked issues together.
+The September 10 replacement reconciled all monthly baseline totals and retained
+the original ranking prefixes. Deployed database access instructions belong in
+restricted operations documentation.
 
 ### Shared report presentation
 
@@ -258,3 +291,147 @@ multiplication; provider totals and code-coverage totals must reconcile with the
 same eligible catalog. Provider attribution is at the new export date, not a
 reconstruction of July/August month-end metadata. Existing code reports and
 month-comparison figures retain their original snapshots and dates.
+
+
+### Table sorting and filtering
+
+All analytics tables use `AnalyticsTable`. Column headings toggle ascending and
+descending order; counts and percentages sort numerically, and missing values
+remain last in either direction. Text and day labels use natural ordering.
+Each table has its own case-insensitive row filter, visible result count, and
+Reset button restoring the original report order. Multiple search words must all
+appear somewhere in a row. Original ranks and report totals are unchanged.
+Filters affect the displayed table only; snapshot/CSV exports remain complete.
+
+The shared component preserves captions, row headers, links, and cell formatting.
+Keyboard-operable header buttons expose `aria-sort`, and result counts announce
+filter changes. A cell may provide `data-sort-value` when its display requires an
+explicit underlying sort value. New analytics tables should use this component.
+
+
+### Leading Searches report
+
+The Searches page leads with a full-width top-50 query table for the selected
+month, ahead of view mix, resource classes, facets and zero-result analysis.
+`topSearches2026.json` records rankings and coverage exported September 10 from
+complete July/August `analytics_searches` history. Counts include successful and
+zero-result searches, trim leading/trailing whitespace, retain case and internal
+spacing, and combine filters/views. Empty queries are excluded. Links replay only
+query text. Ties use query order under the source database's collation.
+
+`backend/scripts/export_top_searches_2026.py` performs a consistent read-only
+export and refuses monthly totals that differ from the preserved baseline.
+July has 2,124 searches with query text (1,103 distinct queries); its top 50 account
+for 559 searches. August has 3,021 (1,718 distinct); its top 50 account for 652.
+The table supports the shared sorting/filter controls. Its full ranking and
+coverage are included in the monthly JSON download.
+
+
+The top-search table expands to show all rows without an internal vertical
+scrollbar. Its category column and category selector use reviewed, best-effort
+assignments in `queryCategories.ts`. Categories reflect query wording, not
+observed intent or catalog metadata. Explicit map/imagery requests take precedence
+over place names; clear subjects use topical groups. Place-only terms remain
+geographic, and unclear or exclusion-only searches are not forced into a topic.
+Case/spacing variants share a category but their source rows/counts are preserved.
+Each query belongs to one primary group. Category menu totals cover only the top
+50; filtering retains original ranks. Category values and methodology are included
+in the monthly JSON download. Unreviewed queries default to Mixed or unclear.
+
+
+### Academic-year All time view
+
+Monthly reports continue to default to August, the latest published month. The
+period selector also accepts `month=all`, preserved across analytics navigation.
+All time starts July 1, 2026, the academic-year boundary, and currently includes
+published July and August (through August 31 UTC). Partial September is excluded
+until published. Month comparison remains the explicit July–August comparison.
+
+`allTime2026.json` is generated by the read-only
+`backend/scripts/export_published_analytics_2026.py`. Search/zero-result rankings
+are recomputed from complete full-period records; they are not sums of truncated
+monthly lists. Daily series retain all 62 calendar dates. Provider/code reach is
+deduplicated over the full period, using the September 10 eligible catalog;
+inventory is counted once. Client pairs and facet counts can be summed across
+these disjoint months. Coverage and methodology appear in the view and download.
+
+The exporter checks published search/event/impression totals, reconciles daily
+counts against both snapshots, and checks Provider/code grouping agreement.
+Response-time percentiles cannot be combined from monthly percentile summaries;
+these, collection rankings and half-month momentum remain monthly features.
+Before publishing another month, update the complete monthly dataset, period
+coverage/selector, and full-period export together, then rerun reconciliation and
+period-switching tests. Do not extend coverage by merging monthly top lists.
+
+### Zero-result outcomes and categories
+
+Monthly and All time Searches reports use the same zero-result section. The
+outcome percentage and pie use all searches in the selected period. Table row
+percentages use all zero-result searches, not a query-specific failure rate.
+The category pie weights each ranked query by its zero-result count and covers
+only the displayed top 100 queries; its coverage is stated separately from the
+full-period totals. Filtering the table does not change chart denominators.
+
+Categories describe query wording, not proven causes of failure. The reviewed
+August classifications are retained; other queries use conservative wording
+rules, with an unclassified fallback. Additional original filters can explain
+why a query returning results today appears in this report. Query links replay
+text only.
+
+## Discovery outcomes and audience coverage
+
+`outcomes2026.json` adds July, August and academic-year aggregates exported
+September 10. `export_discovery_outcomes_2026.py` runs in a repeatable-read,
+read-only transaction and refuses search/event totals differing from the
+published history. Keep this supplemental snapshot alongside the original
+monthly reports. Exports include its own export date and period bounds.
+
+Overview leads with search result pages, resource views, source-site clicks and
+download clicks. Successful access shows exact monthly bars, including both
+months in All time. Popular content has an independent top-50 source-site
+ranking, computed over the full selected period rather than a subset of viewed
+resources. All time download rankings use the same full-record scope. Source
+clicks are `visit_source_click`, not every outbound event. Counts include
+unmatched catalog records; a left join supplies labels without dropping clicks.
+July has 1,129 source clicks and 933 downloads; August has 858 and 812.
+
+Tracked visits deduplicate nonblank visit tokens across searches and events.
+These tokens are stored in browser sessionStorage: they are tab-scoped, not
+persistent visitors or inactivity-based sessions. July has 7,729, August 13,020,
+and the combined period 20,735; the monthly counts cannot be added because tokens
+can span months. Daily distinct totals likewise must not be added. There are
+120 activity records without tokens across the two months. All recorded searches
+and events declare `geoportal-web` / `browser`; this is caller attribution, not
+proof of human activity. Searches count rendered result pages, including
+pagination/filter changes, rather than only new typed queries.
+
+Unique visitors and general pageviews are shown as **Unavailable**, not zero.
+No persistent visitor identifier or general `page_view` event coverage exists in
+these historical snapshots. Resource views describe detail pages only. The
+existing GTM `virtual_page_view` dispatch on React Router navigation is not
+verification that deployed GTM maps it to GA4 pageviews. GA4/GTM deployment and
+Realtime validation remain separate from this database-backed reporting.
+
+Failed-query rows now expose aggregated saved parameter combinations for each
+ranked term, with counts, included/excluded facets, page/view/sort/search field,
+and original result totals. Replay links preserve exported parameters, not just
+query text. Only allowlisted search controls and public facet keys are exported;
+visitor tokens, raw URLs and arbitrary tracking/authentication parameters are not.
+Blank-query context is available separately. Details are loaded into the DOM when
+expanded. Context can be filtered even while collapsed; its column sorts by the
+number of recorded combinations.
+
+The published zero-result flag was based on an empty displayed page. August has
+two flagged rows with positive total-result counts; July has none. Preserve the
+published totals and explain this distinction rather than silently rewriting
+history. All four August `redlining` zero-result events had exclusion filters.
+Three stored parameter combinations represent these events; ordering differences
+in arrays are preserved. Replaying them against today's catalog may differ.
+
+### Remaining measurement work
+
+To provide unique visitors or all-pageview trends, select a validated collection
+source and define its identity/session rules, consent behavior and reporting
+coverage first. Historical tab tokens cannot reconstruct unique people. The
+current dashboard implements the available audience measures and explicitly
+states the gaps; it does not claim GA4 parity or completed-download measurement.

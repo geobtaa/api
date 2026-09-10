@@ -1,3 +1,4 @@
+import { AnalyticsTable } from './AnalyticsTable';
 import {
   Activity,
   KeyRound,
@@ -98,7 +99,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           aria-label="Client usage table"
           tabIndex={0}
         >
-          <table className="analytics-comparison-table analytics-client-table">
+          <AnalyticsTable className="analytics-comparison-table analytics-client-table">
             <caption className="sr-only">
               {period} 2026 declared client usage
             </caption>
@@ -124,7 +125,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
           Client names and channels are declared by callers. “Not declared”
@@ -146,7 +147,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           aria-label="API key attribution table"
           tabIndex={0}
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
               {period} 2026 API key attribution coverage
             </caption>
@@ -166,7 +167,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
                 <td>{number.format(snapshot.unattributedKeyRequests)}</td>
               </tr>
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
           No API-key IDs were recorded for this month, so per-key usage cannot
@@ -188,7 +189,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           aria-label="MCP and QGIS signals table"
           tabIndex={0}
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
               {period} 2026 MCP and QGIS request signals
             </caption>
@@ -224,7 +225,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
                 </td>
               </tr>
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
           These signals can overlap with declared clients. MCP endpoint requests
@@ -245,7 +246,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           aria-label="API request surfaces table"
           tabIndex={0}
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
               {period} 2026 requests by endpoint category
             </caption>
@@ -265,7 +266,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
           Endpoint categories explain which API surfaces were requested; they do
