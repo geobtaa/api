@@ -26,6 +26,8 @@ vi.mock('recharts', () => ({
     />
   ),
   LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Bar: () => null,
   CartesianGrid: () => null,
   Line: () => null,
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
@@ -48,6 +50,81 @@ describe('AnalyticsPage', () => {
     );
   }
 
+  it.each([
+    'comparison',
+    'members',
+    'clients',
+    'platform',
+    'members&grouping=provider',
+  ])('makes every table sortable and filterable in %s', (report) => {
+    const { container } = renderPage(report);
+    const tables = container.querySelectorAll('table');
+    expect(tables.length).toBeGreaterThan(0);
+    tables.forEach((table) => {
+      expect(
+        table.parentElement?.querySelector('input[type="search"]')
+      ).not.toBeNull();
+      table.querySelectorAll('thead th').forEach((heading) => {
+        expect(heading).toHaveAttribute('aria-sort', 'none');
+        expect(heading.querySelector('button')).not.toBeNull();
+      });
+    });
+  });
+
+  it('defaults to August and carries All time across reports with monthly switching', () => {
+    renderPage('overview');
+    const month = screen.getByRole('combobox', { name: 'Reporting month' });
+    expect(month).toHaveValue('2026-08');
+    fireEvent.change(month, { target: { value: 'all' } });
+    expect(screen.getByText('14,002')).toBeInTheDocument();
+    expect(
+      screen.getByText('All time · Academic year to date')
+    ).toBeInTheDocument();
+    const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
+    fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
+    expect(window.location.search).toBe('?report=discovery&month=all');
+    const table = screen.getByRole('table', {
+      name: 'Top 50 searches · All time',
+    });
+    expect(within(table).getAllByRole('row')).toHaveLength(51);
+    expect(
+      within(table).getByRole('link', { name: 'sanborn' }).closest('tr')
+    ).toHaveTextContent('49');
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting period' }),
+      { target: { value: '2026-07' } }
+    );
+    expect(
+      screen.getByRole('table', { name: 'July 2026 top 50 searches' })
+    ).toBeInTheDocument();
+  });
+
+  it.each([
+    'overview',
+    'content',
+    'discovery',
+    'members',
+    'clients',
+    'platform',
+  ])(
+    'renders All time tables for %s with explicit academic-year coverage',
+    (report) => {
+      renderPage(`${report}&month=all`);
+      expect(
+        screen.getByRole('combobox', { name: 'Reporting period' })
+      ).toHaveValue('all');
+      expect(screen.getByText(/September joins once/)).toHaveTextContent(
+        'July 1–August 31, 2026'
+      );
+      expect(
+        screen.getAllByRole('table', { hidden: true }).length
+      ).toBeGreaterThan(0);
+      expect(
+        screen.getByRole('link', { name: 'Download all-time snapshot (JSON)' })
+      ).toHaveAttribute('download', 'analytics-all-published-months.json');
+    }
+  );
+
   it('shows an overview and navigates between focused reports', () => {
     renderPage('overview');
     expect(
@@ -56,14 +133,16 @@ describe('AnalyticsPage', () => {
         level: 1,
       })
     ).toBeInTheDocument();
-    expect(screen.getByText('598.9K')).toBeInTheDocument();
+    expect(screen.getByText('7.5K')).toBeInTheDocument();
     expect(screen.getByTestId('activity-chart')).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Daily activity' })
     ).not.toBeInTheDocument();
     expect(screen.queryByTestId('header')).not.toBeInTheDocument();
-    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(screen.queryByRole('search')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Audience and discovery coverage' })
+    ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute(
       'aria-current',
@@ -87,7 +166,9 @@ describe('AnalyticsPage', () => {
     ).not.toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'Overview' }));
     expect(window.location.search).toBe('');
-    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('table', { name: /portal totals/i })
+    ).not.toBeInTheDocument();
   });
 
   it('opens popular content directly without unrelated reports', () => {
@@ -234,6 +315,75 @@ describe('AnalyticsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('leads Searches with 50 ranked, sortable and filterable queries for each month', () => {
+    renderPage('discovery');
+    const heading = screen.getByRole('heading', { name: 'Top 50 searches' });
+    expect(
+      heading.compareDocumentPosition(screen.getByText('Search view mix')) &
+        Node.DOCUMENT_POSITION_FOLLOWING
+    ).toBeTruthy();
+    let table = screen.getByRole('table', {
+      name: 'August 2026 top 50 searches',
+    });
+    expect(within(table).getAllByRole('row')).toHaveLength(51);
+    expect(within(table).getAllByRole('row')[1]).toHaveTextContent(
+      'wetlandsEnvironment & land use95'
+    );
+    fireEvent.change(
+      screen.getByRole('searchbox', {
+        name: 'Filter August 2026 top 50 searches',
+      }),
+      { target: { value: 'wetlands' } }
+    );
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    fireEvent.click(
+      within(table.parentElement!).getByRole('button', { name: 'Reset' })
+    );
+    fireEvent.click(within(table).getByRole('button', { name: 'Searches' }));
+    expect(within(table).getAllByRole('row')[1]).not.toHaveTextContent(
+      'wetlands'
+    );
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    table = screen.getByRole('table', { name: 'July 2026 top 50 searches' });
+    expect(within(table).getAllByRole('row')).toHaveLength(51);
+    expect(
+      within(table).getByRole('link', { name: 'turkey maps' })
+    ).toHaveAttribute('href', '/search?q=turkey%20%20maps');
+  });
+
+  it('filters top searches by inferred category while retaining original ranks', () => {
+    renderPage('discovery');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Query category' }), {
+      target: { value: 'Mixed or unclear' },
+    });
+    const table = screen.getByRole('table', {
+      name: 'August 2026 top 50 searches',
+    });
+    expect(within(table).getAllByRole('row')).toHaveLength(2);
+    expect(within(table).getByText('22')).toBeInTheDocument();
+    expect(within(table).getByRole('link')).toHaveTextContent(
+      'indiana field survey iran hardin i 38l'
+    );
+    fireEvent.change(screen.getByRole('combobox', { name: 'Query category' }), {
+      target: { value: 'People & institutions' },
+    });
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Reporting month' }),
+      { target: { value: '2026-07' } }
+    );
+    expect(
+      screen.getByRole('combobox', { name: 'Query category' })
+    ).toHaveValue('all');
+    expect(
+      within(
+        screen.getByRole('table', { name: 'July 2026 top 50 searches' })
+      ).getAllByRole('row')
+    ).toHaveLength(51);
+  });
+
   it('shows expanded zero-result queries and facet usage for each month', () => {
     renderPage('discovery');
     expect(
@@ -249,8 +399,16 @@ describe('AnalyticsPage', () => {
     expect(
       within(
         screen.getByRole('region', { name: 'Zero-result queries' })
-      ).getAllByRole('listitem')
-    ).toHaveLength(50);
+      ).getAllByRole('row')
+    ).toHaveLength(101);
+    expect(
+      screen.getByRole('link', {
+        name: 'Carta geologica delle Tre Venezie, Legnago',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/These 100 queries account for 298/)
+    ).toBeInTheDocument();
     const chart = screen.getByRole('region', {
       name: 'Facet category usage chart',
     });
@@ -263,8 +421,12 @@ describe('AnalyticsPage', () => {
     expect(
       within(
         screen.getByRole('region', { name: 'Zero-result queries' })
-      ).getAllByRole('listitem')
-    ).toHaveLength(34);
+      ).getAllByRole('row')
+    ).toHaveLength(101);
+    expect(screen.getByRole('link', { name: 'Mut' })).toBeInTheDocument();
+    expect(
+      screen.getByText(/These 100 queries account for 268/)
+    ).toBeInTheDocument();
     expect(within(chart).getByText('1,521')).toBeInTheDocument();
   });
 
@@ -315,7 +477,7 @@ describe('AnalyticsPage', () => {
       target: { value: '2026-07' },
     });
     expect(screen.getByLabelText('Group records by')).toHaveValue('provider');
-    expect(screen.getByRole('note')).toHaveTextContent('have expired');
+    expect(screen.getByText(/Recovered July export/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Group records by'), {
       target: { value: 'code' },
     });
@@ -391,6 +553,9 @@ describe('AnalyticsPage', () => {
 
   it.each([
     'overview',
+    'overview&month=all',
+    'content&month=all',
+    'discovery&month=all',
     'comparison',
     'content',
     'content&month=2026-07',
@@ -417,8 +582,34 @@ describe('AnalyticsPage', () => {
 
       expect(results.violations).toHaveLength(0);
     },
-    15_000
+    60_000
   );
+
+  it('defines historical audience coverage and leads with discovery outcomes', () => {
+    renderPage('overview');
+    const highlights = screen.getByLabelText('August 2026 highlights');
+    expect(highlights.textContent?.indexOf('Search result pages')).toBeLessThan(
+      highlights.textContent?.indexOf('Source-site clicks') ?? 0
+    );
+    const audience = screen.getByRole('region', {
+      name: 'Audience and discovery coverage',
+    });
+    expect(within(audience).getByText('13,020')).toBeInTheDocument();
+    expect(within(audience).getAllByText('Unavailable')).toHaveLength(2);
+    expect(
+      within(audience).getByText(/71 records lack a visit token/)
+    ).toBeInTheDocument();
+    fireEvent.click(within(audience).getByText('Daily audience values'));
+    const details = within(audience)
+      .getByText('Daily audience values')
+      .closest('details')!;
+    details.open = true;
+    expect(
+      within(audience).getByRole('table', {
+        name: 'August 2026 audience daily values',
+      })
+    ).toBeInTheDocument();
+  });
 
   it('uses the local thumbnail route and falls back to a resource icon', () => {
     renderPage('content&month=2026-07');

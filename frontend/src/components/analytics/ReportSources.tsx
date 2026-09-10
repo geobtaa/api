@@ -8,7 +8,7 @@ const definitions: Record<
     source:
       'Recorded API requests, searches, search impressions, and interaction events, exported from the production analytics database into checked-in monthly snapshots.',
     grouping:
-      'Totals cover the entire portal. Daily series group timestamps by UTC calendar day. Interactions count event rows; engaged visits count distinct recorded visit tokens.',
+      'Totals cover the entire portal. Daily series group timestamps by UTC calendar day. Interactions count event rows. Tracked visits deduplicate tokens across searches and events; engaged visits use events only. These are tab-scoped tokens, not unique people.',
     limits:
       'API traffic includes bots and probes. Visits are not unique people, and download clicks are not completed downloads.',
   },
@@ -24,7 +24,7 @@ const definitions: Record<
     source:
       'Interaction events and recorded search constraints joined to catalog metadata at export. July rankings were exported August 20; August rankings September 9.',
     grouping:
-      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares days 16–31 with days 1–15.',
+      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares days 16–31 with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; their catalog labels were exported September 10.',
     limits:
       'Rankings are not restricted to university providers or published, unsuppressed records. Missing catalog records cannot be ranked by title. Multi-collection searches count in each collection; download clicks do not confirm file transfer.',
   },
@@ -38,11 +38,11 @@ const definitions: Record<
   },
   discovery: {
     source:
-      'Recorded searches and their saved query, view, constraints, and zero-results flag. Expanded query and facet aggregates were exported September 9 for both months.',
+      'Recorded searches and their saved query, view, constraints, and zero-results flag. Query rankings were exported September 10 and facet aggregates September 9 for both months.',
     grouping:
-      'Terms group trimmed, non-empty query text, preserving case. Zero-result rankings show up to 50 terms with at least three zero-result searches. Facets count distinct searches per category across inclusion, exclusion, and legacy filter formats.',
+      'Top 50 searches group all recorded searches by trimmed, non-empty query text, preserving case and combining filters/views. Zero-result rankings show up to 100 terms with no minimum-frequency cutoff, ordered by count then query using database collation. Facets count distinct searches per category across inclusion, exclusion, and legacy filter formats.',
     limits:
-      'A zero-result term may have had additional filters; its plain query link does not reproduce those constraints. Facet counts describe filters present in searches, not clicks, and categories overlap. Map bounds and year ranges are included.',
+      'Expand recorded search context to inspect saved filters, pagination, and result totals. Plain query links repeat text only; context links repeat the exported parameters. The historical zero-result flag can include an empty page despite a positive total. Facet counts describe filters present in searches, not clicks, and categories overlap. Map bounds and year ranges are included.',
   },
   clients: {
     source:

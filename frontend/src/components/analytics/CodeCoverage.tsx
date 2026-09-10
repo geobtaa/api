@@ -1,3 +1,4 @@
+import { AnalyticsTable } from './AnalyticsTable';
 import { providerSnapshots } from '../../data/analytics/providers2026';
 const number = new Intl.NumberFormat('en-US');
 export function CodeCoverage({ month }: { month: string }) {
@@ -21,7 +22,7 @@ export function CodeCoverage({ month }: { month: string }) {
         aria-label="Contribution code coverage table"
         tabIndex={0}
       >
-        <table className="analytics-comparison-table">
+        <AnalyticsTable className="analytics-comparison-table">
           <caption className="sr-only">
             {month} contribution-code coverage using the September 10 catalog
           </caption>
@@ -45,7 +46,7 @@ export function CodeCoverage({ month }: { month: string }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </AnalyticsTable>
       </div>
       <details>
         <summary>Inspect all code prefixes</summary>
@@ -55,7 +56,7 @@ export function CodeCoverage({ month }: { month: string }) {
           aria-label="All code prefixes"
           tabIndex={0}
         >
-          <table className="analytics-comparison-table">
+          <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
               Catalog counts and views by exact two-character prefix
             </caption>
@@ -81,7 +82,7 @@ export function CodeCoverage({ month }: { month: string }) {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </AnalyticsTable>
         </div>
       </details>
       <p className="analytics-comparison-note">
