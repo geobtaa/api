@@ -296,6 +296,33 @@ describe('AnalyticsPage', () => {
     expect(july.data.summary.requests).toBe(613131);
   });
 
+  it('explains both member groupings without inventing missing provider totals', () => {
+    renderPage('members');
+    expect(
+      screen.getByRole('region', { name: 'Sources and grouping' })
+    ).toHaveTextContent('Provider');
+    fireEvent.change(screen.getByLabelText('Group records by'), {
+      target: { value: 'provider' },
+    });
+    expect(window.location.search).toContain('grouping=provider');
+    expect(
+      screen.getByRole('region', { name: 'Provider export status' })
+    ).toHaveTextContent('awaiting its data export');
+    expect(
+      screen.queryByRole('button', { name: /Show The Ohio State University/ })
+    ).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Reporting month'), {
+      target: { value: '2026-07' },
+    });
+    expect(screen.getByLabelText('Group records by')).toHaveValue('provider');
+    fireEvent.change(screen.getByLabelText('Group records by'), {
+      target: { value: 'code' },
+    });
+    expect(
+      screen.getByRole('button', { name: /Show The Ohio State University/ })
+    ).toBeInTheDocument();
+  });
+
   it('falls back to overview for an unknown report', () => {
     renderPage('unknown');
     expect(
@@ -372,6 +399,7 @@ describe('AnalyticsPage', () => {
     'platform',
     'clients',
     'clients&month=2026-07',
+    'members&grouping=provider',
     'overview&month=2026-07',
     'members&month=2026-07',
     'activity&month=2026-07',
@@ -381,6 +409,9 @@ describe('AnalyticsPage', () => {
     'has no detectable WCAG violations in %s',
     async (report) => {
       const { container } = renderPage(report);
+      expect(
+        screen.getByRole('region', { name: 'Sources and grouping' })
+      ).toBeInTheDocument();
       const results = await axeWithWCAG22(container);
 
       expect(results.violations).toHaveLength(0);

@@ -1,3 +1,6 @@
+import { ProviderReport } from '../components/analytics/ProviderReport';
+import { providerSnapshots } from '../data/analytics/providers2026';
+import { ReportSources } from '../components/analytics/ReportSources';
 import { clientSnapshots } from '../data/analytics/clients2026';
 import { searchSnapshots } from '../data/analytics/searches2026';
 import { FACET_LABELS } from '../utils/facetLabels';
@@ -308,6 +311,8 @@ export function AnalyticsPage() {
   const report = selectedAnalyticsReport(searchParams);
   const reportMonth = analyticsMonth(searchParams);
   const isAugust = reportMonth === 'August';
+  const memberGrouping =
+    searchParams.get('grouping') === 'provider' ? 'provider' : 'code';
   const topResources = isAugust ? augustTopResources : julyTopResources;
   const topCollections = isAugust ? augustTopCollections : julyTopCollections;
   const topDownloadedResources = isAugust
@@ -396,6 +401,9 @@ export function AnalyticsPage() {
         ],
         summary,
         dailyActivity,
+        providerGrouping: providerSnapshots[snapshotMonth] ?? {
+          status: 'awaiting-export',
+        },
         members: {
           summary: memberSummary,
           performance: memberPerformance,
@@ -835,6 +843,32 @@ export function AnalyticsPage() {
           )}
 
           {activeReport === 'members' && (
+            <div className="analytics-grouping-controls">
+              <label htmlFor="member-grouping">Group records by</label>
+              <select
+                id="member-grouping"
+                value={memberGrouping}
+                onChange={(event) => {
+                  const params = new URLSearchParams(searchParams);
+                  params.set('grouping', event.target.value);
+                  setSearchParams(params);
+                }}
+              >
+                <option value="code">BTAA contribution code</option>
+                <option value="provider">Provider facet</option>
+              </select>
+              <p>
+                Contribution codes include agency content gathered through a
+                member’s stream. Provider uses the named institution or agency
+                on the record.
+              </p>
+            </div>
+          )}
+          {activeReport === 'members' && memberGrouping === 'provider' && (
+            <ProviderReport key={snapshotMonth} month={snapshotMonth} />
+          )}
+
+          {activeReport === 'members' && memberGrouping === 'code' && (
             <section id="members" className="analytics-section">
               <SectionHeading
                 eyebrow="Member overview"
@@ -1218,16 +1252,60 @@ export function AnalyticsPage() {
                 </article>
               )}
 
+              <section
+                className="analytics-panel analytics-report-sources"
+                aria-label="Outside the university code groups"
+              >
+                <h3>What is outside these university totals?</h3>
+                <p>
+                  {wholeNumber.format(
+                    summary.resourceViews - memberSummary.resourceViews
+                  )}{' '}
+                  resource views,{' '}
+                  {wholeNumber.format(
+                    summary.impressions - memberSummary.impressions
+                  )}{' '}
+                  search impressions, and{' '}
+                  {wholeNumber.format(
+                    summary.downloadClicks - memberSummary.downloadClicks
+                  )}{' '}
+                  download clicks in the portal totals are outside this eligible
+                  01–17 member cohort.
+                </p>
+                <p>
+                  This remainder is not an “Other institutions” total: it can
+                  also include unpublished, suppressed, missing, or unmatched
+                  catalog records. Federal sources, standalone items, and
+                  BTAA-curated content need their actual contribution codes or
+                  Provider values checked before assigning them to a group.
+                </p>
+                <p>
+                  The{' '}
+                  <a href="https://gin.btaa.org/harvest-operations/latest/institutions/">
+                    harvest-operations institution report
+                  </a>{' '}
+                  groups harvest records and includes OpenGeoMetadata, licensed
+                  databases, BTAA-GIN curated datasets, and Other. Its grouping
+                  is not equivalent to this catalog-level prefix grouping.
+                </p>
+              </section>
+
               <p className="analytics-member-method analytics-panel">
                 Activity period: {reportMonth} 1–31, 2026. Catalog inventory:
                 published, unsuppressed records as of {inventoryDate}, when this
                 report was exported. The inventory is a point-in-time count, not
                 an activity total or month-end count. “{reportMonth} active”
                 means a distinct record with at least one search impression or
-                tracked action during {reportMonth}. School attribution follows
-                the BTAA contribution code rather than the provider label, which
-                often names an originating public agency. Downloads and
-                source-site visits are link clicks, not verified completions.
+                tracked action during {reportMonth}. Only code prefixes 01–17
+                are included here. Other prefixes and missing codes are
+                excluded, even if their records appear in portal totals.
+                Federal, standalone, and BTAA-curated records are not separate
+                groups in this historical snapshot. Their inclusion depends on
+                the stored code, not their title or Provider. School attribution
+                follows the BTAA contribution code rather than the provider
+                label, which often names an originating public agency. Downloads
+                and source-site visits are link clicks, not verified
+                completions.
               </p>
             </section>
           )}
@@ -1771,6 +1849,8 @@ export function AnalyticsPage() {
               </div>
             </section>
           )}
+
+          <ReportSources report={activeReport} month={reportMonth} />
 
           {activeReport !== 'comparison' &&
             activeReport !== 'content' &&
