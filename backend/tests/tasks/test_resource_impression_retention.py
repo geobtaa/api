@@ -12,9 +12,17 @@ from scripts.recover_resource_impressions import read_counts, save_counts
 
 
 @pytest.fixture
-def conn():
+def conn(monkeypatch):
+    class ReviewDate(date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 9, 10)
+
+    monkeypatch.setattr(storage, "date", ReviewDate)
     url = os.getenv("ANALYTICS_TEST_DATABASE_URL")
     if not url:
+        if os.getenv("CI", "").lower() == "true":
+            pytest.fail("CI must configure ANALYTICS_TEST_DATABASE_URL for retention tests")
         pytest.skip("Set ANALYTICS_TEST_DATABASE_URL to an isolated PostgreSQL database")
     engine = create_engine(url)
     schema = "impressions_test_" + uuid4().hex
