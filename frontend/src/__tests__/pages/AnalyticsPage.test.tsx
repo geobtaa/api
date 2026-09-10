@@ -168,7 +168,7 @@ describe('AnalyticsPage', () => {
     expect(screen.getByText(/Activity period: August 1–31/)).toHaveTextContent(
       'September 9, 2026'
     );
-    expect(screen.getByText('10,850')).toBeInTheDocument();
+    expect(screen.getAllByText('10,850').length).toBeGreaterThan(0);
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     fireEvent.click(within(nav).getByRole('link', { name: 'Overview' }));
     expect(screen.getByText('49,258')).toBeInTheDocument();
@@ -296,7 +296,7 @@ describe('AnalyticsPage', () => {
     expect(july.data.summary.requests).toBe(613131);
   });
 
-  it('explains both member groupings without inventing missing provider totals', () => {
+  it('switches between verified Provider and historical code groups', () => {
     renderPage('members');
     expect(
       screen.getByRole('region', { name: 'Sources and grouping' })
@@ -306,8 +306,8 @@ describe('AnalyticsPage', () => {
     });
     expect(window.location.search).toContain('grouping=provider');
     expect(
-      screen.getByRole('region', { name: 'Provider export status' })
-    ).toHaveTextContent('awaiting its data export');
+      screen.getByRole('region', { name: 'Provider report' })
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /Show The Ohio State University/ })
     ).not.toBeInTheDocument();
@@ -315,6 +315,7 @@ describe('AnalyticsPage', () => {
       target: { value: '2026-07' },
     });
     expect(screen.getByLabelText('Group records by')).toHaveValue('provider');
+    expect(screen.getByRole('note')).toHaveTextContent('have expired');
     fireEvent.change(screen.getByLabelText('Group records by'), {
       target: { value: 'code' },
     });
