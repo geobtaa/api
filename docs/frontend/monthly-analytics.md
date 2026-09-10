@@ -200,3 +200,8 @@ headings stack on narrower screens, and wide tables retain horizontal scrolling.
 
 All analytics line and area series use linear interpolation: straight segments
 between recorded daily values, with no smoothing or curved lines.
+
+The data-notes panel offers a JSON download of the selected month's report
+aggregates, rankings, daily series, and all member segments. The export includes
+period bounds, catalog/export dates, and attribution limitations. It is not a
+raw-log or full-catalog download; campus selection does not narrow the snapshot.
