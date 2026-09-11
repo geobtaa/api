@@ -42,6 +42,16 @@ The frontend stack currently uses:
 - Material UI 7, Tailwind, Leaflet, GeoBlacklight frontend components, Allmaps,
   H3, Recharts, and Lucide icons.
 
+## Unfiltered Search
+
+The `/search` page browses the full catalog when no query or filters are present,
+including URLs containing only presentation parameters such as
+`/search?view=gallery&per_page=20`. Removing the last filter starts an unfiltered
+search without requiring an explicit `q=` parameter. Results and facets load
+through the browser search request; the map loads independently. The results
+area shows a loading state until the current request settles, rather than
+reporting zero results while the request is pending.
+
 ## Quick Commands
 
 Run from `frontend/`:

@@ -94,15 +94,6 @@ function SearchContent({
   const searchPageTitle = buildSearchPageTitle(searchParams);
   const currentSearchParamsKey = searchParams.toString();
   const currentContext = getSearchContext(searchParams);
-  const hasAnySearchCriteria =
-    searchParams.has('q') ||
-    searchParams.has('adv_q') ||
-    Array.from(searchParams.keys()).some(
-      (key) =>
-        key.startsWith('include_filters[') ||
-        key.startsWith('exclude_filters[') ||
-        key.startsWith('fq[')
-    );
   const shouldFetchClientSearch = clientSearchEnabled && !searchResults;
   const clientSearch = useSearch({ enabled: shouldFetchClientSearch });
   const hasFreshClientResults =
@@ -116,16 +107,8 @@ function SearchContent({
   const activeIsLoading =
     Boolean(isLoading) ||
     (shouldFetchClientSearch &&
-      hasAnySearchCriteria &&
       (Boolean(clientSearch.isLoading) ||
         !clientRequestSettledForCurrentParams));
-
-  // Ensure ?q= is present if no params are set to trigger default search
-  useEffect(() => {
-    if (Array.from(searchParams.keys()).length === 0) {
-      setSearchParams({ q: '' }, { replace: true });
-    }
-  }, [searchParams, setSearchParams]);
 
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchTotalResults = activeSearchResults?.meta?.totalCount || 0;
@@ -281,7 +264,7 @@ function SearchContent({
   }, [currentContext]);
 
   const shouldShowSearchingPlaceholder =
-    !error && hasAnySearchCriteria && !activeSearchResults && !activeIsLoading;
+    !error && !activeSearchResults && !activeIsLoading;
 
   // Restore view preference whenever URL lacks a view param.
   // This keeps preferred layout sticky even when new searches navigate to /search?q=...

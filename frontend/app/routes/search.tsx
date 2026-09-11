@@ -25,29 +25,6 @@ export async function loader({ request }: LoaderFunctionArgs) {
   apiParams.set('per_page', String(SEARCH_RESULTS_PER_PAGE));
   apiParams.set('search_field', apiParams.get('search_field') || 'all_fields');
 
-  // Fetch when we have any search criteria: q (even empty = "show all"), adv_q, or filters.
-  // Empty q explicitly means "browse all results" and must trigger a fetch.
-  const hasQueryParam = apiParams.has('q');
-  const hasFilters =
-    apiParams.has('adv_q') ||
-    Array.from(apiParams.keys()).some(
-      (k) =>
-        k.startsWith('include_filters[') ||
-        k.startsWith('exclude_filters[') ||
-        k.startsWith('fq[')
-    );
-  const hasAnyCriteria = hasQueryParam || hasFilters;
-
-  if (!hasAnyCriteria) {
-    return {
-      searchResults: null,
-      lastApiUrl: null,
-      clientSearchEnabled: true,
-      query,
-      currentUrl: url.href,
-    };
-  }
-
   // For accurate "Last API Request" display, mirror theme default params in the URL we report.
   const theme = getThemeConfigFromRequest(request);
   (theme.api?.default_query_params || []).forEach((param) => {
