@@ -6,15 +6,43 @@ import json
 import os
 import re
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 
+from app.api.errors import COMMON_ERROR_RESPONSES
 from app.services.analytics_reporting.storage import checksum
 from db.migrations.analytics_storage import analytics_storage_engine
 
-router = APIRouter(prefix="/analytics/reports")
+
+class ReportingManifest(BaseModel):
+    schemaVersion: int
+    revision: str
+    throughExclusive: str
+    latest: str | None
+    periods: list[dict[str, Any]]
+    stale: bool
+
+
+class ReportingArtifact(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    schemaVersion: int
+    calculationVersion: str
+    privacyVersion: str
+    revision: str
+    period: str
+    start: str
+    endExclusive: str
+    complete: bool
+    missingMonths: list[str]
+    sources: dict[str, str]
+    totals: dict[str, int | float | None]
+
+
+router = APIRouter(prefix="/analytics/reports", responses=COMMON_ERROR_RESPONSES)
 TABLES = {
     "collections",
     "discoveryViews",
@@ -63,7 +91,7 @@ def read_document(period=None, revision=None):
         engine.dispose()
 
 
-@router.get("/manifest")
+@router.get("/manifest", response_model=ReportingManifest)
 def manifest():
     document = dict(read_document())
     document["stale"] = document["throughExclusive"] < str(
@@ -74,7 +102,7 @@ def manifest():
     )
 
 
-@router.get("/{period}/{revision}")
+@router.get("/{period}/{revision}", response_model=ReportingArtifact)
 def report(period: str, revision: str):
     return JSONResponse(
         read_document(period, revision),
@@ -92,7 +120,7 @@ def csv_cell(value):
     return "'" + value if value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else value
 
 
-@router.get("/{period}/{revision}/download/{table}")
+@router.get("/{period}/{revision}/download/{table}", response_model=list[dict[str, Any]])
 def download(period: str, revision: str, table: str, format: str = "csv"):
     if table not in TABLES or format not in ("csv", "json"):
         raise HTTPException(404, "Download unavailable")

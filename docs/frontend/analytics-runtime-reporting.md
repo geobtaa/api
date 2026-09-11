@@ -91,5 +91,16 @@ part of rollout; public docs intentionally contain no deployed locations or cred
 A read-only source inventory on September 11, 2026 confirmed July searches (6,457)
 and events (16,824), and all four August sources against the saved baselines. July
 raw API logs and raw impressions were no longer present. Original published files
-remain unchanged. The detailed historical export and deployed archive verification
-have not been performed; the runtime cutover remains disabled.
+remain unchanged. The approved read-only July/August exports have now been saved privately and
+validated against their processing receipts. July's existing daily resource-impression
+rollups reconcile to all 99,482 saved impressions. Search, event, view, download,
+source-click, zero-result, request and impression totals match the saved baselines;
+monthly p95 values also match. July retains its saved API totals without claiming
+that the expired API distributions can be reconstructed.
+
+The visit estimates differ from the original exact tracked-visit baselines by 0.14%
+for July, 0.24% for August, and 0.52% for the combined period. These are sketch
+estimates, not counts of people. All 17 original snapshot files were also preserved
+byte-for-byte in the private migration workspace. Deployed independent archive
+verification remains outstanding; local copies do not satisfy that release gate.
+The runtime cutover remains disabled.
