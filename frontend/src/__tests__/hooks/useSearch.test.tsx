@@ -101,17 +101,17 @@ describe('useSearch', () => {
   });
 
   describe('Hook Initialization', () => {
-    it('initializes with default values when no search params', async () => {
+    it('initializes and browses all results when no search params', async () => {
       const { result } = renderUseSearch();
 
       expect(result.current.query).toBe('');
       expect(result.current.page).toBe(1);
       expect(result.current.facets).toEqual([]);
       expect(result.current.sort).toBe('relevance');
-      expect(result.current.isLoading).toBe(false);
+      expect(result.current.isLoading).toBe(true);
       expect(result.current.error).toBeNull();
-      expect(result.current.results).toBeNull();
-      expect(mockFetchSearchResults).not.toHaveBeenCalled();
+      await waitFor(() => expect(result.current.totalResults).toBe(1));
+      expect(mockFetchSearchResults).toHaveBeenCalled();
     });
 
     it('parses search parameters correctly', () => {
@@ -265,15 +265,37 @@ describe('useSearch', () => {
       expect(result.current.results).toBeDefined();
     });
 
-    it('skips search when no query, facets, or advanced clauses are provided', async () => {
-      const { result } = renderUseSearch('');
+    it.each(['', 'view=gallery&per_page=20', 'view=list', 'sort=date&page=2'])(
+      'browses all results with presentation-only parameters: %s',
+      async (params) => {
+        const { result } = renderUseSearch(params);
+        await waitFor(() => expect(result.current.totalResults).toBe(1));
+        expect(result.current.resultsKey).toBe(
+          new URLSearchParams(params).toString()
+        );
+        expect(mockFetchSearchResults.mock.calls[0][0]).toBe('');
+        expect(mockFetchSearchResults.mock.calls[0][3]).toEqual([]);
+      }
+    );
 
-      await waitFor(() => {
-        expect(result.current.isLoading).toBe(false);
-      });
-
-      expect(result.current.results).toBeNull();
+    it('does not fetch when explicitly disabled', () => {
+      renderHook(() => useSearch({ enabled: false }), { wrapper: TestWrapper });
       expect(mockFetchSearchResults).not.toHaveBeenCalled();
+    });
+
+    it('browses all results after removing the last collection filter', async () => {
+      const { result } = renderUseSearch(
+        'include_filters[pcdm_memberOf_sm][]=sanborns&view=gallery&per_page=20'
+      );
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      act(() => result.current.updateSearch({ facets: [] }));
+      await waitFor(() => {
+        expect(result.current.resultsKey).toBe('view=gallery&per_page=20');
+      });
+      expect(mockFetchSearchResults).toHaveBeenCalledTimes(2);
+      expect(mockFetchSearchResults.mock.lastCall?.[0]).toBe('');
+      expect(mockFetchSearchResults.mock.lastCall?.[3]).toEqual([]);
+      expect(result.current.results).not.toBeNull();
     });
 
     it('handles search with custom sort parameter', async () => {

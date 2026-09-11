@@ -348,6 +348,68 @@ describe('SearchPage Logic', () => {
     ).toBeInTheDocument();
   });
 
+  it('loads an unfiltered gallery without showing a false zero-result state', async () => {
+    let resolveSearch!: (value: JsonApiResponse) => void;
+    vi.mocked(fetchSearchResults).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSearch = resolve;
+        })
+    );
+    renderWithRouter('/search?view=gallery&per_page=20', null, {
+      clientSearchEnabled: true,
+    });
+    expect(screen.getByText('Searching…')).toBeInTheDocument();
+    expect(screen.queryByText('No results found.')).not.toBeInTheDocument();
+    await act(async () => {
+      resolveSearch(
+        createMockApiResponse(
+          [createMockResult('all', 'All collections result')],
+          100
+        )
+      );
+    });
+    expect(
+      await screen.findByText('Gallery Result All collections result')
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Loading facets...')).not.toBeInTheDocument();
+    expect(screen.queryByText('Searching…')).not.toBeInTheDocument();
+  });
+
+  it('loads the full catalog after the final collection filter is removed', async () => {
+    vi.mocked(fetchSearchResults)
+      .mockResolvedValueOnce(
+        createMockApiResponse(
+          [createMockResult('filtered', 'Sanborn result')],
+          1
+        )
+      )
+      .mockResolvedValueOnce(
+        createMockApiResponse(
+          [createMockResult('all', 'All collections result')],
+          100
+        )
+      );
+    const { router } = renderWithRouter(
+      '/search?include_filters[pcdm_memberOf_sm][]=sanborns&view=gallery&per_page=20',
+      null,
+      { returnRouter: true, clientSearchEnabled: true }
+    );
+    expect(
+      await screen.findByText('Gallery Result Sanborn result')
+    ).toBeInTheDocument();
+    await act(async () => {
+      screen
+        .getByRole('button', { name: 'Collection records: sanborns' })
+        .click();
+    });
+    expect(
+      await screen.findByText('Gallery Result All collections result')
+    ).toBeInTheDocument();
+    expect(router.state.location.search).toBe('?view=gallery&per_page=20');
+    expect(screen.queryByText('Loading facets...')).not.toBeInTheDocument();
+  });
+
   it('loads client results for a bbox-only gallery URL', async () => {
     const mockFetchSearchResults = vi.mocked(fetchSearchResults);
     const results = createMockApiResponse(
