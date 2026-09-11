@@ -101,8 +101,10 @@ env:
     API_KEY_TIER_CACHE_TTL_SECONDS: "60"
     API_KEY_LAST_USED_UPDATE_INTERVAL_SECONDS: "60"
     API_KEY_TIER_CACHE_MAX_ENTRIES: "2048"
-    DB_POOL_MIN: "1"
-    DB_POOL_MAX: "2"
+    # Keep per-worker DB pools tiny so rolling deploys have enough Postgres
+    # connection headroom while old and new web containers overlap.
+    DB_POOL_MIN: "0"
+    DB_POOL_MAX: "1"
     SQLALCHEMY_ASYNC_USE_NULLPOOL: "false"
     SQLALCHEMY_ASYNC_POOL_SIZE: "1"
     SQLALCHEMY_ASYNC_MAX_OVERFLOW: "0"
@@ -111,8 +113,8 @@ env:
     SQLALCHEMY_SYNC_POOL_SIZE: "1"
     SQLALCHEMY_SYNC_MAX_OVERFLOW: "0"
     SQLALCHEMY_SYNC_POOL_TIMEOUT: "5"
-    WEB_UVICORN_WORKERS: "4"
-    WEB_INTERNAL_UVICORN_WORKERS: "6"
+    WEB_UVICORN_WORKERS: "2"
+    WEB_INTERNAL_UVICORN_WORKERS: "2"
     WEB_SSR_WORKERS: "4"
     BACKUP_ENABLED: "<%= ENV.fetch('BACKUP_ENABLED', 'true') %>"
     BACKUP_REQUIRED_DEST: prd
