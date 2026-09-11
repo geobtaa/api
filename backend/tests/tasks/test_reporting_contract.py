@@ -162,7 +162,7 @@ def test_legacy_counts_survive_without_inventing_combined_percentiles():
                 "serverErrors": 19,
                 "p95ResponseMs": 29,
             },
-            "dailyApiRequests": [{"date": "2026-07-01", "requests": 10}],
+            "dailyApiRequests": [{"date": "2026-07-01", "requests": 613131}],
         },
     }
     august = {
@@ -220,3 +220,87 @@ def test_search_rankings_group_terms_but_keep_failed_context_private():
     assert failed[0]["count"] == 5
     assert failed[0]["resultTotals"] == {"0": 5}
     assert len(failed[0]["context"]) == 1
+
+
+def test_saved_daily_requests_are_normalized_and_reconciled():
+    import json
+    from pathlib import Path
+
+    from app.services.analytics_reporting.contract import legacy_daily_requests
+    from app.services.analytics_reporting.reports import build_report
+
+    saved = json.loads(
+        (Path(__file__).parents[1] / "fixtures/analytics/legacy-baselines.json").read_text()
+    )["2026-07"]
+    doc = {
+        "month": "2026-07-01",
+        "legacy": saved,
+        "coverage": {"complete": False},
+        "catalog": {},
+        "daily": [],
+        "visits": [],
+    }
+    report = build_report("2026-07", date(2026, 8, 1), [doc])
+    assert report["daily"][0]["requests"] == 14500
+    assert sum(r["requests"] for r in report["daily"]) == 613131
+    assert report["daily"][0]["views"] is None
+    saved["dailyApiRequests"][0]["requests"] += 1
+    with pytest.raises(ValueError, match="reconcile"):
+        legacy_daily_requests(doc)
+
+
+def test_provider_overlap_rankings_and_daily_visits_are_preserved():
+    from app.services.analytics_reporting.reports import build_report
+
+    sketch = Visits()
+    sketch.add("tab")
+    doc = {
+        "month": "2026-07-01",
+        "coverage": {"complete": True},
+        "catalog": {
+            "popular": {"title": "Popular", "provider": ["A", "A", "B"], "code": "Other"},
+            "downloaded": {
+                "title": "Downloaded",
+                "provider": "B",
+                "code": "Other",
+                "attributes": {"format": "GeoTIFF"},
+            },
+        },
+        "visits": [
+            {"metric_date": "2026-07-01", "audience": "discovery", "registers": sketch.registers}
+        ],
+        "daily": [],
+    }
+    for resource, event, count in [
+        ("popular", "resource_view", 10),
+        ("downloaded", "download_click", 4),
+        ("downloaded", "visit_source_click", 2),
+    ]:
+        doc["daily"].append(
+            {
+                "metric_date": "2026-07-01",
+                "dimensions": {
+                    "source": "analytics_events",
+                    "resource": resource,
+                    "event": event,
+                    "client": "web",
+                    "channel": "browser",
+                },
+                "metrics": {"count": count},
+            }
+        )
+    report = build_report("2026-07", date(2026, 8, 1), [doc])
+    assert report["resources"][0]["id"] == "popular"
+    assert report["downloads"][0]["id"] == "downloaded"
+    assert report["outlinks"][0]["sourceClicks"] == 2
+    assert report["daily"][0]["visits"] == 1
+    assert report["daily"][1]["visits"] == 0
+    members = {m["name"]: m for m in report["members"] if m["grouping"] == "provider"}
+    assert members["A"]["inventory"] == 1
+    assert members["B"]["inventory"] == 2
+    assert sum(m["views"] for m in members.values()) == 20
+    assert report["totals"]["views"] == 10
+    assert {"dimension": "format", "label": "GeoTIFF", "downloads": 4} in report[
+        "downloadBreakdown"
+    ]
+    assert "overlap" in report["sources"]["members"]

@@ -6,8 +6,8 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy import text
 
-from .archive import configured_archives, preserve
-from .contract import SOURCES, START, next_month, periods
+from .archive import audit_oldest_archive, configured_archives, preserve
+from .contract import CALCULATION_VERSION, PRIVACY_VERSION, SOURCES, START, next_month, periods
 from .reports import build_report
 from .storage import LOCK, backfill, canonical, checksum, drain, health, install
 
@@ -117,6 +117,8 @@ def publish(conn, through, documents, archives):
     complete_months = [e["id"] for e in entries if e["complete"] and e["id"][0].isdigit()]
     manifest = {
         "schemaVersion": 1,
+        "calculationVersion": CALCULATION_VERSION,
+        "privacyVersion": PRIVACY_VERSION,
         "throughExclusive": str(through),
         "latest": max(complete_months) if complete_months else None,
         "periods": entries,
@@ -181,6 +183,9 @@ def run(engine, *, today=None, archives=None):
                 {"month": month},
             )
             month = next_month(month)
+    # Preservation audits continue even when publication can take its no-change path.
+    archives = archives or configured_archives()
+    audit_oldest_archive(engine, archives, today=today)
     # No closed-period changes means no re-publication or full-history archive I/O.
     with engine.begin() as conn:
         existing = conn.execute(text("SELECT document FROM analytics_reporting_manifest")).scalar()
@@ -191,10 +196,15 @@ def run(engine, *, today=None, archives=None):
             WHERE m.month<:through AND a.month IS NULL"""),
             {"through": through},
         ).scalar()
-        if existing and existing["throughExclusive"] == str(through) and not dirty:
+        if (
+            existing
+            and existing["throughExclusive"] == str(through)
+            and not dirty
+            and existing.get("calculationVersion") == CALCULATION_VERSION
+            and existing.get("privacyVersion") == PRIVACY_VERSION
+        ):
             health(conn, "publication", "healthy", f"No reporting changes through {through}")
             return existing
-    archives = archives or configured_archives()
     documents = []
     with engine.begin() as conn:
         months = (

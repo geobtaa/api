@@ -104,3 +104,32 @@ estimates, not counts of people. All 17 original snapshot files were also preser
 byte-for-byte in the private migration workspace. Deployed independent archive
 verification remains outstanding; local copies do not satisfy that release gate.
 The runtime cutover remains disabled.
+
+## Calculation revision 2
+
+The runtime generator normalizes legacy daily request labels into UTC calendar
+dates and verifies their sum against the saved monthly total. Original archive
+bytes remain unchanged. July's daily API chart therefore reconciles with its
+613,131-request total, rather than showing missing days behind a correct total.
+
+Daily tracked visits use each day's preserved sketch; period visits union sketches
+and never sum daily estimates. Download and source-click rankings are independent
+of view rankings, with full rankings available through versioned downloads.
+Download characteristics use sealed catalog values and disclose overlapping
+categories. Provider arrays use deduplicated memberships and explicitly overlap;
+unmapped resource activity remains visible. Incomplete client request coverage is
+unavailable, not a recorded zero. Public zero-result context shows allowlisted
+parameters, original result totals, and repeat-search links.
+
+The publication shortcut checks both calculation and disclosure versions. A new
+calculation version regenerates reports even when no source records changed,
+creating new public revisions while retaining the previous artifacts. This does
+not silently modify the archived reporting inputs.
+
+Daily maintenance also rotates through archive revisions whose last restore check
+is at least seven days old, verifying one oldest revision per run. Both independent
+copies must pass checksum validation and an isolated database restore. This audit
+runs even when publication has no changes. A failed check records an actionable
+health transition and leaves the previous publication intact; successful recovery
+clears the failure. Larger histories take correspondingly longer to complete a
+rotation, which must be included in operational monitoring.

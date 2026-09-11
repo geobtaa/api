@@ -235,11 +235,12 @@ def validate_document(document):
     from collections import Counter, defaultdict
     from datetime import date
 
-    from .contract import Visits
+    from .contract import Visits, legacy_daily_requests
 
     if document["schemaVersion"] != 1:
         raise ValueError("Unsupported archive version")
     month = date.fromisoformat(str(document["month"]))
+    legacy_daily_requests(document)
     end = next_month(month)
     expected = defaultdict(Counter)
     for row in document["receipts"]:
@@ -351,3 +352,50 @@ def verify_restore(conn, document, expected_checksum):
             raise RuntimeError("Restored database does not match archive")
         conn.execute(text("SELECT set_config('search_path',:path,true)"), {"path": previous})
         conn.execute(text(f'DROP SCHEMA "{schema}" CASCADE'))
+
+
+def audit_oldest_archive(engine, archives, *, today):
+    """Daily maintenance verifies one oldest archive, rotating through sealed history."""
+    from datetime import timedelta
+
+    from .storage import health
+
+    try:
+        with engine.begin() as conn:
+            conn.execute(text(f"SELECT pg_advisory_xact_lock({LOCK})"))
+            row = (
+                conn.execute(
+                    text("""SELECT a.* FROM analytics_reporting_archives a
+                WHERE a.restored_at < :before
+                ORDER BY a.restored_at,a.month LIMIT 1"""),
+                    {"before": today - timedelta(days=7)},
+                )
+                .mappings()
+                .first()
+            )
+            if row is None:
+                return False
+            for archive, key in zip(
+                archives, (row["primary_key"], row["recovery_key"]), strict=True
+            ):
+                archive.validate()
+                body = archive.read(key)
+                if hashlib.sha256(body).hexdigest() != row["checksum"]:
+                    raise RuntimeError("Historical archive checksum mismatch")
+                document = json.loads(body)
+                validate_document(document)
+                verify_restore(conn, document, row["checksum"])
+            conn.execute(
+                text("""UPDATE analytics_reporting_archives
+                SET verified_at=now(),restored_at=now()
+                WHERE month=:month AND generation=:generation"""),
+                {"month": row["month"], "generation": row["generation"]},
+            )
+            health(
+                conn, "archive-audit", "healthy", "Scheduled archive recovery verification passed"
+            )
+            return True
+    except Exception as exc:
+        with engine.begin() as conn:
+            health(conn, "archive-audit", "failed", type(exc).__name__)
+        raise

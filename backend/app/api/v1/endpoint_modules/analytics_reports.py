@@ -44,6 +44,9 @@ class ReportingArtifact(BaseModel):
 
 router = APIRouter(prefix="/analytics/reports", responses=COMMON_ERROR_RESPONSES)
 TABLES = {
+    "outlinks",
+    "downloads",
+    "downloadBreakdown",
     "collections",
     "discoveryViews",
     "comparison",
