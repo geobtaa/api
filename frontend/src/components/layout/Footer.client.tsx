@@ -53,6 +53,11 @@ function BtaaFooter({ id }: FooterProps) {
                   </a>
                 </li>
                 <li>
+                  <a href="/analytics" className={footerLinkClass}>
+                    Monthly Analytics
+                  </a>
+                </li>
+                <li>
                   <a
                     href="https://gin.btaa.org/tutorials"
                     className={footerLinkClass}

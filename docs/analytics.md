@@ -37,3 +37,6 @@ in the restricted operations documentation.
 For public, code-level context about first-party analytics events and storage,
 see [Backend Analytics Program](backend/analytics_program.md). Do not add
 production dashboard IDs, tag-manager IDs, or deployment secrets to public docs.
+
+For the public monthly dashboard, snapshot definitions, and comparison reporting,
+see [Monthly Analytics Dashboard](frontend/monthly-analytics.md).
