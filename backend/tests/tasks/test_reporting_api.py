@@ -40,3 +40,16 @@ def test_queue_failure_is_not_reported_as_accepted(monkeypatch):
     response = TestClient(app).post("/analytics/events", json={"searches": [{"search_id": "a"}]})
     assert response.status_code == 503
     assert response.headers["retry-after"] == "5"
+
+
+def test_reporting_openapi_uses_standard_errors_and_typed_success():
+    from app.api.errors import COMMON_ERROR_RESPONSES
+
+    app = FastAPI()
+    app.include_router(analytics_reports.router)
+    schema = app.openapi()
+    for path in schema["paths"].values():
+        response = path["get"]["responses"]
+        for status in COMMON_ERROR_RESPONSES:
+            assert str(status) in response
+        assert response["200"]["content"]["application/json"]["schema"]
