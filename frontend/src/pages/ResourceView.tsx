@@ -704,7 +704,7 @@ export function ResourceView({
                               : undefined
                           }
                         >
-                          <ResourceViewer data={data} pageValue="SHOW" />
+                          <ResourceViewer data={data} />
                         </div>
                       )}
 
