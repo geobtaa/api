@@ -32,7 +32,9 @@ const report: RuntimeReport = {
       category: 'Environment',
       count: 5,
       zeroResults: 3,
-      context: { page: ['2'] },
+      context: [
+        { constraints: { page: ['2'] }, count: 3, resultTotals: { '10': 3 } },
+      ],
     },
   ],
   zeroQueries: [
@@ -40,10 +42,15 @@ const report: RuntimeReport = {
       query: 'water',
       category: 'Environment',
       count: 3,
-      context: { page: ['2'] },
+      context: [
+        { constraints: { page: ['2'] }, count: 3, resultTotals: { '10': 3 } },
+      ],
     },
   ],
   resources: [],
+  outlinks: [],
+  downloads: [],
+  downloadBreakdown: [],
   members: [
     { grouping: 'provider', name: 'County', inventory: 8, views: 4 },
     { grouping: 'code', name: 'University', inventory: 8, views: 4 },
@@ -61,7 +68,15 @@ describe('runtime analytics', () => {
   it('preserves query context, zero-result percentage and versioned downloads', () => {
     render(<RuntimeReportView report={report} active="discovery" />);
     expect(screen.getByText(/60.0%/)).toBeInTheDocument();
-    expect(screen.getByText('{"page":["2"]}')).toBeInTheDocument();
+    expect(screen.getByText('1 recorded combinations')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', {
+        name: 'Repeat search with recorded parameters',
+      })
+    ).toHaveAttribute('href', '/search?q=water&page=2');
+    expect(
+      screen.getByText(/empty displayed page can have a positive total/)
+    ).toBeInTheDocument();
     expect(
       screen.getAllByRole('link', { name: 'Download CSV' })[0]
     ).toHaveAttribute(
@@ -110,4 +125,32 @@ describe('runtime analytics', () => {
       vi.unstubAllGlobals();
     }
   });
+});
+
+it('shows access rankings independently and labels unavailable audience measures', () => {
+  const accessReport = {
+    ...report,
+    outlinks: [{ id: 'outlinked', title: 'Outlinked item', sourceClicks: 20 }],
+    downloads: [{ id: 'downloaded', title: 'Downloaded item', downloads: 8 }],
+    unavailable: { uniqueVisitors: 'No persistent person identifier.' },
+  };
+  const { rerender } = render(
+    <RuntimeReportView report={accessReport} active="content" />
+  );
+  expect(screen.getByText('Outlinked item')).toBeInTheDocument();
+  expect(screen.getByText('Downloaded item')).toBeInTheDocument();
+  expect(
+    screen.getByRole('heading', { name: 'Most downloaded resources' })
+  ).toBeInTheDocument();
+  rerender(<RuntimeReportView report={accessReport} active="overview" />);
+  expect(screen.getByText('Unique Visitors: unavailable.')).toBeInTheDocument();
+  fireEvent.change(
+    screen.getByRole('combobox', { name: 'Audience chart metric' }),
+    {
+      target: { value: 'searches' },
+    }
+  );
+  expect(
+    screen.getByRole('combobox', { name: 'Audience chart metric' })
+  ).toHaveValue('searches');
 });

@@ -57,6 +57,9 @@ export type RuntimeReport = {
   queries: Row[];
   zeroQueries: Row[];
   resources: Row[];
+  outlinks?: Row[];
+  downloads?: Row[];
+  downloadBreakdown?: Row[];
   members: Row[];
   clients: Row[];
   endpoints: Row[];
@@ -65,16 +68,92 @@ export type RuntimeReport = {
   zeroResultPercent: number | null;
   trackedVisits: { value: number | null; status: string; definition: string };
   latency: { meanMs: number | null; p95Ms: number | null };
+  unavailable?: Record<string, string>;
 };
 const colors = ['#2563eb', '#047857', '#854d0e', '#7c3aed', '#be123c'];
 const display = (value: Row[string]) =>
   value == null
     ? 'Unavailable'
-    : typeof value === 'object'
-      ? JSON.stringify(value)
-      : String(value);
+    : Array.isArray(value)
+      ? value.map(String).join(', ')
+      : typeof value === 'number'
+        ? value.toLocaleString()
+        : typeof value === 'object'
+          ? JSON.stringify(value)
+          : String(value);
 const title = (key: string) =>
   key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
+
+type QueryContext = {
+  count: number;
+  constraints: Record<string, string[]>;
+  resultTotals: Record<string, number>;
+};
+function QueryContexts({ row }: { row: Row }) {
+  const contexts = Array.isArray(row.context)
+    ? (row.context as QueryContext[])
+    : [];
+  return (
+    <>
+      {contexts.length > 0 && (
+        <details>
+          <summary>{contexts.length} recorded combinations</summary>
+          <ul>
+            {contexts.map((context, i) => {
+              const params = new URLSearchParams({ q: String(row.query) });
+              Object.entries(context.constraints).forEach(([key, values]) =>
+                values.forEach((value) => params.append(key, value))
+              );
+              return (
+                <li key={i}>
+                  <strong>{context.count} searches</strong>
+                  <dl>
+                    {Object.entries(context.constraints).map(
+                      ([key, values]) => (
+                        <div key={key}>
+                          <dt>{title(key)}</dt>
+                          <dd>{values.join(', ')}</dd>
+                        </div>
+                      )
+                    )}
+                  </dl>
+                  <p>
+                    Recorded result totals:{' '}
+                    {Object.entries(context.resultTotals)
+                      .map(
+                        ([total, count]) =>
+                          `${total} results (${count} searches)`
+                      )
+                      .join('; ') || 'Unavailable'}
+                  </p>
+                  {Object.keys(context.resultTotals).some(
+                    (total) => Number(total) > 0
+                  ) && (
+                    <p>
+                      An empty displayed page can have a positive total; it does
+                      not mean the query had no matches.
+                    </p>
+                  )}
+                  <a href={`/search?${params.toString()}`}>
+                    Repeat search with recorded parameters
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+          <p>Current results may differ from the historical catalog.</p>
+        </details>
+      )}
+      {Number(row.withheldContextCount) > 0 && (
+        <p>
+          {Number(row.withheldContextCount)} searches have withheld context
+          (fewer than three occurrences).
+        </p>
+      )}
+      {!contexts.length && <span>No publishable context</span>}
+    </>
+  );
+}
 
 function DataTable({
   name,
@@ -111,13 +190,18 @@ function DataTable({
               {columns.map((key) => (
                 <td
                   key={key}
+                  data-filter-value={
+                    key === 'context' ? JSON.stringify(row.context) : undefined
+                  }
                   data-sort-value={
                     typeof row[key] === 'number'
                       ? (row[key] as number)
                       : undefined
                   }
                 >
-                  {key === 'id' ? (
+                  {key === 'context' ? (
+                    <QueryContexts row={row} />
+                  ) : key === 'id' ? (
                     <a
                       href={`/resources/${encodeURIComponent(String(row[key]))}`}
                     >
@@ -132,7 +216,13 @@ function DataTable({
           ))}
         </tbody>
       </AnalyticsTable>
-      {!rows.length && <p>No recorded rows for this period.</p>}
+      {!rows.length && (
+        <p>
+          {report.complete
+            ? 'No recorded rows for this period.'
+            : 'No preserved rows available; this period has incomplete coverage.'}
+        </p>
+      )}
     </section>
   );
 }
@@ -147,6 +237,7 @@ export function RuntimeReportView({
   const [grouping, setGrouping] = useState('provider');
   const [category, setCategory] = useState('all');
   const [member, setMember] = useState('all');
+  const [audienceMetric, setAudienceMetric] = useState('visits');
   const table = (
     name: string,
     key: keyof RuntimeReport,
@@ -155,7 +246,7 @@ export function RuntimeReportView({
   ) => (
     <DataTable
       name={name}
-      rows={rows ?? (report[key] as Row[])}
+      rows={rows ?? (report[key] as Row[] | undefined) ?? []}
       columns={columns}
       report={report}
       table={key}
@@ -210,33 +301,53 @@ export function RuntimeReportView({
             {report.trackedVisits.value == null
               ? 'Unavailable'
               : `approximately ${report.trackedVisits.value.toLocaleString()}`}
-            . {report.trackedVisits.definition}
+            . {report.trackedVisits.definition} Expected relative standard error
+            is approximately 0.81%.
           </p>
-          <h2>Daily totals</h2>
+          {Object.entries(report.unavailable ?? {}).map(([metric, reason]) => (
+            <p key={metric}>
+              <strong>{title(metric)}: unavailable.</strong> {reason}
+            </p>
+          ))}
+          <h2>Daily audience</h2>
+          <label>
+            Audience chart metric{' '}
+            <select
+              value={audienceMetric}
+              onChange={(e) => setAudienceMetric(e.target.value)}
+            >
+              <option value="visits">Tracked visits (estimated)</option>
+              <option value="searches">Search result pages</option>
+              <option value="views">Resource views</option>
+            </select>
+          </label>
           <ResponsiveContainer width="100%" height={320}>
             <LineChart data={report.daily}>
               <XAxis dataKey="date" />
               <YAxis />
               <Tooltip />
               <Legend />
-              {['views', 'searches', 'downloads'].map((key, i) => (
-                <Line
-                  key={key}
-                  type="linear"
-                  dataKey={key}
-                  stroke={colors[i]}
-                  dot={false}
-                />
-              ))}
+              <Line
+                type="linear"
+                dataKey={audienceMetric}
+                stroke={colors[0]}
+                dot={false}
+              />
             </LineChart>
           </ResponsiveContainer>
           {table('Daily totals', 'daily', [
             'date',
             'requests',
+            'visits',
             'views',
             'searches',
             'downloads',
+            'sourceClicks',
           ])}
+          <p>
+            Source-site and download clicks record intent to access a resource,
+            not verified file transfers.
+          </p>
         </>
       )}
       {active === 'comparison' && (
@@ -347,14 +458,41 @@ export function RuntimeReportView({
         </>
       )}
       {active === 'content' &&
-        table('Popular content', 'resources', [
-          'id',
-          'title',
-          'views',
-          'downloads',
-          'sourceClicks',
-          'impressions',
-        ])}
+        table(
+          'Top 50 most viewed resources',
+          'resources',
+          ['id', 'title', 'views', 'downloads', 'sourceClicks', 'impressions'],
+          report.resources.slice(0, 50)
+        )}
+      {active === 'content' && (
+        <>
+          {table(
+            'Most downloaded resources',
+            'downloads',
+            ['id', 'title', 'provider', 'downloads'],
+            (report.downloads ?? []).slice(0, 50)
+          )}
+          {table(
+            'Most outlinked resources',
+            'outlinks',
+            ['id', 'title', 'provider', 'sourceClicks'],
+            (report.outlinks ?? []).slice(0, 50)
+          )}
+          <p>
+            These rankings are selected independently of resource views.
+            Download clicks do not verify completed transfers.
+          </p>
+          {table('Download characteristics', 'downloadBreakdown', [
+            'dimension',
+            'label',
+            'downloads',
+          ])}
+          <p>
+            Characteristics use each period’s sealed catalog. Multi-valued
+            categories overlap; counts across dimensions must not be added.
+          </p>
+        </>
+      )}
       {active === 'content' &&
         table('Collections', 'collections', [
           'id',
@@ -389,6 +527,7 @@ export function RuntimeReportView({
               'activeResources',
               'views',
               'downloads',
+              'sourceClicks',
               'impressions',
             ],
             report.members.filter((r) => r.grouping === grouping)
@@ -451,7 +590,9 @@ export function RuntimeReportView({
       )}
       {active === 'clients' && (
         <p>
-          Requests with a QGIS user-agent signal:{' '}
+          Missing request attribution is shown as unavailable, not zero.
+          Declared identities are supplied by callers. Requests with a QGIS
+          user-agent signal:{' '}
           {report.totals.qgisUserAgentRequests == null
             ? 'Unavailable'
             : report.totals.qgisUserAgentRequests.toLocaleString()}
@@ -472,7 +613,8 @@ export function RuntimeReportView({
           <p>
             Mean response time:{' '}
             {report.latency.meanMs?.toFixed(1) ?? 'Unavailable'} ms. 95th
-            percentile: {report.latency.p95Ms ?? 'Unavailable'} ms.
+            percentile (approximate): {report.latency.p95Ms ?? 'Unavailable'}{' '}
+            ms.
           </p>
           {table('API reliability', 'endpoints', [
             'endpoint',

@@ -71,6 +71,9 @@ def test_next_day_scheduler_and_failed_publication_keep_previous_manifest(conn):
     assert second != first
 
     class FailedArchive(MemoryArchive):
+        def read(self, key):
+            return archives[1].read(key)
+
         def put(self, key, body):
             raise RuntimeError("Simulated storage outage")
 
@@ -82,3 +85,74 @@ def test_next_day_scheduler_and_failed_publication_keep_previous_manifest(conn):
         )
     saved = conn.execute(text("SELECT document FROM analytics_reporting_manifest")).scalar()
     assert saved == second
+
+
+def test_calculation_change_republishes_without_raw_changes(conn, monkeypatch):  # noqa: F811
+    from contextlib import contextmanager
+
+    from app.services.analytics_reporting import pipeline, reports
+
+    class BoundEngine:
+        @contextmanager
+        def begin(self):
+            with conn.begin_nested():
+                yield conn
+
+    conn.execute(text("UPDATE analytics_reporting_installation SET started_at='2026-06-30'"))
+    conn.execute(
+        text("""CREATE TABLE resources(id text,dct_title_s text,schema_provider_s text,
+        b1g_code_s text,publication_state text,gbl_suppressed_b boolean)""")
+    )
+    archives = [MemoryArchive("primary"), MemoryArchive("recovery")]
+    insert(conn)
+    first = pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives)
+    monkeypatch.setattr(pipeline, "CALCULATION_VERSION", "test-next")
+    monkeypatch.setattr(reports, "CALCULATION_VERSION", "test-next")
+    second = pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives)
+    assert second["calculationVersion"] == "test-next"
+    assert first["revision"] != second["revision"]
+    assert conn.execute(text("SELECT count(*) FROM analytics_reporting_publications")).scalar() == 6
+
+
+def test_no_change_run_audits_old_archives_and_exposes_corruption(conn):  # noqa: F811
+    from contextlib import contextmanager
+
+    import pytest
+
+    from app.services.analytics_reporting import pipeline
+
+    class BoundEngine:
+        @contextmanager
+        def begin(self):
+            with conn.begin_nested():
+                yield conn
+
+    conn.execute(text("UPDATE analytics_reporting_installation SET started_at='2026-06-30'"))
+    conn.execute(
+        text("""CREATE TABLE resources(id text,dct_title_s text,schema_provider_s text,
+        b1g_code_s text,publication_state text,gbl_suppressed_b boolean)""")
+    )
+    archives = [MemoryArchive("primary"), MemoryArchive("recovery")]
+    insert(conn)
+    manifest = pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives)
+    conn.execute(text("UPDATE analytics_reporting_archives SET restored_at='2026-07-01'"))
+    archives[1].corrupt = True
+    with pytest.raises(RuntimeError, match="checksum"):
+        pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives)
+    assert (
+        conn.execute(text("SELECT document FROM analytics_reporting_manifest")).scalar() == manifest
+    )
+    assert (
+        conn.execute(
+            text("SELECT state FROM analytics_reporting_health WHERE job='archive-audit'")
+        ).scalar()
+        == "failed"
+    )
+    archives[1].corrupt = False
+    assert pipeline.run(BoundEngine(), today=date(2026, 8, 1), archives=archives) == manifest
+    assert (
+        conn.execute(
+            text("SELECT state FROM analytics_reporting_health WHERE job='archive-audit'")
+        ).scalar()
+        == "healthy"
+    )

@@ -8,7 +8,9 @@ from .contract import (
     PRIVACY_VERSION,
     SCHEMA_VERSION,
     Visits,
+    legacy_daily_requests,
     period_bounds,
+    provider_groups,
     public_queries,
 )
 from .storage import canonical, checksum
@@ -62,7 +64,10 @@ def ranked_queries(rows, zero=False):
 
 def build_report(period, through, documents):
     start, end = period_bounds(period, through)
-    selected = [d for d in documents if start <= date.fromisoformat(d["month"]) < end]
+    selected = sorted(
+        [d for d in documents if start <= date.fromisoformat(d["month"]) < end],
+        key=lambda d: d["month"],
+    )
     totals = Counter(
         {
             k: 0
@@ -74,11 +79,13 @@ def build_report(period, through, documents):
     categories = Counter()
     latency = Counter()
     visits = Visits()
+    daily_visits = {}
     members = {}
     member_resources, member_daily = {}, {}
     coverage = []
     collections = {}
     discovery_views = Counter()
+    download_breakdown = Counter()
     for document in selected:
         coverage.append(
             {
@@ -92,6 +99,8 @@ def build_report(period, through, documents):
         for sketch in document["visits"]:
             if sketch["audience"] == "discovery":
                 visits.merge(Visits(sketch["registers"]))
+                day = str(sketch["metric_date"])
+                daily_visits.setdefault(day, Visits()).merge(Visits(sketch["registers"]))
         for row in document["daily"]:
             dim, metrics = row["dimensions"], row["metrics"]
             count = metrics["count"]
@@ -189,12 +198,18 @@ def build_report(period, through, documents):
                     {
                         "id": identifier,
                         "title": title,
+                        "provider": provider_groups(metadata.get("provider")),
                         "views": 0,
                         "downloads": 0,
                         "sourceClicks": 0,
                         "impressions": 0,
                     },
                 )
+                if metric == "downloads":
+                    attributes = metadata.get("attributes") or {}
+                    for dimension in ("resourceClasses", "resourceTypes", "format", "accessRights"):
+                        for label in provider_groups(attributes.get(dimension)):
+                            download_breakdown[(dimension, label)] += count
                 if metric:
                     resource[metric] = resource.get(metric, 0) + count
                     for collection_id in (metadata.get("attributes") or {}).get(
@@ -214,9 +229,9 @@ def build_report(period, through, documents):
                             },
                         )
                         collection[metric] = collection.get(metric, 0) + count
-                provider = metadata.get("provider") or "Unmapped"
+                providers = provider_groups(metadata.get("provider"))
                 code = metadata.get("code") or "Unmapped"
-                for grouping, label in (("provider", provider), ("code", code)):
+                for grouping, label in [("provider", p) for p in providers] + [("code", code)]:
                     member = members.setdefault(
                         (grouping, label),
                         {
@@ -259,8 +274,8 @@ def build_report(period, through, documents):
                         trend[metric] = trend.get(metric, 0) + count
     for document in selected:
         if not source_available(document, "analytics_api_usage_logs"):
-            for row in (document.get("legacy") or {}).get("dailyApiRequests", []):
-                daily[row["date"]]["requests"] = row["requests"]
+            for day, count in legacy_daily_requests(document).items():
+                daily[day]["requests"] = count
     days = []
     day = start
     while day < end:
@@ -289,7 +304,8 @@ def build_report(period, through, documents):
     inventory = Counter()
     if selected:
         for metadata in (selected[-1].get("catalog") or {}).values():
-            inventory[("provider", metadata.get("provider") or "Unmapped")] += 1
+            for provider in provider_groups(metadata.get("provider")):
+                inventory[("provider", provider)] += 1
             inventory[("code", metadata.get("code") or "Unmapped")] += 1
     for key, count in inventory.items():
         members.setdefault(
@@ -323,7 +339,9 @@ def build_report(period, through, documents):
         d["coverage"].get("complete") is True for d in selected
     )
     comparison = []
-    for document in documents if period[0].isdigit() else selected:
+    for document in sorted(
+        documents if period[0].isdigit() else selected, key=lambda d: d["month"]
+    ):
         counts = Counter()
         for row in document["daily"]:
             dim, values = row["dimensions"], row["metrics"]
@@ -372,6 +390,40 @@ def build_report(period, through, documents):
             "analytics_search_impressions",
         )
     }
+    for row in days:
+        document = next((d for d in selected if d["month"][:7] == row["date"][:7]), None)
+        for source, keys in {
+            "analytics_api_usage_logs": ("requests",),
+            "analytics_searches": ("searches",),
+            "analytics_events": ("views", "downloads", "sourceClicks"),
+            "analytics_search_impressions": ("impressions",),
+        }.items():
+            known = document is not None and source_available(document, source)
+            for key in keys:
+                row.setdefault(key, 0 if known else None)
+        visit_day_known = document is not None and all(
+            source_available(document, source)
+            for source in ("analytics_searches", "analytics_events")
+        )
+        row["visits"] = (
+            (
+                daily_visits[row["date"]].estimate()
+                if row["date"] in daily_visits
+                else 0
+                if visit_day_known
+                else None
+            )
+            if visit_day_known
+            else None
+        )
+    for client in clients.values():
+        for metric, source in (
+            ("requests", "analytics_api_usage_logs"),
+            ("searches", "analytics_searches"),
+            ("events", "analytics_events"),
+        ):
+            if not source_complete[source]:
+                client[metric] = None
     public_totals = dict(totals)
     for source, metrics in {
         "analytics_api_usage_logs": ("requests", "errors", "qgisUserAgentRequests"),
@@ -428,7 +480,9 @@ def build_report(period, through, documents):
             "Zero-result flags are preserved as recorded. Query disclosure requires three "
             "occurrences per context; automated suppression is not a privacy guarantee.",
             "members": "Provider uses schema_provider_s; contribution uses the saved code mapping. "
-            "Inventory uses the last included catalog, not a sum across months.",
+            "Inventory uses the last included catalog, not a sum across months. "
+            "Multi-provider records belong to each provider; provider totals can overlap. "
+            "Unmapped activity includes resource IDs absent from the sealed catalog.",
             "clients": "Declared clients and numeric API-key labels, not verified human identity.",
             "platform": "Saved statistics and logs; combined percentiles require distributions.",
         },
@@ -443,7 +497,8 @@ def build_report(period, through, documents):
             "value": visits.estimate() if visits_complete else None,
             "status": "estimated" if visits_complete else "unavailable",
             "relativeStandardError": 1.04 / (2**14) ** 0.5,
-            "definition": "Distinct tab-scoped visit tokens; not unique people.",
+            "definition": "Distinct tab-scoped visit tokens; not unique people. "
+            "Daily and period values are estimated separately; daily counts must not be summed.",
         },
         "queries": safe_queries,
         "zeroQueries": zero_queries,
@@ -451,20 +506,42 @@ def build_report(period, through, documents):
             {"category": name, "count": count}
             for name, count in Counter(
                 {
-                    name: sum(q["zeroResults"] for q in queries.values() if q["category"] == name)
-                    for name in categories
+                    name: sum(q["count"] for q in zero_queries if q["category"] == name)
+                    for name in sorted({q["category"] for q in zero_queries})
                 }
-            ).items()
-            if count
+            ).most_common()
         ],
         "zeroResultPercent": 100 * totals["zeroResults"] / totals["searches"]
         if totals["searches"] and source_complete["analytics_searches"]
         else None,
-        "categories": [{"category": k, "count": v} for k, v in categories.most_common()],
+        "categories": [
+            {"category": k, "count": v}
+            for k, v in Counter(
+                {
+                    name: sum(q["count"] for q in safe_queries if q["category"] == name)
+                    for name in sorted({q["category"] for q in safe_queries})
+                }
+            ).most_common()
+        ],
         "facets": [{"facet": k, "count": v} for k, v in facets.most_common()],
         "resources": sorted(resources.values(), key=lambda r: (-r["views"], r["id"])),
+        "outlinks": sorted(
+            [r for r in resources.values() if r["sourceClicks"]],
+            key=lambda r: (-r["sourceClicks"], r["id"]),
+        ),
+        "downloads": sorted(
+            [r for r in resources.values() if r["downloads"]],
+            key=lambda r: (-r["downloads"], r["id"]),
+        ),
+        "downloadBreakdown": [
+            {"dimension": key[0], "label": key[1], "downloads": count}
+            for key, count in sorted(download_breakdown.items())
+        ],
         "members": sorted(members.values(), key=lambda r: (r["grouping"], r["name"])),
-        "clients": sorted(clients.values(), key=lambda r: (-r["requests"], r["client"])),
+        "clients": sorted(
+            clients.values(),
+            key=lambda r: (-(r["requests"] or 0), r["client"], r["channel"], r["apiKey"]),
+        ),
         "endpoints": sorted(endpoints.values(), key=lambda r: (-r["count"], r["endpoint"])),
         "latency": {
             "meanMs": totals["durationSum"] / totals["durationCount"]

@@ -8,7 +8,7 @@ from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
 SCHEMA_VERSION = 1
-CALCULATION_VERSION = "1"
+CALCULATION_VERSION = "2"
 PRIVACY_VERSION = "1"
 HLL_PRECISION = 14
 START = date(2026, 7, 1)
@@ -148,3 +148,35 @@ def public_queries(rows: list[dict]) -> list[dict]:
             }
         )
     return sorted(output, key=lambda r: (-r["count"], r["query"]))
+
+
+def legacy_daily_requests(document):
+    """Normalize saved display dates without changing the original legacy evidence."""
+    from datetime import datetime
+
+    month = date.fromisoformat(document["month"])
+    legacy = document.get("legacy") or {}
+    result = {}
+    for row in legacy.get("dailyApiRequests", []):
+        value = row["date"]
+        try:
+            day = date.fromisoformat(value)
+        except ValueError:
+            day = datetime.strptime(f"{value} {month.year}", "%b %d %Y").date()
+        count = row["requests"]
+        if not month <= day < next_month(month) or day in result:
+            raise ValueError("Invalid or duplicate legacy request date")
+        if type(count) is not int or count < 0:
+            raise ValueError("Invalid legacy request count")
+        result[day] = count
+    expected = legacy.get("summary", {}).get("requests")
+    if result and expected is not None and sum(result.values()) != expected:
+        raise ValueError("Legacy daily requests do not reconcile with monthly total")
+    return {str(day): count for day, count in sorted(result.items())}
+
+
+def provider_groups(value):
+    """A scalar is one Provider facet value; arrays have overlapping membership."""
+    values = value if isinstance(value, list) else [value]
+    groups = sorted({v.strip() for v in values if isinstance(v, str) and v.strip()})
+    return groups or ["Unmapped"]
