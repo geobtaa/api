@@ -10,8 +10,9 @@ Inspired by Ahoy's background job pattern for analytics enrichment.
 
 import asyncio
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
 from sqlalchemy import create_engine, insert, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,6 +92,11 @@ def _prepare_log_entry(log_entry: Dict[str, Any]) -> Dict[str, Any]:
     elif requested_at is None:
         prepared["requested_at"] = datetime.utcnow()
 
+    if prepared["requested_at"].tzinfo is not None:
+        prepared["requested_at"] = (
+            prepared["requested_at"].astimezone(timezone.utc).replace(tzinfo=None)
+        )
+
     partition_month = prepared.get("partition_month")
     if isinstance(partition_month, str):
         try:
@@ -110,16 +116,49 @@ def write_api_usage_log(self, log_entry: Dict[str, Any]) -> Dict[str, Any]:
     try:
         prepared_entry = _prepare_log_entry(log_entry)
         with sync_engine.begin() as conn:
+            # Celery retries/redelivery keep the task ID. Recording it in the
+            # same transaction prevents duplicate API logs after a lost ACK.
+            delivery_id = self.request.id or str(uuid4())
+            reporting = (
+                conn.execute(text("SELECT to_regclass('analytics_reporting_deliveries')")).scalar()
+                is not None
+            )
+            if reporting:
+                inserted = conn.execute(
+                    text(
+                        "INSERT INTO analytics_reporting_deliveries(delivery_id,source_month) "
+                        "VALUES(:id,:month) "
+                        "ON CONFLICT DO NOTHING RETURNING delivery_id"
+                    ),
+                    {"id": delivery_id, "month": prepared_entry["partition_month"]},
+                ).scalar()
+                if inserted is None:
+                    log_id = conn.execute(
+                        text(
+                            "SELECT log_id FROM analytics_reporting_deliveries "
+                            "WHERE delivery_id=:id"
+                        ),
+                        {"id": delivery_id},
+                    ).scalar_one()
+                    return {"status": "success", "log_id": log_id}
             stmt = (
                 insert(analytics_api_usage_logs)
                 .values(**prepared_entry)
                 .returning(analytics_api_usage_logs.c.id)
             )
             log_id = conn.execute(stmt).scalar_one()
+            if reporting:
+                conn.execute(
+                    text(
+                        "UPDATE analytics_reporting_deliveries SET log_id=:log_id "
+                        "WHERE delivery_id=:id"
+                    ),
+                    {"log_id": log_id, "id": delivery_id},
+                )
         return {"status": "success", "log_id": log_id}
     except Exception as e:
         logger.error("Error writing analytics API usage log: %s", e, exc_info=True)
-        return {"status": "error", "error": str(e)}
+        raise self.retry(exc=e, countdown=5, max_retries=5) from e
 
 
 @celery_app.task(bind=True, name="enrich_api_usage_log")

@@ -132,6 +132,9 @@ def test_retention_reconciles_before_dropping_partition(conn, monkeypatch, corru
     monkeypatch.setenv("ANALYTICS_RETENTION_IMPRESSION_DAYS", "0")
     monkeypatch.setattr(storage, "_maintenance_state_date", lambda *args: date(2026, 8, 31))
     monkeypatch.setattr(storage, "_rollup_search_metrics", lambda *args: None)
+    # This test isolates the legacy impression reconciliation. Full archive
+    # authorization is exercised separately in test_reporting_storage.py.
+    monkeypatch.setattr(storage, "_reporting_retention_ready", lambda *args: True)
     if corrupt:
         conn.execute(
             text("""INSERT INTO analytics_daily_resource_impressions

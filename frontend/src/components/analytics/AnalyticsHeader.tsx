@@ -12,6 +12,12 @@ export function AnalyticsHeader({
   activeReport: AnalyticsReport;
 }) {
   const [params] = useSearchParams();
+  const reportHref = (id: AnalyticsReport) => {
+    const href = analyticsReportHref(id, params.get('month'));
+    return params.get('runtime') === '1'
+      ? `${href}${href.includes('?') ? '&' : '?'}runtime=1`
+      : href;
+  };
   return (
     <header className="analytics-header">
       <a className="analytics-skip-link" href="#analytics-main">
@@ -39,7 +45,7 @@ export function AnalyticsHeader({
         {analyticsReports.map((report) => (
           <Link
             key={report.id}
-            to={analyticsReportHref(report.id, params.get('month'))}
+            to={reportHref(report.id)}
             aria-current={report.id === activeReport ? 'page' : undefined}
           >
             {report.label}

@@ -138,3 +138,11 @@ def test_legacy_api_usage_log_copy_can_skip_id_for_populated_destination():
     assert 'DATE_TRUNC(\'month\', "requested_at")::date AS "partition_month"' in select_sql
     assert '"requested_at" AS "requested_at"' in select_sql
     assert "NULLIF(\"properties\"->>'client_name', '') AS \"client_name\"" in select_sql
+
+
+def test_analytics_offset_timestamp_uses_utc_month_boundary():
+    normalized = _normalize_search_row(
+        {"search_id": "utc-boundary", "occurred_at": "2026-07-31T23:30:00-05:00"}
+    )
+    assert normalized["partition_month"] == date(2026, 8, 1)
+    assert normalized["occurred_at"] == datetime(2026, 8, 1, 4, 30)

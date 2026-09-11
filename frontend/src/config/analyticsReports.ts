@@ -58,7 +58,7 @@ export function analyticsReportHref(
 ) {
   const params = new URLSearchParams();
   if (report !== 'overview') params.set('report', report);
-  if (month === '2026-07' || month === '2026-08' || month === 'all')
+  if (month && /^(?:\d{4}-(?:0[1-9]|1[0-2])|ay-\d{4}|all)$/.test(month))
     params.set('month', month);
   return `/analytics${params.size ? `?${params}` : ''}`;
 }
