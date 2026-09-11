@@ -133,3 +133,10 @@ runs even when publication has no changes. A failed check records an actionable
 health transition and leaves the previous publication intact; successful recovery
 clears the failure. Larger histories take correspondingly longer to complete a
 rotation, which must be included in operational monitoring.
+
+Archive authentication can use an explicitly selected profile or an explicitly
+supplied project credential pair, including a session token when required. Mixing
+both sources, providing an incomplete pair, or omitting a credential source fails
+closed. The adapter never chooses an ambient local profile. Reusing project
+credentials does not bypass bucket privacy/versioning checks or the independent
+recovery ownership check. Deployed credential wiring remains restricted material.

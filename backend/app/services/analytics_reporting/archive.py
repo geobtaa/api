@@ -77,8 +77,24 @@ def configured_archives():
     for role in ("PRIMARY", "RECOVERY"):
         prefix = f"ANALYTICS_ARCHIVE_{role}_"
         bucket = os.environ[prefix + "BUCKET"]
-        profile = os.environ[prefix + "PROFILE"]
-        session = boto3.Session(profile_name=profile)
+        profile = os.getenv(prefix + "PROFILE")
+        access_key = os.getenv(prefix + "ACCESS_KEY_ID")
+        secret_key = os.getenv(prefix + "SECRET_ACCESS_KEY")
+        token = os.getenv(prefix + "SESSION_TOKEN")
+        region = os.getenv(prefix + "REGION")
+        if profile and (access_key or secret_key or token):
+            raise RuntimeError("Choose either a reporting profile or explicit credentials")
+        if not profile and not (access_key and secret_key):
+            raise RuntimeError("Reporting storage requires an explicit credential source")
+        if profile:
+            session = boto3.Session(profile_name=profile, region_name=region)
+        else:
+            session = boto3.Session(
+                aws_access_key_id=access_key,
+                aws_secret_access_key=secret_key,
+                aws_session_token=token,
+                region_name=region,
+            )
         client = session.client("s3")
         # Compare actual bucket ownership, not merely caller credentials: two
         # profiles can both have access to the same storage account.
