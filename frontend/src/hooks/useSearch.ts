@@ -28,17 +28,6 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
   const perPage = SEARCH_RESULTS_PER_PAGE;
   const searchField = searchParams.get('search_field') || 'all_fields';
   const searchParamsKey = searchParams.toString();
-  const hasFilterParam = useMemo(
-    () =>
-      Array.from(searchParams.keys()).some(
-        (key) =>
-          key.startsWith('include_filters[') ||
-          key.startsWith('exclude_filters[') ||
-          key.startsWith('fq[')
-      ),
-    [searchParamsKey, searchParams]
-  );
-
   // Parse search parameters and memoize facets to prevent infinite loops
   const {
     query,
@@ -46,7 +35,6 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
     facets: rawFacets,
     excludeFacets: rawExclude,
     advancedQuery: rawAdvanced,
-    hasQueryParam,
   } = parseSearchParams(searchParams);
   const facetsString = JSON.stringify(rawFacets);
   const facets = useMemo(() => rawFacets, [facetsString]);
@@ -69,7 +57,6 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
       perPage,
       facetsLength: facets?.length,
       excludeLength: excludeFacets?.length,
-      hasFilterParam,
       sort,
       searchField,
       advancedClauses: advancedQuery.length,
@@ -83,24 +70,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
       };
     }
 
-    // Only fetch if we have a query parameter (even if empty), filters, or advanced clauses.
-    // Geo bbox filters are deliberately excluded from `facets`, but still need to trigger search.
-    if (
-      !hasQueryParam &&
-      !hasFilterParam &&
-      (!advancedQuery || advancedQuery.length === 0)
-    ) {
-      debugLog('⏭️ Skipping search - no query, filters, or advanced clauses');
-      setResults(null);
-      setResultsKey(null);
-      setError(null);
-      setErrorKey(null);
-      setIsLoading(false);
-      return () => {
-        isCurrentRequest = false;
-      };
-    }
-
+    // An enabled search with no query or filters browses the full catalog.
     debugLog('🚀 Starting search API call...');
     const startTime = performance.now();
     const requestSearchParamsKey = searchParamsKey;
@@ -168,8 +138,6 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
     sort,
     searchField,
     searchParamsKey,
-    hasFilterParam,
-    hasQueryParam,
     enabled,
     setLastApiUrl,
   ]);
@@ -192,8 +160,7 @@ export function useSearch({ enabled = true }: { enabled?: boolean } = {}) {
     const newParams = new URLSearchParams(searchParams);
 
     if (query !== undefined) {
-      // Always set 'q' param, even if empty, to ensure API call is made
-      // Empty 'q' will return all results from the API
+      // An empty query browses all results while preserving other constraints.
       newParams.set('q', query);
       newParams.delete('page'); // Reset page when query changes
     }
