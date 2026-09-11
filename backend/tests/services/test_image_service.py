@@ -364,8 +364,7 @@ class TestImageServiceThumbnailSourceURL:
             }
             result = service._get_thumbnail_source_url(references)
             assert (
-                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg"
-                in result
+                "contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg" in result
             )
 
         except Exception as e:
@@ -1213,7 +1212,7 @@ class TestImageServiceManifestParsing:
             result = service.get_iiif_manifest_thumbnail("http://example.com/manifest.json")
 
             # Should extract the image URL from the complex structure
-            assert result == "http://example.com/complex-image.jpg"
+            assert result == "http://example.com/iiif/service/full/!800,800/0/default.jpg"
 
         except Exception as e:
             # Handle Redis connection errors gracefully
@@ -1605,8 +1604,7 @@ class TestImageServiceEdgeCases:
 
             # Should transform to proper ContentDM IIIF format
             assert (
-                "cdm16022.contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg"
-                in result
+                "contentdm.oclc.org/iiif/2/collection123:456/full/!800,800/0/default.jpg" in result
             )
 
         except Exception as e:
@@ -1677,3 +1675,120 @@ class TestImageServiceEdgeCases:
             except Exception as e:
                 # Handle Redis connection errors gracefully
                 assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+
+class TestIssue412ThumbnailSources:
+    """Provider shapes observed in the collections reported in issue #412."""
+
+    @pytest.mark.parametrize(
+        "source",
+        [
+            "https://cdm17287.contentdm.oclc.org/digital/iiif/wpamaps/2730/info.json",
+            "https://cdm17287.contentdm.oclc.org/iiif/2/wpamaps:2730/info.json",
+            "https://cdm17287.contentdm.oclc.org/iiif/2/wpamaps:2730/full/200,/0/default.jpg",
+        ],
+    )
+    def test_pennsylvania_image_keeps_provider_and_identifier(self, source):
+        service = ImageService({})
+        assert service._get_thumbnail_source_url({"http://iiif.io/api/image": source}) == (
+            "https://cdm17287.contentdm.oclc.org/iiif/2/wpamaps:2730/full/!800,800/0/default.jpg"
+        )
+
+    @pytest.mark.parametrize(
+        "path",
+        ["info/p16022coll231/10001", "p16022coll231:10001"],
+    )
+    def test_contentdm_manifest_is_resolved_in_worker(self, path):
+        manifest_url = f"https://cdm16022.contentdm.oclc.org/iiif/{path}/manifest.json"
+        service = ImageService({})
+        with patch.object(service, "_queue_manifest_processing") as queue:
+            assert (
+                service._get_thumbnail_source_url(
+                    {"http://iiif.io/api/presentation#manifest": manifest_url}
+                )
+                == manifest_url
+            )
+        queue.assert_called_once_with(manifest_url)
+
+    @pytest.mark.parametrize("service_as_list", [False, True])
+    def test_osu_uses_loris_service_instead_of_catalog_page(self, service_as_list):
+        image_service = {"@id": "https://library.osu.edu/loris/5h73q714r.jp2"}
+        resource = {
+            "@id": "https://library.osu.edu/dc/concern/file_sets/5h73q714r",
+            "service": [image_service] if service_as_list else image_service,
+        }
+        manifest = {"sequences": [{"canvases": [{"images": [{"resource": resource}]}]}]}
+        assert ImageService({})._extract_thumbnail_from_manifest_json(manifest) == (
+            "https://library.osu.edu/loris/5h73q714r.jp2/full/!800,800/0/default.jpg"
+        )
+
+    def test_minnesota_compound_object_uses_first_page_service(self):
+        root = "https://cdm16022.contentdm.oclc.org/iiif"
+        manifest = {
+            "@id": f"{root}/p16022coll231:10001/manifest.json",
+            "sequences": [
+                {
+                    "canvases": [
+                        {
+                            "images": [
+                                {
+                                    "resource": {
+                                        "@id": (
+                                            f"{root}/2/p16022coll231:9957/full/full/0/default.jpg"
+                                        ),
+                                        "service": {"@id": f"{root}/2/p16022coll231:9957"},
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ],
+        }
+        assert ImageService({})._extract_thumbnail_from_manifest_json(manifest) == (
+            f"{root}/2/p16022coll231:9957/full/!800,800/0/default.jpg"
+        )
+
+    def test_v2_direct_image_without_service_still_works(self):
+        image = "https://example.org/map.jpg"
+        manifest = {
+            "sequences": [
+                {
+                    "canvases": [
+                        {
+                            "images": [
+                                {
+                                    "resource": {
+                                        "@id": image,
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        assert ImageService({})._extract_thumbnail_from_manifest_json(manifest) == image
+
+    def test_v3_service_without_iiif_path(self):
+        manifest = {
+            "items": [
+                {
+                    "items": [
+                        {
+                            "items": [
+                                {
+                                    "body": {
+                                        "id": "https://example.org/catalog/map",
+                                        "service": [{"id": "https://example.org/loris/map.jp2"}],
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        }
+        assert ImageService({})._extract_thumbnail_from_manifest_json(manifest) == (
+            "https://example.org/loris/map.jp2/full/!800,800/0/default.jpg"
+        )

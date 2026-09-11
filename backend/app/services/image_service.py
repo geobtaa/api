@@ -205,20 +205,23 @@ class ImageService:
                     self.logger.debug(f"Found manifest-level thumbnail: {candidate}")
                     return self._standardize_iiif_url(candidate)
 
-            # Sequences - Prefer direct resource @id, then service @id
+            # IIIF v2: the resource ID may be an HTML catalog page (e.g. OSU).
+            # Prefer the declared image service to construct a bounded rendition.
             if manifest_json.get("sequences"):
                 self.logger.debug("Image: sequences")
                 canvas = manifest_json.get("sequences", [{}])[0].get("canvases", [{}])[0]
                 image = canvas.get("images", [{}])[0].get("resource", {})
-
-                # Prefer direct image ID when present
+                service = image.get("service")
+                if isinstance(service, list):
+                    service = service[0] if service else None
+                if isinstance(service, dict):
+                    service_id = service.get("@id") or service.get("id")
+                else:
+                    service_id = service if isinstance(service, str) else None
+                if service_id:
+                    return self._standardize_iiif_url(service_id, image_service=True)
                 if image.get("@id"):
                     return self._standardize_iiif_url(image["@id"])
-
-                # Fallback to image service @id to construct consistent size
-                service_id = image.get("service", {}).get("@id")
-                if service_id:
-                    return self._standardize_iiif_url(service_id)
 
             # Items - IIIF v3 style
             elif manifest_json.get("items"):
@@ -261,7 +264,7 @@ class ImageService:
 
                     if body_service_id:
                         self.logger.debug(f"Found body service ID: {body_service_id}")
-                        return self._standardize_iiif_url(body_service_id)
+                        return self._standardize_iiif_url(body_service_id, image_service=True)
 
                     # Next try body.id (prefer direct ID unmodified)
                     if body.get("id"):
@@ -313,12 +316,16 @@ class ImageService:
 
         return self._extract_thumbnail_from_manifest_json(manifest_json, manifest_url)
 
-    def _standardize_iiif_url(self, url: str) -> str:
+    def _standardize_iiif_url(self, url: str, *, image_service: bool = False) -> str:
         """
         Standardize IIIF image URLs to ensure consistent size.
         Converts various IIIF image URLs to a standard bounded-box rendition.
         """
         try:
+            # Declared services need not contain /iiif/ or /image/ (e.g. Loris).
+            if image_service:
+                return f"{url.removesuffix('/info.json').rstrip('/')}{IIIF_THUMBNAIL_PATH}"
+
             # Skip if not a likely IIIF URL
             if not any(x in url.lower() for x in ["/iiif/", "/image/", "info.json"]):
                 return url
@@ -704,26 +711,15 @@ class ImageService:
             if not iiif_url:
                 continue
 
-            # Transform ContentDM IIIF URLs
+            # Normalize CONTENTdm's legacy image path without changing providers
+            # or reinterpreting already-versioned /iiif/2/ service identifiers.
             if url_hostname_matches(iiif_url, "contentdm.oclc.org"):
-                # Handle both /digital/iiif/ and /iiif/ patterns
-                # Pattern 1: /digital/iiif/collection/id
-                match = re.search(r"/digital/iiif/([^/]+)/(\d+)", iiif_url)
-                if match:
-                    collection, item_id = match.groups()
-                    return self._standardize_iiif_url(
-                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection}:{item_id}"
-                    )
-
-                # Pattern 2: /iiif/collection:id/manifest.json or /iiif/collection:id/
-                match = re.search(r"/iiif/([^/]+)/", iiif_url)
-                if match:
-                    collection_item = match.group(1)
-                    return self._standardize_iiif_url(
-                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}"
-                    )
-
-            # For non-ContentDM IIIF URLs, use standard format
+                iiif_url = re.sub(
+                    r"/digital/iiif/([^/]+)/(\d+)(?=/|$)",
+                    r"/iiif/2/\1:\2",
+                    iiif_url,
+                    count=1,
+                )
             return self._standardize_iiif_url(iiif_url)
 
         # Check for IIIF Manifest - only extract URL, don't fetch manifest
@@ -745,28 +741,8 @@ class ImageService:
                     break
 
         if manifest_url:
-            # Special case: ContentDM manifest URLs can be directly converted to image URLs
-            # without fetching the manifest, since we know the pattern
-            if (
-                url_hostname_matches(manifest_url, "contentdm.oclc.org")
-                and "/iiif/" in manifest_url
-            ):
-                # Extract collection:item from ContentDM manifest URL
-                # Pattern: https://cdm16022.contentdm.oclc.org/iiif/p16022coll55:1755/manifest.json
-                match = re.search(r"/iiif/([^/]+)/", manifest_url)
-                if match:
-                    collection_item = match.group(1)
-                    # Convert to direct IIIF image URL
-                    image_url = self._standardize_iiif_url(
-                        f"https://cdm16022.contentdm.oclc.org/iiif/2/{collection_item}"
-                    )
-                    self.logger.info(
-                        f"✅ Directly converted ContentDM manifest to image URL: {image_url}"
-                    )
-                    return image_url
-
-            # For other manifests, queue background resolution and return manifest URL
-            # The Celery worker will resolve the manifest and extract the image URL
+            # Resolve the manifest in the worker. A CONTENTdm compound object ID
+            # need not identify an image, and manifest path formats vary.
             self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
             self._queue_manifest_processing(manifest_url)
             return manifest_url

@@ -9,6 +9,28 @@ wrapping stay consistent. See [../make_tasks.md](../make_tasks.md).
 
 ## Safe Local Scripts
 
+### IIIF thumbnail generation
+
+Thumbnail generation preserves the provider and image identifier in IIIF Image
+API references. Presentation manifests are resolved in the background, including
+CONTENTdm manifests: a compound object can contain page images with different
+identifiers. When a manifest has no explicit thumbnail, its first canvas's image
+service supplies a bounded rendition. This also supports services whose paths do
+not contain `iiif`, such as Loris, where the image resource ID may be a catalog
+page rather than an image URL.
+
+After changing thumbnail resolution, regenerate selected records in the local
+development database with:
+
+```bash
+make prime-thumbnail-cache RESOURCE_IDS="example-record-id another-record-id" PRIME_FORCE=1
+```
+
+This requires the local database and cache services. Force regeneration retries
+records with existing thumbnail state or cached images. See
+[../make_tasks.md](../make_tasks.md) for local cache workflows. Deployed backfills
+belong in the restricted operations documentation.
+
 ### `process_allmaps.py`
 
 Processes and generates Allmaps annotations for resources in the local database.
