@@ -1,0 +1,95 @@
+# Runtime analytics reporting
+
+The runtime reporting implementation is in shadow validation. The checked-in
+July/August dashboard remains the default until historical reconciliation,
+report parity, and deployed preservation checks pass. PR #343 must remain unmerged
+until the gates in [the reporting audit](analytics-merge-readiness.md) are closed.
+
+## Contract and data flow
+
+Accepted raw inserts transactionally create reporting outbox entries. The consumer
+updates daily dimension aggregates and mergeable visit sketches, retains processing
+receipts, and clears temporary payloads. Counts are preserved before ranking limits
+are applied. The archive validator reconciles each dimension against its receipts.
+
+Report schema version 1 has UTC start/inclusive and end/exclusive bounds, calculation
+and disclosure versions, coverage, a content-derived revision, source explanations,
+and report tables. Queries use saved constraints when available, falling back to URL
+controls. Facet counts deduplicate categories within each search. Recorded zero-result
+flags and original result-total distributions remain separate evidence.
+
+`all` means since July 1, 2026. `ay-2026` means July 2026 through June 2027, restricted
+to completed months. Monthly reports use `YYYY-MM`. Dates, defaults and available
+periods come from the manifest, not imports or frontend date constants. Tracked visits
+are HLL estimates of tab-scoped tokens, not unique people. Their standard relative
+error is about 0.81%. Unsupported historical audience coverage is unavailable.
+
+Catalog metadata is captured once per reporting month and its actual capture date
+is preserved. It must not be presented as month-end metadata unless captured then.
+Code and Provider attribution are different dimensions. Unknown contribution codes
+remain explicit; never infer a university from geography. Four-digit federal codes are not interpreted as two-digit university codes.
+Curated, OpenGeoMetadata, licensed and other code groups remain visible. Any future
+multi-valued Provider representation must use an explicit mapping and disclose overlaps.
+
+Public query output applies a repeated-context threshold and sensitive-text rules.
+Suppressed searches remain in totals. Automated text screening is not a guarantee
+that all personal information is detected. Neither raw tokens nor arbitrary URL
+parameters are part of public artifacts. CSV downloads neutralize formula prefixes.
+
+## Public read interfaces
+
+- `GET /api/v1/analytics/reports/manifest`: available period revisions and latest
+  complete month; revalidated rather than permanently cached.
+- `GET /api/v1/analytics/reports/{period}/{revision}`: immutable public report JSON.
+- `GET /api/v1/analytics/reports/{period}/{revision}/download/{table}?format=csv|json`:
+  approved table downloads from that exact revision.
+
+The API returns 503 while runtime reporting is in shadow mode. Unknown periods or
+revisions return 404. The preview route `/analytics?runtime=1` selects the runtime
+renderer; it does not bypass the API's publication gate. The original renderer and
+saved snapshots remain available during migration.
+
+## Local development
+
+Use only an isolated local database for lifecycle experiments. Install the raw
+analytics schema first. `backend/scripts/manage_analytics_reporting.py --help`
+describes installation, bounded historical backfill, baseline verification,
+publication, legacy snapshot import, health inspection, and clean-period restore.
+Historical backfill does not automatically certify completeness. Independent expected
+counts cover all four sources, with null explicitly meaning unavailable. Source
+coverage determines which metrics can be reported; missing raw API distributions do
+not erase independently preserved additive monthly totals. The legacy baseline fixture
+retains original July/August request totals and daily counts.
+
+`manage_analytics_storage.py` runs preservation/publication before retention in its
+maintenance mode. Missing preservation dependencies cause a failed run. The separate
+retention guard also refuses deletion without verified reporting evidence.
+
+Tests in `test_reporting_contract.py`, `test_reporting_storage.py` and
+`test_reporting_publication.py` cover calendar boundaries, privacy, sketches,
+transactional rollback, duplicate capture, concurrent expiry, revisions, archive
+corruption, clean-period restore, next-day publication and preservation of the previous manifest on failure.
+The PostgreSQL tests use isolated schemas and require `ANALYTICS_TEST_DATABASE_URL`;
+CI must configure it rather than skip these tests.
+
+## Remaining release verification
+
+- Reconcile full historical source evidence with every existing report, including
+  outcomes, client inference and all member-detail presentations.
+- Complete production-sized backfill and UI parity checks, including all original
+  member-detail presentations and historical impression attribution.
+- Verify deployed archival storage, independent recovery, scheduler timing, actionable
+  notification delivery and the isolated restore drill on deployed infrastructure before enabling cutover.
+  Local preservation now requires a successful restore into a disposable database schema.
+
+Deployment configuration, storage policy, alerts and recovery procedures belong in
+restricted operations documentation. The maintainer must update those runbooks as
+part of rollout; public docs intentionally contain no deployed locations or credentials.
+
+## Historical inventory checked during implementation
+
+A read-only source inventory on September 11, 2026 confirmed July searches (6,457)
+and events (16,824), and all four August sources against the saved baselines. July
+raw API logs and raw impressions were no longer present. Original published files
+remain unchanged. The detailed historical export and deployed archive verification
+have not been performed; the runtime cutover remains disabled.

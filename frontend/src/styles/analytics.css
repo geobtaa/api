@@ -3171,3 +3171,28 @@
   white-space: normal;
   overflow-wrap: anywhere;
 }
+
+/* Shared runtime report layouts; rows remain in normal document flow. */
+.analytics-runtime-panel {
+  margin-block: 1.5rem;
+  padding: 1.5rem;
+}
+.analytics-runtime-panel h2 {
+  margin-top: 0;
+}
+.analytics-runtime-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  gap: 1rem;
+}
+.analytics-runtime-totals > div {
+  border: 1px solid #e5e7eb;
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+.analytics-runtime-totals dd {
+  margin: 0.5rem 0 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #003e5c;
+}

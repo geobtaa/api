@@ -823,6 +823,16 @@ def _rollup_job_window(
     return windows
 
 
+def _reporting_retention_ready(conn, source, month):
+    from app.services.analytics_reporting.archive import retention_ready
+
+    try:
+        return retention_ready(conn, source, month)
+    except (OSError, RuntimeError, ImportError, KeyError) as exc:
+        logger.error("Analytics retention blocked: %s", type(exc).__name__)
+        return False
+
+
 def _drop_expired_partitions(conn: Connection, config: RawAnalyticsTableConfig) -> int:
     retention_days = int(os.getenv(config.retention_env, str(config.retention_days)))
     cutoff_date = date.today() - timedelta(days=retention_days)
@@ -856,6 +866,38 @@ def _drop_expired_partitions(conn: Connection, config: RawAnalyticsTableConfig) 
             continue
         if last_processed < (partition_end - timedelta(days=1)):
             continue
+        # A parent lock excludes inserts routed through any child until commit.
+        # The archive receipt is checked under that same lock as deletion.
+        conn.execute(text(f"LOCK TABLE {_ident(config.table_name)} IN ACCESS EXCLUSIVE MODE"))
+        reporting_health = conn.execute(
+            text("SELECT to_regclass('analytics_reporting_health')")
+        ).scalar()
+        if not _reporting_retention_ready(conn, config.table_name, partition_month):
+            if reporting_health:
+                from app.services.analytics_reporting.storage import health
+
+                health(
+                    conn,
+                    f"retention:{config.table_name}:{partition_month}",
+                    "blocked",
+                    "No verified reporting archive; raw partition retained",
+                )
+                continue
+            logger.warning(
+                "Analytics retention blocked: no verified reporting archive for %s %s",
+                config.table_name,
+                partition_month,
+            )
+            continue
+        if reporting_health:
+            from app.services.analytics_reporting.storage import health
+
+            health(
+                conn,
+                f"retention:{config.table_name}:{partition_month}",
+                "healthy",
+                "Preservation verified before expiry",
+            )
         if config.table_name == "analytics_search_impressions":
             # Lock before the final pass so late inserts cannot race verification/drop.
             conn.execute(text(f"LOCK TABLE {_ident(partition_name)} IN ACCESS EXCLUSIVE MODE"))
