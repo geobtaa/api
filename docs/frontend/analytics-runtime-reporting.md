@@ -140,3 +140,22 @@ both sources, providing an incomplete pair, or omitting a credential source fail
 closed. The adapter never chooses an ambient local profile. Reusing project
 credentials does not bypass bucket privacy/versioning checks or the independent
 recovery ownership check. Deployed credential wiring remains restricted material.
+
+## Public downloads and internal preservation
+
+Public delivery includes versioned report JSON and complete CSV/JSON tables for
+monthly, academic-year, and cumulative periods. These are the aggregate reports
+exposed by the dashboard, with the query-publication policy applied. A delivery
+manifest is published only after all referenced files have passed readback
+verification. Public download access can be checked independently of authenticated
+storage access.
+
+Internal preservation archives additionally contain low-frequency query/context
+dimensions, processing receipts, source-record identities, and mergeable visit
+sketches. They are not part of public table downloads. Publishing aggregate files
+through an existing delivery bucket does not certify the durability of these
+internal archives or authorize raw-data expiration. Those preservation checks
+remain separate release gates.
+
+Deployment destinations, credentials, and upload procedures belong in restricted
+operations documentation; they are intentionally absent from this public guide.
