@@ -119,6 +119,29 @@ make analytics-maintenance
 make analytics-size-report
 ```
 
+## Bridge Sync Reporting
+
+Bridge polling and email reporting use separate trigger policies. Regular
+incremental runs are silent by default, including failures; one daily scheduled
+run requests a report on either success or failure. That reporting run still
+uses the incremental checkpoint rather than starting a full import. The report
+describes that run and includes recent run history; it is not an aggregate of
+all records imported during the day. A run skipped because another sync is
+active does not send a duplicate report.
+
+An import can finish successfully while the following search-index or cache
+refresh fails. These runs retain their failed status so the next crawl retries
+from the last successful checkpoint. The report labels this outcome
+`PUBLISHING FAILED`, explains that import completed, and includes the saved
+failure reason and refresh error counts. Import and crawl failures remain
+`FAILED`; completed runs are reported as `SUCCESS`.
+
+Scheduling, delivery configuration, and deployed troubleshooting belong in the
+restricted operations documentation. Local regression coverage lives in
+`tests/tasks/test_bridge_sync_task.py`,
+`tests/scripts/test_trigger_bridge_sync_cron.py`, and
+`tests/services/test_bridge_sync_report.py` under `backend/`.
+
 ## Restricted Operational Scripts
 
 Some scripts are intended for deployment bootstrap, remote maintenance, backup,
