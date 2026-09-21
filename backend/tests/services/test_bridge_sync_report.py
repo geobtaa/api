@@ -2,7 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+
 from app.services.bridge_sync.report import (
+    _build_message,
     _split_recipients,
     build_bridge_sync_report_html,
     build_bridge_sync_report_text,
@@ -96,6 +99,71 @@ def test_build_bridge_sync_report_flags_cache_refresh_error():
     text = build_bridge_sync_report_text(run, recent_runs=[])
 
     assert "Cache refresh failed: No __appsignal__.py file found." in text
+
+
+@pytest.mark.parametrize(
+    ("status", "errors", "refresh_failures", "expected_subject"),
+    [
+        ("success", 0, {}, "SUCCESS"),
+        ("failed", 1, {}, "FAILED"),
+        ("failed", 0, {}, "FAILED"),  # Crawl can fail without importer errors.
+        ("failed", 0, {"cache_refresh": 1}, "PUBLISHING FAILED"),
+        ("failed", 0, {"search_index_refresh": 1}, "PUBLISHING FAILED"),
+        ("failed", 1, {"cache_refresh": 1}, "FAILED"),
+    ],
+)
+def test_report_subject_identifies_outcome(
+    monkeypatch, status, errors, refresh_failures, expected_subject
+):
+    monkeypatch.setenv("KAMAL_DEST", "test")
+    monkeypatch.setenv("BRIDGE_SYNC_REPORT_SUBJECT_PREFIX", "BTAA Geoportal")
+    run = _sample_run()
+    run["bridge_status"] = status
+    run["bridge_stats_json"].update(errors=errors, refresh_failures=refresh_failures)
+
+    message = _build_message(run, recipients=["reader@example.edu"])
+
+    assert message["Subject"] == (
+        f"BTAA Geoportal [test] bridge sync {expected_subject}: 1,726 processed"
+    )
+    assert run["bridge_status"] == status
+
+
+def test_report_explains_successful_import_with_failed_publishing():
+    run = _sample_run()
+    run["bridge_status"] = "failed"
+    run["bridge_error"] = "bridge refresh completed with errors: cache_refresh=2"
+    run["bridge_stats_json"]["refresh_failures"] = {"cache_refresh": 2}
+    run["bridge_stats_json"]["cache_refresh"]["errors"] = 2
+
+    message = _build_message(run, recipients=["reader@example.edu"])
+
+    for subtype in ("plain", "html"):
+        body = message.get_body(preferencelist=(subtype,)).get_content()
+        assert "Import completed; post-sync publishing failed" in body
+        assert "Failure reason: bridge refresh completed with errors: cache_refresh=2" in body
+        assert "Cache refresh recorded 2 error(s)." in body
+    assert run["bridge_status"] == "failed"
+
+
+def test_report_exposes_index_error_counts():
+    run = _sample_run()
+    run["bridge_stats_json"]["search_index_refresh"]["errors"] = 2
+
+    text = build_bridge_sync_report_text(run)
+
+    assert "Elasticsearch refresh recorded 2 error(s)." in text
+
+
+def test_report_escapes_saved_failure_reason():
+    run = _sample_run()
+    run["bridge_status"] = "failed"
+    run["bridge_error"] = "Unexpected response: <script>alert('error')</script>"
+
+    html = build_bridge_sync_report_html(run)
+
+    assert "Failure reason: Unexpected response: &lt;script&gt;" in html
+    assert "<script>" not in html
 
 
 def test_send_bridge_sync_report_email_skips_when_disabled(monkeypatch):

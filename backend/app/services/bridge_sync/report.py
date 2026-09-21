@@ -139,6 +139,18 @@ def _scope_label(stats: dict[str, Any]) -> str:
     return "Full sync"
 
 
+def _report_status(status: str, stats: dict[str, Any]) -> str:
+    # A refresh failure happens after import and deletion reconciliation finish.
+    # Keep the persisted failure (and retry checkpoint) but explain which stage failed.
+    if (
+        status.lower() == "failed"
+        and stats.get("refresh_failures")
+        and _coerce_int(stats.get("errors")) == 0
+    ):
+        return "publishing failed"
+    return status.lower()
+
+
 def _status_color(status: str, stats: dict[str, Any]) -> str:
     status_norm = status.lower()
     if status_norm == "success" and _coerce_int(stats.get("errors")) == 0:
@@ -153,6 +165,8 @@ def _status_color(status: str, stats: dict[str, Any]) -> str:
 def _status_label(status: str, stats: dict[str, Any]) -> str:
     status_norm = status.lower()
     errors = _coerce_int(stats.get("errors"))
+    if _report_status(status, stats) == "publishing failed":
+        return "Import completed; post-sync publishing failed"
     if status_norm == "success" and errors == 0:
         return "Sync completed cleanly"
     if status_norm == "success":
@@ -214,7 +228,7 @@ def _recent_run_rows(runs: list[dict[str, Any]]) -> str:
             f"""
               <tr>
                 <td style="padding:9px 8px; border-top:1px solid {LINE}; color:{INK}; font-weight:700;">#{_html_escape(run.get("bridge_id"))}</td>
-                <td style="padding:9px 8px; border-top:1px solid {LINE}; color:{color}; font-weight:800;">{_html_escape(status)}</td>
+                <td style="padding:9px 8px; border-top:1px solid {LINE}; color:{color}; font-weight:800;">{_html_escape(_report_status(status, stats))}</td>
                 <td style="padding:9px 8px; border-top:1px solid {LINE}; color:{MUTED};">{_html_escape(run.get("bridge_trigger") or "unknown")}</td>
                 <td style="padding:9px 8px; border-top:1px solid {LINE}; color:{MUTED};">{_html_escape(_scope_label(stats))}</td>
                 <td style="padding:9px 8px; border-top:1px solid {LINE}; color:{INK}; font-weight:700; text-align:right;">{_coerce_int(stats.get("processed")):,}</td>
@@ -242,7 +256,9 @@ def _alert_items(run: dict[str, Any], recent_runs: list[dict[str, Any]]) -> list
     alerts: list[str] = []
     status = str(run.get("bridge_status") or "").lower()
     if status != "success":
-        alerts.append(f"Run ended with status: {status or 'unknown'}.")
+        alerts.append(f"Run ended with status: {_report_status(status, stats) or 'unknown'}.")
+    if run.get("bridge_error"):
+        alerts.append(f"Failure reason: {run['bridge_error']}")
     errors = _coerce_int(stats.get("errors"))
     if errors:
         alerts.append(f"Importer recorded {errors:,} error{'' if errors == 1 else 's'}.")
@@ -269,6 +285,8 @@ def _alert_items(run: dict[str, Any], recent_runs: list[dict[str, Any]]) -> list
             requested_indexed = _coerce_int(index_stats.get("resource_ids"))
             indexed = _coerce_int(index_stats.get("indexed"))
             index_errors = _coerce_int(index_stats.get("errors"))
+            if index_errors:
+                alerts.append(f"Elasticsearch refresh recorded {index_errors:,} error(s).")
             if expected_indexed and requested_indexed and requested_indexed < expected_indexed:
                 alerts.append(
                     "Elasticsearch refresh received only "
@@ -281,8 +299,12 @@ def _alert_items(run: dict[str, Any], recent_runs: list[dict[str, Any]]) -> list
                     f"{requested_indexed:,} requested resource IDs."
                 )
     cache_stats = stats.get("cache_refresh") if isinstance(stats.get("cache_refresh"), dict) else {}
-    if cache_stats and cache_stats.get("enabled") is not False and cache_stats.get("error"):
-        alerts.append(f"Cache refresh failed: {cache_stats.get('error')}.")
+    if cache_stats and cache_stats.get("enabled") is not False:
+        if cache_stats.get("error"):
+            alerts.append(f"Cache refresh failed: {cache_stats.get('error')}.")
+        cache_errors = _coerce_int(cache_stats.get("errors"))
+        if cache_errors:
+            alerts.append(f"Cache refresh recorded {cache_errors:,} error(s).")
     running_runs = [
         r for r in recent_runs if str(r.get("bridge_status") or "").lower() == "running"
     ]
@@ -378,7 +400,7 @@ def build_bridge_sync_report_html(
     }; background:#F9FAFB; padding:16px 18px;">
                   <div style="font-size:12px; text-transform:uppercase; font-weight:800; color:{
         status_color
-    };">{_html_escape(status)}</div>
+    };">{_html_escape(_report_status(status, stats))}</div>
                   <div style="margin-top:4px; font-size:22px; line-height:1.25; color:{
         INK
     }; font-weight:800;">{_html_escape(_status_label(status, stats))}</div>
@@ -506,7 +528,8 @@ def build_bridge_sync_report_text(
     lines = [
         "BTAA Geoportal Nightly Bridge Sync Report",
         f"Run: #{run.get('bridge_id')}",
-        f"Status: {run.get('bridge_status') or 'unknown'}",
+        f"Status: {_report_status(str(run.get('bridge_status') or 'unknown'), stats)}",
+        f"Outcome: {_status_label(str(run.get('bridge_status') or 'unknown'), stats)}",
         f"Trigger: {run.get('bridge_trigger') or 'unknown'}",
         f"Scope: {_scope_label(stats)}",
         f"Started: {_format_datetime(run.get('bridge_started_at'))}",
@@ -533,7 +556,7 @@ def _build_message(
     recipients: list[str],
 ) -> EmailMessage:
     stats = _stats_for_run(run)
-    status = str(run.get("bridge_status") or "unknown").upper()
+    status = _report_status(str(run.get("bridge_status") or "unknown"), stats).upper()
     subject_prefix = os.getenv("BRIDGE_SYNC_REPORT_SUBJECT_PREFIX", "BTAA Geoportal")
     environment = os.getenv("KAMAL_DEST") or os.getenv("APP_ENV") or os.getenv("RAILS_ENV")
     subject_env = f" [{environment}]" if environment else ""
