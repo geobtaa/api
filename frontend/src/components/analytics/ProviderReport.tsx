@@ -1,7 +1,7 @@
 import { AnalyticsTable } from './AnalyticsTable';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Activity, Download, List, Users } from 'lucide-react';
+import { Activity, List, Users } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -65,12 +65,14 @@ export function ProviderReport({
   const group = snapshot.groups.find((row) => row.id === selected);
   const counts = group ?? snapshot.totals;
   const rows = group ? [group] : snapshot.groups;
-  const daily = Array.from({ length: 31 }, (_, index) => ({
-    day: index + 1,
-    views: rows.reduce((n, row) => n + row.daily[index].views, 0),
-    downloads: rows.reduce((n, row) => n + row.daily[index].downloads, 0),
+  const daily = (snapshot.groups[0]?.daily ?? []).map((point, index) => ({
+    day: point.day,
+    views: rows.reduce((n, row) => n + (row.daily[index]?.views ?? 0), 0),
+    downloads: rows.reduce(
+      (n, row) => n + (row.daily[index]?.downloads ?? 0),
+      0
+    ),
   }));
-  const download = `data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ ...snapshot, selection: group ? (group.provider ?? 'Missing provider') : 'All providers', selectedTotals: counts, groups: rows }, null, 2))}`;
   return (
     <section className="analytics-section" aria-label="Provider report">
       <div className="analytics-grouping-controls">
@@ -219,12 +221,10 @@ export function ProviderReport({
         </div>
       )}
       <div className="analytics-panel analytics-comparison-panel">
-        <ReportPanelHeader title="Provider totals" icon={Users}>
-          <a href={download} download={`analytics-providers-${month}.json`}>
-            <Download aria-hidden="true" />
-            Download provider data
-          </a>
-        </ReportPanelHeader>
+        <ReportPanelHeader
+          title="Provider totals"
+          icon={Users}
+        ></ReportPanelHeader>
         <div
           className="analytics-comparison-scroll"
           tabIndex={0}

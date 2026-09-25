@@ -56,7 +56,7 @@ const snapshot: ProviderSnapshot = {
   ],
   codeCoverage: [],
 };
-it('keeps university, agency, and missing providers separate and exports the selection', () => {
+it('keeps university, agency, and missing providers separate without export links', () => {
   render(
     <MemoryRouter>
       <ProviderReport month="2026-08" snapshot={snapshot} />
@@ -70,15 +70,9 @@ it('keeps university, agency, and missing providers separate and exports the sel
   expect(browse.getAttribute('href')).toBe(
     '/search?include_filters%5Bschema_provider_s%5D%5B%5D=The+Ohio+State+University'
   );
-  const href = screen
-    .getByRole('link', { name: 'Download provider data' })
-    .getAttribute('href')!;
-  const data = JSON.parse(
-    decodeURIComponent(href.slice(href.indexOf(',') + 1))
-  );
-  expect(data.groups).toHaveLength(1);
-  expect(data.groups[0].provider).toBe('The Ohio State University');
-  expect(data.selectedTotals.resourceViews).toBe(5);
+  expect(
+    screen.queryByRole('link', { name: 'Download provider data' })
+  ).not.toBeInTheDocument();
   fireEvent.change(screen.getByLabelText('Provider'), {
     target: { value: '2' },
   });

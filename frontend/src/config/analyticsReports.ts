@@ -10,8 +10,7 @@ export const analyticsReports = [
     id: 'comparison',
     label: 'Month comparison',
     period: 'July–August 2026',
-    description:
-      'Compare portal totals, daily trends, and member activity. Export figures for reporting.',
+    description: 'Compare portal totals and daily trends.',
   },
   {
     id: 'content',

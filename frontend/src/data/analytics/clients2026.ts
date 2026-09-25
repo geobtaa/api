@@ -9,7 +9,7 @@ export interface ClientUsage {
 export interface ClientSnapshot {
   clients: ClientUsage[];
   surfaces: { label: string; requests: number }[];
-  recordedKeys: number;
+  recordedKeys: number | null;
   keyAttributedRequests: number;
   unattributedKeyRequests: number;
   qgisUserAgentRequests: number | null;
@@ -144,3 +144,51 @@ export const clientSnapshots: Record<'2026-07' | '2026-08', ClientSnapshot> = {
     qgisUserAgentRequests: 0,
   },
 };
+
+/** Combine disjoint months; unavailable evidence stays unavailable. */
+export function combineClientSnapshots(
+  snapshots: ClientSnapshot[]
+): ClientSnapshot {
+  const clients = new Map<string, ClientUsage>();
+  const surfaces = new Map<string, number>();
+  for (const snapshot of snapshots) {
+    for (const row of snapshot.clients) {
+      const key = JSON.stringify([row.name, row.channel]);
+      const old = clients.get(key) ?? {
+        ...row,
+        requests: 0,
+        searches: 0,
+        events: 0,
+      };
+      clients.set(key, {
+        ...row,
+        requests: old.requests + row.requests,
+        searches: old.searches + row.searches,
+        events: old.events + row.events,
+      });
+    }
+    for (const row of snapshot.surfaces)
+      surfaces.set(row.label, (surfaces.get(row.label) ?? 0) + row.requests);
+  }
+  return {
+    clients: [...clients.values()].sort((a, b) => b.requests - a.requests),
+    surfaces: [...surfaces]
+      .map(([label, requests]) => ({ label, requests }))
+      .sort((a, b) => b.requests - a.requests),
+    // Without key identities, nonzero monthly distinct counts cannot be combined.
+    recordedKeys: snapshots.every((row) => row.recordedKeys === 0) ? 0 : null,
+    keyAttributedRequests: snapshots.reduce(
+      (n, row) => n + row.keyAttributedRequests,
+      0
+    ),
+    unattributedKeyRequests: snapshots.reduce(
+      (n, row) => n + row.unattributedKeyRequests,
+      0
+    ),
+    qgisUserAgentRequests: snapshots.some(
+      (row) => row.qgisUserAgentRequests === null
+    )
+      ? null
+      : snapshots.reduce((n, row) => n + row.qgisUserAgentRequests!, 0),
+  };
+}

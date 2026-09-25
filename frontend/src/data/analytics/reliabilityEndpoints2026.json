@@ -1,0 +1,731 @@
+{
+  "method": "August uses preserved request aggregates. July subtracts August counts for each route in the saved full-period endpoint list. Routes absent from that saved list remain combined under Other / unlisted routes; that bucket reconciles to the complete monthly request and error totals. All time retains the saved route list with its unlisted remainder. Each view shows at most 50 named routes; remaining counts are retained in the combined bucket.",
+  "periods": {
+    "all": [
+      {
+        "label": "/api/docs",
+        "requests": 527702,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/turnstile/status",
+        "requests": 387310,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/analytics/events",
+        "requests": 56821,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/turnstile/verify",
+        "requests": 45646,
+        "errors": 11
+      },
+      {
+        "label": "/robots.txt",
+        "requests": 43179,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/search",
+        "requests": 7256,
+        "errors": 9
+      },
+      {
+        "label": "/sitemaps/sitemap-1.xml",
+        "requests": 1431,
+        "errors": 0
+      },
+      {
+        "label": "/sitemap.xml",
+        "requests": 1019,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-2.xml",
+        "requests": 781,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-3.xml",
+        "requests": 746,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/a876ade229a43f4efafd9ac60ffcb0a71a63660004de9d8236f4aa94c7f94c81",
+        "requests": 638,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/dbb42e6051c7059d0b24401ca7e87a261a5a2d0745d013584092b30aba07f528",
+        "requests": 570,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/eb0a8380d19dca81e170f2e1b235f9f81462b1043fac0092e18b246dd1e5fa57",
+        "requests": 569,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/b4c3c418865cc51e40061a17f29f2a6f76402dc3fc35b96a4f9a134ab2925945",
+        "requests": 532,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/855668e1b4a12207bbb3815d80ae4b50dad5055bc1b05116c5f8b268c15dfb3b",
+        "requests": 527,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/8119891cc444315561172a167e47549aae35925e3f8a1ea51a64271931dbb0a3",
+        "requests": 524,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/500811b5d47cda8ac8c3c0be38788d5e9d34cf6f27b6048b3eb676bd89a37428",
+        "requests": 479,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/3dacbfc1a24328e5f54cd96dde69c9d921cd6161b0961c5495946cc540295a68",
+        "requests": 446,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/admin/bridge/sync/runs/144",
+        "requests": 418,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/910d9639038f12ebcc94b8fb3998623936b60b9a2d4db3b9962d330554001adc",
+        "requests": 402,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/search/facets/b1g_code_s",
+        "requests": 378,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/4fb0bc942b373e6efae1649bb1f166ed504fb058744fbf9400b02fbb28c8dd64",
+        "requests": 359,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/fe40bf0911637227c282b050d42cdd7c33729493df0168f3be2e0363a6fec9e1",
+        "requests": 289,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/7380892c187dae554b27f801916f7af75d06267232525af6871bfbba02f2acbd",
+        "requests": 287,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/9af0aa10fa89e47d4cf768eae5c54b5111647060e6346ff3bc6e82fbf1ff0d9e",
+        "requests": 283,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/ed22fac75ca66d4cae940eb98035dc110a10e15c9ae9ece199e8a01464fc9fa3",
+        "requests": 283,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/415a3aa6ef67a994d8a062442bb31b525589ae79c319e0d38e9a20f6e5e21239",
+        "requests": 257,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/c6a8ac8ac084ce093fbe029f9453d88249c45e6fffff522e9f048595ac8d53ac",
+        "requests": 252,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/df4195a8f9321ef42dc8fc67f987fc65359022eecce99bd46929866b583696b5",
+        "requests": 224,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/home/blog-posts",
+        "requests": 218,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/de3b62b053c244a62ff45efdb15370f452574c9b4933c9f274574616a732461e",
+        "requests": 210,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/780f0dd033adb05c570a80c11ec8fa71dc676bc02c9229931663ab1dba867655",
+        "requests": 172,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/2703f7f244f7b4e7281a6ebb527313f5daa037bf86c6068ac094df5c182e8e89",
+        "requests": 169,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/e73fe7d4b6e89fceee3db9c071ad552f881924dd351e2b5a2a7766b333d22a1d",
+        "requests": 155,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/0c02e999e440686f62db4d398152030eec8fcdfa9c4a470f0513af4f61624ffe",
+        "requests": 145,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/da8dc1c5d18766cf1153d4c5c17c5dd899ca46f74e67af97f4916136572f426f",
+        "requests": 144,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/c53878a8bf3f1ca0f714ad36c1c41aa16316a309ec95da39763d26ca4b4c723d",
+        "requests": 143,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/b69c453d2b8d08d6551d407fc12a4eec86a7bae8f841a192874ec9138d55bd6e",
+        "requests": 139,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/",
+        "requests": 117,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/11c34a17-bc6d-429c-8770-64888ccb5302",
+        "requests": 113,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_urbanBaseLayers",
+        "requests": 113,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/c69b75a12ca64324a0109d48db735f6d_0",
+        "requests": 113,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/ee251fd05e504374831ab4ddf5e589f2_2",
+        "requests": 113,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/eee6150b-ce2f-4837-9d17-ce72a0c1c26f",
+        "requests": 113,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/p16022coll289:22",
+        "requests": 113,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/9f86fdbff5d444b323a95442531048b85d90cbafcf42ef6d66f22cc48a7d43c6",
+        "requests": 109,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/static-map-assets/650f1bf6379ff64e31b70fc945f76b693d87c688b87dd4763db1eb53fefef023",
+        "requests": 106,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/863a5df5b3f46518cbb3b2fcfe0a4f0ad73c603fdf2e08ee651155cd9d36613a",
+        "requests": 103,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/08a830b0b6f45a18141a3296999cf847c1e34698e1ccfd02e583d1fd00c83299",
+        "requests": 102,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/f65d8f14d13db46aab98a1b8716e535e57c714ded2d47eed3ff9a8236e660d1c",
+        "requests": 100,
+        "errors": 0
+      },
+      {
+        "label": "Other / unlisted routes",
+        "requests": 129644,
+        "errors": 9
+      }
+    ],
+    "2026-07": [
+      {
+        "label": "/api/docs",
+        "requests": 265179,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/turnstile/status",
+        "requests": 219624,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/analytics/events",
+        "requests": 25484,
+        "errors": 0
+      },
+      {
+        "label": "/robots.txt",
+        "requests": 18505,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/turnstile/verify",
+        "requests": 10375,
+        "errors": 7
+      },
+      {
+        "label": "/api/v1/search",
+        "requests": 5969,
+        "errors": 7
+      },
+      {
+        "label": "/sitemaps/sitemap-1.xml",
+        "requests": 1129,
+        "errors": 0
+      },
+      {
+        "label": "/sitemap.xml",
+        "requests": 502,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-2.xml",
+        "requests": 474,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-3.xml",
+        "requests": 451,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/dbb42e6051c7059d0b24401ca7e87a261a5a2d0745d013584092b30aba07f528",
+        "requests": 382,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/eb0a8380d19dca81e170f2e1b235f9f81462b1043fac0092e18b246dd1e5fa57",
+        "requests": 381,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/b4c3c418865cc51e40061a17f29f2a6f76402dc3fc35b96a4f9a134ab2925945",
+        "requests": 352,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/8119891cc444315561172a167e47549aae35925e3f8a1ea51a64271931dbb0a3",
+        "requests": 344,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/a876ade229a43f4efafd9ac60ffcb0a71a63660004de9d8236f4aa94c7f94c81",
+        "requests": 339,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/500811b5d47cda8ac8c3c0be38788d5e9d34cf6f27b6048b3eb676bd89a37428",
+        "requests": 323,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/3dacbfc1a24328e5f54cd96dde69c9d921cd6161b0961c5495946cc540295a68",
+        "requests": 295,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/910d9639038f12ebcc94b8fb3998623936b60b9a2d4db3b9962d330554001adc",
+        "requests": 269,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/search/facets/b1g_code_s",
+        "requests": 249,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/9af0aa10fa89e47d4cf768eae5c54b5111647060e6346ff3bc6e82fbf1ff0d9e",
+        "requests": 197,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/7380892c187dae554b27f801916f7af75d06267232525af6871bfbba02f2acbd",
+        "requests": 191,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/ed22fac75ca66d4cae940eb98035dc110a10e15c9ae9ece199e8a01464fc9fa3",
+        "requests": 190,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/fe40bf0911637227c282b050d42cdd7c33729493df0168f3be2e0363a6fec9e1",
+        "requests": 186,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/4fb0bc942b373e6efae1649bb1f166ed504fb058744fbf9400b02fbb28c8dd64",
+        "requests": 180,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/415a3aa6ef67a994d8a062442bb31b525589ae79c319e0d38e9a20f6e5e21239",
+        "requests": 172,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/c6a8ac8ac084ce093fbe029f9453d88249c45e6fffff522e9f048595ac8d53ac",
+        "requests": 165,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/df4195a8f9321ef42dc8fc67f987fc65359022eecce99bd46929866b583696b5",
+        "requests": 150,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/de3b62b053c244a62ff45efdb15370f452574c9b4933c9f274574616a732461e",
+        "requests": 132,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/855668e1b4a12207bbb3815d80ae4b50dad5055bc1b05116c5f8b268c15dfb3b",
+        "requests": 99,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/c53878a8bf3f1ca0f714ad36c1c41aa16316a309ec95da39763d26ca4b4c723d",
+        "requests": 96,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/e73fe7d4b6e89fceee3db9c071ad552f881924dd351e2b5a2a7766b333d22a1d",
+        "requests": 95,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/home/blog-posts",
+        "requests": 93,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/11c34a17-bc6d-429c-8770-64888ccb5302",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/c69b75a12ca64324a0109d48db735f6d_0",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/ee251fd05e504374831ab4ddf5e589f2_2",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/eee6150b-ce2f-4837-9d17-ce72a0c1c26f",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/p16022coll289:22",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/9f86fdbff5d444b323a95442531048b85d90cbafcf42ef6d66f22cc48a7d43c6",
+        "requests": 54,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/",
+        "requests": 46,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/static-map-assets/650f1bf6379ff64e31b70fc945f76b693d87c688b87dd4763db1eb53fefef023",
+        "requests": 33,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_urbanBaseLayers",
+        "requests": 13,
+        "errors": 0
+      },
+      {
+        "label": "Other / unlisted routes",
+        "requests": 59988,
+        "errors": 5
+      }
+    ],
+    "2026-08": [
+      {
+        "label": "/api/docs",
+        "requests": 262523,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/turnstile/status",
+        "requests": 167686,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/turnstile/verify",
+        "requests": 35271,
+        "errors": 4
+      },
+      {
+        "label": "/api/v1/analytics/events",
+        "requests": 31337,
+        "errors": 0
+      },
+      {
+        "label": "/robots.txt",
+        "requests": 24674,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/search",
+        "requests": 1287,
+        "errors": 2
+      },
+      {
+        "label": "/sitemap.xml",
+        "requests": 517,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/855668e1b4a12207bbb3815d80ae4b50dad5055bc1b05116c5f8b268c15dfb3b",
+        "requests": 428,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/admin/bridge/sync/runs/144",
+        "requests": 418,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-2.xml",
+        "requests": 307,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-1.xml",
+        "requests": 302,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/a876ade229a43f4efafd9ac60ffcb0a71a63660004de9d8236f4aa94c7f94c81",
+        "requests": 299,
+        "errors": 0
+      },
+      {
+        "label": "/sitemaps/sitemap-3.xml",
+        "requests": 295,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/dbb42e6051c7059d0b24401ca7e87a261a5a2d0745d013584092b30aba07f528",
+        "requests": 188,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/eb0a8380d19dca81e170f2e1b235f9f81462b1043fac0092e18b246dd1e5fa57",
+        "requests": 188,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/8119891cc444315561172a167e47549aae35925e3f8a1ea51a64271931dbb0a3",
+        "requests": 180,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/b4c3c418865cc51e40061a17f29f2a6f76402dc3fc35b96a4f9a134ab2925945",
+        "requests": 180,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/4fb0bc942b373e6efae1649bb1f166ed504fb058744fbf9400b02fbb28c8dd64",
+        "requests": 179,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/780f0dd033adb05c570a80c11ec8fa71dc676bc02c9229931663ab1dba867655",
+        "requests": 172,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/2703f7f244f7b4e7281a6ebb527313f5daa037bf86c6068ac094df5c182e8e89",
+        "requests": 169,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/500811b5d47cda8ac8c3c0be38788d5e9d34cf6f27b6048b3eb676bd89a37428",
+        "requests": 156,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/3dacbfc1a24328e5f54cd96dde69c9d921cd6161b0961c5495946cc540295a68",
+        "requests": 151,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/0c02e999e440686f62db4d398152030eec8fcdfa9c4a470f0513af4f61624ffe",
+        "requests": 145,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/da8dc1c5d18766cf1153d4c5c17c5dd899ca46f74e67af97f4916136572f426f",
+        "requests": 144,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/b69c453d2b8d08d6551d407fc12a4eec86a7bae8f841a192874ec9138d55bd6e",
+        "requests": 139,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/910d9639038f12ebcc94b8fb3998623936b60b9a2d4db3b9962d330554001adc",
+        "requests": 133,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/search/facets/b1g_code_s",
+        "requests": 129,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/home/blog-posts",
+        "requests": 125,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/863a5df5b3f46518cbb3b2fcfe0a4f0ad73c603fdf2e08ee651155cd9d36613a",
+        "requests": 103,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/fe40bf0911637227c282b050d42cdd7c33729493df0168f3be2e0363a6fec9e1",
+        "requests": 103,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/08a830b0b6f45a18141a3296999cf847c1e34698e1ccfd02e583d1fd00c83299",
+        "requests": 102,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/f65d8f14d13db46aab98a1b8716e535e57c714ded2d47eed3ff9a8236e660d1c",
+        "requests": 100,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_urbanBaseLayers",
+        "requests": 100,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/8793a02d30e637601aca79cf657974fe54d083af3da5fe457d62e1c72a38183c",
+        "requests": 97,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/7380892c187dae554b27f801916f7af75d06267232525af6871bfbba02f2acbd",
+        "requests": 96,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/70feb4586a72aa44df85b4e15f7544da0d2f05f3f66009c04b41350b572a5639",
+        "requests": 95,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/ed22fac75ca66d4cae940eb98035dc110a10e15c9ae9ece199e8a01464fc9fa3",
+        "requests": 93,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/harvest_08d-02",
+        "requests": 90,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/4fb2e39c7319d53d2e3b541eb6d2e08138a37de36f4daf89c3ee6578ecc41c9f",
+        "requests": 89,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/c6a8ac8ac084ce093fbe029f9453d88249c45e6fffff522e9f048595ac8d53ac",
+        "requests": 87,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_MsIq4RphbNiG",
+        "requests": 87,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/9af0aa10fa89e47d4cf768eae5c54b5111647060e6346ff3bc6e82fbf1ff0d9e",
+        "requests": 86,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_pAx6uHzqkugj",
+        "requests": 86,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_2vYWYcChBgXP",
+        "requests": 86,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_zJOt2xfOKoUm",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/2b380fd505df2e947fb2c60874ef8abfa397edee70c58fdcfc17013030230bef",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/thumbnails/415a3aa6ef67a994d8a062442bb31b525589ae79c319e0d38e9a20f6e5e21239",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_xz5mLF0I81W4",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_mhQLvxQj1jkn",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "/api/v1/resources/b1g_NNJ2xJwio5tN",
+        "requests": 85,
+        "errors": 0
+      },
+      {
+        "label": "Other / unlisted routes",
+        "requests": 69199,
+        "errors": 4
+      }
+    ]
+  }
+}

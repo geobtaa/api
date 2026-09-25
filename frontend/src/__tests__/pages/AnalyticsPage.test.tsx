@@ -19,7 +19,7 @@ vi.mock('recharts', () => ({
   AreaChart: ({ data }: { data?: Array<Record<string, unknown>> }) => (
     <div
       data-testid={
-        data?.[0] && 'views' in data[0]
+        data?.[0] && !('events' in data[0])
           ? 'member-activity-chart'
           : 'activity-chart'
       }
@@ -28,6 +28,7 @@ vi.mock('recharts', () => ({
   LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   Bar: () => null,
+  Legend: () => null,
   CartesianGrid: () => null,
   Line: () => null,
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
@@ -51,6 +52,67 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       </HelmetProvider>
     );
   }
+
+  it.each(['2026-07', '2026-08', 'all'])(
+    'preserves search controls and contexts for %s',
+    (month) => {
+      const { container } = renderPage(`discovery&month=${month}`);
+      expect(container.querySelector('.analytics-donut')).not.toBeNull();
+      expect(
+        screen.getByRole('heading', { name: 'Most-used facet categories' })
+      ).toBeInTheDocument();
+      const metric = screen.getByRole('combobox', {
+        name: 'Search chart metric',
+      });
+      fireEvent.change(metric, { target: { value: 'zeroResults' } });
+      expect(metric).toHaveValue('zeroResults');
+      const daily = screen.getByRole('table', {
+        name: /daily searches/,
+        hidden: true,
+      });
+      expect(within(daily).getAllByRole('row', { hidden: true })).toHaveLength(
+        month === 'all' ? 63 : 32
+      );
+      expect(container.querySelector('.analytics-zero-results')).not.toBeNull();
+      expect(
+        screen.getByRole('combobox', { name: 'Query category' })
+      ).toBeInTheDocument();
+    }
+  );
+
+  it.each(['members', 'overview', 'discovery', 'clients', 'platform'])(
+    'keeps %s sections consistent across reporting periods',
+    (report) => {
+      const { container } = renderPage(`${report}&month=2026-07`);
+      const structure = () =>
+        Array.from(
+          container.querySelectorAll(
+            'h1, h2, .analytics-panel-header > div > span, .analytics-panel-header > span'
+          )
+        ).map((node) => node.textContent);
+      const initial = structure();
+      const selector = screen.getByRole('combobox', {
+        name: 'Reporting month',
+      });
+      for (const month of ['2026-08', 'all', '2026-07']) {
+        fireEvent.change(selector, { target: { value: month } });
+        expect(selector).toHaveValue(month);
+        expect(structure()).toEqual(initial);
+        if (report === 'members') {
+          expect(
+            screen.getByRole('button', { name: 'All BTAA' })
+          ).toBeInTheDocument();
+        } else if (report === 'overview') {
+          expect(
+            screen.getByRole('combobox', { name: 'Overview chart metric' })
+          ).toBeInTheDocument();
+          expect(
+            container.querySelector('.analytics-overview-details table')
+          ).not.toBeNull();
+        }
+      }
+    }
+  );
 
   it.each([
     'comparison',
@@ -78,22 +140,22 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     const month = screen.getByRole('combobox', { name: 'Reporting month' });
     expect(month).toHaveValue('2026-08');
     fireEvent.change(month, { target: { value: 'all' } });
-    expect(screen.getByText('14,002')).toBeInTheDocument();
+    expect(screen.getByText('14K')).toBeInTheDocument();
     expect(
-      screen.getByText('All time · Academic year to date')
+      screen.getByRole('heading', { name: 'Analytics dashboard' })
     ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
     expect(window.location.search).toBe('?report=discovery&month=all');
     const table = screen.getByRole('table', {
-      name: 'Top 50 searches · All time',
+      name: 'All time top 50 searches',
     });
     expect(within(table).getAllByRole('row')).toHaveLength(51);
     expect(
       within(table).getByRole('link', { name: 'sanborn' }).closest('tr')
     ).toHaveTextContent('49');
     fireEvent.change(
-      screen.getByRole('combobox', { name: 'Reporting period' }),
+      screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
     );
     expect(
@@ -113,17 +175,58 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     (report) => {
       renderPage(`${report}&month=all`);
       expect(
-        screen.getByRole('combobox', { name: 'Reporting period' })
+        screen.getByRole('combobox', {
+          name: [
+            'overview',
+            'members',
+            'discovery',
+            'clients',
+            'platform',
+          ].includes(report)
+            ? 'Reporting month'
+            : 'Reporting period',
+        })
       ).toHaveValue('all');
-      expect(screen.getByText(/September joins once/)).toHaveTextContent(
-        'July 1–August 31, 2026'
-      );
+      if (
+        ['overview', 'members', 'discovery', 'clients', 'platform'].includes(
+          report
+        )
+      ) {
+        expect(
+          screen.getAllByText(/July 1, 2026 – August 31, 2026/).length
+        ).toBeGreaterThan(0);
+      } else {
+        expect(screen.getByText(/September joins once/)).toHaveTextContent(
+          'July 1–August 31, 2026'
+        );
+      }
       expect(
         screen.getAllByRole('table', { hidden: true }).length
       ).toBeGreaterThan(0);
       expect(
-        screen.getByRole('link', { name: 'Download all-time snapshot (JSON)' })
-      ).toHaveAttribute('download', 'analytics-all-published-months.json');
+        screen.queryByRole('link', {
+          name: 'Download all-time snapshot (JSON)',
+        })
+      ).not.toBeInTheDocument();
+    }
+  );
+
+  it.each(['2026-07', '2026-08', 'all'])(
+    'combines Overview charts for %s',
+    (month) => {
+      renderPage(`overview&month=${month}`);
+      expect(
+        screen.queryByLabelText('Audience chart metric')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('heading', { name: 'Tracked visits' })
+      ).toBeInTheDocument();
+      const select = screen.getByLabelText('Overview chart metric');
+      fireEvent.change(select, { target: { value: 'visits' } });
+      expect(select).toHaveValue('visits');
+      expect(
+        screen.getByRole('heading', { name: 'Daily audience values' })
+      ).toBeInTheDocument();
     }
   );
 
@@ -131,7 +234,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     renderPage('overview');
     expect(
       screen.getByRole('heading', {
-        name: 'Monthly analytics dashboard',
+        name: 'Analytics dashboard',
         level: 1,
       })
     ).toBeInTheDocument();
@@ -143,7 +246,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(screen.queryByTestId('header')).not.toBeInTheDocument();
     expect(screen.queryByRole('search')).not.toBeInTheDocument();
     expect(
-      screen.getByRole('region', { name: 'Audience and discovery coverage' })
+      screen.getByRole('heading', { name: 'Tracked visits' })
     ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute(
@@ -172,6 +275,47 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       screen.queryByRole('table', { name: /portal totals/i })
     ).not.toBeInTheDocument();
   });
+
+  it.each(['2026-07', '2026-08', 'all'])(
+    'keeps Popular content sections and filtering consistent for %s',
+    (month) => {
+      const { container } = renderPage(`content&month=${month}`);
+      const headers = [
+        ...container.querySelectorAll('.analytics-panel-header'),
+      ].map((node) => node.textContent ?? '');
+      const resources = headers.findIndex((text) =>
+        text.includes('Top resources')
+      );
+      const collections = headers.findIndex((text) =>
+        text.includes('Collection chart')
+      );
+      const downloads = headers.findIndex((text) =>
+        text.includes('Top download clicks')
+      );
+      expect(resources).toBeGreaterThanOrEqual(0);
+      expect(collections).toBeGreaterThan(resources);
+      expect(downloads).toBeGreaterThan(collections);
+      expect(
+        container.querySelector('.analytics-ranking-row')
+      ).toBeInTheDocument();
+      fireEvent.change(
+        screen.getByRole('searchbox', { name: 'Filter Top resources' }),
+        {
+          target: { value: 'no matching resource fixture' },
+        }
+      );
+      expect(
+        container.querySelector('.analytics-ranking-row')
+      ).not.toBeInTheDocument();
+      if (month === 'all') {
+        expect(
+          screen.queryByText(/Collection rankings are unavailable/)
+        ).not.toBeInTheDocument();
+        expect(screen.queryByText('Daily trend')).not.toBeInTheDocument();
+        expect(screen.getByText('559')).toBeInTheDocument();
+      }
+    }
+  );
 
   it('opens popular content directly without unrelated reports', () => {
     renderPage('content&month=2026-07');
@@ -260,9 +404,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(screen.getByText(/5,744 of 7,545/)).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'API reliability' }));
     expect(screen.getByText('127 ms')).toBeInTheDocument();
-    expect(
-      screen.getByText('Aug 1 API traffic separation')
-    ).toBeInTheDocument();
+    expect(screen.getByText('Peak-day API traffic')).toBeInTheDocument();
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
@@ -304,7 +446,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
   it('keeps old daily activity links working with the selected month', () => {
     renderPage('activity&month=2026-07');
     expect(
-      screen.getByRole('heading', { name: 'Monthly analytics dashboard' })
+      screen.getByRole('heading', { name: 'Analytics dashboard' })
     ).toBeInTheDocument();
     expect(screen.getByTestId('activity-chart')).toBeInTheDocument();
     expect(
@@ -312,7 +454,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).toHaveValue('2026-07');
     expect(
       screen.getByRole('img', {
-        name: /Daily interactions and searches from July 1/,
+        name: /Daily interactions from July 1/,
       })
     ).toBeInTheDocument();
   });
@@ -432,32 +574,21 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(within(chart).getByText('1,521')).toBeInTheDocument();
   });
 
-  it('downloads the selected month report snapshot with provenance and member data', () => {
-    renderPage('members');
-    const readSnapshot = () => {
-      const link = screen.getByRole('link', {
-        name: 'Download snapshot (JSON)',
-      });
-      const href = link.getAttribute('href')!;
-      return {
-        link,
-        data: JSON.parse(decodeURIComponent(href.slice(href.indexOf(',') + 1))),
-      };
-    };
-    const august = readSnapshot();
-    expect(august.link).toHaveAttribute('download', 'analytics-2026-08.json');
-    expect(august.data.summary.requests).toBe(598931);
-    expect(august.data.members.performance).toHaveLength(17);
-    expect(august.data.dailyActivity).toHaveLength(31);
-    expect(august.data.notes.join(' ')).toContain('not the Provider facet');
-    fireEvent.change(
-      screen.getByRole('combobox', { name: 'Reporting month' }),
-      { target: { value: '2026-07' } }
-    );
-    const july = readSnapshot();
-    expect(july.link).toHaveAttribute('download', 'analytics-2026-07.json');
-    expect(july.data.month).toBe('2026-07');
-    expect(july.data.summary.requests).toBe(613131);
+  it.each([
+    'overview',
+    'comparison',
+    'content',
+    'discovery',
+    'members',
+    'clients',
+    'platform',
+  ])('does not expose data downloads on %s', (report) => {
+    const { container } = renderPage(report);
+    expect(
+      container.querySelector(
+        'a[download], a[href^="data:application/json"], a[href^="data:text/csv"]'
+      )
+    ).toBeNull();
   });
 
   it('switches between verified Provider and historical code groups', () => {
@@ -491,7 +622,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
   it('falls back to overview for an unknown report', () => {
     renderPage('unknown');
     expect(
-      screen.getByRole('heading', { name: 'Monthly analytics dashboard' })
+      screen.getByRole('heading', { name: 'Analytics dashboard' })
     ).toBeInTheDocument();
   });
 

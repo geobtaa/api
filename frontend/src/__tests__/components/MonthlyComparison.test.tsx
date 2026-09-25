@@ -11,8 +11,9 @@ import { memberPerformance } from '../../data/analytics/july2026';
 import { comparisonChange } from '../../utils/analyticsComparison';
 
 vi.mock('recharts', () => ({
-  Line: () => null,
-  LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  Bar: () => null,
+  Legend: () => null,
+  BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
@@ -23,7 +24,7 @@ vi.mock('recharts', () => ({
 }));
 
 describe('MonthlyComparison', () => {
-  it('reports verified totals, changes, and CSV data', () => {
+  it('reports verified totals and changes without export links', () => {
     render(<MonthlyComparison />);
     const table = screen.getByRole('table', { name: /portal totals/i });
     const views = within(table).getByRole('row', { name: /Resource views/ });
@@ -34,18 +35,13 @@ describe('MonthlyComparison', () => {
     expect(
       within(table).getByRole('row', { name: /Download clicks/ })
     ).toHaveTextContent('-13.0%');
-    const link = screen.getByRole('link', { name: /Download comparison CSV/ });
-    const csv = decodeURIComponent(
-      link.getAttribute('href')!.split(',').slice(1).join(',')
-    );
-    expect(csv).toContain('"Resource views","12200","17440","5240","+43.0%"');
-    expect(csv).toContain(
-      '"University of Oregon: Download clicks","0","0","0","0.0%"'
-    );
-    expect(csv.split('\r\n')).toHaveLength(1 + 12 + 17 * 4);
+    expect(
+      screen.queryByRole('link', { name: /Download comparison/ })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText('Member comparison')).not.toBeInTheDocument();
   });
 
-  it('switches daily and member metrics independently', () => {
+  it('switches daily metrics', () => {
     render(<MonthlyComparison />);
     fireEvent.change(screen.getByRole('combobox', { name: 'Daily metric' }), {
       target: { value: 'requests' },
@@ -60,16 +56,6 @@ describe('MonthlyComparison', () => {
     expect(dayOne).toHaveTextContent(
       new Intl.NumberFormat('en-US').format(augustDailyActivity[0].requests)
     );
-    fireEvent.change(screen.getByRole('combobox', { name: 'Member metric' }), {
-      target: { value: 'downloadClicks' },
-    });
-    const members = screen.getByRole('table', {
-      name: /Member download clicks/,
-    });
-    expect(within(members).getAllByRole('row')).toHaveLength(18);
-    expect(
-      within(members).getByRole('row', { name: /University of Oregon/ })
-    ).toHaveTextContent('0.0%');
     expect(screen.getByRole('combobox', { name: 'Daily metric' })).toHaveValue(
       'requests'
     );

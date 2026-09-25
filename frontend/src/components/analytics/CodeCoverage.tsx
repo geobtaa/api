@@ -1,20 +1,30 @@
 import { AnalyticsTable } from './AnalyticsTable';
-import { providerSnapshots } from '../../data/analytics/providers2026';
+import {
+  providerSnapshots,
+  type ProviderSnapshot,
+} from '../../data/analytics/providers2026';
 const number = new Intl.NumberFormat('en-US');
-export function CodeCoverage({ month }: { month: string }) {
-  const snapshot = providerSnapshots[month];
+export function CodeCoverage({
+  month,
+  snapshot = providerSnapshots[month],
+}: {
+  month: string;
+  snapshot?: ProviderSnapshot;
+}) {
   if (!snapshot) return null;
   return (
     <section
       className="analytics-panel analytics-comparison-panel"
       aria-label="Contribution code coverage"
+      data-nav-label="Contribution code coverage"
     >
       <h3>All contribution codes: coverage check</h3>
       <p className="analytics-comparison-note">
         Recalculated against the published, unsuppressed catalog on{' '}
         {snapshot.catalogSnapshotDate}. These totals include other and missing
-        codes. The university charts above retain their original export dates,
-        so July figures can differ as catalog metadata changes.
+        codes. Monthly university charts retain their original export dates; All
+        time uses preserved period attribution. Catalog changes and code mapping
+        versions can produce differences between historical exports.
       </p>
       <div
         className="analytics-comparison-scroll"
@@ -24,7 +34,8 @@ export function CodeCoverage({ month }: { month: string }) {
       >
         <AnalyticsTable className="analytics-comparison-table">
           <caption className="sr-only">
-            {month} contribution-code coverage using the September 10 catalog
+            {month} contribution-code coverage using the{' '}
+            {snapshot.catalogSnapshotDate} catalog
           </caption>
           <thead>
             <tr>

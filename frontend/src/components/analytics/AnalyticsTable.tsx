@@ -15,6 +15,7 @@ type NodeProps = {
   'data-sort-value'?: string | number;
   'data-filter-value'?: string;
   'aria-hidden'?: boolean;
+  'data-align'?: 'left' | 'right';
 };
 type Node = ReactElement<NodeProps>;
 const elements = (children: ReactNode) =>
@@ -90,6 +91,26 @@ export function AnalyticsTable({
   const columnCount = elements(
     elements(head?.props.children)[0]?.props.children
   ).length;
+  const numericColumns = Array.from({ length: columnCount }, (_, column) => {
+    const heading = elements(elements(head?.props.children)[0]?.props.children)[
+      column
+    ];
+    if (heading?.props['data-align'])
+      return heading.props['data-align'] === 'right';
+    const values = rows
+      .map((row) => {
+        const cell = elements(row.props.children)[column];
+        return cell ? valueOf(cell) : null;
+      })
+      .filter((value) => value !== null);
+    return (
+      values.length > 0 && values.every((value) => typeof value === 'number')
+    );
+  });
+  const alignment = (column: number) => ({
+    textAlign: numericColumns[column] ? ('right' as const) : ('left' as const),
+    ...(numericColumns[column] ? { minWidth: 0 } : {}),
+  });
   return (
     <div className="analytics-data-table">
       <div className="analytics-table-tools">
@@ -141,7 +162,7 @@ export function AnalyticsTable({
                       cell as ReactElement<
                         TableHTMLAttributes<HTMLTableCellElement>
                       >,
-                      { 'aria-sort': direction },
+                      { 'aria-sort': direction, style: alignment(column) },
                       <button
                         type="button"
                         className="analytics-table-sort"
@@ -168,7 +189,22 @@ export function AnalyticsTable({
               section,
               {},
               visible.length ? (
-                visible.map(({ row }) => row)
+                visible.map(({ row }) =>
+                  cloneElement(
+                    row,
+                    {},
+                    elements(row.props.children).map((cell, column) =>
+                      cloneElement(
+                        cell as ReactElement<
+                          TableHTMLAttributes<HTMLTableCellElement>
+                        >,
+                        {
+                          style: alignment(column),
+                        }
+                      )
+                    )
+                  )
+                )
               ) : (
                 <tr>
                   <td colSpan={columnCount}>

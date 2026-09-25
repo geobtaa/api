@@ -6,17 +6,17 @@ with a single link back to the Geoportal. Only the selected report is rendered.
 
 Report links preserve selection in the URL and support reloads and browser history:
 
-| URL | Report | Period |
-| --- | --- | --- |
-| `/analytics` | Overview, daily activity, and traffic peaks | August 2026 |
-| `/analytics?report=comparison` | Portal/member comparisons, daily trends, CSV | July–August 2026 |
-| `/analytics?report=content` | Popular resources, collections, downloads (default) | August 2026 |
-| `/analytics?report=content&month=2026-07` | Preserved popular-content report | July 2026 |
-| `/analytics?report=members` | Alliance and campus detail | August 2026 |
-| `/analytics?report=activity` | Legacy alias for Overview | August 2026 |
-| `/analytics?report=discovery` | Search terms, filters, zero results | August 2026 |
-| `/analytics?report=clients` | Clients, channels, key attribution, MCP/QGIS signals | August 2026 |
-| `/analytics?report=platform` | API traffic and reliability | August 2026 |
+| URL                                       | Report                                               | Period           |
+| ----------------------------------------- | ---------------------------------------------------- | ---------------- |
+| `/analytics`                              | Overview, daily activity, and traffic peaks          | August 2026      |
+| `/analytics?report=comparison`            | Portal/member comparisons, daily trends, CSV         | July–August 2026 |
+| `/analytics?report=content`               | Popular resources, collections, downloads (default)  | August 2026      |
+| `/analytics?report=content&month=2026-07` | Preserved popular-content report                     | July 2026        |
+| `/analytics?report=members`               | Alliance and campus detail                           | August 2026      |
+| `/analytics?report=activity`              | Legacy alias for Overview                            | August 2026      |
+| `/analytics?report=discovery`             | Search terms, filters, zero results                  | August 2026      |
+| `/analytics?report=clients`               | Clients, channels, key attribution, MCP/QGIS signals | August 2026      |
+| `/analytics?report=platform`              | API traffic and reliability                          | August 2026      |
 
 Unknown report values show the overview. Navigation marks the current report and
 wraps on small screens; a skip link leads to the report. All single-month reports default to August and have a month selector. Add
@@ -292,7 +292,6 @@ same eligible catalog. Provider attribution is at the new export date, not a
 reconstruction of July/August month-end metadata. Existing code reports and
 month-comparison figures retain their original snapshots and dates.
 
-
 ### Table sorting and filtering
 
 All analytics tables use `AnalyticsTable`. Column headings toggle ascending and
@@ -307,7 +306,6 @@ The shared component preserves captions, row headers, links, and cell formatting
 Keyboard-operable header buttons expose `aria-sort`, and result counts announce
 filter changes. A cell may provide `data-sort-value` when its display requires an
 explicit underlying sort value. New analytics tables should use this component.
-
 
 ### Leading Searches report
 
@@ -326,7 +324,6 @@ for 559 searches. August has 3,021 (1,718 distinct); its top 50 account for 652.
 The table supports the shared sorting/filter controls. Its full ranking and
 coverage are included in the monthly JSON download.
 
-
 The top-search table expands to show all rows without an internal vertical
 scrollbar. Its category column and category selector use reviewed, best-effort
 assignments in `queryCategories.ts`. Categories reflect query wording, not
@@ -337,7 +334,6 @@ Case/spacing variants share a category but their source rows/counts are preserve
 Each query belongs to one primary group. Category menu totals cover only the top
 50; filtering retains original ranks. Category values and methodology are included
 in the monthly JSON download. Unreviewed queries default to Mixed or unclear.
-
 
 ### Academic-year All time view
 
@@ -435,3 +431,71 @@ source and define its identity/session rules, consent behavior and reporting
 coverage first. Historical tab tokens cannot reconstruct unique people. The
 current dashboard implements the available audience measures and explicitly
 states the gaps; it does not claim GA4 parity or completed-download measurement.
+
+### Rebuilding cumulative collection rankings
+
+Generate collection-filter counts from preserved monthly reporting archives with
+`PYTHONPATH=backend python backend/scripts/export_collection_searches.py /path/to/month1.json.gz /path/to/month2.json.gz --output /path/to/collection-counts.json`.
+Supply one archive revision per month. The output records source checksums and
+preserves the complete collection ranking; the dashboard selects the top ten
+after aggregation. Collection IDs unify legacy `dct_isPartOf_sm` and
+`pcdm_memberOf_sm` controls. Local collection labels remain separate. Include,
+exclude, and legacy controls count once per search per collection; overlapping
+collections do not represent distinct searches overall. This rebuild uses the
+collection controls retained in the archives, rather than summing monthly top
+lists. It does not export free-text queries or visitor identifiers.
+
+### Shared Members and Overview layouts
+
+Members and Overview render the same components for monthly and All time periods,
+including their selectors, charts, tables, and local navigation. Date ranges and
+daily-series lengths come from the selected period. All time visit counts use the
+saved full-period distinct count, never the sum of monthly counts.
+
+The Members adapter reads a restricted aggregate projection of a preserved report.
+To refresh that projection locally:
+
+```sh
+python backend/scripts/export_member_report.py /path/to/report-all.json --output frontend/src/data/analytics/memberAllTime2026.json
+```
+
+The projection includes member/provider counts, daily views and downloads, and
+the leading three resources for each metric after full-period aggregation. It
+excludes searches, tokens, request parameters, and other unrelated report fields,
+and records a source checksum. Full rankings remain in the preserved input.
+Do not add monthly inventory or active-record counts to create cumulative counts.
+
+The preserved code mapping excludes four-digit federal codes from Wisconsin's
+university code 10; the older monthly snapshots used a broader prefix match.
+The All time report discloses this distinction and incomplete July impression
+evidence. Original monthly snapshots remain unchanged.
+
+Searches also uses a single layout for monthly and All time views: top 50 queries,
+daily search counts, search-view mix, resource-class demand, facet usage, and
+zero-result details. Cumulative query rankings and distinct-query totals use the
+preserved full-period export; they are not reconstructed from monthly top lists.
+Facet and resource-class counts sum disjoint monthly periods, and cumulative
+view percentages are recalculated from counts. Daily values retain UTC dates.
+
+Clients & API keys shares its monthly layout with All time. Matching declared
+client/channel pairs and endpoint categories combine across disjoint months;
+request shares are recalculated using cumulative requests. Missing user-agent
+evidence remains unavailable across the combined period. Distinct key counts
+are never summed: without key identities, only an all-zero history can report
+zero recorded keys; otherwise the combined count is unavailable.
+
+API reliability uses the same summary, request mix, peak-day breakdown, daily
+chart, and endpoint table for every period. Cumulative request/error totals and
+request-mix percentages are recalculated from counts. Median and p95 remain
+unavailable for All time because monthly percentiles are not mergeable.
+
+`reliabilityEndpoints2026.json` preserves August route aggregates and derives
+July counts for routes present in the saved full-period list by subtracting
+August. The saved list is incomplete: unmatched requests and errors remain in
+an explicit Other / unlisted routes bucket. Each period reconciles against
+complete daily rollups; the table does not claim a complete route-level history.
+
+Every report header uses `ReportingPeriodPicker` at the top right, including
+All time views. Month comparison displays its fixed July–August comparison
+period in the same position; it does not offer a single-month selection that
+would leave comparison data unchanged.

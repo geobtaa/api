@@ -1,11 +1,13 @@
+import { ReportSectionHeading } from './ReportSectionHeading';
 import { AnalyticsTable } from './AnalyticsTable';
-import { Activity, BarChart3, Users, Download } from 'lucide-react';
+import { Activity, BarChart3 } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
 import { useState } from 'react';
 import {
   CartesianGrid,
-  Line,
-  LineChart,
+  Bar,
+  BarChart,
+  Legend,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,12 +16,10 @@ import {
 import {
   JULY_2026_SUMMARY,
   dailyActivity as julyDailyActivity,
-  memberPerformance,
 } from '../../data/analytics/july2026';
 import {
   AUGUST_2026_SUMMARY,
   augustDailyActivity,
-  augustMemberPerformance,
 } from '../../data/analytics/august2026';
 import { comparisonChange } from '../../utils/analyticsComparison';
 
@@ -43,51 +43,9 @@ const dailyMetrics = {
   searches: 'Searches',
   requests: 'API requests',
 };
-const memberMetrics = {
-  resourceViews: 'Resource views',
-  downloadClicks: 'Download clicks',
-  impressions: 'Search impressions',
-  sourceClicks: 'Source-site clicks',
-};
-
-const csvRows = [
-  ['Metric', 'July 2026', 'August 2026', 'Change', 'Percent change'],
-  ...summaryMetrics.map(([key, label]) => [
-    label,
-    JULY_2026_SUMMARY[key],
-    AUGUST_2026_SUMMARY[key],
-    AUGUST_2026_SUMMARY[key] - JULY_2026_SUMMARY[key],
-    comparisonChange(JULY_2026_SUMMARY[key], AUGUST_2026_SUMMARY[key]),
-  ]),
-  ...memberPerformance.flatMap((member) => {
-    const august = augustMemberPerformance.find(
-      (row) => row.code === member.code
-    )!;
-    return Object.entries(memberMetrics).map(([key, label]) => {
-      const metric = key as keyof typeof memberMetrics;
-      return [
-        `${member.name}: ${label}`,
-        member[metric],
-        august[metric],
-        august[metric] - member[metric],
-        comparisonChange(member[metric], august[metric]),
-      ];
-    });
-  }),
-];
-const csvHref = `data:text/csv;charset=utf-8,${encodeURIComponent(
-  csvRows
-    .map((row) =>
-      row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')
-    )
-    .join('\r\n')
-)}`;
-
 export function MonthlyComparison() {
   const [dailyMetric, setDailyMetric] =
     useState<keyof typeof dailyMetrics>('events');
-  const [memberMetric, setMemberMetric] =
-    useState<keyof typeof memberMetrics>('resourceViews');
   const dailyData = augustDailyActivity.map((point, index) => ({
     day: index + 1,
     July: julyDailyActivity[index][dailyMetric],
@@ -100,22 +58,16 @@ export function MonthlyComparison() {
       className="analytics-section"
       aria-labelledby="comparison-title"
     >
-      <div className="analytics-section-heading">
-        <p>Month-to-month reporting</p>
-        <div>
-          <h2 id="comparison-title">August compared with July</h2>
-          <span>
-            Two complete 31-day periods in 2026. Changes use July as the
-            baseline.
-          </span>
-        </div>
-      </div>
+      <ReportSectionHeading
+        id="comparison-title"
+        title="August compared with July"
+        description="Two complete 31-day periods in 2026. Changes use July as the baseline."
+      />
       <div className="analytics-panel analytics-comparison-panel">
-        <ReportPanelHeader title="Portal totals" icon={BarChart3}>
-          <a href={csvHref} download="analytics-july-august-2026.csv">
-            <Download aria-hidden="true" /> Download comparison CSV
-          </a>
-        </ReportPanelHeader>
+        <ReportPanelHeader
+          title="Portal totals"
+          icon={BarChart3}
+        ></ReportPanelHeader>
         <div
           className="analytics-comparison-scroll"
           tabIndex={0}
@@ -182,36 +134,41 @@ export function MonthlyComparison() {
           </label>
         </ReportPanelHeader>
         <p className="analytics-comparison-note">
-          Aligned by day of month. July is the dashed purple line; August is the
-          solid teal line.
+          Compare July and August side by side for each day of the month. Bar
+          heights use the same scale; dates are not aligned by weekday.
         </p>
         <div
           className="analytics-comparison-chart"
           role="img"
-          aria-label={`${dailyMetrics[dailyMetric]} for July and August, aligned by day of month. Exact values are available in the daily values table below.`}
+          aria-label={`${dailyMetrics[dailyMetric]} for July and August as paired bars for each day of month. Exact values are available in the daily values table below.`}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={dailyData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="day" />
-              <YAxis width={65} />
-              <Tooltip />
-              <Line
-                type="linear"
+            <BarChart data={dailyData} barGap={2} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="day" tickLine={false} />
+              <YAxis
+                width={65}
+                tickFormatter={(value) => number.format(value)}
+              />
+              <Tooltip
+                labelFormatter={(value) => `Day ${value}`}
+                formatter={(value) => number.format(Number(value))}
+                cursor={{ fill: '#f1f5f9' }}
+              />
+              <Legend />
+              <Bar
                 dataKey="July"
-                stroke="#6d28d9"
-                strokeDasharray="5 4"
-                strokeWidth={2}
-                dot={false}
+                name="July 2026"
+                fill="#6d28d9"
+                isAnimationActive={false}
               />
-              <Line
-                type="linear"
+              <Bar
                 dataKey="August"
-                stroke="#0f766e"
-                strokeWidth={2}
-                dot={false}
+                name="August 2026"
+                fill="#0f766e"
+                isAnimationActive={false}
               />
-            </LineChart>
+            </BarChart>
           </ResponsiveContainer>
         </div>
         <details>
@@ -232,6 +189,8 @@ export function MonthlyComparison() {
                   <th scope="col">Day of month</th>
                   <th scope="col">July</th>
                   <th scope="col">August</th>
+                  <th scope="col">Change</th>
+                  <th scope="col">Change %</th>
                 </tr>
               </thead>
               <tbody>
@@ -240,80 +199,17 @@ export function MonthlyComparison() {
                     <th scope="row">{row.day}</th>
                     <td>{number.format(row.July)}</td>
                     <td>{number.format(row.August)}</td>
+                    <td>
+                      {row.August > row.July ? '+' : ''}
+                      {number.format(row.August - row.July)}
+                    </td>
+                    <td>{comparisonChange(row.July, row.August)}</td>
                   </tr>
                 ))}
               </tbody>
             </AnalyticsTable>
           </div>
         </details>
-      </div>
-      <div className="analytics-panel analytics-comparison-panel">
-        <ReportPanelHeader title="Member comparison" icon={Users}>
-          <label>
-            Member metric{' '}
-            <select
-              value={memberMetric}
-              onChange={(event) =>
-                setMemberMetric(
-                  event.target.value as keyof typeof memberMetrics
-                )
-              }
-            >
-              {Object.entries(memberMetrics).map(([key, label]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-        </ReportPanelHeader>
-        <div
-          className="analytics-comparison-scroll"
-          tabIndex={0}
-          role="region"
-          aria-label="Member comparison table"
-        >
-          <AnalyticsTable className="analytics-comparison-table">
-            <caption className="sr-only">
-              Member {memberMetrics[memberMetric].toLowerCase()} in July and
-              August 2026
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Member</th>
-                <th scope="col">July 2026</th>
-                <th scope="col">August 2026</th>
-                <th scope="col">Change %</th>
-              </tr>
-            </thead>
-            <tbody>
-              {memberPerformance.map((member) => {
-                const august = augustMemberPerformance.find(
-                  (row) => row.code === member.code
-                )!;
-                return (
-                  <tr key={member.code}>
-                    <th scope="row">{member.name}</th>
-                    <td>{number.format(member[memberMetric])}</td>
-                    <td>{number.format(august[memberMetric])}</td>
-                    <td>
-                      {comparisonChange(
-                        member[memberMetric],
-                        august[memberMetric]
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </AnalyticsTable>
-        </div>
-        <p className="analytics-comparison-note">
-          Member attribution follows contribution-code prefixes for published,
-          unsuppressed catalog records at each export. Catalog changes between
-          snapshots can affect member comparisons. A zero July baseline is shown
-          as “N/A” when August has activity.
-        </p>
       </div>
       <p className="analytics-comparison-note">
         August covers August 1–31, 2026 (UTC), exported{' '}
