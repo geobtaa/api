@@ -177,9 +177,17 @@ export function ZeroResultReport({
             <thead>
               <tr>
                 <th scope="col">Rank</th>
-                <th scope="col">Query</th>
-                <th scope="col">Category</th>
-                {periodKey && <th scope="col">Recorded search context</th>}
+                <th scope="col" data-align="left">
+                  Query
+                </th>
+                <th scope="col" data-align="left">
+                  Category
+                </th>
+                {periodKey && (
+                  <th scope="col" data-align="left">
+                    Recorded search context
+                  </th>
+                )}
                 <th scope="col">Zero-result searches</th>
                 <th scope="col">Share of all zero-result searches</th>
               </tr>

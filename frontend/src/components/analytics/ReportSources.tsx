@@ -16,9 +16,9 @@ const definitions: Record<
     source:
       'The preserved July and August snapshots used by the other reports; this page does not query live analytics.',
     grouping:
-      'Portal figures cover all recorded traffic. Member figures use contribution-code prefixes 01–17, not Provider. Changes use July as the baseline; both periods contain 31 UTC days.',
+      'Portal figures cover all recorded traffic. Changes use July as the baseline; both periods contain 31 UTC days.',
     limits:
-      'Member attribution uses each export’s catalog: August 20 for July and September 9 for August. Records outside university code groups are excluded from member comparisons but remain in portal totals. A zero baseline is shown as N/A.',
+      'A zero baseline is shown as N/A when August has activity. API request totals include bots and automated probes.',
   },
   content: {
     source:
@@ -65,14 +65,17 @@ const definitions: Record<
 export function ReportSources({
   report,
   month,
+  period,
 }: {
   report: AnalyticsReport;
   month: string;
+  period?: string;
 }) {
   const info = definitions[report];
   return (
     <section
       className="analytics-panel analytics-report-sources"
+      id="report-sources"
       aria-label="Sources and grouping"
     >
       <h2>Sources and grouping</h2>
@@ -80,7 +83,7 @@ export function ReportSources({
         <strong>Period:</strong>{' '}
         {report === 'comparison'
           ? 'July 1–31 and August 1–31, 2026'
-          : `${month} 1–31, 2026`}{' '}
+          : (period ?? `${month} 1–31, 2026`)}{' '}
         (UTC). Static aggregate snapshots, not live traffic.
       </p>
       <dl>

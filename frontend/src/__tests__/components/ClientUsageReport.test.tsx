@@ -1,6 +1,9 @@
 import { render, screen, within } from '@testing-library/react';
 import { ClientUsageReport } from '../../components/analytics/ClientUsageReport';
-import { clientSnapshots } from '../../data/analytics/clients2026';
+import {
+  clientSnapshots,
+  combineClientSnapshots,
+} from '../../data/analytics/clients2026';
 import { JULY_2026_SUMMARY } from '../../data/analytics/july2026';
 import { AUGUST_2026_SUMMARY } from '../../data/analytics/august2026';
 
@@ -35,12 +38,9 @@ describe('Client usage report', () => {
         name: /No API key attribution recorded/,
       })
     ).toHaveTextContent('598,931');
-    const csvLink = screen.getByRole('link', { name: 'Download client CSV' });
-    const csv = decodeURIComponent(
-      csvLink.getAttribute('href')!.split(',').slice(1).join(',')
-    );
-    expect(csv).toContain('"geoportal-ssr","ssr","196","0","0"');
-    expect(csvLink).toHaveAttribute('download', 'api-clients-2026-08.csv');
+    expect(
+      screen.queryByRole('link', { name: 'Download client CSV' })
+    ).not.toBeInTheDocument();
   });
 
   it('distinguishes unavailable July user-agent evidence from zero observed signals', () => {
@@ -74,4 +74,40 @@ describe('Client usage report', () => {
       ).toBe(summary.requests);
     }
   });
+});
+
+it('combines client/channel pairs and surfaces while retaining unavailable evidence', () => {
+  const combined = combineClientSnapshots(Object.values(clientSnapshots));
+  expect(combined.clients.reduce((n, row) => n + row.requests, 0)).toBe(
+    1212062
+  );
+  expect(combined.surfaces.reduce((n, row) => n + row.requests, 0)).toBe(
+    1212062
+  );
+  expect(
+    combined.clients.find((row) => row.name === 'geoportal-web')
+  ).toMatchObject({ requests: 1575, searches: 14002, events: 38577 });
+  expect(combined.qgisUserAgentRequests).toBeNull();
+  expect(combined.recordedKeys).toBe(0);
+  expect(
+    combineClientSnapshots([{ ...clientSnapshots['2026-08'], recordedKeys: 2 }])
+      .recordedKeys
+  ).toBeNull();
+});
+
+it('shows full-period attribution and unavailable QGIS evidence in the shared tables', () => {
+  render(<ClientUsageReport month="all" />);
+  expect(screen.getAllByRole('table')).toHaveLength(4);
+  const signals = screen.getByRole('table', {
+    name: /MCP and QGIS request signals/,
+  });
+  expect(
+    within(signals).getByRole('row', { name: /QGIS user-agent match/ })
+  ).toHaveTextContent('Not available');
+  const clients = screen.getByRole('table', {
+    name: 'All time declared client usage',
+  });
+  expect(
+    within(clients).getByRole('row', { name: /geoportal-web/ })
+  ).toHaveTextContent('1,575');
 });

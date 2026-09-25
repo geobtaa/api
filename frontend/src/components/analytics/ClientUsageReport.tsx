@@ -1,20 +1,39 @@
+import allTime from '../../data/analytics/allTime2026.json';
 import { AnalyticsTable } from './AnalyticsTable';
-import {
-  Activity,
-  KeyRound,
-  Network,
-  Server,
-  Users,
-  Download,
-} from 'lucide-react';
+import { Activity, KeyRound, Network, Server, Users } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
-import { clientSnapshots } from '../../data/analytics/clients2026';
+import {
+  clientSnapshots,
+  combineClientSnapshots,
+} from '../../data/analytics/clients2026';
 
 const number = new Intl.NumberFormat('en-US');
 
-export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
-  const snapshot = clientSnapshots[month];
-  const period = month === '2026-08' ? 'August' : 'July';
+export function ClientUsageReport({
+  month,
+}: {
+  month: '2026-07' | '2026-08' | 'all';
+}) {
+  const snapshot =
+    month === 'all'
+      ? combineClientSnapshots(
+          allTime.publishedMonths.map(
+            (month) => clientSnapshots[month as keyof typeof clientSnapshots]
+          )
+        )
+      : clientSnapshots[month];
+  const period =
+    month === 'all'
+      ? 'All time'
+      : month === '2026-08'
+        ? 'August 2026'
+        : 'July 2026';
+  const range =
+    month === 'all'
+      ? 'July 1–August 31, 2026'
+      : month === '2026-08'
+        ? 'August 1–31, 2026'
+        : 'July 1–31, 2026';
   const requests = snapshot.clients.reduce((sum, row) => sum + row.requests, 0);
   const namedRequests = snapshot.clients
     .filter((row) => row.name !== 'Not declared')
@@ -25,26 +44,6 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
   const qgisDeclared = snapshot.clients
     .filter((row) => row.channel === 'qgis' || row.name === 'qgis-plugin')
     .reduce((sum, row) => sum + row.requests, 0);
-  const csv = [
-    [
-      'Client',
-      'Channel',
-      'API requests',
-      'Tracked searches',
-      'Tracked interactions',
-    ],
-    ...snapshot.clients.map((row) => [
-      row.name,
-      row.channel,
-      row.requests,
-      row.searches,
-      row.events,
-    ]),
-  ]
-    .map((row) =>
-      row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(',')
-    )
-    .join('\r\n');
 
   return (
     <section
@@ -76,7 +75,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
             <KeyRound aria-hidden="true" />
             API keys identified in logs
           </h2>
-          <strong>{snapshot.recordedKeys}</strong>
+          <strong>{snapshot.recordedKeys ?? 'Not available'}</strong>
           <p>Historical key attribution is missing</p>
         </article>
       </div>
@@ -85,14 +84,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           title="Declared clients and channels"
           icon={Users}
           level={2}
-        >
-          <a
-            download={`api-clients-${month}.csv`}
-            href={`data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`}
-          >
-            <Download aria-hidden="true" /> Download client CSV
-          </a>
-        </ReportPanelHeader>
+        ></ReportPanelHeader>
         <div
           className="analytics-comparison-scroll"
           role="region"
@@ -101,7 +93,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         >
           <AnalyticsTable className="analytics-comparison-table analytics-client-table">
             <caption className="sr-only">
-              {period} 2026 declared client usage
+              {period} declared client usage
             </caption>
             <thead>
               <tr>
@@ -149,7 +141,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         >
           <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
-              {period} 2026 API key attribution coverage
+              {period} API key attribution coverage
             </caption>
             <thead>
               <tr>
@@ -170,7 +162,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
           </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
-          No API-key IDs were recorded for this month, so per-key usage cannot
+          No API-key IDs were recorded for this period, so per-key usage cannot
           be reconstructed from these logs. This does not mean that no keys were
           configured or used. A key such as <code>btaa_geoportal</code> cannot
           be assigned request counts without a recorded link. Key values and
@@ -191,7 +183,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         >
           <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
-              {period} 2026 MCP and QGIS request signals
+              {period} MCP and QGIS request signals
             </caption>
             <thead>
               <tr>
@@ -248,7 +240,7 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         >
           <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
-              {period} 2026 requests by endpoint category
+              {period} requests by endpoint category
             </caption>
             <thead>
               <tr>
@@ -276,9 +268,9 @@ export function ClientUsageReport({ month }: { month: '2026-07' | '2026-08' }) {
         </p>
       </article>
       <p className="analytics-comparison-note">
-        {period} 1–31, 2026 (UTC) · Exported September 9, 2026. Request figures
-        use retained daily rollups covering all 31 days and reconcile with the
-        dashboard totals. Search and interaction counts use their respective
+        {range} (UTC) · Exported September 9, 2026. Request figures use retained
+        daily rollups covering the complete selected period and reconcile with
+        the dashboard totals. Search and interaction counts use their respective
         event records. August user-agent matching uses the retained raw request
         logs.
       </p>

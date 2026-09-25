@@ -12,7 +12,7 @@ type Top = { id: string; title: string; views: number; downloads: number };
 export type ProviderGroup = Counts & {
   id: string;
   provider: string | null;
-  daily: { day: number; views: number; downloads: number }[];
+  daily: { day: number | string; views: number; downloads: number }[];
   topViews: Top[];
   topDownloads: Top[];
 };

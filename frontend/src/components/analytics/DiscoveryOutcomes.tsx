@@ -1,3 +1,4 @@
+import { ResourceThumbnail } from './ResourceThumbnail';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { ExternalLink, Users } from 'lucide-react';
@@ -38,6 +39,7 @@ export function AccessSummary({ period }: { period: OutcomePeriod }) {
   return (
     <section
       className="analytics-panel analytics-outcomes"
+      id="successful-access"
       aria-label="Successful access"
     >
       <ReportPanelHeader
@@ -97,7 +99,10 @@ export function AccessSummary({ period }: { period: OutcomePeriod }) {
 export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
   const report = outcomes.periods[period];
   return (
-    <section className="analytics-panel analytics-outcomes">
+    <section
+      id="outlinked-resources"
+      className="analytics-panel analytics-outcomes"
+    >
       <ReportPanelHeader
         title="Most outlinked resources"
         icon={ExternalLink}
@@ -126,14 +131,22 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
               {report.outlinks.map((row, i) => (
                 <tr key={row.id ?? 'missing'}>
                   <td>{i + 1}</td>
-                  <th scope="row">
-                    {row.id ? (
-                      <Link to={`/resources/${encodeURIComponent(row.id)}`}>
-                        {row.title}
-                      </Link>
-                    ) : (
-                      row.title
-                    )}
+                  <th scope="row" data-sort-value={row.title}>
+                    <div className="analytics-resource-cell">
+                      {row.id && (
+                        <ResourceThumbnail
+                          resource={{ id: row.id, title: row.title }}
+                          compact
+                        />
+                      )}
+                      {row.id ? (
+                        <Link to={`/resources/${encodeURIComponent(row.id)}`}>
+                          {row.title}
+                        </Link>
+                      ) : (
+                        row.title
+                      )}
+                    </div>
                   </th>
                   <td>{row.provider || 'Unavailable'}</td>
                   <td>{n.format(row.clicks)}</td>
@@ -152,7 +165,13 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
   );
 }
 
-export function AudienceReport({ period }: { period: OutcomePeriod }) {
+export function AudienceReport({
+  period,
+  embedded = false,
+}: {
+  period: OutcomePeriod;
+  embedded?: boolean;
+}) {
   const report = outcomes.periods[period];
   const [metric, setMetric] = useState<'visits' | 'searches' | 'views'>(
     'visits'
@@ -162,16 +181,21 @@ export function AudienceReport({ period }: { period: OutcomePeriod }) {
     searches: 'Search result pages',
     views: 'Resource views',
   };
+  const Container = embedded ? 'div' : 'section';
   return (
-    <section
-      className="analytics-panel analytics-outcomes"
+    <Container
+      className={
+        embedded ? 'analytics-outcomes' : 'analytics-panel analytics-outcomes'
+      }
       aria-label="Audience and discovery coverage"
     >
-      <ReportPanelHeader
-        title="Audience and discovery"
-        icon={Users}
-        level={2}
-      />
+      {!embedded && (
+        <ReportPanelHeader
+          title="Audience and discovery"
+          icon={Users}
+          level={2}
+        />
+      )}
       <div className="analytics-outcomes-body">
         <div className="analytics-audience-cards">
           <div>
@@ -181,59 +205,51 @@ export function AudienceReport({ period }: { period: OutcomePeriod }) {
               Distinct tab-scoped visit tokens across searches and interactions.
             </p>
           </div>
-          <div>
-            <h3>Unique visitors</h3>
-            <strong>Unavailable</strong>
-            <p>
-              No persistent visitor identifier is recorded. Tab tokens cannot
-              identify unique people.
-            </p>
-          </div>
-          <div>
-            <h3>All pageviews</h3>
-            <strong>Unavailable</strong>
-            <p>
-              General page-view events were not recorded in these monthly
-              datasets. Resource views cover detail pages only.
-            </p>
-          </div>
         </div>
-        <label className="analytics-query-category-filter">
-          Audience chart metric
-          <select
-            value={metric}
-            onChange={(e) => setMetric(e.target.value as typeof metric)}
-          >
-            {Object.entries(labels).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div
-          role="img"
-          aria-label={`${labels[metric]} by UTC day in ${outcomeLabels[period]}; exact values follow`}
-        >
-          <ResponsiveContainer width="100%" height={270}>
-            <LineChart data={report.daily}>
-              <CartesianGrid strokeDasharray="2 6" />
-              <XAxis dataKey="day" tickFormatter={dateLabel} minTickGap={35} />
-              <YAxis />
-              <Tooltip labelFormatter={(v) => dateLabel(String(v))} />
-              <Line
-                type="linear"
-                dataKey={metric}
-                name={labels[metric]}
-                stroke="#003c5b"
-                dot={false}
-                isAnimationActive={false}
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-        <details>
-          <summary>Daily audience values</summary>
+        {!embedded && (
+          <>
+            <label className="analytics-query-category-filter">
+              Audience chart metric
+              <select
+                value={metric}
+                onChange={(e) => setMetric(e.target.value as typeof metric)}
+              >
+                {Object.entries(labels).map(([key, label]) => (
+                  <option key={key} value={key}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div
+              role="img"
+              aria-label={`${labels[metric]} by UTC day in ${outcomeLabels[period]}; exact values follow`}
+            >
+              <ResponsiveContainer width="100%" height={270}>
+                <LineChart data={report.daily}>
+                  <CartesianGrid strokeDasharray="2 6" />
+                  <XAxis
+                    dataKey="day"
+                    tickFormatter={dateLabel}
+                    minTickGap={35}
+                  />
+                  <YAxis />
+                  <Tooltip labelFormatter={(v) => dateLabel(String(v))} />
+                  <Line
+                    type="linear"
+                    dataKey={metric}
+                    name={labels[metric]}
+                    stroke="#003c5b"
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </>
+        )}
+        <section aria-label="Daily audience values">
+          <h3>Daily audience values</h3>
           <div className="analytics-comparison-scroll">
             <AnalyticsTable className="analytics-comparison-table">
               <caption>{outcomeLabels[period]} audience daily values</caption>
@@ -257,7 +273,7 @@ export function AudienceReport({ period }: { period: OutcomePeriod }) {
               </tbody>
             </AnalyticsTable>
           </div>
-        </details>
+        </section>
         <p className="analytics-comparison-note">
           All {n.format(report.audience.activityRecords)} search and interaction
           records declare the Geoportal browser client.{' '}
@@ -275,13 +291,7 @@ export function AudienceReport({ period }: { period: OutcomePeriod }) {
           recorded event types, not a census of every visitor. The GA4/GTM
           connection and general SPA pageview coverage remain unverified.
         </p>
-        <a
-          href={`data:application/json;charset=utf-8,${encodeURIComponent(JSON.stringify({ measurementDefinitions: outcomes.measurementDefinitions, exportedAt: outcomes.exportedAt, catalogDate: outcomes.catalogDate, period, ...report }, null, 2))}`}
-          download={`analytics-discovery-outcomes-${period}.json`}
-        >
-          Download access, audience, and search-context data (JSON)
-        </a>
       </div>
-    </section>
+    </Container>
   );
 }
