@@ -404,7 +404,11 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(screen.getByText(/5,744 of 7,545/)).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'API reliability' }));
     expect(screen.getByText('127 ms')).toBeInTheDocument();
-    expect(screen.getByText('Peak-day API traffic')).toBeInTheDocument();
+    expect(
+      screen.getByText('Peak-day API traffic', {
+        selector: '.analytics-panel-header span',
+      })
+    ).toBeInTheDocument();
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
@@ -463,8 +467,11 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     renderPage('discovery');
     const heading = screen.getByRole('heading', { name: 'Top 50 searches' });
     expect(
-      heading.compareDocumentPosition(screen.getByText('Search view mix')) &
-        Node.DOCUMENT_POSITION_FOLLOWING
+      heading.compareDocumentPosition(
+        screen.getByText('Search view mix', {
+          selector: '.analytics-panel-header span',
+        })
+      ) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     let table = screen.getByRole('table', {
       name: 'August 2026 top 50 searches',
@@ -724,19 +731,12 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(highlights.textContent?.indexOf('Search result pages')).toBeLessThan(
       highlights.textContent?.indexOf('Source-site clicks') ?? 0
     );
-    const audience = screen.getByRole('region', {
-      name: 'Audience and discovery coverage',
-    });
+    const audience = screen.getByLabelText('Audience and discovery coverage');
     expect(within(audience).getByText('13,020')).toBeInTheDocument();
-    expect(within(audience).getAllByText('Unavailable')).toHaveLength(2);
+    expect(within(audience).queryByText('Unavailable')).not.toBeInTheDocument();
     expect(
       within(audience).getByText(/71 records lack a visit token/)
     ).toBeInTheDocument();
-    fireEvent.click(within(audience).getByText('Daily audience values'));
-    const details = within(audience)
-      .getByText('Daily audience values')
-      .closest('details')!;
-    details.open = true;
     expect(
       within(audience).getByRole('table', {
         name: 'August 2026 audience daily values',
