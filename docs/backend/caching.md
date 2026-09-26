@@ -259,6 +259,19 @@ Postgres L2, for example:
 - `facet:<facet_name>`
 - `ns:<python_namespace_of_handler>` (fine-grained namespace tag)
 
+### Cache refresh after metadata changes
+
+Bridge imports invalidate resource representations and tagged endpoint responses
+for every changed ID, including deleted records and missing related resources.
+Before replaying cached URLs, the refresh checks which resource records still
+exist. It skips detail and subresource URLs for missing records and continues to
+rewarm search pages so their results reflect the deletion. The refresh statistics
+record these skipped URLs as `skipped_missing`.
+
+An expected missing record therefore does not prevent a successful import from
+advancing its source checkpoint. HTTP errors for existing resources or search
+pages still count as refresh failures and prevent checkpoint advancement.
+
 ### Admin purge endpoint (basic auth required)
 
 There is an admin endpoint to purge caches:

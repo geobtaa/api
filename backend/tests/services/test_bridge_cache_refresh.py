@@ -1,5 +1,6 @@
-from unittest.mock import AsyncMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, call, patch
 
+import httpx
 import pytest
 
 import app.services.bridge_sync.cache_refresh as cache_refresh
@@ -25,6 +26,15 @@ class FakeCacheService:
     async def invalidate_tags(self, tags):
         self.invalidate_calls.append(list(tags))
         return len(tags)
+
+
+def _mock_existing_resources(monkeypatch, resource_ids):
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = resource_ids
+    session = AsyncMock()
+    session.execute.return_value = result
+    session.__aenter__.return_value = session
+    monkeypatch.setattr(cache_refresh, "async_session_factory", lambda: session)
 
 
 @pytest.mark.asyncio
@@ -148,6 +158,7 @@ async def test_cache_rewarm_uses_server_key_beyond_anonymous_rate_limit(monkeypa
     fake_cache.cached_records_for_tags = AsyncMock(return_value=[])
     fake_client = RateLimitedAsyncClient()
     resource_ids = [f"resource-{index}" for index in range(12)]
+    _mock_existing_resources(monkeypatch, resource_ids)
 
     monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
     monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
@@ -176,6 +187,93 @@ async def test_cache_rewarm_uses_server_key_beyond_anonymous_rate_limit(monkeypa
         headers == {"Accept": "application/json", "X-API-Key": "server-api-key"}
         for _path, headers in fake_client.calls
     )
+
+
+@pytest.mark.asyncio
+async def test_refresh_invalidates_missing_resources_without_rewarming_their_urls(monkeypatch):
+    fake_cache = FakeCacheService()
+    fake_cache.cached_records_for_tags = AsyncMock(
+        return_value=[
+            {"warm": {"path": "/api/v1/resources/deleted"}},
+            {
+                "warm": {
+                    "path": "/api/v1/resources/missing%3Arelated/citation",
+                    "query": "format=json",
+                }
+            },
+            {"warm": {"path": "/api/v1/resources/kept%3Aone", "query": "format=json"}},
+            {"warm": {"path": "/api/v1/search", "query": "q=bridged"}},
+        ]
+    )
+    fake_client = AsyncMock()
+    fake_client.__aenter__.return_value = fake_client
+    fake_client.get.return_value = httpx.Response(200)
+    _mock_existing_resources(monkeypatch, ["kept:one"])
+    monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
+
+    with (
+        patch.object(cache_refresh, "CacheService", return_value=fake_cache),
+        patch.object(
+            cache_refresh,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True, "redis_deleted": 2}),
+        ) as delete_representations,
+        patch.object(
+            cache_refresh,
+            "_warm_generated_assets_for_changed_resources",
+            new=AsyncMock(return_value={"enabled": True, "resources": 1}),
+        ),
+        patch.object(cache_refresh.httpx, "AsyncClient", return_value=fake_client),
+    ):
+        stats = await cache_refresh.refresh_cache_for_changed_resources(["deleted", "kept:one"])
+
+    assert fake_cache.invalidate_calls == [["resource:deleted", "resource:kept:one"]]
+    delete_representations.assert_awaited_once_with(
+        ["deleted", "kept:one"], cache_service=fake_cache
+    )
+    assert [args.args[0] for args in fake_client.get.await_args_list] == [
+        "/api/v1/resources/kept%3Aone?format=json",
+        "/api/v1/search?q=bridged",
+        "/api/v1/resources/kept:one",
+    ]
+    assert stats["skipped_missing"] == 2
+    assert stats["warm_urls"] == 3
+    assert stats["warmed"] == 3
+    assert stats["errors"] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [404, 403, 429, 500])
+async def test_refresh_keeps_errors_for_existing_resource_and_search_pages(
+    monkeypatch, status_code
+):
+    fake_cache = FakeCacheService()
+    fake_client = AsyncMock()
+    fake_client.__aenter__.return_value = fake_client
+    fake_client.get.return_value = httpx.Response(status_code)
+    _mock_existing_resources(monkeypatch, ["kept"])
+    monkeypatch.setattr(cache_refresh, "ENDPOINT_CACHE", True)
+    monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", "true")
+
+    with (
+        patch.object(cache_refresh, "CacheService", return_value=fake_cache),
+        patch.object(
+            cache_refresh,
+            "delete_resource_representations",
+            new=AsyncMock(return_value={"durable_deleted": True}),
+        ),
+        patch.object(cache_refresh.httpx, "AsyncClient", return_value=fake_client),
+    ):
+        stats = await cache_refresh.refresh_cache_for_changed_resources(
+            ["kept"], warm_generated_assets=False
+        )
+
+    assert fake_client.get.await_count == 2
+    assert stats["warm_urls"] == 2
+    assert stats["skipped_missing"] == 0
+    assert stats["warmed"] == 0
+    assert stats["errors"] == 2
 
 
 @pytest.mark.asyncio
