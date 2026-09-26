@@ -46,7 +46,7 @@ def _should_send_report(trigger: str) -> bool:
 def _failure_report_triggers() -> set[str]:
     raw = os.getenv(
         "BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS",
-        "nightly_cron,cron,incremental_cron",
+        "nightly_cron,cron",
     )
     return {part.strip().lower() for part in raw.split(",") if part.strip()}
 

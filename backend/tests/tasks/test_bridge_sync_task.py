@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -14,6 +15,11 @@ _should_send_failure_report = bridge_sync_task._should_send_failure_report
 _should_send_report = bridge_sync_task._should_send_report
 
 
+@pytest.fixture(autouse=True)
+def connected_database(monkeypatch):
+    monkeypatch.setattr(bridge_sync_task, "database", SimpleNamespace(is_connected=True))
+
+
 def test_bridge_sync_report_trigger_defaults_to_cron(monkeypatch):
     monkeypatch.delenv("BRIDGE_SYNC_REPORT_ON_TRIGGERS", raising=False)
 
@@ -23,11 +29,12 @@ def test_bridge_sync_report_trigger_defaults_to_cron(monkeypatch):
     assert _should_send_report("manual") is False
 
 
-def test_bridge_sync_failure_report_includes_incremental_cron(monkeypatch):
+def test_bridge_sync_failure_report_defaults_to_daily_triggers(monkeypatch):
     monkeypatch.delenv("BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS", raising=False)
 
-    assert _should_send_failure_report("incremental_cron") is True
+    assert _should_send_failure_report("incremental_cron") is False
     assert _should_send_failure_report("nightly_cron") is True
+    assert _should_send_failure_report("cron") is True
     assert _should_send_failure_report("manual") is False
 
 
@@ -104,7 +111,11 @@ async def test_scheduled_sync_resolves_and_passes_checkpoint(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_scheduled_sync_reports_failed_incremental_run(monkeypatch):
+@pytest.mark.parametrize(
+    ("trigger", "should_report"),
+    [("incremental_cron", False), ("nightly_cron", True), ("manual", False)],
+)
+async def test_scheduled_sync_failure_reporting(monkeypatch, trigger, should_report):
     error = RuntimeError("sync failed")
     error.bridge_sync_run_id = 42
     sync_bridge = AsyncMock(side_effect=error)
@@ -115,13 +126,55 @@ async def test_scheduled_sync_reports_failed_incremental_run(monkeypatch):
 
     with pytest.raises(RuntimeError, match="sync failed"):
         await _bridge_sync_all_async(
-            trigger="incremental_cron",
+            trigger=trigger,
             limit=500,
             changed_since="2026-08-17T15:00:00Z",
             resource_id=None,
         )
 
-    send_report.assert_awaited_once_with(42)
+    if should_report:
+        send_report.assert_awaited_once_with(42)
+    else:
+        send_report.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("trigger", "skipped", "should_report"),
+    [
+        ("incremental_cron", False, False),
+        ("nightly_cron", False, True),
+        ("nightly_cron", True, False),
+        ("manual", False, False),
+    ],
+)
+async def test_scheduled_sync_success_reporting(monkeypatch, trigger, skipped, should_report):
+    sync_bridge = AsyncMock(return_value={"bridge_id": 42, "skipped": skipped, "stats": {}})
+    send_report = AsyncMock(return_value={"sent": True})
+    monkeypatch.setattr(bridge_sync_task, "sync_bridge", sync_bridge)
+    monkeypatch.setattr(bridge_sync_task, "send_bridge_sync_report_for_run", send_report)
+    monkeypatch.delenv("BRIDGE_SYNC_REPORT_ON_TRIGGERS", raising=False)
+
+    result = await _bridge_sync_all_async(
+        trigger=trigger,
+        limit=500,
+        changed_since="2026-08-17T15:00:00Z",
+        resource_id=None,
+    )
+
+    if should_report:
+        send_report.assert_awaited_once_with(42)
+        assert result["report"] == {"sent": True}
+    else:
+        send_report.assert_not_awaited()
+        assert "report" not in result
+
+
+@pytest.mark.parametrize("triggers", ["incremental_cron", " MANUAL, Incremental_Cron ", "*"])
+def test_incremental_failure_reports_can_be_explicitly_enabled(monkeypatch, triggers):
+    monkeypatch.setenv("BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS", triggers)
+
+    assert _should_send_failure_report("incremental_cron") is True
 
 
 @pytest.mark.asyncio

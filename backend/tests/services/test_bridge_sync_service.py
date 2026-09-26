@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import datetime, timedelta
-from unittest.mock import AsyncMock
+from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 import requests
@@ -11,6 +11,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
 import app.services.bridge_sync.batched as bridge_batched
+import app.services.bridge_sync.cache_refresh as bridge_cache_refresh
 import app.services.bridge_sync.harvest as bridge_harvest
 import app.services.bridge_sync.importer as bridge_importer
 from app.services.bridge_sync.client import BridgePage
@@ -2586,10 +2587,27 @@ class TestBridgeSyncService:
                 pass
 
     @pytest.mark.asyncio(scope="session")
-    async def test_sync_bridge_changed_since_deletes_tombstone_record(self):
+    @pytest.mark.parametrize("cache_enabled", [False, True])
+    async def test_sync_bridge_changed_since_deletes_tombstone_record(
+        self, monkeypatch, cache_enabled
+    ):
         repo = BridgeSyncRepository()
         importer = BridgeResourceImporter(repo=repo)
         resource_id = "bridge-sync-delta-tombstone"
+        monkeypatch.setenv("BRIDGE_CACHE_REFRESH_ENABLED", str(cache_enabled).lower())
+        monkeypatch.setattr(bridge_cache_refresh, "ENDPOINT_CACHE", cache_enabled)
+        cache = MagicMock()
+        cache.cached_records_for_tags = AsyncMock(
+            return_value=[{"warm": {"path": f"/api/v1/resources/{resource_id}?format=json"}}]
+        )
+        cache.invalidate_tags = AsyncMock(return_value=1)
+        monkeypatch.setattr(bridge_cache_refresh, "CacheService", lambda: cache)
+        delete_representations = AsyncMock(return_value={"durable_deleted": True})
+        monkeypatch.setattr(
+            bridge_cache_refresh, "delete_resource_representations", delete_representations
+        )
+        http_client = MagicMock(side_effect=AssertionError("Deleted pages must not be rewarmed"))
+        monkeypatch.setattr(bridge_cache_refresh.httpx, "AsyncClient", http_client)
 
         if not database.is_connected:
             await database.connect()
@@ -2665,7 +2683,14 @@ class TestBridgeSyncService:
             assert result["stats"]["retired"] == 0
             assert result["stats"]["source_high_watermark"] == ("2026-06-17T13:25:32.923000Z")
             assert result["stats"]["search_index_refresh"]["enabled"] is False
-            assert result["stats"]["cache_refresh"]["enabled"] is False
+            assert result["stats"]["cache_refresh"]["enabled"] is cache_enabled
+            if cache_enabled:
+                cache.invalidate_tags.assert_awaited_once_with([f"resource:{resource_id}"])
+                delete_representations.assert_awaited_once_with([resource_id], cache_service=cache)
+                assert result["stats"]["cache_refresh"]["skipped_missing"] == 2
+                assert result["stats"]["cache_refresh"]["errors"] == 0
+                assert result["stats"]["cache_refresh"]["warm_urls"] == 0
+            http_client.assert_not_called()
 
             row = await database.fetch_one(
                 select(resources.c.id).where(resources.c.id == resource_id)
@@ -2682,6 +2707,9 @@ class TestBridgeSyncService:
             assert run is not None
             assert run["bridge_status"] == "success"
             assert run["bridge_stats_json"]["deleted"] == 1
+            assert await repo.latest_successful_crawl_source_watermark() == datetime(
+                2026, 6, 17, 13, 25, 32, 923000, tzinfo=timezone.utc
+            )
         finally:
             try:
                 await database.execute(

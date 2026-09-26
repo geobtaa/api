@@ -5,6 +5,7 @@ import logging
 import os
 from collections import Counter
 from typing import Any, Iterable
+from urllib.parse import unquote, urlsplit
 
 import httpx
 from sqlalchemy import select
@@ -148,6 +149,36 @@ def _default_resource_warm_paths(resource_ids: Iterable[str]) -> list[str]:
         for template in DEFAULT_REWARM_RESOURCE_PATHS:
             paths.append(template.format(id=resource_id))
     return paths
+
+
+async def _filter_missing_resource_warm_paths(paths: list[str]) -> list[str]:
+    """Keep search pages, but only rewarm resource pages whose records still exist."""
+    resource_ids_by_path: dict[str, str] = {}
+    prefix = "/api/v1/resources/"
+    for path in paths:
+        url_path = urlsplit(path).path
+        if url_path.startswith(prefix):
+            resource_id = unquote(url_path[len(prefix) :].split("/", 1)[0])
+            if resource_id:
+                resource_ids_by_path[path] = resource_id
+
+    if not resource_ids_by_path:
+        return paths
+
+    existing_ids: set[str] = set()
+    candidate_ids = _dedupe_preserve_order(resource_ids_by_path.values())
+    async with async_session_factory() as session:
+        for batch_ids in _chunk_list(candidate_ids, DEFAULT_REFRESH_BATCH_SIZE):
+            result = await session.execute(
+                select(resources.c.id).where(resources.c.id.in_(batch_ids))
+            )
+            existing_ids.update(result.scalars().all())
+
+    return [
+        path
+        for path in paths
+        if path not in resource_ids_by_path or resource_ids_by_path[path] in existing_ids
+    ]
 
 
 async def _fetch_changed_resource_dicts(resource_ids: Iterable[str]) -> list[dict[str, Any]]:
@@ -404,6 +435,13 @@ async def refresh_cache_for_changed_resources(
             batch_generated_assets = await _warm_generated_assets_for_changed_resources(batch_ids)
             generated_assets = _merge_numeric_stats(generated_assets, batch_generated_assets)
 
+    # Deletions and missing related records still need invalidation, but their
+    # detail/subresource pages cannot be warmed. Check cached URLs too, since
+    # they may refer to resources outside this batch of changed IDs.
+    candidate_warm_urls = len(warm_paths)
+    warm_paths = await _filter_missing_resource_warm_paths(warm_paths)
+    skipped_missing = candidate_warm_urls - len(warm_paths)
+
     warmed = 0
     errors = 0
     if warm_paths:
@@ -443,6 +481,7 @@ async def refresh_cache_for_changed_resources(
         "batches": batches,
         "tagged_records": tagged_records_count,
         "warm_urls": len(warm_paths),
+        "skipped_missing": skipped_missing,
         "resource_representations_deleted": representation_delete_stats or {},
         "generated_assets": generated_assets,
         "invalidated": invalidated,
