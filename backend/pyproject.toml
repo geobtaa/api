@@ -67,6 +67,7 @@ dependencies = [
     "tornado==6.5.8",
     "Pygments==2.20.0",
     "httpx>=0.24.0",
+    "boto3>=1.37.32,<2",
 ]
 
 [project.optional-dependencies]

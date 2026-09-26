@@ -1,0 +1,2794 @@
+{
+  "start": "2026-07-01",
+  "endExclusive": "2026-09-01",
+  "publishedMonths": [
+    "2026-07",
+    "2026-08"
+  ],
+  "exportedAt": "2026-09-10T19:48:11.248293+00:00",
+  "catalogDate": "2026-09-10",
+  "searchTotals": {
+    "searches": 14002,
+    "zeroResults": 2553,
+    "withQuery": 5145,
+    "distinctQueries": 2785
+  },
+  "queries": [
+    {
+      "term": "wetlands",
+      "count": 95
+    },
+    {
+      "term": "turkey  maps",
+      "count": 72
+    },
+    {
+      "term": "iran maps",
+      "count": 67
+    },
+    {
+      "term": "sanborn",
+      "count": 49
+    },
+    {
+      "term": "-sanborn",
+      "count": 36
+    },
+    {
+      "term": "michigan",
+      "count": 23
+    },
+    {
+      "term": "caucasus maps",
+      "count": 22
+    },
+    {
+      "term": "Iran",
+      "count": 22
+    },
+    {
+      "term": "siberia russia",
+      "count": 22
+    },
+    {
+      "term": "austin",
+      "count": 21
+    },
+    {
+      "term": "pasda",
+      "count": 20
+    },
+    {
+      "term": "Washington county iowa",
+      "count": 20
+    },
+    {
+      "term": "iran",
+      "count": 19
+    },
+    {
+      "term": "asia minor",
+      "count": 18
+    },
+    {
+      "term": "14.271281, 44.702708",
+      "count": 17
+    },
+    {
+      "term": "redlining",
+      "count": 17
+    },
+    {
+      "term": "russia maps",
+      "count": 17
+    },
+    {
+      "term": "bloomington",
+      "count": 16
+    },
+    {
+      "term": "central asia maps",
+      "count": 16
+    },
+    {
+      "term": "chicago",
+      "count": 16
+    },
+    {
+      "term": "Austin",
+      "count": 15
+    },
+    {
+      "term": "campus",
+      "count": 14
+    },
+    {
+      "term": "crime",
+      "count": 14
+    },
+    {
+      "term": "london",
+      "count": 14
+    },
+    {
+      "term": "spain",
+      "count": 14
+    },
+    {
+      "term": "wisconsin",
+      "count": 14
+    },
+    {
+      "term": "iowa",
+      "count": 13
+    },
+    {
+      "term": "\"new york city\"",
+      "count": 13
+    },
+    {
+      "term": "highways",
+      "count": 12
+    },
+    {
+      "term": "amtrak stations",
+      "count": 11
+    },
+    {
+      "term": "baltimore",
+      "count": 11
+    },
+    {
+      "term": "bangladesh",
+      "count": 11
+    },
+    {
+      "term": "Fire insurance",
+      "count": 11
+    },
+    {
+      "term": "Qom",
+      "count": 11
+    },
+    {
+      "term": "siberia maps",
+      "count": 11
+    },
+    {
+      "term": "turkey history ottoman empire, maps",
+      "count": 11
+    },
+    {
+      "term": "37.117777, 50.081111",
+      "count": 10
+    },
+    {
+      "term": "europe",
+      "count": 10
+    },
+    {
+      "term": "kazakhstan maps",
+      "count": 10
+    },
+    {
+      "term": "minneapolis",
+      "count": 10
+    },
+    {
+      "term": "pottstown",
+      "count": 10
+    },
+    {
+      "term": "Vermont",
+      "count": 10
+    },
+    {
+      "term": "Algiers",
+      "count": 9
+    },
+    {
+      "term": "Illinois",
+      "count": 9
+    },
+    {
+      "term": "indiana field survey iran hardin i 38l",
+      "count": 9
+    },
+    {
+      "term": "lakes rivers AND minneapolis",
+      "count": 9
+    },
+    {
+      "term": "maryland",
+      "count": 9
+    },
+    {
+      "term": "Wisconsin Cropland Data Layer",
+      "count": 9
+    },
+    {
+      "term": "32.503232, 44.449000",
+      "count": 8
+    },
+    {
+      "term": "austin minnesota",
+      "count": 8
+    }
+  ],
+  "zeroQueries": [
+    {
+      "term": "14.271281, 44.702708",
+      "count": 17
+    },
+    {
+      "term": "37.117777, 50.081111",
+      "count": 10
+    },
+    {
+      "term": "indiana field survey iran hardin i 38l",
+      "count": 9
+    },
+    {
+      "term": "32.503232, 44.449000",
+      "count": 8
+    },
+    {
+      "term": "Iowa City Sanborn, 1883",
+      "count": 8
+    },
+    {
+      "term": "31.971794,48.809872",
+      "count": 7
+    },
+    {
+      "term": "9266 town line rd Larsen wi",
+      "count": 7
+    },
+    {
+      "term": "ایران قم سال  میلادی1963",
+      "count": 7
+    },
+    {
+      "term": "32.654583, 44.405139",
+      "count": 6
+    },
+    {
+      "term": "maple range township mi",
+      "count": 6
+    },
+    {
+      "term": "Williamsburg to White House",
+      "count": 6
+    },
+    {
+      "term": "205 E Sycamore Street Westport, Indiana",
+      "count": 5
+    },
+    {
+      "term": "3115 hickman rd des moines",
+      "count": 5
+    },
+    {
+      "term": "81 Fairview Ave edison",
+      "count": 5
+    },
+    {
+      "term": "Aerial photo 08234",
+      "count": 5
+    },
+    {
+      "term": "Map of the settled part of Wisconsin and Iowa",
+      "count": 5
+    },
+    {
+      "term": "15N 9E",
+      "count": 4
+    },
+    {
+      "term": "3901 S Green Bay Rd, Mount Pleasant, WI",
+      "count": 4
+    },
+    {
+      "term": "9419 Hemlock Fontana, California",
+      "count": 4
+    },
+    {
+      "term": "Calmimilolco",
+      "count": 4
+    },
+    {
+      "term": "chukar ln Burbank wa",
+      "count": 4
+    },
+    {
+      "term": "Edmondson arkansas",
+      "count": 4
+    },
+    {
+      "term": "fiji contours",
+      "count": 4
+    },
+    {
+      "term": "harwich ma",
+      "count": 4
+    },
+    {
+      "term": "Lost lake saint germain",
+      "count": 4
+    },
+    {
+      "term": "Ohio, Hardin county parcel",
+      "count": 4
+    },
+    {
+      "term": "redlining",
+      "count": 4
+    },
+    {
+      "term": "sanborn map knoxville, tn",
+      "count": 4
+    },
+    {
+      "term": "Sleeping bear beach, township T29N, range 14W, lots 1 and 2, section 22, glen arbor township",
+      "count": 4
+    },
+    {
+      "term": "101N068",
+      "count": 3
+    },
+    {
+      "term": "10560 E Richview Rd Mount Vernon IL",
+      "count": 3
+    },
+    {
+      "term": "1122 prospect Toledo, Ohio",
+      "count": 3
+    },
+    {
+      "term": "14.375000 46.745833",
+      "count": 3
+    },
+    {
+      "term": "2005 bergan st south bend",
+      "count": 3
+    },
+    {
+      "term": "2670232",
+      "count": 3
+    },
+    {
+      "term": "27.014435, 1.072616",
+      "count": 3
+    },
+    {
+      "term": "3031 8th st. ne",
+      "count": 3
+    },
+    {
+      "term": "314 Cranesnet Way West Palm Beach,FL",
+      "count": 3
+    },
+    {
+      "term": "34.73859, 36.55421",
+      "count": 3
+    },
+    {
+      "term": "36°42'44.4\"N 46°52'25.1\"E",
+      "count": 3
+    },
+    {
+      "term": "42.3655° N, -95.4715° W",
+      "count": 3
+    },
+    {
+      "term": "7662 walnut dr",
+      "count": 3
+    },
+    {
+      "term": "8219 City Centre Dr, La Vista, NE 68128",
+      "count": 3
+    },
+    {
+      "term": "8C37+H7، اليمن",
+      "count": 3
+    },
+    {
+      "term": "Allaire",
+      "count": 3
+    },
+    {
+      "term": "bicycle count stations",
+      "count": 3
+    },
+    {
+      "term": "Bitumen",
+      "count": 3
+    },
+    {
+      "term": "Burj al-Burullus",
+      "count": 3
+    },
+    {
+      "term": "calgary",
+      "count": 3
+    },
+    {
+      "term": "can u glide me information on theodore ruanda haritonovici",
+      "count": 3
+    },
+    {
+      "term": "Charles Waring & Co.",
+      "count": 3
+    },
+    {
+      "term": "clarence street ponsonby",
+      "count": 3
+    },
+    {
+      "term": "crime",
+      "count": 3
+    },
+    {
+      "term": "Greenview IL",
+      "count": 3
+    },
+    {
+      "term": "Hamedan",
+      "count": 3
+    },
+    {
+      "term": "hotosm_uga_rr_places_of_worship_points_shp.zip",
+      "count": 3
+    },
+    {
+      "term": "Interlochen MI",
+      "count": 3
+    },
+    {
+      "term": "Lots 1 & 2, section 22, glen arbor",
+      "count": 3
+    },
+    {
+      "term": "Mandi shah jewana",
+      "count": 3
+    },
+    {
+      "term": "map of jessenland township township 113 n, range 2",
+      "count": 3
+    },
+    {
+      "term": "Map of the rebel fortifications at Columbus, Ky",
+      "count": 3
+    },
+    {
+      "term": "Meeker MN",
+      "count": 3
+    },
+    {
+      "term": "missing_bbox",
+      "count": 3
+    },
+    {
+      "term": "Monterey pass",
+      "count": 3
+    },
+    {
+      "term": "Morgan Mn",
+      "count": 3
+    },
+    {
+      "term": "N9009 Lakeshore dr van dyne wi 54979",
+      "count": 3
+    },
+    {
+      "term": "Neurodiverse",
+      "count": 3
+    },
+    {
+      "term": "Park County, Indiana soil productivity map",
+      "count": 3
+    },
+    {
+      "term": "Plat Book of Sibley County Minnesota",
+      "count": 3
+    },
+    {
+      "term": "portage points escanaba michigan",
+      "count": 3
+    },
+    {
+      "term": "RANCHO SON VICENTEE AND SANTA MONICA T1S R11W SEC 2",
+      "count": 3
+    },
+    {
+      "term": "Reserve township, mn",
+      "count": 3
+    },
+    {
+      "term": "Sanborn Maps Goose Island, Chicago",
+      "count": 3
+    },
+    {
+      "term": "SE ¼ of NE ¼, Section 25-6-8 Saranac, mi 48881",
+      "count": 3
+    },
+    {
+      "term": "Secunderbad",
+      "count": 3
+    },
+    {
+      "term": "SouthWest Indiana 46614",
+      "count": 3
+    },
+    {
+      "term": "spring mills, pa",
+      "count": 3
+    },
+    {
+      "term": "spring mills, potter township, pa",
+      "count": 3
+    },
+    {
+      "term": "T1S R11W SEC 2",
+      "count": 3
+    },
+    {
+      "term": "T47n R7w",
+      "count": 3
+    },
+    {
+      "term": "u2 imagery",
+      "count": 3
+    },
+    {
+      "term": "U.S. Army Map Service. (2016). U.S. Army Map Series K501: Iraq and Iran: Zenjan J-39S. U.S. Army Map Service. https://isac-idb.uchicago.edu/id/94ecf195-fa5f-4120-9504-23e9550234cb",
+      "count": 3
+    },
+    {
+      "term": "village boundary andra pradesh",
+      "count": 3
+    },
+    {
+      "term": "Warner, Higgins & Beers",
+      "count": 3
+    },
+    {
+      "term": "webster township, madison county iowa",
+      "count": 3
+    },
+    {
+      "term": "Yemen shabwa",
+      "count": 3
+    },
+    {
+      "term": "татарка",
+      "count": 3
+    },
+    {
+      "term": "ایران میلادی1963",
+      "count": 3
+    },
+    {
+      "term": "\"04d-02\"",
+      "count": 2
+    },
+    {
+      "term": "1196 Deere Ln, harrisburg, pa",
+      "count": 2
+    },
+    {
+      "term": "1216 bonaire rd forest hill md",
+      "count": 2
+    },
+    {
+      "term": "13910 143rd st ct kpn",
+      "count": 2
+    },
+    {
+      "term": "1415 primrose lane Lancaster wi",
+      "count": 2
+    },
+    {
+      "term": "1489 s huron rd",
+      "count": 2
+    },
+    {
+      "term": "15168 franchesca ln",
+      "count": 2
+    },
+    {
+      "term": "160 east kellog blvd",
+      "count": 2
+    },
+    {
+      "term": "160 east kellogg blvd",
+      "count": 2
+    },
+    {
+      "term": "160 ferne ridge lane",
+      "count": 2
+    },
+    {
+      "term": "160 university st, ferndale mi",
+      "count": 2
+    },
+    {
+      "term": "175 rockwood ln",
+      "count": 2
+    }
+  ],
+  "providers": [
+    {
+      "label": "American Geographical Society Library – UWM Libraries",
+      "catalogRecords": 895,
+      "activeResources": 306,
+      "resourceViews": 68,
+      "downloadClicks": 8,
+      "sourceClicks": 6,
+      "impressions": 1038
+    },
+    {
+      "label": "BTAA-GIN",
+      "catalogRecords": 207,
+      "activeResources": 185,
+      "resourceViews": 505,
+      "downloadClicks": 11,
+      "sourceClicks": 2,
+      "impressions": 11278
+    },
+    {
+      "label": "Cornell",
+      "catalogRecords": 473,
+      "activeResources": 222,
+      "resourceViews": 35,
+      "downloadClicks": 3,
+      "sourceClicks": 0,
+      "impressions": 557
+    },
+    {
+      "label": "Harvard",
+      "catalogRecords": 56,
+      "activeResources": 56,
+      "resourceViews": 94,
+      "downloadClicks": 17,
+      "sourceClicks": 8,
+      "impressions": 541
+    },
+    {
+      "label": "Indiana University",
+      "catalogRecords": 15492,
+      "activeResources": 2939,
+      "resourceViews": 1700,
+      "downloadClicks": 210,
+      "sourceClicks": 29,
+      "impressions": 8168
+    },
+    {
+      "label": "Michigan State University",
+      "catalogRecords": 1171,
+      "activeResources": 616,
+      "resourceViews": 372,
+      "downloadClicks": 23,
+      "sourceClicks": 4,
+      "impressions": 2245
+    },
+    {
+      "label": "Northwestern University",
+      "catalogRecords": 252,
+      "activeResources": 185,
+      "resourceViews": 76,
+      "downloadClicks": 0,
+      "sourceClicks": 4,
+      "impressions": 1367
+    },
+    {
+      "label": "Pennsylvania State University",
+      "catalogRecords": 14348,
+      "activeResources": 2990,
+      "resourceViews": 1104,
+      "downloadClicks": 31,
+      "sourceClicks": 26,
+      "impressions": 12552
+    },
+    {
+      "label": "Princeton",
+      "catalogRecords": 9287,
+      "activeResources": 3380,
+      "resourceViews": 1021,
+      "downloadClicks": 71,
+      "sourceClicks": 113,
+      "impressions": 14514
+    },
+    {
+      "label": "Purdue University",
+      "catalogRecords": 118,
+      "activeResources": 111,
+      "resourceViews": 143,
+      "downloadClicks": 2,
+      "sourceClicks": 4,
+      "impressions": 1767
+    },
+    {
+      "label": "Rutgers University-New Brunswick",
+      "catalogRecords": 4554,
+      "activeResources": 1328,
+      "resourceViews": 490,
+      "downloadClicks": 212,
+      "sourceClicks": 21,
+      "impressions": 4610
+    },
+    {
+      "label": "Stanford",
+      "catalogRecords": 17686,
+      "activeResources": 2859,
+      "resourceViews": 1020,
+      "downloadClicks": 298,
+      "sourceClicks": 53,
+      "impressions": 7763
+    },
+    {
+      "label": "Texas",
+      "catalogRecords": 2676,
+      "activeResources": 678,
+      "resourceViews": 231,
+      "downloadClicks": 8,
+      "sourceClicks": 5,
+      "impressions": 2309
+    },
+    {
+      "label": "The Ohio State University",
+      "catalogRecords": 256,
+      "activeResources": 177,
+      "resourceViews": 53,
+      "downloadClicks": 0,
+      "sourceClicks": 5,
+      "impressions": 628
+    },
+    {
+      "label": "University of Chicago",
+      "catalogRecords": 8935,
+      "activeResources": 3474,
+      "resourceViews": 3045,
+      "downloadClicks": 9,
+      "sourceClicks": 476,
+      "impressions": 14786
+    },
+    {
+      "label": "University of Illinois Urbana-Champaign",
+      "catalogRecords": 2499,
+      "activeResources": 802,
+      "resourceViews": 378,
+      "downloadClicks": 0,
+      "sourceClicks": 47,
+      "impressions": 2521
+    },
+    {
+      "label": "University of Iowa",
+      "catalogRecords": 3470,
+      "activeResources": 1475,
+      "resourceViews": 538,
+      "downloadClicks": 0,
+      "sourceClicks": 23,
+      "impressions": 6134
+    },
+    {
+      "label": "University of Maryland",
+      "catalogRecords": 271,
+      "activeResources": 171,
+      "resourceViews": 184,
+      "downloadClicks": 2,
+      "sourceClicks": 5,
+      "impressions": 2698
+    },
+    {
+      "label": "University of Michigan",
+      "catalogRecords": 1334,
+      "activeResources": 858,
+      "resourceViews": 395,
+      "downloadClicks": 0,
+      "sourceClicks": 36,
+      "impressions": 8256
+    },
+    {
+      "label": "University of Minnesota",
+      "catalogRecords": 7518,
+      "activeResources": 4276,
+      "resourceViews": 1688,
+      "downloadClicks": 105,
+      "sourceClicks": 56,
+      "impressions": 17983
+    },
+    {
+      "label": "University of Nebraska-Lincoln",
+      "catalogRecords": 431,
+      "activeResources": 109,
+      "resourceViews": 35,
+      "downloadClicks": 0,
+      "sourceClicks": 0,
+      "impressions": 292
+    },
+    {
+      "label": "University of Wisconsin-Madison",
+      "catalogRecords": 10945,
+      "activeResources": 2698,
+      "resourceViews": 1121,
+      "downloadClicks": 188,
+      "sourceClicks": 52,
+      "impressions": 16941
+    },
+    {
+      "label": null,
+      "catalogRecords": 44791,
+      "activeResources": 13956,
+      "resourceViews": 11420,
+      "downloadClicks": 375,
+      "sourceClicks": 811,
+      "impressions": 62497
+    }
+  ],
+  "codes": [
+    {
+      "label": "01",
+      "catalogRecords": 15779,
+      "activeResources": 3085,
+      "resourceViews": 1910,
+      "downloadClicks": 210,
+      "sourceClicks": 36,
+      "impressions": 8733
+    },
+    {
+      "label": "02",
+      "catalogRecords": 2958,
+      "activeResources": 1128,
+      "resourceViews": 621,
+      "downloadClicks": 4,
+      "sourceClicks": 67,
+      "impressions": 6273
+    },
+    {
+      "label": "03",
+      "catalogRecords": 4188,
+      "activeResources": 1763,
+      "resourceViews": 723,
+      "downloadClicks": 6,
+      "sourceClicks": 35,
+      "impressions": 8747
+    },
+    {
+      "label": "04",
+      "catalogRecords": 4108,
+      "activeResources": 909,
+      "resourceViews": 658,
+      "downloadClicks": 2,
+      "sourceClicks": 33,
+      "impressions": 5365
+    },
+    {
+      "label": "05",
+      "catalogRecords": 14237,
+      "activeResources": 6134,
+      "resourceViews": 2191,
+      "downloadClicks": 158,
+      "sourceClicks": 88,
+      "impressions": 23248
+    },
+    {
+      "label": "06",
+      "catalogRecords": 4368,
+      "activeResources": 2474,
+      "resourceViews": 1880,
+      "downloadClicks": 229,
+      "sourceClicks": 91,
+      "impressions": 20052
+    },
+    {
+      "label": "07",
+      "catalogRecords": 1811,
+      "activeResources": 1067,
+      "resourceViews": 552,
+      "downloadClicks": 0,
+      "sourceClicks": 49,
+      "impressions": 9011
+    },
+    {
+      "label": "08",
+      "catalogRecords": 15974,
+      "activeResources": 3560,
+      "resourceViews": 1655,
+      "downloadClicks": 36,
+      "sourceClicks": 52,
+      "impressions": 14254
+    },
+    {
+      "label": "09",
+      "catalogRecords": 839,
+      "activeResources": 279,
+      "resourceViews": 395,
+      "downloadClicks": 2,
+      "sourceClicks": 21,
+      "impressions": 2194
+    },
+    {
+      "label": "10",
+      "catalogRecords": 14753,
+      "activeResources": 3810,
+      "resourceViews": 1359,
+      "downloadClicks": 188,
+      "sourceClicks": 52,
+      "impressions": 20865
+    },
+    {
+      "label": "11",
+      "catalogRecords": 1368,
+      "activeResources": 486,
+      "resourceViews": 541,
+      "downloadClicks": 0,
+      "sourceClicks": 14,
+      "impressions": 1240
+    },
+    {
+      "label": "12",
+      "catalogRecords": 10399,
+      "activeResources": 3895,
+      "resourceViews": 3349,
+      "downloadClicks": 9,
+      "sourceClicks": 497,
+      "impressions": 17279
+    },
+    {
+      "label": "13",
+      "catalogRecords": 1091,
+      "activeResources": 304,
+      "resourceViews": 240,
+      "downloadClicks": 0,
+      "sourceClicks": 2,
+      "impressions": 650
+    },
+    {
+      "label": "14",
+      "catalogRecords": 5709,
+      "activeResources": 1635,
+      "resourceViews": 822,
+      "downloadClicks": 214,
+      "sourceClicks": 32,
+      "impressions": 5273
+    },
+    {
+      "label": "15",
+      "catalogRecords": 252,
+      "activeResources": 185,
+      "resourceViews": 76,
+      "downloadClicks": 0,
+      "sourceClicks": 4,
+      "impressions": 1367
+    },
+    {
+      "label": "16",
+      "catalogRecords": 3462,
+      "activeResources": 670,
+      "resourceViews": 785,
+      "downloadClicks": 0,
+      "sourceClicks": 23,
+      "impressions": 2308
+    },
+    {
+      "label": "17",
+      "catalogRecords": 1340,
+      "activeResources": 286,
+      "resourceViews": 208,
+      "downloadClicks": 0,
+      "sourceClicks": 13,
+      "impressions": 1403
+    },
+    {
+      "label": "Missing contribution code",
+      "catalogRecords": 20,
+      "activeResources": 20,
+      "resourceViews": 56,
+      "downloadClicks": 0,
+      "sourceClicks": 0,
+      "impressions": 234
+    },
+    {
+      "label": "Other contribution codes",
+      "catalogRecords": 45009,
+      "activeResources": 12161,
+      "resourceViews": 7695,
+      "downloadClicks": 515,
+      "sourceClicks": 677,
+      "impressions": 52949
+    }
+  ],
+  "resources": [
+    {
+      "id": "5F3EEF4C-D1EA-4AC8-A2C5-774D21E78D46",
+      "title": "WHAIFinder (Wisconsin Historic Aerial Imagery Finder)",
+      "provider": "University of Wisconsin-Madison",
+      "views": 155,
+      "downloads": 0,
+      "sources": 19,
+      "impressions": 5
+    },
+    {
+      "id": "95dcf338-fc27-4d3b-8883-967b3223933b",
+      "title": "Emporium, Pennsylvania, 1892",
+      "provider": "Pennsylvania State University",
+      "views": 118,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "4d8468466a6c49048fa30b7994aa3e4c_5",
+      "title": "School District Boundaries [Ohio--Franklin County]",
+      "provider": null,
+      "views": 116,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "05d-09",
+      "title": "Minnesota Historical Aerial Photographs Online (MHAPO), 1920-2000",
+      "provider": "University of Minnesota",
+      "views": 92,
+      "downloads": 0,
+      "sources": 11,
+      "impressions": 2
+    },
+    {
+      "id": "999-0011-michigan",
+      "title": "Digital Sanborn Maps (Black & White) [Michigan] {1867-1970}",
+      "provider": null,
+      "views": 81,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 66
+    },
+    {
+      "id": "999-0011-california",
+      "title": "Digital Sanborn Maps (Black & White) [California] {1867-1970}",
+      "provider": null,
+      "views": 80,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 57
+    },
+    {
+      "id": "08d-02",
+      "title": "Sanborn Maps: Pennsylvania, 1884-1938",
+      "provider": "Pennsylvania State University",
+      "views": 77,
+      "downloads": 0,
+      "sources": 3,
+      "impressions": 54
+    },
+    {
+      "id": "999-0011-illinois",
+      "title": "Digital Sanborn Maps (Black & White) [Illinois] {1867-1970}",
+      "provider": null,
+      "views": 75,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 73
+    },
+    {
+      "id": "999-0011-new-york",
+      "title": "Digital Sanborn Maps (Black & White) [New York] {1867-1970}",
+      "provider": null,
+      "views": 75,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 33
+    },
+    {
+      "id": "f189b6132895412381ce72b8a9379843_3",
+      "title": "All Vacant and Abandoned Properties [Indiana--South Bend]",
+      "provider": null,
+      "views": 64,
+      "downloads": 0,
+      "sources": 3,
+      "impressions": 1
+    },
+    {
+      "id": "05c92e9490fa454ca75822836dbf241f_1",
+      "title": "County Boundary [Ohio--Franklin County]",
+      "provider": null,
+      "views": 62,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "999-0011-new-jersey",
+      "title": "Digital Sanborn Maps (Black & White) [New Jersey] {1867-1970}",
+      "provider": null,
+      "views": 62,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 41
+    },
+    {
+      "id": "8d82f1ca-5a1d-4e73-9fea-8e53c190869d",
+      "title": "Ethiopia - Addis Ababa subcities and woredas",
+      "provider": null,
+      "views": 54,
+      "downloads": 0,
+      "sources": 4,
+      "impressions": 1
+    },
+    {
+      "id": "999-0011-kentucky",
+      "title": "Digital Sanborn Maps (Black & White) [Kentucky] {1867-1970}",
+      "provider": null,
+      "views": 53,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 33
+    },
+    {
+      "id": "292ccdb0756448e892929fa4a27b3b1f_1",
+      "title": "Lake Clarity - Sechi Depth [Michigan]",
+      "provider": null,
+      "views": 50,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "999-0011-virginia",
+      "title": "Digital Sanborn Maps (Black & White) [Virginia] {1867-1970}",
+      "provider": null,
+      "views": 47,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 20
+    },
+    {
+      "id": "999-0010-california",
+      "title": "Fire Insurance Maps Online (FIMo) [California]",
+      "provider": null,
+      "views": 45,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 52
+    },
+    {
+      "id": "999-0011-iowa",
+      "title": "Digital Sanborn Maps (Black & White) [Iowa] {1867-1970}",
+      "provider": null,
+      "views": 43,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 78
+    },
+    {
+      "id": "999-0011-massachusetts",
+      "title": "Digital Sanborn Maps (Black & White) [Massachusetts] {1867-1970}",
+      "provider": null,
+      "views": 43,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 35
+    },
+    {
+      "id": "b35f927e-9051-4d7f-9ca3-ad5b19024e0b",
+      "title": "Sanborn Fire Insurance Maps",
+      "provider": null,
+      "views": 43,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 71
+    },
+    {
+      "id": "VAC3073-M-00169",
+      "title": "Map of Geist Reservoir, showing depth contours, Marion and Hamilton County",
+      "provider": "Indiana University",
+      "views": 43,
+      "downloads": 0,
+      "sources": 2,
+      "impressions": 2
+    },
+    {
+      "id": "0950e7df-b9eb-4fd3-b89c-a749fd8b69a1",
+      "title": "Bangladesh - Rivers",
+      "provider": null,
+      "views": 42,
+      "downloads": 0,
+      "sources": 7,
+      "impressions": 10
+    },
+    {
+      "id": "999-0011-connecticut",
+      "title": "Digital Sanborn Maps (Black & White) [Connecticut] {1867-1970}",
+      "provider": null,
+      "views": 42,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 38
+    },
+    {
+      "id": "VAC3073-M-01007",
+      "title": "Map of flood-prone areas, Anderson South quadrangle, Indiana-Madison Co. : 7.5 minute series (topographic)",
+      "provider": "Indiana University",
+      "views": 42,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "000b18d6-63b9-4314-9d4f-17c945ea09b7",
+      "title": "48N 18W - Survey Map of Munising Township, Alger County [Michigan]",
+      "provider": null,
+      "views": 40,
+      "downloads": 2,
+      "sources": 1,
+      "impressions": 1405
+    },
+    {
+      "id": "999-0011-nebraska",
+      "title": "Digital Sanborn Maps (Black & White) [Nebraska] {1867-1970}",
+      "provider": null,
+      "views": 40,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 14
+    },
+    {
+      "id": "stanford-dn883zt9449",
+      "title": "Rivers, Nepal, 2013",
+      "provider": "Stanford",
+      "views": 39,
+      "downloads": 16,
+      "sources": 1,
+      "impressions": 5
+    },
+    {
+      "id": "77f-0001",
+      "title": "General Land Office Township Plats",
+      "provider": null,
+      "views": 38,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 44
+    },
+    {
+      "id": "8a885da23dfb46caaa1827ad920fb5b1_0",
+      "title": "Gateway Traffic Camera Locations [Illinois]",
+      "provider": null,
+      "views": 38,
+      "downloads": 0,
+      "sources": 5,
+      "impressions": 0
+    },
+    {
+      "id": "999-0011-louisiana",
+      "title": "Digital Sanborn Maps (Black & White) [Louisiana] {1867-1970}",
+      "provider": null,
+      "views": 37,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 35
+    },
+    {
+      "id": "999-0011",
+      "title": "Digital Sanborn Maps (Black & White) [All States] {1867-1970}",
+      "provider": null,
+      "views": 36,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 5
+    },
+    {
+      "id": "999-0011-missouri",
+      "title": "Digital Sanborn Maps (Black & White) [Missouri] {1867-1970}",
+      "provider": null,
+      "views": 36,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 17
+    },
+    {
+      "id": "08a-04",
+      "title": "PASDA Geospatial Data Archive",
+      "provider": "Pennsylvania State University",
+      "views": 35,
+      "downloads": 0,
+      "sources": 2,
+      "impressions": 35
+    },
+    {
+      "id": "999-0011-arkansas",
+      "title": "Digital Sanborn Maps (Black & White) [Arkansas] {1867-1970}",
+      "provider": null,
+      "views": 35,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 31
+    },
+    {
+      "id": "999-0011-florida",
+      "title": "Digital Sanborn Maps (Black & White) [Florida] {1867-1970}",
+      "provider": null,
+      "views": 35,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 38
+    },
+    {
+      "id": "999-0011-pennsylvania",
+      "title": "Digital Sanborn Maps (Black & White) [Pennsylvania] {1867-1970}",
+      "provider": null,
+      "views": 35,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 64
+    },
+    {
+      "id": "999-0011-alabama",
+      "title": "Digital Sanborn Maps (Black & White) [Alabama] {1867-1970}",
+      "provider": null,
+      "views": 34,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 37
+    },
+    {
+      "id": "0dd6d6786d724cfbbd3591481c7f81d3_0",
+      "title": "Imagery Warehouse - 1930 Aerial Image Grid (Hosted) [New Jersey]",
+      "provider": null,
+      "views": 33,
+      "downloads": 0,
+      "sources": 1,
+      "impressions": 0
+    },
+    {
+      "id": "999-0011-wisconsin",
+      "title": "Digital Sanborn Maps (Black & White) [Wisconsin] {1867-1970}",
+      "provider": null,
+      "views": 32,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 26
+    },
+    {
+      "id": "cb58fa1f-687d-4cac-81a7-655ab1efb2d0",
+      "title": "Ethiopia - Subnational Administrative Boundaries",
+      "provider": null,
+      "views": 32,
+      "downloads": 0,
+      "sources": 5,
+      "impressions": 5
+    },
+    {
+      "id": "999-0010-massachusetts",
+      "title": "Fire Insurance Maps Online (FIMo) [Massachusetts]",
+      "provider": null,
+      "views": 31,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 39
+    },
+    {
+      "id": "999-0011-minnesota",
+      "title": "Digital Sanborn Maps (Black & White) [Minnesota] {1867-1970}",
+      "provider": null,
+      "views": 31,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 32
+    },
+    {
+      "id": "ba5cc745-21c5-4ae9-954b-72dd8db6815a",
+      "title": "Government Open Geospatial Data Collection",
+      "provider": null,
+      "views": 31,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 25
+    },
+    {
+      "id": "53aebdbc-1eb9-4f77-8898-de593aefe626",
+      "title": "Mozambique: Google Building Footprints",
+      "provider": null,
+      "views": 30,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "999-0011-kansas",
+      "title": "Digital Sanborn Maps (Black & White) [Kansas] {1867-1970}",
+      "provider": null,
+      "views": 30,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 31
+    },
+    {
+      "id": "999-0011-ohio",
+      "title": "Digital Sanborn Maps (Black & White) [Ohio] {1867-1970}",
+      "provider": null,
+      "views": 29,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 18
+    },
+    {
+      "id": "02415_1899-0022_mc87pq637",
+      "title": "Sanborn Map [Indiana--Michigan City] {1899} sheet 22",
+      "provider": "Indiana University",
+      "views": 28,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "999-0011-west-virginia",
+      "title": "Digital Sanborn Maps (Black & White) [West Virginia] {1867-1970}",
+      "provider": null,
+      "views": 28,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 11
+    },
+    {
+      "id": "e1fdf22f4ce04059b2f87dbaa1d727a2_0",
+      "title": "New Jersey Standard Route Id And Milepost [New Jersey]",
+      "provider": null,
+      "views": 28,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "79fd58bc-e336-4967-93da-7a018ab2b3dc",
+      "title": "Syria - Damage assessment of Idlib, Idlib Governorate",
+      "provider": null,
+      "views": 27,
+      "downloads": 0,
+      "sources": 0,
+      "impressions": 0
+    }
+  ],
+  "downloads": [
+    {
+      "id": "stanford-dn883zt9449",
+      "title": "Rivers, Nepal, 2013",
+      "provider": "Stanford",
+      "views": 39,
+      "downloads": 16,
+      "sources": 1,
+      "impressions": 5
+    },
+    {
+      "id": "stanford-rx293pp4560",
+      "title": "Second-level Administrative Divisions, Syria, 2015",
+      "provider": "Stanford",
+      "views": 4,
+      "downloads": 8,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "stanford-pb503mv7221",
+      "title": "Geological Survey of Uganda [1:250,000 geological series], Maps Index",
+      "provider": "Stanford",
+      "views": 23,
+      "downloads": 7,
+      "sources": 1,
+      "impressions": 8
+    },
+    {
+      "id": "11651802-8f65-4e7f-9db8-129e7b707038",
+      "title": "01N 05E - Survey Map of Hamburg Township, Livingston County [Michigan]",
+      "provider": null,
+      "views": 3,
+      "downloads": 6,
+      "sources": 0,
+      "impressions": 19
+    },
+    {
+      "id": "48e5e73f-9087-45bd-b7c1-86edbd50d5b1",
+      "title": "07N 05W - Survey Map of Lyons Township, Ionia County, Page 2 [Michigan]",
+      "provider": null,
+      "views": 13,
+      "downloads": 6,
+      "sources": 2,
+      "impressions": 40
+    },
+    {
+      "id": "bb41f39b-2d8a-46f5-81da-aaa0e8b317f3",
+      "title": "07N 05W - Survey Map of Lyons Township, Ionia County, Page 1 [Michigan]",
+      "provider": null,
+      "views": 23,
+      "downloads": 6,
+      "sources": 3,
+      "impressions": 39
+    },
+    {
+      "id": "f126641f-c434-40a1-a0f6-1060af1b4d11",
+      "title": "HOLC Redlining Maps and Data [Nebraska--Lincoln]",
+      "provider": null,
+      "views": 10,
+      "downloads": 6,
+      "sources": 3,
+      "impressions": 1
+    },
+    {
+      "id": "IC45-DI",
+      "title": "Precambrian Geology of Marathon County, Wisconsin",
+      "provider": "University of Wisconsin-Madison",
+      "views": 5,
+      "downloads": 6,
+      "sources": 1,
+      "impressions": 2
+    },
+    {
+      "id": "5626b6cf-7434-44b8-ad20-c6a6828e7ae7",
+      "title": "HOLC Redlining Maps and Data [Louisiana--New Orleans]",
+      "provider": null,
+      "views": 11,
+      "downloads": 5,
+      "sources": 1,
+      "impressions": 2
+    },
+    {
+      "id": "5f324221-932c-4d6f-b828-30e57ca76bc1",
+      "title": "Official State Highway Map, Wisconsin 1984-1985",
+      "provider": "University of Wisconsin-Madison",
+      "views": 6,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "95199e85-696a-4380-8252-ecbc7b149508",
+      "title": "Bedrock geologic map and mineral exploration data of the western Vermilion district, St Louis and Lake Counties, northeastern Minnesota, M-98",
+      "provider": "University of Minnesota",
+      "views": 5,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 2
+    },
+    {
+      "id": "bc98bb75-9144-47f4-88fd-971e6263ded7",
+      "title": "HOLC Redlining Maps and Data [North Carolina--Fayetteville]",
+      "provider": null,
+      "views": 11,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "d9f12054-ef61-4253-8b84-d6cae51ed52a",
+      "title": "03S 08E - Survey Map of Van Buren Township, Wayne County [Michigan]",
+      "provider": null,
+      "views": 5,
+      "downloads": 5,
+      "sources": 1,
+      "impressions": 1
+    },
+    {
+      "id": "e57784ca-642f-4a1a-9b24-cb550d417475",
+      "title": "08N 11W - Survey Map of Plainfield Township, Kent County, Page 1 [Michigan]",
+      "provider": null,
+      "views": 9,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 3
+    },
+    {
+      "id": "p16022coll205:1110",
+      "title": "Plan de Paris, Métropolitain et Nord-Sud",
+      "provider": "University of Minnesota",
+      "views": 1,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 16
+    },
+    {
+      "id": "rutgers-lib:20581",
+      "title": "Washington, New Jersey 1972",
+      "provider": "Rutgers University-New Brunswick",
+      "views": 11,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "rutgers-lib:28695",
+      "title": "Riparian & stream survey",
+      "provider": "Rutgers University-New Brunswick",
+      "views": 5,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 47
+    },
+    {
+      "id": "rutgers-lib:39389",
+      "title": "New map of Bayonne, N.J.",
+      "provider": "Rutgers University-New Brunswick",
+      "views": 15,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "rutgers-lib:63578",
+      "title": "State of New Jersey Department of Environmental Protection Big Creek - Tuckerton",
+      "provider": "Rutgers University-New Brunswick",
+      "views": 6,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "stanford-rz344pd6047",
+      "title": "Coastlines, Bangladesh, 2016",
+      "provider": "Stanford",
+      "views": 18,
+      "downloads": 5,
+      "sources": 0,
+      "impressions": 10
+    },
+    {
+      "id": "t039r20w4fi01",
+      "title": "General Land Office Township Plat - Original Survey: Minnesota (T039N R20W), 1851",
+      "provider": null,
+      "views": 5,
+      "downloads": 5,
+      "sources": 1,
+      "impressions": 0
+    },
+    {
+      "id": "02315_1890-0001_gm80hv45n",
+      "title": "Sanborn Map [Indiana--Decatur] {1890} sheet 1",
+      "provider": "Indiana University",
+      "views": 4,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 7
+    },
+    {
+      "id": "02352_1887-0002_p8418n49j",
+      "title": "Sanborn Map [Indiana--Greencastle] {1887} sheet 2",
+      "provider": "Indiana University",
+      "views": 2,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "02352_1887-0003_0z708w54q",
+      "title": "Sanborn Map [Indiana--Greencastle] {1887} sheet 3",
+      "provider": "Indiana University",
+      "views": 4,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "09cbfcc9-4344-4506-bebe-4515f0f37731",
+      "title": "19N 06W - Survey Map of Redding Township, Clare County [Michigan]",
+      "provider": null,
+      "views": 1,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 2
+    },
+    {
+      "id": "25801515-ccd3-41ed-82bb-0b0007e88341",
+      "title": "HOLC Redlining Maps and Data [Tennessee--Memphis]",
+      "provider": null,
+      "views": 9,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 7
+    },
+    {
+      "id": "6BPFRDZGPNZ4I9C",
+      "title": "Original Public Land Survey System Map: Wisconsin Township 22 North, Range 06 East - Front",
+      "provider": "University of Wisconsin-Madison",
+      "views": 4,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 9
+    },
+    {
+      "id": "aa30575d-48a0-49b0-bd5f-85cbda0e109a",
+      "title": "HOLC Redlining Maps and Data [Texas--Houston]",
+      "provider": null,
+      "views": 7,
+      "downloads": 4,
+      "sources": 2,
+      "impressions": 5
+    },
+    {
+      "id": "ark:-77981-gmgspv6b65v",
+      "title": "Assembly Districts Wisconsin 1992",
+      "provider": "American Geographical Society Library – UWM Libraries",
+      "views": 9,
+      "downloads": 4,
+      "sources": 4,
+      "impressions": 1
+    },
+    {
+      "id": "f11da8c6-5a23-4253-adc2-4d1172b82587",
+      "title": "HOLC Redlining Maps and Data [Illinois--Chicago]",
+      "provider": null,
+      "views": 12,
+      "downloads": 4,
+      "sources": 3,
+      "impressions": 0
+    },
+    {
+      "id": "p16022coll230:1950",
+      "title": "Soil map, Michigan, Allegan Co. sheet",
+      "provider": "University of Minnesota",
+      "views": 7,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 9
+    },
+    {
+      "id": "p16022coll230:4053",
+      "title": "Steam railroad map of Pennsylvania",
+      "provider": "University of Minnesota",
+      "views": 1,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 3
+    },
+    {
+      "id": "p16022coll246:203",
+      "title": "Map of the hill country of Ceylon showing the positions of the principal coffee estates, &c",
+      "provider": "University of Minnesota",
+      "views": 4,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "rutgers-lib:28694",
+      "title": "Riparian & stream survey",
+      "provider": "Rutgers University-New Brunswick",
+      "views": 4,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 47
+    },
+    {
+      "id": "rutgers-lib:56888",
+      "title": "Map of division of waterfont in Hoboken City, N.J.",
+      "provider": "Rutgers University-New Brunswick",
+      "views": 5,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 14
+    },
+    {
+      "id": "stanford-mq785tr7173",
+      "title": "European Rivers, 1:10 million (2012)",
+      "provider": "Stanford",
+      "views": 10,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 2
+    },
+    {
+      "id": "stanford-wt641rx4675",
+      "title": "Cutural Sites, Syria, May, 2013",
+      "provider": "Stanford",
+      "views": 3,
+      "downloads": 4,
+      "sources": 0,
+      "impressions": 8
+    },
+    {
+      "id": "005a0fab-dd64-4c75-b4b2-336e1a1a8fb0",
+      "title": "01N 10W - Survey Map of Prairieville Township, Barry County, Page 4 [Michigan]",
+      "provider": null,
+      "views": 9,
+      "downloads": 3,
+      "sources": 1,
+      "impressions": 592
+    },
+    {
+      "id": "02315_1895-0001_z316q168k",
+      "title": "Sanborn Map [Indiana--Decatur] {1895} sheet 1",
+      "provider": "Indiana University",
+      "views": 2,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 7
+    },
+    {
+      "id": "02315_1895-0004_z316q169v",
+      "title": "Sanborn Map [Indiana--Decatur] {1895} sheet 4",
+      "provider": "Indiana University",
+      "views": 3,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 7
+    },
+    {
+      "id": "02352_1892-0003_dz010q26z",
+      "title": "Sanborn Map [Indiana--Greencastle] {1892} sheet 3",
+      "provider": "Indiana University",
+      "views": 7,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "02361_1901-0009_8p58pd10f",
+      "title": "Sanborn Map [Indiana--Hartford City] {1901} sheet 9",
+      "provider": "Indiana University",
+      "views": 2,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "02476_1904-0001_p8418n74w",
+      "title": "Sanborn Map [Indiana--Rensselaer] {1904} sheet 1",
+      "provider": "Indiana University",
+      "views": 6,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 0
+    },
+    {
+      "id": "02532_1896-0008_q237hs44j",
+      "title": "Sanborn Map [Indiana--Washington] {1896} sheet 8",
+      "provider": "Indiana University",
+      "views": 3,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 9
+    },
+    {
+      "id": "07B668FC-0C1A-4D80-81AA-FD765A707689",
+      "title": "Zoning Kenosha County, WI 2024",
+      "provider": "University of Wisconsin-Madison",
+      "views": 11,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 1
+    },
+    {
+      "id": "07ec2fcd-dccc-41ed-85dc-43f62337f106",
+      "title": "HOLC Redlining Maps and Data [South Dakota--Rapid City]",
+      "provider": null,
+      "views": 17,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 26
+    },
+    {
+      "id": "0a968e17-57cd-4d17-afa7-5f91fd163cd1",
+      "title": "02N 09E - Survey Map of West Bloomfield Township, Oakland County, page 4 [Michigan]",
+      "provider": null,
+      "views": 10,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 5
+    },
+    {
+      "id": "13020-hg6n-8f95",
+      "title": "Supplementary data for \"Trajectories of long duration balloons launched from McMurdo Station in Antarctica\"",
+      "provider": "University of Minnesota",
+      "views": 2,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 6
+    },
+    {
+      "id": "29c75aed-4c5e-43dc-982f-f071b09a207a",
+      "title": "25N 02E - Survey Map of Big Creek Township, Oscoda County, page 1 [Michigan]",
+      "provider": null,
+      "views": 8,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 2
+    },
+    {
+      "id": "358dfeb5-f2d7-4928-81e1-fdd64af3a5ee",
+      "title": "Freeways Minneapolis Black Population",
+      "provider": "University of Minnesota",
+      "views": 4,
+      "downloads": 3,
+      "sources": 0,
+      "impressions": 8
+    }
+  ],
+  "searchViews": [
+    {
+      "label": "map",
+      "count": 11268
+    },
+    {
+      "label": "gallery",
+      "count": 1751
+    },
+    {
+      "label": "list",
+      "count": 983
+    }
+  ],
+  "daily": [
+    {
+      "day": "2026-07-01",
+      "searches": 251,
+      "zeroResults": 66,
+      "events": 548,
+      "views": 406,
+      "downloads": 28,
+      "requests": 14500,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-02",
+      "searches": 240,
+      "zeroResults": 49,
+      "events": 556,
+      "views": 403,
+      "downloads": 27,
+      "requests": 18058,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-03",
+      "searches": 88,
+      "zeroResults": 17,
+      "events": 491,
+      "views": 406,
+      "downloads": 24,
+      "requests": 19271,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-04",
+      "searches": 138,
+      "zeroResults": 17,
+      "events": 479,
+      "views": 348,
+      "downloads": 27,
+      "requests": 17324,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-05",
+      "searches": 335,
+      "zeroResults": 55,
+      "events": 753,
+      "views": 484,
+      "downloads": 75,
+      "requests": 23920,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-06",
+      "searches": 268,
+      "zeroResults": 76,
+      "events": 644,
+      "views": 469,
+      "downloads": 28,
+      "requests": 26125,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-07",
+      "searches": 297,
+      "zeroResults": 37,
+      "events": 737,
+      "views": 534,
+      "downloads": 62,
+      "requests": 15274,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-08",
+      "searches": 270,
+      "zeroResults": 34,
+      "events": 627,
+      "views": 456,
+      "downloads": 31,
+      "requests": 19603,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-09",
+      "searches": 215,
+      "zeroResults": 24,
+      "events": 578,
+      "views": 419,
+      "downloads": 30,
+      "requests": 20371,
+      "errors": 7
+    },
+    {
+      "day": "2026-07-10",
+      "searches": 214,
+      "zeroResults": 47,
+      "events": 531,
+      "views": 410,
+      "downloads": 26,
+      "requests": 19647,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-11",
+      "searches": 91,
+      "zeroResults": 28,
+      "events": 303,
+      "views": 230,
+      "downloads": 24,
+      "requests": 18676,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-12",
+      "searches": 189,
+      "zeroResults": 37,
+      "events": 411,
+      "views": 307,
+      "downloads": 21,
+      "requests": 18102,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-13",
+      "searches": 185,
+      "zeroResults": 29,
+      "events": 551,
+      "views": 421,
+      "downloads": 28,
+      "requests": 19529,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-14",
+      "searches": 352,
+      "zeroResults": 61,
+      "events": 620,
+      "views": 447,
+      "downloads": 21,
+      "requests": 25249,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-15",
+      "searches": 244,
+      "zeroResults": 40,
+      "events": 586,
+      "views": 404,
+      "downloads": 31,
+      "requests": 17005,
+      "errors": 2
+    },
+    {
+      "day": "2026-07-16",
+      "searches": 243,
+      "zeroResults": 55,
+      "events": 580,
+      "views": 416,
+      "downloads": 40,
+      "requests": 17708,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-17",
+      "searches": 125,
+      "zeroResults": 9,
+      "events": 425,
+      "views": 319,
+      "downloads": 32,
+      "requests": 13992,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-18",
+      "searches": 125,
+      "zeroResults": 11,
+      "events": 433,
+      "views": 321,
+      "downloads": 13,
+      "requests": 17919,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-19",
+      "searches": 123,
+      "zeroResults": 21,
+      "events": 345,
+      "views": 267,
+      "downloads": 17,
+      "requests": 13946,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-20",
+      "searches": 271,
+      "zeroResults": 41,
+      "events": 569,
+      "views": 380,
+      "downloads": 33,
+      "requests": 23369,
+      "errors": 3
+    },
+    {
+      "day": "2026-07-21",
+      "searches": 213,
+      "zeroResults": 43,
+      "events": 525,
+      "views": 378,
+      "downloads": 27,
+      "requests": 20306,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-22",
+      "searches": 185,
+      "zeroResults": 25,
+      "events": 523,
+      "views": 382,
+      "downloads": 31,
+      "requests": 20967,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-23",
+      "searches": 183,
+      "zeroResults": 39,
+      "events": 483,
+      "views": 343,
+      "downloads": 16,
+      "requests": 14219,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-24",
+      "searches": 323,
+      "zeroResults": 34,
+      "events": 766,
+      "views": 481,
+      "downloads": 22,
+      "requests": 20570,
+      "errors": 1
+    },
+    {
+      "day": "2026-07-25",
+      "searches": 225,
+      "zeroResults": 41,
+      "events": 715,
+      "views": 530,
+      "downloads": 27,
+      "requests": 17082,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-26",
+      "searches": 60,
+      "zeroResults": 20,
+      "events": 318,
+      "views": 259,
+      "downloads": 23,
+      "requests": 16635,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-27",
+      "searches": 222,
+      "zeroResults": 46,
+      "events": 550,
+      "views": 405,
+      "downloads": 29,
+      "requests": 18716,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-28",
+      "searches": 202,
+      "zeroResults": 22,
+      "events": 557,
+      "views": 387,
+      "downloads": 47,
+      "requests": 26918,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-29",
+      "searches": 250,
+      "zeroResults": 33,
+      "events": 646,
+      "views": 454,
+      "downloads": 47,
+      "requests": 34574,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-30",
+      "searches": 101,
+      "zeroResults": 6,
+      "events": 455,
+      "views": 349,
+      "downloads": 25,
+      "requests": 22452,
+      "errors": 0
+    },
+    {
+      "day": "2026-07-31",
+      "searches": 229,
+      "zeroResults": 35,
+      "events": 519,
+      "views": 385,
+      "downloads": 21,
+      "requests": 21104,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-01",
+      "searches": 91,
+      "zeroResults": 16,
+      "events": 291,
+      "views": 216,
+      "downloads": 12,
+      "requests": 49258,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-02",
+      "searches": 183,
+      "zeroResults": 35,
+      "events": 708,
+      "views": 569,
+      "downloads": 31,
+      "requests": 26651,
+      "errors": 1
+    },
+    {
+      "day": "2026-08-03",
+      "searches": 224,
+      "zeroResults": 45,
+      "events": 793,
+      "views": 614,
+      "downloads": 57,
+      "requests": 23363,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-04",
+      "searches": 247,
+      "zeroResults": 49,
+      "events": 750,
+      "views": 555,
+      "downloads": 67,
+      "requests": 19313,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-05",
+      "searches": 276,
+      "zeroResults": 66,
+      "events": 1653,
+      "views": 1487,
+      "downloads": 21,
+      "requests": 32953,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-06",
+      "searches": 139,
+      "zeroResults": 25,
+      "events": 853,
+      "views": 747,
+      "downloads": 14,
+      "requests": 23801,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-07",
+      "searches": 137,
+      "zeroResults": 26,
+      "events": 1875,
+      "views": 1779,
+      "downloads": 21,
+      "requests": 27334,
+      "errors": 1
+    },
+    {
+      "day": "2026-08-08",
+      "searches": 80,
+      "zeroResults": 17,
+      "events": 2043,
+      "views": 1973,
+      "downloads": 31,
+      "requests": 27415,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-09",
+      "searches": 143,
+      "zeroResults": 30,
+      "events": 1010,
+      "views": 879,
+      "downloads": 43,
+      "requests": 27124,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-10",
+      "searches": 275,
+      "zeroResults": 78,
+      "events": 581,
+      "views": 429,
+      "downloads": 36,
+      "requests": 17346,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-11",
+      "searches": 638,
+      "zeroResults": 185,
+      "events": 653,
+      "views": 456,
+      "downloads": 31,
+      "requests": 15669,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-12",
+      "searches": 323,
+      "zeroResults": 54,
+      "events": 458,
+      "views": 342,
+      "downloads": 22,
+      "requests": 15842,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-13",
+      "searches": 625,
+      "zeroResults": 54,
+      "events": 840,
+      "views": 590,
+      "downloads": 37,
+      "requests": 16978,
+      "errors": 2
+    },
+    {
+      "day": "2026-08-14",
+      "searches": 265,
+      "zeroResults": 49,
+      "events": 648,
+      "views": 465,
+      "downloads": 22,
+      "requests": 14494,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-15",
+      "searches": 176,
+      "zeroResults": 50,
+      "events": 484,
+      "views": 399,
+      "downloads": 13,
+      "requests": 14815,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-16",
+      "searches": 160,
+      "zeroResults": 25,
+      "events": 438,
+      "views": 341,
+      "downloads": 16,
+      "requests": 13909,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-17",
+      "searches": 315,
+      "zeroResults": 65,
+      "events": 652,
+      "views": 452,
+      "downloads": 20,
+      "requests": 16877,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-18",
+      "searches": 551,
+      "zeroResults": 115,
+      "events": 843,
+      "views": 589,
+      "downloads": 14,
+      "requests": 16942,
+      "errors": 3
+    },
+    {
+      "day": "2026-08-19",
+      "searches": 449,
+      "zeroResults": 132,
+      "events": 675,
+      "views": 484,
+      "downloads": 15,
+      "requests": 17893,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-20",
+      "searches": 309,
+      "zeroResults": 30,
+      "events": 714,
+      "views": 508,
+      "downloads": 27,
+      "requests": 17274,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-21",
+      "searches": 206,
+      "zeroResults": 34,
+      "events": 606,
+      "views": 453,
+      "downloads": 25,
+      "requests": 17164,
+      "errors": 1
+    },
+    {
+      "day": "2026-08-22",
+      "searches": 81,
+      "zeroResults": 22,
+      "events": 390,
+      "views": 313,
+      "downloads": 21,
+      "requests": 14409,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-23",
+      "searches": 110,
+      "zeroResults": 35,
+      "events": 280,
+      "views": 228,
+      "downloads": 12,
+      "requests": 13920,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-24",
+      "searches": 144,
+      "zeroResults": 20,
+      "events": 397,
+      "views": 301,
+      "downloads": 18,
+      "requests": 12124,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-25",
+      "searches": 351,
+      "zeroResults": 41,
+      "events": 687,
+      "views": 504,
+      "downloads": 33,
+      "requests": 17066,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-26",
+      "searches": 182,
+      "zeroResults": 20,
+      "events": 414,
+      "views": 306,
+      "downloads": 19,
+      "requests": 15069,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-27",
+      "searches": 292,
+      "zeroResults": 37,
+      "events": 640,
+      "views": 448,
+      "downloads": 37,
+      "requests": 17888,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-28",
+      "searches": 269,
+      "zeroResults": 26,
+      "events": 368,
+      "views": 266,
+      "downloads": 17,
+      "requests": 15877,
+      "errors": 1
+    },
+    {
+      "day": "2026-08-29",
+      "searches": 131,
+      "zeroResults": 32,
+      "events": 356,
+      "views": 257,
+      "downloads": 35,
+      "requests": 14251,
+      "errors": 0
+    },
+    {
+      "day": "2026-08-30",
+      "searches": 112,
+      "zeroResults": 34,
+      "events": 300,
+      "views": 223,
+      "downloads": 18,
+      "requests": 13194,
+      "errors": 1
+    },
+    {
+      "day": "2026-08-31",
+      "searches": 61,
+      "zeroResults": 8,
+      "events": 353,
+      "views": 267,
+      "downloads": 27,
+      "requests": 12718,
+      "errors": 0
+    }
+  ],
+  "endpoints": [
+    {
+      "label": "/api/docs",
+      "requests": 527702,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/turnstile/status",
+      "requests": 387310,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/analytics/events",
+      "requests": 56821,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/turnstile/verify",
+      "requests": 45646,
+      "errors": 11
+    },
+    {
+      "label": "/robots.txt",
+      "requests": 43179,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/search",
+      "requests": 7256,
+      "errors": 9
+    },
+    {
+      "label": "/sitemaps/sitemap-1.xml",
+      "requests": 1431,
+      "errors": 0
+    },
+    {
+      "label": "/sitemap.xml",
+      "requests": 1019,
+      "errors": 0
+    },
+    {
+      "label": "/sitemaps/sitemap-2.xml",
+      "requests": 781,
+      "errors": 0
+    },
+    {
+      "label": "/sitemaps/sitemap-3.xml",
+      "requests": 746,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/a876ade229a43f4efafd9ac60ffcb0a71a63660004de9d8236f4aa94c7f94c81",
+      "requests": 638,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/dbb42e6051c7059d0b24401ca7e87a261a5a2d0745d013584092b30aba07f528",
+      "requests": 570,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/eb0a8380d19dca81e170f2e1b235f9f81462b1043fac0092e18b246dd1e5fa57",
+      "requests": 569,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/b4c3c418865cc51e40061a17f29f2a6f76402dc3fc35b96a4f9a134ab2925945",
+      "requests": 532,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/855668e1b4a12207bbb3815d80ae4b50dad5055bc1b05116c5f8b268c15dfb3b",
+      "requests": 527,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/8119891cc444315561172a167e47549aae35925e3f8a1ea51a64271931dbb0a3",
+      "requests": 524,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/500811b5d47cda8ac8c3c0be38788d5e9d34cf6f27b6048b3eb676bd89a37428",
+      "requests": 479,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/3dacbfc1a24328e5f54cd96dde69c9d921cd6161b0961c5495946cc540295a68",
+      "requests": 446,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/admin/bridge/sync/runs/144",
+      "requests": 418,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/910d9639038f12ebcc94b8fb3998623936b60b9a2d4db3b9962d330554001adc",
+      "requests": 402,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/search/facets/b1g_code_s",
+      "requests": 378,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/4fb0bc942b373e6efae1649bb1f166ed504fb058744fbf9400b02fbb28c8dd64",
+      "requests": 359,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/fe40bf0911637227c282b050d42cdd7c33729493df0168f3be2e0363a6fec9e1",
+      "requests": 289,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/7380892c187dae554b27f801916f7af75d06267232525af6871bfbba02f2acbd",
+      "requests": 287,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/9af0aa10fa89e47d4cf768eae5c54b5111647060e6346ff3bc6e82fbf1ff0d9e",
+      "requests": 283,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/ed22fac75ca66d4cae940eb98035dc110a10e15c9ae9ece199e8a01464fc9fa3",
+      "requests": 283,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/415a3aa6ef67a994d8a062442bb31b525589ae79c319e0d38e9a20f6e5e21239",
+      "requests": 257,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/c6a8ac8ac084ce093fbe029f9453d88249c45e6fffff522e9f048595ac8d53ac",
+      "requests": 252,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/df4195a8f9321ef42dc8fc67f987fc65359022eecce99bd46929866b583696b5",
+      "requests": 224,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/home/blog-posts",
+      "requests": 218,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/de3b62b053c244a62ff45efdb15370f452574c9b4933c9f274574616a732461e",
+      "requests": 210,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/780f0dd033adb05c570a80c11ec8fa71dc676bc02c9229931663ab1dba867655",
+      "requests": 172,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/2703f7f244f7b4e7281a6ebb527313f5daa037bf86c6068ac094df5c182e8e89",
+      "requests": 169,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/e73fe7d4b6e89fceee3db9c071ad552f881924dd351e2b5a2a7766b333d22a1d",
+      "requests": 155,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/0c02e999e440686f62db4d398152030eec8fcdfa9c4a470f0513af4f61624ffe",
+      "requests": 145,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/da8dc1c5d18766cf1153d4c5c17c5dd899ca46f74e67af97f4916136572f426f",
+      "requests": 144,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/c53878a8bf3f1ca0f714ad36c1c41aa16316a309ec95da39763d26ca4b4c723d",
+      "requests": 143,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/b69c453d2b8d08d6551d407fc12a4eec86a7bae8f841a192874ec9138d55bd6e",
+      "requests": 139,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/",
+      "requests": 117,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/11c34a17-bc6d-429c-8770-64888ccb5302",
+      "requests": 113,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/b1g_urbanBaseLayers",
+      "requests": 113,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/c69b75a12ca64324a0109d48db735f6d_0",
+      "requests": 113,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/ee251fd05e504374831ab4ddf5e589f2_2",
+      "requests": 113,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/eee6150b-ce2f-4837-9d17-ce72a0c1c26f",
+      "requests": 113,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/resources/p16022coll289:22",
+      "requests": 113,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/9f86fdbff5d444b323a95442531048b85d90cbafcf42ef6d66f22cc48a7d43c6",
+      "requests": 109,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/static-map-assets/650f1bf6379ff64e31b70fc945f76b693d87c688b87dd4763db1eb53fefef023",
+      "requests": 106,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/863a5df5b3f46518cbb3b2fcfe0a4f0ad73c603fdf2e08ee651155cd9d36613a",
+      "requests": 103,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/08a830b0b6f45a18141a3296999cf847c1e34698e1ccfd02e583d1fd00c83299",
+      "requests": 102,
+      "errors": 0
+    },
+    {
+      "label": "/api/v1/thumbnails/f65d8f14d13db46aab98a1b8716e535e57c714ded2d47eed3ff9a8236e660d1c",
+      "requests": 100,
+      "errors": 0
+    }
+  ]
+}

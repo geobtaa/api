@@ -1,0 +1,14 @@
+{
+  "2026-07": {
+    "analytics_api_usage_logs": null,
+    "analytics_searches": 6457,
+    "analytics_events": 16824,
+    "analytics_search_impressions": null
+  },
+  "2026-08": {
+    "analytics_api_usage_logs": 598931,
+    "analytics_searches": 7545,
+    "analytics_events": 21753,
+    "analytics_search_impressions": 104455
+  }
+}
