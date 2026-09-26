@@ -1,5 +1,5 @@
 {
-  "version": "0.9.1",
-  "release_date": "2026-09-11",
-  "summary": "Fix search results after removing the last facet, correct IIIF thumbnail resolution for CONTENTdm and Ohio State University collections, and update the frontend Joi dependency."
+  "version": "0.9.2",
+  "release_date": "2026-09-26",
+  "summary": "Fix bridge cache refresh for deleted resources and daily sync email reporting, and update the AnyIO and Morgan dependencies."
 }
