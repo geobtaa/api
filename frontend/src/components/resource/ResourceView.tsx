@@ -315,7 +315,7 @@ export function ResourceView() {
                   {viewerProtocol && (
                     <div className="bg-white rounded-lg shadow-md overflow-hidden">
                       <div className="">
-                        <ResourceViewer data={data.data} pageValue="SHOW" />
+                        <ResourceViewer data={data.data} />
                       </div>
                     </div>
                   )}
