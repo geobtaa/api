@@ -131,7 +131,8 @@ chunk URLs.
   frontend behavior changes.
 
 PMTiles previews require Ctrl or Command plus scroll to zoom, leaving ordinary
-scrolling available for the page. The viewer displays a hint; zoom buttons,
+scrolling available for the page. Unmodified scrolling briefly displays a centered
+Leaflet-style instruction over a dimmed map (Command on Mac, Ctrl elsewhere); zoom buttons,
 dragging, and touch interactions remain available.
 
 Resource source links are native anchors, supporting URL previews, copy-link,

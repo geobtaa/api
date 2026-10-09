@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react';
+import { act, render, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const wheelMocks = vi.hoisted(() => ({
@@ -445,6 +445,24 @@ describe('ResourceViewer', () => {
       expect(
         condition({ originalEvent: { ctrlKey: false, metaKey: true } })
       ).toBe(true);
+    });
+
+    it('shows a temporary Leaflet-style hint only for unmodified scrolling', () => {
+      const { container } = render(
+        <ResourceViewer data={pmtilesDataWithGeometry} pageValue="SHOW" />
+      );
+      const map = container.querySelector('.viewer')!;
+      const hint = screen.getByText(/Use .* \+ scroll to zoom the map/);
+      expect(hint).toHaveAttribute('aria-hidden', 'true');
+      fireEvent.wheel(map, { deltaY: 100 });
+      expect(hint).toHaveAttribute('aria-hidden', 'false');
+      act(() => vi.advanceTimersByTime(1000));
+      expect(hint).toHaveAttribute('aria-hidden', 'true');
+      fireEvent.wheel(map, { deltaY: 100 });
+      const modifiedWheel = new Event('wheel', { bubbles: true });
+      Object.defineProperty(modifiedWheel, 'metaKey', { value: true });
+      fireEvent(map, modifiedWheel);
+      expect(hint).toHaveAttribute('aria-hidden', 'true');
     });
 
     it('boots PMTiles when viewer geometry is a MultiPolygon', async () => {
