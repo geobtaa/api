@@ -24,6 +24,7 @@ const HomePageHexMapBackground = lazy(() =>
 import { ArrowRight, X } from 'lucide-react';
 import { fetchFacetValues, fetchHomeBlogPosts } from '../services/api';
 import { formatCount } from '../utils/formatNumber';
+import { getProviderIconUrl } from '../utils/providerIcons';
 import {
   BTAA_PARTNER_INSTITUTIONS,
   getPartnerInstitutionSearchHref,
@@ -411,7 +412,7 @@ export function HomePage() {
             >
               <span className="absolute right-0 top-1/2 h-1.5 w-1.5 -translate-y-1/2 translate-x-1/2 rotate-45 bg-[#c9a24a]" />
             </span>
-            <p className="shrink-0 text-center">
+            <p className="min-w-0 text-center">
               {announcement.text}{' '}
               <a
                 href={announcement.link_url}
@@ -555,7 +556,7 @@ export function HomePage() {
                       <img
                         src={
                           institution.iconSrc ||
-                          `/icons/${institution.iconSlug}.svg`
+                          getProviderIconUrl(institution.iconSlug)
                         }
                         alt={`Logo for ${institution.name}`}
                         title={institution.name}

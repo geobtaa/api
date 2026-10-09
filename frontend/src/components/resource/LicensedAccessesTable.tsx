@@ -1,6 +1,9 @@
 import { ExternalLink, LockKeyhole, University } from 'lucide-react';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
-import { getProviderIconSlug } from '../../utils/providerIcons';
+import {
+  getProviderIconSlug,
+  getProviderIconUrl,
+} from '../../utils/providerIcons';
 
 export interface LicensedAccessItem {
   institution_code: string;
@@ -22,7 +25,7 @@ function InstitutionIcon({ name }: { name: string }) {
     return (
       <span className="flex h-8 w-8 shrink-0 items-center justify-center border border-gray-200 bg-white">
         <img
-          src={`/icons/${iconSlug}.svg`}
+          src={getProviderIconUrl(iconSlug)}
           alt=""
           aria-hidden="true"
           className="h-5 w-5 object-contain"

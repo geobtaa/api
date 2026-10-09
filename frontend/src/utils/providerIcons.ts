@@ -3,6 +3,19 @@
  * Icon filenames are lowercase with underscores (e.g. university_of_minnesota.svg).
  */
 
+// Bump an icon's version when replacing artwork at its existing public path.
+const ICON_VERSIONS: Record<string, string> = {
+  university_of_iowa: '292ace29',
+};
+
+export function getProviderIconUrl(
+  iconSlug: string | undefined
+): string | undefined {
+  if (!iconSlug) return undefined;
+  const version = ICON_VERSIONS[iconSlug];
+  return `/icons/${iconSlug}.svg${version ? `?v=${version}` : ''}`;
+}
+
 const VALID_ICON_SLUGS = new Set([
   'american_geographical_society_library_uwm_libraries',
   'baruch_cuny',
