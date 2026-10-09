@@ -227,7 +227,7 @@ class TestResourceThumbnailCogFlow:
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = iiif_url
             svc.resolve_thumbnail_source_url.return_value = asset_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = image_hash
+            svc.current_thumbnail_hash_for_source_sync.return_value = image_hash
             svc._is_cog_url.return_value = False
             svc._is_pmtiles_url.return_value = False
             svc._is_manifest_url.return_value = False
@@ -277,7 +277,7 @@ class TestResourceThumbnailCogFlow:
         ):
             svc = MagicMock()
             svc.resolve_thumbnail_source_url.return_value = asset_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = image_hash
+            svc.current_thumbnail_hash_for_source_sync.return_value = image_hash
             svc._is_cog_url.return_value = False
             svc._is_pmtiles_url.return_value = False
             svc._is_manifest_url.return_value = False
@@ -325,7 +325,7 @@ class TestResourceThumbnailCogFlow:
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = cog_url
             svc.resolve_thumbnail_source_url.return_value = cog_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = _cog_thumbnail_image_hash(
+            svc.current_thumbnail_hash_for_source_sync.return_value = _cog_thumbnail_image_hash(
                 cog_url
             )
             svc._is_cog_url.return_value = True
@@ -374,7 +374,7 @@ class TestResourceThumbnailCogFlow:
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = cog_url
             svc.resolve_thumbnail_source_url.return_value = cog_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = image_hash
+            svc.current_thumbnail_hash_for_source_sync.return_value = image_hash
             svc._is_cog_url.return_value = True
             svc._is_manifest_url.return_value = False
             svc.get_cached_image = AsyncMock(return_value=png_bytes)
@@ -518,7 +518,7 @@ class TestResourceThumbnailPmtilesFlow:
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = pmtiles_url
             svc.resolve_thumbnail_source_url.return_value = pmtiles_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = _pmtiles_thumbnail_image_hash(
+            svc.current_thumbnail_hash_for_source_sync.return_value = _pmtiles_thumbnail_image_hash(
                 pmtiles_url
             )
             svc._is_cog_url.return_value = False
@@ -568,7 +568,7 @@ class TestResourceThumbnailPmtilesFlow:
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = pmtiles_url
             svc.resolve_thumbnail_source_url.return_value = pmtiles_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = image_hash
+            svc.current_thumbnail_hash_for_source_sync.return_value = image_hash
             svc._is_cog_url.return_value = False
             svc._is_pmtiles_url.return_value = True
             svc._is_manifest_url.return_value = False
@@ -682,7 +682,7 @@ class TestResourceThumbnailPmtilesFlow:
             svc = MagicMock()
             svc._get_thumbnail_source_url.return_value = pmtiles_url
             svc.resolve_thumbnail_source_url.return_value = pmtiles_url
-            svc.thumbnail_image_hash_for_source_sync.return_value = image_hash
+            svc.current_thumbnail_hash_for_source_sync.return_value = image_hash
             svc._is_cog_url.return_value = False
             svc._is_pmtiles_url.return_value = True
             svc._is_manifest_url.return_value = False

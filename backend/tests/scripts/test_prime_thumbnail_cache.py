@@ -1,235 +1,149 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+import asyncio
+import json
+from argparse import Namespace
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
-import scripts.prime_thumbnail_cache as prime_thumbnail_cache
+import scripts.prime_thumbnail_cache as prime
+from app.services.thumbnail_capture import CaptureResult
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_no_source_records_placeheld():
-    resource = {"id": "resource-no-source", "dct_accessrights_s": "Public"}
-
+@pytest.mark.parametrize("status", ["generated", "cached", "deferred"])
+async def test_prime_delegates_to_shared_capture(status):
+    resource = {"id": "map"}
     with (
-        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
+        patch.object(prime, "fetch_distribution_context", AsyncMock()),
+        patch.object(prime, "_get_thumbnail_asset_url", AsyncMock(return_value=None)),
+        patch.object(prime, "ImageService") as cls,
         patch.object(
-            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
-        ) as mock_state,
-        patch.object(
-            prime_thumbnail_cache, "_get_thumbnail_asset_url", AsyncMock(return_value=None)
-        ),
-        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
+            prime,
+            "capture_thumbnail",
+            return_value=CaptureResult(status, "a" * 64 if status != "deferred" else None),
+        ) as capture,
+        patch.object(prime, "safe_record_thumbnail_state", AsyncMock()) as state,
     ):
-        service = MagicMock()
-        service._get_thumbnail_source_url.return_value = None
-        service.resolve_thumbnail_source_url.return_value = None
-        mock_service_cls.return_value = service
-
-        result = await prime_thumbnail_cache._prime_thumbnail_for_resource(resource, force=False)
-
-        assert result == ("skipped-no-source", "resource-no-source", "no thumbnail source")
-        payload = mock_state.await_args.args[0]
-        assert payload.state == "placeheld"
-        assert payload.resource_id == "resource-no-source"
+        cls.return_value.resolve_thumbnail_source_url.return_value = "source"
+        result = await prime._prime_thumbnail_for_resource(resource, force=False)
+    assert result[0] == status
+    assert capture.call_args.args == ("source", "map")
+    assert capture.call_args.kwargs["force"] is False
+    if status == "deferred":
+        state.assert_not_called()
+    else:
+        assert state.await_args.args[0].source_hash == "a" * 64
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_cached_remote_records_success():
-    resource = {"id": "resource-cached", "dct_accessrights_s": "Public"}
-    source_url = "https://example.com/thumb.png"
-
+async def test_prime_persistence_failure_is_reported():
     with (
-        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
-        patch.object(
-            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
-        ) as mock_state,
-        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
+        patch.object(prime, "fetch_distribution_context", AsyncMock()),
+        patch.object(prime, "_get_thumbnail_asset_url", AsyncMock(return_value=None)),
+        patch.object(prime, "ImageService") as cls,
+        patch.object(prime, "capture_thumbnail", side_effect=RuntimeError("commit failed")),
+        patch.object(prime, "safe_record_thumbnail_state", AsyncMock()) as state,
     ):
-        service = MagicMock()
-        service._get_thumbnail_source_url.return_value = source_url
-        service.resolve_thumbnail_source_url.return_value = source_url
-        service._is_cog_url.return_value = False
-        service._is_pmtiles_url.return_value = False
-        service._is_manifest_url.return_value = False
-        service.get_cached_image = AsyncMock(return_value=b"cached-image")
-        mock_service_cls.return_value = service
+        cls.return_value.resolve_thumbnail_source_url.return_value = "source"
+        result = await prime._prime_thumbnail_for_resource({"id": "map"}, force=False)
+    assert result == ("failed", "map", "commit failed")
+    assert state.await_args.args[0].state == "failure"
 
-        with patch.object(
-            prime_thumbnail_cache,
-            "_compute_thumbnail_image_hash",
-            return_value="abc123",
-        ):
-            result = await prime_thumbnail_cache._prime_thumbnail_for_resource(
-                resource, force=False
-            )
 
-        assert result == ("cached", "resource-cached", "thumbnail already cached")
-        payload = mock_state.await_args.args[0]
-    assert payload.state == "success"
-    assert payload.source_hash == "abc123"
+def args(path, **kw):
+    values = dict(
+        resource_ids=["a", "b"],
+        limit=None,
+        report_file=str(path),
+        resume_report=None,
+        batch_size=1,
+        concurrency=1,
+        force=False,
+    )
+    values.update(kw)
+    return Namespace(**values)
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_uses_bridge_asset_when_no_intrinsic_source():
-    resource = {"id": "resource-bridge", "dct_accessrights_s": "Public"}
-    asset_url = "https://assets.example.edu/thumb.png"
-
+async def test_deferred_run_is_incomplete_and_records_every_id(tmp_path):
+    path = tmp_path / "run.jsonl"
     with (
-        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
+        patch.object(prime, "durable_visual_asset_enabled", return_value=True),
+        patch.object(prime, "_count_resources", AsyncMock(return_value=2)),
         patch.object(
-            prime_thumbnail_cache, "_get_thumbnail_asset_url", AsyncMock(return_value=asset_url)
+            prime, "_fetch_resources_by_ids", AsyncMock(return_value=[{"id": "a"}, {"id": "b"}])
         ),
         patch.object(
-            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
-        ) as mock_state,
-        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
-        patch.object(
-            prime_thumbnail_cache,
-            "_compute_thumbnail_image_hash",
-            return_value="abc123",
-        ),
-        patch.object(
-            prime_thumbnail_cache,
-            "_prime_remote_thumbnail",
-            return_value=("generated", "remote"),
+            prime,
+            "_prime_thumbnail_for_resource",
+            AsyncMock(side_effect=[("generated", "a", "done"), ("deferred", "b", "cooldown")]),
         ),
     ):
-        service = MagicMock()
-        service.resolve_thumbnail_source_url.return_value = asset_url
-        service._is_cog_url.return_value = False
-        service._is_pmtiles_url.return_value = False
-        service._is_manifest_url.return_value = False
-        service.get_cached_image = AsyncMock(return_value=None)
-        mock_service_cls.return_value = service
-
-        result = await prime_thumbnail_cache._prime_thumbnail_for_resource(resource, force=False)
-
-    assert result == ("generated", "resource-bridge", "remote")
-    payload = mock_state.await_args.args[0]
-    assert payload.state == "success"
-    assert payload.source_url == asset_url
-    assert payload.source_hash == "abc123"
+        assert await prime._run(args(path)) == 1
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    assert {r["resource_id"] for r in records if r["event"] == "result"} == {"a", "b"}
+    assert records[-1]["complete"] is False
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_deprioritized_remote_provider_skips_without_state_write():
-    resource = {"id": "resource-deprioritized", "dct_accessrights_s": "Public"}
-    source_url = "https://gis.usgs.gov/thumb.png"
-
+async def test_resume_rechecks_entire_scope_without_forcing_downloads(tmp_path):
+    path = tmp_path / "run.jsonl"
+    journal = prime.RunJournal(str(path))
+    journal.write(event="scope", resource_ids=["a", "b"], limit=None)
+    journal.write(event="result", resource_id="a", status="generated")
+    journal.close()
+    # Simulate interruption before b was ever fetched or queued.
     with (
-        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
+        patch.object(prime, "durable_visual_asset_enabled", return_value=True),
+        patch.object(prime, "_count_resources", AsyncMock(return_value=2)),
         patch.object(
-            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
-        ) as mock_state,
-        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
+            prime, "_fetch_resources_by_ids", AsyncMock(return_value=[{"id": "a"}, {"id": "b"}])
+        ) as fetch,
         patch.object(
-            prime_thumbnail_cache,
-            "_compute_thumbnail_image_hash",
-            return_value="abc123",
-        ),
-        patch.object(
-            prime_thumbnail_cache,
-            "_prime_remote_thumbnail",
-            return_value=("deprioritized", "provider cooldown active"),
-        ),
+            prime,
+            "_prime_thumbnail_for_resource",
+            AsyncMock(side_effect=[("cached", "a", "verified"), ("generated", "b", "done")]),
+        ) as prime_one,
     ):
-        service = MagicMock()
-        service._get_thumbnail_source_url.return_value = source_url
-        service.resolve_thumbnail_source_url.return_value = source_url
-        service._is_cog_url.return_value = False
-        service._is_pmtiles_url.return_value = False
-        service._is_manifest_url.return_value = False
-        service.get_cached_image = AsyncMock(return_value=None)
-        mock_service_cls.return_value = service
+        assert await prime._run(args(path, resource_ids=[], resume_report=str(path))) == 0
+    fetch.assert_awaited_once_with(["a", "b"])
+    assert all(call.kwargs["force"] is False for call in prime_one.await_args_list)
 
-        result = await prime_thumbnail_cache._prime_thumbnail_for_resource(resource, force=False)
 
-        assert result == (
-            "deprioritized",
-            "resource-deprioritized",
-            "provider cooldown active",
-        )
-        mock_state.assert_not_awaited()
+def test_resume_tolerates_truncated_last_record(tmp_path):
+    path = tmp_path / "run.jsonl"
+    path.write_text('{"event":"scope","resource_ids":[],"limit":10}\n{"event":')
+    assert prime.resume_scope(str(path))["limit"] == 10
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_resume_rechecks_prior_success_and_rehydrates_cache():
-    resource = {"id": "resource-resume-success", "dct_accessrights_s": "Public"}
-    source_url = "https://example.com/thumb.png"
-
-    with (
-        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
-        patch.object(
-            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
-        ) as mock_state,
-        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
-        patch.object(
-            prime_thumbnail_cache,
-            "_compute_thumbnail_image_hash",
-            return_value="abc123",
-        ),
-    ):
-        service = MagicMock()
-        service._get_thumbnail_source_url.return_value = source_url
-        service.resolve_thumbnail_source_url.return_value = source_url
-        service._is_cog_url.return_value = False
-        service._is_pmtiles_url.return_value = False
-        service._is_manifest_url.return_value = False
-        service.get_cached_image = AsyncMock(return_value=b"cached-image")
-        mock_service_cls.return_value = service
-
-        result = await prime_thumbnail_cache._prime_thumbnail_for_resource(
-            resource,
-            force=False,
-            retry_failures=False,
-            retry_placeheld=False,
-            existing_state={"resource_id": "resource-resume-success", "state": "success"},
-        )
-
-        assert result == ("cached", "resource-resume-success", "thumbnail already cached")
-        payload = mock_state.await_args.args[0]
-        assert payload.state == "success"
-        assert payload.source_hash == "abc123"
+async def test_bulk_requires_durable_storage(tmp_path):
+    with patch.object(prime, "durable_visual_asset_enabled", return_value=False):
+        with pytest.raises(ValueError, match="requires durable"):
+            await prime._run(args(tmp_path / "run.jsonl"))
 
 
 @pytest.mark.asyncio
-async def test_prime_thumbnail_retry_failures_allows_work():
-    resource = {"id": "resource-retry-failure", "dct_accessrights_s": "Public"}
-    source_url = "https://example.com/thumb.png"
+async def test_interruption_keeps_resumable_scope_and_completed_results(tmp_path):
+    path = tmp_path / "interrupted.jsonl"
+
+    async def interrupted(resource, **kwargs):
+        if resource["id"] == "b":
+            await asyncio.sleep(0.01)
+            raise asyncio.CancelledError()
+        return "generated", "a", "committed"
 
     with (
-        patch.object(prime_thumbnail_cache, "fetch_distribution_context", AsyncMock()),
+        patch.object(prime, "durable_visual_asset_enabled", return_value=True),
+        patch.object(prime, "_count_resources", AsyncMock(return_value=2)),
         patch.object(
-            prime_thumbnail_cache, "safe_record_thumbnail_state", new=AsyncMock()
-        ) as mock_state,
-        patch.object(prime_thumbnail_cache, "ImageService") as mock_service_cls,
-        patch.object(
-            prime_thumbnail_cache,
-            "_compute_thumbnail_image_hash",
-            return_value="abc123",
+            prime, "_fetch_resources_by_ids", AsyncMock(return_value=[{"id": "a"}, {"id": "b"}])
         ),
-        patch.object(
-            prime_thumbnail_cache,
-            "_prime_remote_thumbnail",
-            return_value=("generated", "remote"),
-        ),
+        patch.object(prime, "_prime_thumbnail_for_resource", side_effect=interrupted),
     ):
-        service = MagicMock()
-        service._get_thumbnail_source_url.return_value = source_url
-        service.resolve_thumbnail_source_url.return_value = source_url
-        service._is_cog_url.return_value = False
-        service._is_pmtiles_url.return_value = False
-        service._is_manifest_url.return_value = False
-        service.get_cached_image = AsyncMock(return_value=None)
-        mock_service_cls.return_value = service
-
-        result = await prime_thumbnail_cache._prime_thumbnail_for_resource(
-            resource,
-            force=False,
-            retry_failures=True,
-            retry_placeheld=False,
-            existing_state={"resource_id": "resource-retry-failure", "state": "failure"},
-        )
-
-        assert result == ("generated", "resource-retry-failure", "remote")
-        payload = mock_state.await_args.args[0]
-        assert payload.state == "success"
+        with pytest.raises(asyncio.CancelledError):
+            await prime._run(args(path))
+    records = [json.loads(line) for line in path.read_text().splitlines()]
+    assert prime.resume_scope(str(path))["resource_ids"] == ["a", "b"]
+    assert any(r.get("status") == "generated" and r.get("resource_id") == "a" for r in records)
+    assert not any(r.get("event") == "summary" for r in records)

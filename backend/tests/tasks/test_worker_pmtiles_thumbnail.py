@@ -3,23 +3,20 @@ Tests for PMTiles thumbnail generation in the worker module.
 """
 
 import gzip
-import hashlib
 import io
-from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
 import pytest
 from PIL import Image
 
+from app.services.thumbnail_policy import source_signature
 from app.tasks.worker import (
-    PMTILES_THUMBNAIL_PREFIX,
     _extract_mvt_points,
     _generate_pmtiles_thumbnail_bytes,
     _http_get_bytes,
     _is_pmtiles_url,
     _pmtiles_thumbnail_image_hash,
     _render_mvt_to_png,
-    generate_pmtiles_thumbnail,
 )
 
 try:
@@ -45,23 +42,6 @@ def _valid_png_bytes() -> bytes:
     return buf.getvalue()
 
 
-@pytest.fixture(autouse=True)
-def patch_worker_side_effects():
-    with (
-        patch(
-            "app.tasks.worker.provider_request_slot",
-            side_effect=lambda *args, **kwargs: nullcontext(MagicMock(waited_seconds=0.0)),
-        ) as mock_provider_slot,
-        patch("app.tasks.worker.safe_record_thumbnail_state_sync") as mock_state,
-        patch("app.tasks.worker.release_thumbnail_queue_slot") as mock_release,
-    ):
-        yield {
-            "provider_slot": mock_provider_slot,
-            "state": mock_state,
-            "release": mock_release,
-        }
-
-
 class TestPmtilesThumbnailHelpers:
     """Test PMTiles thumbnail helper functions."""
 
@@ -77,7 +57,7 @@ class TestPmtilesThumbnailHelpers:
     def test_pmtiles_thumbnail_image_hash_includes_prefix(self):
         """Hash incorporates PMTiles prefix to avoid collision with regular image hashes."""
         url = "https://example.com/tiles.pmtiles"
-        expected = hashlib.sha256((PMTILES_THUMBNAIL_PREFIX + url).encode()).hexdigest()
+        expected = source_signature(url)
         assert _pmtiles_thumbnail_image_hash(url) == expected
 
     def test_is_pmtiles_url_pmtiles_extension(self):
@@ -356,69 +336,3 @@ class TestPmtilesThumbnailRealNetwork:
         # Basic sanity: load with PIL
         img = Image.open(io.BytesIO(result))
         assert img.size[0] > 0 and img.size[1] > 0
-
-
-class TestGeneratePmtilesThumbnailTask:
-    """Test generate_pmtiles_thumbnail Celery task."""
-
-    def test_returns_true_when_already_cached(self, patch_worker_side_effects):
-        """Returns True immediately when image is already in Redis."""
-        pmtiles_url = "https://example.com/tiles.pmtiles"
-        resource_id = "resource-pmtiles-cached"
-        image_hash = _pmtiles_thumbnail_image_hash(pmtiles_url)
-        image_key = f"image:{image_hash}"
-
-        with patch("app.tasks.worker.redis_client") as mock_redis:
-            mock_redis.exists.return_value = True
-            result = generate_pmtiles_thumbnail(pmtiles_url, resource_id)
-            assert result is True
-            mock_redis.exists.assert_called_with(image_key)
-            payload = patch_worker_side_effects["state"].call_args.args[0]
-            assert payload.state == "success"
-            assert payload.source_type == "pmtiles"
-
-    def test_returns_true_and_caches_on_success(self, patch_worker_side_effects):
-        """Returns True and caches image when generation succeeds."""
-        pmtiles_url = "https://example.com/tiles.pmtiles"
-        resource_id = "resource-pmtiles-success"
-        png_bytes = _valid_png_bytes()
-
-        with (
-            patch("app.tasks.worker.redis_client") as mock_redis,
-            patch(
-                "app.tasks.worker._generate_pmtiles_thumbnail_bytes",
-                return_value=png_bytes,
-            ),
-        ):
-            mock_redis.exists.return_value = False
-            result = generate_pmtiles_thumbnail(pmtiles_url, resource_id)
-            assert result is True
-            mock_redis.set.assert_called()
-            calls = [c[0][0] for c in mock_redis.set.call_args_list]
-            assert any("image:" in k for k in calls)
-            patch_worker_side_effects["provider_slot"].assert_called_once()
-            payload = patch_worker_side_effects["state"].call_args.args[0]
-            assert payload.state == "success"
-            assert payload.source_type == "pmtiles"
-
-    def test_returns_false_when_generation_fails(self, patch_worker_side_effects):
-        """Returns False when _generate_pmtiles_thumbnail_bytes returns None."""
-        pmtiles_url = "https://example.com/vector.pmtiles"
-        resource_id = "resource-pmtiles-placeheld"
-
-        with (
-            patch("app.tasks.worker.redis_client") as mock_redis,
-            patch(
-                "app.tasks.worker._generate_pmtiles_thumbnail_bytes",
-                return_value=None,
-            ),
-        ):
-            mock_redis.exists.return_value = False
-            result = generate_pmtiles_thumbnail(pmtiles_url, resource_id)
-            assert result is False
-            # Should cache skip marker (pmtiles_skip_v2:...), not an image
-            set_calls = mock_redis.set.call_args_list
-            assert all("pmtiles_skip_v2:" in str(c[0][0]) for c in set_calls)
-            payload = patch_worker_side_effects["state"].call_args.args[0]
-            assert payload.state == "placeheld"
-            assert payload.source_type == "pmtiles"

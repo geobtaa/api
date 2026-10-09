@@ -16,6 +16,7 @@ from app.services.distribution_repository import fetch_distribution_context
 from app.services.image_service import ImageService
 from app.services.static_map_service import StaticMapService
 from app.services.thumbnail_alias_service import is_thumbnail_hash, thumbnail_alias_service
+from app.services.thumbnail_policy import normalize_thumbnail_image as _normalize_thumbnail_image
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
@@ -25,7 +26,6 @@ from app.services.thumbnail_state_service import (
 from app.tasks.worker import (
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
-    _normalize_thumbnail_image,
     generate_cog_thumbnail,
     generate_pmtiles_thumbnail,
 )
@@ -471,7 +471,7 @@ async def _get_resource_thumbnail_response(
         return await _svg_icon_for_resource(resource_dict, variant=variant)
 
     # Check if we have a cached image for the current source.
-    image_hash = image_service.thumbnail_image_hash_for_source_sync(source_url)
+    image_hash = image_service.current_thumbnail_hash_for_source_sync(source_url)
 
     # Check if image is cached
     if image_hash:
