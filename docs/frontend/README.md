@@ -129,3 +129,11 @@ chunk URLs.
   Allmaps behavior changes.
 - Run `npm run lint`, `npm run format:check`, and `npm test` before merging
   frontend behavior changes.
+
+PMTiles previews require Ctrl or Command plus scroll to zoom, leaving ordinary
+scrolling available for the page. The viewer displays a hint; zoom buttons,
+dragging, and touch interactions remain available.
+
+Resource source links are native anchors, supporting URL previews, copy-link,
+and modifier clicks. Multiple source URLs are displayed individually. Web
+Services, Metadata, and Open in ArcGIS retain their selection dialogs.

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import OlMap from 'ol/Map';
 import View from 'ol/View';
+import {
+  defaults as defaultInteractions,
+  MouseWheelZoom,
+} from 'ol/interaction';
 import { FullScreen, defaults as defaultControls } from 'ol/control';
 import VectorTileLayer from 'ol/layer/VectorTile.js';
 import { leafletViewerOptions } from '../../config/leafletConfig';
@@ -286,6 +290,14 @@ function OpenLayersPreviewMap({
     const map = new OlMap({
       target: element,
       controls: defaultControls().extend([new FullScreen()]),
+      interactions: isPmtilesProtocol
+        ? defaultInteractions({ mouseWheelZoom: false }).extend([
+            new MouseWheelZoom({
+              condition: (event) =>
+                event.originalEvent.ctrlKey || event.originalEvent.metaKey,
+            }),
+          ])
+        : undefined,
       layers: [basemap, overlay],
       view,
     });
@@ -357,7 +369,16 @@ function OpenLayersPreviewMap({
     };
   }, [endpoint, geometryForViewer, preCalculatedExtent, protocol]);
 
-  return <div ref={elementRef} className="viewer h-[600px]" />;
+  return (
+    <div className="relative">
+      <div ref={elementRef} className="viewer h-[600px]" />
+      {protocol === 'pmtiles' && (
+        <p className="pointer-events-none absolute top-3 left-1/2 -translate-x-1/2 rounded bg-white/90 px-3 py-1 text-center text-xs text-gray-700 shadow">
+          Use Ctrl or ⌘ + scroll to zoom
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {

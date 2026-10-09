@@ -1409,7 +1409,7 @@ describe('ResourceView Component', () => {
       // "Documentation" appears both in the resource UI and in the global footer link;
       // assert specifically on the resource UI control.
       expect(
-        screen.getByRole('button', { name: 'Documentation' })
+        screen.getByRole('link', { name: 'Documentation' })
       ).toBeInTheDocument();
     });
 
