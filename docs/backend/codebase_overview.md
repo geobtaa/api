@@ -149,7 +149,11 @@ Data, sync, and background services:
 - `bridge_sync/`: bridge API synchronization, cache refresh, search-index
   updates, and reporting around changed resources.
 - `ogm_harvest/`: OpenGeoMetadata repository harvesting workflow.
-- `gin_blog_service.py`: syncs public update/blog content.
+- `gin_blog_service.py`: syncs public update/blog content. The standalone sync
+  runner supports inline execution with its own event loop and database pool;
+  this avoids reusing async connections created by unrelated worker tasks.
+  Scheduling and deployed-job recovery procedures belong in the restricted
+  operations documentation.
 - `sitemap_service.py`: generates sitemap data for crawlers.
 - `spatial_facet_service.py` and `spatial_facet_indexing_service.py`: spatial
   facets and index preparation.

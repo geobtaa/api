@@ -124,6 +124,10 @@ chunk URLs.
 
 ## Maintenance Checklist
 
+- When replacing SVG artwork in `frontend/public/icons/`, add or bump its entry
+  in `ICON_VERSIONS` in `frontend/src/utils/providerIcons.ts`. The homepage and
+  licensed-access links use `getProviderIconUrl` to request the versioned URL,
+  so browsers fetch updated artwork without clearing their existing icon cache.
 - Update this file when `frontend/package.json` scripts or major dependencies
   change.
 - Update testing docs when Vitest, Testing Library, axe, pa11y, or test setup

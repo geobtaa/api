@@ -25,8 +25,8 @@ TZ=America/Chicago
 7 0-2,4-23 * * * BRIDGE_TRIGGER=incremental_cron /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 7 3 * * * BRIDGE_TRIGGER=nightly_cron /opt/venv/bin/python3 /app/scripts/trigger_bridge_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 
-# Daily 3:00 AM: enqueue blog sync (Celery)
-0 3 * * * /opt/venv/bin/python3 /app/scripts/trigger_blog_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
+# Daily 3:00 AM: run blog sync in a fresh process so database pools stay on one event loop.
+0 3 * * * RUN_NOW=1 /opt/venv/bin/python3 /app/scripts/trigger_blog_sync_cron.py >> /proc/1/fd/1 2>> /proc/1/fd/2
 
 # Daily 4:15 AM: regenerate sitemap XML after overnight content refresh jobs.
 15 4 * * * /opt/venv/bin/python3 /app/scripts/generate_sitemap.py >> /proc/1/fd/1 2>> /proc/1/fd/2

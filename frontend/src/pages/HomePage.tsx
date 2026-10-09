@@ -24,6 +24,7 @@ const HomePageHexMapBackground = lazy(() =>
 import { ArrowRight, X } from 'lucide-react';
 import { fetchFacetValues, fetchHomeBlogPosts } from '../services/api';
 import { formatCount } from '../utils/formatNumber';
+import { getProviderIconUrl } from '../utils/providerIcons';
 import {
   BTAA_PARTNER_INSTITUTIONS,
   getPartnerInstitutionSearchHref,
@@ -555,7 +556,7 @@ export function HomePage() {
                       <img
                         src={
                           institution.iconSrc ||
-                          `/icons/${institution.iconSlug}.svg`
+                          getProviderIconUrl(institution.iconSlug)
                         }
                         alt={`Logo for ${institution.name}`}
                         title={institution.name}
