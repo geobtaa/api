@@ -561,6 +561,57 @@ function SearchContent({
     sort,
   ]);
 
+  const renderPagination = () => (
+    <nav
+      aria-label={`${
+        currentView === 'map'
+          ? 'Map'
+          : currentView === 'gallery'
+            ? 'Gallery'
+            : 'List'
+      } results pagination`}
+      className="flex items-center gap-2 whitespace-nowrap text-base"
+    >
+      <button
+        type="button"
+        aria-label="Previous results page"
+        onClick={() => handlePageChange(page - 1)}
+        disabled={page <= 1}
+        className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
+      >
+        « Previous
+      </button>
+      <span aria-hidden="true" className="text-gray-300">
+        |
+      </span>
+      <span className="whitespace-nowrap text-gray-600">
+        <strong className="font-semibold text-gray-900">
+          {formatCount(pageStart)}
+        </strong>{' '}
+        -{' '}
+        <strong className="font-semibold text-gray-900">
+          {formatCount(pageEnd)}
+        </strong>{' '}
+        of{' '}
+        <strong className="font-semibold text-gray-900">
+          {formatCount(searchTotalResults)}
+        </strong>
+      </span>
+      <span aria-hidden="true" className="text-gray-300">
+        |
+      </span>
+      <button
+        type="button"
+        aria-label="Next results page"
+        onClick={() => handlePageChange(page + 1)}
+        disabled={page >= totalPages}
+        className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
+      >
+        Next »
+      </button>
+    </nav>
+  );
+
   // Type guard to check if suggestion is a SpellingSuggestion object
   const isSpellingSuggestion = (
     suggestion: unknown
@@ -710,54 +761,7 @@ function SearchContent({
                           {formatCount(pageEnd)} of{' '}
                           {formatCount(searchTotalResults)}
                         </h2>
-                        <nav
-                          aria-label={`${
-                            currentView === 'map'
-                              ? 'Map'
-                              : currentView === 'gallery'
-                                ? 'Gallery'
-                                : 'List'
-                          } results pagination`}
-                          className="flex items-center gap-2 whitespace-nowrap text-base"
-                        >
-                          <button
-                            type="button"
-                            aria-label="Previous results page"
-                            onClick={() => handlePageChange(page - 1)}
-                            disabled={page <= 1}
-                            className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
-                          >
-                            « Previous
-                          </button>
-                          <span aria-hidden="true" className="text-gray-300">
-                            |
-                          </span>
-                          <span className="whitespace-nowrap text-gray-600">
-                            <strong className="font-semibold text-gray-900">
-                              {formatCount(pageStart)}
-                            </strong>{' '}
-                            -{' '}
-                            <strong className="font-semibold text-gray-900">
-                              {formatCount(pageEnd)}
-                            </strong>{' '}
-                            of{' '}
-                            <strong className="font-semibold text-gray-900">
-                              {formatCount(searchTotalResults)}
-                            </strong>
-                          </span>
-                          <span aria-hidden="true" className="text-gray-300">
-                            |
-                          </span>
-                          <button
-                            type="button"
-                            aria-label="Next results page"
-                            onClick={() => handlePageChange(page + 1)}
-                            disabled={page >= totalPages}
-                            className="font-medium text-blue-700 underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-700 disabled:cursor-default disabled:text-gray-400 disabled:no-underline"
-                          >
-                            Next »
-                          </button>
-                        </nav>
+                        {renderPagination()}
                       </>
                     ) : (
                       <h2 className="text-lg text-gray-600">
@@ -890,6 +894,13 @@ function SearchContent({
                       </div>
                     </div>
                   )}
+                  {!activeIsLoading &&
+                    !shouldShowSearchingPlaceholder &&
+                    totalPages > 1 && (
+                      <div className="mt-6 flex justify-start">
+                        {renderPagination()}
+                      </div>
+                    )}
                 </>
               )}
             </div>
