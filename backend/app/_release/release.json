@@ -1,5 +1,5 @@
 {
-  "version": "0.9.2",
-  "release_date": "2026-09-26",
-  "summary": "Fix bridge cache refresh for deleted resources and daily sync email reporting, and update the AnyIO and Morgan dependencies."
+  "version": "0.10.0",
+  "release_date": "2026-10-09",
+  "summary": "Integrate Allmaps Viewer, improve Mirador and search pagination, make thumbnail processing bounded, durable, and resumable, update partner institutions and branding, patch dependency vulnerabilities, and fix smoke test startup."
 }
