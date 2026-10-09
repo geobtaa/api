@@ -36,9 +36,9 @@ themes:
     homepage:
       announcement:
         enabled: true
-        text: "New from BTAA:"
-        link_label: "Read GIN News & Stories"
-        link_url: "https://gin.btaa.org/blog/"
+        text: "BTAA Geoportal Live Demo • Nov. 2, 1 PM CT •"
+        link_label: "Register Here"
+        link_url: "https://btaa.zoom.us/meeting/register/-hCjcQw_QHGrCLSqXYOP0g"
       # First item(s) in the featured carousel (fetched by ID); remaining slots filled from featured search.
       featured_resource_ids:
         - "a10a0f50-994e-0134-2096-0050569601ca-c"
