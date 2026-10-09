@@ -628,8 +628,11 @@ class ImageService:
         if references is None and not self.by_uri:
             references = self._parse_legacy_references()
 
-        # Prefer IIIF sources so we can generate our own consistently sized thumbnail
-        # instead of inheriting a tiny upstream derivative from b1g_image_ss.
+        # Respect the curated metadata source before deriving an image from IIIF.
+        b1g_image_url = self._b1g_image_source_url()
+        if b1g_image_url:
+            return b1g_image_url
+
         for iiif_key in ("http://iiif.io/api/image", "https://iiif.io/api/image"):
             iiif_url = self._first_url(iiif_key, references=references)
             if not iiif_url:
@@ -670,11 +673,6 @@ class ImageService:
             self.logger.info(f"🚀 Queueing manifest resolution for {manifest_url}")
             self._queue_manifest_processing(manifest_url)
             return manifest_url
-
-        # Use curated b1g_image_ss only after exhausting IIIF-based options.
-        b1g_image_url = self._b1g_image_source_url()
-        if b1g_image_url:
-            return b1g_image_url
 
         # Check for direct thumbnail URL first (support http and https keys).
         for thumb_key in ("http://schema.org/thumbnailUrl", "https://schema.org/thumbnailUrl"):

@@ -11,6 +11,12 @@ wrapping stay consistent. See [../make_tasks.md](../make_tasks.md).
 
 ### IIIF thumbnail generation
 
+Source selection preserves curated choices: manually selected thumbnail assets
+come first, followed by a usable `b1g_image_ss` URL, then IIIF and other derived
+sources. Application requests and bulk priming use this same order. Curated
+images still pass through the shared normalization and durable storage pipeline;
+a small curated image is not replaced with a different IIIF image.
+
 Thumbnail generation preserves the provider and image identifier in IIIF Image
 API references. Presentation manifests are resolved in the background, including
 CONTENTdm manifests: a compound object can contain page images with different

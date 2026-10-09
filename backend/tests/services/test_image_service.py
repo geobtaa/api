@@ -156,32 +156,54 @@ class TestImageServiceURLStandardization:
 class TestImageServiceThumbnailSourceURL:
     """Test cases for thumbnail source URL extraction using real reference data."""
 
-    def test_get_thumbnail_source_url_iiif_beats_b1g_image_ss(self):
-        """Prefer IIIF-derived thumbnails over curated b1g_image_ss derivatives."""
-        metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
-        try:
-            service = ImageService(metadata)
-            references = {
-                "http://schema.org/thumbnailUrl": "https://example.com/other.jpg",
-                "http://iiif.io/api/image": "http://example.com/iiif/image",
+    @pytest.mark.parametrize(
+        "relation",
+        [
+            "http://iiif.io/api/image",
+            "https://iiif.io/api/image",
+            "http://iiif.io/api/presentation#manifest",
+            "https://iiif.io/api/presentation#manifest",
+        ],
+    )
+    @pytest.mark.parametrize(
+        "curated",
+        [
+            "https://curated.example.com/thumb.jpg",
+            ["https://curated.example.com/thumb.jpg"],
+            '["https://curated.example.com/thumb.jpg"]',
+        ],
+    )
+    def test_curated_thumbnail_precedes_iiif(self, relation, curated):
+        service = ImageService(
+            {
+                "id": "test-doc",
+                "b1g_image_ss": curated,
+                "dct_references_s": json.dumps({relation: "https://example.com/iiif/manifest"}),
             }
-            result = service._get_thumbnail_source_url(references)
-            assert result == "http://example.com/iiif/image/full/!800,800/0/default.jpg"
-        except Exception as e:
-            assert "connection" in str(e).lower() or "redis" in str(e).lower()
-
-    def test_get_thumbnail_source_url_manifest_beats_b1g_image_ss(self):
-        """Prefer IIIF manifests over b1g_image_ss when both are present."""
-        manifest_url = "https://example.com/iiif/manifest"
-        metadata = {"id": "test-doc", "b1g_image_ss": "https://curated.example.com/thumb.jpg"}
-        try:
-            service = ImageService(metadata)
-            result = service._get_thumbnail_source_url(
-                {"http://iiif.io/api/presentation#manifest": manifest_url}
+        )
+        with patch.object(service, "_queue_manifest_processing") as queue:
+            assert service.resolve_thumbnail_source_url() == "https://curated.example.com/thumb.jpg"
+            queue.assert_not_called()
+            assert (
+                service.resolve_thumbnail_source_url(
+                    thumbnail_asset_url="https://assets.example.com/manual.jpg"
+                )
+                == "https://assets.example.com/manual.jpg"
             )
-            assert result == manifest_url
-        except Exception as e:
-            assert "connection" in str(e).lower() or "redis" in str(e).lower()
+
+    def test_invalid_curated_thumbnail_falls_back_to_iiif(self):
+        service = ImageService(
+            {
+                "id": "test-doc",
+                "b1g_image_ss": "ftp://example.com/thumb.jpg",
+                "dct_references_s": json.dumps(
+                    {"http://iiif.io/api/image": "https://example.com/iiif/image"}
+                ),
+            }
+        )
+        assert service.resolve_thumbnail_source_url() == (
+            "https://example.com/iiif/image/full/!800,800/0/default.jpg"
+        )
 
     def test_get_thumbnail_source_url_b1g_image_ss_list_uses_first(self):
         """When b1g_image_ss is a list, use first element."""
