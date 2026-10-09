@@ -134,6 +134,7 @@ function BtaaFooter({ id }: FooterProps) {
                 <li>University of Minnesota</li>
                 <li>University of Nebraska-Lincoln</li>
                 <li>University of Oregon</li>
+                <li>University of Southern California</li>
                 <li>University of Washington</li>
                 <li>University of Wisconsin-Madison</li>
               </ul>
