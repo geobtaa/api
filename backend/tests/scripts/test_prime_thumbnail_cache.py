@@ -1,6 +1,9 @@
+import io
+
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from PIL import Image
 
 import scripts.prime_thumbnail_cache as prime_thumbnail_cache
 
@@ -233,3 +236,35 @@ async def test_prime_thumbnail_retry_failures_allows_work():
         assert result == ("generated", "resource-retry-failure", "remote")
         payload = mock_state.await_args.args[0]
         assert payload.state == "success"
+
+
+@pytest.mark.parametrize("mode,format", [("RGB", "JPEG"), ("RGBA", "PNG")])
+def test_prime_storage_normalizes_before_redis_and_durable_writes(mode, format):
+    image = Image.new(mode, (2400, 1600), color=(100, 120, 140))
+    source = io.BytesIO()
+    image.save(source, format=format)
+    with (
+        patch.object(prime_thumbnail_cache, "cache_visual_asset") as cache,
+        patch.object(prime_thumbnail_cache, "store_durable_visual_asset") as durable,
+        patch.object(prime_thumbnail_cache, "store_durable_visual_asset_link"),
+    ):
+        assert prime_thumbnail_cache._store_image_bytes(
+            "hash", source.getvalue(), "image/" + format.lower(), resource_id="map"
+        )
+    content = cache.call_args_list[0].args[2]
+    with Image.open(io.BytesIO(content)) as result:
+        assert max(result.size) <= 512
+        assert result.mode == mode
+    assert len(content) <= 512 * 1024
+    assert durable.call_args.kwargs["body"] == content
+    assert durable.call_args.kwargs["content_type"] == cache.call_args_list[1].args[2]
+
+
+def test_prime_storage_rejects_invalid_image_before_writing():
+    with (
+        patch.object(prime_thumbnail_cache, "cache_visual_asset") as cache,
+        patch.object(prime_thumbnail_cache, "store_durable_visual_asset") as durable,
+    ):
+        assert not prime_thumbnail_cache._store_image_bytes("hash", b"not an image", "image/jpeg")
+    cache.assert_not_called()
+    durable.assert_not_called()

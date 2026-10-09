@@ -69,6 +69,7 @@ from app.services.visual_asset_cache import (  # noqa: E402
 from app.tasks.worker import (  # noqa: E402
     _generate_cog_thumbnail_bytes,
     _generate_pmtiles_thumbnail_bytes,
+    _normalize_thumbnail_image,
     _resolve_image_url,
     _validate_image_content,
     redis_client,
@@ -100,7 +101,11 @@ def _store_image_bytes(
     *,
     resource_id: str | None = None,
 ) -> bool:
-    """Store image bytes and MIME metadata in Redis."""
+    """Normalize once before storing the same bounded bytes in both caches."""
+    image_bytes, content_type = _normalize_thumbnail_image(image_bytes, content_type)
+    if not image_bytes or not content_type:
+        logger.warning("Thumbnail normalization failed for %s", image_hash[:12])
+        return False
     try:
         cache_visual_asset(redis_client, f"image:{image_hash}", image_bytes)
         cache_visual_asset(redis_client, f"image_type:{image_hash}", content_type)
