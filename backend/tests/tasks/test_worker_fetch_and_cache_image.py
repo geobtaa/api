@@ -126,3 +126,35 @@ def test_fetch_and_cache_image_resizes_large_remote_image_before_caching():
         assert max(cached_image.size) <= 512
         assert cached_image.format == "JPEG"
         assert len(cached_bytes) < len(response.content)
+
+
+def test_normalization_bounds_noisy_transparent_png_bytes():
+    import random
+
+    from app.tasks.worker import THUMBNAIL_MAX_BYTES, _normalize_thumbnail_image
+
+    image = Image.frombytes("RGBA", (512, 512), random.Random(437).randbytes(512 * 512 * 4))
+    source = io.BytesIO()
+    image.save(source, format="PNG")
+    assert len(source.getvalue()) > THUMBNAIL_MAX_BYTES
+    content, mime = _normalize_thumbnail_image(source.getvalue(), "image/png")
+    assert mime == "image/png"
+    assert 0 < len(content) <= THUMBNAIL_MAX_BYTES
+    with Image.open(io.BytesIO(content)) as result:
+        assert result.mode == "RGBA"
+        assert max(result.size) <= 512
+
+
+def test_current_cache_hit_does_not_refetch_or_rewrite_immutable_image():
+    source = "https://example.com/current.jpg"
+    with (
+        patch("app.tasks.worker.redis_client") as cache,
+        patch("app.tasks.worker.requests.get") as fetch,
+        patch("app.tasks.worker.safe_record_thumbnail_state_sync") as state,
+        patch("app.tasks.worker.release_thumbnail_queue_slot"),
+    ):
+        cache.exists.return_value = True
+        assert fetch_and_cache_image(source, "map") is True
+    fetch.assert_not_called()
+    cache.set.assert_not_called()
+    assert state.call_args.args[0].source_hash == _remote_thumbnail_image_hash(source)

@@ -52,8 +52,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v3")
+THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v4")
 THUMBNAIL_MAX_EDGE = int(os.getenv("THUMBNAIL_MAX_EDGE", "512"))
+THUMBNAIL_MAX_BYTES = 512 * 1024
 THUMBNAIL_JPEG_QUALITY = int(os.getenv("THUMBNAIL_JPEG_QUALITY", "78"))
 REMOTE_THUMBNAIL_PREFIX = f"remote-thumb-normalized:{THUMBNAIL_CACHE_VERSION}:"
 
@@ -194,24 +195,30 @@ def _normalize_thumbnail_image(
         if max(image.size) > THUMBNAIL_MAX_EDGE:
             image.thumbnail((THUMBNAIL_MAX_EDGE, THUMBNAIL_MAX_EDGE), Image.Resampling.LANCZOS)
 
-        output = io.BytesIO()
-        if has_alpha or normalized_content_type == "image/png":
-            image.save(output, format="PNG", optimize=True, compress_level=9)
-            normalized_type = "image/png"
-        else:
-            image.save(
-                output,
-                format="JPEG",
-                quality=THUMBNAIL_JPEG_QUALITY,
-                optimize=True,
-                progressive=True,
-            )
-            normalized_type = "image/jpeg"
+        # Detailed or transparent PNGs can exceed the delivery budget even at
+        # the pixel limit. Reduce dimensions until encoding fits; keep alpha.
+        while True:
+            output = io.BytesIO()
+            if has_alpha or normalized_content_type == "image/png":
+                image.save(output, format="PNG", optimize=True, compress_level=9)
+                normalized_type = "image/png"
+            else:
+                image.save(
+                    output,
+                    format="JPEG",
+                    quality=THUMBNAIL_JPEG_QUALITY,
+                    optimize=True,
+                    progressive=True,
+                )
+                normalized_type = "image/jpeg"
 
-        normalized = output.getvalue()
-        if not normalized:
-            return None, None
-        return normalized, normalized_type
+            normalized = output.getvalue()
+            if normalized and len(normalized) <= THUMBNAIL_MAX_BYTES:
+                return normalized, normalized_type
+            if max(image.size) <= 1:
+                return None, None
+            edge = max(1, int(max(image.size) * 0.8))
+            image.thumbnail((edge, edge), Image.Resampling.LANCZOS)
     except Exception as exc:
         logger.warning(
             "Thumbnail normalization failed (content_type=%s): %s",

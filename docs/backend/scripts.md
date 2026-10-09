@@ -14,10 +14,24 @@ wrapping stay consistent. See [../make_tasks.md](../make_tasks.md).
 Thumbnail generation preserves the provider and image identifier in IIIF Image
 API references. Presentation manifests are resolved in the background, including
 CONTENTdm manifests: a compound object can contain page images with different
-identifiers. When a manifest has no explicit thumbnail, its first canvas's image
-service supplies a bounded rendition. This also supports services whose paths do
+identifiers. The first canvas's declared image service supplies a bounded
+rendition in preference to a potentially tiny manifest or canvas thumbnail.
+Explicit thumbnails remain a fallback when no image service is declared. This also supports services whose paths do
 not contain `iiif`, such as Loris, where the image resource ID may be a catalog
 page rather than an image URL.
+
+Remote thumbnails use the `v4` processing namespace by default. Cached aliases
+and success records must match the current resolved source hash; an unchanged
+manifest URL alone does not prove that a cached image is current. If the manifest
+cache is cold, background resolution must finish before a hot thumbnail is used.
+Old immutable image URLs retain their original bytes; regenerated thumbnails use
+the current namespace. API and worker processes must use the same
+`THUMBNAIL_CACHE_VERSION` setting.
+
+Generation constrains the longest edge to `THUMBNAIL_MAX_EDGE` (default 512 pixels)
+and output to 512 KiB, reducing dimensions further when necessary. It preserves
+transparency and does not enlarge undersized originals. List results fit the
+whole image into their thumbnail box without cropping.
 
 After changing thumbnail resolution, regenerate selected records in the local
 development database with:

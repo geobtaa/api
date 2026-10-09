@@ -188,7 +188,7 @@ export function SearchResults({
                         loading={index < 2 ? 'eager' : 'lazy'}
                         decoding="async"
                         fetchPriority={index < 2 ? 'high' : 'low'}
-                        className={`${thumbnailSizeClass} object-cover rounded-l-lg`}
+                        className={`${thumbnailSizeClass} object-contain bg-gray-50 rounded-l-lg`}
                         onError={() => {
                           setImageErrors((prev) =>
                             new Set(prev).add(result.id)

@@ -38,7 +38,7 @@ logger = logging.getLogger(__name__)
 
 IIIF_THUMBNAIL_BOX = os.getenv("IIIF_THUMBNAIL_BOX", "!800,800")
 IIIF_THUMBNAIL_PATH = f"/full/{IIIF_THUMBNAIL_BOX}/0/default.jpg"
-THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v3")
+THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v4")
 REMOTE_THUMBNAIL_PREFIX = f"remote-thumb-normalized:{THUMBNAIL_CACHE_VERSION}:"
 COG_THUMBNAIL_PREFIX = "cog-thumb:"
 PMTILES_THUMBNAIL_PREFIX = "pmtiles-thumb:"
@@ -190,7 +190,31 @@ class ImageService:
             Optional[str]: Thumbnail URL or None if not found
         """
         try:
-            # Prefer explicit thumbnail when present (array or object)
+            # A declared canvas image service can supply a useful rendition even
+            # when the manifest advertises only a tiny static preview.
+            if manifest_json.get("sequences"):
+                canvases = manifest_json["sequences"][0].get("canvases") or [{}]
+                images = canvases[0].get("images") or [{}]
+                body = images[0].get("resource") or {}
+            else:
+                canvases = manifest_json.get("items") or [{}]
+                pages = canvases[0].get("items") or [{}]
+                annotations = pages[0].get("items") or [{}]
+                body = annotations[0].get("body") or {}
+            if isinstance(body, dict):
+                services = body.get("service") or []
+                if not isinstance(services, list):
+                    services = [services]
+                for service in services:
+                    service_id = (
+                        service.get("@id") or service.get("id")
+                        if isinstance(service, dict)
+                        else service
+                    )
+                    if isinstance(service_id, str) and service_id:
+                        return self._standardize_iiif_url(service_id, image_service=True)
+
+            # Fall back to explicit thumbnail when no canvas service is available.
             if manifest_json.get("thumbnail"):
                 self.logger.debug("Image: manifest.thumbnail present")
                 thumb = manifest_json["thumbnail"]
@@ -460,10 +484,11 @@ class ImageService:
         """
         Return the hot immutable hash for the current preferred source, if available.
 
-        Persisted success state is only reused when it still points at the same
-        preferred source URL. This lets records self-heal when thumbnail source
-        selection changes (for example, switching from a tiny ContentDM derivative
-        to a IIIF-derived thumbnail).
+        Persisted success state is only reused when it matches the current
+        processing-version hash and preferred source URL. A cold manifest cache
+        must resolve again before an old success can be trusted. This lets records
+        self-heal when thumbnail source selection changes (for example, switching
+        from a tiny CONTENTdm derivative to a IIIF-derived thumbnail).
         """
         candidate_hash = (
             self._candidate_cached_thumbnail_hash_sync(source_url) if source_url else None
@@ -477,6 +502,7 @@ class ImageService:
                 and state is not None
                 and state.get("state") == ThumbnailState.SUCCESS
                 and state.get("source_hash") == alias_hash
+                and alias_hash == candidate_hash
                 and state.get("source_url") == source_url
                 and self.has_cached_image_sync(alias_hash)
             )
@@ -492,6 +518,7 @@ class ImageService:
                 source_url
                 and state.get("state") == ThumbnailState.SUCCESS
                 and state_hash
+                and state_hash == candidate_hash
                 and state_source_url == source_url
                 and self.has_cached_image_sync(state_hash)
             ):

@@ -785,7 +785,9 @@ class TestImageServiceThumbnailURL:
                 {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
             ),
         }
-        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+        image_hash = hashlib.sha256(
+            (REMOTE_THUMBNAIL_PREFIX + "http://example.com/thumb.jpg").encode()
+        ).hexdigest()
 
         with (
             patch(
@@ -816,9 +818,7 @@ class TestImageServiceThumbnailURL:
             "id": "test-doc",
             "dct_references_s": json.dumps({"http://schema.org/thumbnailUrl": source_url}),
         }
-        image_hash = hashlib.sha256(
-            ("remote-thumb-normalized:v3:" + source_url).encode()
-        ).hexdigest()
+        image_hash = hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + source_url).encode()).hexdigest()
 
         with (
             patch(
@@ -850,6 +850,10 @@ class TestImageServiceThumbnailURL:
 
         with (
             patch(
+                "app.services.image_service.thumbnail_state_service.get_state_sync",
+                return_value=None,
+            ),
+            patch(
                 "app.services.image_service.thumbnail_alias_service.get_hash_sync",
                 return_value=image_hash,
             ),
@@ -872,7 +876,9 @@ class TestImageServiceThumbnailURL:
                 {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
             ),
         }
-        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
+        image_hash = hashlib.sha256(
+            (REMOTE_THUMBNAIL_PREFIX + "http://example.com/thumb.jpg").encode()
+        ).hexdigest()
 
         with (
             patch(
@@ -1792,3 +1798,97 @@ class TestIssue412ThumbnailSources:
         assert ImageService({})._extract_thumbnail_from_manifest_json(manifest) == (
             "https://example.org/loris/map.jp2/full/!800,800/0/default.jpg"
         )
+
+
+@pytest.mark.parametrize("alias_present", [False, True])
+@pytest.mark.parametrize("current_cached", [False, True])
+def test_old_success_cannot_override_current_processing_hash(alias_present, current_cached):
+    source = "https://example.com/preview.jpg"
+    old_hash = hashlib.sha256(("remote-thumb-normalized:v3:" + source).encode()).hexdigest()
+    current_hash = hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + source).encode()).hexdigest()
+    assert current_hash != old_hash
+    with (
+        patch(
+            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+            return_value=old_hash if alias_present else None,
+        ),
+        patch(
+            "app.services.image_service.thumbnail_state_service.get_state_sync",
+            return_value={
+                "state": ThumbnailState.SUCCESS,
+                "source_hash": old_hash,
+                "source_url": source,
+            },
+        ),
+        patch("app.services.image_service.thumbnail_alias_service.delete_sync") as delete,
+        patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as set_alias,
+        patch.object(
+            ImageService,
+            "has_cached_image_sync",
+            side_effect=lambda key: key == old_hash or current_cached,
+        ),
+    ):
+        result = ImageService({"id": "map"}).current_thumbnail_hash_for_source_sync(source)
+    assert result == (current_hash if current_cached else None)
+    if alias_present:
+        delete.assert_called_with("map")
+    if current_cached:
+        set_alias.assert_called_once_with("map", current_hash)
+    else:
+        set_alias.assert_not_called()
+
+
+@pytest.mark.parametrize("manifest_cached", [False, True])
+def test_unchanged_manifest_url_requires_current_resolved_image(manifest_cached):
+    source = "https://example.com/manifest.json"
+    body = {"service": {"@id": "https://example.com/iiif/new-image"}}
+    manifest = {"sequences": [{"canvases": [{"images": [{"resource": body}]}]}]}
+    service = ImageService({"id": "map"})
+    expected_url = service._extract_thumbnail_from_manifest_json(manifest)
+    expected_hash = hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + expected_url).encode()).hexdigest()
+    old_hash = "a" * 64
+    with (
+        patch.object(
+            service.cache, "get", return_value=json.dumps(manifest) if manifest_cached else None
+        ),
+        patch(
+            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
+            return_value=old_hash,
+        ),
+        patch(
+            "app.services.image_service.thumbnail_state_service.get_state_sync",
+            return_value={
+                "state": ThumbnailState.SUCCESS,
+                "source_hash": old_hash,
+                "source_url": source,
+            },
+        ),
+        patch("app.services.image_service.thumbnail_alias_service.delete_sync"),
+        patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as set_alias,
+        patch.object(service, "has_cached_image_sync", return_value=True),
+    ):
+        result = service.current_thumbnail_hash_for_source_sync(source)
+    assert result == (expected_hash if manifest_cached else None)
+    if not manifest_cached:
+        set_alias.assert_not_called()
+
+
+@pytest.mark.parametrize("version", [2, 3])
+def test_canvas_service_beats_tiny_explicit_thumbnails(version):
+    body = {"service": [{"id": "https://example.com/loris/map"}]}
+    if version == 2:
+        manifest = {"sequences": [{"canvases": [{"images": [{"resource": body}]}]}]}
+    else:
+        manifest = {
+            "items": [
+                {
+                    "thumbnail": {"id": "https://example.com/tiny-canvas.jpg"},
+                    "items": [{"items": [{"body": body}]}],
+                }
+            ]
+        }
+    manifest["thumbnail"] = {"id": "https://example.com/tiny-manifest.jpg"}
+    service = ImageService({})
+    assert service._extract_thumbnail_from_manifest_json(manifest) == (
+        "https://example.com/loris/map/full/!800,800/0/default.jpg"
+    )
