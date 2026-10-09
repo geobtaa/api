@@ -549,7 +549,12 @@ Toolbar tests cover action placement, fullscreen fallback, Escape, and scroll
 restoration without remounting the embedded viewer.
 Existing resource-page tests cover viewer tabs, persistent overlay mounting, and sidebar behavior.
 `src/__tests__/pages/MiradorViewerPage.test.tsx` checks embedded versus standalone
-fullscreen controls and the simplified Mirador configuration.
+fullscreen controls, canvas rendering, and registration of the rotation plugin.
+`src/__tests__/components/resource/MiradorRotationControls.test.tsx` checks both
+rotation directions and wraparound, preserving the existing zoom controls.
+Run these with `npm test -- --run src/__tests__/pages/MiradorViewerPage.test.tsx src/__tests__/components/resource/MiradorRotationControls.test.tsx`.
+Manually check rotation and zoom on a local IIIF item; physical Pixel device
+validation remains separate from the automated configuration checks.
 
 The suite runs offline with iframe navigation disabled. It verifies the embedding
 contract, not Allmaps' internal controls, rendered pixels, or remote availability.

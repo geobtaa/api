@@ -71,7 +71,11 @@ Mirador and Allmaps use the same 600px frame. Mirador uses a light geoportal
 theme with system fonts, blue accents, and flat toolbars. Its embedded mode
 (`embedded=1` on the local Mirador route) hides its internal fullscreen control
 and view-layout menu while retaining thumbnails, page navigation, zoom, sidebar,
-and download tools. The standalone Mirador route retains its fullscreen control.
+and download tools. Rotate-left and rotate-right buttons beside zoom turn the
+image in 90-degree increments without resetting pan or zoom. Both embedded and
+standalone Mirador use OpenSeadragon’s canvas drawer to avoid device-specific
+WebGL failures (#424; workaround reported by MSU contributor @natecollins).
+The standalone Mirador route retains its fullscreen control.
 Switching tabs hides rather than unmounts these viewers; the Allmaps iframe is
 created on its first selection. Page, region, and zoom states remain independent
 and reset on resource navigation.

@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ThemeOptions } from '@mui/material/styles';
+import { MiradorRotationControls } from '../components/resource/MiradorRotationControls';
 
 type MiradorConfig = {
   id: string;
   theme: ThemeOptions;
+  osdConfig: { drawer: 'canvas' };
   miradorDownloadPlugin: {
     restrictDownloadOnSizeDefinition: boolean;
   };
@@ -48,6 +50,12 @@ type MiradorModule = MiradorNamespace & {
 
 type MiradorDownloadPluginModule = {
   default?: unknown[];
+};
+
+const miradorRotationPlugin = {
+  target: 'ZoomControls',
+  mode: 'wrap',
+  component: MiradorRotationControls,
 };
 
 const MIRADOR_ROOT_ID = 'mirador-root';
@@ -95,6 +103,8 @@ export function MiradorViewerPage() {
         viewer(
           {
             id: MIRADOR_ROOT_ID,
+            // Avoid device-specific WebGL failures reported in #424 by MSU.
+            osdConfig: { drawer: 'canvas' },
             theme: {
               palette: {
                 mode: 'light',
@@ -145,7 +155,7 @@ export function MiradorViewerPage() {
             workspace: { showZoomControls: true },
             workspaceControlPanel: { enabled: false },
           },
-          [...downloadPlugins]
+          [...downloadPlugins, miradorRotationPlugin]
         ) ?? null;
     }
 

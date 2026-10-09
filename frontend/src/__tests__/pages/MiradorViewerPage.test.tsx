@@ -1,6 +1,7 @@
 import { cleanup, render, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MiradorViewerPage } from '../../pages/MiradorViewerPage';
+import { MiradorRotationControls } from '../../components/resource/MiradorRotationControls';
 
 const viewer = vi.hoisted(() => vi.fn());
 vi.mock('mirador', () => ({ default: { viewer } }));
@@ -28,6 +29,7 @@ describe('Mirador presentation', () => {
       await waitFor(() => expect(viewer).toHaveBeenCalledOnce());
       expect(viewer).toHaveBeenCalledWith(
         expect.objectContaining({
+          osdConfig: { drawer: 'canvas' },
           window: expect.objectContaining({
             allowFullscreen: fullscreen,
             allowTopMenuButton: false,
@@ -46,7 +48,13 @@ describe('Mirador presentation', () => {
             palette: expect.objectContaining({ primary: { main: '#2563eb' } }),
           }),
         }),
-        []
+        [
+          {
+            target: 'ZoomControls',
+            mode: 'wrap',
+            component: MiradorRotationControls,
+          },
+        ]
       );
     }
   );
