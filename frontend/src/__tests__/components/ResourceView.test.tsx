@@ -1,3 +1,4 @@
+import liveAllmapsFixture from '../integration/fixtures/allmaps/illinois.json';
 import { render, screen, waitFor } from '@testing-library/react';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
@@ -1024,6 +1025,47 @@ describe('ResourceView Component', () => {
         ).not.toBeInTheDocument();
       }
     );
+
+    it('reveals the overlay when a page-load check finds new annotations', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => liveAllmapsFixture.annotation,
+      } as Response);
+      fetchResourceDetails.mockResolvedValue({
+        ...mockResourceWithAllmaps,
+        attributes: {
+          ...mockResourceWithAllmaps.attributes,
+          ogm: {
+            ...mockResourceWithAllmaps.attributes.ogm,
+            dct_references_s: {
+              'http://iiif.io/api/presentation#manifest':
+                liveAllmapsFixture.manifestUrl,
+            },
+          },
+        },
+        meta: {
+          ...mockResourceWithAllmaps.meta,
+          ui: {
+            ...mockResourceWithAllmaps.meta.ui,
+            allmaps: { allmaps_annotated: false },
+          },
+        },
+      });
+      try {
+        render(
+          <TestWrapper>
+            <ResourceView />
+          </TestWrapper>
+        );
+        const overlayTab = await screen.findByRole('tab', {
+          name: 'Map Overlay',
+        });
+        await userEvent.click(overlayTab);
+        expect(screen.getByTestId('allmaps-overlay-viewer')).toBeVisible();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
 
     it('offers georeferencing for harvested but unannotated maps', async () => {
       fetchResourceDetails.mockResolvedValue({

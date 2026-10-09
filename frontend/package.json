@@ -17,7 +17,7 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "test": "vitest",
-    "test:allmaps": "vitest run src/__tests__/integration/Allmaps.integration.test.tsx src/__tests__/utils/allmaps.test.ts src/__tests__/components/ResourceView.test.tsx",
+    "test:allmaps": "vitest run src/__tests__/hooks/useAllmapsAvailability.test.tsx src/__tests__/integration/Allmaps.integration.test.tsx src/__tests__/utils/allmaps.test.ts src/__tests__/components/ResourceView.test.tsx",
     "test:watch": "vitest --watch",
     "test:ui": "vitest --ui",
     "coverage": "vitest --coverage",

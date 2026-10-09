@@ -81,11 +81,14 @@ created on its first selection. Page, region, and zoom states remain independent
 and reset on resource navigation.
 The iframe depends on the availability of Allmaps and the source IIIF services.
 
-Only resources marked `allmaps_annotated` show the overlay viewer and the
-external Allmaps viewer link. Those resources retain the edit-control-points
-link. Link availability uses catalog metadata, without fetching external IIIF
-services during page rendering; an unavailable remote service can still fail
-when opened in Allmaps.
+Eligible IIIF resource pages also check the Allmaps annotation service in the
+background on each visit/reload. A valid, nonempty annotation collection reveals
+the Map Overlay tab and viewer link even when harvested metadata is absent or
+unannotated. Checks bypass the browser cache, time out after eight seconds, and
+are cancelled on navigation. Errors or empty results preserve known harvested
+overlays. Allmaps service-side caching can delay newly published annotations;
+reloading retries the check. Live discovery affects this page only, not catalog
+search filters or persisted harvesting status.
 
 ## Quick Commands
 

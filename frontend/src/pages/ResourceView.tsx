@@ -1,3 +1,4 @@
+import { useAllmapsAvailability } from '../hooks/useAllmapsAvailability';
 import { useEffect, useRef, useState } from 'react';
 import { Seo } from '../components/Seo';
 import { useParams, Link, useLocation, useNavigate } from 'react-router';
@@ -480,6 +481,12 @@ export function ResourceView({
     );
   }, [data]);
 
+  const allmapsAttributes = useAllmapsAvailability(
+    data?.id,
+    getAllmapsIiifUrl(data),
+    data?.meta?.ui?.allmaps
+  );
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -530,8 +537,7 @@ export function ResourceView({
   // Extract data from the new structure
   const viewerProtocol = data?.meta?.ui?.viewer?.protocol;
   const dataDictionaries = data?.attributes?.b1g?.data_dictionaries || [];
-  const allmapsAttributes = data?.meta?.ui?.allmaps;
-  const hasAllmapsViewer = hasAllmapsOverlay(data);
+  const hasAllmapsViewer = Boolean(getAllmapsViewerUrl(allmapsAttributes));
   const resourceGeometry =
     data?.meta?.ui?.viewer?.geometry ||
     data?.attributes?.ogm?.locn_geometry_original ||

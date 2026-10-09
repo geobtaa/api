@@ -561,3 +561,8 @@ contract, not Allmaps' internal controls, rendered pixels, or remote availabilit
 Use the local resource pages above to manually verify the embedded viewer and
 its previous/next map navigation. No database or live Allmaps service is required
 to run the automated suite.
+
+Allmaps page-load checks are covered by `useAllmapsAvailability.test.tsx`
+(mocked HTTP responses, real annotation parser), including discovery after a
+reload, empty/invalid results, timeout, and stale-response cancellation. The
+resource-page suite verifies that live discovery reveals the overlay tab.
