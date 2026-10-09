@@ -1,0 +1,834 @@
+{
+  "exportedAt": "2026-09-10T16:23:54.605646+00:00",
+  "source": "analytics_searches",
+  "rankingLimit": 100,
+  "minimumZeroResults": 1,
+  "grouping": "Trimmed non-empty query, case preserved",
+  "ordering": "Zero-result count descending, query ascending (database collation)",
+  "months": {
+    "2026-07": {
+      "periodStart": "2026-07-01",
+      "periodEndExclusive": "2026-08-01",
+      "searches": 6457,
+      "zeroResults": 1098,
+      "withQuery": 758,
+      "withoutQuery": 340,
+      "distinctQueries": 545,
+      "rankedZeroResults": 268,
+      "zeroQueries": [
+        {
+          "term": "14.271281, 44.702708",
+          "count": 17
+        },
+        {
+          "term": "37.117777, 50.081111",
+          "count": 10
+        },
+        {
+          "term": "ایران قم سال  میلادی1963",
+          "count": 7
+        },
+        {
+          "term": "81 Fairview Ave edison",
+          "count": 5
+        },
+        {
+          "term": "Aerial photo 08234",
+          "count": 5
+        },
+        {
+          "term": "9419 Hemlock Fontana, California",
+          "count": 4
+        },
+        {
+          "term": "harwich ma",
+          "count": 4
+        },
+        {
+          "term": "Ohio, Hardin county parcel",
+          "count": 4
+        },
+        {
+          "term": "sanborn map knoxville, tn",
+          "count": 4
+        },
+        {
+          "term": "Sleeping bear beach, township T29N, range 14W, lots 1 and 2, section 22, glen arbor township",
+          "count": 4
+        },
+        {
+          "term": "3031 8th st. ne",
+          "count": 3
+        },
+        {
+          "term": "314 Cranesnet Way West Palm Beach,FL",
+          "count": 3
+        },
+        {
+          "term": "42.3655° N, -95.4715° W",
+          "count": 3
+        },
+        {
+          "term": "Allaire",
+          "count": 3
+        },
+        {
+          "term": "bicycle count stations",
+          "count": 3
+        },
+        {
+          "term": "Bitumen",
+          "count": 3
+        },
+        {
+          "term": "Burj al-Burullus",
+          "count": 3
+        },
+        {
+          "term": "Charles Waring & Co.",
+          "count": 3
+        },
+        {
+          "term": "clarence street ponsonby",
+          "count": 3
+        },
+        {
+          "term": "Hamedan",
+          "count": 3
+        },
+        {
+          "term": "hotosm_uga_rr_places_of_worship_points_shp.zip",
+          "count": 3
+        },
+        {
+          "term": "Interlochen MI",
+          "count": 3
+        },
+        {
+          "term": "Lots 1 & 2, section 22, glen arbor",
+          "count": 3
+        },
+        {
+          "term": "Monterey pass",
+          "count": 3
+        },
+        {
+          "term": "Neurodiverse",
+          "count": 3
+        },
+        {
+          "term": "portage points escanaba michigan",
+          "count": 3
+        },
+        {
+          "term": "SE ¼ of NE ¼, Section 25-6-8 Saranac, mi 48881",
+          "count": 3
+        },
+        {
+          "term": "Secunderbad",
+          "count": 3
+        },
+        {
+          "term": "T47n R7w",
+          "count": 3
+        },
+        {
+          "term": "u2 imagery",
+          "count": 3
+        },
+        {
+          "term": "webster township, madison county iowa",
+          "count": 3
+        },
+        {
+          "term": "Williamsburg to White House",
+          "count": 3
+        },
+        {
+          "term": "татарка",
+          "count": 3
+        },
+        {
+          "term": "ایران میلادی1963",
+          "count": 3
+        },
+        {
+          "term": "\"04d-02\"",
+          "count": 2
+        },
+        {
+          "term": "1196 Deere Ln, harrisburg, pa",
+          "count": 2
+        },
+        {
+          "term": "1216 bonaire rd forest hill md",
+          "count": 2
+        },
+        {
+          "term": "13910 143rd st ct kpn",
+          "count": 2
+        },
+        {
+          "term": "1489 s huron rd",
+          "count": 2
+        },
+        {
+          "term": "160 university st, ferndale mi",
+          "count": 2
+        },
+        {
+          "term": "191 south street morristown, nj",
+          "count": 2
+        },
+        {
+          "term": "205 Vine Street",
+          "count": 2
+        },
+        {
+          "term": "213 linwood",
+          "count": 2
+        },
+        {
+          "term": "213 linwood ottawa",
+          "count": 2
+        },
+        {
+          "term": "2310 n richards milwaukee wis",
+          "count": 2
+        },
+        {
+          "term": "3050 riverside lane Malaga, wa",
+          "count": 2
+        },
+        {
+          "term": "308 Walnut St., Philadelphia",
+          "count": 2
+        },
+        {
+          "term": "⁦32°01'14.73\"N⁩ ⁦36°04'12.93\"E⁩",
+          "count": 2
+        },
+        {
+          "term": "34°18'32\"N و 50°55'00\"E",
+          "count": 2
+        },
+        {
+          "term": "3423 e. Schafer rd",
+          "count": 2
+        },
+        {
+          "term": "3600 ariel drive",
+          "count": 2
+        },
+        {
+          "term": "360 county road ff",
+          "count": 2
+        },
+        {
+          "term": "3701 Chandler Drive, Minneapolis, MN 55421",
+          "count": 2
+        },
+        {
+          "term": "4072 Wilshire dr",
+          "count": 2
+        },
+        {
+          "term": "44.254807962639596, -87.69059355767274",
+          "count": 2
+        },
+        {
+          "term": "46544",
+          "count": 2
+        },
+        {
+          "term": "46561",
+          "count": 2
+        },
+        {
+          "term": "6046 16 ave nw seattle washington",
+          "count": 2
+        },
+        {
+          "term": "6526 16 ave nw seattle washington",
+          "count": 2
+        },
+        {
+          "term": "7115 County Road 10, Chaska, MN",
+          "count": 2
+        },
+        {
+          "term": "7115 County Road 10, Chaska,MN 55318",
+          "count": 2
+        },
+        {
+          "term": "Allaire new jersey",
+          "count": 2
+        },
+        {
+          "term": "Allaire Train Station",
+          "count": 2
+        },
+        {
+          "term": "A Map of Old Greenland or Øster Bygd & Wester Bygd : agreeable to Egede’s late description of Greenland",
+          "count": 2
+        },
+        {
+          "term": "ambos whitlock",
+          "count": 2
+        },
+        {
+          "term": "Ambrose whitlock",
+          "count": 2
+        },
+        {
+          "term": "armenian maps",
+          "count": 2
+        },
+        {
+          "term": "Battle creek michigan 1955",
+          "count": 2
+        },
+        {
+          "term": "business license",
+          "count": 2
+        },
+        {
+          "term": "Cadawinonan",
+          "count": 2
+        },
+        {
+          "term": "\\]cedarburg wi",
+          "count": 2
+        },
+        {
+          "term": "Chandler Drive, Minneapolis, MN 55421",
+          "count": 2
+        },
+        {
+          "term": "Coal City, Alabama",
+          "count": 2
+        },
+        {
+          "term": "coconut grove fl",
+          "count": 2
+        },
+        {
+          "term": "colony township, delaware county, iowa",
+          "count": 2
+        },
+        {
+          "term": "Deserted Village of Alliance",
+          "count": 2
+        },
+        {
+          "term": "Digital Orthoimagery, , Spring 2025, 1-ft Resolution",
+          "count": 2
+        },
+        {
+          "term": "Dumaguete",
+          "count": 2
+        },
+        {
+          "term": "Eastpointe, MI",
+          "count": 2
+        },
+        {
+          "term": "ford river Michigan, 📍 45.6988° N, 87.0135° W [1, 2]",
+          "count": 2
+        },
+        {
+          "term": "Fox Chapel Golf Club",
+          "count": 2
+        },
+        {
+          "term": "granby township",
+          "count": 2
+        },
+        {
+          "term": "groveport",
+          "count": 2
+        },
+        {
+          "term": "GSE15459",
+          "count": 2
+        },
+        {
+          "term": "High-resolution aerial imagery, Carver County MN 2023",
+          "count": 2
+        },
+        {
+          "term": "Honton",
+          "count": 2
+        },
+        {
+          "term": "Kendall, wi",
+          "count": 2
+        },
+        {
+          "term": "L-35-56",
+          "count": 2
+        },
+        {
+          "term": "Lebanon, TN",
+          "count": 2
+        },
+        {
+          "term": "Map of the rebel fortifications at Columbus, Ky",
+          "count": 2
+        },
+        {
+          "term": "Marion County school districts",
+          "count": 2
+        },
+        {
+          "term": "mason county, ky",
+          "count": 2
+        },
+        {
+          "term": "Maynard ohio",
+          "count": 2
+        },
+        {
+          "term": "mejia",
+          "count": 2
+        },
+        {
+          "term": "Merck Kenilworth, nj",
+          "count": 2
+        },
+        {
+          "term": "monroe main lyons michigan",
+          "count": 2
+        },
+        {
+          "term": "Montrose/muir/Lyons,Michigan",
+          "count": 2
+        },
+        {
+          "term": "mount morrison pennsylvania",
+          "count": 2
+        },
+        {
+          "term": "muir lyons michigan",
+          "count": 2
+        },
+        {
+          "term": "Mut",
+          "count": 2
+        }
+      ]
+    },
+    "2026-08": {
+      "periodStart": "2026-08-01",
+      "periodEndExclusive": "2026-09-01",
+      "searches": 7545,
+      "zeroResults": 1455,
+      "withQuery": 1148,
+      "withoutQuery": 307,
+      "distinctQueries": 885,
+      "rankedZeroResults": 298,
+      "zeroQueries": [
+        {
+          "term": "indiana field survey iran hardin i 38l",
+          "count": 9
+        },
+        {
+          "term": "32.503232, 44.449000",
+          "count": 8
+        },
+        {
+          "term": "Iowa City Sanborn, 1883",
+          "count": 8
+        },
+        {
+          "term": "31.971794,48.809872",
+          "count": 7
+        },
+        {
+          "term": "9266 town line rd Larsen wi",
+          "count": 7
+        },
+        {
+          "term": "32.654583, 44.405139",
+          "count": 6
+        },
+        {
+          "term": "maple range township mi",
+          "count": 6
+        },
+        {
+          "term": "205 E Sycamore Street Westport, Indiana",
+          "count": 5
+        },
+        {
+          "term": "3115 hickman rd des moines",
+          "count": 5
+        },
+        {
+          "term": "Map of the settled part of Wisconsin and Iowa",
+          "count": 5
+        },
+        {
+          "term": "15N 9E",
+          "count": 4
+        },
+        {
+          "term": "3901 S Green Bay Rd, Mount Pleasant, WI",
+          "count": 4
+        },
+        {
+          "term": "Calmimilolco",
+          "count": 4
+        },
+        {
+          "term": "chukar ln Burbank wa",
+          "count": 4
+        },
+        {
+          "term": "Edmondson arkansas",
+          "count": 4
+        },
+        {
+          "term": "fiji contours",
+          "count": 4
+        },
+        {
+          "term": "Lost lake saint germain",
+          "count": 4
+        },
+        {
+          "term": "redlining",
+          "count": 4
+        },
+        {
+          "term": "101N068",
+          "count": 3
+        },
+        {
+          "term": "10560 E Richview Rd Mount Vernon IL",
+          "count": 3
+        },
+        {
+          "term": "1122 prospect Toledo, Ohio",
+          "count": 3
+        },
+        {
+          "term": "14.375000 46.745833",
+          "count": 3
+        },
+        {
+          "term": "2005 bergan st south bend",
+          "count": 3
+        },
+        {
+          "term": "2670232",
+          "count": 3
+        },
+        {
+          "term": "27.014435, 1.072616",
+          "count": 3
+        },
+        {
+          "term": "34.73859, 36.55421",
+          "count": 3
+        },
+        {
+          "term": "36°42'44.4\"N 46°52'25.1\"E",
+          "count": 3
+        },
+        {
+          "term": "7662 walnut dr",
+          "count": 3
+        },
+        {
+          "term": "8219 City Centre Dr, La Vista, NE 68128",
+          "count": 3
+        },
+        {
+          "term": "8C37+H7، اليمن",
+          "count": 3
+        },
+        {
+          "term": "calgary",
+          "count": 3
+        },
+        {
+          "term": "can u glide me information on theodore ruanda haritonovici",
+          "count": 3
+        },
+        {
+          "term": "crime",
+          "count": 3
+        },
+        {
+          "term": "Greenview IL",
+          "count": 3
+        },
+        {
+          "term": "Mandi shah jewana",
+          "count": 3
+        },
+        {
+          "term": "map of jessenland township township 113 n, range 2",
+          "count": 3
+        },
+        {
+          "term": "Meeker MN",
+          "count": 3
+        },
+        {
+          "term": "missing_bbox",
+          "count": 3
+        },
+        {
+          "term": "Morgan Mn",
+          "count": 3
+        },
+        {
+          "term": "N9009 Lakeshore dr van dyne wi 54979",
+          "count": 3
+        },
+        {
+          "term": "Park County, Indiana soil productivity map",
+          "count": 3
+        },
+        {
+          "term": "Plat Book of Sibley County Minnesota",
+          "count": 3
+        },
+        {
+          "term": "RANCHO SON VICENTEE AND SANTA MONICA T1S R11W SEC 2",
+          "count": 3
+        },
+        {
+          "term": "Reserve township, mn",
+          "count": 3
+        },
+        {
+          "term": "Sanborn Maps Goose Island, Chicago",
+          "count": 3
+        },
+        {
+          "term": "SouthWest Indiana 46614",
+          "count": 3
+        },
+        {
+          "term": "spring mills, pa",
+          "count": 3
+        },
+        {
+          "term": "spring mills, potter township, pa",
+          "count": 3
+        },
+        {
+          "term": "T1S R11W SEC 2",
+          "count": 3
+        },
+        {
+          "term": "U.S. Army Map Service. (2016). U.S. Army Map Series K501: Iraq and Iran: Zenjan J-39S. U.S. Army Map Service. https://isac-idb.uchicago.edu/id/94ecf195-fa5f-4120-9504-23e9550234cb",
+          "count": 3
+        },
+        {
+          "term": "village boundary andra pradesh",
+          "count": 3
+        },
+        {
+          "term": "Warner, Higgins & Beers",
+          "count": 3
+        },
+        {
+          "term": "Williamsburg to White House",
+          "count": 3
+        },
+        {
+          "term": "Yemen shabwa",
+          "count": 3
+        },
+        {
+          "term": "1415 primrose lane Lancaster wi",
+          "count": 2
+        },
+        {
+          "term": "15168 franchesca ln",
+          "count": 2
+        },
+        {
+          "term": "160 east kellog blvd",
+          "count": 2
+        },
+        {
+          "term": "160 east kellogg blvd",
+          "count": 2
+        },
+        {
+          "term": "160 ferne ridge lane",
+          "count": 2
+        },
+        {
+          "term": "175 rockwood ln",
+          "count": 2
+        },
+        {
+          "term": "1903 w 3rd st davenport, ia",
+          "count": 2
+        },
+        {
+          "term": "1913 New Sweden Township plat map",
+          "count": 2
+        },
+        {
+          "term": "19th St and Benning",
+          "count": 2
+        },
+        {
+          "term": "2016 haven ave ocean city nj",
+          "count": 2
+        },
+        {
+          "term": "204 high street jeffersonville indiana",
+          "count": 2
+        },
+        {
+          "term": "2189 mercer road",
+          "count": 2
+        },
+        {
+          "term": "2189 mercer road, stoneboro, pa",
+          "count": 2
+        },
+        {
+          "term": "2375 Harrisburg Pike Grove City, Ohio Utilities",
+          "count": 2
+        },
+        {
+          "term": "23w545 james way",
+          "count": 2
+        },
+        {
+          "term": "2670232 -79.6270572",
+          "count": 2
+        },
+        {
+          "term": "311 S Pleasant St Cambridge Wi",
+          "count": 2
+        },
+        {
+          "term": "351 northwestern",
+          "count": 2
+        },
+        {
+          "term": "35.2065341, 47.1094729",
+          "count": 2
+        },
+        {
+          "term": "37-02-2711N",
+          "count": 2
+        },
+        {
+          "term": "39.758333, -76.268056",
+          "count": 2
+        },
+        {
+          "term": "41.57864,-92.25404",
+          "count": 2
+        },
+        {
+          "term": "46240",
+          "count": 2
+        },
+        {
+          "term": "46628",
+          "count": 2
+        },
+        {
+          "term": "47733 cross manor road st. inigoes md",
+          "count": 2
+        },
+        {
+          "term": "575 chukar ln",
+          "count": 2
+        },
+        {
+          "term": "575 chukar ln Burbank wa",
+          "count": 2
+        },
+        {
+          "term": "641 S Midland Ave, Rockdale, IL 60436, USA",
+          "count": 2
+        },
+        {
+          "term": "734 Highcliff Trl, Madison, WI, 53718-3227",
+          "count": 2
+        },
+        {
+          "term": "734 highcliff trl madison wi 5738 3257",
+          "count": 2
+        },
+        {
+          "term": "824 pine st santa cruz",
+          "count": 2
+        },
+        {
+          "term": "90277",
+          "count": 2
+        },
+        {
+          "term": "9726 s. avers, evergreen park",
+          "count": 2
+        },
+        {
+          "term": "albany st, springfield, ma",
+          "count": 2
+        },
+        {
+          "term": "atkin",
+          "count": 2
+        },
+        {
+          "term": "August 13, 2026",
+          "count": 2
+        },
+        {
+          "term": "Baltic Provinces",
+          "count": 2
+        },
+        {
+          "term": "Bartz Farihaven Mn",
+          "count": 2
+        },
+        {
+          "term": "bethlehem",
+          "count": 2
+        },
+        {
+          "term": "Bird's eye view of Iowa City",
+          "count": 2
+        },
+        {
+          "term": "black forest and rhine",
+          "count": 2
+        },
+        {
+          "term": "braun road",
+          "count": 2
+        },
+        {
+          "term": "Brother Avenue Kingston Pennsylvania",
+          "count": 2
+        },
+        {
+          "term": "Calgary",
+          "count": 2
+        },
+        {
+          "term": "Carta geologica delle",
+          "count": 2
+        },
+        {
+          "term": "Carta geologica delle Tre Venezie, Legnago",
+          "count": 2
+        }
+      ]
+    }
+  }
+}

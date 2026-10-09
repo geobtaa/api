@@ -1,0 +1,292 @@
+{
+  "2026-07": {
+    "summary": {
+      "month": "July 2026",
+      "exportedAt": "August 20, 2026",
+      "requests": 613131,
+      "searches": 6457,
+      "impressions": 99482,
+      "events": 16824,
+      "resourceViews": 12200,
+      "resultClicks": 1984,
+      "downloadClicks": 933,
+      "uniqueEngagedVisits": 7474,
+      "zeroResultSearches": 1098,
+      "medianResponseMs": 1,
+      "p95ResponseMs": 29,
+      "serverErrors": 19
+    },
+    "dailyApiRequests": [
+      {
+        "date": "Jul 1",
+        "requests": 14500
+      },
+      {
+        "date": "Jul 2",
+        "requests": 18058
+      },
+      {
+        "date": "Jul 3",
+        "requests": 19271
+      },
+      {
+        "date": "Jul 4",
+        "requests": 17324
+      },
+      {
+        "date": "Jul 5",
+        "requests": 23920
+      },
+      {
+        "date": "Jul 6",
+        "requests": 26125
+      },
+      {
+        "date": "Jul 7",
+        "requests": 15274
+      },
+      {
+        "date": "Jul 8",
+        "requests": 19603
+      },
+      {
+        "date": "Jul 9",
+        "requests": 20371
+      },
+      {
+        "date": "Jul 10",
+        "requests": 19647
+      },
+      {
+        "date": "Jul 11",
+        "requests": 18676
+      },
+      {
+        "date": "Jul 12",
+        "requests": 18102
+      },
+      {
+        "date": "Jul 13",
+        "requests": 19529
+      },
+      {
+        "date": "Jul 14",
+        "requests": 25249
+      },
+      {
+        "date": "Jul 15",
+        "requests": 17005
+      },
+      {
+        "date": "Jul 16",
+        "requests": 17708
+      },
+      {
+        "date": "Jul 17",
+        "requests": 13992
+      },
+      {
+        "date": "Jul 18",
+        "requests": 17919
+      },
+      {
+        "date": "Jul 19",
+        "requests": 13946
+      },
+      {
+        "date": "Jul 20",
+        "requests": 23369
+      },
+      {
+        "date": "Jul 21",
+        "requests": 20306
+      },
+      {
+        "date": "Jul 22",
+        "requests": 20967
+      },
+      {
+        "date": "Jul 23",
+        "requests": 14219
+      },
+      {
+        "date": "Jul 24",
+        "requests": 20570
+      },
+      {
+        "date": "Jul 25",
+        "requests": 17082
+      },
+      {
+        "date": "Jul 26",
+        "requests": 16635
+      },
+      {
+        "date": "Jul 27",
+        "requests": 18716
+      },
+      {
+        "date": "Jul 28",
+        "requests": 26918
+      },
+      {
+        "date": "Jul 29",
+        "requests": 34574
+      },
+      {
+        "date": "Jul 30",
+        "requests": 22452
+      },
+      {
+        "date": "Jul 31",
+        "requests": 21104
+      }
+    ],
+    "source": "frontend/src/data/analytics/july2026.ts"
+  },
+  "2026-08": {
+    "summary": {
+      "month": "August 2026",
+      "exportedAt": "September 9, 2026",
+      "requests": 598931,
+      "serverErrors": 10,
+      "medianResponseMs": 2,
+      "p95ResponseMs": 127,
+      "searches": 7545,
+      "zeroResultSearches": 1455,
+      "impressions": 104455,
+      "events": 21753,
+      "resourceViews": 17440,
+      "downloadClicks": 812,
+      "resultClicks": 1960,
+      "uniqueEngagedVisits": 12712
+    },
+    "dailyApiRequests": [
+      {
+        "date": "2026-08-01",
+        "requests": 49258
+      },
+      {
+        "date": "2026-08-02",
+        "requests": 26651
+      },
+      {
+        "date": "2026-08-03",
+        "requests": 23363
+      },
+      {
+        "date": "2026-08-04",
+        "requests": 19313
+      },
+      {
+        "date": "2026-08-05",
+        "requests": 32953
+      },
+      {
+        "date": "2026-08-06",
+        "requests": 23801
+      },
+      {
+        "date": "2026-08-07",
+        "requests": 27334
+      },
+      {
+        "date": "2026-08-08",
+        "requests": 27415
+      },
+      {
+        "date": "2026-08-09",
+        "requests": 27124
+      },
+      {
+        "date": "2026-08-10",
+        "requests": 17346
+      },
+      {
+        "date": "2026-08-11",
+        "requests": 15669
+      },
+      {
+        "date": "2026-08-12",
+        "requests": 15842
+      },
+      {
+        "date": "2026-08-13",
+        "requests": 16978
+      },
+      {
+        "date": "2026-08-14",
+        "requests": 14494
+      },
+      {
+        "date": "2026-08-15",
+        "requests": 14815
+      },
+      {
+        "date": "2026-08-16",
+        "requests": 13909
+      },
+      {
+        "date": "2026-08-17",
+        "requests": 16877
+      },
+      {
+        "date": "2026-08-18",
+        "requests": 16942
+      },
+      {
+        "date": "2026-08-19",
+        "requests": 17893
+      },
+      {
+        "date": "2026-08-20",
+        "requests": 17274
+      },
+      {
+        "date": "2026-08-21",
+        "requests": 17164
+      },
+      {
+        "date": "2026-08-22",
+        "requests": 14409
+      },
+      {
+        "date": "2026-08-23",
+        "requests": 13920
+      },
+      {
+        "date": "2026-08-24",
+        "requests": 12124
+      },
+      {
+        "date": "2026-08-25",
+        "requests": 17066
+      },
+      {
+        "date": "2026-08-26",
+        "requests": 15069
+      },
+      {
+        "date": "2026-08-27",
+        "requests": 17888
+      },
+      {
+        "date": "2026-08-28",
+        "requests": 15877
+      },
+      {
+        "date": "2026-08-29",
+        "requests": 14251
+      },
+      {
+        "date": "2026-08-30",
+        "requests": 13194
+      },
+      {
+        "date": "2026-08-31",
+        "requests": 12718
+      }
+    ],
+    "source": "frontend/src/data/analytics/august2026.ts"
+  }
+}

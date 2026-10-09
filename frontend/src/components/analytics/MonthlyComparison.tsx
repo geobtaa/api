@@ -1,0 +1,222 @@
+import { ReportSectionHeading } from './ReportSectionHeading';
+import { AnalyticsTable } from './AnalyticsTable';
+import { Activity, BarChart3 } from 'lucide-react';
+import { ReportPanelHeader } from './ReportPanelHeader';
+import { useState } from 'react';
+import {
+  CartesianGrid,
+  Bar,
+  BarChart,
+  Legend,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import {
+  JULY_2026_SUMMARY,
+  dailyActivity as julyDailyActivity,
+} from '../../data/analytics/july2026';
+import {
+  AUGUST_2026_SUMMARY,
+  augustDailyActivity,
+} from '../../data/analytics/august2026';
+import { comparisonChange } from '../../utils/analyticsComparison';
+
+const number = new Intl.NumberFormat('en-US');
+const summaryMetrics = [
+  ['requests', 'API requests'],
+  ['searches', 'Searches'],
+  ['impressions', 'Search impressions'],
+  ['events', 'Tracked interactions'],
+  ['resourceViews', 'Resource views'],
+  ['resultClicks', 'Result clicks'],
+  ['downloadClicks', 'Download clicks'],
+  ['uniqueEngagedVisits', 'Engaged visits'],
+  ['zeroResultSearches', 'Zero-result searches'],
+  ['serverErrors', 'Server errors'],
+  ['medianResponseMs', 'Median response time (ms)'],
+  ['p95ResponseMs', '95th percentile response time (ms)'],
+] as const;
+const dailyMetrics = {
+  events: 'Tracked interactions',
+  searches: 'Searches',
+  requests: 'API requests',
+};
+export function MonthlyComparison() {
+  const [dailyMetric, setDailyMetric] =
+    useState<keyof typeof dailyMetrics>('events');
+  const dailyData = augustDailyActivity.map((point, index) => ({
+    day: index + 1,
+    July: julyDailyActivity[index][dailyMetric],
+    August: point[dailyMetric],
+  }));
+
+  return (
+    <section
+      id="comparison"
+      className="analytics-section"
+      aria-labelledby="comparison-title"
+    >
+      <ReportSectionHeading
+        id="comparison-title"
+        title="August compared with July"
+        description="Two complete 31-day periods in 2026. Changes use July as the baseline."
+      />
+      <div className="analytics-panel analytics-comparison-panel">
+        <ReportPanelHeader
+          title="Portal totals"
+          icon={BarChart3}
+        ></ReportPanelHeader>
+        <div
+          className="analytics-comparison-scroll"
+          tabIndex={0}
+          role="region"
+          aria-label="Portal comparison table"
+        >
+          <AnalyticsTable className="analytics-comparison-table">
+            <caption className="sr-only">
+              July and August 2026 portal totals and changes
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Metric</th>
+                <th scope="col">July 2026</th>
+                <th scope="col">August 2026</th>
+                <th scope="col">Change</th>
+                <th scope="col">Change %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {summaryMetrics.map(([key, label]) => {
+                const july = JULY_2026_SUMMARY[key];
+                const august = AUGUST_2026_SUMMARY[key];
+                const delta = august - july;
+                return (
+                  <tr key={key}>
+                    <th scope="row">{label}</th>
+                    <td>{number.format(july)}</td>
+                    <td>{number.format(august)}</td>
+                    <td>
+                      {delta > 0 ? '+' : ''}
+                      {number.format(delta)}
+                    </td>
+                    <td>{comparisonChange(july, august)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </AnalyticsTable>
+        </div>
+        <p className="analytics-comparison-note">
+          API requests include bots and probes. Engaged visits are distinct
+          visit tokens with a tracked interaction, not unique people. Download
+          counts measure link clicks. A positive change indicates an increase,
+          including for errors and response times.
+        </p>
+      </div>
+      <div className="analytics-panel analytics-comparison-panel">
+        <ReportPanelHeader title="Daily comparison" icon={Activity}>
+          <label>
+            Daily metric{' '}
+            <select
+              value={dailyMetric}
+              onChange={(event) =>
+                setDailyMetric(event.target.value as keyof typeof dailyMetrics)
+              }
+            >
+              {Object.entries(dailyMetrics).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </ReportPanelHeader>
+        <p className="analytics-comparison-note">
+          Compare July and August side by side for each day of the month. Bar
+          heights use the same scale; dates are not aligned by weekday.
+        </p>
+        <div
+          className="analytics-comparison-chart"
+          role="img"
+          aria-label={`${dailyMetrics[dailyMetric]} for July and August as paired bars for each day of month. Exact values are available in the daily values table below.`}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={dailyData} barGap={2} barCategoryGap="20%">
+              <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <XAxis dataKey="day" tickLine={false} />
+              <YAxis
+                width={65}
+                tickFormatter={(value) => number.format(value)}
+              />
+              <Tooltip
+                labelFormatter={(value) => `Day ${value}`}
+                formatter={(value) => number.format(Number(value))}
+                cursor={{ fill: '#f1f5f9' }}
+              />
+              <Legend />
+              <Bar
+                dataKey="July"
+                name="July 2026"
+                fill="#6d28d9"
+                isAnimationActive={false}
+              />
+              <Bar
+                dataKey="August"
+                name="August 2026"
+                fill="#0f766e"
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <details>
+          <summary>Daily values: {dailyMetrics[dailyMetric]}</summary>
+          <div
+            className="analytics-comparison-scroll"
+            tabIndex={0}
+            role="region"
+            aria-label="Daily comparison table"
+          >
+            <AnalyticsTable className="analytics-comparison-table">
+              <caption className="sr-only">
+                Daily {dailyMetrics[dailyMetric].toLowerCase()} in July and
+                August 2026
+              </caption>
+              <thead>
+                <tr>
+                  <th scope="col">Day of month</th>
+                  <th scope="col">July</th>
+                  <th scope="col">August</th>
+                  <th scope="col">Change</th>
+                  <th scope="col">Change %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyData.map((row) => (
+                  <tr key={row.day}>
+                    <th scope="row">{row.day}</th>
+                    <td>{number.format(row.July)}</td>
+                    <td>{number.format(row.August)}</td>
+                    <td>
+                      {row.August > row.July ? '+' : ''}
+                      {number.format(row.August - row.July)}
+                    </td>
+                    <td>{comparisonChange(row.July, row.August)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </AnalyticsTable>
+          </div>
+        </details>
+      </div>
+      <p className="analytics-comparison-note">
+        August covers August 1–31, 2026 (UTC), exported{' '}
+        {AUGUST_2026_SUMMARY.exportedAt}. July uses the preserved August 20
+        export. Monthly rankings and campus reports for both months are
+        available from the report navigation.
+      </p>
+    </section>
+  );
+}

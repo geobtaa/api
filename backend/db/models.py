@@ -799,6 +799,15 @@ analytics_daily_resource_metrics = Table(
     Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
 )
 
+analytics_daily_resource_impressions = Table(
+    "analytics_daily_resource_impressions",
+    metadata,
+    Column("metric_date", Date, primary_key=True),
+    Column("resource_id", String(255), primary_key=True),
+    Column("impression_count", BigInteger, nullable=False),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=func.now()),
+)
+
 analytics_maintenance_state = Table(
     "analytics_maintenance_state",
     metadata,

@@ -1,0 +1,459 @@
+{
+  "sources": [
+    {
+      "month": "2026-07-01",
+      "sha256": "a136798f514e3643c1d141551949ecf8e38e230e4274d4064d238049990a864b"
+    },
+    {
+      "month": "2026-08-01",
+      "sha256": "d6011cf7db34fb0d8f21181d76a52ae33c78989bb1c7e3d1a1175d5aa87f3c35"
+    }
+  ],
+  "method": "Preserved collection-filter search counts, including exclusions and legacy controls; each search counts once per collection. Collections may overlap.",
+  "collections": [
+    {
+      "title": "Urban Base Layers Collection",
+      "searches": 559,
+      "kind": "Collection record",
+      "id": "b1g_urbanBaseLayers"
+    },
+    {
+      "title": "Big Ten Academic Alliance Libraries Historical Maps Collection",
+      "searches": 151,
+      "kind": "Collection record",
+      "id": "64bd8c4c-8e60-4956-b43d-bdc3f93db488"
+    },
+    {
+      "title": "Center for Ancient Middle Eastern Landscapes, Institute for the Study of Ancient Cultures, University of Chicago",
+      "searches": 108,
+      "kind": "Collection record",
+      "id": "12d-04"
+    },
+    {
+      "title": "Sanborn Fire Insurance Maps",
+      "searches": 102,
+      "kind": "Collection record",
+      "id": "b35f927e-9051-4d7f-9ca3-ad5b19024e0b"
+    },
+    {
+      "title": "Sanborn Maps: Pennsylvania, 1884-1938",
+      "searches": 39,
+      "kind": "Collection record",
+      "id": "08d-02"
+    },
+    {
+      "title": "PASDA Geospatial Data Archive",
+      "searches": 37,
+      "kind": "Collection record",
+      "id": "08a-04"
+    },
+    {
+      "title": "General Land Office Township Plats",
+      "searches": 25,
+      "kind": "Collection record",
+      "id": "77f-0001"
+    },
+    {
+      "title": "Survey of Egypt",
+      "searches": 21,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "University of Minnesota Libraries, University Archives.",
+      "searches": 21,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Purdue Campus Maps: West Lafayette, Indiana, 1890-2014",
+      "searches": 18,
+      "kind": "Collection record",
+      "id": "09d-02"
+    },
+    {
+      "title": "John R. Borchert Map Library",
+      "searches": 15,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Center for Ancient Middle Eastern Landscapes, Institute for the Study of Ancient Cultures, University of Chicago",
+      "searches": 13,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "UMedia: University of Minnesota",
+      "searches": 12,
+      "kind": "Collection record",
+      "id": "05d-01"
+    },
+    {
+      "title": "Wisconsin Public Land Survey Records",
+      "searches": 12,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Pennsylvania Aerial Photo Collection",
+      "searches": 10,
+      "kind": "Collection record",
+      "id": "08d-05"
+    },
+    {
+      "title": "University of Maryland: U.S. Government Information, Maps, & GIS Services",
+      "searches": 10,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "PASDA: The Pennsylvania Geospatial Data Clearinghouse",
+      "searches": 9,
+      "kind": "Collection record",
+      "id": "08a-01"
+    },
+    {
+      "title": "Social Scientists Map Chicago Collection",
+      "searches": 9,
+      "kind": "Collection record",
+      "id": "12d-01"
+    },
+    {
+      "title": "Important Farmlands Map Collection",
+      "searches": 9,
+      "kind": "Collection record",
+      "id": "2787a9e8-0bef-452e-9e5f-e83042c193b4"
+    },
+    {
+      "title": "Mapping Inequality",
+      "searches": 9,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Pittsburgh Open Data",
+      "searches": 7,
+      "kind": "Collection record",
+      "id": "08c-02"
+    },
+    {
+      "title": "Map Library Digital Collections at the University of Illinois at Urbana-Champaign Library",
+      "searches": 6,
+      "kind": "Collection record",
+      "id": "02d-01"
+    },
+    {
+      "title": "Maps of New Jersey",
+      "searches": 6,
+      "kind": "Collection record",
+      "id": "14d-01"
+    },
+    {
+      "title": "Government Open Geospatial Data Collection",
+      "searches": 6,
+      "kind": "Collection record",
+      "id": "ba5cc745-21c5-4ae9-954b-72dd8db6815a"
+    },
+    {
+      "title": "04d-02",
+      "searches": 5,
+      "kind": "Collection record",
+      "id": "04d-02"
+    },
+    {
+      "title": "Minnesota Geospatial Commons",
+      "searches": 5,
+      "kind": "Collection record",
+      "id": "05a-01"
+    },
+    {
+      "title": "Geology Library and Map Room: The Ohio State University",
+      "searches": 5,
+      "kind": "Collection record",
+      "id": "11d-02"
+    },
+    {
+      "title": "PASDA series: Allegheny County Parcels",
+      "searches": 5,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Sanborn Fire Insurance Maps: Illinois",
+      "searches": 5,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Minnesota Digital Library, Nicollet County Historical Society",
+      "searches": 4,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Minnesota Geological Survey",
+      "searches": 4,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "New Jersey Environmental Digital Library",
+      "searches": 4,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Illinois Geospatial Data Clearinghouse",
+      "searches": 3,
+      "kind": "Collection record",
+      "id": "02a-01"
+    },
+    {
+      "title": "Beltrami County Open GIS Data",
+      "searches": 3,
+      "kind": "Collection record",
+      "id": "05b-27007"
+    },
+    {
+      "title": "Minnesota Geological Survey County Atlas Series",
+      "searches": 3,
+      "kind": "Collection record",
+      "id": "05d-04"
+    },
+    {
+      "title": "OpenDataPhilly",
+      "searches": 3,
+      "kind": "Collection record",
+      "id": "08c-01"
+    },
+    {
+      "title": "Richfield Historical Society",
+      "searches": 3,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "U.S. Army Map Series P502: North Africa",
+      "searches": 3,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Evanston, Illinois Open Data Hub",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "02c-01"
+    },
+    {
+      "title": "Clay County Open Data",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "05b-27027"
+    },
+    {
+      "title": "Minnesota Digital Library",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "05d-13"
+    },
+    {
+      "title": "Clark Library Scanned Maps",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "07d-01"
+    },
+    {
+      "title": "Bituminous coal mine maps of Pennsylvania",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "08d-03"
+    },
+    {
+      "title": "20d-0003",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "20d-0003"
+    },
+    {
+      "title": "Iowa Counties Historic Atlases",
+      "searches": 2,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "PASDA series: Allegheny County - Address Points",
+      "searches": 2,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Russian Military Topographic Map Collection",
+      "searches": 2,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Libraries Geospatial Data Collection",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "dc8c18df-7d64-4ff4-a754-d18d0891187d"
+    },
+    {
+      "title": "stanford-vs868cq8571",
+      "searches": 2,
+      "kind": "Collection record",
+      "id": "stanford-vs868cq8571"
+    },
+    {
+      "title": "City of Bloomington, Indiana Open Data Portal",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "01c-01"
+    },
+    {
+      "title": "OpenIndy Data Portal",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "01c-02"
+    },
+    {
+      "title": "City of Des Moines GIS Data",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "03c-01"
+    },
+    {
+      "title": "University of Iowa Digital Library: Atlases and Maps",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "03d-01"
+    },
+    {
+      "title": "Otter Tail County Maps and Data Hub",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "05b-27111"
+    },
+    {
+      "title": "Minnesota Natural Resource Atlas",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "05d-11"
+    },
+    {
+      "title": "Michiganology",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "06a-03"
+    },
+    {
+      "title": "Penn State Data Commons",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "08d-04"
+    },
+    {
+      "title": "Western Pennsylvania Regional Data Center Open Data",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "08f-01"
+    },
+    {
+      "title": "Wabash River Historical Maps and Imagery",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "09d-01"
+    },
+    {
+      "title": "Auglaize County, Ohio GIS Open Data Downloads",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "11b-39011"
+    },
+    {
+      "title": "City of Chicago Data Portal",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "12c-01"
+    },
+    {
+      "title": "Image and Multimedia Collections at the University of Nebraska-Lincoln",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "13d-02"
+    },
+    {
+      "title": "Carte des Etats du Levant Sous Mandat Francais",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Historical Maps of New Jersey",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Minnesota County Maps, Plat Books, and Atlases",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "PASDA series: AML Polygons Feature",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "PASDA series: Bituminous Surface Mine Permits",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "PASDA series: PFBC WWCW_Fisheries_Lakes_Pt",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "U.S. Army Map Series K501: Iraq and Iran",
+      "searches": 1,
+      "kind": "Local collection",
+      "filterField": "b1g_localCollectionLabel_sm"
+    },
+    {
+      "title": "Plat book of Sanilac County, Michigan",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "ark-85335-m58p5wn5w"
+    },
+    {
+      "title": "Plat book of Schoolcraft Co., Michigan",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "ark-85335-m5nz82245"
+    },
+    {
+      "title": "Plat book of Montgomery County, Ind.",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "ark-85335-m5p26sw5p"
+    },
+    {
+      "title": "stanford-qr604qw5282",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "stanford-qr604qw5282"
+    },
+    {
+      "title": "stanford-rr276tj2464",
+      "searches": 1,
+      "kind": "Collection record",
+      "id": "stanford-rr276tj2464"
+    }
+  ]
+}

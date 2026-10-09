@@ -6,6 +6,7 @@ export default [
   route("about", "routes/about.tsx"),
   route("help", "routes/help.tsx"),
   route("feedback", "routes/feedback.tsx"),
+  route("analytics", "routes/analytics.tsx"),
   route("search", "routes/search.tsx"),
   route("search/results", "routes/search.results.ts"),
   route("catalog/:id", "routes/catalog.$id.ts"),
