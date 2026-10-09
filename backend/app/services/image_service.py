@@ -1,5 +1,4 @@
 import asyncio
-import hashlib
 import json
 import logging
 import os
@@ -17,13 +16,14 @@ from app.services.distribution_repository import (
     build_distribution_context,
 )
 from app.services.thumbnail_alias_service import thumbnail_alias_service
+from app.services.thumbnail_capture import find_thumbnail
+from app.services.thumbnail_policy import IIIF_THUMBNAIL_BOX, source_signature
 from app.services.thumbnail_queue_service import acquire_thumbnail_queue_slot
 from app.services.thumbnail_state_service import (
     ThumbnailState,
     ThumbnailStatePayload,
     infer_source_type,
     safe_record_thumbnail_state_sync,
-    thumbnail_state_service,
 )
 from app.services.visual_asset_cache import cache_visual_asset, get_durable_visual_asset
 
@@ -36,13 +36,7 @@ except (OSError, PermissionError):
 
 logger = logging.getLogger(__name__)
 
-IIIF_THUMBNAIL_BOX = os.getenv("IIIF_THUMBNAIL_BOX", "!800,800")
 IIIF_THUMBNAIL_PATH = f"/full/{IIIF_THUMBNAIL_BOX}/0/default.jpg"
-THUMBNAIL_CACHE_VERSION = os.getenv("THUMBNAIL_CACHE_VERSION", "v4")
-REMOTE_THUMBNAIL_PREFIX = f"remote-thumb-normalized:{THUMBNAIL_CACHE_VERSION}:"
-COG_THUMBNAIL_PREFIX = "cog-thumb:"
-PMTILES_THUMBNAIL_PREFIX = "pmtiles-thumb:"
-
 # Shared Redis connection pool to avoid creating new connections for each ImageService instance
 _redis_connection_pool = None
 _redis_image_connection_pool = None
@@ -141,10 +135,16 @@ class ImageService:
         cache_key = f"manifest:{manifest_url}"
 
         # Try to get from cache
-        cached_data = self.cache.get(cache_key)
+        try:
+            cached_data = self.cache.get(cache_key)
+        except Exception:
+            cached_data = None
         if cached_data:
             self.logger.info(f"🚀 Cache HIT for manifest {manifest_url}")
-            return json.loads(cached_data)
+            try:
+                return json.loads(cached_data)
+            except (ValueError, TypeError):
+                self.logger.warning("Invalid cached manifest; fetching a fresh copy")
 
         # If not in cache, fetch and store
         try:
@@ -166,7 +166,10 @@ class ImageService:
             manifest_data = response.json()
 
             # Cache the manifest
-            self.cache.setex(cache_key, self.cache_ttl, json.dumps(manifest_data))
+            try:
+                self.cache.setex(cache_key, self.cache_ttl, json.dumps(manifest_data))
+            except Exception:
+                self.logger.debug("Manifest cache unavailable; using fetched manifest")
             return manifest_data
         except requests.Timeout:
             self.logger.warning(f"Timeout fetching manifest {manifest_url} (5s timeout)")
@@ -431,114 +434,20 @@ class ImageService:
         return None
 
     def thumbnail_image_hash_for_source_sync(
-        self,
-        source_url: str,
-        *,
-        resolve_manifest: bool = False,
+        self, source_url: str, *, resolve_manifest: bool = False
     ) -> Optional[str]:
-        """Return the immutable thumbnail hash implied by a preferred source URL."""
-        if not source_url:
-            return None
-
-        try:
-            if self._is_cog_url(source_url):
-                return hashlib.sha256((COG_THUMBNAIL_PREFIX + source_url).encode()).hexdigest()
-            if self._is_pmtiles_url(source_url):
-                return hashlib.sha256((PMTILES_THUMBNAIL_PREFIX + source_url).encode()).hexdigest()
-            if self._is_manifest_url(source_url):
-                manifest_cache_key = f"manifest:{source_url}"
-                cached_manifest_data = self.cache.get(manifest_cache_key)
-                if cached_manifest_data:
-                    manifest_json = json.loads(cached_manifest_data)
-                    resolved_url = self._extract_thumbnail_from_manifest_json(
-                        manifest_json, source_url
-                    )
-                    if resolved_url:
-                        standardized_url = self._standardize_iiif_url(resolved_url)
-                        return hashlib.sha256(
-                            (REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()
-                        ).hexdigest()
-
-                if resolve_manifest:
-                    from app.tasks.worker import _resolve_image_url
-
-                    resolved_url = _resolve_image_url(source_url)
-                    if resolved_url and resolved_url != source_url:
-                        return hashlib.sha256(
-                            (REMOTE_THUMBNAIL_PREFIX + resolved_url).encode()
-                        ).hexdigest()
-                return None
-
-            standardized_url = self._standardize_iiif_url(source_url)
-            return hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + standardized_url).encode()).hexdigest()
-        except Exception as e:
-            self.logger.debug("Error resolving thumbnail hash for %s: %s", source_url, e)
-            return None
+        """Return a versioned source lookup key, not a served image identifier."""
+        return source_signature(source_url) if source_url else None
 
     def _current_thumbnail_hash_sync(
-        self,
-        doc_id: str,
-        *,
-        source_url: Optional[str],
+        self, doc_id: str, *, source_url: Optional[str]
     ) -> Optional[str]:
-        """
-        Return the hot immutable hash for the current preferred source, if available.
-
-        Persisted success state is only reused when it matches the current
-        processing-version hash and preferred source URL. A cold manifest cache
-        must resolve again before an old success can be trusted. This lets records
-        self-heal when thumbnail source selection changes (for example, switching
-        from a tiny CONTENTdm derivative to a IIIF-derived thumbnail).
-        """
-        candidate_hash = (
-            self._candidate_cached_thumbnail_hash_sync(source_url) if source_url else None
-        )
-        state = thumbnail_state_service.get_state_sync(doc_id)
-        alias_hash = thumbnail_alias_service.get_hash_sync(doc_id)
-
-        if alias_hash:
-            alias_matches_state = (
-                source_url
-                and state is not None
-                and state.get("state") == ThumbnailState.SUCCESS
-                and state.get("source_hash") == alias_hash
-                and alias_hash == candidate_hash
-                and state.get("source_url") == source_url
-                and self.has_cached_image_sync(alias_hash)
-            )
-            alias_matches_candidate = candidate_hash is not None and alias_hash == candidate_hash
-            if alias_matches_state or alias_matches_candidate:
-                return alias_hash
-            thumbnail_alias_service.delete_sync(doc_id)
-
-        if state:
-            state_hash = state.get("source_hash")
-            state_source_url = state.get("source_url")
-            if (
-                source_url
-                and state.get("state") == ThumbnailState.SUCCESS
-                and state_hash
-                and state_hash == candidate_hash
-                and state_source_url == source_url
-                and self.has_cached_image_sync(state_hash)
-            ):
-                thumbnail_alias_service.set_hash_sync(doc_id, state_hash)
-                return state_hash
-
-            if state_hash and not self.has_cached_image_sync(state_hash):
-                thumbnail_alias_service.delete_sync(doc_id)
-
-            if source_url and state_source_url and state_source_url != source_url:
-                thumbnail_alias_service.delete_sync(doc_id)
-
         if not source_url:
             return None
-
-        if candidate_hash:
-            thumbnail_alias_service.set_hash_sync(doc_id, candidate_hash)
-            return candidate_hash
-
-        return None
+        image_hash = find_thumbnail(doc_id, source_url, cache=self.image_cache)
+        if image_hash:
+            thumbnail_alias_service.set_hash_sync(doc_id, image_hash)
+        return image_hash
 
     def current_thumbnail_hash_sync(self) -> Optional[str]:
         """Return the current hot immutable thumbnail hash for this resource, if any."""
@@ -647,18 +556,6 @@ class ImageService:
         except Exception as e:
             self.logger.error(f"Error checking cached image: {e}")
         return get_durable_visual_asset(image_hash) is not None
-
-    def _candidate_cached_thumbnail_hash_sync(self, source_url: str) -> Optional[str]:
-        """Return the immutable thumbnail hash for a cached source URL, if known."""
-        try:
-            image_hash = self.thumbnail_image_hash_for_source_sync(source_url)
-
-            if image_hash and self.has_cached_image_sync(image_hash):
-                return image_hash
-            return None
-        except Exception as e:
-            self.logger.debug("Error resolving cached thumbnail hash for %s: %s", source_url, e)
-            return None
 
     def _get_bbox_for_wms(self) -> Optional[str]:
         """Parse dcat_bbox to WMS 1.3.0 BBOX string (minx,miny,maxx,maxy) for EPSG:4326."""
@@ -972,19 +869,13 @@ class ImageService:
             # Don't raise - this is a background operation that shouldn't fail the main request
 
     def _queue_manifest_processing(self, manifest_url: str) -> None:
-        """
-        Queue manifest processing in the background without blocking.
-        This method is fire-and-forget.
-        """
-        try:
-            from app.tasks.worker import fetch_and_cache_image
-
-            task = fetch_and_cache_image.delay(manifest_url)
-            self.logger.info(f"Manifest resolution queued: {task.id}")
-
-        except Exception as e:
-            self.logger.error(f"Failed to queue manifest processing for {manifest_url}: {e}")
-            # Don't raise - this is a background operation that shouldn't fail the main request
+        """Queue only missing renditions; durable mappings survive manifest expiry."""
+        doc_id = self.metadata.get("id")
+        if not doc_id:
+            return
+        if find_thumbnail(doc_id, manifest_url, cache=self.image_cache):
+            return
+        self._queue_thumbnail_processing(manifest_url, doc_id)
 
     async def get_cached_image(self, image_hash: str) -> Optional[bytes]:
         """Retrieve a cached image by its hash."""
@@ -1000,13 +891,18 @@ class ImageService:
         durable = await asyncio.to_thread(get_durable_visual_asset, image_hash)
         if durable:
             image_bytes, content_type = durable
-            await asyncio.to_thread(cache_visual_asset, self.image_cache, image_key, image_bytes)
-            await asyncio.to_thread(
-                cache_visual_asset,
-                self.image_cache,
-                f"image_type:{image_hash}",
-                content_type,
-            )
+            try:
+                await asyncio.to_thread(
+                    cache_visual_asset, self.image_cache, image_key, image_bytes
+                )
+                await asyncio.to_thread(
+                    cache_visual_asset,
+                    self.image_cache,
+                    f"image_type:{image_hash}",
+                    content_type,
+                )
+            except Exception as exc:
+                self.logger.debug("Redis warming failed; serving durable thumbnail: %s", exc)
             self.logger.debug(f"Rehydrated cached image {image_hash} from durable store")
             return image_bytes
         return None

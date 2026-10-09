@@ -9,12 +9,15 @@ from unittest.mock import patch
 import pytest
 
 from app.services.image_service import (
-    COG_THUMBNAIL_PREFIX,
-    PMTILES_THUMBNAIL_PREFIX,
-    REMOTE_THUMBNAIL_PREFIX,
     ImageService,
 )
-from app.services.thumbnail_state_service import ThumbnailState
+from app.services.thumbnail_policy import source_signature
+
+
+@pytest.fixture(autouse=True)
+def isolate_task_broker():
+    with patch("app.tasks.worker.fetch_and_cache_image.delay"):
+        yield
 
 
 class TestImageService:
@@ -260,17 +263,10 @@ class TestImageServiceThumbnailSourceURL:
             cog = "https://example.com/raster.tif"
             pmtiles = "https://example.com/tiles.pmtiles"
 
-            assert (
-                service.thumbnail_image_hash_for_source_sync(remote)
-                == hashlib.sha256(f"{REMOTE_THUMBNAIL_PREFIX}{remote}".encode()).hexdigest()
-            )
-            assert (
-                service.thumbnail_image_hash_for_source_sync(cog)
-                == hashlib.sha256(f"{COG_THUMBNAIL_PREFIX}{cog}".encode()).hexdigest()
-            )
-            assert (
-                service.thumbnail_image_hash_for_source_sync(pmtiles)
-                == hashlib.sha256(f"{PMTILES_THUMBNAIL_PREFIX}{pmtiles}".encode()).hexdigest()
+            assert service.thumbnail_image_hash_for_source_sync(remote) == source_signature(remote)
+            assert service.thumbnail_image_hash_for_source_sync(cog) == source_signature(cog)
+            assert service.thumbnail_image_hash_for_source_sync(pmtiles) == source_signature(
+                pmtiles
             )
         except Exception as e:
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
@@ -741,195 +737,25 @@ class TestImageServiceThumbnailURL:
             # Handle Redis connection errors gracefully
             assert "connection" in str(e).lower() or "redis" in str(e).lower()
 
-    def test_get_thumbnail_url_invalidates_stale_alias_hash(self):
-        """A stale alias should not keep an outdated immutable asset pinned forever."""
-        metadata = {
-            "id": "test-doc",
-            "dct_references_s": json.dumps(
-                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
-            ),
-        }
-        stale_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
-
+    @pytest.mark.parametrize("hot_only", [False, True])
+    def test_urls_use_validated_content_mapping(self, hot_only):
+        service = ImageService({"id": "map"})
         with (
-            patch(
-                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-                return_value=stale_hash,
-            ),
-            patch(
-                "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value={
-                    "state": ThumbnailState.SUCCESS,
-                    "source_hash": stale_hash,
-                    "source_url": "http://example.com/old-thumb.jpg",
-                },
-            ),
-            patch("app.services.image_service.thumbnail_alias_service.delete_sync") as mock_delete,
-            patch.object(
-                ImageService,
-                "_candidate_cached_thumbnail_hash_sync",
-                return_value=None,
-            ),
+            patch.object(service, "resolve_thumbnail_source_url", return_value="source"),
+            patch("app.services.image_service.find_thumbnail", return_value="a" * 64),
+            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync"),
         ):
-            service = ImageService(metadata)
-            result = service.get_thumbnail_url()
+            url = service.get_hot_thumbnail_url() if hot_only else service.get_thumbnail_url()
+        assert url.endswith("/thumbnails/" + "a" * 64)
 
-        assert result == "http://localhost:8000/api/v1/resources/test-doc/thumbnail"
-        mock_delete.assert_called()
-
-    def test_get_thumbnail_url_falls_back_to_persisted_success_hash(self):
-        """Persisted success state should emit the immutable asset even if alias cache is cold."""
-        metadata = {
-            "id": "test-doc",
-            "dct_references_s": json.dumps(
-                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
-            ),
-        }
-        image_hash = hashlib.sha256(
-            (REMOTE_THUMBNAIL_PREFIX + "http://example.com/thumb.jpg").encode()
-        ).hexdigest()
-
+    def test_missing_mapping_uses_resource_resolver(self):
+        service = ImageService({"id": "map"})
         with (
-            patch(
-                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-                return_value=None,
-            ),
-            patch(
-                "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value={
-                    "state": ThumbnailState.SUCCESS,
-                    "source_hash": image_hash,
-                    "source_url": "http://example.com/thumb.jpg",
-                },
-            ),
-            patch.object(ImageService, "has_cached_image_sync", return_value=True),
-            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
+            patch.object(service, "resolve_thumbnail_source_url", return_value="source"),
+            patch("app.services.image_service.find_thumbnail", return_value=None),
         ):
-            service = ImageService(metadata)
-            result = service.get_thumbnail_url()
-
-        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
-        mock_set.assert_called_once_with("test-doc", image_hash)
-
-    def test_get_thumbnail_url_prefers_cached_source_hash_without_alias_or_state(self):
-        """A cached deterministic source hash should emit the immutable asset immediately."""
-        source_url = "https://example.com/thumb.jpg"
-        metadata = {
-            "id": "test-doc",
-            "dct_references_s": json.dumps({"http://schema.org/thumbnailUrl": source_url}),
-        }
-        image_hash = hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + source_url).encode()).hexdigest()
-
-        with (
-            patch(
-                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-                return_value=None,
-            ),
-            patch(
-                "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value=None,
-            ),
-            patch.object(ImageService, "has_cached_image_sync", return_value=True),
-            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
-        ):
-            service = ImageService(metadata)
-            result = service.get_thumbnail_url()
-
-        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
-        mock_set.assert_called_once_with("test-doc", image_hash)
-
-    def test_get_hot_thumbnail_url_reuses_current_alias_hash(self):
-        """Hot-only URL generation may reuse an alias when it still matches the current source."""
-        metadata = {
-            "id": "test-doc",
-            "dct_references_s": json.dumps(
-                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
-            ),
-        }
-        image_hash = "e7810cca426f65fa9e5e25124ca1b213b6c54deec0901c88805558faa7e25639"
-
-        with (
-            patch(
-                "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value=None,
-            ),
-            patch(
-                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-                return_value=image_hash,
-            ),
-            patch.object(
-                ImageService,
-                "_candidate_cached_thumbnail_hash_sync",
-                return_value=image_hash,
-            ),
-        ):
-            service = ImageService(metadata)
-            result = service.get_hot_thumbnail_url()
-
-        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
-
-    def test_get_hot_thumbnail_url_falls_back_to_persisted_success_hash(self):
-        """Hot-only URL generation should use persisted success state."""
-        metadata = {
-            "id": "test-doc",
-            "dct_references_s": json.dumps(
-                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
-            ),
-        }
-        image_hash = hashlib.sha256(
-            (REMOTE_THUMBNAIL_PREFIX + "http://example.com/thumb.jpg").encode()
-        ).hexdigest()
-
-        with (
-            patch(
-                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-                return_value=None,
-            ),
-            patch(
-                "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value={
-                    "state": ThumbnailState.SUCCESS,
-                    "source_hash": image_hash,
-                    "source_url": "http://example.com/thumb.jpg",
-                },
-            ),
-            patch.object(ImageService, "has_cached_image_sync", return_value=True),
-            patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as mock_set,
-        ):
-            service = ImageService(metadata)
-            result = service.get_hot_thumbnail_url()
-
-        assert result == f"http://localhost:8000/api/v1/thumbnails/{image_hash}"
-        mock_set.assert_called_once_with("test-doc", image_hash)
-
-    def test_get_hot_thumbnail_url_returns_none_when_bytes_are_not_hot(self):
-        """Hot-only URL generation should prefer no image over the slow resolver path."""
-        metadata = {
-            "id": "test-doc",
-            "dct_references_s": json.dumps(
-                {"http://schema.org/thumbnailUrl": "http://example.com/thumb.jpg"}
-            ),
-        }
-
-        with (
-            patch(
-                "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-                return_value=None,
-            ),
-            patch(
-                "app.services.image_service.thumbnail_state_service.get_state_sync",
-                return_value=None,
-            ),
-            patch.object(
-                ImageService,
-                "_candidate_cached_thumbnail_hash_sync",
-                return_value=None,
-            ),
-        ):
-            service = ImageService(metadata)
-            result = service.get_hot_thumbnail_url()
-
-        assert result is None
+            assert service.get_thumbnail_url().endswith("/resources/map/thumbnail")
+            assert service.get_hot_thumbnail_url() is None
 
     def test_get_thumbnail_url_no_thumbnail_source(self):
         """Test behavior when no thumbnail source is found."""
@@ -1798,79 +1624,6 @@ class TestIssue412ThumbnailSources:
         assert ImageService({})._extract_thumbnail_from_manifest_json(manifest) == (
             "https://example.org/loris/map.jp2/full/!800,800/0/default.jpg"
         )
-
-
-@pytest.mark.parametrize("alias_present", [False, True])
-@pytest.mark.parametrize("current_cached", [False, True])
-def test_old_success_cannot_override_current_processing_hash(alias_present, current_cached):
-    source = "https://example.com/preview.jpg"
-    old_hash = hashlib.sha256(("remote-thumb-normalized:v3:" + source).encode()).hexdigest()
-    current_hash = hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + source).encode()).hexdigest()
-    assert current_hash != old_hash
-    with (
-        patch(
-            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-            return_value=old_hash if alias_present else None,
-        ),
-        patch(
-            "app.services.image_service.thumbnail_state_service.get_state_sync",
-            return_value={
-                "state": ThumbnailState.SUCCESS,
-                "source_hash": old_hash,
-                "source_url": source,
-            },
-        ),
-        patch("app.services.image_service.thumbnail_alias_service.delete_sync") as delete,
-        patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as set_alias,
-        patch.object(
-            ImageService,
-            "has_cached_image_sync",
-            side_effect=lambda key: key == old_hash or current_cached,
-        ),
-    ):
-        result = ImageService({"id": "map"}).current_thumbnail_hash_for_source_sync(source)
-    assert result == (current_hash if current_cached else None)
-    if alias_present:
-        delete.assert_called_with("map")
-    if current_cached:
-        set_alias.assert_called_once_with("map", current_hash)
-    else:
-        set_alias.assert_not_called()
-
-
-@pytest.mark.parametrize("manifest_cached", [False, True])
-def test_unchanged_manifest_url_requires_current_resolved_image(manifest_cached):
-    source = "https://example.com/manifest.json"
-    body = {"service": {"@id": "https://example.com/iiif/new-image"}}
-    manifest = {"sequences": [{"canvases": [{"images": [{"resource": body}]}]}]}
-    service = ImageService({"id": "map"})
-    expected_url = service._extract_thumbnail_from_manifest_json(manifest)
-    expected_hash = hashlib.sha256((REMOTE_THUMBNAIL_PREFIX + expected_url).encode()).hexdigest()
-    old_hash = "a" * 64
-    with (
-        patch.object(
-            service.cache, "get", return_value=json.dumps(manifest) if manifest_cached else None
-        ),
-        patch(
-            "app.services.image_service.thumbnail_alias_service.get_hash_sync",
-            return_value=old_hash,
-        ),
-        patch(
-            "app.services.image_service.thumbnail_state_service.get_state_sync",
-            return_value={
-                "state": ThumbnailState.SUCCESS,
-                "source_hash": old_hash,
-                "source_url": source,
-            },
-        ),
-        patch("app.services.image_service.thumbnail_alias_service.delete_sync"),
-        patch("app.services.image_service.thumbnail_alias_service.set_hash_sync") as set_alias,
-        patch.object(service, "has_cached_image_sync", return_value=True),
-    ):
-        result = service.current_thumbnail_hash_for_source_sync(source)
-    assert result == (expected_hash if manifest_cached else None)
-    if not manifest_cached:
-        set_alias.assert_not_called()
 
 
 @pytest.mark.parametrize("version", [2, 3])

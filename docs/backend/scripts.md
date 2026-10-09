@@ -16,34 +16,66 @@ API references. Presentation manifests are resolved in the background, including
 CONTENTdm manifests: a compound object can contain page images with different
 identifiers. The first canvas's declared image service supplies a bounded
 rendition in preference to a potentially tiny manifest or canvas thumbnail.
-Explicit thumbnails remain a fallback when no image service is declared. This also supports services whose paths do
-not contain `iiif`, such as Loris, where the image resource ID may be a catalog
+Explicit thumbnails remain a fallback when no image service is declared. This
+also supports services whose paths do not contain `iiif`, such as Loris, where the image resource ID may be a catalog
 page rather than an image URL.
 
-Remote thumbnails use the `v4` processing namespace by default. Cached aliases
-and success records must match the current resolved source hash; an unchanged
-manifest URL alone does not prove that a cached image is current. If the manifest
-cache is cold, background resolution must finish before a hot thumbnail is used.
-Old immutable image URLs retain their original bytes; regenerated thumbnails use
-the current namespace. API and worker processes must use the same
-`THUMBNAIL_CACHE_VERSION` setting.
+All thumbnail captures (workers and bulk priming, including COG and PMTiles) use
+one shared capture and publication service. Output has a default longest edge of
+512 pixels and a 512 KiB byte budget. Transparency is preserved; undersized
+originals are not enlarged. List results fit the whole image without cropping.
 
-Generation constrains the longest edge to `THUMBNAIL_MAX_EDGE` (default 512 pixels)
-and output to 512 KiB, reducing dimensions further when necessary. It preserves
-transparency and does not enlarge undersized originals. List results fit the
-whole image into their thumbnail box without cropping.
+The `v5` policy uses two distinct identifiers:
 
-After changing thumbnail resolution, regenerate selected records in the local
-development database with:
+- A source signature includes the original source URL, processing version and
+  image settings. Its durable mapping survives Redis and manifest-cache eviction.
+- An image URL uses SHA-256 of the exact delivered bytes. Refreshing a changed
+  source creates a new URL; existing URLs keep their images.
+
+The image and source mapping commit in one database transaction before capture
+can succeed. Redis is an optional delivery cache when durable storage is enabled.
+Restoration verifies the byte hash, image decoding, dimensions and byte budget.
+A normal priming pass verifies the durable image even if Redis already has it.
+A missing or invalid durable rendition is retried, not counted as a cache hit.
+
+API and workers must use matching thumbnail settings, including
+`THUMBNAIL_CACHE_VERSION`, `THUMBNAIL_MAX_EDGE`, `THUMBNAIL_JPEG_QUALITY` and
+`IIIF_THUMBNAIL_BOX`. Existing source-keyed thumbnails are not treated as v5
+successes. No new database columns are needed: publication uses the existing
+`generated_visual_assets` and `generated_visual_asset_links` tables.
+
+For selected resources in a local development database:
 
 ```bash
-make prime-thumbnail-cache RESOURCE_IDS="example-record-id another-record-id" PRIME_FORCE=1
+make prime-thumbnail-cache RESOURCE_IDS="example-record-id another-record-id"
 ```
 
-This requires the local database and cache services. Force regeneration retries
-records with existing thumbnail state or cached images. See
-[../make_tasks.md](../make_tasks.md) for local cache workflows. Deployed backfills
-belong in the restricted operations documentation.
+Use `PRIME_FORCE=1` only for an intentional provider refresh, including refreshing
+a manifest whose URL has not changed. Ordinary retries should omit force so
+validated durable images are reused. The application automatically captures
+missing images; bulk priming warms them ahead of requests.
+
+Every bulk run writes an append-only JSONL journal and prints its path. Choose a
+persistent journal path for work you intend to resume. These examples run inside
+the local API container:
+
+```bash
+python scripts/prime_thumbnail_cache.py --report-file /tmp/thumbnail-run.jsonl example-record-id
+python scripts/prime_thumbnail_cache.py --resume-report /tmp/thumbnail-run.jsonl
+```
+
+Resume revisits the original scope, including records never reached before an
+interruption, and validates completed durable images without re-downloading them.
+It cannot be combined with force. Each completed result is flushed to the journal;
+failed and provider-deferred records cause a nonzero exit status. A successful
+exit means all attempted records resolved, including explicit no-source and
+restricted skips; it does not mean every resource has an image. Source changes
+and records added during a full-catalog run are evaluated on the next scan.
+
+`clear_thumbnail_cache.py` now invalidates only a source mapping; it preserves
+immutable image bytes. Prefer force refresh to keep the existing image available
+until its replacement has committed. Deployed backfills and journal-storage
+procedures belong in the restricted operations documentation.
 
 ### `process_allmaps.py`
 
