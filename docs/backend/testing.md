@@ -87,6 +87,12 @@ If Docker services are required for the test you are running, start them first:
 docker compose up -d paradedb elasticsearch redis
 ```
 
+For tests that do not need the database, set `BTAA_SKIP_TEST_DB=true` to skip
+database preparation, connections, and transactions. Test configuration prepares
+database URLs without creating an engine or loading its selected driver during
+collection. Tests that import application database modules may still require
+their usual database dependencies.
+
 ## Test Coverage
 
 `make test` runs pytest with coverage and enforces `COVERAGE_THRESHOLD`

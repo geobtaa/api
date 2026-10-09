@@ -1,4 +1,4 @@
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, act, within } from '@testing-library/react';
 import { createMemoryRouter, RouterProvider } from 'react-router';
 import { HelmetProvider } from 'react-helmet-async';
 import { SearchPage } from '../../pages/SearchPage';
@@ -461,7 +461,7 @@ describe('SearchPage Logic', () => {
     });
     const resultsColumn = screen.getByTestId('map-results-column');
     const resultsSummary = screen.getByTestId('results-summary-row');
-    const pagination = screen.getByRole('navigation', {
+    const [pagination] = screen.getAllByRole('navigation', {
       name: 'Map results pagination',
     });
 
@@ -480,7 +480,7 @@ describe('SearchPage Logic', () => {
     ).toBeInTheDocument();
     expect(screen.queryByText(/Page 1 of 2/i)).not.toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Previous results page' })
+      within(pagination).getByRole('button', { name: 'Previous results page' })
     ).toBeDisabled();
     expect(pagination).toHaveTextContent('« Previous|1 - 20 of 21|Next »');
     expect(
@@ -490,7 +490,9 @@ describe('SearchPage Logic', () => {
     ).toEqual(['1', '20', '21']);
 
     await act(async () => {
-      screen.getByRole('button', { name: 'Next results page' }).click();
+      within(pagination)
+        .getByRole('button', { name: 'Next results page' })
+        .click();
     });
 
     await waitFor(() => {
@@ -511,6 +513,7 @@ describe('SearchPage Logic', () => {
   it.each([
     ['list', 'List'],
     ['gallery', 'Gallery'],
+    ['map', 'Map'],
   ])(
     'shows compact pagination beside the results summary in %s view',
     async (view, viewLabel) => {
@@ -520,7 +523,7 @@ describe('SearchPage Logic', () => {
       });
 
       const resultsSummary = screen.getByTestId('results-summary-row');
-      const pagination = screen.getByRole('navigation', {
+      const [pagination, bottomPagination] = screen.getAllByRole('navigation', {
         name: `${viewLabel} results pagination`,
       });
 
@@ -528,14 +531,27 @@ describe('SearchPage Logic', () => {
       expect(pagination).toHaveClass('whitespace-nowrap');
       expect(pagination).toHaveTextContent('« Previous|1 - 20 of 21|Next »');
       expect(
-        screen.getByRole('button', { name: 'Previous results page' })
+        within(pagination).getByRole('button', {
+          name: 'Previous results page',
+        })
       ).toBeDisabled();
       expect(
         screen.queryByRole('button', { name: 'Previous page' })
       ).not.toBeInTheDocument();
 
+      expect(bottomPagination).toHaveTextContent(
+        '« Previous|1 - 20 of 21|Next »'
+      );
+      expect(resultsSummary).not.toContainElement(bottomPagination);
+      expect(
+        within(bottomPagination).getByRole('button', {
+          name: 'Previous results page',
+        })
+      ).toBeDisabled();
       await act(async () => {
-        screen.getByRole('button', { name: 'Next results page' }).click();
+        within(bottomPagination)
+          .getByRole('button', { name: 'Next results page' })
+          .click();
       });
 
       await waitFor(() => {
@@ -691,7 +707,7 @@ describe('SearchPage Logic', () => {
 
     expect(screen.getByText(/Results 1-20 of 100/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /next results page/i })
-    ).toBeInTheDocument();
+      screen.getAllByRole('button', { name: /next results page/i })
+    ).toHaveLength(2);
   });
 });

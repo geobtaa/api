@@ -15,7 +15,6 @@ import { Seo } from '../components/Seo';
 import { GinBlogSection } from '../components/home/GinBlogSection';
 import { HomepageFeaturedCollection } from '../components/home/HomepageFeaturedCollection';
 import { FacetMoreModal } from '../components/search/FacetMoreModal';
-import { LightboxModal } from '../components/ui/LightboxModal';
 
 const HomePageHexMapBackground = lazy(() =>
   import('../components/home/HomePageHexMapBackground.client').then((m) => ({
@@ -36,11 +35,6 @@ import { normalizeFacetValueForUrl } from '../utils/searchParams';
 import { primaryCtaClass, secondaryCtaClass } from '../styles/cta';
 
 type FacetItem = { value: string; label: string; count: number };
-const BTAA_VIDEO_MODAL_ID = 'btaa-video-modal';
-const BTAA_VIDEO_MODAL_TITLE_ID = 'btaa-video-modal-title';
-const BTAA_VIDEO_EMBED_URL =
-  'https://www.youtube.com/embed/p060LdJodXQ?autoplay=1&rel=0';
-
 function useSectionActivation<T extends HTMLElement>(rootMargin = '320px') {
   const ref = useRef<T | null>(null);
   const [active, setActive] = useState(false);
@@ -140,7 +134,6 @@ export function HomePage() {
   const [blogPosts, setBlogPosts] = useState<HomeBlogPost[]>([]);
   const [mounted, setMounted] = useState(false);
   const [showHeroDescription, setShowHeroDescription] = useState(true);
-  const [isBtaaVideoOpen, setIsBtaaVideoOpen] = useState(false);
   useEffect(() => setMounted(true), []);
   const blogCfg = theme.homepage?.blog;
   const blogEnabled = blogCfg?.enabled === true;
@@ -585,16 +578,7 @@ export function HomePage() {
                     title={institution.name}
                     className="group text-center"
                   >
-                    {institution.slug === 'big-ten-academic-alliance' ? (
-                      <button
-                        type="button"
-                        onClick={() => setIsBtaaVideoOpen(true)}
-                        aria-label="Open Big Ten Academic Alliance video"
-                        className="block h-full w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-active focus-visible:ring-offset-2"
-                      >
-                        {tileContent}
-                      </button>
-                    ) : searchHref ? (
+                    {searchHref ? (
                       <Link
                         to={searchHref}
                         aria-label={`Search resources near ${institution.name}`}
@@ -649,28 +633,6 @@ export function HomePage() {
           isValueExcluded={() => false}
         />
       )}
-
-      <LightboxModal
-        isOpen={isBtaaVideoOpen}
-        onClose={() => setIsBtaaVideoOpen(false)}
-        id={BTAA_VIDEO_MODAL_ID}
-        labelledBy={BTAA_VIDEO_MODAL_TITLE_ID}
-        title="Big Ten Academic Alliance video"
-        subtitle="Watch the BTAA overview video."
-        contentClassName="max-w-4xl"
-        data-testid="btaa-video-modal-overlay"
-      >
-        <div className="aspect-video w-full bg-black">
-          <iframe
-            src={BTAA_VIDEO_EMBED_URL}
-            title="Big Ten Academic Alliance overview video"
-            className="h-full w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-            referrerPolicy="strict-origin-when-cross-origin"
-            allowFullScreen
-          />
-        </div>
-      </LightboxModal>
 
       <Footer />
     </div>

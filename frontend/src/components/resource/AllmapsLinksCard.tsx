@@ -8,17 +8,22 @@ import {
 
 interface AllmapsLinksCardProps {
   allmaps: AllmapsAttributes | null | undefined;
+  iiifUrl?: string | null;
   resourceId?: string;
   searchId?: string;
 }
 
 export function AllmapsLinksCard({
   allmaps,
+  iiifUrl,
   resourceId,
   searchId,
 }: AllmapsLinksCardProps) {
   const viewerUrl = getAllmapsViewerUrl(allmaps);
-  const editorUrl = getAllmapsEditorUrl(allmaps);
+  const editorUrl = getAllmapsEditorUrl(allmaps, iiifUrl);
+  const editorLabel = allmaps?.allmaps_annotated
+    ? 'Edit map control points with Allmaps editor'
+    : 'Georeference this map with Allmaps';
 
   if (!viewerUrl && !editorUrl) return null;
 
@@ -74,18 +79,12 @@ export function AllmapsLinksCard({
             target="_blank"
             rel="noopener noreferrer"
             onClick={() =>
-              trackClick(
-                'Edit map control points with Allmaps editor',
-                editorUrl,
-                'allmaps_editor_click'
-              )
+              trackClick(editorLabel, editorUrl, 'allmaps_editor_click')
             }
             className="flex items-center gap-3 px-6 py-4 text-sm font-medium text-blue-600 hover:bg-gray-50 hover:text-blue-800 hover:underline"
           >
             <PencilLine className="h-5 w-5 shrink-0 text-gray-400" />
-            <span className="min-w-0 flex-1">
-              Edit map control points with Allmaps editor
-            </span>
+            <span className="min-w-0 flex-1">{editorLabel}</span>
             <ExternalLink className="h-4 w-4 shrink-0 text-gray-400" />
           </a>
         )}

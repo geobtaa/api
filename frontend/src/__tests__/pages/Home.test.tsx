@@ -121,24 +121,4 @@ describe('Home Page', () => {
       screen.queryByRole('button', { name: /hide map description/i })
     ).not.toBeInTheDocument();
   });
-
-  it('opens the BTAA video lightbox when the BTAA tile is clicked', async () => {
-    renderHome();
-
-    await userEvent.click(
-      screen.getByRole('button', {
-        name: /open big ten academic alliance video/i,
-      })
-    );
-
-    expect(
-      screen.getByRole('dialog', { name: /big ten academic alliance video/i })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByTitle(/big ten academic alliance overview video/i)
-    ).toHaveAttribute(
-      'src',
-      'https://www.youtube.com/embed/p060LdJodXQ?autoplay=1&rel=0'
-    );
-  });
 });

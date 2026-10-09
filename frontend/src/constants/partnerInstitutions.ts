@@ -118,6 +118,13 @@ export const BTAA_PARTNER_INSTITUTIONS: PartnerInstitution[] = [
     campusMap: campusMap(44.0451, -123.0722, 16),
   },
   {
+    slug: 'university-of-southern-california',
+    name: 'University of Southern California',
+    // Official monogram: https://identity.usc.edu/identity/logos-marks/
+    iconSrc: '/icons/university_of_southern_california.png',
+    campusMap: campusMap(34.0211, -118.2842, 16),
+  },
+  {
     slug: 'university-of-washington',
     name: 'University of Washington',
     iconSlug: 'university_of_washington',
@@ -129,15 +136,11 @@ export const BTAA_PARTNER_INSTITUTIONS: PartnerInstitution[] = [
     iconSlug: 'university_of_wisconsin_madison',
     campusMap: campusMap(43.0755, -89.4042, 16),
   },
-  {
-    slug: 'big-ten-academic-alliance',
-    name: 'Big Ten Academic Alliance',
-    iconSrc: '/btaa-logo.png',
-    monochrome: false,
-  },
 ];
 
-export function getPartnerInstitutionBySlug(slug: string): PartnerInstitution | undefined {
+export function getPartnerInstitutionBySlug(
+  slug: string
+): PartnerInstitution | undefined {
   return BTAA_PARTNER_INSTITUTIONS.find(
     (institution) => institution.slug === slug
   );

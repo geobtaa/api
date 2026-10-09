@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import OlMap from 'ol/Map';
 import View from 'ol/View';
+import {
+  defaults as defaultInteractions,
+  MouseWheelZoom,
+} from 'ol/interaction';
 import { FullScreen, defaults as defaultControls } from 'ol/control';
 import VectorTileLayer from 'ol/layer/VectorTile.js';
 import { leafletViewerOptions } from '../../config/leafletConfig';
@@ -258,6 +262,31 @@ function OpenLayersPreviewMap({
   preCalculatedExtent: number[] | null;
 }) {
   const elementRef = useRef<HTMLDivElement | null>(null);
+  const [showScrollHint, setShowScrollHint] = useState(false);
+  const [zoomModifier, setZoomModifier] = useState('ctrl');
+
+  useEffect(() => {
+    const element = elementRef.current;
+    if (!element || protocol !== 'pmtiles') return;
+    setZoomModifier(
+      /Mac|iPhone|iPad|iPod/.test(navigator.platform) ? 'command' : 'ctrl'
+    );
+    let timeout: ReturnType<typeof setTimeout>;
+    const onWheel = (event: WheelEvent) => {
+      clearTimeout(timeout);
+      if (event.ctrlKey || event.metaKey) {
+        setShowScrollHint(false);
+        return;
+      }
+      setShowScrollHint(true);
+      timeout = setTimeout(() => setShowScrollHint(false), 1000);
+    };
+    element.addEventListener('wheel', onWheel, { passive: true });
+    return () => {
+      clearTimeout(timeout);
+      element.removeEventListener('wheel', onWheel);
+    };
+  }, [protocol]);
 
   useEffect(() => {
     const element = elementRef.current;
@@ -286,6 +315,14 @@ function OpenLayersPreviewMap({
     const map = new OlMap({
       target: element,
       controls: defaultControls().extend([new FullScreen()]),
+      interactions: isPmtilesProtocol
+        ? defaultInteractions({ mouseWheelZoom: false }).extend([
+            new MouseWheelZoom({
+              condition: (event) =>
+                event.originalEvent.ctrlKey || event.originalEvent.metaKey,
+            }),
+          ])
+        : undefined,
       layers: [basemap, overlay],
       view,
     });
@@ -357,7 +394,25 @@ function OpenLayersPreviewMap({
     };
   }, [endpoint, geometryForViewer, preCalculatedExtent, protocol]);
 
-  return <div ref={elementRef} className="viewer h-[600px]" />;
+  return (
+    <div className="relative">
+      <div ref={elementRef} className="viewer h-[600px]" />
+      {protocol === 'pmtiles' && (
+        <div
+          aria-hidden={!showScrollHint}
+          className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-[15px] text-center text-[22px] text-white"
+          style={{
+            background: 'rgba(0, 0, 0, 0.5)',
+            fontFamily: 'Roboto, Arial, sans-serif',
+            opacity: showScrollHint ? 1 : 0,
+            transition: showScrollHint ? 'opacity 0.8s' : 'none',
+          }}
+        >
+          Use {zoomModifier} + scroll to zoom the map
+        </div>
+      )}
+    </div>
+  );
 }
 
 export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
@@ -461,12 +516,13 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
 
       const miradorUrl = new URL('/mirador', pageOrigin);
       miradorUrl.searchParams.set('manifest', manifestUrl);
+      miradorUrl.searchParams.set('embedded', '1');
 
       return (
         <iframe
           key={viewerInstanceKey}
           title="Mirador viewer"
-          className="viewer h-[600px] w-full border-0"
+          className="viewer block h-[600px] w-full border-0"
           // Keep Mirador isolated in its own document while allowing local module scripts and plugin downloads.
           sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads"
           // Required for Fullscreen API inside sandboxed iframes.

@@ -1,5 +1,16 @@
-import { act, render } from '@testing-library/react';
+import { act, render, fireEvent, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const wheelMocks = vi.hoisted(() => ({
+  wheel: vi.fn(),
+  defaults: vi.fn(() => ({ extend: vi.fn(() => []) })),
+}));
+vi.mock('ol/interaction', () => ({
+  defaults: wheelMocks.defaults,
+  MouseWheelZoom: vi.fn(function (options) {
+    wheelMocks.wheel(options);
+  }),
+}));
 
 const mocks = vi.hoisted(() => {
   const fitInternal = vi.fn();
@@ -415,6 +426,43 @@ describe('ResourceViewer', () => {
       });
       expect(mocks.vectorTileLayer).toHaveBeenCalled();
       expect(mocks.fitInternal).toHaveBeenCalled();
+    });
+
+    it('requires Ctrl or Command for wheel zoom while retaining other interactions', () => {
+      render(
+        <ResourceViewer data={pmtilesDataWithGeometry} pageValue="SHOW" />
+      );
+      expect(wheelMocks.defaults).toHaveBeenCalledWith({
+        mouseWheelZoom: false,
+      });
+      const { condition } = wheelMocks.wheel.mock.calls[0][0];
+      expect(
+        condition({ originalEvent: { ctrlKey: false, metaKey: false } })
+      ).toBe(false);
+      expect(
+        condition({ originalEvent: { ctrlKey: true, metaKey: false } })
+      ).toBe(true);
+      expect(
+        condition({ originalEvent: { ctrlKey: false, metaKey: true } })
+      ).toBe(true);
+    });
+
+    it('shows a temporary Leaflet-style hint only for unmodified scrolling', () => {
+      const { container } = render(
+        <ResourceViewer data={pmtilesDataWithGeometry} pageValue="SHOW" />
+      );
+      const map = container.querySelector('.viewer')!;
+      const hint = screen.getByText(/Use .* \+ scroll to zoom the map/);
+      expect(hint).toHaveAttribute('aria-hidden', 'true');
+      fireEvent.wheel(map, { deltaY: 100 });
+      expect(hint).toHaveAttribute('aria-hidden', 'false');
+      act(() => vi.advanceTimersByTime(1000));
+      expect(hint).toHaveAttribute('aria-hidden', 'true');
+      fireEvent.wheel(map, { deltaY: 100 });
+      const modifiedWheel = new Event('wheel', { bubbles: true });
+      Object.defineProperty(modifiedWheel, 'metaKey', { value: true });
+      fireEvent(map, modifiedWheel);
+      expect(hint).toHaveAttribute('aria-hidden', 'true');
     });
 
     it('boots PMTiles when viewer geometry is a MultiPolygon', async () => {

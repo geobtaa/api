@@ -523,3 +523,46 @@ npm install --save-dev @vitest/coverage-v8
 - [Testing Library Documentation](https://testing-library.com/)
 - [React Testing Best Practices](https://kentcdodds.com/blog/common-mistakes-with-react-testing-library)
 - [Coverage Best Practices](https://github.com/gotwarlost/istanbul/blob/master/ignoring-code-for-coverage.md)
+
+## Allmaps integration regression suite
+
+Run `npm run test:allmaps` from `frontend/` for the Allmaps integration,
+eligibility, and resource-page regression tests.
+
+The integration fixtures contain public harvested Allmaps annotations captured
+from the local catalog on October 9, 2026:
+
+| Resource | IIIF pages | Georeferenced regions | Distinct annotated images |
+| --- | --- | --- | --- |
+| `p16022coll245:304` — Minneapolis surveys and plats (1885) | 39 | 1 (Plate 22) | 1 |
+| `p16022coll230:4038` — 1929 Illinois: motor trails are calling | 2 | 3 | 2 (Front and Back) |
+
+Fixture provenance is recorded in each JSON file's `manifestUrl`, `resourceId`,
+and annotation IDs. Counts are captured expectations, not assertions about the
+current state of the remote services. Allmaps annotations are published as CC0.
+
+Tests use the installed Allmaps annotation parser to verify that all regions
+survive parsing, including two regions from the same image. React integration
+tests cover editor eligibility, viewer links, analytics, the official viewer
+iframe URL and permissions, resource navigation, and unannotated resources.
+Toolbar tests cover action placement, fullscreen fallback, Escape, and scroll
+restoration without remounting the embedded viewer.
+Existing resource-page tests cover viewer tabs, persistent overlay mounting, and sidebar behavior.
+`src/__tests__/pages/MiradorViewerPage.test.tsx` checks embedded versus standalone
+fullscreen controls, canvas rendering, and registration of the rotation plugin.
+`src/__tests__/components/resource/MiradorRotationControls.test.tsx` checks both
+rotation directions and wraparound, preserving the existing zoom controls.
+Run these with `npm test -- --run src/__tests__/pages/MiradorViewerPage.test.tsx src/__tests__/components/resource/MiradorRotationControls.test.tsx`.
+Manually check rotation and zoom on a local IIIF item; physical Pixel device
+validation remains separate from the automated configuration checks.
+
+The suite runs offline with iframe navigation disabled. It verifies the embedding
+contract, not Allmaps' internal controls, rendered pixels, or remote availability.
+Use the local resource pages above to manually verify the embedded viewer and
+its previous/next map navigation. No database or live Allmaps service is required
+to run the automated suite.
+
+Allmaps page-load checks are covered by `useAllmapsAvailability.test.tsx`
+(mocked HTTP responses, real annotation parser), including discovery after a
+reload, empty/invalid results, timeout, and stale-response cancellation. The
+resource-page suite verifies that live discovery reveals the overlay tab.

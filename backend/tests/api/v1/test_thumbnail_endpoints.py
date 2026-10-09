@@ -389,8 +389,7 @@ class TestThumbnailEndpoints:
             mock_resource_service = MagicMock()
             mock_resource_service.get_cached_image = AsyncMock(return_value=test_image_data)
             mock_resource_service.resolve_thumbnail_source_url.return_value = asset_url
-            mock_resource_service.current_thumbnail_hash_for_source_sync.return_value = None
-            mock_resource_service.thumbnail_image_hash_for_source_sync.return_value = image_hash
+            mock_resource_service.current_thumbnail_hash_for_source_sync.return_value = image_hash
             mock_resource_service._standardize_iiif_url.side_effect = lambda url: url
             mock_resource_service._is_cog_url.return_value = False
             mock_resource_service._is_pmtiles_url.return_value = False

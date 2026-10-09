@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import type { ThemeOptions } from '@mui/material/styles';
+import { MiradorRotationControls } from '../components/resource/MiradorRotationControls';
 
 type MiradorConfig = {
   id: string;
+  theme: ThemeOptions;
+  osdConfig: { drawer: 'canvas' };
   miradorDownloadPlugin: {
     restrictDownloadOnSizeDefinition: boolean;
   };
@@ -9,6 +13,7 @@ type MiradorConfig = {
     allowClose: boolean;
     allowFullscreen: boolean;
     allowMaximize: boolean;
+    allowTopMenuButton: boolean;
     hideAnnotationsPanel: boolean;
     hideSearchPanel: boolean;
     hideWindowTitle: boolean;
@@ -45,6 +50,12 @@ type MiradorModule = MiradorNamespace & {
 
 type MiradorDownloadPluginModule = {
   default?: unknown[];
+};
+
+const miradorRotationPlugin = {
+  target: 'ZoomControls',
+  mode: 'wrap',
+  component: MiradorRotationControls,
 };
 
 const MIRADOR_ROOT_ID = 'mirador-root';
@@ -92,6 +103,35 @@ export function MiradorViewerPage() {
         viewer(
           {
             id: MIRADOR_ROOT_ID,
+            // Avoid device-specific WebGL failures reported in #424 by MSU.
+            osdConfig: { drawer: 'canvas' },
+            theme: {
+              palette: {
+                mode: 'light',
+                primary: { main: '#2563eb' },
+                secondary: { main: '#2563eb' },
+                background: { default: '#f9fafb', paper: '#ffffff' },
+                text: { primary: '#111827', secondary: '#4b5563' },
+                divider: '#e5e7eb',
+              },
+              typography: {
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+              },
+              shape: { borderRadius: 4 },
+              components: {
+                MuiPaper: { styleOverrides: { root: { boxShadow: 'none' } } },
+                MuiAppBar: {
+                  styleOverrides: {
+                    root: {
+                      boxShadow: 'none',
+                      borderBottom: '1px solid #e5e7eb',
+                      backgroundColor: '#ffffff',
+                      color: '#4b5563',
+                    },
+                  },
+                },
+              },
+            },
             miradorDownloadPlugin: {
               restrictDownloadOnSizeDefinition: true,
             },
@@ -107,12 +147,15 @@ export function MiradorViewerPage() {
               hideAnnotationsPanel: true,
               allowClose: false,
               allowMaximize: false,
-              allowFullscreen: true,
+              allowFullscreen:
+                new URLSearchParams(window.location.search).get('embedded') !==
+                '1',
+              allowTopMenuButton: false,
             },
             workspace: { showZoomControls: true },
             workspaceControlPanel: { enabled: false },
           },
-          [...downloadPlugins]
+          [...downloadPlugins, miradorRotationPlugin]
         ) ?? null;
     }
 
