@@ -1,5 +1,5 @@
 {
-  "version": "0.10.0",
+  "version": "0.10.1",
   "release_date": "2026-10-09",
-  "summary": "Integrate Allmaps Viewer, improve Mirador and search pagination, make thumbnail processing bounded, durable, and resumable, update partner institutions and branding, patch dependency vulnerabilities, and fix smoke test startup."
+  "summary": "Promote the November 2 Geoportal webinar, fix Iowa provider icon caching, and refresh homepage news on schedule."
 }
