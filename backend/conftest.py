@@ -13,7 +13,6 @@ import psycopg2
 import pytest_asyncio
 from dotenv import load_dotenv
 from psycopg2 import sql
-from sqlalchemy import create_engine
 
 # Find repo root so `pytest` works whether run from repo root or from `backend/`
 _HERE = Path(__file__).resolve()
@@ -109,10 +108,9 @@ db_password = parsed.password
 db_host = parsed.hostname
 db_port = parsed.port
 
-# Create test database engine for migrations (synchronous)
-# Ensure SYNC_DATABASE_URL also has the correct password
+# Migrations create their own connections when database setup is enabled.
+# Keep URL preparation free of driver loading for BTAA_SKIP_TEST_DB runs.
 SYNC_DATABASE_URL = DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-engine = create_engine(SYNC_DATABASE_URL)
 
 # Ensure async database URL is set for the tests
 ASYNC_DATABASE_URL = (
