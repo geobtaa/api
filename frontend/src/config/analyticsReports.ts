@@ -2,48 +2,48 @@ export const analyticsReports = [
   {
     id: 'overview',
     label: 'Overview',
-    period: 'August 2026',
+    period: 'September 2026',
     description:
       'Monthly highlights, daily interactions, searches, and traffic peaks.',
   },
   {
     id: 'comparison',
     label: 'Month comparison',
-    period: 'July–August 2026',
+    period: 'July–September 2026',
     description: 'Compare portal totals and daily trends.',
   },
   {
     id: 'content',
     label: 'Popular content',
-    period: 'August 2026',
+    period: 'September 2026',
     description:
       'Explore leading resources, collections, and download activity.',
   },
   {
     id: 'discovery',
     label: 'Searches',
-    period: 'August 2026',
+    period: 'September 2026',
     description:
       'Understand search terms, filters, and searches without results.',
   },
   {
     id: 'members',
     label: 'Members',
-    period: 'August 2026',
+    period: 'September 2026',
     description:
       'Review alliance contributions or focus on an individual campus.',
   },
   {
     id: 'clients',
     label: 'Clients & API keys',
-    period: 'August 2026',
+    period: 'September 2026',
     description:
       'Explore declared clients, API key attribution, and MCP and GIS request signals.',
   },
   {
     id: 'platform',
     label: 'API reliability',
-    period: 'August 2026',
+    period: 'September 2026',
     description:
       'Inspect request traffic, response times, and service reliability.',
   },
@@ -80,6 +80,10 @@ export function selectedAnalyticsReport(params: URLSearchParams) {
         period:
           params.get('month') === 'all'
             ? 'All time'
-            : `${analyticsMonth(params)} 2026`,
+            : params.get('month') === '2026-07'
+              ? 'July 2026'
+              : params.get('month') === '2026-08'
+                ? 'August 2026'
+                : 'September 2026',
       };
 }

@@ -1,8 +1,9 @@
 # Runtime analytics reporting
 
 The runtime reporting implementation is in shadow validation. The checked-in
-July/August dashboard remains the default until historical reconciliation,
-report parity, and deployed preservation checks pass. PR #343 must remain unmerged
+snapshot dashboard now includes September; it remains the default while
+runtime historical reconciliation, report parity, and deployed preservation
+checks are pending. PR #343 must remain unmerged
 until the gates in [the reporting audit](analytics-merge-readiness.md) are closed.
 
 ## Contract and data flow
@@ -159,3 +160,10 @@ remain separate release gates.
 
 Deployment destinations, credentials, and upload procedures belong in restricted
 operations documentation; they are intentionally absent from this public guide.
+
+## September static delivery
+
+September and refreshed cumulative reports are available as reviewed static
+snapshots generated from the same preserved-input report contract. This does not
+enable the runtime publication gate. See the [September update](monthly-analytics.md#september-2026-update)
+for local regeneration, coverage, and downloadable-table behavior.

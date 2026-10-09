@@ -70,17 +70,33 @@ export type RuntimeReport = {
   latency: { meanMs: number | null; p95Ms: number | null };
   unavailable?: Record<string, string>;
 };
+const overviewMetrics: Record<string, string> = {
+  searches: 'Search result pages',
+  views: 'Resource views',
+  sourceClicks: 'Source-site clicks',
+  downloads: 'Download clicks',
+  requests: 'API requests',
+  impressions: 'Search impressions',
+  events: 'Interactions',
+  resultOpens: 'Result opens',
+  zeroResults: 'Zero-result searches',
+  errors: 'Server errors',
+};
 const colors = ['#2563eb', '#047857', '#854d0e', '#7c3aed', '#be123c'];
 const display = (value: Row[string]) =>
   value == null
     ? 'Unavailable'
-    : Array.isArray(value)
-      ? value.map(String).join(', ')
-      : typeof value === 'number'
-        ? value.toLocaleString()
-        : typeof value === 'object'
-          ? JSON.stringify(value)
-          : String(value);
+    : typeof value === 'boolean'
+      ? value
+        ? 'Yes'
+        : 'No'
+      : Array.isArray(value)
+        ? value.map(String).join(', ')
+        : typeof value === 'number'
+          ? value.toLocaleString()
+          : typeof value === 'object'
+            ? JSON.stringify(value)
+            : String(value);
 const title = (key: string) =>
   key.replace(/([A-Z])/g, ' $1').replace(/^./, (s) => s.toUpperCase());
 
@@ -161,20 +177,33 @@ function DataTable({
   columns,
   report,
   table,
+  downloadArchive,
 }: {
   name: string;
   rows: Row[];
   columns: string[];
   report: RuntimeReport;
   table: string;
+  downloadArchive?: string;
 }) {
   const download = `${getApiBasePath()}/analytics/reports/${report.period}/${report.revision}/download/${table}`;
   return (
-    <section className="analytics-panel analytics-runtime-panel">
+    <section
+      className="analytics-panel analytics-runtime-panel"
+      data-nav-label={name}
+    >
       <h2>{name}</h2>
       <p>
-        <a href={`${download}?format=csv`}>Download CSV</a> ·{' '}
-        <a href={`${download}?format=json`}>Download JSON</a>
+        {downloadArchive ? (
+          <a href={downloadArchive} download>
+            Download complete tables (ZIP)
+          </a>
+        ) : (
+          <>
+            <a href={`${download}?format=csv`}>Download CSV</a> ·{' '}
+            <a href={`${download}?format=json`}>Download JSON</a>
+          </>
+        )}
       </p>
       <AnalyticsTable label={name}>
         <thead>
@@ -230,9 +259,11 @@ function DataTable({
 export function RuntimeReportView({
   report,
   active,
+  downloadArchive,
 }: {
   report: RuntimeReport;
   active: string;
+  downloadArchive?: string;
 }) {
   const [grouping, setGrouping] = useState('provider');
   const [category, setCategory] = useState('all');
@@ -250,6 +281,7 @@ export function RuntimeReportView({
       columns={columns}
       report={report}
       table={key}
+      downloadArchive={downloadArchive}
     />
   );
   return (
@@ -285,16 +317,16 @@ export function RuntimeReportView({
       {active === 'overview' && (
         <>
           <dl className="analytics-runtime-totals">
-            {Object.entries(report.totals)
-              .filter(([key]) => !key.startsWith('duration'))
-              .map(([key, value]) => (
-                <div key={key}>
-                  <dt>{title(key)}</dt>
-                  <dd>
-                    {value == null ? 'Unavailable' : value.toLocaleString()}
-                  </dd>
-                </div>
-              ))}
+            {Object.entries(overviewMetrics).map(([key, label]) => (
+              <div key={key}>
+                <dt>{label}</dt>
+                <dd>
+                  {report.totals[key] == null
+                    ? 'Unavailable'
+                    : report.totals[key].toLocaleString()}
+                </dd>
+              </div>
+            ))}
           </dl>
           <p>
             Tracked visits:{' '}

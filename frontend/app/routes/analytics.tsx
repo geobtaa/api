@@ -6,6 +6,7 @@ import {
 } from 'react-router';
 import { RuntimeAnalyticsPage } from '../../src/components/analytics/RuntimeAnalyticsPage';
 import { selectedAnalyticsReport } from '../../src/config/analyticsReports';
+import { SnapshotAnalyticsPage } from '../../src/components/analytics/SnapshotAnalyticsPage';
 import { AnalyticsPage } from '../../src/pages/AnalyticsPage';
 import { buildSeoMeta } from '../../src/config/seo';
 
@@ -30,6 +31,9 @@ export default function Analytics() {
   return params.get('runtime') === '1' ||
     import.meta.env.VITE_ANALYTICS_RUNTIME === 'true' ? (
     <RuntimeAnalyticsPage />
+  ) : !['2026-07', '2026-08'].includes(params.get('month') ?? '') ||
+    params.get('report') === 'comparison' ? (
+    <SnapshotAnalyticsPage />
   ) : (
     <AnalyticsPage />
   );

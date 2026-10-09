@@ -8,28 +8,28 @@ Report links preserve selection in the URL and support reloads and browser histo
 
 | URL                                       | Report                                               | Period           |
 | ----------------------------------------- | ---------------------------------------------------- | ---------------- |
-| `/analytics`                              | Overview, daily activity, and traffic peaks          | August 2026      |
-| `/analytics?report=comparison`            | Portal/member comparisons, daily trends, CSV         | July–August 2026 |
-| `/analytics?report=content`               | Popular resources, collections, downloads (default)  | August 2026      |
+| `/analytics`                              | Overview, daily activity, and traffic peaks          | September 2026   |
+| `/analytics?report=comparison`            | Monthly totals, chart, CSV/JSON downloads         | July–September 2026 |
+| `/analytics?report=content`               | Popular resources, collections, downloads  | September 2026   |
 | `/analytics?report=content&month=2026-07` | Preserved popular-content report                     | July 2026        |
-| `/analytics?report=members`               | Alliance and campus detail                           | August 2026      |
-| `/analytics?report=activity`              | Legacy alias for Overview                            | August 2026      |
-| `/analytics?report=discovery`             | Search terms, filters, zero results                  | August 2026      |
-| `/analytics?report=clients`               | Clients, channels, key attribution, MCP/QGIS signals | August 2026      |
-| `/analytics?report=platform`              | API traffic and reliability                          | August 2026      |
+| `/analytics?report=members`               | Alliance and campus detail                           | September 2026   |
+| `/analytics?report=activity`              | Legacy alias for Overview                            | September 2026   |
+| `/analytics?report=discovery`             | Search terms, filters, zero results                  | September 2026   |
+| `/analytics?report=clients`               | Clients, channels, key attribution, MCP/QGIS signals | September 2026   |
+| `/analytics?report=platform`              | API traffic and reliability                          | September 2026   |
 
 Unknown report values show the overview. Navigation marks the current report and
-wraps on small screens; a skip link leads to the report. All single-month reports default to August and have a month selector. Add
-`month=2026-07` to any report URL to view July, or `month=2026-08` for August.
-Navigation preserves the selected month. Unknown months fall back to August.
-The comparison report always compares both months. Detailed reports show their
-period prominently and do not repeat August summary cards. The original July
-snapshots remain available within the relevant reports.
+wraps on small screens; a skip link leads to the report. Single-month reports
+default to September. Use `month=2026-07`, `month=2026-08`, or `month=2026-09`
+to select a month, or `month=all` for July–September. Navigation preserves the
+selected period. Unpublished periods show an unavailable message. The comparison
+report shows all three months.
 
-The page uses checked-in aggregates, not live queries. Comparison tables show
-absolute values, changes relative to July, and downloadable CSV totals. Daily
-charts align dates by day of month, with selectable metrics and an exact values
-table. Member comparisons have a separate metric selector.
+The page uses checked-in aggregates, not live database queries. September and
+refreshed cumulative reports include full CSV/JSON table downloads in ZIP files.
+See the [September update](#september-2026-update) for their source coverage and
+local regeneration workflow. The sections below describe the original July and
+August snapshot definitions and presentations, which remain available.
 
 ## Snapshot definitions
 
@@ -499,3 +499,40 @@ Every report header uses `ReportingPeriodPicker` at the top right, including
 All time views. Month comparison displays its fixed July–August comparison
 period in the same position; it does not offer a single-month selection that
 would leave comparison data unchanged.
+
+## September 2026 update
+
+The default dashboard period is September 2026. The September snapshot covers
+September 1 inclusive through October 1 exclusive (UTC), with activity on all 30
+days. Its October 9 export reconciles 475,908 API requests, 5,536 search result
+pages, 90,683 impressions, and 14,509 interactions. Those interactions include
+10,497 resource views, 876 download clicks, and 882 source-site clicks.
+
+September and the refreshed All time report use the existing versioned reporting
+contract through `SnapshotAnalyticsPage`. The static files live under
+`frontend/public/analytics-reports/`; their manifest identifies exact revisions.
+July and August retain their original monthly presentations and source snapshots.
+The comparison report now includes all three months. Cumulative data are rebuilt
+from the complete preserved monthly inputs, never from displayed top lists or by
+adding distinct visit counts. Historical gaps remain explicitly unavailable.
+Catalog attribution uses each input's recorded capture date; September's catalog
+was captured October 9, not at September month-end.
+
+Rankings on screen are limited to 100 entries. Member resource previews retain
+the leading ten resources for each activity metric in each grouping. Each report
+provides a ZIP download containing the complete public report and its CSV/JSON
+tables, with the existing query disclosure policy and CSV formula escaping.
+Raw tokens, IP addresses, and preservation receipts are not public downloads.
+The static report delivery does not enable the shadow runtime API or certify
+production archive durability, retention, or automated monthly publication.
+
+To regenerate locally from reconciled private archives:
+
+```bash
+python backend/scripts/export_analytics_snapshots.py /path/to/july.json.gz /path/to/august.json.gz /path/to/september.json.gz --through 2026-10-01 --period 2026-09 --period all --output frontend/public/analytics-reports
+```
+
+The exporter validates archive receipts, rejects duplicate or missing months,
+and reconciles additive daily totals before writing the manifest. Keep private
+archives outside tracked source files. Production extraction and preservation
+procedures belong in the restricted operations documentation.

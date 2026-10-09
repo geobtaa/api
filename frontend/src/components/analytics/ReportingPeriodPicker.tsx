@@ -29,6 +29,7 @@ export function ReportingPeriodPicker({
           <option value="comparison">July–August 2026</option>
         ) : (
           <>
+            <option value="2026-09">September 2026</option>
             <option value="2026-08">August 2026</option>
             <option value="2026-07">July 2026</option>
             <option value="all">All time (since July 1)</option>
