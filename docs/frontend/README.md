@@ -52,6 +52,37 @@ through the browser search request; the map loads independently. The results
 area shows a loading state until the current request settles, rather than
 reporting zero results while the request is pending.
 
+## Allmaps on resource pages
+
+Resources with an HTTP(S) IIIF Presentation manifest or Image API reference
+offer a **Georeference this map with Allmaps** link in the Map Overlay card,
+even before Allmaps data has been harvested. References may be JSON strings
+or objects; both HTTP and HTTPS IIIF vocabulary keys are supported. A IIIF
+viewer endpoint or harvested manifest URL provides a fallback.
+
+The Map Overlay tab embeds the official Allmaps Viewer with the complete
+annotation collection. Allmaps supplies map selection, map/image views, and
+viewer controls. **Open in new tab** and **Fullscreen** appear beside the
+viewer tabs for both IIIF Item Viewer and Map Overlay modes. Fullscreen uses the browser API
+when available, with a browser-pane expansion fallback. **Exit fullscreen**
+remains available above the viewer; expanding preserves the embedded viewer state.
+
+Mirador and Allmaps use the same 600px frame. Mirador uses a light geoportal
+theme with system fonts, blue accents, and flat toolbars. Its embedded mode
+(`embedded=1` on the local Mirador route) hides its internal fullscreen control
+and view-layout menu while retaining thumbnails, page navigation, zoom, sidebar,
+and download tools. The standalone Mirador route retains its fullscreen control.
+Switching tabs hides rather than unmounts these viewers; the Allmaps iframe is
+created on its first selection. Page, region, and zoom states remain independent
+and reset on resource navigation.
+The iframe depends on the availability of Allmaps and the source IIIF services.
+
+Only resources marked `allmaps_annotated` show the overlay viewer and the
+external Allmaps viewer link. Those resources retain the edit-control-points
+link. Link availability uses catalog metadata, without fetching external IIIF
+services during page rendering; an unavailable remote service can still fail
+when opened in Allmaps.
+
 ## Quick Commands
 
 Run from `frontend/`:

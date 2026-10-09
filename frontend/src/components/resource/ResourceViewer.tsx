@@ -461,12 +461,13 @@ export function ResourceViewer({ data, pageValue }: ResourceViewerProps) {
 
       const miradorUrl = new URL('/mirador', pageOrigin);
       miradorUrl.searchParams.set('manifest', manifestUrl);
+      miradorUrl.searchParams.set('embedded', '1');
 
       return (
         <iframe
           key={viewerInstanceKey}
           title="Mirador viewer"
-          className="viewer h-[600px] w-full border-0"
+          className="viewer block h-[600px] w-full border-0"
           // Keep Mirador isolated in its own document while allowing local module scripts and plugin downloads.
           sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-downloads"
           // Required for Fullscreen API inside sandboxed iframes.

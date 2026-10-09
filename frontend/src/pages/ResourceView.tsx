@@ -34,9 +34,14 @@ import { DataDictionariesSection } from '../components/resource/DataDictionaries
 import { LightboxModal } from '../components/ui/LightboxModal';
 import { scheduleAnalyticsBatch } from '../services/analytics';
 import { SEARCH_RESULTS_PER_PAGE } from '../constants/search';
+import { AllmapsViewerFrame } from '../components/resource/AllmapsViewerFrame';
 import { AllmapsOverlayViewer } from '../components/resource/AllmapsOverlayViewer';
 import { AllmapsLinksCard } from '../components/resource/AllmapsLinksCard';
-import { hasAllmapsOverlay } from '../utils/allmaps';
+import {
+  getAllmapsIiifUrl,
+  getAllmapsViewerUrl,
+  hasAllmapsOverlay,
+} from '../utils/allmaps';
 import { isRestrictedAccessResource } from '../utils/accessRights';
 import { RestrictedAccessIndicator } from '../components/RestrictedAccessIndicator';
 
@@ -190,6 +195,9 @@ export function ResourceView({
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [isDataDictionaryModalOpen, setIsDataDictionaryModalOpen] =
     useState(false);
+  const [visitedOverlayResource, setVisitedOverlayResource] = useState<
+    string | null
+  >(null);
   const [activeViewerTab, setActiveViewerTab] = useState<'item' | 'allmaps'>(
     'item'
   );
@@ -654,48 +662,66 @@ export function ResourceView({
                 {/* Viewer section */}
                 <div className="lg:col-span-8 space-y-6">
                   {(viewerProtocol || hasAllmapsViewer) && (
-                    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-                      {showViewerTabs && (
-                        <div
-                          role="tablist"
-                          aria-label="Resource viewer modes"
-                          className="flex border-b border-gray-200 bg-white px-4 pt-3"
-                        >
-                          <button
-                            type="button"
-                            role="tab"
-                            id="resource-viewer-item-tab"
-                            aria-controls="resource-viewer-item-panel"
-                            aria-selected={activeViewerTab === 'item'}
-                            onClick={() => setActiveViewerTab('item')}
-                            className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                              activeViewerTab === 'item'
-                                ? 'border-blue-600 text-blue-700'
-                                : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-                            }`}
+                    <AllmapsViewerFrame
+                      key={data.id}
+                      viewerUrl={
+                        showAllmapsViewer
+                          ? getAllmapsViewerUrl(allmapsAttributes)
+                          : viewerProtocol === 'iiif_manifest' &&
+                              data.meta?.ui?.viewer?.endpoint
+                            ? `/mirador?manifest=${encodeURIComponent(data.meta.ui.viewer.endpoint)}`
+                            : null
+                      }
+                      tabs={
+                        showViewerTabs && (
+                          <div
+                            role="tablist"
+                            aria-label="Resource viewer modes"
+                            className="flex"
                           >
-                            Item Viewer
-                          </button>
-                          <button
-                            type="button"
-                            role="tab"
-                            id="resource-viewer-allmaps-tab"
-                            aria-controls="resource-viewer-allmaps-panel"
-                            aria-selected={activeViewerTab === 'allmaps'}
-                            onClick={() => setActiveViewerTab('allmaps')}
-                            className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
-                              activeViewerTab === 'allmaps'
-                                ? 'border-blue-600 text-blue-700'
-                                : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
-                            }`}
-                          >
-                            Map Overlay
-                          </button>
-                        </div>
-                      )}
-
-                      {showItemViewer && (
+                            <button
+                              type="button"
+                              role="tab"
+                              id="resource-viewer-item-tab"
+                              title="Browse original pages"
+                              aria-controls="resource-viewer-item-panel"
+                              aria-selected={activeViewerTab === 'item'}
+                              onClick={() => setActiveViewerTab('item')}
+                              className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                                activeViewerTab === 'item'
+                                  ? 'border-blue-600 text-blue-700'
+                                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
+                              }`}
+                            >
+                              Item Viewer
+                            </button>
+                            <button
+                              type="button"
+                              role="tab"
+                              id="resource-viewer-allmaps-tab"
+                              title="Explore georeferenced maps"
+                              aria-controls="resource-viewer-allmaps-panel"
+                              aria-selected={activeViewerTab === 'allmaps'}
+                              onClick={() => {
+                                setVisitedOverlayResource(data.id);
+                                setActiveViewerTab('allmaps');
+                              }}
+                              className={`-mb-px border-b-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                                activeViewerTab === 'allmaps'
+                                  ? 'border-blue-600 text-blue-700'
+                                  : 'border-transparent text-gray-600 hover:border-gray-300 hover:text-gray-900'
+                              }`}
+                            >
+                              Map Overlay
+                            </button>
+                          </div>
+                        )
+                      }
+                    >
+                      {(showItemViewer ||
+                        viewerProtocol === 'iiif_manifest') && (
                         <div
+                          hidden={!showItemViewer}
                           role={showViewerTabs ? 'tabpanel' : undefined}
                           id="resource-viewer-item-panel"
                           aria-labelledby={
@@ -708,23 +734,23 @@ export function ResourceView({
                         </div>
                       )}
 
-                      {showAllmapsViewer && (
-                        <div
-                          role={showViewerTabs ? 'tabpanel' : undefined}
-                          id="resource-viewer-allmaps-panel"
-                          aria-labelledby={
-                            showViewerTabs
-                              ? 'resource-viewer-allmaps-tab'
-                              : undefined
-                          }
-                        >
-                          <AllmapsOverlayViewer
-                            allmaps={allmapsAttributes}
-                            geometry={resourceGeometry}
-                          />
-                        </div>
-                      )}
-                    </div>
+                      {hasAllmapsViewer &&
+                        (showAllmapsViewer ||
+                          visitedOverlayResource === data.id) && (
+                          <div
+                            hidden={!showAllmapsViewer}
+                            role={showViewerTabs ? 'tabpanel' : undefined}
+                            id="resource-viewer-allmaps-panel"
+                            aria-labelledby={
+                              showViewerTabs
+                                ? 'resource-viewer-allmaps-tab'
+                                : undefined
+                            }
+                          >
+                            <AllmapsOverlayViewer allmaps={allmapsAttributes} />
+                          </div>
+                        )}
+                    </AllmapsViewerFrame>
                   )}
 
                   {/* Conditionally render the attribute table if the protocol is 'wms' or 'arcgis_feature_layer' */}
@@ -825,13 +851,12 @@ export function ResourceView({
                       </div>
                     )}
 
-                    {hasAllmapsViewer && (
-                      <AllmapsLinksCard
-                        allmaps={allmapsAttributes}
-                        resourceId={data.id}
-                        searchId={searchState?.searchId}
-                      />
-                    )}
+                    <AllmapsLinksCard
+                      allmaps={allmapsAttributes}
+                      iiifUrl={getAllmapsIiifUrl(data)}
+                      resourceId={data.id}
+                      searchId={searchState?.searchId}
+                    />
                   </div>
                 </div>
               </div>
