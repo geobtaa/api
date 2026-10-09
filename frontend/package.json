@@ -82,7 +82,7 @@
     "@grpc/grpc-js": "^1.14.4",
     "@opentelemetry/core": "^2.8.0",
     "@opentelemetry/sdk-node": "^0.217.0",
-    "shell-quote": "^1.8.4",
+    "shell-quote": "^1.11.0",
     "ws": "^8.21.0",
     "happy-dom": "^20.8.9",
     "picomatch": "^4.0.4",
