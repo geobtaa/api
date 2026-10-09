@@ -47,10 +47,15 @@ describe('Home Page', () => {
     expect(
       screen.getByText(/2026 redesign introduces a modern interface/i)
     ).toBeInTheDocument();
-    expect(screen.getByText(/new from btaa:/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: /read gin news & stories/i })
+      screen.getByText(/BTAA Geoportal Live Demo • Nov\. 2, 1 PM CT •/i)
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /register here/i })
+    ).toHaveAttribute(
+      'href',
+      'https://btaa.zoom.us/meeting/register/-hCjcQw_QHGrCLSqXYOP0g'
+    );
     expect(screen.getByPlaceholderText(/search/i)).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /theme/i })).toBeInTheDocument();
     expect(
