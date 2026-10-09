@@ -1,0 +1,126 @@
+{
+  "resourceId": "p16022coll245:304",
+  "manifestUrl": "https://cdm16022.contentdm.oclc.org/iiif/info/p16022coll245/304/manifest.json",
+  "canvasCount": 39,
+  "annotation": {
+    "type": "AnnotationPage",
+    "@context": "http://www.w3.org/ns/anno.jsonld",
+    "items": [
+      {
+        "id": "https://annotations.allmaps.org/maps/2fdc4e377c4929c1",
+        "type": "Annotation",
+        "@context": [
+          "http://iiif.io/api/extension/georef/1/context.json",
+          "http://iiif.io/api/presentation/3/context.json"
+        ],
+        "created": "2024-05-29T16:35:47.850Z",
+        "modified": "2024-05-29T16:35:47.850Z",
+        "motivation": "georeferencing",
+        "target": {
+          "type": "SpecificResource",
+          "source": {
+            "id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll245:289",
+            "type": "ImageService2",
+            "height": 6563,
+            "width": 8835,
+            "partOf": [
+              {
+                "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll245:289/canvas/c24",
+                "type": "Canvas",
+                "label": {
+                  "none": ["Plate 22"]
+                },
+                "partOf": [
+                  {
+                    "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll245:304/manifest.json",
+                    "type": "Manifest",
+                    "label": {
+                      "none": [
+                        "A complete set of surveys and plats of properties in the city of Minneapolis, Minn."
+                      ]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "selector": {
+            "type": "SvgSelector",
+            "value": "<svg width=\"8835\" height=\"6563\"><polygon points=\"7231,439 7248,6083 1281,6133 1322,306\" /></svg>"
+          }
+        },
+        "body": {
+          "type": "FeatureCollection",
+          "transformation": {
+            "type": "polynomial",
+            "options": {
+              "order": 1
+            }
+          },
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [2825, 1075]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-93.2429881, 44.9898042]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [6100, 1858]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-93.2307519, 44.9878437]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [5973, 5852]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-93.2310119, 44.977299]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1751, 3910]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-93.2470473, 44.9824216]
+              }
+            }
+          ],
+          "_allmaps": {
+            "id": "https://annotations.allmaps.org/maps/2fdc4e377c4929c1",
+            "version": "https://annotations.allmaps.org/maps/2fdc4e377c4929c1@9f50fe7356a154da",
+            "image": {
+              "id": "https://annotations.allmaps.org/images/7b2a43b590f2dc4b",
+              "version": "https://annotations.allmaps.org/images/7b2a43b590f2dc4b@efa3f7e85aff5747",
+              "canvases": [
+                {
+                  "id": "https://annotations.allmaps.org/canvases/6adf3befb1a045f4",
+                  "manifests": [
+                    {
+                      "id": "https://annotations.allmaps.org/manifests/3ff347f05871349c"
+                    }
+                  ]
+                }
+              ]
+            },
+            "scale": 3.397912,
+            "area": 2949806.41
+          }
+        }
+      }
+    ]
+  }
+}

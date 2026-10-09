@@ -1,0 +1,400 @@
+{
+  "resourceId": "p16022coll230:4038",
+  "manifestUrl": "https://cdm16022.contentdm.oclc.org/iiif/info/p16022coll230/4038/manifest.json",
+  "canvasCount": 2,
+  "annotation": {
+    "type": "AnnotationPage",
+    "@context": "http://www.w3.org/ns/anno.jsonld",
+    "items": [
+      {
+        "id": "https://annotations.allmaps.org/maps/4d10d5b541a2e7f5",
+        "type": "Annotation",
+        "@context": [
+          "http://iiif.io/api/extension/georef/1/context.json",
+          "http://iiif.io/api/presentation/3/context.json"
+        ],
+        "created": "2024-05-17T15:04:23.433Z",
+        "modified": "2024-05-17T15:04:23.433Z",
+        "motivation": "georeferencing",
+        "target": {
+          "type": "SpecificResource",
+          "source": {
+            "id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll230:4037",
+            "type": "ImageService2",
+            "height": 4718,
+            "width": 6153,
+            "partOf": [
+              {
+                "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:4037/canvas/c1",
+                "type": "Canvas",
+                "label": {
+                  "none": ["Back"]
+                },
+                "partOf": [
+                  {
+                    "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:4038/manifest.json",
+                    "type": "Manifest",
+                    "label": {
+                      "none": ["1929 Illinois : motor trails are calling"]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "selector": {
+            "type": "SvgSelector",
+            "value": "<svg width=\"6153\" height=\"4718\"><polygon points=\"3168,172 3168,2290 5011,2304 5020,173\" /></svg>"
+          }
+        },
+        "body": {
+          "type": "FeatureCollection",
+          "transformation": {
+            "type": "polynomial",
+            "options": {
+              "order": 1
+            }
+          },
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3426, 717]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-87.5293253, 41.7323125]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [4708, 570]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-87.9513996, 41.6976025]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3744, 1334]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-87.6380801, 41.8866487]
+              }
+            }
+          ],
+          "_allmaps": {
+            "id": "https://annotations.allmaps.org/maps/4d10d5b541a2e7f5",
+            "version": "https://annotations.allmaps.org/maps/4d10d5b541a2e7f5@61cc85bef2f24f3e",
+            "image": {
+              "id": "https://annotations.allmaps.org/images/383586710a64c5f6",
+              "version": "https://annotations.allmaps.org/images/383586710a64c5f6@c32d45b560e72cf6",
+              "canvases": [
+                {
+                  "id": "https://annotations.allmaps.org/canvases/6ab9efafcd39ec5f",
+                  "manifests": [
+                    {
+                      "id": "https://annotations.allmaps.org/manifests/945e08a1a7c98ca3"
+                    }
+                  ]
+                }
+              ]
+            },
+            "scale": 0.036306,
+            "area": 2977721537.66
+          }
+        }
+      },
+      {
+        "id": "https://annotations.allmaps.org/maps/b8f6bca216710117",
+        "type": "Annotation",
+        "@context": [
+          "http://iiif.io/api/extension/georef/1/context.json",
+          "http://iiif.io/api/presentation/3/context.json"
+        ],
+        "created": "2024-05-17T15:04:23.433Z",
+        "modified": "2024-05-17T15:04:23.433Z",
+        "motivation": "georeferencing",
+        "target": {
+          "type": "SpecificResource",
+          "source": {
+            "id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll230:4037",
+            "type": "ImageService2",
+            "height": 4718,
+            "width": 6153,
+            "partOf": [
+              {
+                "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:4037/canvas/c1",
+                "type": "Canvas",
+                "label": {
+                  "none": ["Back"]
+                },
+                "partOf": [
+                  {
+                    "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:4038/manifest.json",
+                    "type": "Manifest",
+                    "label": {
+                      "none": ["1929 Illinois : motor trails are calling"]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "selector": {
+            "type": "SvgSelector",
+            "value": "<svg width=\"6153\" height=\"4718\"><polygon points=\"152,188 141,4539 2982,4557 2998,212\" /></svg>"
+          }
+        },
+        "body": {
+          "type": "FeatureCollection",
+          "transformation": {
+            "type": "polynomial",
+            "options": {
+              "order": 1
+            }
+          },
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1617, 622]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-83.065762, 42.3290136]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1464, 1639]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-89.3790143, 43.0772284]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [604, 1979]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-91.6645385, 47.0265039]
+              }
+            }
+          ],
+          "_allmaps": {
+            "id": "https://annotations.allmaps.org/maps/b8f6bca216710117",
+            "version": "https://annotations.allmaps.org/maps/b8f6bca216710117@f51f3986739e2af4",
+            "image": {
+              "id": "https://annotations.allmaps.org/images/383586710a64c5f6",
+              "version": "https://annotations.allmaps.org/images/383586710a64c5f6@c32d45b560e72cf6",
+              "canvases": [
+                {
+                  "id": "https://annotations.allmaps.org/canvases/6ab9efafcd39ec5f",
+                  "manifests": [
+                    {
+                      "id": "https://annotations.allmaps.org/manifests/945e08a1a7c98ca3"
+                    }
+                  ]
+                }
+              ]
+            },
+            "scale": 0.001981,
+            "area": 3151342263970.81
+          }
+        }
+      },
+      {
+        "id": "https://annotations.allmaps.org/maps/8c45ed7acc513566",
+        "type": "Annotation",
+        "@context": [
+          "http://iiif.io/api/extension/georef/1/context.json",
+          "http://iiif.io/api/presentation/3/context.json"
+        ],
+        "created": "2024-05-17T14:46:50.891Z",
+        "modified": "2024-05-17T14:46:50.891Z",
+        "motivation": "georeferencing",
+        "target": {
+          "type": "SpecificResource",
+          "source": {
+            "id": "https://cdm16022.contentdm.oclc.org/iiif/2/p16022coll230:4036",
+            "type": "ImageService2",
+            "height": 6166,
+            "width": 4679,
+            "partOf": [
+              {
+                "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:4036/canvas/c0",
+                "type": "Canvas",
+                "label": {
+                  "none": ["Front"]
+                },
+                "partOf": [
+                  {
+                    "id": "https://cdm16022.contentdm.oclc.org/iiif/p16022coll230:4038/manifest.json",
+                    "type": "Manifest",
+                    "label": {
+                      "none": ["1929 Illinois : motor trails are calling"]
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "selector": {
+            "type": "SvgSelector",
+            "value": "<svg width=\"4679\" height=\"6166\"><polygon points=\"451,187 455,6018 4237,5996 4229,200\" /></svg>"
+          }
+        },
+        "body": {
+          "type": "FeatureCollection",
+          "transformation": {
+            "type": "polynomial",
+            "options": {
+              "order": 1
+            }
+          },
+          "features": [
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3518, 5413]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-88.0486029, 37.4773693]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1358, 4006]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-90.5996106, 38.8770024]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3957, 1156]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-87.5041055, 41.6980718]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [2541, 5924]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-89.1785794, 37.0139854]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3626, 350]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-87.8382964, 42.4759132]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1591, 4669]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-90.3770394, 38.2074579]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [740, 2411]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-91.4080627, 40.4383564]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3948, 4185]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-87.4836146, 38.7302376]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1367, 332]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-90.678919, 42.4647083]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [3133, 5843]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-88.4252617, 37.068649]
+              }
+            },
+            {
+              "type": "Feature",
+              "properties": {
+                "resourceCoords": [1000, 1443]
+              },
+              "geometry": {
+                "type": "Point",
+                "coordinates": [-91.0131099, 41.4366736]
+              }
+            }
+          ],
+          "_allmaps": {
+            "id": "https://annotations.allmaps.org/maps/8c45ed7acc513566",
+            "version": "https://annotations.allmaps.org/maps/8c45ed7acc513566@eb9ae186e111671f",
+            "image": {
+              "id": "https://annotations.allmaps.org/images/1013ecbf5c582ae9",
+              "version": "https://annotations.allmaps.org/images/1013ecbf5c582ae9@d88cacc88856095e",
+              "canvases": [
+                {
+                  "id": "https://annotations.allmaps.org/canvases/aea1b496cc37c7ac",
+                  "manifests": [
+                    {
+                      "id": "https://annotations.allmaps.org/manifests/945e08a1a7c98ca3"
+                    }
+                  ]
+                }
+              ]
+            },
+            "scale": 0.009379,
+            "area": 249813184233.59
+          }
+        }
+      }
+    ]
+  }
+}

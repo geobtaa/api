@@ -18,6 +18,8 @@ import {
 import { getApiBasePath } from '../../services/api';
 import { scheduleAnalyticsBatch } from '../../services/analytics';
 
+const lightboxCategories = ['Web Services', 'Metadata', 'Open in ArcGIS'];
+
 interface LinkItem {
   label: string;
   url: string;
@@ -269,20 +271,11 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
   };
 
   const handleCategoryClick = (category: string, items: LinkItem[]) => {
-    const lightboxCategories = ['Web Services', 'Metadata', 'Open in ArcGIS'];
-
-    if (lightboxCategories.includes(category)) {
-      setLightboxContent({ category, items });
-      setActiveMetadataLink(null);
-      setMetadataHtml(null);
-      setMetadataError(null);
-      setLightboxOpen(true);
-    } else {
-      if (items.length > 0) {
-        trackLinkClick(category, items[0]);
-        window.open(items[0].url, '_blank', 'noopener,noreferrer');
-      }
-    }
+    setLightboxContent({ category, items });
+    setActiveMetadataLink(null);
+    setMetadataHtml(null);
+    setMetadataError(null);
+    setLightboxOpen(true);
   };
 
   const closeLightbox = () => {
@@ -497,14 +490,38 @@ export function LinksTable({ links, resourceId, searchId }: LinksTableProps) {
         <div className="divide-y divide-gray-200">
           {Object.entries(links).map(([category, linkItems]) => (
             <div key={category} className="px-6 py-4 hover:bg-gray-50">
-              <button
-                onClick={() => handleCategoryClick(category, linkItems)}
-                className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline group w-full text-left"
-              >
-                {getCategoryIcon(category)}
-                {category}
-                <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-500 ml-auto" />
-              </button>
+              {lightboxCategories.includes(category) ? (
+                <button
+                  onClick={() => handleCategoryClick(category, linkItems)}
+                  className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline group w-full text-left"
+                >
+                  {getCategoryIcon(category)}
+                  {category}
+                  <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-blue-500 ml-auto" />
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  {linkItems.map((link, index) => (
+                    <a
+                      key={`${link.url}-${index}`}
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={() => trackLinkClick(category, link)}
+                      className="flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline group"
+                    >
+                      {getCategoryIcon(category)}
+                      {linkItems.length === 1
+                        ? category
+                        : `${category}: ${link.label || link.url}`}
+                      <ExternalLink
+                        aria-hidden="true"
+                        className="w-4 h-4 text-gray-400 group-hover:text-blue-500 ml-auto"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

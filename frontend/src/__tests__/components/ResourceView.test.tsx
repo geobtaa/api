@@ -1,3 +1,4 @@
+import liveAllmapsFixture from '../integration/fixtures/allmaps/illinois.json';
 import { render, screen, waitFor } from '@testing-library/react';
 import { axeWithWCAG22 } from '../../test-utils/axe';
 import userEvent from '@testing-library/user-event';
@@ -971,6 +972,130 @@ describe('ResourceView Component', () => {
       expect(indexMapContainer).toBeInTheDocument();
     });
 
+    it.each([
+      [
+        'manifest reference',
+        { 'http://iiif.io/api/presentation#manifest': allmapsManifestUrl },
+      ],
+      [
+        'serialized reference',
+        JSON.stringify({
+          'http://iiif.io/api/presentation#manifest': allmapsManifestUrl,
+        }),
+      ],
+      ['image reference', { 'http://iiif.io/api/image': allmapsManifestUrl }],
+      [
+        'HTTPS reference key',
+        { 'https://iiif.io/api/presentation#manifest': allmapsManifestUrl },
+      ],
+    ])(
+      'offers georeferencing without harvested data for a %s',
+      async (_label, references) => {
+        const resource = realFixtureData[0];
+        fetchResourceDetails.mockResolvedValue({
+          ...resource,
+          attributes: {
+            ...resource.attributes,
+            ogm: { ...resource.attributes.ogm, dct_references_s: references },
+          },
+        });
+        render(
+          <TestWrapper>
+            <ResourceView />
+          </TestWrapper>
+        );
+
+        const link = await screen.findByRole('link', {
+          name: 'Georeference this map with Allmaps',
+        });
+        expect(link).toHaveAttribute(
+          'href',
+          `https://editor.allmaps.org/#/collection?url=${encodeURIComponent(allmapsManifestUrl)}`
+        );
+        expect(
+          screen.queryByRole('link', {
+            name: /View map in the Allmaps viewer/i,
+          })
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByRole('tab', { name: 'Map Overlay' })
+        ).not.toBeInTheDocument();
+        expect(
+          screen.queryByTestId('allmaps-overlay-viewer')
+        ).not.toBeInTheDocument();
+      }
+    );
+
+    it('reveals the overlay when a page-load check finds new annotations', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: true,
+        json: async () => liveAllmapsFixture.annotation,
+      } as Response);
+      fetchResourceDetails.mockResolvedValue({
+        ...mockResourceWithAllmaps,
+        attributes: {
+          ...mockResourceWithAllmaps.attributes,
+          ogm: {
+            ...mockResourceWithAllmaps.attributes.ogm,
+            dct_references_s: {
+              'http://iiif.io/api/presentation#manifest':
+                liveAllmapsFixture.manifestUrl,
+            },
+          },
+        },
+        meta: {
+          ...mockResourceWithAllmaps.meta,
+          ui: {
+            ...mockResourceWithAllmaps.meta.ui,
+            allmaps: { allmaps_annotated: false },
+          },
+        },
+      });
+      try {
+        render(
+          <TestWrapper>
+            <ResourceView />
+          </TestWrapper>
+        );
+        const overlayTab = await screen.findByRole('tab', {
+          name: 'Map Overlay',
+        });
+        await userEvent.click(overlayTab);
+        expect(screen.getByTestId('allmaps-overlay-viewer')).toBeVisible();
+      } finally {
+        fetchSpy.mockRestore();
+      }
+    });
+
+    it('offers georeferencing for harvested but unannotated maps', async () => {
+      fetchResourceDetails.mockResolvedValue({
+        ...mockResourceWithAllmaps,
+        meta: {
+          ...mockResourceWithAllmaps.meta,
+          ui: {
+            ...mockResourceWithAllmaps.meta.ui,
+            allmaps: {
+              allmaps_manifest_uri: allmapsManifestUrl,
+              allmaps_annotated: false,
+            },
+          },
+        },
+      });
+      render(
+        <TestWrapper>
+          <ResourceView />
+        </TestWrapper>
+      );
+      expect(
+        await screen.findByRole('link', {
+          name: 'Georeference this map with Allmaps',
+        })
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: /View map in the Allmaps viewer/i })
+      ).not.toBeInTheDocument();
+    });
+
     it('renders Allmaps viewer tabs and sidebar links when an overlay is available', async () => {
       const user = userEvent.setup();
       fetchResourceDetails.mockResolvedValue(mockResourceWithAllmaps);
@@ -1020,7 +1145,14 @@ describe('ResourceView Component', () => {
 
       await user.click(mapOverlayTab);
 
-      expect(screen.getByTestId('allmaps-overlay-viewer')).toBeInTheDocument();
+      const overlay = screen.getByTestId('allmaps-overlay-viewer');
+      expect(overlay).toBeVisible();
+      await user.click(screen.getByRole('tab', { name: 'Item Viewer' }));
+      expect(overlay).toBeInTheDocument();
+      expect(overlay).not.toBeVisible();
+      await user.click(mapOverlayTab);
+      expect(screen.getByTestId('allmaps-overlay-viewer')).toBe(overlay);
+      expect(overlay).toBeVisible();
     });
 
     it('renders LocationMap when geometry is available', async () => {
@@ -1319,7 +1451,7 @@ describe('ResourceView Component', () => {
       // "Documentation" appears both in the resource UI and in the global footer link;
       // assert specifically on the resource UI control.
       expect(
-        screen.getByRole('button', { name: 'Documentation' })
+        screen.getByRole('link', { name: 'Documentation' })
       ).toBeInTheDocument();
     });
 

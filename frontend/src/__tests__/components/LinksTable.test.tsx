@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { vi } from 'vitest';
 import { axeWithWCAG22 } from '../../test-utils/axe';
+import { scheduleAnalyticsBatch } from '../../services/analytics';
 import { LinksTable } from '../../components/resource/LinksTable';
 
 vi.mock('../../services/analytics', () => ({
@@ -73,6 +74,38 @@ describe('LinksTable', () => {
   it('renders with optional resourceId prop', () => {
     render(<LinksTable links={mockLinks} resourceId="test-resource-123" />);
     expect(screen.getByText('Links')).toBeInTheDocument();
+  });
+
+  it('renders every source as a native link and preserves modifier clicks', () => {
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    render(
+      <LinksTable
+        resourceId="test-resource"
+        links={{
+          'Visit Source': [
+            { label: 'Library', url: 'https://example.com/library' },
+            { label: 'Archive', url: 'https://example.com/archive' },
+          ],
+        }}
+      />
+    );
+    const library = screen.getByRole('link', { name: 'Visit Source: Library' });
+    const archive = screen.getByRole('link', { name: 'Visit Source: Archive' });
+    expect(library).toHaveAttribute('href', 'https://example.com/library');
+    expect(archive).toHaveAttribute('href', 'https://example.com/archive');
+    expect(archive).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(fireEvent.click(archive, { ctrlKey: true })).toBe(true);
+    expect(open).not.toHaveBeenCalled();
+    expect(scheduleAnalyticsBatch).toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it('keeps the single source category as the link label', () => {
+    render(<LinksTable links={mockLinks} />);
+    expect(screen.getByRole('link', { name: 'Visit Source' })).toHaveAttribute(
+      'href',
+      'https://example.com'
+    );
   });
 
   it('opens lightbox for Web Services category', () => {
