@@ -3,6 +3,8 @@
 import re
 from collections import Counter
 
+from .metadata import content_metadata
+
 COLLECTION_CONTROL = re.compile(
     r"^(?:include_filters|exclude_filters|f|fq)\[(pcdm_memberOf_sm|dct_isPartOf_sm|b1g_localCollectionLabel_sm)\](?:\[\])?$"
 )
@@ -19,7 +21,7 @@ def collection_searches(documents):
             raise ValueError(f"Duplicate month: {month}")
         months.add(month)
         for identifier, record in document.get("catalog", {}).items():
-            titles[identifier] = record.get("title") or identifier
+            titles[identifier] = content_metadata(record).get("title") or identifier
         for row in document["daily"]:
             dimensions = row["dimensions"]
             if dimensions["source"] != "analytics_searches":

@@ -5,8 +5,8 @@ import {
   augustTopDownloadedResources,
 } from './popularAugust2026';
 
-// Retain the original published descriptions and exact download-visit counts
-// where available while expanding the rankings from complete preserved inputs.
+// Keep historical detail fields and exact download-visit counts where available,
+// while refreshed metadata supplies the resource titles and provider labels.
 export const popularHistory = Object.fromEntries(
   Object.entries(history).map(([month, snapshot]) => {
     const resources = month === '2026-07' ? topResources : augustTopResources;
@@ -19,12 +19,14 @@ export const popularHistory = Object.fromEntries(
       {
         ...snapshot,
         topResources: snapshot.topResources.map((row) => ({
-          ...row,
           ...resources.find((original) => original.id === row.id),
+          ...row,
         })),
         topDownloads: snapshot.topDownloads.map((row) => ({
           ...row,
-          ...downloads.find((original) => original.id === row.id),
+          engagedVisits:
+            downloads.find((original) => original.id === row.id)
+              ?.engagedVisits ?? null,
         })),
       },
     ];

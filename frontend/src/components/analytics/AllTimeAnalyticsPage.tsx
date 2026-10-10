@@ -105,7 +105,13 @@ export function AllTimeAnalyticsPage({
                 full-period records, not combined top lists. Resource
                 impressions use durable daily aggregates; inventory and
                 attribution use each monthly catalog snapshot; latest capture{' '}
-                {data.catalogDate}.
+                {data.catalogDate}. Resource titles and Provider fields
+                refreshed{' '}
+                {new Date(outcomes.contentCatalogCapturedAt).toLocaleDateString(
+                  'en-US',
+                  { timeZone: 'UTC' }
+                )}
+                , independently of campus eligibility.
               </p>
               <p>
                 Exported{' '}

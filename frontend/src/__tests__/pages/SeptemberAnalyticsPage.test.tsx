@@ -80,6 +80,23 @@ describe(
         })
       ).toHaveAttribute('href', expect.stringContaining('/2026-09/'));
     });
+    it('shows the real PennPilot title and labels its empty Provider field precisely', () => {
+      const { container } = page('content');
+      const resource = Array.from(
+        container.querySelectorAll('#top-resources .analytics-ranking-row')
+      ).find((row) =>
+        row.textContent?.includes(
+          'PennPilot (Historical Aerial Photo Library) [Pennsylvania]'
+        )
+      );
+      expect(resource).toBeDefined();
+      expect(resource).toHaveTextContent('Provider not recorded');
+      expect(resource).not.toHaveTextContent('Unmapped');
+      expect(resource?.querySelector('h3 a')).toHaveAttribute(
+        'href',
+        '/resources/pasda-1078'
+      );
+    });
     it.each(['members', 'content', 'discovery', 'clients', 'platform'])(
       'renders the existing %s report for September',
       (report) => {

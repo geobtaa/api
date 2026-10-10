@@ -50,12 +50,13 @@ def code_group(code):
 def read_catalog(conn):
     rows = conn.execute(
         text("""SELECT id,dct_title_s,schema_provider_s,b1g_code_s,
+        (publication_state='published' AND gbl_suppressed_b IS NOT TRUE) AS eligible,
         jsonb_build_object('resourceClasses',to_jsonb(r)->'gbl_resourceClass_sm',
           'resourceTypes',to_jsonb(r)->'gbl_resourceType_sm',
           'collections',to_jsonb(r)->'pcdm_memberOf_sm',
           'format',to_jsonb(r)->'dct_format_s',
           'accessRights',to_jsonb(r)->'dct_accessRights_s') AS attributes FROM resources r
-        WHERE publication_state='published' AND gbl_suppressed_b IS NOT TRUE ORDER BY id""")
+        ORDER BY id""")
     ).mappings()
     catalog = {}
     for r in rows:
@@ -63,6 +64,7 @@ def read_catalog(conn):
         # Unknown codes remain explicit; no geography-based inference.
         label = code_group(code)
         catalog[r["id"]] = {
+            "eligible": bool(r["eligible"]),
             "title": r["dct_title_s"],
             "provider": r["schema_provider_s"],
             "code": label,

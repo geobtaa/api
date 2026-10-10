@@ -553,3 +553,22 @@ complete preserved aggregates, not extended from earlier top-ten lists.
 `export_analytics_design_data.py` also emits `popularHistory2026.json` for the
 expanded July/August resource, collection, and download rankings. Original source
 snapshots remain unchanged; fewer than 50 entries appear only when fewer qualify.
+
+## Content metadata corrections
+
+Content labels use resource metadata independently of publication state and
+campus inventory eligibility. `Provider not recorded` is used only for an empty
+Provider field; missing metadata uses `Provider metadata unavailable`.
+The title falls back to the resource ID only when no title can be recovered.
+
+`backend/scripts/refresh_analytics_metadata.py` accepts reconciled private archives,
+`--metadata /path/to/metadata.json.gz`, and `--output /path/to/new-revisions`.
+The metadata input contains `capturedAt` and a `catalog` mapping resource IDs to
+`title`, `provider`, and optional `attributes`. This creates new checksummed
+revisions and preserves all activity rows, receipts, visits, and original campus
+eligibility. Content corrections live alongside the historical member metadata,
+with their own capture date and source checksum; they do not rewrite old archives.
+Then regenerate public snapshots for July, August, September, and All time with
+`export_analytics_snapshots.py`, followed by `export_analytics_design_data.py`.
+The dashboard and downloadable reports use these corrected labels. Keep input
+metadata and archive files private and extraction instructions in restricted docs.

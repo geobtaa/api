@@ -11,6 +11,10 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.services.analytics_reporting.archive import validate_document  # noqa: E402
 from app.services.analytics_reporting.collection_searches import collection_searches  # noqa: E402
+from app.services.analytics_reporting.metadata import (  # noqa: E402
+    content_metadata,
+    content_providers,
+)
 from app.services.analytics_reporting.storage import checksum  # noqa: E402
 
 COLORS = ["#003C5B", "#1E40AF", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"]
@@ -207,7 +211,7 @@ def popular_content(document):
         activity[identifier]["first" if row["metric_date"][8:10] <= "15" else "second"] += n
 
     def metadata(identifier):
-        record = document["catalog"].get(identifier, {})
+        record = content_metadata(document["catalog"].get(identifier, {}))
         attrs = record.get("attributes") or {}
 
         def labels(value):
@@ -216,7 +220,7 @@ def popular_content(document):
         return dict(
             id=identifier,
             title=record.get("title") or identifier,
-            provider=labels(record.get("provider")) or "Unknown provider",
+            provider=", ".join(content_providers(record)),
             resourceClass=labels(attrs.get("resourceClasses")),
             resourceType=labels(attrs.get("resourceTypes")),
             formatLabel=labels(attrs.get("format")),
@@ -418,7 +422,7 @@ def run(archives, public, output, supplemental):
         return vals[lo] + (target - lo) * (vals[hi] - vals[lo])
 
     def resource(row):
-        meta = doc["catalog"].get(row["id"], {})
+        meta = content_metadata(doc["catalog"].get(row["id"], {}))
         attrs = meta.get("attributes", {})
         e = events[row["id"]]
         return dict(
@@ -646,15 +650,29 @@ def run(archives, public, output, supplemental):
     endpoints["periods"]["all"] = [
         dict(label=k, **v) for k, v in sorted(totals.items(), key=lambda x: -x[1]["requests"])
     ]
+    historical_outcomes = json.loads((output / "outcomes2026.json").read_text())["periods"]
+    for period in ("2026-07", "2026-08"):
+        for ranking in ("outlinks", "downloads"):
+            for row in historical_outcomes[period][ranking]:
+                meta = content_metadata(
+                    docs[["2026-07", "2026-08"].index(period)]["catalog"].get(row["id"], {})
+                )
+                row["title"] = meta.get("title") or row["id"]
+                row["provider"] = ", ".join(content_providers(meta))
     payloads = {
         "popularHistory2026.json": {d["month"][:7]: popular_content(d) for d in docs[:-1]},
         "september2026.json": september,
         "allTimeThroughSeptember2026.json": all_data,
         "memberAllTimeThroughSeptember2026.json": member_report(all_report),
         "outcomesThroughSeptember2026.json": {
+            "contentCatalogCapturedAt": doc.get(
+                "contentCatalogCapturedAt", doc["catalogCapturedAt"]
+            ),
             "catalogDate": doc["catalogCapturedAt"][:10],
             "exportedAt": doc["catalogCapturedAt"],
             "periods": {
+                "2026-07": historical_outcomes["2026-07"],
+                "2026-08": historical_outcomes["2026-08"],
                 "2026-09": outcomes(sep, details),
                 "all": outcomes(all_report, all_details),
             },

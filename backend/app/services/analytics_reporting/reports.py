@@ -13,6 +13,7 @@ from .contract import (
     provider_groups,
     public_queries,
 )
+from .metadata import content_metadata, content_providers
 from .storage import canonical, checksum
 
 REPORTS = ("overview", "comparison", "content", "discovery", "members", "clients", "platform")
@@ -92,6 +93,9 @@ def build_report(period, through, documents):
                 "month": document["month"][:7],
                 "sources": document["coverage"],
                 "catalogCapturedAt": document.get("catalogCapturedAt"),
+                "contentCatalogCapturedAt": document.get(
+                    "contentCatalogCapturedAt", document.get("catalogCapturedAt")
+                ),
                 "legacySource": (document.get("legacy") or {}).get("source"),
             }
         )
@@ -191,14 +195,16 @@ def build_report(period, through, documents):
                 identifier = dim.get("resource")
                 if not identifier:
                     continue
-                metadata = catalog.get(identifier, {})
+                saved = catalog.get(identifier, {})
+                metadata = content_metadata(saved)
+                member_metadata = saved if saved.get("eligible", True) else {}
                 title = metadata.get("title") or identifier
                 resource = resources.setdefault(
                     identifier,
                     {
                         "id": identifier,
                         "title": title,
-                        "provider": provider_groups(metadata.get("provider")),
+                        "provider": content_providers(metadata),
                         "views": 0,
                         "downloads": 0,
                         "sourceClicks": 0,
@@ -219,7 +225,7 @@ def build_report(period, through, documents):
                             collection_id,
                             {
                                 "id": collection_id,
-                                "title": (catalog.get(collection_id) or {}).get(
+                                "title": content_metadata(catalog.get(collection_id) or {}).get(
                                     "title", collection_id
                                 ),
                                 "views": 0,
@@ -229,8 +235,8 @@ def build_report(period, through, documents):
                             },
                         )
                         collection[metric] = collection.get(metric, 0) + count
-                providers = provider_groups(metadata.get("provider"))
-                code = metadata.get("code") or "Unmapped"
+                providers = provider_groups(member_metadata.get("provider"))
+                code = member_metadata.get("code") or "Unmapped"
                 for grouping, label in [("provider", p) for p in providers] + [("code", code)]:
                     member = members.setdefault(
                         (grouping, label),
@@ -304,6 +310,8 @@ def build_report(period, through, documents):
     inventory = Counter()
     if selected:
         for metadata in (selected[-1].get("catalog") or {}).values():
+            if not metadata.get("eligible", True):
+                continue
             for provider in provider_groups(metadata.get("provider")):
                 inventory[("provider", provider)] += 1
             inventory[("code", metadata.get("code") or "Unmapped")] += 1

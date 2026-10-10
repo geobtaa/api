@@ -1,3 +1,4 @@
+import { outcomes } from '../../data/analytics/outcomes';
 import manifest from '../../../public/analytics-reports/manifest.json';
 import type { AnalyticsReport } from '../../config/analyticsReports';
 
@@ -25,7 +26,7 @@ const definitions: Record<
     source:
       'Interaction events and recorded search constraints joined to catalog metadata at export. July rankings were exported August 20; August rankings September 9; September rankings October 9.',
     grouping:
-      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares the second half of the month with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use each period’s recorded export.',
+      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares the second half of the month with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use the separately dated metadata refresh.',
     limits:
       'Rankings are not restricted to university providers or published, unsuppressed records. Missing catalog records cannot be ranked by title. Multi-collection searches count in each collection; download clicks do not confirm file transfer.',
   },
@@ -90,6 +91,18 @@ export function ReportSources({
           : (period ?? `${month} 1–31, 2026`)}{' '}
         (UTC). Static aggregate snapshots, not live traffic.
       </p>
+      {report === 'content' && (
+        <p>
+          Resource titles and Provider fields refreshed{' '}
+          {new Date(outcomes.contentCatalogCapturedAt).toLocaleDateString(
+            'en-US',
+            { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' }
+          )}
+          , independently of campus inventory eligibility. “Provider not
+          recorded” means the Provider field is empty; “Provider metadata
+          unavailable” means no metadata could be retrieved.
+        </p>
+      )}
       <dl>
         <div>
           <dt>Source</dt>

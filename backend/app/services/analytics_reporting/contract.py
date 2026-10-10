@@ -8,7 +8,7 @@ from datetime import date
 from urllib.parse import parse_qs, urlsplit
 
 SCHEMA_VERSION = 1
-CALCULATION_VERSION = "2"
+CALCULATION_VERSION = "3"
 PRIVACY_VERSION = "1"
 HLL_PRECISION = 14
 START = date(2026, 7, 1)

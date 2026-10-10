@@ -112,11 +112,15 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
         <p>
           Top 50 resources ranked independently by source-site clicks in{' '}
           {outcomeLabels[period]}. Catalog labels are from{' '}
-          {period === '2026-09'
-            ? 'October 9, 2026'
-            : period === 'all'
-              ? 'the preserved monthly catalog snapshots'
-              : 'September 10, 2026'}
+          {new Date(outcomes.contentCatalogCapturedAt).toLocaleDateString(
+            'en-US',
+            {
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric',
+              timeZone: 'UTC',
+            }
+          )}
           ; missing records remain in the ranking.
         </p>
         <div className="analytics-comparison-scroll">
