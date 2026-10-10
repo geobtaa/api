@@ -26,7 +26,7 @@ export function ReportingPeriodPicker({
         onChange={(event) => onChange(event.target.value)}
       >
         {comparison ? (
-          <option value="comparison">July–August 2026</option>
+          <option value="comparison">July–September 2026</option>
         ) : (
           <>
             <option value="2026-09">September 2026</option>

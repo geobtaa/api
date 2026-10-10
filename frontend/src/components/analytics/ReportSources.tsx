@@ -1,3 +1,4 @@
+import manifest from '../../../public/analytics-reports/manifest.json';
 import type { AnalyticsReport } from '../../config/analyticsReports';
 
 const definitions: Record<
@@ -14,17 +15,17 @@ const definitions: Record<
   },
   comparison: {
     source:
-      'The preserved July and August snapshots used by the other reports; this page does not query live analytics.',
+      'The preserved July, August, and September snapshots used by the other reports; this page does not query live analytics.',
     grouping:
-      'Portal figures cover all recorded traffic. Changes use July as the baseline; both periods contain 31 UTC days.',
+      'Portal figures cover all recorded traffic. Changes compare September with August. September has 30 UTC days; July and August have 31.',
     limits:
-      'A zero baseline is shown as N/A when August has activity. API request totals include bots and automated probes.',
+      'A zero baseline is shown as N/A when September has activity. API request totals include bots and automated probes.',
   },
   content: {
     source:
-      'Interaction events and recorded search constraints joined to catalog metadata at export. July rankings were exported August 20; August rankings September 9.',
+      'Interaction events and recorded search constraints joined to catalog metadata at export. July rankings were exported August 20; August rankings September 9; September rankings October 9.',
     grouping:
-      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares days 16–31 with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; their catalog labels were exported September 10.',
+      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares the second half of the month with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use each period’s recorded export.',
     limits:
       'Rankings are not restricted to university providers or published, unsuppressed records. Missing catalog records cannot be ranked by title. Multi-collection searches count in each collection; download clicks do not confirm file transfer.',
   },
@@ -38,23 +39,23 @@ const definitions: Record<
   },
   discovery: {
     source:
-      'Recorded searches and their saved query, view, constraints, and zero-results flag. Query rankings were exported September 10 and facet aggregates September 9 for both months.',
+      'Recorded searches and their saved query, view, constraints, and zero-results flag. July/August query rankings were exported September 10 and facets September 9; September aggregates were exported October 9.',
     grouping:
-      'Top 50 searches group all recorded searches by trimmed, non-empty query text, preserving case and combining filters/views. Zero-result rankings show up to 100 terms with no minimum-frequency cutoff, ordered by count then query using database collation. Facets count distinct searches per category across inclusion, exclusion, and legacy filter formats.',
+      'Top 50 searches group all recorded searches by trimmed, non-empty query text, preserving case and combining filters/views. Zero-result rankings show up to 100 terms subject to the period’s query disclosure policy, ordered by count then query using database collation. Facets count distinct searches per category across inclusion, exclusion, and legacy filter formats.',
     limits:
       'Expand recorded search context to inspect saved filters, pagination, and result totals. Plain query links repeat text only; context links repeat the exported parameters. The historical zero-result flag can include an empty page despite a positive total. Facet counts describe filters present in searches, not clicks, and categories overlap. Map bounds and year ranges are included.',
   },
   clients: {
     source:
-      'Daily API request rollups plus searches and interaction events, exported September 9. August user-agent evidence comes from retained request logs; July raw request logs had expired.',
+      'Daily API request rollups plus searches and interaction events, exported September 9 for July/August and October 9 for September. August/September user-agent evidence comes from retained request logs; July raw request logs had expired.',
     grouping:
       'Client names and channels are caller-declared. API requests, searches, and interactions are counted separately. Endpoint categories classify routes; MCP requests do not measure tool invocations, and OGC requests are not automatically QGIS.',
     limits:
-      'Neither month contains recorded API key IDs, so per-key attribution is unavailable. Missing client names are labeled Not declared. Missing July user-agent evidence is unavailable, not zero.',
+      'The published periods contain no recorded API key IDs, so per-key attribution is unavailable. Missing client names are labeled Not declared. Missing July user-agent evidence is unavailable, not zero.',
   },
   platform: {
     source:
-      'Monthly API request-log aggregates exported August 20 for July and September 9 for August, using requested-at timestamps and response times.',
+      'Monthly API request-log aggregates exported August 20 for July and September 9 for August, and October 9 for September, using requested-at timestamps and response times.',
     grouping:
       'Requests group by route and UTC date. The monthly mix separates API docs, Turnstile status checks, analytics event capture, and other routes. Peak-day categories use the busiest date. Server errors are HTTP status 500 or higher.',
     limits:
@@ -66,12 +67,15 @@ export function ReportSources({
   report,
   month,
   period,
+  snapshotPeriod,
 }: {
   report: AnalyticsReport;
   month: string;
   period?: string;
+  snapshotPeriod?: string;
 }) {
   const info = definitions[report];
+  const archive = manifest.periods.find((entry) => entry.id === snapshotPeriod);
   return (
     <section
       className="analytics-panel analytics-report-sources"
@@ -82,7 +86,7 @@ export function ReportSources({
       <p>
         <strong>Period:</strong>{' '}
         {report === 'comparison'
-          ? 'July 1–31 and August 1–31, 2026'
+          ? 'July 1–31, August 1–31, and September 1–30, 2026'
           : (period ?? `${month} 1–31, 2026`)}{' '}
         (UTC). Static aggregate snapshots, not live traffic.
       </p>
@@ -100,6 +104,16 @@ export function ReportSources({
           <dd>{info.limits}</dd>
         </div>
       </dl>
+      {archive && (
+        <p>
+          <a
+            href={`/analytics-reports/${archive.id}/${archive.revision}/tables.zip`}
+            download
+          >
+            Download full report (CSV and JSON)
+          </a>
+        </p>
+      )}
     </section>
   );
 }

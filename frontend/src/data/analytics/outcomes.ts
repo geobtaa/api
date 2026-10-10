@@ -1,5 +1,11 @@
-import snapshot from './outcomes2026.json';
-export type OutcomePeriod = '2026-07' | '2026-08' | 'all';
+import historical from './outcomes2026.json';
+import latest from './outcomesThroughSeptember2026.json';
+const snapshot = {
+  ...historical,
+  ...latest,
+  periods: { ...historical.periods, ...latest.periods },
+};
+export type OutcomePeriod = '2026-07' | '2026-08' | '2026-09' | 'all';
 export type SearchContext = {
   constraints: Record<string, unknown>;
   page: number | null;
@@ -14,7 +20,8 @@ export const outcomes = snapshot;
 export const outcomeLabels = {
   '2026-07': 'July 2026',
   '2026-08': 'August 2026',
-  all: 'July–August 2026',
+  '2026-09': 'September 2026',
+  all: 'July–September 2026',
 };
 export function searchContexts(
   period: OutcomePeriod,
@@ -49,4 +56,14 @@ export function replaySearch(term: string, context: SearchContext) {
     if (value !== null && !params.has(key)) params.set(key, String(value));
   }
   return `/search?${params}`;
+}
+
+export function withheldSearchContexts(
+  period: OutcomePeriod,
+  term: string
+): number {
+  const report = outcomes.periods[period];
+  return 'withheldSearchContexts' in report
+    ? ((report.withheldSearchContexts as Record<string, number>)[term] ?? 0)
+    : 0;
 }

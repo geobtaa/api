@@ -43,7 +43,11 @@ vi.mock('recharts', () => ({
 // default on shared CI runners. Keep this budget local; WCAG audits retain 60 seconds.
 describe('AnalyticsPage', { timeout: 30_000 }, () => {
   function renderPage(report = 'members&month=2026-07') {
-    window.history.replaceState({}, '', `/analytics?report=${report}`);
+    window.history.replaceState(
+      {},
+      '',
+      `/analytics?report=${report}${report.includes('month=') ? '' : '&month=2026-08'}`
+    );
     return render(
       <HelmetProvider>
         <BrowserRouter>
@@ -53,7 +57,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     );
   }
 
-  it.each(['2026-07', '2026-08', 'all'])(
+  it.each(['2026-07', '2026-08', '2026-09', 'all'])(
     'preserves search controls and contexts for %s',
     (month) => {
       const { container } = renderPage(`discovery&month=${month}`);
@@ -71,7 +75,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         hidden: true,
       });
       expect(within(daily).getAllByRole('row', { hidden: true })).toHaveLength(
-        month === 'all' ? 63 : 32
+        month === 'all' ? 93 : month === '2026-09' ? 31 : 32
       );
       expect(container.querySelector('.analytics-zero-results')).not.toBeNull();
       expect(
@@ -94,7 +98,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       const selector = screen.getByRole('combobox', {
         name: 'Reporting month',
       });
-      for (const month of ['2026-08', 'all', '2026-07']) {
+      for (const month of ['2026-08', '2026-09', 'all', '2026-07']) {
         fireEvent.change(selector, { target: { value: month } });
         expect(selector).toHaveValue(month);
         expect(structure()).toEqual(initial);
@@ -135,12 +139,12 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     });
   });
 
-  it('defaults to August and carries All time across reports with monthly switching', () => {
-    renderPage('overview');
+  it('defaults to September and carries All time across reports with monthly switching', () => {
+    renderPage('overview&month=');
     const month = screen.getByRole('combobox', { name: 'Reporting month' });
-    expect(month).toHaveValue('2026-08');
+    expect(month).toHaveValue('2026-09');
     fireEvent.change(month, { target: { value: 'all' } });
-    expect(screen.getByText('14K')).toBeInTheDocument();
+    expect(screen.getByText('19.5K')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Analytics dashboard' })
     ).toBeInTheDocument();
@@ -153,7 +157,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(within(table).getAllByRole('row')).toHaveLength(51);
     expect(
       within(table).getByRole('link', { name: 'sanborn' }).closest('tr')
-    ).toHaveTextContent('49');
+    ).toHaveTextContent('89');
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
@@ -193,12 +197,12 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         )
       ) {
         expect(
-          screen.getAllByText(/July 1, 2026 – August 31, 2026/).length
+          screen.getAllByText(/July 1, 2026 – September 30, 2026/).length
         ).toBeGreaterThan(0);
       } else {
-        expect(screen.getByText(/September joins once/)).toHaveTextContent(
-          'July 1–August 31, 2026'
-        );
+        expect(
+          screen.getAllByText(/July 1–September 30, 2026/).length
+        ).toBeGreaterThan(0);
       }
       expect(
         screen.getAllByRole('table', { hidden: true }).length
@@ -211,7 +215,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     }
   );
 
-  it.each(['2026-07', '2026-08', 'all'])(
+  it.each(['2026-07', '2026-08', '2026-09', 'all'])(
     'combines Overview charts for %s',
     (month) => {
       renderPage(`overview&month=${month}`);
@@ -276,7 +280,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).not.toBeInTheDocument();
   });
 
-  it.each(['2026-07', '2026-08', 'all'])(
+  it.each(['2026-07', '2026-08', '2026-09', 'all'])(
     'keeps Popular content sections and filtering consistent for %s',
     (month) => {
       const { container } = renderPage(`content&month=${month}`);
@@ -340,7 +344,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).not.toBeInTheDocument();
   });
 
-  it('defaults popular content to August and preserves July through the month selector', () => {
+  it('preserves August popular content and preserves July through the month selector', () => {
     renderPage('content');
     expect(
       screen.getByRole('combobox', { name: 'Reporting month' })

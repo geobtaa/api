@@ -1,8 +1,8 @@
+import { september } from '../data/analytics/september2026';
 import { ReportingPeriodPicker } from '../components/analytics/ReportingPeriodPicker';
 import { ApiDailyReport } from '../components/analytics/ApiDailyReport';
-import reliabilityEndpoints from '../data/analytics/reliabilityEndpoints2026.json';
+import reliabilityEndpoints from '../data/analytics/reliabilityEndpointsThroughSeptember2026.json';
 import { SearchDailyReport } from '../components/analytics/SearchDailyReport';
-import zeroSnapshots from '../data/analytics/zeroResultQueries2026.json';
 import {
   allTimeMembers,
   allTimeMemberSummary,
@@ -14,7 +14,7 @@ import {
   memberCatalogDate,
   memberPortalTotals,
 } from '../data/analytics/memberAllTime';
-import allTimeData from '../data/analytics/allTime2026.json';
+import allTimeData from '../data/analytics/allTimeThroughSeptember2026.json';
 import { ReportContentLayout } from '../components/analytics/ReportContentLayout';
 import { ReportSectionHeading as SectionHeading } from '../components/analytics/ReportSectionHeading';
 import { PopularContentReport } from '../components/analytics/PopularContentReport';
@@ -161,20 +161,46 @@ export function AnalyticsPage() {
   const report = selectedAnalyticsReport(searchParams);
   const isAllTime = searchParams.get('month') === 'all';
   const reportMonth = isAllTime ? 'All time' : analyticsMonth(searchParams);
+  const isSeptember = analyticsMonth(searchParams) === 'September';
+  const monthDays = isSeptember ? 30 : 31;
   const isAugust = analyticsMonth(searchParams) === 'August';
-  const periodRange = isAllTime ? memberRange : `${reportMonth} 1–31, 2026`;
-  const selectedPeriod = isAllTime ? 'all' : isAugust ? '2026-08' : '2026-07';
+  const periodRange = isAllTime
+    ? memberRange
+    : `${reportMonth} 1–${monthDays}, 2026`;
+  const selectedPeriod = isAllTime
+    ? 'all'
+    : isSeptember
+      ? '2026-09'
+      : isAugust
+        ? '2026-08'
+        : '2026-07';
   const memberGrouping =
     searchParams.get('grouping') === 'provider' ? 'provider' : 'code';
-  const topResources = isAugust ? augustTopResources : julyTopResources;
-  const topCollections = isAugust ? augustTopCollections : julyTopCollections;
-  const topDownloadedResources = isAugust
-    ? augustTopDownloadedResources
-    : julyTopDownloadedResources;
-  const contentSummary = isAugust ? AUGUST_2026_SUMMARY : JULY_2026_SUMMARY;
-  const downloadResourceCount = isAugust
-    ? augustDownloadSummary.resources
-    : 695;
+  const topResources = isSeptember
+    ? september.topResources
+    : isAugust
+      ? augustTopResources
+      : julyTopResources;
+  const topCollections = isSeptember
+    ? september.topCollections
+    : isAugust
+      ? augustTopCollections
+      : julyTopCollections;
+  const topDownloadedResources = isSeptember
+    ? september.topDownloads
+    : isAugust
+      ? augustTopDownloadedResources
+      : julyTopDownloadedResources;
+  const contentSummary = isSeptember
+    ? september.summary
+    : isAugust
+      ? AUGUST_2026_SUMMARY
+      : JULY_2026_SUMMARY;
+  const downloadResourceCount = isSeptember
+    ? september.downloadResources
+    : isAugust
+      ? augustDownloadSummary.resources
+      : 695;
   const topDownloadClicks = topDownloadedResources.reduce(
     (sum, row) => sum + row.clicks,
     0
@@ -188,34 +214,43 @@ export function AnalyticsPage() {
         requests: allTimeData.daily.reduce((n, row) => n + row.requests, 0),
         serverErrors: allTimeData.daily.reduce((n, row) => n + row.errors, 0),
         events: allTimeData.daily.reduce((n, row) => n + row.events, 0),
-        resultClicks:
-          JULY_2026_SUMMARY.resultClicks + AUGUST_2026_SUMMARY.resultClicks,
-        exportedAt: 'September 11, 2026',
+        resultClicks: allTimeData.resultClicks,
+        exportedAt: 'October 9, 2026',
       }
-    : isAugust
-      ? AUGUST_2026_SUMMARY
-      : JULY_2026_SUMMARY;
+    : isSeptember
+      ? september.summary
+      : isAugust
+        ? AUGUST_2026_SUMMARY
+        : JULY_2026_SUMMARY;
   const memberSummary = isAllTime
     ? allTimeMemberSummary
-    : isAugust
-      ? augustReports.augustMemberSummary
-      : julyMEMBER_JULY_SUMMARY;
+    : isSeptember
+      ? september.memberSummary
+      : isAugust
+        ? augustReports.augustMemberSummary
+        : julyMEMBER_JULY_SUMMARY;
   const memberPerformance = isAllTime
     ? allTimeMembers
-    : isAugust
-      ? augustReports.augustMembers
-      : julyMemberPerformance;
+    : isSeptember
+      ? september.members
+      : isAugust
+        ? augustReports.augustMembers
+        : julyMemberPerformance;
   const memberDailySeries = isAllTime
     ? allTimeMemberDaily
-    : isAugust
-      ? augustReports.augustMemberDailySeries
-      : julyMemberDailySeries;
+    : isSeptember
+      ? september.memberDailySeries
+      : isAugust
+        ? augustReports.augustMemberDailySeries
+        : julyMemberDailySeries;
   const memberTopContent = isAllTime
     ? allTimeMemberContent
-    : isAugust
-      ? augustReports.augustMemberTopContent
-      : julyMemberTopContent;
-  const monthShort = isAugust ? 'Aug' : 'Jul';
+    : isSeptember
+      ? september.memberTopContent
+      : isAugust
+        ? augustReports.augustMemberTopContent
+        : julyMemberTopContent;
+  const monthShort = isSeptember ? 'Sep' : isAugust ? 'Aug' : 'Jul';
   const dailyActivity = isAllTime
     ? allTimeData.daily.map((row) => ({
         ...row,
@@ -225,12 +260,17 @@ export function AnalyticsPage() {
           timeZone: 'UTC',
         }),
       }))
-    : isAugust
-      ? augustDailyActivity.map((row, index) => ({
+    : isSeptember
+      ? september.dailyActivity.map((row, index) => ({
           ...row,
-          day: `Aug ${index + 1}`,
+          day: `Sep ${index + 1}`,
         }))
-      : julyDailyActivity;
+      : isAugust
+        ? augustDailyActivity.map((row, index) => ({
+            ...row,
+            day: `Aug ${index + 1}`,
+          }))
+        : julyDailyActivity;
   const discoveryViews = isAllTime
     ? allTimeData.searchViews.map((row) => ({
         label: row.label.charAt(0).toUpperCase() + row.label.slice(1),
@@ -243,23 +283,18 @@ export function AnalyticsPage() {
             (view) => view.label.toLowerCase() === row.label
           )?.color ?? '#003C5B',
       }))
-    : isAugust
-      ? augustReports.augustDiscoveryViews
-      : julyDiscoveryViews;
+    : isSeptember
+      ? september.discoveryViews
+      : isAugust
+        ? augustReports.augustDiscoveryViews
+        : julyDiscoveryViews;
   const resourceClassFilters = isAllTime
-    ? julyResourceClassFilters
-        .map((row) => ({
-          ...row,
-          count:
-            row.count +
-            (augustReports.augustResourceClassFilters.find(
-              (item) => item.label === row.label
-            )?.count ?? 0),
-        }))
-        .sort((a, b) => b.count - a.count)
-    : isAugust
-      ? augustReports.augustResourceClassFilters
-      : julyResourceClassFilters;
+    ? allTimeData.resourceClassFilters
+    : isSeptember
+      ? september.resourceClassFilters
+      : isAugust
+        ? augustReports.augustResourceClassFilters
+        : julyResourceClassFilters;
   const topSearchSnapshot = isAllTime
     ? {
         ...allTimeData.searchTotals,
@@ -269,14 +304,16 @@ export function AnalyticsPage() {
           0
         ),
       }
-    : topSearches.months[isAugust ? '2026-08' : '2026-07'];
+    : isSeptember
+      ? september.topSearches
+      : topSearches.months[isAugust ? '2026-08' : '2026-07'];
   const topSearchTerms = topSearchSnapshot.queries.map((query, index) => ({
     ...query,
     rank: index + 1,
     category: queryCategory(query.term),
   }));
   const [selectedQueryCategory, setQueryCategoryFilter] = useState('all');
-  const snapshotMonth = isAugust ? '2026-08' : '2026-07';
+  const snapshotMonth = selectedPeriod;
   const [overviewMetric, setOverviewMetric] = useState<
     'events' | 'visits' | 'views' | 'searches'
   >('events');
@@ -327,24 +364,11 @@ export function AnalyticsPage() {
     (query) =>
       queryCategoryFilter === 'all' || query.category === queryCategoryFilter
   );
-  const allTimeFacets = new globalThis.Map<string, number>();
-  for (const month of allTimeData.publishedMonths) {
-    for (const facet of searchSnapshots[month as keyof typeof searchSnapshots]
-      .facets) {
-      allTimeFacets.set(
-        facet.field,
-        (allTimeFacets.get(facet.field) ?? 0) + facet.count
-      );
-    }
-  }
   const searchSnapshot = isAllTime
-    ? {
-        zeroQueries: allTimeData.zeroQueries,
-        facets: [...allTimeFacets]
-          .map(([field, count]) => ({ field, count }))
-          .sort((a, b) => b.count - a.count),
-      }
-    : searchSnapshots[isAugust ? '2026-08' : '2026-07'];
+    ? { zeroQueries: allTimeData.zeroQueries, facets: allTimeData.facets }
+    : isSeptember
+      ? september.searchSnapshot
+      : searchSnapshots[isAugust ? '2026-08' : '2026-07'];
   const topZeroResultQueries = searchSnapshot.zeroQueries;
   const facetLabels: Record<string, string> = {
     ...FACET_LABELS,
@@ -366,23 +390,35 @@ export function AnalyticsPage() {
           row.count +
           (augustReports.augustRequestMix.find(
             (item) => item.label === row.label
-          )?.count ?? 0);
+          )?.count ?? 0) +
+          (september.requestMix.find((item) => item.label === row.label)
+            ?.count ?? 0);
         return { ...row, count, percent: (count / summary.requests) * 100 };
       })
-    : isAugust
-      ? augustReports.augustRequestMix
-      : julyRequestMix;
-  const peakApiTrafficBreakdown = isAugust
+    : isSeptember
+      ? september.requestMix
+      : isAugust
+        ? augustReports.augustRequestMix
+        : julyRequestMix;
+  const peakApiTrafficBreakdown = isAllTime
     ? augustReports.augustPeakApiTrafficBreakdown
-    : julyPeakApiTrafficBreakdown;
+    : isSeptember
+      ? september.peakApiTrafficBreakdown
+      : isAugust
+        ? augustReports.augustPeakApiTrafficBreakdown
+        : julyPeakApiTrafficBreakdown;
   const inventoryDate = isAllTime
     ? memberCatalogDate
+    : isSeptember
+      ? 'October 9, 2026'
+      : isAugust
+        ? 'September 9, 2026'
+        : 'August 20, 2026';
+  const zeroQueries = isSeptember
+    ? september.zeroBreakdown
     : isAugust
-      ? 'September 9, 2026'
-      : 'August 20, 2026';
-  const zeroQueries = isAugust
-    ? augustReports.augustZeroResultBreakdown
-    : { with_query: 758, without_query: 340 };
+      ? augustReports.augustZeroResultBreakdown
+      : { with_query: 758, without_query: 340 };
   const peakActivity = dailyActivity.reduce((peak, row) =>
     row.events > peak.events ? row : peak
   );
@@ -423,7 +459,7 @@ export function AnalyticsPage() {
 
   const allMemberDailySeries = {
     views: Array.from(
-      { length: isAllTime ? memberDays.length : 31 },
+      { length: isAllTime ? memberDays.length : monthDays },
       (_, index) =>
         memberPerformance.reduce(
           (total, member) =>
@@ -432,7 +468,7 @@ export function AnalyticsPage() {
         )
     ),
     downloads: Array.from(
-      { length: isAllTime ? memberDays.length : 31 },
+      { length: isAllTime ? memberDays.length : monthDays },
       (_, index) =>
         memberPerformance.reduce(
           (total, member) =>
@@ -527,7 +563,7 @@ export function AnalyticsPage() {
     <div className="analytics-page min-h-screen bg-gray-50">
       <Seo
         title={`${report.label} — Analytics — ${report.period}`}
-        description="Compare July and August 2026 API traffic and discovery activity, with monthly resource, member, discovery, and reliability reports."
+        description="Compare July, August, and September 2026 API traffic and discovery activity, with monthly resource, member, discovery, and reliability reports."
       />
       <AnalyticsHeader activeReport={activeReport} />
 
@@ -647,9 +683,11 @@ export function AnalyticsPage() {
                 topResources={topResources}
                 topCollections={topCollections}
                 collectionNote={
-                  isAugust
-                    ? `${topCollections[0].title} led August with ${topCollections[0].searches} filtered searches.`
-                    : 'Urban Base Layers held the top spot, while historical maps claimed five positions in the collection top 10.'
+                  isSeptember
+                    ? `${topCollections[0]?.title} led September with ${topCollections[0]?.searches} filtered searches.`
+                    : isAugust
+                      ? `${topCollections[0].title} led August with ${topCollections[0].searches} filtered searches.`
+                      : 'Urban Base Layers held the top spot, while historical maps claimed five positions in the collection top 10.'
                 }
                 topDownloadedResources={topDownloadedResources}
                 downloadClicks={contentSummary.downloadClicks}
@@ -687,7 +725,13 @@ export function AnalyticsPage() {
               <ProviderReport
                 key={selectedPeriod}
                 month={isAllTime ? memberRange : snapshotMonth}
-                snapshot={isAllTime ? allTimeProviderSnapshot : undefined}
+                snapshot={
+                  isAllTime
+                    ? allTimeProviderSnapshot
+                    : isSeptember
+                      ? september.provider
+                      : undefined
+                }
               />
             )}
 
@@ -1096,7 +1140,13 @@ export function AnalyticsPage() {
 
                 <CodeCoverage
                   month={selectedPeriod}
-                  snapshot={isAllTime ? allTimeProviderSnapshot : undefined}
+                  snapshot={
+                    isAllTime
+                      ? allTimeProviderSnapshot
+                      : isSeptember
+                        ? september.provider
+                        : undefined
+                  }
                 />
                 <section
                   className="analytics-panel analytics-report-sources"
@@ -1474,15 +1524,16 @@ export function AnalyticsPage() {
                       case preserved. Filters and views are combined; links
                       repeat the query text only. Empty queries are excluded.
                       Exported{' '}
-                      {new Date(topSearches.exportedAt).toLocaleDateString(
-                        'en-US',
-                        {
-                          timeZone: 'UTC',
-                          month: 'long',
-                          day: 'numeric',
-                          year: 'numeric',
-                        }
-                      )}
+                      {new Date(
+                        isSeptember || isAllTime
+                          ? '2026-10-09'
+                          : topSearches.exportedAt
+                      ).toLocaleDateString('en-US', {
+                        timeZone: 'UTC',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
                       .
                     </p>
                   </div>
@@ -1627,14 +1678,7 @@ export function AnalyticsPage() {
                     zeroResults={summary.zeroResultSearches}
                     withQuery={
                       isAllTime
-                        ? allTimeData.publishedMonths.reduce(
-                            (sum, month) =>
-                              sum +
-                              zeroSnapshots.months[
-                                month as keyof typeof zeroSnapshots.months
-                              ].withQuery,
-                            0
-                          )
+                        ? allTimeData.zeroWithQuery
                         : zeroQueries.with_query
                     }
                     queries={topZeroResultQueries}
@@ -1833,6 +1877,7 @@ export function AnalyticsPage() {
               report={activeReport}
               month={reportMonth}
               period={periodRange}
+              snapshotPeriod={selectedPeriod}
             />
 
             {activeReport === 'content' && (
@@ -1840,7 +1885,7 @@ export function AnalyticsPage() {
                 {periodRange} (UTC) · Exported {contentSummary.exportedAt}.
                 Rankings use recorded interactions and catalog metadata at
                 export. Actions are tracked events other than resource views;
-                momentum compares days 16–31 with days 1–15.
+                momentum compares days 16–{monthDays} with days 1–15.
               </p>
             )}
 
@@ -1864,7 +1909,7 @@ export function AnalyticsPage() {
                   <span>
                     {isAllTime
                       ? `${memberDays.length} days · Preserved reporting aggregates`
-                      : '7 analytics tables · 1 catalog snapshot · 31 complete days'}
+                      : `7 analytics tables · 1 catalog snapshot · ${monthDays} complete days`}
                   </span>
                 </section>
               )}

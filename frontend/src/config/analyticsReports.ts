@@ -63,7 +63,11 @@ export function analyticsReportHref(
 }
 
 export function analyticsMonth(params: URLSearchParams) {
-  return params.get('month') === '2026-07' ? 'July' : 'August';
+  return params.get('month') === '2026-07'
+    ? 'July'
+    : params.get('month') === '2026-08'
+      ? 'August'
+      : 'September';
 }
 
 export function selectedAnalyticsReport(params: URLSearchParams) {

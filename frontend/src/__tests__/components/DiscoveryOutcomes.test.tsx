@@ -10,15 +10,17 @@ import {
   outcomes,
   replaySearch,
   searchContexts,
+  withheldSearchContexts,
 } from '../../data/analytics/outcomes';
 import zero from '../../data/analytics/zeroResultQueries2026.json';
-import all from '../../data/analytics/allTime2026.json';
+import all from '../../data/analytics/allTimeThroughSeptember2026.json';
+import september from '../../data/analytics/september2026.json';
 
 describe('discovery outcomes', () => {
   it('reconciles access totals, daily history and independently ranked resources', () => {
-    expect(outcomes.periods.all.totals.sources).toBe(1987);
-    expect(outcomes.periods.all.totals.downloads).toBe(1745);
-    for (const period of ['2026-07', '2026-08', 'all'] as const) {
+    expect(outcomes.periods.all.totals.sources).toBe(2869);
+    expect(outcomes.periods.all.totals.downloads).toBe(2621);
+    for (const period of ['2026-07', '2026-08', '2026-09', 'all'] as const) {
       const report = outcomes.periods[period];
       for (const metric of ['sources', 'downloads', 'views'] as const)
         expect(report.daily.reduce((n, d) => n + d[metric], 0)).toBe(
@@ -34,12 +36,17 @@ describe('discovery outcomes', () => {
         )
       ).toBe(true);
       const terms =
-        period === 'all' ? all.zeroQueries : zero.months[period].zeroQueries;
+        period === 'all'
+          ? all.zeroQueries
+          : period === '2026-09'
+            ? september.searchSnapshot.zeroQueries
+            : zero.months[period].zeroQueries;
       for (const term of terms)
         expect(
-          searchContexts(period, term.term).reduce((n, c) => n + c.count, 0)
+          searchContexts(period, term.term).reduce((n, c) => n + c.count, 0) +
+            withheldSearchContexts(period, term.term)
         ).toBe(term.count);
-      expect(report.clients).toEqual([
+      expect(report.clients.filter((row) => row.records > 0)).toEqual([
         {
           client: 'geoportal-web',
           channel: 'browser',
@@ -49,12 +56,12 @@ describe('discovery outcomes', () => {
     }
   });
   it('deduplicates full-period visits instead of summing monthly distinct counts', () => {
-    expect(outcomes.periods.all.audience.trackedVisits).toBe(20735);
+    expect(outcomes.periods.all.audience.trackedVisits).toBe(27892);
     expect(
       outcomes.periods['2026-07'].audience.trackedVisits +
         outcomes.periods['2026-08'].audience.trackedVisits
     ).toBe(20749);
-    expect(outcomes.periods.all.audience.recordsWithoutToken).toBe(120);
+    expect(outcomes.periods.all.audience.recordsWithoutToken).toBe(128);
     expect(outcomes.periods.all.totals.pageViews).toBe(0);
   });
   it('renders both monthly bars and a sortable independent outlink ranking', () => {
@@ -64,7 +71,7 @@ describe('discovery outcomes', () => {
         <OutlinkedResources period="all" />
       </MemoryRouter>
     );
-    expect(screen.getByText('1,987')).toBeInTheDocument();
+    expect(screen.getByText('2,869')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'July 2026' })
     ).toBeInTheDocument();

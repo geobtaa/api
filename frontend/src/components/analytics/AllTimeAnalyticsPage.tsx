@@ -1,13 +1,14 @@
+import manifest from '../../../public/analytics-reports/manifest.json';
 import { ReportingPeriodPicker } from './ReportingPeriodPicker';
 import { ReportContentLayout } from './ReportContentLayout';
-import collectionSearches from '../../data/analytics/collectionSearchesAllTime2026.json';
+import collectionSearches from '../../data/analytics/collectionSearchesThroughSeptember2026.json';
 import type { CollectionChartEntry } from '../../data/analytics/july2026';
 import { PopularContentReport } from './PopularContentReport';
 import { AccessSummary, OutlinkedResources } from './DiscoveryOutcomes';
 import { outcomes } from '../../data/analytics/outcomes';
 import { Seo } from '../Seo';
 import { useSearchParams } from 'react-router';
-import data from '../../data/analytics/allTime2026.json';
+import data from '../../data/analytics/allTimeThroughSeptember2026.json';
 
 import {
   analyticsReports,
@@ -15,7 +16,8 @@ import {
 } from '../../config/analyticsReports';
 import { AnalyticsHeader } from './AnalyticsHeader';
 
-const range = 'July 1–August 31, 2026';
+const range = 'July 1–September 30, 2026';
+const archive = manifest.periods.find((entry) => entry.id === 'all')!;
 export function AllTimeAnalyticsPage({
   reportId,
 }: {
@@ -37,7 +39,7 @@ export function AllTimeAnalyticsPage({
             <h1>{report.label}</h1>
             <span>
               {range}. Includes published months since the academic year began
-              July 1. September joins once its monthly report is published.
+              July 1.
             </span>
           </div>
           <ReportingPeriodPicker
@@ -102,7 +104,8 @@ export function AllTimeAnalyticsPage({
                 their month. Searches and content rankings are recomputed from
                 full-period records, not combined top lists. Resource
                 impressions use durable daily aggregates; inventory and
-                attribution use the catalog on {data.catalogDate}.
+                attribution use each monthly catalog snapshot; latest capture{' '}
+                {data.catalogDate}.
               </p>
               <p>
                 Exported{' '}
@@ -111,15 +114,23 @@ export function AllTimeAnalyticsPage({
                 })}
                 . Tables are sortable and filterable.
               </p>
+              <p>
+                <a
+                  href={`/analytics-reports/all/${archive.revision}/tables.zip`}
+                  download
+                >
+                  Download full report (CSV and JSON)
+                </a>
+              </p>
             </section>
             {reportId === 'content' && (
               <p>
-                The most-viewed ranking uses current published, unsuppressed
-                catalog metadata. Outlink and download rankings include all
-                recorded resource IDs, retaining missing catalog records.
-                Collection rankings are rebuilt from preserved monthly search
-                dimensions before selecting the top ten. Half-month momentum
-                remains in monthly reports.
+                The most-viewed ranking uses preserved monthly catalog metadata.
+                Outlink and download rankings include all recorded resource IDs,
+                retaining missing catalog records. Collection rankings are
+                rebuilt from preserved monthly search dimensions before
+                selecting the top ten. Half-month momentum remains in monthly
+                reports.
               </p>
             )}
           </div>

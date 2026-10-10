@@ -1,4 +1,4 @@
-import preserved from './memberAllTime2026.json';
+import preserved from './memberAllTimeThroughSeptember2026.json';
 import { memberPerformance as institutions } from './july2026';
 import type { ProviderSnapshot } from './providers2026';
 
@@ -92,7 +92,7 @@ export const allTimeProviderSnapshot: ProviderSnapshot = {
   catalogSnapshotDate: memberCatalogDate,
   exportedAt: preserved.catalogCapturedAt,
   impressionSource:
-    'Preserved period aggregates. A record with multiple Providers contributes to each named Provider, so provider totals overlap. July resource-level impressions were unavailable; preserved attribution and reach cannot recover missing historical evidence.',
+    'Preserved period aggregates. A record with multiple Providers contributes to each named Provider, so provider totals overlap. July resource-level impressions use preserved daily rollups. Historical catalog capture dates are retained.',
   totals: providers.reduce(
     (total, row) => ({
       catalogRecords: total.catalogRecords + row.inventory,

@@ -1,3 +1,4 @@
+import { september } from '../../data/analytics/september2026';
 import { ReportSectionHeading } from './ReportSectionHeading';
 import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, BarChart3 } from 'lucide-react';
@@ -50,6 +51,7 @@ export function MonthlyComparison() {
     day: index + 1,
     July: julyDailyActivity[index][dailyMetric],
     August: point[dailyMetric],
+    September: september.dailyActivity[index]?.[dailyMetric] ?? null,
   }));
 
   return (
@@ -60,8 +62,8 @@ export function MonthlyComparison() {
     >
       <ReportSectionHeading
         id="comparison-title"
-        title="August compared with July"
-        description="Two complete 31-day periods in 2026. Changes use July as the baseline."
+        title="September compared with August"
+        description="Three complete months in 2026. September has 30 days; July and August have 31. Changes compare September with August."
       />
       <div className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader
@@ -76,13 +78,14 @@ export function MonthlyComparison() {
         >
           <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
-              July and August 2026 portal totals and changes
+              July, August, and September 2026 portal totals and changes
             </caption>
             <thead>
               <tr>
                 <th scope="col">Metric</th>
                 <th scope="col">July 2026</th>
                 <th scope="col">August 2026</th>
+                <th scope="col">September 2026</th>
                 <th scope="col">Change</th>
                 <th scope="col">Change %</th>
               </tr>
@@ -91,17 +94,19 @@ export function MonthlyComparison() {
               {summaryMetrics.map(([key, label]) => {
                 const july = JULY_2026_SUMMARY[key];
                 const august = AUGUST_2026_SUMMARY[key];
-                const delta = august - july;
+                const latest = september.summary[key];
+                const delta = latest - august;
                 return (
                   <tr key={key}>
                     <th scope="row">{label}</th>
                     <td>{number.format(july)}</td>
                     <td>{number.format(august)}</td>
+                    <td>{number.format(latest)}</td>
                     <td>
                       {delta > 0 ? '+' : ''}
                       {number.format(delta)}
                     </td>
-                    <td>{comparisonChange(july, august)}</td>
+                    <td>{comparisonChange(august, latest)}</td>
                   </tr>
                 );
               })}
@@ -134,13 +139,14 @@ export function MonthlyComparison() {
           </label>
         </ReportPanelHeader>
         <p className="analytics-comparison-note">
-          Compare July and August side by side for each day of the month. Bar
-          heights use the same scale; dates are not aligned by weekday.
+          Compare July, August, and September side by side for each day of the
+          month. Bar heights use the same scale; dates are not aligned by
+          weekday.
         </p>
         <div
           className="analytics-comparison-chart"
           role="img"
-          aria-label={`${dailyMetrics[dailyMetric]} for July and August as paired bars for each day of month. Exact values are available in the daily values table below.`}
+          aria-label={`${dailyMetrics[dailyMetric]} for July, August, and September as grouped bars for each day of month. Exact values are available in the daily values table below.`}
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData} barGap={2} barCategoryGap="20%">
@@ -168,6 +174,12 @@ export function MonthlyComparison() {
                 fill="#0f766e"
                 isAnimationActive={false}
               />
+              <Bar
+                dataKey="September"
+                name="September 2026"
+                fill="#2563eb"
+                isAnimationActive={false}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -182,13 +194,14 @@ export function MonthlyComparison() {
             <AnalyticsTable className="analytics-comparison-table">
               <caption className="sr-only">
                 Daily {dailyMetrics[dailyMetric].toLowerCase()} in July and
-                August 2026
+                August, and September 2026
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Day of month</th>
                   <th scope="col">July</th>
                   <th scope="col">August</th>
+                  <th scope="col">September</th>
                   <th scope="col">Change</th>
                   <th scope="col">Change %</th>
                 </tr>
@@ -200,10 +213,20 @@ export function MonthlyComparison() {
                     <td>{number.format(row.July)}</td>
                     <td>{number.format(row.August)}</td>
                     <td>
-                      {row.August > row.July ? '+' : ''}
-                      {number.format(row.August - row.July)}
+                      {row.September === null
+                        ? '—'
+                        : number.format(row.September)}
                     </td>
-                    <td>{comparisonChange(row.July, row.August)}</td>
+                    <td>
+                      {row.September === null
+                        ? '—'
+                        : `${row.September > row.August ? '+' : ''}${number.format(row.September - row.August)}`}
+                    </td>
+                    <td>
+                      {row.September === null
+                        ? '—'
+                        : comparisonChange(row.August, row.September)}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -212,9 +235,9 @@ export function MonthlyComparison() {
         </details>
       </div>
       <p className="analytics-comparison-note">
-        August covers August 1–31, 2026 (UTC), exported{' '}
-        {AUGUST_2026_SUMMARY.exportedAt}. July uses the preserved August 20
-        export. Monthly rankings and campus reports for both months are
+        September covers September 1–30, 2026 (UTC), exported{' '}
+        {september.summary.exportedAt}. July uses the preserved August 20
+        export. Monthly rankings and campus reports for all three months are
         available from the report navigation.
       </p>
     </section>

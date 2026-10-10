@@ -508,8 +508,9 @@ days. Its October 9 export reconciles 475,908 API requests, 5,536 search result
 pages, 90,683 impressions, and 14,509 interactions. Those interactions include
 10,497 resource views, 876 download clicks, and 882 source-site clicks.
 
-September and the refreshed All time report use the existing versioned reporting
-contract through `SnapshotAnalyticsPage`. The static files live under
+September and the refreshed All time report use the established `AnalyticsPage`
+layout, charts, content cards, campus selectors, and searchable tables. A data
+projection converts preserved reporting inputs to those components’ existing shapes. The static files live under
 `frontend/public/analytics-reports/`; their manifest identifies exact revisions.
 July and August retain their original monthly presentations and source snapshots.
 The comparison report now includes all three months. Cumulative data are rebuilt
@@ -518,8 +519,7 @@ adding distinct visit counts. Historical gaps remain explicitly unavailable.
 Catalog attribution uses each input's recorded capture date; September's catalog
 was captured October 9, not at September month-end.
 
-Rankings on screen are limited to 100 entries. Member resource previews retain
-the leading ten resources for each activity metric in each grouping. Each report
+Rankings and member previews retain the established presentation limits. Each report
 provides a ZIP download containing the complete public report and its CSV/JSON
 tables, with the existing query disclosure policy and CSV formula escaping.
 Raw tokens, IP addresses, and preservation receipts are not public downloads.
@@ -531,6 +531,14 @@ To regenerate locally from reconciled private archives:
 ```bash
 python backend/scripts/export_analytics_snapshots.py /path/to/july.json.gz /path/to/august.json.gz /path/to/september.json.gz --through 2026-10-01 --period 2026-09 --period all --output frontend/public/analytics-reports
 ```
+
+After that export, run `backend/scripts/export_analytics_design_data.py` with the
+same archive paths, `--public frontend/public/analytics-reports`,
+`--output frontend/src/data/analytics`, and `--supplemental /path/to/verified-counts.json`.
+The supplemental aggregate file provides search counts, distinct non-empty query
+counts, zero-result searches with query text, and September event-only engaged
+visits. These preserve the original comparison definitions without substituting
+HLL audience estimates. Original July/August source files are unchanged.
 
 The exporter validates archive receipts, rejects duplicate or missing months,
 and reconciles additive daily totals before writing the manifest. Keep private

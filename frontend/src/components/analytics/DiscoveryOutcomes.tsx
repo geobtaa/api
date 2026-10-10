@@ -29,7 +29,7 @@ const dateLabel = (day: string) =>
 export function AccessSummary({ period }: { period: OutcomePeriod }) {
   const report = outcomes.periods[period];
   const months =
-    period === 'all' ? (['2026-07', '2026-08'] as const) : [period];
+    period === 'all' ? (['2026-07', '2026-08', '2026-09'] as const) : [period];
   const maximum = Math.max(
     ...months.flatMap((month) => [
       outcomes.periods[month].totals.sources,
@@ -112,7 +112,12 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
         <p>
           Top 50 resources ranked independently by source-site clicks in{' '}
           {outcomeLabels[period]}. Catalog labels are from{' '}
-          {outcomes.catalogDate}; missing records remain in the ranking.
+          {period === '2026-09'
+            ? 'October 9, 2026'
+            : period === 'all'
+              ? 'the preserved monthly catalog snapshots'
+              : 'September 10, 2026'}
+          ; missing records remain in the ranking.
         </p>
         <div className="analytics-comparison-scroll">
           <AnalyticsTable className="analytics-comparison-table analytics-outlinks-table">
@@ -200,9 +205,14 @@ export function AudienceReport({
         <div className="analytics-audience-cards">
           <div>
             <h3>Tracked visits</h3>
-            <strong>{n.format(report.audience.trackedVisits)}</strong>
+            <strong>
+              {period === '2026-09' || period === 'all' ? '≈ ' : ''}
+              {n.format(report.audience.trackedVisits)}
+            </strong>
             <p>
-              Distinct tab-scoped visit tokens across searches and interactions.
+              {period === '2026-09' || period === 'all'
+                ? 'Estimated distinct tab-scoped visit tokens across searches and interactions (about 0.81% relative standard error).'
+                : 'Distinct tab-scoped visit tokens across searches and interactions.'}
             </p>
           </div>
         </div>
@@ -275,8 +285,8 @@ export function AudienceReport({
           </div>
         </section>
         <p className="analytics-comparison-note">
-          All {n.format(report.audience.activityRecords)} search and interaction
-          records declare the Geoportal browser client.{' '}
+          {n.format(report.audience.activityRecords)} recorded searches and
+          interactions contribute to this report.{' '}
           {n.format(report.audience.recordsWithoutToken)} records lack a visit
           token and cannot contribute to tracked visits. Tokens use
           sessionStorage: a tab can span days, and multiple tabs can represent
@@ -287,9 +297,12 @@ export function AudienceReport({
         </p>
         <p className="analytics-comparison-note">
           Source: analytics_searches and analytics_events, exported{' '}
-          {outcomes.catalogDate}, UTC. Historical values are complete for these
-          recorded event types, not a census of every visitor. The GA4/GTM
-          connection and general SPA pageview coverage remain unverified.
+          {period === '2026-09' || period === 'all'
+            ? outcomes.catalogDate
+            : '2026-09-10'}
+          , UTC. Historical values are complete for these recorded event types,
+          not a census of every visitor. The GA4/GTM connection and general SPA
+          pageview coverage remain unverified.
         </p>
       </div>
     </Container>

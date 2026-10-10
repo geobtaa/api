@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router';
 import {
   searchContexts,
+  withheldSearchContexts,
   replaySearch,
   type OutcomePeriod,
 } from '../../data/analytics/outcomes';
@@ -34,7 +35,12 @@ export function FailedSearchContext({
 }) {
   const [expanded, setExpanded] = useState(false);
   const contexts = searchContexts(period, term);
-  if (!contexts.length) return <span>Not available in this export</span>;
+  const withheld = withheldSearchContexts(period, term);
+  const withheldNote = `${withheld} ${withheld === 1 ? 'search has' : 'searches have'} context withheld by the query disclosure policy.`;
+  if (!contexts.length)
+    return (
+      <span>{withheld ? withheldNote : 'Not available in this export'}</span>
+    );
   return (
     <details
       className="analytics-query-context"
@@ -94,6 +100,7 @@ export function FailedSearchContext({
           ))}
         </ul>
       )}
+      {withheld > 0 && <p>{withheldNote}</p>}
       <p>
         Current results can differ from the historical catalog. Unknown or
         tracking parameters are omitted.

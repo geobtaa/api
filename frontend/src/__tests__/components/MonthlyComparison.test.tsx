@@ -30,11 +30,12 @@ describe('MonthlyComparison', () => {
     const views = within(table).getByRole('row', { name: /Resource views/ });
     expect(views).toHaveTextContent('12,200');
     expect(views).toHaveTextContent('17,440');
-    expect(views).toHaveTextContent('+5,240');
-    expect(views).toHaveTextContent('+43.0%');
+    expect(views).toHaveTextContent('10,497');
+    expect(views).toHaveTextContent('-6,943');
+    expect(views).toHaveTextContent('-39.8%');
     expect(
       within(table).getByRole('row', { name: /Download clicks/ })
-    ).toHaveTextContent('-13.0%');
+    ).toHaveTextContent('+7.9%');
     expect(
       screen.queryByRole('link', { name: /Download comparison/ })
     ).not.toBeInTheDocument();
@@ -47,11 +48,14 @@ describe('MonthlyComparison', () => {
       target: { value: 'requests' },
     });
     expect(
-      screen.getByRole('img', { name: /API requests for July and August/ })
+      screen.getByRole('img', {
+        name: /API requests for July, August, and September/,
+      })
     ).toBeInTheDocument();
     fireEvent.click(screen.getByText('Daily values: API requests'));
     const daily = screen.getByRole('table', { name: /Daily api requests/ });
     expect(within(daily).getAllByRole('row')).toHaveLength(32);
+    expect(within(daily).getAllByRole('row')[31]).toHaveTextContent('—');
     const dayOne = within(daily).getAllByRole('row')[1];
     expect(dayOne).toHaveTextContent(
       new Intl.NumberFormat('en-US').format(augustDailyActivity[0].requests)
