@@ -72,7 +72,7 @@ export function AllTimeAnalyticsPage({
                   }))}
                   topCollections={(
                     collectionSearches.collections as CollectionChartEntry[]
-                  ).slice(0, 10)}
+                  ).slice(0, 50)}
                   collectionNote={collectionSearches.method}
                   topDownloadedResources={outcomes.periods.all.downloads.map(
                     (row) => ({
@@ -129,7 +129,7 @@ export function AllTimeAnalyticsPage({
                 Outlink and download rankings include all recorded resource IDs,
                 retaining missing catalog records. Collection rankings are
                 rebuilt from preserved monthly search dimensions before
-                selecting the top ten. Half-month momentum remains in monthly
+                selecting the top 50. Half-month momentum remains in monthly
                 reports.
               </p>
             )}

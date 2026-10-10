@@ -437,7 +437,7 @@ states the gaps; it does not claim GA4 parity or completed-download measurement.
 Generate collection-filter counts from preserved monthly reporting archives with
 `PYTHONPATH=backend python backend/scripts/export_collection_searches.py /path/to/month1.json.gz /path/to/month2.json.gz --output /path/to/collection-counts.json`.
 Supply one archive revision per month. The output records source checksums and
-preserves the complete collection ranking; the dashboard selects the top ten
+preserves the complete collection ranking; the dashboard selects the top 50
 after aggregation. Collection IDs unify legacy `dct_isPartOf_sm` and
 `pcdm_memberOf_sm` controls. Local collection labels remain separate. Include,
 exclude, and legacy controls count once per search per collection; overlapping
@@ -544,3 +544,12 @@ The exporter validates archive receipts, rejects duplicate or missing months,
 and reconciles additive daily totals before writing the manifest. Keep private
 archives outside tracked source files. Production extraction and preservation
 procedures belong in the restricted operations documentation.
+
+## Popular content ranking depth
+
+Popular content shows up to 50 Resources, Collections, Downloads, and Outlinked
+resources for every published month and All time. Rankings are selected from
+complete preserved aggregates, not extended from earlier top-ten lists.
+`export_analytics_design_data.py` also emits `popularHistory2026.json` for the
+expanded July/August resource, collection, and download rankings. Original source
+snapshots remain unchanged; fewer than 50 entries appear only when fewer qualify.

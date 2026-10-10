@@ -111,6 +111,31 @@ describe(
         screen.getByLabelText('Overview chart metric')
       ).toBeInTheDocument();
     });
+    it.each([
+      ['2026-07', 50],
+      ['2026-08', 43],
+      ['2026-09', 44],
+      ['all', 50],
+    ] as const)(
+      'shows the Top 50 in all Popular content sections for %s',
+      (month, collections) => {
+        const { container } = page('content', month);
+        expect(
+          container.querySelectorAll('#top-resources .analytics-ranking-row')
+        ).toHaveLength(50);
+        expect(
+          container.querySelectorAll(
+            '#collections .analytics-collection-list > li'
+          )
+        ).toHaveLength(collections);
+        expect(
+          container.querySelectorAll('#downloads .analytics-download-list > li')
+        ).toHaveLength(50);
+        expect(
+          container.querySelectorAll('#outlinked-resources tbody tr')
+        ).toHaveLength(50);
+      }
+    );
     it('reconciles all daily totals and includes exactly 30 September dates', () => {
       expect(september.dailyActivity).toHaveLength(30);
       expect(september.dailyActivity.at(-1)?.day).toBe('2026-09-30');

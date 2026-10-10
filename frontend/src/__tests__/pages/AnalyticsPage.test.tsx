@@ -355,9 +355,9 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Rivers, Nepal, 2013' })
+      screen.getAllByRole('link', { name: 'Rivers, Nepal, 2013' })[0]
     ).toBeInTheDocument();
-    expect(screen.getByText(/55 of 812 clicks/)).toBeInTheDocument();
+    expect(screen.getByText(/171 of 812 clicks/)).toBeInTheDocument();
     expect(
       screen.getByText(/598 resources with download clicks/)
     ).toBeInTheDocument();
@@ -365,7 +365,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       screen.getAllByTitle(
         'All tracked interactions in August 16–31 compared with August 1–15'
       )
-    ).toHaveLength(10);
+    ).toHaveLength(50);
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
@@ -376,10 +376,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         name: 'July’s top resources and collections',
       })
     ).toBeInTheDocument();
-    expect(screen.getByText(/55 of 933 clicks/)).toBeInTheDocument();
-    expect(
-      screen.queryByRole('link', { name: 'Rivers, Nepal, 2013' })
-    ).not.toBeInTheDocument();
+    expect(screen.getByText(/181 of 933 clicks/)).toBeInTheDocument();
     fireEvent.change(
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-08' } }

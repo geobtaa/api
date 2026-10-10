@@ -66,12 +66,8 @@ import {
   YAxis,
 } from 'recharts';
 import { useState } from 'react';
-import {
-  augustTopResources,
-  augustTopCollections,
-  augustTopDownloadedResources,
-  augustDownloadSummary,
-} from '../data/analytics/popularAugust2026';
+import { popularHistory } from '../data/analytics/popularHistory2026';
+import type { CollectionChartEntry } from '../data/analytics/july2026';
 import {
   analyticsMonth,
   selectedAnalyticsReport,
@@ -95,9 +91,6 @@ import {
   peakApiTrafficBreakdown as julyPeakApiTrafficBreakdown,
   requestMix as julyRequestMix,
   resourceClassFilters as julyResourceClassFilters,
-  topCollections as julyTopCollections,
-  topDownloadedResources as julyTopDownloadedResources,
-  topResources as julyTopResources,
 } from '../data/analytics/july2026';
 import {
   memberDailySeries as julyMemberDailySeries,
@@ -176,31 +169,18 @@ export function AnalyticsPage() {
         : '2026-07';
   const memberGrouping =
     searchParams.get('grouping') === 'provider' ? 'provider' : 'code';
-  const topResources = isSeptember
-    ? september.topResources
-    : isAugust
-      ? augustTopResources
-      : julyTopResources;
-  const topCollections = isSeptember
-    ? september.topCollections
-    : isAugust
-      ? augustTopCollections
-      : julyTopCollections;
-  const topDownloadedResources = isSeptember
-    ? september.topDownloads
-    : isAugust
-      ? augustTopDownloadedResources
-      : julyTopDownloadedResources;
+  const popular = isSeptember
+    ? september
+    : popularHistory[isAugust ? '2026-08' : '2026-07'];
+  const topResources = popular.topResources;
+  const topCollections = popular.topCollections as CollectionChartEntry[];
+  const topDownloadedResources = popular.topDownloads;
   const contentSummary = isSeptember
     ? september.summary
     : isAugust
       ? AUGUST_2026_SUMMARY
       : JULY_2026_SUMMARY;
-  const downloadResourceCount = isSeptember
-    ? september.downloadResources
-    : isAugust
-      ? augustDownloadSummary.resources
-      : 695;
+  const downloadResourceCount = popular.downloadResources;
   const topDownloadClicks = topDownloadedResources.reduce(
     (sum, row) => sum + row.clicks,
     0
@@ -682,13 +662,7 @@ export function AnalyticsPage() {
                 reportMonth={reportMonth}
                 topResources={topResources}
                 topCollections={topCollections}
-                collectionNote={
-                  isSeptember
-                    ? `${topCollections[0]?.title} led September with ${topCollections[0]?.searches} filtered searches.`
-                    : isAugust
-                      ? `${topCollections[0].title} led August with ${topCollections[0].searches} filtered searches.`
-                      : 'Urban Base Layers held the top spot, while historical maps claimed five positions in the collection top 10.'
-                }
+                collectionNote={`The top ${topCollections.length} collections ranked by recorded filtered searches in ${reportMonth}. Collection counts can overlap.`}
                 topDownloadedResources={topDownloadedResources}
                 downloadClicks={contentSummary.downloadClicks}
                 downloadNote={`The top ${topDownloadedResources.length} account for ${topDownloadClicks} of ${contentSummary.downloadClicks} clicks (${((topDownloadClicks / contentSummary.downloadClicks) * 100).toFixed(1)}%), across ${downloadResourceCount} resources with download clicks.`}

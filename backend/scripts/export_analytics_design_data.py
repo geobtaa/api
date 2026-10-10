@@ -193,6 +193,65 @@ def outcomes(report, details):
     )
 
 
+def popular_content(document):
+    """Rank all preserved monthly event rows before limiting the presentation."""
+    activity = defaultdict(Counter)
+    for row in document["daily"]:
+        dim = row["dimensions"]
+        identifier = dim.get("resource")
+        if dim["source"] != "analytics_events" or not identifier:
+            continue
+        n = row["metrics"]["count"]
+        activity[identifier][dim["event"]] += n
+        activity[identifier]["events"] += n
+        activity[identifier]["first" if row["metric_date"][8:10] <= "15" else "second"] += n
+
+    def metadata(identifier):
+        record = document["catalog"].get(identifier, {})
+        attrs = record.get("attributes") or {}
+
+        def labels(value):
+            return ", ".join(value) if isinstance(value, list) else value or ""
+
+        return dict(
+            id=identifier,
+            title=record.get("title") or identifier,
+            provider=labels(record.get("provider")) or "Unknown provider",
+            resourceClass=labels(attrs.get("resourceClasses")),
+            resourceType=labels(attrs.get("resourceTypes")),
+            formatLabel=labels(attrs.get("format")),
+        )
+
+    def ranked(metric):
+        return sorted(
+            [key for key, counts in activity.items() if counts[metric]],
+            key=lambda key: (-activity[key][metric], key),
+        )
+
+    return dict(
+        topResources=[
+            dict(
+                **metadata(key),
+                views=activity[key]["resource_view"],
+                actions=activity[key]["events"] - activity[key]["resource_view"],
+                firstHalfEvents=activity[key]["first"],
+                secondHalfEvents=activity[key]["second"],
+            )
+            for key in ranked("resource_view")[:50]
+        ],
+        topCollections=collection_searches([document])[:50],
+        topDownloads=[
+            dict(
+                **metadata(key),
+                clicks=activity[key]["download_click"],
+                engagedVisits=None,
+            )
+            for key in ranked("download_click")[:50]
+        ],
+        downloadResources=len(ranked("download_click")),
+    )
+
+
 def run(archives, public, output, supplemental):
     docs = []
     for path in archives:
@@ -410,8 +469,8 @@ def run(archives, public, output, supplemental):
             )
             for r in sep["daily"]
         ],
-        topResources=[resource(r) for r in sep["resources"][:10]],
-        topCollections=collection_searches([doc])[:10],
+        topResources=[resource(r) for r in sep["resources"][:50]],
+        topCollections=collection_searches([doc])[:50],
         topDownloads=[
             dict(
                 id=r["id"],
@@ -422,7 +481,7 @@ def run(archives, public, output, supplemental):
                 clicks=r["downloads"],
                 engagedVisits=None,
             )
-            for r in sep["downloads"][:10]
+            for r in sep["downloads"][:50]
         ],
         downloadResources=len(sep["downloads"]),
         discoveryViews=[
@@ -588,6 +647,7 @@ def run(archives, public, output, supplemental):
         dict(label=k, **v) for k, v in sorted(totals.items(), key=lambda x: -x[1]["requests"])
     ]
     payloads = {
+        "popularHistory2026.json": {d["month"][:7]: popular_content(d) for d in docs[:-1]},
         "september2026.json": september,
         "allTimeThroughSeptember2026.json": all_data,
         "memberAllTimeThroughSeptember2026.json": member_report(all_report),
