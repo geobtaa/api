@@ -50,6 +50,33 @@ const groups: Record<string, string[]> = {
     'frogtown',
     'indiana',
     'iraq',
+    // September: retain the same primary-category rules as July and August.
+    'Kitai',
+    'florida',
+    'hunterdon county new jersey',
+    'Chesapeake',
+    'carlton county minnesota',
+    'fond du lac minnesota',
+    'قم ایران',
+    'chesapeake bay',
+    'union county iowa',
+    'Oscoda County, Michigan',
+    'detroit',
+    'ocean beach',
+    'burma',
+    'gabon',
+    'hennepin county',
+    'ohio',
+    'st louis county minnesota',
+    'Al-sharabia',
+    'Eastern Morocco',
+    'Louisiana',
+    'New York City',
+    'Richfield',
+    'ann arbor',
+    'detroit mi',
+    'indiana decatur county',
+    'johnson county iowa',
   ],
   'Maps & imagery': [
     'turkey maps',
@@ -70,6 +97,13 @@ const groups: Record<string, string[]> = {
     'photos',
     'County map of the states of Iowa and Missouri',
     'crimea maps',
+    'fire insurance maps',
+    // These identifiers name cataloged map series or satellite imagery.
+    'n501',
+    'gsgs 2555',
+    'DS1105-1009DA017',
+    'aerial illinois',
+    'index map',
   ],
   'Environment & land use': [
     'water',
@@ -78,6 +112,12 @@ const groups: Record<string, string[]> = {
     'Anthracite Surface Mine Permits',
     'wetlands',
     'lakes rivers AND minneapolis',
+    'water quality',
+    'hennepin county parcels',
+    'parks',
+    'land use',
+    'zoning',
+    'lower freeport',
   ],
   'Society & history': [
     'redlining',
@@ -85,13 +125,15 @@ const groups: Record<string, string[]> = {
     'business license',
     'archaeological sites',
     'campus',
+    'indiana population',
   ],
   'Transport & infrastructure': ['amtrak stations', 'highways'],
   'People & institutions': [
     'American Geographical Society of New York',
     'Kitchin, Thomas',
+    '"indiana university"',
   ],
-  'Catalogs & tools': ['pasda', 'openindexmap'],
+  'Catalogs & tools': ['pasda', 'openindexmap', '08d-03', 'WMS'],
   'Addresses & coordinates': [
     '14.271281, 44.702708',
     '37.117777, 50.081111',
@@ -100,8 +142,13 @@ const groups: Record<string, string[]> = {
     '31.971794,48.809872',
     '9266 town line rd Larsen wi',
     '32.654583, 44.405139',
+    'Main st childa pa',
   ],
-  'Mixed or unclear': ['-sanborn', 'indiana field survey iran hardin i 38l'],
+  'Mixed or unclear': [
+    '-sanborn',
+    'indiana field survey iran hardin i 38l',
+    'comparative',
+  ],
 };
 const normalize = (term: string) =>
   term.trim().replace(/\s+/g, ' ').toLocaleLowerCase('en-US');
@@ -110,6 +157,10 @@ const categories = new Map(
     terms.map((term) => [normalize(term), category] as const)
   )
 );
+
+export function hasReviewedQueryCategory(term: string) {
+  return categories.has(normalize(term));
+}
 
 export function queryCategory(term: string) {
   return categories.get(normalize(term)) ?? 'Mixed or unclear';
