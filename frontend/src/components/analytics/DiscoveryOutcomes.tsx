@@ -1,3 +1,4 @@
+import { publishedMonths } from '../../config/analyticsPeriods';
 import { ResourceThumbnail } from './ResourceThumbnail';
 import { useState } from 'react';
 import { Link } from 'react-router';
@@ -28,8 +29,7 @@ const dateLabel = (day: string) =>
 
 export function AccessSummary({ period }: { period: OutcomePeriod }) {
   const report = outcomes.periods[period];
-  const months =
-    period === 'all' ? (['2026-07', '2026-08', '2026-09'] as const) : [period];
+  const months = period === 'all' ? publishedMonths : [period];
   const maximum = Math.max(
     ...months.flatMap((month) => [
       outcomes.periods[month].totals.sources,
@@ -210,11 +210,11 @@ export function AudienceReport({
           <div>
             <h3>Tracked visits</h3>
             <strong>
-              {period === '2026-09' || period === 'all' ? '≈ ' : ''}
+              {period >= '2026-09' || period === 'all' ? '≈ ' : ''}
               {n.format(report.audience.trackedVisits)}
             </strong>
             <p>
-              {period === '2026-09' || period === 'all'
+              {period >= '2026-09' || period === 'all'
                 ? 'Estimated distinct tab-scoped visit tokens across searches and interactions (about 0.81% relative standard error).'
                 : 'Distinct tab-scoped visit tokens across searches and interactions.'}
             </p>
@@ -301,7 +301,7 @@ export function AudienceReport({
         </p>
         <p className="analytics-comparison-note">
           Source: analytics_searches and analytics_events, exported{' '}
-          {period === '2026-09' || period === 'all'
+          {period >= '2026-09' || period === 'all'
             ? outcomes.catalogDate
             : '2026-09-10'}
           , UTC. Historical values are complete for these recorded event types,

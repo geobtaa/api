@@ -1,4 +1,5 @@
-import { september } from '../../data/analytics/september2026';
+import { publishedMonths, monthLabel } from '../../config/analyticsPeriods';
+import { monthlySnapshots } from '../../data/analytics/september2026';
 import { ReportSectionHeading } from './ReportSectionHeading';
 import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, BarChart3 } from 'lucide-react';
@@ -47,12 +48,33 @@ const dailyMetrics = {
 export function MonthlyComparison() {
   const [dailyMetric, setDailyMetric] =
     useState<keyof typeof dailyMetrics>('events');
-  const dailyData = augustDailyActivity.map((point, index) => ({
-    day: index + 1,
-    July: julyDailyActivity[index][dailyMetric],
-    August: point[dailyMetric],
-    September: september.dailyActivity[index]?.[dailyMetric] ?? null,
+  const months = publishedMonths.map((period) => ({
+    period,
+    label: monthLabel(period),
+    short: monthLabel(period).replace(/ \d{4}$/, ''),
+    ...(period === '2026-07'
+      ? { summary: JULY_2026_SUMMARY, dailyActivity: julyDailyActivity }
+      : period === '2026-08'
+        ? { summary: AUGUST_2026_SUMMARY, dailyActivity: augustDailyActivity }
+        : monthlySnapshots[period]),
   }));
+  const latest = months.at(-1)!;
+  const previous = months.at(-2)!;
+  const monthNames = new Intl.ListFormat('en-US').format(
+    months.map((m) => m.short)
+  );
+  const dailyData = Array.from(
+    { length: Math.max(...months.map((m) => m.dailyActivity.length)) },
+    (_, index) => ({
+      day: index + 1,
+      ...Object.fromEntries(
+        months.map((m) => [
+          m.period,
+          m.dailyActivity[index]?.[dailyMetric] ?? null,
+        ])
+      ),
+    })
+  ) as Array<Record<string, number | null> & { day: number }>;
 
   return (
     <section
@@ -62,8 +84,8 @@ export function MonthlyComparison() {
     >
       <ReportSectionHeading
         id="comparison-title"
-        title="September compared with August"
-        description="Three complete months in 2026. September has 30 days; July and August have 31. Changes compare September with August."
+        title={`${latest.short} compared with ${previous.short}`}
+        description={`${months.length} published months. Changes compare ${latest.label} with ${previous.label}; month lengths may differ.`}
       />
       <div className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader
@@ -78,35 +100,40 @@ export function MonthlyComparison() {
         >
           <AnalyticsTable className="analytics-comparison-table">
             <caption className="sr-only">
-              July, August, and September 2026 portal totals and changes
+              {monthNames} portal totals and changes
             </caption>
             <thead>
               <tr>
                 <th scope="col">Metric</th>
-                <th scope="col">July 2026</th>
-                <th scope="col">August 2026</th>
-                <th scope="col">September 2026</th>
+                {months.map((m) => (
+                  <th scope="col" key={m.period}>
+                    {m.label}
+                  </th>
+                ))}
                 <th scope="col">Change</th>
                 <th scope="col">Change %</th>
               </tr>
             </thead>
             <tbody>
               {summaryMetrics.map(([key, label]) => {
-                const july = JULY_2026_SUMMARY[key];
-                const august = AUGUST_2026_SUMMARY[key];
-                const latest = september.summary[key];
-                const delta = latest - august;
+                const baseline = previous.summary[key];
+                const current = latest.summary[key];
+                const delta = current - baseline;
                 return (
                   <tr key={key}>
                     <th scope="row">{label}</th>
-                    <td>{number.format(july)}</td>
-                    <td>{number.format(august)}</td>
-                    <td>{number.format(latest)}</td>
+                    {months.map((m) => (
+                      <td key={m.period}>
+                        {m.summary[key] === null
+                          ? 'Not available'
+                          : number.format(m.summary[key])}
+                      </td>
+                    ))}
                     <td>
                       {delta > 0 ? '+' : ''}
                       {number.format(delta)}
                     </td>
-                    <td>{comparisonChange(august, latest)}</td>
+                    <td>{comparisonChange(baseline, current)}</td>
                   </tr>
                 );
               })}
@@ -139,14 +166,13 @@ export function MonthlyComparison() {
           </label>
         </ReportPanelHeader>
         <p className="analytics-comparison-note">
-          Compare July, August, and September side by side for each day of the
-          month. Bar heights use the same scale; dates are not aligned by
-          weekday.
+          Compare {monthNames} side by side for each day of the month. Bar
+          heights use the same scale; dates are not aligned by weekday.
         </p>
         <div
           className="analytics-comparison-chart"
           role="img"
-          aria-label={`${dailyMetrics[dailyMetric]} for July, August, and September as grouped bars for each day of month. Exact values are available in the daily values table below.`}
+          aria-label={`${dailyMetrics[dailyMetric]} for ${monthNames} as grouped bars for each day of month. Exact values are available in the daily values table below.`}
         >
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={dailyData} barGap={2} barCategoryGap="20%">
@@ -162,24 +188,15 @@ export function MonthlyComparison() {
                 cursor={{ fill: '#f1f5f9' }}
               />
               <Legend />
-              <Bar
-                dataKey="July"
-                name="July 2026"
-                fill="#6d28d9"
-                isAnimationActive={false}
-              />
-              <Bar
-                dataKey="August"
-                name="August 2026"
-                fill="#0f766e"
-                isAnimationActive={false}
-              />
-              <Bar
-                dataKey="September"
-                name="September 2026"
-                fill="#2563eb"
-                isAnimationActive={false}
-              />
+              {months.map((m, index) => (
+                <Bar
+                  key={m.period}
+                  dataKey={m.period}
+                  name={m.label}
+                  fill={['#6d28d9', '#0f766e', '#2563eb', '#b45309'][index % 4]}
+                  isAnimationActive={false}
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -193,15 +210,16 @@ export function MonthlyComparison() {
           >
             <AnalyticsTable className="analytics-comparison-table">
               <caption className="sr-only">
-                Daily {dailyMetrics[dailyMetric].toLowerCase()} in July and
-                August, and September 2026
+                Daily {dailyMetrics[dailyMetric].toLowerCase()} in {monthNames}
               </caption>
               <thead>
                 <tr>
                   <th scope="col">Day of month</th>
-                  <th scope="col">July</th>
-                  <th scope="col">August</th>
-                  <th scope="col">September</th>
+                  {months.map((m) => (
+                    <th scope="col" key={m.period}>
+                      {m.label}
+                    </th>
+                  ))}
                   <th scope="col">Change</th>
                   <th scope="col">Change %</th>
                 </tr>
@@ -210,22 +228,29 @@ export function MonthlyComparison() {
                 {dailyData.map((row) => (
                   <tr key={row.day}>
                     <th scope="row">{row.day}</th>
-                    <td>{number.format(row.July)}</td>
-                    <td>{number.format(row.August)}</td>
+                    {months.map((m) => (
+                      <td key={m.period}>
+                        {row[m.period] === null
+                          ? '—'
+                          : number.format(row[m.period]!)}
+                      </td>
+                    ))}
                     <td>
-                      {row.September === null
+                      {row[latest.period] === null ||
+                      row[previous.period] === null
                         ? '—'
-                        : number.format(row.September)}
+                        : number.format(
+                            row[latest.period]! - row[previous.period]!
+                          )}
                     </td>
                     <td>
-                      {row.September === null
+                      {row[latest.period] === null ||
+                      row[previous.period] === null
                         ? '—'
-                        : `${row.September > row.August ? '+' : ''}${number.format(row.September - row.August)}`}
-                    </td>
-                    <td>
-                      {row.September === null
-                        ? '—'
-                        : comparisonChange(row.August, row.September)}
+                        : comparisonChange(
+                            row[previous.period]!,
+                            row[latest.period]!
+                          )}
                     </td>
                   </tr>
                 ))}
@@ -235,10 +260,9 @@ export function MonthlyComparison() {
         </details>
       </div>
       <p className="analytics-comparison-note">
-        September covers September 1–30, 2026 (UTC), exported{' '}
-        {september.summary.exportedAt}. July uses the preserved August 20
-        export. Monthly rankings and campus reports for all three months are
-        available from the report navigation.
+        Monthly rankings and campus reports for every published month are
+        available from the report navigation. The latest export is{' '}
+        {latest.summary.exportedAt}.
       </p>
     </section>
   );

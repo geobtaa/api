@@ -1,3 +1,8 @@
+import {
+  publishedMonths,
+  monthLabel,
+  comparisonLabel,
+} from '../../config/analyticsPeriods';
 import { CalendarDays } from 'lucide-react';
 
 export function ReportingPeriodPicker({
@@ -26,12 +31,14 @@ export function ReportingPeriodPicker({
         onChange={(event) => onChange(event.target.value)}
       >
         {comparison ? (
-          <option value="comparison">July–September 2026</option>
+          <option value="comparison">{comparisonLabel}</option>
         ) : (
           <>
-            <option value="2026-09">September 2026</option>
-            <option value="2026-08">August 2026</option>
-            <option value="2026-07">July 2026</option>
+            {[...publishedMonths].reverse().map((month) => (
+              <option key={month} value={month}>
+                {monthLabel(month)}
+              </option>
+            ))}
             <option value="all">All time (since July 1)</option>
           </>
         )}

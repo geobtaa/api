@@ -1,3 +1,4 @@
+import { comparisonLabel } from '../../config/analyticsPeriods';
 import { outcomes } from '../../data/analytics/outcomes';
 import manifest from '../../../public/analytics-reports/manifest.json';
 import type { AnalyticsReport } from '../../config/analyticsReports';
@@ -16,15 +17,15 @@ const definitions: Record<
   },
   comparison: {
     source:
-      'The preserved July, August, and September snapshots used by the other reports; this page does not query live analytics.',
+      'The preserved monthly snapshots used by the other reports; this page does not query live analytics.',
     grouping:
-      'Portal figures cover all recorded traffic. Changes compare September with August. September has 30 UTC days; July and August have 31.',
+      'Portal figures cover all recorded traffic. Changes compare the latest published month with its predecessor. Month lengths may differ.',
     limits:
-      'A zero baseline is shown as N/A when September has activity. API request totals include bots and automated probes.',
+      'A zero baseline is shown as N/A when the latest month has activity. API request totals include bots and automated probes.',
   },
   content: {
     source:
-      'Interaction events and recorded search constraints joined to catalog metadata at export. July rankings were exported August 20; August rankings September 9; September rankings October 9.',
+      'Interaction events and recorded search constraints joined to catalog metadata at export. Capture dates are recorded with each snapshot.',
     grouping:
       'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares the second half of the month with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use the separately dated metadata refresh.',
     limits:
@@ -40,7 +41,7 @@ const definitions: Record<
   },
   discovery: {
     source:
-      'Recorded searches and their saved query, view, constraints, and zero-results flag. July/August query rankings were exported September 10 and facets September 9; September aggregates were exported October 9.',
+      'Recorded searches and their saved query, view, constraints, and zero-results flag. Export dates are recorded with each snapshot.',
     grouping:
       'Top 50 searches group all recorded searches by trimmed, non-empty query text, preserving case and combining filters/views. Zero-result rankings show up to 100 terms subject to the period’s query disclosure policy, ordered by count then query using database collation. Facets count distinct searches per category across inclusion, exclusion, and legacy filter formats.',
     limits:
@@ -48,7 +49,7 @@ const definitions: Record<
   },
   clients: {
     source:
-      'Daily API request rollups plus searches and interaction events, exported September 9 for July/August and October 9 for September. August/September user-agent evidence comes from retained request logs; July raw request logs had expired.',
+      'Daily API request rollups plus searches and interaction events, with export dates recorded per snapshot. User-agent evidence comes from retained request logs; July raw request logs had expired.',
     grouping:
       'Client names and channels are caller-declared. API requests, searches, and interactions are counted separately. Endpoint categories classify routes; MCP requests do not measure tool invocations, and OGC requests are not automatically QGIS.',
     limits:
@@ -56,7 +57,7 @@ const definitions: Record<
   },
   platform: {
     source:
-      'Monthly API request-log aggregates exported August 20 for July and September 9 for August, and October 9 for September, using requested-at timestamps and response times.',
+      'Monthly API request-log aggregates, using requested-at timestamps and response times.',
     grouping:
       'Requests group by route and UTC date. The monthly mix separates API docs, Turnstile status checks, analytics event capture, and other routes. Peak-day categories use the busiest date. Server errors are HTTP status 500 or higher.',
     limits:
@@ -87,7 +88,7 @@ export function ReportSources({
       <p>
         <strong>Period:</strong>{' '}
         {report === 'comparison'
-          ? 'July 1–31, August 1–31, and September 1–30, 2026'
+          ? comparisonLabel
           : (period ?? `${month} 1–31, 2026`)}{' '}
         (UTC). Static aggregate snapshots, not live traffic.
       </p>

@@ -6,6 +6,7 @@ import json
 import sys
 import zipfile
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -256,7 +257,7 @@ def popular_content(document):
     )
 
 
-def run(archives, public, output, supplemental):
+def run(archives, public, output, supplemental, period=None):
     docs = []
     for path in archives:
         doc = json.loads(gzip.decompress(path.read_bytes()))
@@ -265,8 +266,18 @@ def run(archives, public, output, supplemental):
             raise ValueError("Archive checksum mismatch")
         docs.append(doc)
     docs.sort(key=lambda d: d["month"])
-    if [d["month"] for d in docs] != ["2026-07-01", "2026-08-01", "2026-09-01"]:
-        raise ValueError("Expected one verified archive for each July–September month")
+    months = [d["month"][:7] for d in docs]
+    expected = []
+    cursor = date(2026, 7, 1)
+    end = date.fromisoformat(docs[-1]["month"])
+    while cursor <= end:
+        expected.append(cursor.strftime("%Y-%m"))
+        cursor = date(cursor.year + (cursor.month == 12), cursor.month % 12 + 1, 1)
+    if months != expected or len(months) < 3:
+        raise ValueError("Expected one verified archive per month since July 2026")
+    period = period or months[-1]
+    if period not in months[2:]:
+        raise ValueError("Projection period must be a supplied month from September 2026 onward")
     manifest = json.loads((public / "manifest.json").read_text())
     reports = {}
     for entry in manifest["periods"]:
@@ -276,9 +287,9 @@ def run(archives, public, output, supplemental):
         if checksum(unsigned) != entry["revision"]:
             raise ValueError("Public report checksum mismatch")
         reports[entry["id"]] = report
-    sep = reports["2026-09"]
+    sep = reports[period]
     all_report = reports["all"]
-    doc = docs[-1]
+    doc = docs[months.index(period)]
     daily_extra = defaultdict(Counter)
     for row in doc["daily"]:
         source = row["dimensions"]["source"]
@@ -291,19 +302,19 @@ def run(archives, public, output, supplemental):
     details = search_details([doc])
     all_details = search_details(docs)
     verified = json.loads(supplemental.read_text().splitlines()[-1])
-    for period, result in [("2026-09", details), ("all", all_details)]:
-        if verified[period]["searches"] != reports[period]["totals"]["searches"]:
+    for verified_period, result in [(period, details), ("all", all_details)]:
+        if verified[verified_period]["searches"] != reports[verified_period]["totals"]["searches"]:
             raise ValueError("Supplemental search counts do not reconcile")
         result.update(
-            withQuery=verified[period]["with_query"],
-            distinctQueries=verified[period]["distinct_queries"],
-            zeroWithQuery=verified[period]["zero_with_query"],
+            withQuery=verified[verified_period]["with_query"],
+            distinctQueries=verified[verified_period]["distinct_queries"],
+            zeroWithQuery=verified[verified_period]["zero_with_query"],
         )
     member = member_report(sep)
     dates = [r["date"] for r in sep["daily"]]
     providers = [r for r in member["groups"] if r["grouping"] == "provider"]
     provider = dict(
-        month="2026-09",
+        month=period,
         catalogSnapshotDate=doc["catalogCapturedAt"][:10],
         exportedAt=doc["catalogCapturedAt"],
         totals={k: sum(counts(r)[k] for r in providers) for k in counts(providers[0])},
@@ -409,6 +420,8 @@ def run(archives, public, output, supplemental):
             ][metric] += n
 
     def percentile(q):
+        if not latency:
+            return None
         target = (sum(latency.values()) - 1) * q
         lo = int(target)
         hi = lo + (target > lo)
@@ -445,8 +458,8 @@ def run(archives, public, output, supplemental):
         ][:50]
 
     summary = dict(
-        month="September 2026",
-        exportedAt="October 9, 2026",
+        month=date.fromisoformat(doc["month"]).strftime("%B %Y"),
+        exportedAt=date.fromisoformat(doc["catalogCapturedAt"][:10]).strftime("%B %-d, %Y"),
         requests=sep["totals"]["requests"],
         serverErrors=sep["totals"]["errors"],
         medianResponseMs=percentile(0.5),
@@ -458,7 +471,7 @@ def run(archives, public, output, supplemental):
         resourceViews=sep["totals"]["views"],
         downloadClicks=sep["totals"]["downloads"],
         resultClicks=sep["totals"]["resultOpens"],
-        uniqueEngagedVisits=verified["2026-09"]["engaged_visits"],
+        uniqueEngagedVisits=verified[period]["engaged_visits"],
     )
     september = dict(
         summary=summary,
@@ -493,7 +506,7 @@ def run(archives, public, output, supplemental):
                 label=k.title(),
                 count=sum(r["count"] for r in sep["discoveryViews"] if r["view"] == k),
                 percent=sum(r["count"] for r in sep["discoveryViews"] if r["view"] == k)
-                / summary["searches"]
+                / max(summary["searches"], 1)
                 * 100,
                 color=COLORS[i],
             )
@@ -516,7 +529,12 @@ def run(archives, public, output, supplemental):
             without_query=summary["zeroResultSearches"] - details["zeroWithQuery"],
         ),
         requestMix=[
-            dict(label=k, count=mix[k], percent=mix[k] / summary["requests"] * 100, color=COLORS[i])
+            dict(
+                label=k,
+                count=mix[k],
+                percent=mix[k] / max(summary["requests"], 1) * 100,
+                color=COLORS[i],
+            )
             for i, k in enumerate(
                 ["API docs", "Access checks", "Analytics capture", "Everything else"]
             )
@@ -526,7 +544,7 @@ def run(archives, public, output, supplemental):
                 label=k,
                 detail=k,
                 count=peak[k],
-                percent=round(peak[k] / max(r["requests"] for r in sep["daily"]) * 100, 1),
+                percent=round(peak[k] / max(1, max(r["requests"] for r in sep["daily"])) * 100, 1),
             )
             for k in [
                 "Turnstile status checks",
@@ -588,8 +606,8 @@ def run(archives, public, output, supplemental):
         k: v for k, v in old.items() if k not in ("providers", "codes", "downloads", "endpoints")
     }
     all_data.update(
-        endExclusive="2026-10-01",
-        publishedMonths=["2026-07", "2026-08", "2026-09"],
+        endExclusive=all_report["endExclusive"],
+        publishedMonths=months,
         exportedAt=doc["catalogCapturedAt"],
         catalogDate=doc["catalogCapturedAt"][:10],
         searchTotals=dict(
@@ -641,30 +659,66 @@ def run(archives, public, output, supplemental):
             errors[r["metric_date"]] += r["metrics"]["count"]
     for r in september_daily:
         r["errors"] = errors[r["day"]]
-    all_data["daily"] = old["daily"] + september_daily
+    # Start with the preserved July/August evidence; append every later month once.
+    all_data["daily"] = old["daily"] + [
+        dict(
+            day=r["date"],
+            **{
+                k: r.get(k, 0)
+                for k in (
+                    "searches",
+                    "zeroResults",
+                    "events",
+                    "views",
+                    "downloads",
+                    "requests",
+                    "errors",
+                )
+            },
+        )
+        for r in all_report["daily"]
+        if r["date"] >= "2026-09-01"
+    ]
+    extra = defaultdict(Counter)
+    for source in docs[2:]:
+        for r in source["daily"]:
+            dim, metrics = r["dimensions"], r["metrics"]
+            if dim["source"] == "analytics_events":
+                extra[r["metric_date"]]["events"] += metrics["count"]
+            if dim["source"] == "analytics_searches":
+                extra[r["metric_date"]]["zeroResults"] += metrics.get("zeroResults", 0)
+            if dim["source"] == "analytics_api_usage_logs" and (dim.get("status") or 0) >= 500:
+                extra[r["metric_date"]]["errors"] += metrics["count"]
+    for row in all_data["daily"]:
+        row.update(extra[row["day"]])
     endpoints = json.loads((output / "reliabilityEndpoints2026.json").read_text())
-    endpoints["periods"]["2026-09"] = endpoint_rows(sep["endpoints"])
     totals = defaultdict(Counter)
-    for r in endpoints["periods"]["all"] + endpoints["periods"]["2026-09"]:
-        totals[r["label"]].update({k: r[k] for k in ["requests", "errors"]})
+    for row in endpoints["periods"]["all"]:
+        totals[row["label"]].update({k: row[k] for k in ("requests", "errors")})
+    for month in months[2:]:
+        endpoints["periods"][month] = endpoint_rows(reports[month]["endpoints"])
+        for row in endpoints["periods"][month]:
+            totals[row["label"]].update({k: row[k] for k in ("requests", "errors")})
     endpoints["periods"]["all"] = [
         dict(label=k, **v) for k, v in sorted(totals.items(), key=lambda x: -x[1]["requests"])
     ]
     historical_outcomes = json.loads((output / "outcomes2026.json").read_text())["periods"]
-    for period in ("2026-07", "2026-08"):
+    for historical_period in ("2026-07", "2026-08"):
         for ranking in ("outlinks", "downloads"):
-            for row in historical_outcomes[period][ranking]:
+            for row in historical_outcomes[historical_period][ranking]:
                 meta = content_metadata(
-                    docs[["2026-07", "2026-08"].index(period)]["catalog"].get(row["id"], {})
+                    docs[["2026-07", "2026-08"].index(historical_period)]["catalog"].get(
+                        row["id"], {}
+                    )
                 )
                 row["title"] = meta.get("title") or row["id"]
                 row["provider"] = ", ".join(content_providers(meta))
     payloads = {
         "popularHistory2026.json": {d["month"][:7]: popular_content(d) for d in docs[:-1]},
-        "september2026.json": september,
-        "allTimeThroughSeptember2026.json": all_data,
-        "memberAllTimeThroughSeptember2026.json": member_report(all_report),
-        "outcomesThroughSeptember2026.json": {
+        f"month-{period}.json": september,
+        "allTimeCurrent.json": all_data,
+        "memberAllTimeCurrent.json": member_report(all_report),
+        "outcomesCurrent.json": {
             "contentCatalogCapturedAt": doc.get(
                 "contentCatalogCapturedAt", doc["catalogCapturedAt"]
             ),
@@ -673,31 +727,35 @@ def run(archives, public, output, supplemental):
             "periods": {
                 "2026-07": historical_outcomes["2026-07"],
                 "2026-08": historical_outcomes["2026-08"],
-                "2026-09": outcomes(sep, details),
+                **{
+                    m: outcomes(reports[m], search_details([docs[months.index(m)]]))
+                    for m in months[2:]
+                },
                 "all": outcomes(all_report, all_details),
             },
         },
-        "collectionSearchesThroughSeptember2026.json": dict(
+        "collectionSearchesCurrent.json": dict(
             collections=collection_searches(docs),
             method=(
                 "Recomputed from complete preserved monthly search dimensions, "
                 "including exclusions and legacy controls; collections can overlap."
             ),
         ),
-        "reliabilityEndpointsThroughSeptember2026.json": endpoints,
+        "reliabilityEndpointsCurrent.json": endpoints,
     }
     for name, data in payloads.items():
         (output / name).write_text(
             json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n"
         )
-    print("Exported September and cumulative data for the established dashboard components.")
+    print(f"Exported {period} and cumulative data for the established dashboard components.")
 
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--period")
     p.add_argument("archives", nargs="+", type=Path)
     p.add_argument("--public", type=Path, required=True)
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--supplemental", type=Path, required=True)
     a = p.parse_args()
-    run(a.archives, a.public, a.output, a.supplemental)
+    run(a.archives, a.public, a.output, a.supplemental, a.period)

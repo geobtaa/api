@@ -1,4 +1,4 @@
-import preserved from './memberAllTimeThroughSeptember2026.json';
+import preserved from './memberAllTimeCurrent.json';
 import { memberPerformance as institutions } from './july2026';
 import type { ProviderSnapshot } from './providers2026';
 

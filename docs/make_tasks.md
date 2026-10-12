@@ -289,3 +289,16 @@ If this file drifts, regenerate the target list with:
 ```bash
 rg -n "^[a-zA-Z0-9_-]+:.*##" Makefile
 ```
+
+### Monthly analytics snapshots
+
+- `make analytics-monthly-update ARCHIVES='/path/to/verified/*.json.gz' SUPPLEMENTAL=/path/to/verified-counts.json`
+  stages and validates every published month plus All time before updating the
+  local dashboard. Optional `THROUGH=YYYY-MM-01` selects an exclusive UTC boundary.
+- `make analytics-monthly-check` checks period coverage, query classifications,
+  comparison data, and the existing dashboard layouts. Follow with the frontend
+  build before publication.
+
+See [monthly analytics](frontend/monthly-analytics.md#repeatable-monthly-refresh)
+for the local input contract. Deployed schedules and extraction stay in restricted
+operations documentation.

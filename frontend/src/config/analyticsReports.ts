@@ -1,49 +1,50 @@
+import { latestMonth, monthLabel, comparisonLabel } from './analyticsPeriods';
 export const analyticsReports = [
   {
     id: 'overview',
     label: 'Overview',
-    period: 'September 2026',
+    period: monthLabel(latestMonth),
     description:
       'Monthly highlights, daily interactions, searches, and traffic peaks.',
   },
   {
     id: 'comparison',
     label: 'Month comparison',
-    period: 'July–September 2026',
+    period: comparisonLabel,
     description: 'Compare portal totals and daily trends.',
   },
   {
     id: 'content',
     label: 'Popular content',
-    period: 'September 2026',
+    period: monthLabel(latestMonth),
     description:
       'Explore leading resources, collections, and download activity.',
   },
   {
     id: 'discovery',
     label: 'Searches',
-    period: 'September 2026',
+    period: monthLabel(latestMonth),
     description:
       'Understand search terms, filters, and searches without results.',
   },
   {
     id: 'members',
     label: 'Members',
-    period: 'September 2026',
+    period: monthLabel(latestMonth),
     description:
       'Review alliance contributions or focus on an individual campus.',
   },
   {
     id: 'clients',
     label: 'Clients & API keys',
-    period: 'September 2026',
+    period: monthLabel(latestMonth),
     description:
       'Explore declared clients, API key attribution, and MCP and GIS request signals.',
   },
   {
     id: 'platform',
     label: 'API reliability',
-    period: 'September 2026',
+    period: monthLabel(latestMonth),
     description:
       'Inspect request traffic, response times, and service reliability.',
   },
@@ -63,11 +64,11 @@ export function analyticsReportHref(
 }
 
 export function analyticsMonth(params: URLSearchParams) {
-  return params.get('month') === '2026-07'
-    ? 'July'
-    : params.get('month') === '2026-08'
-      ? 'August'
-      : 'September';
+  return monthLabel(
+    params.get('month') === 'all'
+      ? latestMonth
+      : params.get('month') || latestMonth
+  ).replace(/ \d{4}$/, '');
 }
 
 export function selectedAnalyticsReport(params: URLSearchParams) {
@@ -84,10 +85,6 @@ export function selectedAnalyticsReport(params: URLSearchParams) {
         period:
           params.get('month') === 'all'
             ? 'All time'
-            : params.get('month') === '2026-07'
-              ? 'July 2026'
-              : params.get('month') === '2026-08'
-                ? 'August 2026'
-                : 'September 2026',
+            : monthLabel(params.get('month') || latestMonth),
       };
 }

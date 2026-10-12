@@ -1934,3 +1934,12 @@ docs-build: ## Build public docs site to mkdocs/site/
 	@echo "Building MkDocs site..."
 	@cd mkdocs && mkdocs build
 	@echo "Site built to mkdocs/site/"
+
+.PHONY: analytics-monthly-update analytics-monthly-check
+analytics-monthly-update: ## Stage verified archives into all monthly dashboard reports (ARCHIVES and SUPPLEMENTAL required)
+	@test -n "$(ARCHIVES)" -a -n "$(SUPPLEMENTAL)" || (echo 'Set ARCHIVES and SUPPLEMENTAL to local private inputs'; exit 1)
+	python backend/scripts/update_monthly_analytics.py $(ARCHIVES) --supplemental "$(SUPPLEMENTAL)" $(if $(THROUGH),--through $(THROUGH),)
+
+analytics-monthly-check: ## Validate published analytics periods, rankings, and existing dashboard layouts
+	cd backend && python -m pytest --confcutdir=tests/scripts tests/scripts/test_update_monthly_analytics.py tests/scripts/test_export_analytics_snapshots.py -q
+	cd frontend && npx vitest run src/__tests__/components/AnalyticsPeriods.test.ts src/__tests__/components/FutureAnalyticsMonth.test.tsx src/__tests__/components/TopSearchesData.test.ts src/__tests__/components/MonthlyComparison.test.tsx src/__tests__/pages/SeptemberAnalyticsPage.test.tsx src/__tests__/components/DiscoveryOutcomes.test.tsx

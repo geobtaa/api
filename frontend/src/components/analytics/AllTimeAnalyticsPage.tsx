@@ -1,14 +1,15 @@
+import { allTimeRange } from '../../config/analyticsPeriods';
 import manifest from '../../../public/analytics-reports/manifest.json';
 import { ReportingPeriodPicker } from './ReportingPeriodPicker';
 import { ReportContentLayout } from './ReportContentLayout';
-import collectionSearches from '../../data/analytics/collectionSearchesThroughSeptember2026.json';
+import collectionSearches from '../../data/analytics/collectionSearchesCurrent.json';
 import type { CollectionChartEntry } from '../../data/analytics/july2026';
 import { PopularContentReport } from './PopularContentReport';
 import { AccessSummary, OutlinkedResources } from './DiscoveryOutcomes';
 import { outcomes } from '../../data/analytics/outcomes';
 import { Seo } from '../Seo';
 import { useSearchParams } from 'react-router';
-import data from '../../data/analytics/allTimeThroughSeptember2026.json';
+import data from '../../data/analytics/allTimeCurrent.json';
 
 import {
   analyticsReports,
@@ -16,7 +17,7 @@ import {
 } from '../../config/analyticsReports';
 import { AnalyticsHeader } from './AnalyticsHeader';
 
-const range = 'July 1–September 30, 2026';
+const range = allTimeRange;
 const archive = manifest.periods.find((entry) => entry.id === 'all')!;
 export function AllTimeAnalyticsPage({
   reportId,

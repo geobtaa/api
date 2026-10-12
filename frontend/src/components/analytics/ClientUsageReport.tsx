@@ -1,4 +1,10 @@
-import allTime from '../../data/analytics/allTimeThroughSeptember2026.json';
+import monthly from '../../data/analytics/monthlySnapshots.json';
+import {
+  monthLabel,
+  periodRange,
+  allTimeRange,
+} from '../../config/analyticsPeriods';
+import allTime from '../../data/analytics/allTimeCurrent.json';
 import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, KeyRound, Network, Server, Users } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
@@ -9,11 +15,7 @@ import {
 
 const number = new Intl.NumberFormat('en-US');
 
-export function ClientUsageReport({
-  month,
-}: {
-  month: '2026-07' | '2026-08' | '2026-09' | 'all';
-}) {
+export function ClientUsageReport({ month }: { month: string }) {
   const snapshot =
     month === 'all'
       ? combineClientSnapshots(
@@ -22,22 +24,8 @@ export function ClientUsageReport({
           )
         )
       : clientSnapshots[month];
-  const period =
-    month === 'all'
-      ? 'All time'
-      : month === '2026-09'
-        ? 'September 2026'
-        : month === '2026-08'
-          ? 'August 2026'
-          : 'July 2026';
-  const range =
-    month === 'all'
-      ? 'July 1–September 30, 2026'
-      : month === '2026-09'
-        ? 'September 1–30, 2026'
-        : month === '2026-08'
-          ? 'August 1–31, 2026'
-          : 'July 1–31, 2026';
+  const period = month === 'all' ? 'All time' : monthLabel(month);
+  const range = month === 'all' ? allTimeRange : periodRange(month);
   const requests = snapshot.clients.reduce((sum, row) => sum + row.requests, 0);
   const namedRequests = snapshot.clients
     .filter((row) => row.name !== 'Not declared')
@@ -275,10 +263,14 @@ export function ClientUsageReport({
         {range} (UTC) · Exported{' '}
         {month === '2026-07' || month === '2026-08'
           ? 'September 9, 2026'
-          : 'October 9, 2026'}
+          : month === 'all'
+            ? allTime.exportedAt.slice(0, 10)
+            : (monthly as Record<string, { summary: { exportedAt: string } }>)[
+                month
+              ].summary.exportedAt}
         . Request figures use retained daily rollups covering the complete
         selected period and reconcile with the dashboard totals. Search and
-        interaction counts use their respective event records. August/September
+        interaction counts use their respective event records. Available
         user-agent matching uses the retained raw request logs.
       </p>
     </section>

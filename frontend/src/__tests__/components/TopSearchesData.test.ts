@@ -4,10 +4,15 @@ import {
 } from '../../data/analytics/queryCategories';
 import { describe, expect, it } from 'vitest';
 import snapshot from '../../data/analytics/topSearches2026.json';
-import september from '../../data/analytics/september2026.json';
-import allTime from '../../data/analytics/allTimeThroughSeptember2026.json';
+import monthly from '../../data/analytics/monthlySnapshots.json';
+import allTime from '../../data/analytics/allTimeCurrent.json';
 
-const months = { ...snapshot.months, '2026-09': september.topSearches };
+const months = {
+  ...snapshot.months,
+  ...Object.fromEntries(
+    Object.entries(monthly).map(([period, data]) => [period, data.topSearches])
+  ),
+};
 
 describe('top 50 search snapshots', () => {
   it.each([

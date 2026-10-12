@@ -1,4 +1,4 @@
-import septemberData from './september2026.json';
+import monthlyData from './monthlySnapshots.json';
 export interface ClientUsage {
   name: string;
   channel: string;
@@ -17,11 +17,10 @@ export interface ClientSnapshot {
 }
 
 // Aggregate export September 9, 2026. No key values, hashes, or raw user agents.
-export const clientSnapshots: Record<
-  '2026-07' | '2026-08' | '2026-09',
-  ClientSnapshot
-> = {
-  '2026-09': septemberData.clients,
+export const clientSnapshots: Record<string, ClientSnapshot> = {
+  ...Object.fromEntries(
+    Object.entries(monthlyData).map(([month, data]) => [month, data.clients])
+  ),
   '2026-07': {
     clients: [
       {

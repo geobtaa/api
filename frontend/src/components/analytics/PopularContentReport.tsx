@@ -69,7 +69,7 @@ function MomentumBadge({
   return (
     <span
       className={`analytics-momentum analytics-momentum--${momentum.direction}`}
-      title={`All tracked interactions in ${month} 16–${month === 'September' ? 30 : 31} compared with ${month} 1–15`}
+      title={`All tracked interactions in ${month} 16–month end compared with ${month} 1–15`}
     >
       {momentum.direction === 'up' && (
         <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />

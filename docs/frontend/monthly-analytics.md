@@ -572,3 +572,50 @@ Then regenerate public snapshots for July, August, September, and All time with
 `export_analytics_snapshots.py`, followed by `export_analytics_design_data.py`.
 The dashboard and downloadable reports use these corrected labels. Keep input
 metadata and archive files private and extraction instructions in restricted docs.
+
+## Repeatable monthly refresh
+
+The dashboard now discovers reporting periods from the generated manifest.
+Every month from September 2026 onward uses the same adapter and established
+layouts; month selection, comparison columns, day counts, and year labels do not
+require a new component. July/August keep their historical definitions. All time
+is rebuilt from complete inputs, including full rankings and distinct-count
+information, rather than by adding displayed top lists or distinct visitors.
+
+From the repository root, with the project Python environment active:
+
+```sh
+make analytics-monthly-update ARCHIVES='/path/to/verified/*.json.gz' SUPPLEMENTAL=/path/to/verified-counts.json
+make analytics-monthly-check
+cd frontend && npm run build
+```
+
+The default boundary is the first day of the current UTC month, so only completed
+months are included. For a reproducible rerun, add `THROUGH=2026-10-01` to regenerate
+through September. Supply exactly one reconciled, checksummed archive for every
+month since July 2026, using metadata-corrected revisions where available.
+
+Supplemental JSON must include an object for each month from September onward
+and `all`, with `searches`, `with_query`, `distinct_queries`, and `zero_with_query`.
+Each monthly object also requires `engaged_visits`: the exact distinct count of
+non-null event visit tokens, never a sum of daily counts or an audience estimate.
+The `all` object covers the entire requested range. Keep these inputs private.
+
+The command builds reports and presentation data in a temporary directory and
+validates all inputs before replacing generated files. Failed generation leaves
+the existing dashboard in place. Repeated runs with the same inputs produce the
+same data and report revisions. File installation is for a local checkout; it
+is not a transactional live deployment. Do not run concurrent refreshes in one
+checkout or serve a build while files are being installed.
+
+Before publication, review any new Top 50 query terms in `queryCategories.ts`.
+The monthly check fails for unreviewed terms, including All time; classify real
+ambiguities explicitly rather than letting new terms fall through silently.
+Also check resource titles/provider metadata, monthly daily sums, all published
+periods, downloads, and the established report layouts. Historical coverage gaps
+remain disclosed. A successful local refresh does not enable deployment.
+
+Automated source collection, durable archives, access setup, deployed scheduling,
+and publication are restricted operations material. Maintain those steps in the
+restricted operations runbook. The local command deliberately needs verified
+inputs; missing source data must fail visibly rather than publish a partial month.
