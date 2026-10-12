@@ -150,9 +150,15 @@ Data, sync, and background services:
   updates, and reporting around changed resources. The standalone runner can
   execute inline in a fresh process, isolating its event loop and async pools
   from unrelated worker tasks while retaining incremental checkpoints and
-  single-run exclusion. It bounds execution to one hour and disconnects the
-  database on exit. Scheduling and recovery details belong in the restricted
-  operations documentation.
+  single-run exclusion. Incremental crawls import, index, and refresh one page
+  at a time, then persist the next cursor with the original lower bound. A
+  paused or failed crawl resumes after its last fully published page; only a
+  completed crawl advances the global source watermark. Runs pause between
+  pages after fifty minutes, with a one-hour cancellation deadline. Cancellation
+  drains asset-refresh tasks before disconnecting the database. The cron
+  environment preserves internal API authentication and database pool settings.
+  Scheduling, capacity, and recovery details belong in the restricted operations
+  documentation.
 - `ogm_harvest/`: OpenGeoMetadata repository harvesting workflow.
 - `gin_blog_service.py`: syncs public update/blog content. The standalone sync
   runner supports inline execution with its own event loop and database pool;

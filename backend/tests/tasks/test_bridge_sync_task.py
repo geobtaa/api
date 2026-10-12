@@ -99,6 +99,7 @@ async def test_incremental_checkpoint_uses_bootstrap_window_without_history(monk
     monkeypatch.setenv("BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS", "12")
     repo = BridgeSyncRepository()
     repo.latest_successful_crawl_source_watermark = AsyncMock(return_value=None)
+    repo.latest_page_checkpoint = AsyncMock(return_value=None)
 
     changed_since, source_high_watermark = await _incremental_checkpoint(
         repo,
@@ -118,7 +119,7 @@ async def test_scheduled_sync_resolves_and_passes_checkpoint(monkeypatch):
     )
     sync_bridge = AsyncMock(return_value={"bridge_id": 42, "stats": {}})
     monkeypatch.setattr(bridge_sync_task, "BridgeSyncRepository", lambda: repo)
-    monkeypatch.setattr(bridge_sync_task, "sync_bridge", sync_bridge)
+    monkeypatch.setattr(bridge_sync_task, "sync_incremental_bridge", sync_bridge)
 
     result = await _bridge_sync_all_async(
         trigger="incremental_cron",
@@ -131,11 +132,29 @@ async def test_scheduled_sync_resolves_and_passes_checkpoint(monkeypatch):
     assert result["bridge_id"] == 42
     sync_bridge.assert_awaited_once_with(
         trigger="incremental_cron",
-        limit=500,
+        page_size=500,
         changed_since="2026-08-17T15:25:00Z",
-        resource_id=None,
         source_high_watermark="2026-08-17T15:30:00Z",
         repo=repo,
+    )
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_reuses_pending_crawl_bounds_across_days():
+    repo = BridgeSyncRepository()
+    repo.latest_successful_crawl_source_watermark = AsyncMock(return_value=None)
+    repo.latest_page_checkpoint = AsyncMock(
+        return_value={
+            "bridge_stats_json": {
+                "changed_since": "2026-10-01T00:00:00Z",
+                "source_high_watermark": "2026-10-02T00:00:00Z",
+                "page_checkpoint": {"cursor": "next"},
+            }
+        }
+    )
+    assert await _incremental_checkpoint(repo, now=datetime(2026, 10, 12, tzinfo=timezone.utc)) == (
+        "2026-10-01T00:00:00Z",
+        "2026-10-02T00:00:00Z",
     )
 
 

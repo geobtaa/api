@@ -1,9 +1,37 @@
+import asyncio
 from unittest.mock import AsyncMock, MagicMock, call, patch
 
 import httpx
 import pytest
 
 import app.services.bridge_sync.cache_refresh as cache_refresh
+
+
+@pytest.mark.asyncio
+async def test_cancelled_asset_refresh_drains_children_before_returning(monkeypatch):
+    started = asyncio.Event()
+    stopped = asyncio.Event()
+
+    async def capture(resource, *, force):
+        started.set()
+        try:
+            await asyncio.Future()
+        finally:
+            stopped.set()
+
+    monkeypatch.setattr(cache_refresh, "_prime_resource_class_icon_cache", capture)
+    parent = asyncio.create_task(
+        cache_refresh._prime_resource_class_icon_caches(
+            [{"id": "first"}, {"id": "queued"}], concurrency=1, force=True
+        )
+    )
+    await started.wait()
+    children = asyncio.all_tasks() - {asyncio.current_task(), parent}
+    parent.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await parent
+    assert stopped.is_set()
+    assert all(task.done() for task in children)
 
 
 class FakeCacheService:

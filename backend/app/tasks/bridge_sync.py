@@ -9,6 +9,7 @@ from app.services.bridge_sync.batched import (
     sync_bridge_resource_batch,
 )
 from app.services.bridge_sync.harvest import sync_bridge
+from app.services.bridge_sync.incremental import sync_incremental_bridge
 from app.services.bridge_sync.report import send_bridge_sync_report_for_run
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from app.tasks.worker import celery_app
@@ -78,6 +79,11 @@ async def _incremental_checkpoint(
 ) -> tuple[str, str]:
     source_high_watermark = await repo.latest_successful_crawl_source_watermark()
     if source_high_watermark is None:
+        pending = await repo.latest_page_checkpoint()
+        if pending:
+            stats = pending["bridge_stats_json"]
+            if stats.get("page_checkpoint"):
+                return stats["changed_since"], stats["source_high_watermark"]
         fallback_hours = _nonnegative_env_int(
             "BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS",
             DEFAULT_BRIDGE_SYNC_INITIAL_LOOKBACK_HOURS,
@@ -143,14 +149,23 @@ async def _bridge_sync_all_async(
         resume_from_last_success,
     )
     try:
-        result = await sync_bridge(
-            trigger=trigger,
-            limit=limit,
-            changed_since=changed_since,
-            resource_id=resource_id,
-            source_high_watermark=source_high_watermark,
-            repo=repo,
-        )
+        if repo is not None and changed_since and source_high_watermark:
+            result = await sync_incremental_bridge(
+                trigger=trigger,
+                changed_since=changed_since,
+                source_high_watermark=source_high_watermark,
+                repo=repo,
+                page_size=max(1, min(limit or 100, 500)),
+            )
+        else:
+            result = await sync_bridge(
+                trigger=trigger,
+                limit=limit,
+                changed_since=changed_since,
+                resource_id=resource_id,
+                source_high_watermark=source_high_watermark,
+                repo=repo,
+            )
     except (Exception, asyncio.CancelledError) as exc:
         run_id = getattr(exc, "bridge_sync_run_id", None)
         if run_id and _should_send_failure_report(trigger):

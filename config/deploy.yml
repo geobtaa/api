@@ -68,8 +68,8 @@ servers:
     # Kamal runs each "server" as its own container; `cron -f` keeps it alive.
     cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
-      cpus: <%= ENV.fetch('KAMAL_CRON_CPUS', '0.25') %>
-      memory: <%= ENV.fetch('KAMAL_CRON_MEMORY', '256m') %>
+      cpus: <%= ENV.fetch('KAMAL_CRON_CPUS', '1') %>
+      memory: <%= ENV.fetch('KAMAL_CRON_MEMORY', '2048m') %>
       user: root
 
 proxy:
