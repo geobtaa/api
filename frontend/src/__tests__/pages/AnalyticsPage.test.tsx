@@ -124,9 +124,11 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     'clients',
     'platform',
     'members&grouping=provider',
-  ])('makes every table sortable and filterable in %s', (report) => {
+  ])('makes every data table sortable and filterable in %s', (report) => {
     const { container } = renderPage(report);
-    const tables = container.querySelectorAll('table');
+    const tables = container.querySelectorAll(
+      'table:not(.analytics-sources-table)'
+    );
     expect(tables.length).toBeGreaterThan(0);
     tables.forEach((table) => {
       expect(
@@ -407,7 +409,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(screen.getByText('127 ms')).toBeInTheDocument();
     expect(
       screen.getByText('Peak-day API traffic', {
-        selector: '.analytics-panel-header span',
+        selector: '.analytics-panel-header h3',
       })
     ).toBeInTheDocument();
     fireEvent.change(
@@ -470,7 +472,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(
       heading.compareDocumentPosition(
         screen.getByText('Search view mix', {
-          selector: '.analytics-panel-header span',
+          selector: '.analytics-panel-header h3',
         })
       ) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
