@@ -9,16 +9,18 @@ Report links preserve selection in the URL and support reloads and browser histo
 | URL                                       | Report                                               | Period           |
 | ----------------------------------------- | ---------------------------------------------------- | ---------------- |
 | `/analytics`                              | Overview, daily activity, and traffic peaks          | September 2026   |
-| `/analytics?report=comparison`            | Monthly totals, chart, CSV/JSON downloads         | July–September 2026 |
-| `/analytics?report=content`               | Popular resources, collections, downloads  | September 2026   |
-| `/analytics?report=content&month=2026-07` | Preserved popular-content report                     | July 2026        |
-| `/analytics?report=members`               | Alliance and campus detail                           | September 2026   |
-| `/analytics?report=activity`              | Legacy alias for Overview                            | September 2026   |
-| `/analytics?report=discovery`             | Search terms, filters, zero results                  | September 2026   |
-| `/analytics?report=clients`               | Clients, channels, key attribution, MCP/QGIS signals | September 2026   |
-| `/analytics?report=platform`              | API traffic and reliability                          | September 2026   |
+| `/analytics/comparison`            | Monthly totals, chart, CSV/JSON downloads         | July–September 2026 |
+| `/analytics/content`               | Popular resources, collections, downloads  | September 2026   |
+| `/analytics/content?month=2026-07` | Preserved popular-content report                     | July 2026        |
+| `/analytics/members`               | Alliance and campus detail                           | September 2026   |
+| `/analytics/activity`              | Legacy alias for Overview                            | September 2026   |
+| `/analytics/discovery`             | Search terms, filters, zero results                  | September 2026   |
+| `/analytics/clients`               | Clients, channels, key attribution, MCP/QGIS signals | September 2026   |
+| `/analytics/platform`              | API traffic and reliability                          | September 2026   |
 
-Unknown report values show the overview. Navigation marks the current report and
+Unknown report paths return 404. Legacy `?report=...` links redirect to report paths,
+preserving the month and other query parameters. `/analytics` is Overview;
+`/analytics/overview` and `/analytics/activity` redirect there. Navigation marks the current report and
 wraps on small screens; a skip link leads to the report. Single-month reports
 default to September. Use `month=2026-07`, `month=2026-08`, or `month=2026-09`
 to select a month, or `month=all` for July–September. Navigation preserves the

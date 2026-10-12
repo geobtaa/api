@@ -49,7 +49,7 @@ describe(
       window.history.replaceState(
         {},
         '',
-        `/analytics?report=${report}&month=${month}`
+        `/analytics${report === 'overview' ? '' : `/${report}`}?month=${month}`
       );
       return render(
         <HelmetProvider>

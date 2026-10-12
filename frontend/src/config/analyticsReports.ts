@@ -57,10 +57,10 @@ export function analyticsReportHref(
   month?: string | null
 ) {
   const params = new URLSearchParams();
-  if (report !== 'overview') params.set('report', report);
+  const path = report === 'overview' ? '/analytics' : `/analytics/${report}`;
   if (month && /^(?:\d{4}-(?:0[1-9]|1[0-2])|ay-\d{4}|all)$/.test(month))
     params.set('month', month);
-  return `/analytics${params.size ? `?${params}` : ''}`;
+  return `${path}${params.size ? `?${params}` : ''}`;
 }
 
 export function analyticsMonth(params: URLSearchParams) {
@@ -71,10 +71,13 @@ export function analyticsMonth(params: URLSearchParams) {
   ).replace(/ \d{4}$/, '');
 }
 
-export function selectedAnalyticsReport(params: URLSearchParams) {
+export function selectedAnalyticsReport(
+  params: URLSearchParams,
+  pathname?: string
+) {
   // Preserve existing Daily activity links as aliases for the merged overview.
-  const reportId =
-    params.get('report') === 'activity' ? 'overview' : params.get('report');
+  const requested = pathname?.split('/')[2] || params.get('report');
+  const reportId = requested === 'activity' ? 'overview' : requested;
   const report =
     analyticsReports.find((entry) => entry.id === reportId) ??
     analyticsReports[0];

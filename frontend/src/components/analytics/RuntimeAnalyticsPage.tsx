@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { useSearchParams, useLocation } from 'react-router';
 import {
   ResponsiveContainer,
   LineChart,
@@ -665,7 +665,8 @@ export function RuntimeAnalyticsPage() {
   const [manifest, setManifest] = useState<ReportingManifest | null>(null);
   const [report, setReport] = useState<RuntimeReport | null>(null);
   const [error, setError] = useState('');
-  const active = selectedAnalyticsReport(params).id;
+  const { pathname } = useLocation();
+  const active = selectedAnalyticsReport(params, pathname).id;
   const requested = params.get('month');
   useEffect(() => {
     const controller = new AbortController();
@@ -719,7 +720,7 @@ export function RuntimeAnalyticsPage() {
     <div className="analytics-page">
       <AnalyticsHeader activeReport={active} />
       <main id="analytics-main" className="analytics-shell">
-        <h1>{selectedAnalyticsReport(params).label}</h1>
+        <h1>{selectedAnalyticsReport(params, pathname).label}</h1>
         {manifest && (
           <label>
             Reporting period{' '}

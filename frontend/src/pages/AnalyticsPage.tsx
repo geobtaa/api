@@ -63,7 +63,7 @@ import {
   Trophy,
   Zap,
 } from 'lucide-react';
-import { Link, useSearchParams } from 'react-router';
+import { Link, useSearchParams, useLocation } from 'react-router';
 import {
   Area,
   AreaChart,
@@ -160,7 +160,8 @@ function MemberContentList({
 
 export function AnalyticsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const report = selectedAnalyticsReport(searchParams);
+  const { pathname } = useLocation();
+  const report = selectedAnalyticsReport(searchParams, pathname);
   const isAllTime = searchParams.get('month') === 'all';
   const reportMonth = isAllTime ? 'All time' : analyticsMonth(searchParams);
   const selectedPeriod = isAllTime

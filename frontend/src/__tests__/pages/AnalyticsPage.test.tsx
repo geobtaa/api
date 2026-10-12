@@ -43,11 +43,11 @@ vi.mock('recharts', () => ({
 // default on shared CI runners. Keep this budget local; WCAG audits retain 60 seconds.
 describe('AnalyticsPage', { timeout: 30_000 }, () => {
   function renderPage(report = 'members&month=2026-07') {
-    window.history.replaceState(
-      {},
-      '',
-      `/analytics?report=${report}${report.includes('month=') ? '' : '&month=2026-08'}`
-    );
+    const [id, query] = report.split('&');
+    const path = ['overview', 'activity'].includes(id)
+      ? '/analytics'
+      : `/analytics/${id}`;
+    window.history.replaceState({}, '', `${path}?${query ?? 'month=2026-08'}`);
     return render(
       <HelmetProvider>
         <BrowserRouter>
@@ -152,7 +152,8 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).toBeInTheDocument();
     const nav = screen.getByRole('navigation', { name: 'Analytics reports' });
     fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
-    expect(window.location.search).toBe('?report=discovery&month=all');
+    expect(window.location.pathname).toBe('/analytics/discovery');
+    expect(window.location.search).toBe('?month=all');
     const table = screen.getByRole('table', {
       name: 'All time top 50 searches',
     });
@@ -262,7 +263,8 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     fireEvent.click(
       within(nav).getByRole('link', { name: 'Month comparison' })
     );
-    expect(window.location.search).toBe('?report=comparison');
+    expect(window.location.pathname).toBe('/analytics/comparison');
+    expect(window.location.search).toBe('?month=2026-08');
     expect(
       screen.getByRole('heading', { name: 'Month comparison', level: 1 })
     ).toBeInTheDocument();
@@ -372,7 +374,8 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       screen.getByRole('combobox', { name: 'Reporting month' }),
       { target: { value: '2026-07' } }
     );
-    expect(window.location.search).toBe('?report=content&month=2026-07');
+    expect(window.location.pathname).toBe('/analytics/content');
+    expect(window.location.search).toBe('?month=2026-07');
     expect(
       screen.getByRole('heading', {
         name: 'July’s top resources and collections',
@@ -418,7 +421,8 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     );
     expect(screen.getByText('29 ms')).toBeInTheDocument();
     fireEvent.click(within(nav).getByRole('link', { name: 'Searches' }));
-    expect(window.location.search).toBe('?report=discovery&month=2026-07');
+    expect(window.location.pathname).toBe('/analytics/discovery');
+    expect(window.location.search).toBe('?month=2026-07');
     expect(
       screen.getByRole('link', { name: 'turkey maps' })
     ).toBeInTheDocument();
