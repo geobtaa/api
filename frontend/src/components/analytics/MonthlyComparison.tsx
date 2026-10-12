@@ -1,12 +1,7 @@
 import { useAnalyticsData } from './AnalyticsData';
 import { chartTheme } from './chartTheme';
-import {
-  publishedMonths,
-  monthLabel,
-  comparisonLabel,
-} from '../../config/analyticsPeriods';
+import { publishedMonths, monthLabel } from '../../config/analyticsPeriods';
 
-import { ReportSectionHeading } from './ReportSectionHeading';
 import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, BarChart3 } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
@@ -100,13 +95,8 @@ export function MonthlyComparison() {
     <section
       id="comparison"
       className="analytics-section"
-      aria-labelledby="comparison-title"
+      aria-label="Monthly comparison"
     >
-      <ReportSectionHeading
-        id="comparison-title"
-        title={comparisonLabel}
-        description={`Compare all ${months.length} published months. Use daily averages to account for different month lengths.`}
-      />
       <div className="analytics-panel analytics-comparison-panel analytics-monthly-lead">
         <ReportPanelHeader title="Monthly activity" icon={BarChart3}>
           <label>

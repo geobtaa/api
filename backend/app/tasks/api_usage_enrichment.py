@@ -110,12 +110,65 @@ def _prepare_log_entry(log_entry: Dict[str, Any]) -> Dict[str, Any]:
     return prepared
 
 
+def _resolve_log_tier(conn, entry):
+    """Resolve a real storage tier asynchronously; never store a fabricated ID."""
+    hashes = entry.pop("_verified_key_hashes", None)
+    verified = (entry.get("properties") or {}).get(
+        "authenticated_identity"
+    ) == "geoportal-unlimited"
+    if verified and hashes:
+        # Resolve the hashes captured at authentication, not the worker's current
+        # environment: queued requests may span a credential rotation.
+        match = (
+            conn.execute(
+                text(
+                    "SELECT id, name FROM api_keys WHERE key_hash IN (:current, :legacy) "
+                    "ORDER BY CASE WHEN key_hash = :current THEN 0 ELSE 1 END, id LIMIT 1"
+                ),
+                {"current": hashes[0], "legacy": hashes[1]},
+            )
+            .mappings()
+            .first()
+        )
+        if match:
+            entry["api_key_id"] = match["id"]
+            entry["properties"]["authenticated_key_name"] = match["name"]
+            conn.execute(
+                text(
+                    "UPDATE api_keys SET last_used_at = :used WHERE id = :id "
+                    "AND (last_used_at IS NULL OR last_used_at < :used)"
+                ),
+                {"id": match["id"], "used": entry["requested_at"]},
+            )
+        else:
+            entry["properties"]["key_registry_status"] = "unmatched"
+            logger.warning("Verified Geoportal key has no matching API key registry record")
+    if entry.get("tier_id") is not None:
+        return
+    if (entry.get("properties") or {}).get("authenticated_identity") != "geoportal-unlimited":
+        raise ValueError("Missing service tier for API usage log")
+    # Authentication stays independent of DB availability and tier configuration.
+    # This row supplies the non-null storage ID, not a rate-limit decision.
+    conn.execute(
+        text("""
+        INSERT INTO api_service_tiers
+          (tier_name, display_name, requests_per_minute, created_at, updated_at)
+        VALUES ('btaa_primary', 'BTAA Geoportal Frontend', NULL, NOW(), NOW())
+        ON CONFLICT (tier_name) DO NOTHING
+    """)
+    )
+    entry["tier_id"] = conn.execute(
+        text("SELECT id FROM api_service_tiers WHERE tier_name = 'btaa_primary'")
+    ).scalar_one()
+
+
 @celery_app.task(bind=True, name="write_api_usage_log")
 def write_api_usage_log(self, log_entry: Dict[str, Any]) -> Dict[str, Any]:
     """Persist an analytics API usage log asynchronously via Celery."""
     try:
         prepared_entry = _prepare_log_entry(log_entry)
         with sync_engine.begin() as conn:
+            _resolve_log_tier(conn, prepared_entry)
             # Celery retries/redelivery keep the task ID. Recording it in the
             # same transaction prevents duplicate API logs after a lost ACK.
             delivery_id = self.request.id or str(uuid4())

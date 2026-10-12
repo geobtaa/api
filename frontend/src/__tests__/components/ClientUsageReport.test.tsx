@@ -11,6 +11,9 @@ import { AUGUST_2026_SUMMARY } from '../../data/analytics/august2026';
 describe('Client usage report', () => {
   it('shows declared clients separately from endpoint signals and missing key attribution', () => {
     render(<ClientUsageReport month="2026-08" />);
+    expect(
+      screen.getByRole('note', { name: 'Historical attribution gaps' })
+    ).toHaveTextContent('Missing requests are absent from these totals');
     const clients = screen.getByRole('table', {
       name: 'August 2026 declared client usage',
     });
@@ -28,9 +31,12 @@ describe('Client usage report', () => {
     expect(
       within(signals).getByRole('row', { name: /QGIS user-agent match/ })
     ).toHaveTextContent('0');
-    expect(screen.getByText(/No API-key IDs were recorded/)).toHaveTextContent(
-      'does not mean that no keys were configured or used'
-    );
+    expect(
+      screen.getByRole('table', { name: 'Known Geoportal key usage' })
+    ).toHaveTextContent('#129 · Production frontend BFF');
+    expect(
+      screen.getByRole('table', { name: 'Known Geoportal key usage' })
+    ).toHaveTextContent('Not recorded');
     const keyTable = screen.getByRole('table', {
       name: /API key attribution coverage/,
     });

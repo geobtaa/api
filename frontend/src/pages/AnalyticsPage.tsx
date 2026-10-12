@@ -42,7 +42,6 @@ import { ClientUsageReport } from '../components/analytics/ClientUsageReport';
 import {
   Activity,
   SlidersHorizontal,
-  ArrowRight,
   BarChart3,
   CheckCircle2,
   CircleGauge,
@@ -93,12 +92,6 @@ const wholeNumber = new Intl.NumberFormat('en-US');
 
 function formatCompact(value: number) {
   return compactNumber.format(value);
-}
-
-function memberSearchHref(code: string) {
-  const params = new URLSearchParams();
-  params.append('include_filters[b1g_code_s][]', code);
-  return `/search?${params.toString()}`;
 }
 
 export function AnalyticsPage() {
@@ -692,7 +685,13 @@ export function AnalyticsPage() {
             <div className="analytics-report-title">
               <p>{report.period} · Analytics</p>
               <h1>{report.label}</h1>
-              <span>{report.description}</span>
+              <span>
+                {activeReport === 'platform'
+                  ? 'Inspect HTTP traffic and service reliability, including browsers, crawlers, health probes, images, and analytics capture. Request counts are not searches or visitors.'
+                  : activeReport === 'comparison'
+                    ? 'Compare portal totals and daily trends. Use daily averages to account for different month lengths.'
+                    : report.description}
+              </span>
             </div>
             <div
               className={
@@ -911,7 +910,11 @@ export function AnalyticsPage() {
             )}
 
             {activeReport === 'members' && memberGrouping === 'code' && (
-              <section id="members" className="analytics-section">
+              <section
+                id="members"
+                className="analytics-section"
+                data-nav-exclude
+              >
                 {unavailableMember ? (
                   <section
                     className="analytics-panel analytics-member-unavailable"
@@ -929,50 +932,6 @@ export function AnalyticsPage() {
                   </section>
                 ) : (
                   <>
-                    <div
-                      className="analytics-member-selection"
-                      aria-live="polite"
-                    >
-                      <div className="analytics-member-selection-brand">
-                        <span>
-                          <img
-                            className={
-                              selectedMember
-                                ? 'analytics-campus-segment-icon'
-                                : undefined
-                            }
-                            src={
-                              selectedMember
-                                ? `/icons/${selectedMember.iconSlug}.svg`
-                                : '/btaa-logo.png'
-                            }
-                            alt=""
-                          />
-                        </span>
-                        <div>
-                          <p>
-                            {selectedMember
-                              ? 'Campus segment'
-                              : 'Alliance view'}
-                          </p>
-                          <h2>
-                            {selectedMember?.name ?? 'All BTAA member content'}
-                          </h2>
-                          <small>
-                            {selectedMember
-                              ? `Contribution stream ${selectedMember.code} · ${periodRange}`
-                              : `17 member contribution streams · ${periodRange}`}
-                          </small>
-                        </div>
-                      </div>
-                      {selectedMember && (
-                        <Link to={memberSearchHref(selectedMember.code)}>
-                          Browse {selectedMember.shortName} content
-                          <ArrowRight className="h-4 w-4" aria-hidden />
-                        </Link>
-                      )}
-                    </div>
-
                     <div className="analytics-member-kpi-grid">
                       <article>
                         <MetricHeading icon={Layers3}>
@@ -1557,11 +1516,11 @@ export function AnalyticsPage() {
             )}
 
             {activeReport === 'discovery' && (
-              <section id="discovery" className="analytics-section">
-                <SectionHeading
-                  title="Search activity"
-                  description={`Daily searches and the most common search categories during ${periodRange}.`}
-                />
+              <section
+                id="discovery"
+                className="analytics-section"
+                data-nav-exclude
+              >
                 <div className="analytics-search-chart-grid">
                   <SearchDailyReport
                     period={report.period}
@@ -1803,11 +1762,6 @@ export function AnalyticsPage() {
                 id="platform"
                 className="analytics-section analytics-platform-section"
               >
-                <SectionHeading
-                  title="API requests and reliability"
-                  description="Raw HTTP traffic includes browsers, crawlers, health probes, images, and analytics capture. It should not be read as a count of searches or visitors."
-                />
-
                 <div className="analytics-platform-grid">
                   <article
                     className="analytics-panel analytics-reliability-card"

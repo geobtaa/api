@@ -1,7 +1,6 @@
 import { useAnalyticsData } from './AnalyticsData';
 
 import { RankingRow } from './RankingRow';
-import { ReportSectionHeading } from './ReportSectionHeading';
 import { useRanking } from './useRanking';
 import { Download, Flame, Layers3, Trophy } from 'lucide-react';
 import type {
@@ -104,16 +103,12 @@ export function PopularContentReport({
     ...topDownloadedResources.map((row) => row.clicks)
   );
   return (
-    <section id="charts" className="analytics-section" data-nav-exclude>
-      <ReportSectionHeading
-        title={title}
-        description={
-          reportMonth
-            ? `Ranked by resource detail views. Momentum compares each ranking’s metric with the previous calendar month; totals are not adjusted for month length.`
-            : 'Ranked by resource detail views across all published months.'
-        }
-      />
-
+    <section
+      id="charts"
+      className="analytics-section"
+      aria-label={title}
+      data-nav-exclude
+    >
       <div className="analytics-charts-grid">
         <div
           id="top-resources"

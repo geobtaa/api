@@ -4366,3 +4366,18 @@ h3.analytics-widget-heading {
     max-width: 100%;
   }
 }
+
+.analytics-client-coverage-note {
+  padding: 0;
+  margin-bottom: 1.5rem;
+  border-left: 4px solid var(--analytics-brand);
+}
+.analytics-client-coverage-note > .analytics-report-panel-header {
+  margin: 0;
+}
+.analytics-client-coverage-note > p {
+  margin: 1rem 1.5rem;
+  color: var(--analytics-text-secondary);
+  line-height: 1.65;
+  max-width: 95ch;
+}

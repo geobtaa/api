@@ -46,6 +46,35 @@ export function ClientUsageReport({ month }: { month: string }) {
       className="analytics-section"
       aria-label={`${period} client and API key usage`}
     >
+      <aside
+        className="analytics-panel analytics-client-coverage-note"
+        role="note"
+        aria-label="Historical attribution gaps"
+      >
+        <ReportPanelHeader
+          title="Historical attribution is incomplete"
+          icon={Activity}
+          level={2}
+        />
+        <p>
+          These snapshots cannot measure total Geoportal usage by API key.
+          Requests using the configured unlimited Geoportal key could bypass
+          usage logging, and many recorded requests omitted client identity
+          headers.
+        </p>
+        <p>
+          “Not declared” means no client label was recorded—not anonymous access
+          or a specific application. Missing requests are absent from these
+          totals. The small declared SSR count is not the total number of
+          Geoportal server requests.
+        </p>
+        <p>
+          Client names and channels are caller-supplied labels, separate from
+          verified API-key identity. The logging correction applies to newly
+          collected data after deployment; it does not repair these historical
+          snapshots.
+        </p>
+      </aside>
       <div className="analytics-client-highlights">
         <article className="analytics-panel analytics-comparison-panel">
           <h2>
@@ -53,7 +82,7 @@ export function ClientUsageReport({ month }: { month: string }) {
             Recorded API requests
           </h2>
           <strong>{number.format(requests)}</strong>
-          <p>All logged HTTP traffic</p>
+          <p>Recorded requests only; historical gaps apply</p>
         </article>
         <article className="analytics-panel analytics-comparison-panel">
           <h2>
@@ -69,10 +98,10 @@ export function ClientUsageReport({ month }: { month: string }) {
         <article className="analytics-panel analytics-comparison-panel">
           <h2>
             <KeyRound aria-hidden="true" />
-            API keys identified in logs
+            Known Geoportal API key
           </h2>
-          <strong>{snapshot.recordedKeys ?? 'Not available'}</strong>
-          <p>Historical key attribution is missing</p>
+          <strong>#129</strong>
+          <p>Production frontend BFF · unlimited</p>
         </article>
       </div>
       <article className="analytics-panel analytics-comparison-panel">
@@ -129,6 +158,33 @@ export function ClientUsageReport({ month }: { month: string }) {
           icon={KeyRound}
           level={2}
         />
+        <div className="analytics-comparison-scroll">
+          <table
+            className="analytics-comparison-table"
+            aria-label="Known Geoportal key usage"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Known key</th>
+                <th scope="col">Access</th>
+                <th scope="col">Requests in this period</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">#129 · Production frontend BFF</th>
+                <td>Unlimited Geoportal access</td>
+                <td>Not recorded</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className="analytics-comparison-note">
+          Production verification on October 12, 2026 matched the configured BFF
+          credential to active key #129. BFF key use is known, even though its
+          unlimited-access path skipped request logging. Its missing request
+          count is not zero and is not included in the recorded totals below.
+        </p>
         <div
           className="analytics-comparison-scroll"
           role="region"
@@ -158,11 +214,10 @@ export function ClientUsageReport({ month }: { month: string }) {
           </AnalyticsTable>
         </div>
         <p className="analytics-comparison-note">
-          No API-key IDs were recorded for this period, so per-key usage cannot
-          be reconstructed from these logs. This does not mean that no keys were
-          configured or used. A key such as <code>btaa_geoportal</code> cannot
-          be assigned request counts without a recorded link. Key values and
-          hashes are never included in this report.
+          These recorded-request totals do not include the omitted BFF requests.
+          “Not declared” identifies missing caller labels and is not a
+          substitute for BFF usage. Key values and hashes are never included in
+          this report.
         </p>
       </article>
       <article className="analytics-panel analytics-comparison-panel">

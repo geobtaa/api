@@ -414,3 +414,12 @@ parts of the same reporting system; do not use Recharts’ default axis styling.
   heights and zero minimum width. Stack adjacent chart panels on narrow screens.
   Enable Recharts’ accessibility layer and provide descriptive chart labels plus
   exact values in an adjacent legend or expandable table.
+
+### Analytics report introductions
+
+Use one report title and a concise description in the page header, alongside its
+filters. Begin the report body with its charts, metrics, or tables; do not repeat
+the title, period, or selected institution in a second introductory heading.
+Keep headings for substantive report sections, and build the section navigation
+from those headings. Put essential interpretation guidance in the page description
+or alongside the relevant metric.

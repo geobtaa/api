@@ -4,7 +4,7 @@ import { AnalyticsTable } from './AnalyticsTable';
 import { MemberContentList } from './MemberContentList';
 import { RankingRow } from './RankingRow';
 import { chartTheme } from './chartTheme';
-import { Link, useSearchParams } from 'react-router';
+import { useSearchParams } from 'react-router';
 import { Activity, Users, Layers3, Eye, Download } from 'lucide-react';
 import {
   CartesianGrid,
@@ -81,34 +81,6 @@ export function ProviderReport({
   }));
   return (
     <section className="analytics-section" aria-label="Provider report">
-      <div className="analytics-section-heading">
-        <h2>How provider content performed</h2>
-        <p>
-          Grouped by the provider named on each record, including outside
-          agencies. This is separate from the contributing BTAA institution.
-        </p>
-      </div>
-      <div className="analytics-member-selection">
-        <div className="analytics-member-selection-brand">
-          <div>
-            <p>PROVIDER VIEW</p>
-            <h3>
-              {group ? (group.provider ?? 'Missing provider') : 'All providers'}
-            </h3>
-            <small>
-              {group
-                ? 'Selected provider'
-                : `${snapshot.groups.length} providers · Institution filter does not apply`}{' '}
-              · {month}
-            </small>
-          </div>
-        </div>
-        {group?.provider && (
-          <Link to={providerSearchHref(group.provider)}>
-            Browse provider content
-          </Link>
-        )}
-      </div>
       {snapshot.impressionsAvailable === false && (
         <p className="analytics-comparison-note" role="note">
           July’s resource-level search impressions have expired. Impressions and

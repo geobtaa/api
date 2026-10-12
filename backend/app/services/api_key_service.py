@@ -5,6 +5,7 @@ import os
 import time
 import uuid
 from datetime import datetime
+from functools import lru_cache
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import select
@@ -24,6 +25,17 @@ API_KEY_TIER_CACHE_MAX_ENTRIES = int(os.getenv("API_KEY_TIER_CACHE_MAX_ENTRIES",
 _tier_cache: dict[str, tuple[float, Dict[str, Any]]] = {}
 _anonymous_tier_cache: tuple[float, Dict[str, Any]] | None = None
 _last_used_updates: dict[int, float] = {}
+
+
+@lru_cache(maxsize=16)
+def _logging_key_hashes(key: str, salt: str):
+    """Bounded cache for verified configured keys; never send raw keys to workers."""
+    return (
+        hashlib.pbkdf2_hmac(
+            "sha256", key.encode(), salt.encode(), API_KEY_HASH_ITERATIONS, dklen=32
+        ).hex(),
+        hashlib.sha256(key.encode()).hexdigest(),
+    )
 
 
 class APIKeyService:
@@ -80,6 +92,12 @@ class APIKeyService:
                     "key_hash": APIKeyService.legacy_hash_api_key(key),
                     "allowed_ips": None,
                     "source": "env:BTAA_GEOSPATIAL_API_KEY",
+                    "logging_key_hashes": _logging_key_hashes(
+                        key,
+                        os.getenv("API_KEY_HASH_SECRET")
+                        or os.getenv("SECRET_KEY")
+                        or DEFAULT_API_KEY_HASH_SECRET,
+                    ),
                 }
         return None
 

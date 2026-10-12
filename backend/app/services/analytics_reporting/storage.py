@@ -219,7 +219,16 @@ def dimensions(source, row):
             endpoint=endpoint,
             method=row.get("method"),
             status=row.get("status_code"),
-            apiKey=(f"Key {row['api_key_id']}" if row.get("api_key_id") else "Anonymous"),
+            apiKey=(
+                f"Key {row['api_key_id']}"
+                if row.get("api_key_id")
+                else (
+                    "Geoportal unlimited (registry unmatched)"
+                    if (row.get("properties") or {}).get("authenticated_identity")
+                    == "geoportal-unlimited"
+                    else "Anonymous"
+                )
+            ),
             tier=row.get("tier_id"),
         )
     return dim

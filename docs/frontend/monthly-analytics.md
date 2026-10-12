@@ -783,3 +783,30 @@ private `memberResources` aggregates by the design-data exporter and delivered
 only with the authenticated snapshot. Alliance rankings deduplicate resource IDs
 before selecting the top 50 viewed and top 25 downloaded; institutions with fewer qualifying resources show
 only those available.
+
+### Verified Geoportal request attribution
+
+The configured unlimited Geoportal key is authenticated independently of database
+key records. Its requests are queued for API usage logging even when authentication
+returns no database tier ID. The background writer resolves the named service tier
+before insertion; it retries storage failures using the existing task policy.
+Authentication and unlimited access do not depend on this analytics lookup.
+
+Logs carry a server-assigned `authenticated_identity` property for that key.
+The authentication path also queues the verified key’s current and legacy lookup hashes.
+The writer resolves the existing registry ID and name, updates last-used time,
+and removes those transient hashes before inserting the analytics record.
+Reporting uses the resolved key ID; unmatched registry entries retain an explicit
+verified-Geoportal label and generate a warning. Raw credentials are never queued.
+Captured hashes identify the request’s key even if configuration rotates before
+the worker handles it. Existing inactive registry entries are not reactivated. Caller-supplied client/channel headers remain
+separate. Requests without a client name default to `geoportal-ssr` only after
+the configured key is verified. The frontend server helper also supplies SSR
+labels by default and preserves explicitly forwarded browser labels.
+
+July–September snapshots retain their recorded values. Missing identity headers
+and the previous unlimited-key logging bypass mean these reports cannot measure
+total Geoportal key usage. “Not declared” must not be reassigned to SSR, and absent
+requests cannot be recovered by relabeling aggregates. The Clients report explains
+these gaps. New logging applies after the updated API and worker are deployed;
+deployment verification belongs in the restricted operations runbook.
