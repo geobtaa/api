@@ -1,7 +1,16 @@
+import { MetricHeading } from './MetricHeading';
 import { AnalyticsTable } from './AnalyticsTable';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { Activity, List, Users } from 'lucide-react';
+import {
+  Activity,
+  List,
+  Users,
+  Layers3,
+  Eye,
+  Download,
+  ExternalLink,
+} from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -117,8 +126,35 @@ export function ProviderReport({
             className="analytics-panel analytics-comparison-panel"
             key={key}
           >
-            <h2>{label}</h2>
+            <MetricHeading
+              level={2}
+              icon={
+                {
+                  catalogRecords: Layers3,
+                  activeResources: Activity,
+                  resourceViews: Eye,
+                  impressions: Eye,
+                  downloadClicks: Download,
+                  sourceClicks: ExternalLink,
+                }[key]
+              }
+            >
+              {label}
+            </MetricHeading>
             <strong>{display(counts[key])}</strong>
+            <p>
+              {
+                {
+                  catalogRecords: 'Records in the catalog snapshot',
+                  activeResources:
+                    'Records appearing in searches or receiving an action',
+                  resourceViews: 'Recorded resource detail views',
+                  impressions: 'Resource cards shown in search results',
+                  downloadClicks: 'Recorded clicks, not completed downloads',
+                  sourceClicks: 'Clicks to authoritative source links',
+                }[key]
+              }
+            </p>
           </article>
         ))}
       </div>

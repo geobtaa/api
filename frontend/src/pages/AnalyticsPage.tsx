@@ -1,3 +1,4 @@
+import { MetricHeading } from '../components/analytics/MetricHeading';
 import { Users } from 'lucide-react';
 import { ReportPanelHeader } from '../components/analytics/ReportPanelHeader';
 import {
@@ -57,6 +58,7 @@ import {
   CircleGauge,
   Download,
   Eye,
+  ExternalLink,
   Layers3,
   Map,
   Search,
@@ -620,48 +622,54 @@ export function AnalyticsPage() {
                   aria-label={`${isAllTime ? reportMonth : monthLabel(activeMonth)} highlights`}
                 >
                   <div>
+                    <MetricHeading icon={Users}>
+                      Tracked visits
+                      {visitsAreEstimated(selectedPeriod) ? ' (estimated)' : ''}
+                    </MetricHeading>
                     <strong>
                       {visitsAreEstimated(selectedPeriod) ? '≈ ' : ''}
                       {wholeNumber.format(
                         outcomes.periods[selectedPeriod].audience.trackedVisits
                       )}
                     </strong>
-                    <p>
-                      Tracked visits
-                      {visitsAreEstimated(selectedPeriod) ? ' (estimated)' : ''}
-                    </p>
                     <small>
                       Distinct browser-tab visits, not unique people
                     </small>
                   </div>
                   <div>
+                    <MetricHeading icon={Search}>
+                      Search result pages
+                    </MetricHeading>
                     <strong>{formatCompact(summary.searches)}</strong>
-                    <p>Search result pages</p>
                     <small>
                       {periodRange} · includes filter changes and pagination
                     </small>
                   </div>
                   <div>
+                    <MetricHeading icon={Eye}>Resource views</MetricHeading>
                     <strong>{formatCompact(summary.resourceViews)}</strong>
-                    <p>Resource views</p>
                     <small>
                       {formatCompact(summary.impressions)} discoveries shown
                     </small>
                   </div>
                   <div>
+                    <MetricHeading icon={ExternalLink}>
+                      Source-site clicks
+                    </MetricHeading>
                     <strong>
                       {wholeNumber.format(
                         outcomes.periods[selectedPeriod].totals.sources
                       )}
                     </strong>
-                    <p>Source-site clicks</p>
                     <small>Clicks to authoritative source links</small>
                   </div>
                   <div>
+                    <MetricHeading icon={Download}>
+                      Download clicks
+                    </MetricHeading>
                     <strong>
                       {wholeNumber.format(summary.downloadClicks)}
                     </strong>
-                    <p>Download clicks</p>
                     <small>
                       Plus {wholeNumber.format(summary.resultClicks)} result
                       opens
@@ -837,14 +845,18 @@ export function AnalyticsPage() {
 
                 <div className="analytics-member-kpi-grid">
                   <article>
-                    <span>Catalog footprint</span>
+                    <MetricHeading icon={Layers3}>
+                      Catalog footprint
+                    </MetricHeading>
                     <strong>
                       {wholeNumber.format(selectedCatalogRecords)}
                     </strong>
                     <p>published catalog inventory as of {inventoryDate}</p>
                   </article>
                   <article>
-                    <span>{reportMonth} reach</span>
+                    <MetricHeading icon={Activity}>
+                      {reportMonth} reach
+                    </MetricHeading>
                     <strong>
                       {wholeNumber.format(selectedActiveResources)}
                     </strong>
@@ -854,7 +866,7 @@ export function AnalyticsPage() {
                     </p>
                   </article>
                   <article>
-                    <span>Resource attention</span>
+                    <MetricHeading icon={Eye}>Resource attention</MetricHeading>
                     <strong>{wholeNumber.format(selectedResourceViews)}</strong>
                     <p>
                       {selectedMember
@@ -863,7 +875,9 @@ export function AnalyticsPage() {
                     </p>
                   </article>
                   <article>
-                    <span>Download intent</span>
+                    <MetricHeading icon={Download}>
+                      Download intent
+                    </MetricHeading>
                     <strong>
                       {wholeNumber.format(selectedDownloadClicks)}
                     </strong>
@@ -1026,10 +1040,12 @@ export function AnalyticsPage() {
                         <Eye className="h-5 w-5" aria-hidden />
                         <span>Attention leader</span>
                       </div>
-                      <strong>{viewLeader.shortName}</strong>
+                      <strong>
+                        {wholeNumber.format(viewLeader.resourceViews)}
+                      </strong>
                       <p>
-                        {wholeNumber.format(viewLeader.resourceViews)} resource
-                        views and {wholeNumber.format(viewLeader.sourceClicks)}{' '}
+                        {viewLeader.shortName} resource views and{' '}
+                        {wholeNumber.format(viewLeader.sourceClicks)}{' '}
                         source-site clicks—the month’s leading member by
                         resource views.
                       </p>
@@ -1039,10 +1055,12 @@ export function AnalyticsPage() {
                         <Download className="h-5 w-5" aria-hidden />
                         <span>Download leader</span>
                       </div>
-                      <strong>{downloadLeader.shortName}</strong>
+                      <strong>
+                        {wholeNumber.format(downloadLeader.downloadClicks)}
+                      </strong>
                       <p>
-                        {wholeNumber.format(downloadLeader.downloadClicks)}{' '}
-                        download clicks, the most among member contributions.
+                        {downloadLeader.shortName} download clicks, the most
+                        among member contributions.
                       </p>
                     </article>
                     <article className="analytics-panel">
@@ -1050,11 +1068,12 @@ export function AnalyticsPage() {
                         <Layers3 className="h-5 w-5" aria-hidden />
                         <span>Broadest {reportMonth} reach</span>
                       </div>
-                      <strong>{reachLeader.shortName}</strong>
+                      <strong>
+                        {wholeNumber.format(reachLeader.activeResources)}
+                      </strong>
                       <p>
-                        {wholeNumber.format(reachLeader.activeResources)}{' '}
-                        distinct records appeared in a search or received a
-                        tracked action.
+                        {reachLeader.shortName} records appeared in a search or
+                        received a tracked action.
                       </p>
                     </article>
                   </div>
@@ -1730,8 +1749,14 @@ export function AnalyticsPage() {
                     <h3>Reliability summary</h3>
                     <div className="analytics-reliability-top">
                       <div>
-                        <p>Requests without a server error</p>
+                        <MetricHeading icon={CheckCircle2}>
+                          Requests without a server error
+                        </MetricHeading>
                         <strong>{requestReliability.toFixed(3)}%</strong>
+                        <p>
+                          Share of recorded requests without an HTTP 5xx
+                          response
+                        </p>
                       </div>
                       <div className="analytics-reliability-badge">
                         <CheckCircle2 className="h-5 w-5" aria-hidden />
@@ -1746,24 +1771,33 @@ export function AnalyticsPage() {
                     </div>
                     <div className="analytics-performance-stats">
                       <div>
-                        <span>Median response</span>
+                        <MetricHeading icon={CircleGauge}>
+                          Median response
+                        </MetricHeading>
                         <strong>
                           {isAllTime
                             ? 'Not available'
                             : `${summary.medianResponseMs} ms`}
                         </strong>
+                        <p>Half of requests responded within this time</p>
                       </div>
                       <div>
-                        <span>95th percentile</span>
+                        <MetricHeading icon={CircleGauge}>
+                          95th percentile
+                        </MetricHeading>
                         <strong>
                           {isAllTime
                             ? 'Not available'
                             : `${summary.p95ResponseMs} ms`}
                         </strong>
+                        <p>95% of requests responded within this time</p>
                       </div>
                       <div>
-                        <span>Server errors</span>
+                        <MetricHeading icon={Activity}>
+                          Server errors
+                        </MetricHeading>
                         <strong>{summary.serverErrors}</strong>
+                        <p>Requests returning a server error</p>
                       </div>
                     </div>
                     {isAllTime && (

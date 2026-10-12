@@ -1,8 +1,9 @@
+import { MetricHeading } from './MetricHeading';
 import { publishedMonths } from '../../config/analyticsPeriods';
 import { ResourceThumbnail } from './ResourceThumbnail';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { ExternalLink, Users } from 'lucide-react';
+import { Download, ExternalLink, Users } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -50,12 +51,18 @@ export function AccessSummary({ period }: { period: OutcomePeriod }) {
       />
       <div className="analytics-outcomes-body">
         <div className="analytics-outcome-totals">
-          <p>
-            <strong>{n.format(report.totals.sources)}</strong>Source-site clicks
-          </p>
-          <p>
-            <strong>{n.format(report.totals.downloads)}</strong>Download clicks
-          </p>
+          <div>
+            <MetricHeading icon={ExternalLink}>
+              Source-site clicks
+            </MetricHeading>
+            <strong>{n.format(report.totals.sources)}</strong>
+            <p>Clicks to authoritative source links</p>
+          </div>
+          <div>
+            <MetricHeading icon={Download}>Download clicks</MetricHeading>
+            <strong>{n.format(report.totals.downloads)}</strong>
+            <p>Recorded clicks, not completed downloads</p>
+          </div>
         </div>
         <figure
           aria-label={`Monthly access totals for ${outcomeLabels[period]}`}
@@ -211,9 +218,9 @@ export function AudienceReport({
       <div className="analytics-outcomes-body">
         <div className="analytics-audience-cards">
           <div>
-            <h3>
+            <MetricHeading icon={Users}>
               Tracked visits{visitsAreEstimated(period) ? ' (estimated)' : ''}
-            </h3>
+            </MetricHeading>
             <strong>
               {visitsAreEstimated(period) ? '≈ ' : ''}
               {n.format(report.audience.trackedVisits)}

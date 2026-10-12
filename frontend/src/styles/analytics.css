@@ -136,6 +136,10 @@
 }
 
 .analytics-hero-stats > div {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+  row-gap: 0;
   position: relative;
   min-width: 0;
   border: 1px solid var(--analytics-border);
@@ -3389,17 +3393,43 @@ label.analytics-table-tools {
 .analytics-sources-table td {
   color: var(--analytics-text-secondary);
 }
-.analytics-sources-table tr:last-child > * { border-bottom: 0; }
+.analytics-sources-table tr:last-child > * {
+  border-bottom: 0;
+}
 .analytics-report-sources > .analytics-report-panel-header {
   margin: -1.25rem -1.25rem 1.25rem;
 }
-.analytics-overview-details > .analytics-report-panel-header { margin: 0; }
+.analytics-overview-details > .analytics-report-panel-header {
+  margin: 0;
+}
 @media (max-width: 640px) {
-  .analytics-sources-table th { width: 7rem; }
+  .analytics-sources-table th {
+    width: 7rem;
+  }
   .analytics-sources-table th,
-  .analytics-sources-table td { padding: 0.75rem; }
+  .analytics-sources-table td {
+    padding: 0.75rem;
+  }
 }
 
 .analytics-report-sources .analytics-source-download {
   margin: 1.25rem 0 0;
+}
+
+/* Metric cards share one reading order: heading, value, explanation. */
+h2.analytics-widget-heading,
+h3.analytics-widget-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin: 0 0 1rem;
+  color: var(--analytics-brand);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.analytics-widget-heading svg {
+  flex-shrink: 0;
 }
