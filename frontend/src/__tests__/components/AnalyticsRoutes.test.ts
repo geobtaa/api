@@ -25,7 +25,9 @@ function load(path: string, report?: string) {
 describe('analytics report routes', () => {
   for (const report of analyticsReports) {
     const path =
-      report.id === 'overview' ? '/analytics' : `/analytics/${report.id}`;
+      report.id === 'overview'
+        ? '/analytics'
+        : `/analytics/${report.id === 'discovery' ? 'searches' : report.id}`;
     it(`routes ${report.id} and preserves its month`, async () => {
       expect(analyticsReportHref(report.id, '2026-09')).toBe(
         `${path}?month=2026-09`
@@ -43,12 +45,21 @@ describe('analytics report routes', () => {
       expect(
         await load(
           `${path}?month=all`,
-          report.id === 'overview' ? undefined : report.id
+          report.id === 'overview'
+            ? undefined
+            : report.id === 'discovery'
+              ? 'searches'
+              : report.id
         )
       ).toHaveProperty('data.report.id', report.id);
     });
   }
   it('canonicalizes aliases, prioritizes paths, and rejects unknown paths', async () => {
+    expect(
+      (
+        (await load('/analytics/discovery?month=all', 'discovery')) as Response
+      ).headers.get('Location')
+    ).toBe('/analytics/searches?month=all');
     expect(
       (
         (await load('/analytics/activity?month=all', 'activity')) as Response

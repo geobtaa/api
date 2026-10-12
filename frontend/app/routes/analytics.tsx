@@ -34,6 +34,7 @@ export async function loader({ request, params }: LoaderFunctionArgs) {
   if (
     pathReport &&
     pathReport !== 'activity' &&
+    pathReport !== 'searches' &&
     !analyticsReports.some((r) => r.id === pathReport)
   ) {
     throw new Response('Analytics report not found', {

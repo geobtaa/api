@@ -768,3 +768,6 @@ English readings for saved non-English zero-result queries live in
 authenticated report payload. They are editorial translations or transliterations,
 not live machine translation. Preserve original query links and mark ambiguous
 names or incomplete phrases. The query filter also matches the English reading.
+
+The Searches report uses `/analytics/searches`. Existing `/analytics/discovery`
+links redirect to it, preserving the selected period and other query parameters.

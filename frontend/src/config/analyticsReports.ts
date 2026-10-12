@@ -57,7 +57,10 @@ export function analyticsReportHref(
   month?: string | null
 ) {
   const params = new URLSearchParams();
-  const path = report === 'overview' ? '/analytics' : `/analytics/${report}`;
+  const path =
+    report === 'overview'
+      ? '/analytics'
+      : `/analytics/${report === 'discovery' ? 'searches' : report}`;
   if (month && /^(?:\d{4}-(?:0[1-9]|1[0-2])|ay-\d{4}|all)$/.test(month))
     params.set('month', month);
   return `${path}${params.size ? `?${params}` : ''}`;
@@ -77,7 +80,12 @@ export function selectedAnalyticsReport(
 ) {
   // Preserve existing Daily activity links as aliases for the merged overview.
   const requested = pathname?.split('/')[2] || params.get('report');
-  const reportId = requested === 'activity' ? 'overview' : requested;
+  const reportId =
+    requested === 'activity'
+      ? 'overview'
+      : requested === 'searches'
+        ? 'discovery'
+        : requested;
   const report =
     analyticsReports.find((entry) => entry.id === reportId) ??
     analyticsReports[0];
