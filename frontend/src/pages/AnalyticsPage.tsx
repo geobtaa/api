@@ -1,3 +1,4 @@
+import { MemberPerformanceReport } from '../components/analytics/MemberPerformanceReport';
 import { useAnalyticsData } from '../components/analytics/AnalyticsData';
 
 import { chartTheme } from '../components/analytics/chartTheme';
@@ -15,6 +16,7 @@ import {
 import { ReportingPeriodPicker } from '../components/analytics/ReportingPeriodPicker';
 import { ApiDailyReport } from '../components/analytics/ApiDailyReport';
 
+import { MemberContentList } from '../components/analytics/MemberContentList';
 import { RankingRow } from '../components/analytics/RankingRow';
 import { SearchCategoryChart } from '../components/analytics/SearchCategoryChart';
 import { SearchDailyReport } from '../components/analytics/SearchDailyReport';
@@ -31,7 +33,6 @@ import { ZeroResultReport } from '../components/analytics/ZeroResultReport';
 import { AllTimeAnalyticsPage } from '../components/analytics/AllTimeAnalyticsPage';
 
 import { AnalyticsTable } from '../components/analytics/AnalyticsTable';
-import { CodeCoverage } from '../components/analytics/CodeCoverage';
 import { ProviderReport } from '../components/analytics/ProviderReport';
 import { ReportSources } from '../components/analytics/ReportSources';
 
@@ -40,6 +41,7 @@ import { ClientUsageReport } from '../components/analytics/ClientUsageReport';
 
 import {
   Activity,
+  SlidersHorizontal,
   ArrowRight,
   BarChart3,
   CheckCircle2,
@@ -50,7 +52,6 @@ import {
   Layers3,
   Map,
   Search,
-  Trophy,
   Zap,
 } from 'lucide-react';
 import { Link, useSearchParams, useLocation } from 'react-router';
@@ -81,7 +82,6 @@ import {
 import { Seo } from '../components/Seo';
 import { BTAA_PARTNER_INSTITUTIONS } from '../constants/partnerInstitutions';
 
-import type { MemberContentEntry } from '../data/analytics/memberJuly2026';
 import '../styles/analytics.css';
 
 const compactNumber = new Intl.NumberFormat('en-US', {
@@ -99,39 +99,6 @@ function memberSearchHref(code: string) {
   const params = new URLSearchParams();
   params.append('include_filters[b1g_code_s][]', code);
   return `/search?${params.toString()}`;
-}
-
-function MemberContentList({
-  title,
-  items,
-  metric,
-  emptyMessage,
-}: {
-  title: string;
-  items: MemberContentEntry[];
-  metric: 'views' | 'downloads';
-  emptyMessage: string;
-}) {
-  return (
-    <div className="analytics-member-content-list">
-      <h4>{title}</h4>
-      {items.length > 0 ? (
-        <ol>
-          {items.map((item, index) => (
-            <li key={item.id}>
-              <span>{String(index + 1).padStart(2, '0')}</span>
-              <Link to={`/resources/${encodeURIComponent(item.id)}`}>
-                {item.title}
-              </Link>
-              <strong>{wholeNumber.format(item[metric])}</strong>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <p>{emptyMessage}</p>
-      )}
-    </div>
-  );
 }
 
 export function AnalyticsPage() {
@@ -245,13 +212,15 @@ export function AnalyticsPage() {
       : isAugust
         ? augustReports.augustMemberDailySeries
         : julyMemberDailySeries;
-  const memberTopContent = isAllTime
-    ? allTimeMemberContent
-    : hasMonthlySnapshot
-      ? selectedSnapshot.memberTopContent
-      : isAugust
-        ? augustReports.augustMemberTopContent
-        : julyMemberTopContent;
+  const memberTopContent =
+    analytics.memberLeadingContent[selectedPeriod] ??
+    (isAllTime
+      ? allTimeMemberContent
+      : hasMonthlySnapshot
+        ? selectedSnapshot.memberTopContent
+        : isAugust
+          ? augustReports.augustMemberTopContent
+          : julyMemberTopContent);
   const monthShort = monthLabel(activeMonth, true).split(' ')[0];
   const dailyActivity = isAllTime
     ? allTimeData.daily.map((row) => ({
@@ -460,13 +429,24 @@ export function AnalyticsPage() {
     params.set('month', value);
     setSearchParams(params);
   };
-  const memberSelectorEntries = BTAA_PARTNER_INSTITUTIONS.flatMap(
-    (institution) => {
-      const member = memberPerformance.find(
-        (entry) => entry.slug === institution.slug
-      );
-      return member ? [member] : [];
-    }
+  const memberSelectorEntries = BTAA_PARTNER_INSTITUTIONS.map((institution) => {
+    const member = memberPerformance.find(
+      (entry) => entry.slug === institution.slug
+    );
+    return {
+      slug: institution.slug,
+      code: member?.code ?? institution.slug,
+      name: institution.name,
+      shortName:
+        member?.shortName ??
+        (institution.slug === 'university-of-southern-california'
+          ? 'USC'
+          : institution.name),
+      iconSrc: institution.iconSrc ?? `/icons/${institution.iconSlug}.svg`,
+      available: Boolean(member),
+    };
+  }).sort((a, b) =>
+    a.shortName.localeCompare(b.shortName, 'en', { sensitivity: 'base' })
   );
 
   const allMemberDailySeries = {
@@ -490,19 +470,34 @@ export function AnalyticsPage() {
     ),
   };
 
-  const allMemberTopContent = {
-    viewed: memberPerformance
-      .flatMap((member) => memberTopContent[member.code].viewed)
-      .sort((a, b) => b.views - a.views)
-      .slice(0, 3),
-    downloaded: memberPerformance
-      .flatMap((member) => memberTopContent[member.code].downloaded)
-      .sort((a, b) => b.downloads - a.downloads)
-      .slice(0, 3),
+  const allMemberTopContent = memberTopContent.all ?? {
+    viewed: [],
+    downloaded: [],
   };
 
+  const providerSnapshot = isAllTime
+    ? allTimeProviderSnapshot
+    : hasMonthlySnapshot
+      ? selectedSnapshot.provider
+      : analytics.providers2026.providerSnapshots[snapshotMonth];
   const activeReport = report.id;
-  const [selectedMemberCode, setSelectedMemberCode] = useState('all');
+  const selectedMemberCode =
+    memberSelectorEntries.find(
+      (member) => member.slug === searchParams.get('institution')
+    )?.code ?? 'all';
+  const setSelectedMemberCode = (code: string) => {
+    const params = new URLSearchParams(searchParams);
+    const institution = memberSelectorEntries.find(
+      (member) => member.code === code
+    );
+    if (institution) params.set('institution', institution.slug);
+    else params.delete('institution');
+    setSearchParams(params);
+  };
+  const [institutionPickerOpen, setInstitutionPickerOpen] = useState(false);
+  const unavailableMember = memberSelectorEntries.find(
+    (member) => member.code === selectedMemberCode && !member.available
+  );
   const requestReliability =
     ((summary.requests - summary.serverErrors) / summary.requests) * 100;
   const maxClassFilters = resourceClassFilters[0].count;
@@ -699,12 +694,181 @@ export function AnalyticsPage() {
               <h1>{report.label}</h1>
               <span>{report.description}</span>
             </div>
-            <ReportingPeriodPicker
-              id="report-month"
-              value={selectedPeriod}
-              onChange={changeMonth}
-              comparison={activeReport === 'comparison'}
-            />
+            <div
+              className={
+                activeReport === 'members'
+                  ? 'analytics-member-filter-panel'
+                  : 'analytics-filter-passthrough'
+              }
+              role={activeReport === 'members' ? 'region' : undefined}
+              aria-label={
+                activeReport === 'members' ? 'Filter this report' : undefined
+              }
+            >
+              {activeReport === 'members' && (
+                <div className="analytics-filter-heading">
+                  <h2>
+                    <SlidersHorizontal size={18} aria-hidden />
+                    Filter this report
+                  </h2>
+                </div>
+              )}
+              <div className="analytics-report-controls">
+                <div
+                  className={
+                    activeReport === 'members'
+                      ? 'analytics-period-control'
+                      : undefined
+                  }
+                >
+                  {activeReport === 'members' && (
+                    <label htmlFor="report-month">Reporting period</label>
+                  )}
+                  <ReportingPeriodPicker
+                    id="report-month"
+                    value={selectedPeriod}
+                    onChange={changeMonth}
+                    comparison={activeReport === 'comparison'}
+                  />
+                </div>
+                {activeReport === 'members' && (
+                  <div className="analytics-grouping-controls">
+                    <label htmlFor="member-grouping">Group records by</label>
+                    <select
+                      id="member-grouping"
+                      aria-describedby="member-grouping-help"
+                      value={memberGrouping}
+                      onChange={(event) => {
+                        const params = new URLSearchParams(searchParams);
+                        params.set('grouping', event.target.value);
+                        params.delete('institution');
+                        params.delete('provider');
+                        setSearchParams(params);
+                      }}
+                    >
+                      <option value="code">BTAA contribution code</option>
+                      <option value="provider">Provider facet</option>
+                    </select>
+                    <p id="member-grouping-help" className="sr-only">
+                      Contribution codes include agency content gathered through
+                      a member’s stream. Provider uses the named institution or
+                      agency on the record.
+                    </p>
+                  </div>
+                )}
+                {activeReport === 'members' &&
+                  memberGrouping === 'provider' && (
+                    <div className="analytics-grouping-controls">
+                      <label htmlFor="analytics-provider">Provider</label>
+                      <select
+                        id="analytics-provider"
+                        value={
+                          providerSnapshot?.groups.some(
+                            (row) => row.id === searchParams.get('provider')
+                          )
+                            ? searchParams.get('provider')!
+                            : 'all'
+                        }
+                        onChange={(event) => {
+                          const params = new URLSearchParams(searchParams);
+                          if (event.target.value === 'all')
+                            params.delete('provider');
+                          else params.set('provider', event.target.value);
+                          setSearchParams(params);
+                        }}
+                      >
+                        <option value="all">All providers</option>
+                        {[...(providerSnapshot?.groups ?? [])]
+                          .sort((a, b) =>
+                            (a.provider ?? 'Missing provider').localeCompare(
+                              b.provider ?? 'Missing provider'
+                            )
+                          )
+                          .map((row) => (
+                            <option key={row.id} value={row.id}>
+                              {row.provider ?? 'Missing provider'}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+                {activeReport === 'members' && memberGrouping === 'code' && (
+                  <div className="analytics-institution-control">
+                    <span>Institution</span>
+                    <button
+                      type="button"
+                      aria-expanded={institutionPickerOpen}
+                      aria-controls="institution-picker"
+                      onClick={() =>
+                        setInstitutionPickerOpen(!institutionPickerOpen)
+                      }
+                    >
+                      {memberSelectorEntries.find(
+                        (member) => member.code === selectedMemberCode
+                      )?.shortName ?? 'All BTAA'}
+                      <span>
+                        {institutionPickerOpen ? 'Close' : 'Change institution'}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+              {activeReport === 'members' && memberGrouping === 'code' && (
+                <section
+                  id="institution-picker"
+                  hidden={!institutionPickerOpen}
+                  className="analytics-header-institutions"
+                  aria-label="Institution filter"
+                >
+                  <div className="analytics-member-picker-heading">
+                    <h2>Institution</h2>
+                    <button
+                      type="button"
+                      className={`analytics-campus-filter analytics-all-members-button${selectedMemberCode === 'all' ? ' analytics-campus-filter--active' : ''}`}
+                      aria-pressed={selectedMemberCode === 'all'}
+                      onClick={() => {
+                        setSelectedMemberCode('all');
+                        setInstitutionPickerOpen(false);
+                      }}
+                    >
+                      <span className="analytics-campus-filter-mark analytics-campus-filter-mark--btaa">
+                        <img src="/btaa-logo.png" alt="" />
+                      </span>
+                      <span>All BTAA</span>
+                    </button>
+                  </div>
+
+                  <div className="analytics-campus-selector">
+                    <fieldset>
+                      <legend className="sr-only">
+                        Select a BTAA member report
+                      </legend>
+                      <div className="analytics-campus-filter-grid">
+                        {memberSelectorEntries.map((member) => (
+                          <button
+                            key={member.code}
+                            type="button"
+                            className={`analytics-campus-filter${selectedMemberCode === member.code ? ' analytics-campus-filter--active' : ''}`}
+                            aria-label={`Show ${member.name} ${reportMonth} report`}
+                            aria-pressed={selectedMemberCode === member.code}
+                            title={member.name}
+                            onClick={() => {
+                              setSelectedMemberCode(member.code);
+                              setInstitutionPickerOpen(false);
+                            }}
+                          >
+                            <span className="analytics-campus-filter-mark">
+                              <img src={member.iconSrc} alt="" loading="lazy" />
+                            </span>
+                            <span>{member.shortName}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </fieldset>
+                  </div>
+                </section>
+              )}
+            </div>
           </div>
         )}
 
@@ -732,28 +896,6 @@ export function AnalyticsPage() {
               <OutlinkedResources period={snapshotMonth} />
             )}
 
-            {activeReport === 'members' && (
-              <div className="analytics-grouping-controls">
-                <label htmlFor="member-grouping">Group records by</label>
-                <select
-                  id="member-grouping"
-                  value={memberGrouping}
-                  onChange={(event) => {
-                    const params = new URLSearchParams(searchParams);
-                    params.set('grouping', event.target.value);
-                    setSearchParams(params);
-                  }}
-                >
-                  <option value="code">BTAA contribution code</option>
-                  <option value="provider">Provider facet</option>
-                </select>
-                <p>
-                  Contribution codes include agency content gathered through a
-                  member’s stream. Provider uses the named institution or agency
-                  on the record.
-                </p>
-              </div>
-            )}
             {activeReport === 'members' && memberGrouping === 'provider' && (
               <ProviderReport
                 key={selectedPeriod}
@@ -772,483 +914,430 @@ export function AnalyticsPage() {
               <section id="members" className="analytics-section">
                 <SectionHeading
                   title="How BTAA member content performed"
-                  description={`Start with the full alliance, then choose any campus to follow its catalog footprint, daily attention, downloads, and leading content across the selected period.`}
+                  description="Catalog reach, engagement, and leading content for the selected institution and period."
                 />
 
-                <div className="analytics-panel analytics-campus-selector">
-                  <div className="analytics-campus-selector-header">
-                    <div>
-                      <Map className="h-5 w-5" aria-hidden />
-                      <span>Filter the member report</span>
-                    </div>
-                    <p>Choose the alliance or a campus contribution stream</p>
-                  </div>
-                  <fieldset>
-                    <legend className="sr-only">
-                      Select a BTAA member report
-                    </legend>
-                    <div className="analytics-campus-filter-grid">
-                      <button
-                        type="button"
-                        className={`analytics-campus-filter${selectedMemberCode === 'all' ? ' analytics-campus-filter--active' : ''}`}
-                        aria-pressed={selectedMemberCode === 'all'}
-                        onClick={() => setSelectedMemberCode('all')}
-                      >
-                        <span className="analytics-campus-filter-mark analytics-campus-filter-mark--btaa">
-                          <img src="/btaa-logo.png" alt="" />
-                        </span>
-                        <span>All BTAA</span>
-                      </button>
-                      {memberSelectorEntries.map((member) => (
-                        <button
-                          key={member.code}
-                          type="button"
-                          className={`analytics-campus-filter${selectedMemberCode === member.code ? ' analytics-campus-filter--active' : ''}`}
-                          aria-label={`Show ${member.name} ${reportMonth} report`}
-                          aria-pressed={selectedMemberCode === member.code}
-                          title={member.name}
-                          onClick={() => setSelectedMemberCode(member.code)}
-                        >
-                          <span className="analytics-campus-filter-mark">
-                            <img
-                              src={`/icons/${member.iconSlug}.svg`}
-                              alt=""
-                              loading="lazy"
-                            />
-                          </span>
-                          <span>{member.shortName}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-                </div>
-
-                <div className="analytics-member-selection" aria-live="polite">
-                  <div className="analytics-member-selection-brand">
-                    <span>
-                      <img
-                        src={
-                          selectedMember
-                            ? `/icons/${selectedMember.iconSlug}.svg`
-                            : '/btaa-logo.png'
-                        }
-                        alt=""
-                      />
-                    </span>
-                    <div>
-                      <p>
-                        {selectedMember ? 'Campus segment' : 'Alliance view'}
-                      </p>
-                      <h3>
-                        {selectedMember?.name ?? 'All BTAA member content'}
-                      </h3>
-                      <small>
-                        {selectedMember
-                          ? `Contribution stream ${selectedMember.code} · ${periodRange}`
-                          : `17 member contribution streams · ${periodRange}`}
-                      </small>
-                    </div>
-                  </div>
-                  {selectedMember && (
-                    <Link to={memberSearchHref(selectedMember.code)}>
-                      Browse {selectedMember.shortName} content
-                      <ArrowRight className="h-4 w-4" aria-hidden />
-                    </Link>
-                  )}
-                </div>
-
-                <div className="analytics-member-kpi-grid">
-                  <article>
-                    <MetricHeading icon={Layers3}>
-                      Catalog footprint
-                    </MetricHeading>
-                    <strong>
-                      {wholeNumber.format(selectedCatalogRecords)}
-                    </strong>
-                    <p>published catalog inventory as of {inventoryDate}</p>
-                  </article>
-                  <article>
-                    <MetricHeading icon={Activity}>
-                      {reportMonth} reach
-                    </MetricHeading>
-                    <strong>
-                      {wholeNumber.format(selectedActiveResources)}
-                    </strong>
+                {unavailableMember ? (
+                  <section
+                    className="analytics-panel analytics-member-unavailable"
+                    aria-label={`${unavailableMember.name} report`}
+                  >
+                    <img src={unavailableMember.iconSrc} alt="" />
+                    <h3>{unavailableMember.name}</h3>
+                    <p>Analytics data unavailable for this period.</p>
                     <p>
-                      {activeResourceRate.toFixed(1)}% of the catalog appeared
-                      in a search or received an action
+                      The saved report does not include a contribution stream
+                      for this institution. This does not mean it had zero
+                      activity. Alliance totals include only the{' '}
+                      {memberPerformance.length} recorded member streams.
                     </p>
-                  </article>
-                  <article>
-                    <MetricHeading icon={Eye}>Resource attention</MetricHeading>
-                    <strong>{wholeNumber.format(selectedResourceViews)}</strong>
-                    <p>
-                      {selectedMember
-                        ? `${wholeNumber.format(selectedImpressions)} search impressions`
-                        : `${memberViewShare.toFixed(1)}% of portal views · ${memberImpressionShare.toFixed(1)}% of search impressions`}
-                    </p>
-                  </article>
-                  <article>
-                    <MetricHeading icon={Download}>
-                      Download intent
-                    </MetricHeading>
-                    <strong>
-                      {wholeNumber.format(selectedDownloadClicks)}
-                    </strong>
-                    <p>
-                      {wholeNumber.format(selectedSourceClicks)} source-site
-                      clicks
-                      {selectedMember
-                        ? ''
-                        : ` · ${memberDownloadShare.toFixed(1)}% of all download clicks`}
-                    </p>
-                  </article>
-                </div>
-
-                <div className="analytics-member-detail-grid">
-                  <figure className="analytics-panel analytics-member-trend">
-                    <div className="analytics-panel-header">
-                      <div>
-                        <Activity className="h-5 w-5" aria-hidden />
-                        <span>Daily member-content engagement</span>
-                      </div>
-                      <div className="analytics-chart-key" aria-hidden="true">
-                        <span>
-                          <i className="analytics-key-events" />
-                          Views
-                        </span>
-                        <span>
-                          <i className="analytics-key-downloads" />
-                          Downloads
-                        </span>
-                      </div>
-                    </div>
+                  </section>
+                ) : (
+                  <>
                     <div
-                      className="analytics-member-rechart"
-                      role="img"
-                      aria-label={`${selectedMember?.name ?? 'All BTAA member content'} daily resource views and download clicks from ${periodRange}. Views peaked at ${peakMemberDay.views} on ${peakMemberDay.day}.`}
+                      className="analytics-member-selection"
+                      aria-live="polite"
                     >
-                      <ResponsiveContainer
-                        width="100%"
-                        height="100%"
-                        minWidth={0}
-                        minHeight={300}
-                        initialDimension={{ width: 800, height: 300 }}
-                      >
-                        <AreaChart
-                          data={selectedDailyActivity}
-                          margin={{ top: 16, right: 8, left: -24, bottom: 0 }}
-                          accessibilityLayer
+                      <div className="analytics-member-selection-brand">
+                        <span>
+                          <img
+                            className={
+                              selectedMember
+                                ? 'analytics-campus-segment-icon'
+                                : undefined
+                            }
+                            src={
+                              selectedMember
+                                ? `/icons/${selectedMember.iconSlug}.svg`
+                                : '/btaa-logo.png'
+                            }
+                            alt=""
+                          />
+                        </span>
+                        <div>
+                          <p>
+                            {selectedMember
+                              ? 'Campus segment'
+                              : 'Alliance view'}
+                          </p>
+                          <h3>
+                            {selectedMember?.name ?? 'All BTAA member content'}
+                          </h3>
+                          <small>
+                            {selectedMember
+                              ? `Contribution stream ${selectedMember.code} · ${periodRange}`
+                              : `17 member contribution streams · ${periodRange}`}
+                          </small>
+                        </div>
+                      </div>
+                      {selectedMember && (
+                        <Link to={memberSearchHref(selectedMember.code)}>
+                          Browse {selectedMember.shortName} content
+                          <ArrowRight className="h-4 w-4" aria-hidden />
+                        </Link>
+                      )}
+                    </div>
+
+                    <div className="analytics-member-kpi-grid">
+                      <article>
+                        <MetricHeading icon={Layers3}>
+                          Catalog footprint
+                        </MetricHeading>
+                        <strong>
+                          {wholeNumber.format(selectedCatalogRecords)}
+                        </strong>
+                        <p>published catalog inventory as of {inventoryDate}</p>
+                      </article>
+                      <article>
+                        <MetricHeading icon={Activity}>
+                          {reportMonth} reach
+                        </MetricHeading>
+                        <strong>
+                          {wholeNumber.format(selectedActiveResources)}
+                        </strong>
+                        <p>
+                          {activeResourceRate.toFixed(1)}% of the catalog
+                          appeared in a search or received an action
+                        </p>
+                      </article>
+                      <article>
+                        <MetricHeading icon={Eye}>
+                          Resource attention
+                        </MetricHeading>
+                        <strong>
+                          {wholeNumber.format(selectedResourceViews)}
+                        </strong>
+                        <p>
+                          {selectedMember
+                            ? `${wholeNumber.format(selectedImpressions)} search impressions`
+                            : `${memberViewShare.toFixed(1)}% of portal views · ${memberImpressionShare.toFixed(1)}% of search impressions`}
+                        </p>
+                      </article>
+                      <article>
+                        <MetricHeading icon={Download}>
+                          Download intent
+                        </MetricHeading>
+                        <strong>
+                          {wholeNumber.format(selectedDownloadClicks)}
+                        </strong>
+                        <p>
+                          {wholeNumber.format(selectedSourceClicks)} source-site
+                          clicks
+                          {selectedMember
+                            ? ''
+                            : ` · ${memberDownloadShare.toFixed(1)}% of all download clicks`}
+                        </p>
+                      </article>
+                    </div>
+
+                    <div className="analytics-member-detail-grid">
+                      <figure className="analytics-panel analytics-member-trend">
+                        <div className="analytics-panel-header">
+                          <div>
+                            <Activity className="h-5 w-5" aria-hidden />
+                            <span>Daily member-content engagement</span>
+                          </div>
+                          <div
+                            className="analytics-chart-key"
+                            aria-hidden="true"
+                          >
+                            <span>
+                              <i className="analytics-key-events" />
+                              Views
+                            </span>
+                            <span>
+                              <i className="analytics-key-downloads" />
+                              Downloads
+                            </span>
+                          </div>
+                        </div>
+                        <div
+                          className="analytics-member-rechart"
+                          role="img"
+                          aria-label={`${selectedMember?.name ?? 'All BTAA member content'} daily resource views and download clicks from ${periodRange}. Views peaked at ${peakMemberDay.views} on ${peakMemberDay.day}.`}
                         >
-                          <defs>
-                            <linearGradient
-                              id="memberViewsFill"
-                              x1="0"
-                              y1="0"
-                              x2="0"
-                              y2="1"
+                          <ResponsiveContainer
+                            width="100%"
+                            height="100%"
+                            minWidth={0}
+                            minHeight={300}
+                            initialDimension={{ width: 800, height: 300 }}
+                          >
+                            <AreaChart
+                              data={selectedDailyActivity}
+                              margin={{
+                                top: 16,
+                                right: 8,
+                                left: -24,
+                                bottom: 0,
+                              }}
+                              accessibilityLayer
                             >
-                              <stop
-                                offset="0%"
-                                stopColor="#2563EB"
-                                stopOpacity={0.22}
-                              />
-                              <stop
-                                offset="100%"
-                                stopColor="#2563EB"
-                                stopOpacity={0}
-                              />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid {...chartTheme.grid} />
-                          <XAxis
-                            dataKey="day"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={chartTheme.tick}
-                            interval={isAllTime ? 9 : 4}
-                          />
-                          <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={chartTheme.tick}
-                            allowDecimals={false}
-                          />
-                          <Tooltip
-                            cursor={chartTheme.cursor}
-                            contentStyle={chartTheme.tooltip}
-                            labelStyle={chartTheme.tooltipLabel}
-                          />
-                          <Area
-                            type="linear"
-                            dataKey="views"
-                            name="Resource views"
-                            stroke="#2563EB"
-                            strokeWidth={3}
-                            fill="url(#memberViewsFill)"
-                            isAnimationActive={false}
-                          />
-                          <Line
-                            type="linear"
-                            dataKey="downloads"
-                            name="Download clicks"
-                            stroke="#047857"
-                            strokeWidth={2}
-                            dot={false}
-                            activeDot={{ r: 4, fill: '#047857' }}
-                            isAnimationActive={false}
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <figcaption>
-                      <span>{selectedMember?.shortName ?? 'All members'}</span>
-                      <strong>
-                        Peak: {wholeNumber.format(peakMemberDay.views)} views ·{' '}
-                        {peakMemberDay.day}
-                      </strong>
-                    </figcaption>
-                  </figure>
-
-                  <aside className="analytics-panel analytics-member-content-card">
-                    <div className="analytics-panel-header">
-                      <div>
-                        <Trophy className="h-5 w-5" aria-hidden />
-                        <span>Leading content</span>
-                      </div>
-                      <small>
-                        {selectedMember?.shortName ?? 'All members'}
-                      </small>
-                    </div>
-                    <MemberContentList
-                      title="Most viewed"
-                      items={selectedTopContent.viewed}
-                      metric="views"
-                      emptyMessage="No resource views were recorded."
-                    />
-                    <MemberContentList
-                      title="Most downloaded"
-                      items={selectedTopContent.downloaded}
-                      metric="downloads"
-                      emptyMessage={`No direct download-link clicks were recorded; ${wholeNumber.format(selectedSourceClicks)} source-site clicks were still captured.`}
-                    />
-                  </aside>
-                </div>
-
-                {!selectedMember && (
-                  <div className="analytics-member-standouts">
-                    <article className="analytics-panel">
-                      <div>
-                        <Eye className="h-5 w-5" aria-hidden />
-                        <span>Attention leader</span>
-                      </div>
-                      <strong>
-                        {wholeNumber.format(viewLeader.resourceViews)}
-                      </strong>
-                      <p>
-                        {viewLeader.shortName} resource views and{' '}
-                        {wholeNumber.format(viewLeader.sourceClicks)}{' '}
-                        source-site clicks—the month’s leading member by
-                        resource views.
-                      </p>
-                    </article>
-                    <article className="analytics-panel">
-                      <div>
-                        <Download className="h-5 w-5" aria-hidden />
-                        <span>Download leader</span>
-                      </div>
-                      <strong>
-                        {wholeNumber.format(downloadLeader.downloadClicks)}
-                      </strong>
-                      <p>
-                        {downloadLeader.shortName} download clicks, the most
-                        among member contributions.
-                      </p>
-                    </article>
-                    <article className="analytics-panel">
-                      <div>
-                        <Layers3 className="h-5 w-5" aria-hidden />
-                        <span>Broadest {reportMonth} reach</span>
-                      </div>
-                      <strong>
-                        {wholeNumber.format(reachLeader.activeResources)}
-                      </strong>
-                      <p>
-                        {reachLeader.shortName} records appeared in a search or
-                        received a tracked action.
-                      </p>
-                    </article>
-                  </div>
-                )}
-
-                {!selectedMember && (
-                  <article className="analytics-panel analytics-member-report">
-                    <div className="analytics-panel-header">
-                      <div>
-                        <Trophy className="h-5 w-5" aria-hidden />
-                        <h3>Member performance report</h3>
-                      </div>
-                      <small>
-                        17 contributing institutions · ranked by views
-                      </small>
-                    </div>
-                    <div className="analytics-member-table-wrap">
-                      <AnalyticsTable>
-                        <caption className="sr-only">
-                          {report.period} performance for BTAA
-                          member-contributed catalog content
-                        </caption>
-                        <thead>
-                          <tr>
-                            <th scope="col">Rank</th>
-                            <th scope="col">Member</th>
-                            <th scope="col">Catalog</th>
-                            <th scope="col">{reportMonth} active</th>
-                            <th scope="col">Impressions</th>
-                            <th scope="col">Views</th>
-                            <th scope="col">Downloads</th>
-                            <th scope="col">Source clicks</th>
-                            <th scope="col">Top-viewed content</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {membersByViews.map((member, index) => (
-                            <tr key={member.code}>
-                              <td>
-                                <span className="analytics-member-rank">
-                                  {String(index + 1).padStart(2, '0')}
-                                </span>
-                              </td>
-                              <th scope="row">
-                                <div className="analytics-member-school">
-                                  <span className="analytics-member-logo">
-                                    <img
-                                      src={`/icons/${member.iconSlug}.svg`}
-                                      alt=""
-                                      loading="lazy"
-                                    />
-                                  </span>
-                                  <div>
-                                    <Link to={memberSearchHref(member.code)}>
-                                      {member.shortName}
-                                    </Link>
-                                    {member.name !== member.shortName && (
-                                      <span>{member.name}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </th>
-                              <td>
-                                {wholeNumber.format(member.catalogRecords)}
-                              </td>
-                              <td>
-                                {wholeNumber.format(member.activeResources)}
-                              </td>
-                              <td>{wholeNumber.format(member.impressions)}</td>
-                              <td>
-                                <strong>
-                                  {wholeNumber.format(member.resourceViews)}
-                                </strong>
-                              </td>
-                              <td>
-                                {wholeNumber.format(member.downloadClicks)}
-                              </td>
-                              <td>{wholeNumber.format(member.sourceClicks)}</td>
-                              <td>
-                                <Link
-                                  className="analytics-member-top-resource"
-                                  to={`/resources/${encodeURIComponent(member.topResource.id)}`}
+                              <defs>
+                                <linearGradient
+                                  id="memberViewsFill"
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
                                 >
-                                  {member.topResource.title}
-                                </Link>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </AnalyticsTable>
+                                  <stop
+                                    offset="0%"
+                                    stopColor="#2563EB"
+                                    stopOpacity={0.22}
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor="#2563EB"
+                                    stopOpacity={0}
+                                  />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid {...chartTheme.grid} />
+                              <XAxis
+                                dataKey="day"
+                                axisLine={false}
+                                tickLine={false}
+                                tick={chartTheme.tick}
+                                interval={isAllTime ? 9 : 4}
+                              />
+                              <YAxis
+                                axisLine={false}
+                                tickLine={false}
+                                tick={chartTheme.tick}
+                                allowDecimals={false}
+                              />
+                              <Tooltip
+                                cursor={chartTheme.cursor}
+                                contentStyle={chartTheme.tooltip}
+                                labelStyle={chartTheme.tooltipLabel}
+                              />
+                              <Area
+                                type="linear"
+                                dataKey="views"
+                                name="Resource views"
+                                stroke="#2563EB"
+                                strokeWidth={3}
+                                fill="url(#memberViewsFill)"
+                                isAnimationActive={false}
+                              />
+                              <Line
+                                type="linear"
+                                dataKey="downloads"
+                                name="Download clicks"
+                                stroke="#047857"
+                                strokeWidth={2}
+                                dot={false}
+                                activeDot={{ r: 4, fill: '#047857' }}
+                                isAnimationActive={false}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                        <figcaption>
+                          <span>
+                            {selectedMember?.shortName ?? 'All members'}
+                          </span>
+                          <strong>
+                            Peak: {wholeNumber.format(peakMemberDay.views)}{' '}
+                            views · {peakMemberDay.day}
+                          </strong>
+                        </figcaption>
+                      </figure>
                     </div>
-                  </article>
-                )}
 
-                <CodeCoverage
-                  month={selectedPeriod}
-                  snapshot={
-                    isAllTime
-                      ? allTimeProviderSnapshot
-                      : hasMonthlySnapshot
-                        ? selectedSnapshot.provider
-                        : undefined
-                  }
-                />
-                <section
-                  className="analytics-panel analytics-report-sources"
-                  aria-label="Outside the university code groups"
-                  data-nav-label="Outside university groups"
-                >
-                  <h3>What is outside these university totals?</h3>
-                  <p>
-                    {wholeNumber.format(
-                      summary.resourceViews - memberSummary.resourceViews
-                    )}{' '}
-                    resource views,{' '}
-                    {wholeNumber.format(
-                      summary.impressions - memberSummary.impressions
-                    )}{' '}
-                    search impressions, and{' '}
-                    {wholeNumber.format(
-                      summary.downloadClicks - memberSummary.downloadClicks
-                    )}{' '}
-                    download clicks in the portal totals are outside this
-                    eligible 01–17 member cohort.
-                  </p>
-                  <p>
-                    This remainder is not an “Other institutions” total: it can
-                    also include unpublished, suppressed, missing, or unmatched
-                    catalog records. Federal sources, standalone items, and
-                    BTAA-curated content need their actual contribution codes or
-                    Provider values checked before assigning them to a group.
-                  </p>
-                  <p>
-                    The{' '}
-                    <a href="https://gin.btaa.org/harvest-operations/latest/institutions/">
-                      harvest-operations institution report
-                    </a>{' '}
-                    groups harvest records and includes OpenGeoMetadata,
-                    licensed databases, BTAA-GIN curated datasets, and Other.
-                    Its grouping is not equivalent to this catalog-level prefix
-                    grouping.
-                  </p>
-                </section>
+                    <div className="analytics-member-leading-content">
+                      <MemberContentList
+                        title={
+                          selectedMember
+                            ? `Most viewed - ${selectedMember.name}`
+                            : 'Most viewed'
+                        }
+                        items={selectedTopContent.viewed}
+                        metric="views"
+                        emptyMessage="No resource views were recorded."
+                      />
+                      <MemberContentList
+                        title={
+                          selectedMember
+                            ? `Most downloaded - ${selectedMember.name}`
+                            : 'Most downloaded'
+                        }
+                        items={selectedTopContent.downloaded}
+                        metric="downloads"
+                        emptyMessage={`No direct download-link clicks were recorded; ${wholeNumber.format(selectedSourceClicks)} source-site clicks were still captured.`}
+                      />
+                    </div>
 
-                {isAllTime && (
-                  <p className="analytics-comparison-note" role="note">
-                    All time uses preserved attribution captured September 11,
-                    2026. Its explicit code mapping keeps four-digit federal
-                    codes such as 1000 outside Wisconsin’s stream 10; the
-                    original monthly snapshots used a broader prefix match. July
-                    resource-level impressions were unavailable when this
-                    archive was built; preserved aggregates retain available
-                    evidence, but cannot recover missing historical detail.
-                    Inventory and active records are counted across the full
-                    period, not added from monthly totals.
-                  </p>
+                    {!selectedMember && (
+                      <div className="analytics-member-standouts">
+                        <article className="analytics-panel">
+                          <div>
+                            <Eye className="h-5 w-5" aria-hidden />
+                            <span>Attention leader</span>
+                          </div>
+                          <strong>
+                            {wholeNumber.format(viewLeader.resourceViews)}
+                          </strong>
+                          <p>
+                            {viewLeader.shortName} resource views and{' '}
+                            {wholeNumber.format(viewLeader.sourceClicks)}{' '}
+                            source-site clicks—the month’s leading member by
+                            resource views.
+                          </p>
+                        </article>
+                        <article className="analytics-panel">
+                          <div>
+                            <Download className="h-5 w-5" aria-hidden />
+                            <span>Download leader</span>
+                          </div>
+                          <strong>
+                            {wholeNumber.format(downloadLeader.downloadClicks)}
+                          </strong>
+                          <p>
+                            {downloadLeader.shortName} download clicks, the most
+                            among member contributions.
+                          </p>
+                        </article>
+                        <article className="analytics-panel">
+                          <div>
+                            <Layers3 className="h-5 w-5" aria-hidden />
+                            <span>Broadest {reportMonth} reach</span>
+                          </div>
+                          <strong>
+                            {wholeNumber.format(reachLeader.activeResources)}
+                          </strong>
+                          <p>
+                            {reachLeader.shortName} records appeared in a search
+                            or received a tracked action.
+                          </p>
+                        </article>
+                      </div>
+                    )}
+
+                    {!selectedMember && (
+                      <MemberPerformanceReport members={membersByViews} />
+                    )}
+
+                    <section
+                      className="analytics-panel analytics-member-scope"
+                      aria-label="Outside the university code groups"
+                      data-nav-label="Outside university groups"
+                    >
+                      <ReportPanelHeader
+                        title="Outside university groups"
+                        icon={Layers3}
+                      />
+                      <div className="analytics-member-scope-body">
+                        <p className="analytics-member-scope-intro">
+                          Portal activity beyond the 17 member contribution
+                          streams included in this report.
+                        </p>
+                        <dl className="analytics-member-scope-stats">
+                          <div>
+                            <dt>
+                              <Eye size={18} aria-hidden />
+                              Resource views
+                            </dt>
+                            <dd>
+                              {wholeNumber.format(
+                                summary.resourceViews -
+                                  memberSummary.resourceViews
+                              )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>
+                              <Search size={18} aria-hidden />
+                              Search impressions
+                            </dt>
+                            <dd>
+                              {wholeNumber.format(
+                                summary.impressions - memberSummary.impressions
+                              )}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt>
+                              <Download size={18} aria-hidden />
+                              Download clicks
+                            </dt>
+                            <dd>
+                              {wholeNumber.format(
+                                summary.downloadClicks -
+                                  memberSummary.downloadClicks
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                        <p className="analytics-member-scope-note">
+                          These figures can include unpublished, suppressed,
+                          missing, or unmatched catalog records. They should not
+                          be interpreted as an “Other institutions” total.
+                        </p>
+                        <details className="analytics-member-scope-details">
+                          <summary>How these totals are calculated</summary>
+                          <div>
+                            <h4>Attribution and grouping</h4>
+                            <p>
+                              Only contribution code prefixes 01–17 are included
+                              in the university totals. Other prefixes and
+                              missing codes are excluded, even when their
+                              records appear in portal totals. School
+                              attribution follows the BTAA contribution code
+                              rather than the provider label. Federal sources,
+                              standalone items, and BTAA-curated content require
+                              their actual contribution codes or Provider values
+                              to be checked before assigning them to a group.
+                            </p>
+                            <h4>Reporting period and catalog</h4>
+                            <p>
+                              Activity period: {periodRange}. Published,
+                              unsuppressed catalog inventory as of{' '}
+                              {inventoryDate}. Inventory is a point-in-time
+                              count, not an activity total or month-end count. “
+                              {reportMonth} active” means a distinct record with
+                              at least one search impression or tracked action
+                              during the selected period. Downloads and
+                              source-site visits are link clicks, not verified
+                              completions.
+                            </p>
+                            {isAllTime && (
+                              <>
+                                <h4>Historical data</h4>
+                                <p>
+                                  All time uses preserved attribution captured
+                                  September 11, 2026. Its explicit code mapping
+                                  keeps four-digit federal codes such as 1000
+                                  outside Wisconsin’s stream 10; the original
+                                  monthly snapshots used a broader prefix match.
+                                  July resource-level impressions were
+                                  unavailable when this archive was built.
+                                  Preserved aggregates retain available evidence
+                                  but cannot recover missing historical detail.
+                                  Inventory and active records are counted
+                                  across the full period, not added from monthly
+                                  totals.
+                                </p>
+                              </>
+                            )}
+                            <h4>Related reporting</h4>
+                            <p>
+                              The{' '}
+                              <a href="https://gin.btaa.org/harvest-operations/latest/institutions/">
+                                harvest-operations institution report
+                              </a>{' '}
+                              groups harvest records, including OpenGeoMetadata,
+                              licensed databases, BTAA-GIN curated datasets, and
+                              Other. Its grouping differs from this
+                              catalog-level contribution-code report.
+                            </p>
+                          </div>
+                        </details>
+                      </div>
+                    </section>
+                  </>
                 )}
-                <p className="analytics-member-method analytics-panel">
-                  Activity period: {periodRange}. Catalog inventory: published,
-                  unsuppressed records as of {inventoryDate}, when this report
-                  was exported. The inventory is a point-in-time count, not an
-                  activity total or month-end count. “{reportMonth} active”
-                  means a distinct record with at least one search impression or
-                  tracked action during the selected period. Only code prefixes
-                  01–17 are included here. Other prefixes and missing codes are
-                  excluded, even if their records appear in portal totals. The
-                  coverage table retains other and missing code groups. Their
-                  inclusion depends on the stored code, not their title or
-                  Provider. School attribution follows the BTAA contribution
-                  code rather than the provider label, which often names an
-                  originating public agency. Downloads and source-site visits
-                  are link clicks, not verified completions.
-                </p>
               </section>
             )}
 

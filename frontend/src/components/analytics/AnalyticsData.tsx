@@ -1,6 +1,16 @@
 import { createContext, useContext, useMemo } from 'react';
 import { restoreAnalyticsHelpers } from './analyticsHelpers';
 export type AnalyticsData = {
+  memberLeadingContent: Record<
+    string,
+    Record<
+      string,
+      {
+        viewed: import('../../data/analytics/memberJuly2026').MemberContentEntry[];
+        downloaded: import('../../data/analytics/memberJuly2026').MemberContentEntry[];
+      }
+    >
+  >;
   queryTranslations: Record<
     string,
     { language: string; english: string; note: string }

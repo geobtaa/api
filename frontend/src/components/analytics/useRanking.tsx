@@ -1,9 +1,10 @@
 import { useId, useState } from 'react';
 
-export function useRanking<T extends { title: string; provider: string }>(
+export function useRanking<T extends { title: string; provider?: string }>(
   rows: T[],
   count: (row: T) => number,
-  label: string
+  label: string,
+  metricLabel = label === 'Top resources' ? 'views' : 'clicks'
 ) {
   const id = useId();
   const [query, setQuery] = useState('');
@@ -13,14 +14,14 @@ export function useRanking<T extends { title: string; provider: string }>(
     .map((row, index) => ({ row, rank: index + 1 }))
     .filter(({ row }) =>
       terms.every((term) =>
-        `${row.title} ${row.provider}`.toLowerCase().includes(term)
+        `${row.title} ${row.provider ?? ''}`.toLowerCase().includes(term)
       )
     )
     .sort((a, b) =>
       order === 'title'
         ? a.row.title.localeCompare(b.row.title)
         : order === 'provider'
-          ? a.row.provider.localeCompare(b.row.provider)
+          ? (a.row.provider ?? '').localeCompare(b.row.provider ?? '')
           : count(b.row) - count(a.row)
     );
   return {
@@ -35,7 +36,11 @@ export function useRanking<T extends { title: string; provider: string }>(
             aria-label={`Filter ${label}`}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search titles or providers…"
+            placeholder={
+              rows.some((row) => row.provider)
+                ? 'Search titles or providers…'
+                : 'Search titles…'
+            }
           />
         </label>
         <label>
@@ -45,11 +50,11 @@ export function useRanking<T extends { title: string; provider: string }>(
             value={order}
             onChange={(event) => setOrder(event.target.value)}
           >
-            <option value="count">
-              Most {label === 'Top resources' ? 'views' : 'clicks'}
-            </option>
+            <option value="count">Most {metricLabel}</option>
             <option value="title">Title</option>
-            <option value="provider">Provider</option>
+            {rows.some((row) => row.provider) && (
+              <option value="provider">Provider</option>
+            )}
           </select>
         </label>
         <span role="status">

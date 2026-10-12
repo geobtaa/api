@@ -771,3 +771,15 @@ names or incomplete phrases. The query filter also matches the English reading.
 
 The Searches report uses `/analytics/searches`. Existing `/analytics/discovery`
 links redirect to it, preserving the selected period and other query parameters.
+
+The Members campus selector uses the full partner roster, including USC. A partner
+without a saved contribution-stream group shows an explicit unavailable state;
+missing data is not counted as zero or substituted with alliance totals. Grouping
+and period controls sit together in the report header.
+
+Members Leading Content shows up to 50 viewed and 25 downloaded resources per
+institution and period. `memberLeadingContent.json` is generated from complete
+private `memberResources` aggregates by the design-data exporter and delivered
+only with the authenticated snapshot. Alliance rankings deduplicate resource IDs
+before selecting the top 50 viewed and top 25 downloaded; institutions with fewer qualifying resources show
+only those available.

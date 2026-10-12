@@ -1,21 +1,15 @@
 import { useAnalyticsData } from './AnalyticsData';
 import { MetricHeading } from './MetricHeading';
 import { AnalyticsTable } from './AnalyticsTable';
-import { useState } from 'react';
-import { Link } from 'react-router';
-import {
-  Activity,
-  List,
-  Users,
-  Layers3,
-  Eye,
-  Download,
-  ExternalLink,
-} from 'lucide-react';
+import { MemberContentList } from './MemberContentList';
+import { RankingRow } from './RankingRow';
+import { chartTheme } from './chartTheme';
+import { Link, useSearchParams } from 'react-router';
+import { Activity, Users, Layers3, Eye, Download } from 'lucide-react';
 import {
   CartesianGrid,
-  Line,
-  LineChart,
+  Area,
+  AreaChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -53,7 +47,8 @@ export function ProviderReport({
 }) {
   const { providerSnapshots } = useAnalyticsData().providers2026;
   const snapshot = suppliedSnapshot ?? providerSnapshots[month];
-  const [selected, setSelected] = useState('all');
+  const [params] = useSearchParams();
+  const selected = params.get('provider') ?? 'all';
   if (!snapshot)
     return (
       <section
@@ -86,33 +81,34 @@ export function ProviderReport({
   }));
   return (
     <section className="analytics-section" aria-label="Provider report">
-      <div className="analytics-grouping-controls">
-        <label htmlFor="analytics-provider">Provider</label>
-        <select
-          id="analytics-provider"
-          value={group ? selected : 'all'}
-          onChange={(event) => setSelected(event.target.value)}
-        >
-          <option value="all">All providers</option>
-          {snapshot.groups.map((row) => (
-            <option key={row.id} value={row.id}>
-              {row.provider ?? 'Missing provider'}
-            </option>
-          ))}
-        </select>
+      <div className="analytics-section-heading">
+        <h2>How provider content performed</h2>
+        <p>
+          Grouped by the provider named on each record, including outside
+          agencies. This is separate from the contributing BTAA institution.
+        </p>
+      </div>
+      <div className="analytics-member-selection">
+        <div className="analytics-member-selection-brand">
+          <div>
+            <p>PROVIDER VIEW</p>
+            <h3>
+              {group ? (group.provider ?? 'Missing provider') : 'All providers'}
+            </h3>
+            <small>
+              {group
+                ? 'Selected provider'
+                : `${snapshot.groups.length} providers · Institution filter does not apply`}{' '}
+              · {month}
+            </small>
+          </div>
+        </div>
         {group?.provider && (
           <Link to={providerSearchHref(group.provider)}>
-            Browse this provider
+            Browse provider content
           </Link>
         )}
       </div>
-      <p className="analytics-comparison-note">
-        Exact values of the Provider facet (<code>schema_provider_s</code>),
-        independent of contribution codes. Inventory and attribution use the
-        catalog on {snapshot.catalogSnapshotDate}; activity covers {month}, UTC.
-        Other agencies retain their own names; blank values appear as Missing
-        provider. {snapshot.impressionSource}
-      </p>
       {snapshot.impressionsAvailable === false && (
         <p className="analytics-comparison-note" role="note">
           July’s resource-level search impressions have expired. Impressions and
@@ -122,43 +118,29 @@ export function ProviderReport({
           figures.
         </p>
       )}
-      <div className="analytics-client-highlights">
-        {columns.map(([key, label]) => (
-          <article
-            className="analytics-panel analytics-comparison-panel"
-            key={key}
-          >
-            <MetricHeading
-              level={2}
-              icon={
-                {
-                  catalogRecords: Layers3,
-                  activeResources: Activity,
-                  resourceViews: Eye,
-                  impressions: Eye,
-                  downloadClicks: Download,
-                  sourceClicks: ExternalLink,
-                }[key]
-              }
-            >
-              {label}
-            </MetricHeading>
-            <strong>{display(counts[key])}</strong>
-            <p>
-              {
-                {
-                  catalogRecords: 'Records in the catalog snapshot',
-                  activeResources:
-                    'Records appearing in searches or receiving an action',
-                  resourceViews: 'Recorded resource detail views',
-                  impressions: 'Resource cards shown in search results',
-                  downloadClicks: 'Recorded clicks, not completed downloads',
-                  sourceClicks: 'Clicks to authoritative source links',
-                }[key]
-              }
-            </p>
-          </article>
-        ))}
+      <div className="analytics-member-kpi-grid">
+        <article>
+          <MetricHeading icon={Layers3}>Catalog footprint</MetricHeading>
+          <strong>{display(counts.catalogRecords)}</strong>
+          <p>
+            Published catalog inventory as of {snapshot.catalogSnapshotDate}
+          </p>
+        </article>
+        <article>
+          <MetricHeading icon={Activity}>Period reach</MetricHeading>
+          <strong>{display(counts.activeResources)}</strong>
+          <p>Records appearing in searches or receiving an action</p>
+        </article>
+        <article>
+          <MetricHeading icon={Eye}>Resource attention</MetricHeading>
+          <strong>{display(counts.resourceViews)}</strong>
+          <p>{display(counts.impressions)} search impressions</p>
+        </article>
+        <article>
+          <MetricHeading icon={Download}>Download intent</MetricHeading>
+          <strong>{display(counts.downloadClicks)}</strong>
+          <p>{display(counts.sourceClicks)} source-site clicks</p>
+        </article>
       </div>
       <div className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader title="Daily views and downloads" icon={Activity} />
@@ -173,28 +155,41 @@ export function ProviderReport({
             minWidth={0}
             initialDimension={{ width: 1000, height: 288 }}
           >
-            <LineChart data={daily}>
-              <CartesianGrid strokeDasharray="2 6" />
-              <XAxis dataKey="day" />
-              <YAxis />
-              <Tooltip />
-              <Line
+            <AreaChart data={daily}>
+              <CartesianGrid {...chartTheme.grid} />
+              <XAxis
+                dataKey="day"
+                tick={chartTheme.tick}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis tick={chartTheme.tick} axisLine={false} tickLine={false} />
+              <Tooltip
+                contentStyle={chartTheme.tooltip}
+                labelStyle={chartTheme.tooltipLabel}
+                cursor={chartTheme.cursor}
+              />
+              <Area
                 type="linear"
                 dataKey="views"
                 name="Views"
                 stroke="#2563eb"
+                fill="#2563eb"
+                fillOpacity={0.12}
                 dot={false}
                 isAnimationActive={false}
               />
-              <Line
+              <Area
                 type="linear"
                 dataKey="downloads"
                 name="Downloads"
                 stroke="#003c5b"
+                fill="#003c5b"
+                fillOpacity={0.04}
                 dot={false}
                 isAnimationActive={false}
               />
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
         <details>
@@ -232,68 +227,62 @@ export function ProviderReport({
         </details>
       </div>
       {group && (
-        <div className="analytics-panel analytics-comparison-panel">
-          <ReportPanelHeader title="Leading content" icon={List} />
-          {(['topViews', 'topDownloads'] as const).map((key) => (
-            <div key={key}>
-              <h3>{key === 'topViews' ? 'Most viewed' : 'Most downloaded'}</h3>
-              {group[key].length ? (
-                <ol>
-                  {group[key].map((row) => (
-                    <li key={row.id}>
-                      <Link to={`/resources/${encodeURIComponent(row.id)}`}>
-                        {row.title}
-                      </Link>{' '}
-                      —{' '}
-                      {number.format(
-                        key === 'topViews' ? row.views : row.downloads
-                      )}
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <p>No matching events recorded.</p>
-              )}
-            </div>
-          ))}
+        <div className="analytics-member-leading-content">
+          <MemberContentList
+            title={`Most viewed - ${group.provider ?? 'Missing provider'}`}
+            items={group.topViews}
+            metric="views"
+            emptyMessage="No resource views were recorded."
+          />
+          <MemberContentList
+            title={`Most downloaded - ${group.provider ?? 'Missing provider'}`}
+            items={group.topDownloads}
+            metric="downloads"
+            emptyMessage="No download clicks were recorded."
+          />
         </div>
       )}
-      <div className="analytics-panel analytics-comparison-panel">
-        <ReportPanelHeader
-          title="Provider totals"
-          icon={Users}
-        ></ReportPanelHeader>
-        <div
-          className="analytics-comparison-scroll"
-          tabIndex={0}
-          role="region"
-          aria-label="Provider totals table"
-        >
-          <AnalyticsTable className="analytics-comparison-table">
-            <caption className="sr-only">{month} Provider totals</caption>
-            <thead>
-              <tr>
-                <th scope="col">Provider</th>
-                {columns.map(([key, label]) => (
-                  <th scope="col" key={key}>
-                    {label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row) => (
-                <tr key={row.id}>
-                  <th scope="row">{row.provider ?? 'Missing provider'}</th>
-                  {columns.map(([key]) => (
-                    <td key={key}>{display(row[key])}</td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </AnalyticsTable>
+      <section
+        className="analytics-panel analytics-panel--ranking analytics-member-report"
+        aria-label="Provider performance report"
+      >
+        <ReportPanelHeader title="Provider performance report" icon={Users}>
+          <small>{rows.length} providers</small>
+        </ReportPanelHeader>
+        <div className="analytics-ranking-list">
+          {[...rows]
+            .sort((a, b) => b.resourceViews - a.resourceViews)
+            .map((row, index) => (
+              <RankingRow
+                key={row.id}
+                rank={index + 1}
+                title={row.provider ?? 'Missing provider'}
+                href={
+                  row.provider ? providerSearchHref(row.provider) : undefined
+                }
+                value={row.resourceViews}
+                label="views"
+                maximum={Math.max(1, ...rows.map((row) => row.resourceViews))}
+              >
+                <dl className="analytics-member-row-details">
+                  {columns
+                    .filter(([key]) => key !== 'resourceViews')
+                    .map(([key, label]) => (
+                      <div key={key}>
+                        <dt>{label}</dt>
+                        <dd>{display(row[key])}</dd>
+                      </div>
+                    ))}
+                </dl>
+              </RankingRow>
+            ))}
         </div>
-      </div>
+      </section>
+      <p className="analytics-comparison-note">
+        Inventory and attribution use the catalog on{' '}
+        {snapshot.catalogSnapshotDate}; activity covers {month}, UTC. Blank
+        provider values appear as Missing provider. {snapshot.impressionSource}
+      </p>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { renderAnalytics as render } from '../utils/renderAnalytics';
 import { fireEvent, screen, within } from '@testing-library/react';
-import { BrowserRouter } from 'react-router';
+import { createBrowserRouter, RouterProvider } from 'react-router';
 import { HelmetProvider } from 'react-helmet-async';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
@@ -44,16 +44,19 @@ vi.mock('recharts', () => ({
 // default on shared CI runners. Keep this budget local; WCAG audits retain 60 seconds.
 describe('AnalyticsPage', { timeout: 30_000 }, () => {
   function renderPage(report = 'members&month=2026-07') {
-    const [id, query] = report.split('&');
+    const [id, ...queryParts] = report.split('&');
+    const query = queryParts.length ? queryParts.join('&') : undefined;
     const path = ['overview', 'activity'].includes(id)
       ? '/analytics'
       : `/analytics/${id}`;
     window.history.replaceState({}, '', `${path}?${query ?? 'month=2026-08'}`);
     return render(
       <HelmetProvider>
-        <BrowserRouter>
-          <AnalyticsPage />
-        </BrowserRouter>
+        <RouterProvider
+          router={createBrowserRouter([
+            { path: '*', element: <AnalyticsPage /> },
+          ])}
+        />
       </HelmetProvider>
     );
   }
@@ -606,6 +609,156 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     ).toBeNull();
   });
 
+  it('switches grouping with an explicit scope reset and shareable provider selection', () => {
+    renderPage('members&month=all&institution=university-of-chicago');
+    fireEvent.change(screen.getByLabelText('Group records by'), {
+      target: { value: 'provider' },
+    });
+    expect(new URLSearchParams(window.location.search).has('institution')).toBe(
+      false
+    );
+    expect(
+      screen.getByRole('heading', { name: 'All providers' })
+    ).toBeInTheDocument();
+    const select = screen.getByLabelText('Provider');
+    const option = within(select).getAllByRole(
+      'option'
+    )[1] as HTMLOptionElement;
+    fireEvent.change(select, { target: { value: option.value } });
+    expect(new URLSearchParams(window.location.search).get('provider')).toBe(
+      option.value
+    );
+    expect(
+      screen.getByRole('region', {
+        name: 'Most viewed - ' + option.textContent,
+      })
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Group records by'), {
+      target: { value: 'code' },
+    });
+    expect(new URLSearchParams(window.location.search).has('provider')).toBe(
+      false
+    );
+    expect(
+      screen.getByRole('button', { name: /All BTAA Change institution/ })
+    ).toBeInTheDocument();
+  });
+
+  it('restores a shared institution filter and clears it for All BTAA', () => {
+    renderPage('members&month=all&institution=university-of-chicago');
+    expect(
+      screen.getByRole('region', {
+        name: 'Most viewed - University of Chicago',
+      })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', {
+        name: 'Most downloaded - University of Chicago',
+      })
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /Chicago Change institution/ })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: 'All BTAA', exact: true })
+    );
+    expect(new URLSearchParams(window.location.search).has('institution')).toBe(
+      false
+    );
+    expect(
+      screen.getByRole('region', { name: 'Most viewed' })
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /All BTAA Change institution/ })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /Show Indiana University/ })
+    );
+    expect(new URLSearchParams(window.location.search).get('institution')).toBe(
+      'indiana-university'
+    );
+    expect(new URLSearchParams(window.location.search).get('month')).toBe(
+      'all'
+    );
+  });
+
+  it('shows top 50 viewed and top 25 downloaded content for the alliance and an institution', () => {
+    renderPage('members&month=all');
+    expect(
+      within(screen.getByRole('region', { name: 'Most viewed' })).getAllByRole(
+        'article'
+      )
+    ).toHaveLength(50);
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Most downloaded' })
+      ).getAllByRole('article')
+    ).toHaveLength(25);
+    fireEvent.click(
+      screen.getByRole('button', { name: /All BTAA Change institution/ })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /Show Indiana University/ })
+    );
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Most viewed - Indiana University' })
+      ).getAllByRole('article')
+    ).toHaveLength(50);
+    expect(
+      within(
+        screen.getByRole('region', {
+          name: 'Most downloaded - Indiana University',
+        })
+      ).getAllByRole('article')
+    ).toHaveLength(25);
+  });
+
+  it('keeps institution filters collapsed until requested and closes after selection', () => {
+    renderPage('members&month=all');
+    expect(
+      screen.queryByRole('button', { name: /Show Indiana University/ })
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: /All BTAA Change institution/ })
+    );
+    fireEvent.click(
+      screen.getByRole('button', { name: /Show Indiana University/ })
+    );
+    expect(
+      screen.getByRole('button', { name: /Indiana Change institution/ })
+    ).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByText('Campus segment')).toBeInTheDocument();
+  });
+
+  it('includes USC without presenting missing data as alliance totals', () => {
+    const { container } = renderPage('members&month=all');
+    const controls = container.querySelector('.analytics-report-controls');
+    expect(controls).toContainElement(
+      screen.getByLabelText('Group records by')
+    );
+    expect(controls).toContainElement(screen.getByLabelText('Reporting month'));
+    const usc = screen.getByRole('button', {
+      name: /Show University of Southern California/,
+    });
+    expect(container.querySelector('.analytics-report-intro')).toContainElement(
+      usc
+    );
+    expect(container.querySelector('.analytics-report-intro')).toContainElement(
+      screen.getByRole('button', { name: 'All BTAA' })
+    );
+    fireEvent.click(usc);
+    expect(usc).toHaveAttribute('aria-pressed', 'true');
+    expect(
+      screen.getByRole('region', {
+        name: 'University of Southern California report',
+      })
+    ).toHaveTextContent('Analytics data unavailable');
+    expect(screen.queryByText('Catalog footprint')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All BTAA' }));
+    expect(screen.getByText('Catalog footprint')).toBeInTheDocument();
+  });
+
   it('switches between verified Provider and historical code groups', () => {
     renderPage('members');
     expect(
@@ -670,7 +823,9 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
     expect(
       screen.getByRole('link', { name: 'Survey of Egypt: El Bagur' })
     ).toHaveAttribute('href', '/resources/camel-1013673');
-    expect(screen.queryByText(/17 contributing institutions/i)).toBeNull();
+    expect(
+      screen.queryByText(/17 institutions with recorded data/i)
+    ).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'All BTAA' }));
 
@@ -680,7 +835,9 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
         level: 3,
       })
     ).toBeInTheDocument();
-    expect(screen.getByText(/17 contributing institutions/i)).toBeVisible();
+    expect(
+      screen.getByText(/17 institutions with recorded data/i)
+    ).toBeVisible();
   });
 
   it('explains when a campus had no direct download-link clicks', () => {

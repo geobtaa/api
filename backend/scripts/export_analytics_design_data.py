@@ -12,6 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.services.analytics_reporting.archive import validate_document  # noqa: E402
 from app.services.analytics_reporting.collection_searches import collection_searches  # noqa: E402
 from app.services.analytics_reporting.collection_views import collection_views  # noqa: E402
+from app.services.analytics_reporting.member_content import member_content  # noqa: E402
 from app.services.analytics_reporting.metadata import (  # noqa: E402
     content_metadata,
     content_providers,
@@ -751,6 +752,9 @@ def run(archives, public, output, supplemental, period=None):
     title_path = output / "collectionTitlesCurrent.json"
     collection_titles = json.loads(title_path.read_text())["titles"] if title_path.exists() else {}
     payloads = {
+        "memberLeadingContent.json": {
+            period: member_content(report) for period, report in reports.items()
+        },
         "popularHistory2026.json": {
             d["month"][:7]: popular_content(d, docs[i - 1] if i else None)
             for i, d in enumerate(docs[:-1])
