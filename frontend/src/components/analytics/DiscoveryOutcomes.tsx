@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import {
   outcomes,
+  visitsAreEstimated,
   outcomeLabels,
   type OutcomePeriod,
 } from '../../data/analytics/outcomes';
@@ -186,7 +187,9 @@ export function AudienceReport({
     'visits'
   );
   const labels = {
-    visits: 'Tracked visits',
+    visits: visitsAreEstimated(period)
+      ? 'Tracked visits (estimated)'
+      : 'Tracked visits',
     searches: 'Search result pages',
     views: 'Resource views',
   };
@@ -208,13 +211,15 @@ export function AudienceReport({
       <div className="analytics-outcomes-body">
         <div className="analytics-audience-cards">
           <div>
-            <h3>Tracked visits</h3>
+            <h3>
+              Tracked visits{visitsAreEstimated(period) ? ' (estimated)' : ''}
+            </h3>
             <strong>
-              {period >= '2026-09' || period === 'all' ? '≈ ' : ''}
+              {visitsAreEstimated(period) ? '≈ ' : ''}
               {n.format(report.audience.trackedVisits)}
             </strong>
             <p>
-              {period >= '2026-09' || period === 'all'
+              {visitsAreEstimated(period)
                 ? 'Estimated distinct tab-scoped visit tokens across searches and interactions (about 0.81% relative standard error).'
                 : 'Distinct tab-scoped visit tokens across searches and interactions.'}
             </p>
@@ -270,7 +275,10 @@ export function AudienceReport({
               <thead>
                 <tr>
                   <th scope="col">Date</th>
-                  <th scope="col">Tracked visits</th>
+                  <th scope="col">
+                    Tracked visits
+                    {visitsAreEstimated(period) ? ' (estimated)' : ''}
+                  </th>
                   <th scope="col">Search result pages</th>
                   <th scope="col">Resource views</th>
                 </tr>
@@ -279,7 +287,10 @@ export function AudienceReport({
                 {report.daily.map((row) => (
                   <tr key={row.day}>
                     <th scope="row">{row.day}</th>
-                    <td>{n.format(row.visits)}</td>
+                    <td>
+                      {visitsAreEstimated(period) ? '≈ ' : ''}
+                      {n.format(row.visits)}
+                    </td>
                     <td>{n.format(row.searches)}</td>
                     <td>{n.format(row.views)}</td>
                   </tr>
@@ -301,10 +312,8 @@ export function AudienceReport({
         </p>
         <p className="analytics-comparison-note">
           Source: analytics_searches and analytics_events, exported{' '}
-          {period >= '2026-09' || period === 'all'
-            ? outcomes.catalogDate
-            : '2026-09-10'}
-          , UTC. Historical values are complete for these recorded event types,
+          {visitsAreEstimated(period) ? outcomes.catalogDate : '2026-09-10'},
+          UTC. Historical values are complete for these recorded event types,
           not a census of every visitor. The GA4/GTM connection and general SPA
           pageview coverage remain unverified.
         </p>

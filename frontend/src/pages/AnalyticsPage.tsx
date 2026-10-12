@@ -32,7 +32,7 @@ import {
   AudienceReport,
   OutlinkedResources,
 } from '../components/analytics/DiscoveryOutcomes';
-import { outcomes } from '../data/analytics/outcomes';
+import { outcomes, visitsAreEstimated } from '../data/analytics/outcomes';
 import { ZeroResultReport } from '../components/analytics/ZeroResultReport';
 import { AllTimeAnalyticsPage } from '../components/analytics/AllTimeAnalyticsPage';
 import {
@@ -306,7 +306,9 @@ export function AnalyticsPage() {
   const overviewMetricLabels = {
     events: 'Interactions',
     searches: 'Searches',
-    visits: 'Tracked visits',
+    visits: visitsAreEstimated(selectedPeriod)
+      ? 'Tracked visits (estimated)'
+      : 'Tracked visits',
     views: 'Resource views',
   };
   const overviewDaily = dailyActivity.map((row, index) => {
@@ -1370,17 +1372,26 @@ export function AnalyticsPage() {
                     <div className="analytics-signal-card">
                       <div>
                         <CheckCircle2 className="h-5 w-5" aria-hidden />
-                        <span>Tracked visits</span>
+                        <span>
+                          Tracked visits
+                          {visitsAreEstimated(selectedPeriod)
+                            ? ' (estimated)'
+                            : ''}
+                        </span>
                       </div>
                       <strong>
+                        {visitsAreEstimated(selectedPeriod) ? '≈ ' : ''}
                         {wholeNumber.format(
                           outcomes.periods[selectedPeriod].audience
                             .trackedVisits
                         )}
                       </strong>
                       <p>
-                        distinct visit tokens recorded in searches or events;
-                        not unique people
+                        {visitsAreEstimated(selectedPeriod)
+                          ? 'Estimated distinct'
+                          : 'Distinct'}{' '}
+                        browser-tab visits recorded in searches or events; not
+                        unique people
                       </p>
                     </div>
                   </aside>

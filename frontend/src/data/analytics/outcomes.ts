@@ -71,3 +71,8 @@ export function withheldSearchContexts(
     ? ((report.withheldSearchContexts as Record<string, number>)[term] ?? 0)
     : 0;
 }
+
+export function visitsAreEstimated(period: OutcomePeriod): boolean {
+  const audience = periods[period].audience;
+  return 'estimated' in audience && audience.estimated === true;
+}
