@@ -1,21 +1,25 @@
-import monthly from '../../data/analytics/monthlySnapshots.json';
+import { useAnalyticsData } from './AnalyticsData';
+
 import {
   monthLabel,
   periodRange,
   allTimeRange,
 } from '../../config/analyticsPeriods';
-import allTime from '../../data/analytics/allTimeCurrent.json';
+
 import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, KeyRound, Network, Server, Users } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
-import {
-  clientSnapshots,
-  combineClientSnapshots,
-} from '../../data/analytics/clients2026';
 
 const number = new Intl.NumberFormat('en-US');
 
 export function ClientUsageReport({ month }: { month: string }) {
+  const analytics = useAnalyticsData();
+  const monthly = analytics['monthlySnapshots.json'].default;
+  const allTime = analytics['allTimeCurrent.json'].default;
+  const clientSnapshots = analytics['clients2026'].clientSnapshots;
+  const combineClientSnapshots =
+    analytics['clients2026'].combineClientSnapshots;
+
   const snapshot =
     month === 'all'
       ? combineClientSnapshots(

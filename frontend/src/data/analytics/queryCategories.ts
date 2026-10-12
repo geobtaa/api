@@ -1,5 +1,5 @@
 /** Editorial classifications of the saved top queries, inferred from text only. */
-const groups: Record<string, string[]> = {
+export const groups: Record<string, string[]> = {
   'Places & regions': [
     'michigan',
     'siberia russia',

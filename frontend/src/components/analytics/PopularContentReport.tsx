@@ -1,221 +1,69 @@
+import { useAnalyticsData } from './AnalyticsData';
+
+import { RankingRow } from './RankingRow';
 import { ReportSectionHeading } from './ReportSectionHeading';
-import { useId, useState } from 'react';
-import { Link } from 'react-router';
-import {
-  ArrowDownRight,
-  ArrowUpRight,
-  Download,
-  Flame,
-  Layers3,
-  Trophy,
-} from 'lucide-react';
+import { useRanking } from './useRanking';
+import { Download, Flame, Layers3, Trophy } from 'lucide-react';
 import type {
   ResourceChartEntry,
-  CollectionChartEntry,
   DownloadChartEntry,
 } from '../../data/analytics/july2026';
 import { ResourceThumbnail } from './ResourceThumbnail';
 
 export type PopularResource = Omit<ResourceChartEntry, 'actions'> & {
   actions: number | null;
+  previousMonthViews?: number | null;
 };
 export type PopularDownload = Omit<DownloadChartEntry, 'engagedVisits'> & {
   engagedVisits: number | null;
 };
 const wholeNumber = new Intl.NumberFormat('en-US');
 
-function collectionHref(collection: CollectionChartEntry) {
-  if (collection.id) return `/resources/${encodeURIComponent(collection.id)}`;
+export type CollectionViewsEntry = { id: string; title: string; views: number };
 
-  const params = new URLSearchParams();
-  params.append(
-    `include_filters[${collection.filterField}][]`,
-    collection.title
-  );
-  return `/search?${params.toString()}`;
-}
-
-function resourceMomentum(resource: PopularResource) {
-  if (resource.firstHalfEvents === 0) {
-    return { label: 'New', direction: 'up' as const };
-  }
-
-  const change = Math.round(
-    ((resource.secondHalfEvents - resource.firstHalfEvents) /
-      resource.firstHalfEvents) *
-      100
-  );
-
-  if (change > 0) {
-    return { label: `${change}%`, direction: 'up' as const };
-  }
-
-  if (change < 0) {
-    return { label: `${Math.abs(change)}%`, direction: 'down' as const };
-  }
-
-  return { label: 'Even', direction: 'flat' as const };
-}
-
-function MomentumBadge({
-  resource,
-  month,
-}: {
-  resource: PopularResource;
-  month?: string;
-}) {
-  const momentum = resourceMomentum(resource);
-
-  return (
-    <span
-      className={`analytics-momentum analytics-momentum--${momentum.direction}`}
-      title={`All tracked interactions in ${month} 16–month end compared with ${month} 1–15`}
-    >
-      {momentum.direction === 'up' && (
-        <ArrowUpRight className="h-3.5 w-3.5" aria-hidden />
-      )}
-      {momentum.direction === 'down' && (
-        <ArrowDownRight className="h-3.5 w-3.5" aria-hidden />
-      )}
-      {momentum.label}
-    </span>
-  );
+function collectionHref(collection: CollectionViewsEntry) {
+  return `/resources/${encodeURIComponent(collection.id)}`;
 }
 
 function ResourceRankingRow({
   resource,
   rank,
   month,
+  maxViews,
 }: {
   resource: PopularResource;
   rank: number;
+  maxViews: number;
   month?: string;
 }) {
-  const isLeader = rank === 1;
-
   return (
-    <article
-      className={`analytics-ranking-row${isLeader ? ' analytics-ranking-row--leader' : ''}`}
-    >
-      <div className="analytics-rank-number" aria-label={`Rank ${rank}`}>
-        <span>#</span>
-        {rank}
-      </div>
-      <ResourceThumbnail resource={resource} eager={isLeader} />
-      <div className="analytics-ranking-copy">
-        <div className="analytics-ranking-kicker">
+    <RankingRow
+      rank={rank}
+      title={resource.title}
+      href={`/resources/${encodeURIComponent(resource.id)}`}
+      thumbnail={<ResourceThumbnail resource={resource} eager={rank === 1} />}
+      kicker={
+        <>
           {resource.resourceClass && <span>{resource.resourceClass}</span>}
           {resource.year && <span>{resource.year}</span>}
-        </div>
-        <h3>
-          <Link to={`/resources/${encodeURIComponent(resource.id)}`}>
-            {resource.title}
-          </Link>
-        </h3>
-        <p>
-          {resource.provider}
-          {resource.resourceType ? ` · ${resource.resourceType}` : ''}
-        </p>
-      </div>
-      <div className="analytics-ranking-stat">
-        <strong>{wholeNumber.format(resource.views)}</strong>
-        <span>views</span>
-      </div>
-      <div className="analytics-ranking-stat analytics-ranking-stat--actions">
-        <strong>
-          {resource.actions === null
-            ? '—'
-            : wholeNumber.format(resource.actions)}
-        </strong>
-        <span>actions</span>
-      </div>
-      <div className="analytics-ranking-trend">
-        {month ? (
-          <>
-            <MomentumBadge resource={resource} month={month} />
-            <span>2H pulse</span>
-          </>
-        ) : (
-          <>
-            <span>—</span>
-            <span>Monthly only</span>
-          </>
-        )}
-      </div>
-      <Link
-        to={`/resources/${encodeURIComponent(resource.id)}`}
-        className="analytics-row-action"
-        aria-label={`Open ${resource.title}`}
-      >
-        <ArrowUpRight className="h-4 w-4" aria-hidden />
-      </Link>
-    </article>
+        </>
+      }
+      description={
+        resource.provider +
+        (resource.resourceType ? ` · ${resource.resourceType}` : '')
+      }
+      value={resource.views}
+      label="views"
+      maximum={maxViews}
+      previousValue={month ? (resource.previousMonthViews ?? null) : undefined}
+    />
   );
-}
-
-function useRanking<T extends { title: string; provider: string }>(
-  rows: T[],
-  count: (row: T) => number,
-  label: string
-) {
-  const id = useId();
-  const [query, setQuery] = useState('');
-  const [order, setOrder] = useState('count');
-  const terms = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
-  const visible = rows
-    .map((row, index) => ({ row, rank: index + 1 }))
-    .filter(({ row }) =>
-      terms.every((term) =>
-        `${row.title} ${row.provider}`.toLowerCase().includes(term)
-      )
-    )
-    .sort((a, b) =>
-      order === 'title'
-        ? a.row.title.localeCompare(b.row.title)
-        : order === 'provider'
-          ? a.row.provider.localeCompare(b.row.provider)
-          : count(b.row) - count(a.row)
-    );
-  return {
-    visible,
-    controls: (
-      <div className="analytics-table-tools analytics-table-tools--inset">
-        <label htmlFor={id}>
-          Filter resources
-          <input
-            id={id}
-            type="search"
-            aria-label={`Filter ${label}`}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search titles or providers…"
-          />
-        </label>
-        <label>
-          Sort by
-          <select
-            aria-label={`Sort ${label}`}
-            value={order}
-            onChange={(event) => setOrder(event.target.value)}
-          >
-            <option value="count">
-              Most {label === 'Top resources' ? 'views' : 'clicks'}
-            </option>
-            <option value="title">Title</option>
-            <option value="provider">Provider</option>
-          </select>
-        </label>
-        <span role="status">
-          {visible.length} of {rows.length} resources
-        </span>
-      </div>
-    ),
-  };
 }
 
 export function PopularContentReport({
   title,
   reportMonth,
+  reportPeriod,
   topResources,
   topCollections,
   collectionNote,
@@ -225,13 +73,18 @@ export function PopularContentReport({
 }: {
   title: string;
   reportMonth?: string;
+  reportPeriod?: string;
   topResources: PopularResource[];
-  topCollections: CollectionChartEntry[] | null;
+  topCollections: CollectionViewsEntry[] | null;
   collectionNote: string;
   topDownloadedResources: PopularDownload[];
   downloadClicks: number;
   downloadNote: string;
 }) {
+  const analytics = useAnalyticsData();
+  const previousRankingValue =
+    analytics['popularMomentum'].previousRankingValue;
+
   const resources = useRanking(
     topResources,
     (row) => row.views,
@@ -240,24 +93,24 @@ export function PopularContentReport({
   const downloads = useRanking(
     topDownloadedResources,
     (row) => row.clicks,
-    'Top download clicks'
+    'Top downloaded resources'
   );
-  const maxCollectionSearches = Math.max(
+  const maxCollectionViews = Math.max(
     1,
-    ...(topCollections ?? []).map((row) => row.searches)
+    ...(topCollections ?? []).map((row) => row.views)
   );
   const maxDownloadClicks = Math.max(
     1,
     ...topDownloadedResources.map((row) => row.clicks)
   );
   return (
-    <section id="charts" className="analytics-section">
+    <section id="charts" className="analytics-section" data-nav-exclude>
       <ReportSectionHeading
         title={title}
         description={
           reportMonth
-            ? `Ranked by resource detail views. Momentum compares all tracked interactions in the first and second halves of ${reportMonth}.`
-            : 'Ranked by resource detail views across all published months. Half-month momentum applies only to monthly reports.'
+            ? `Ranked by resource detail views. Momentum compares each ranking’s metric with the previous calendar month; totals are not adjusted for month length.`
+            : 'Ranked by resource detail views across all published months.'
         }
       />
 
@@ -269,12 +122,11 @@ export function PopularContentReport({
           <div className="analytics-panel-header">
             <div>
               <Flame className="h-5 w-5" aria-hidden />
-              <span>Top resources</span>
+              <h3>Top resources</h3>
             </div>
             <div className="analytics-ranking-legend" aria-hidden="true">
               <span>Views</span>
-              <span>Actions</span>
-              <span>Momentum</span>
+              {reportMonth && <span>Momentum</span>}
             </div>
           </div>
           {resources.controls}
@@ -284,74 +136,135 @@ export function PopularContentReport({
                 key={resource.id}
                 resource={resource}
                 rank={rank}
+                maxViews={Math.max(1, ...topResources.map((row) => row.views))}
                 month={reportMonth}
               />
             ))}
           </div>
         </div>
-
-        <aside
-          id="collections"
-          className="analytics-panel analytics-panel--collections"
-        >
-          <div className="analytics-panel-header">
-            <div>
-              <Trophy className="h-5 w-5" aria-hidden />
-              <span>Collection chart</span>
-            </div>
-            <small>filtered searches</small>
-          </div>
-          {topCollections === null && (
-            <p className="analytics-download-note">
-              Collection rankings are unavailable in the saved All time
-              snapshot. Monthly top lists cannot reconstruct a complete combined
-              ranking.
-            </p>
-          )}
-          <ol className="analytics-collection-list">
-            {topCollections?.map((collection, index) => (
-              <li key={`${collection.title}-${collection.id ?? index}`}>
-                <span className="analytics-collection-rank">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <div className="analytics-resource-cell">
-                  <ResourceThumbnail
-                    resource={{
-                      id: collection.id,
-                      title: collection.title,
-                      resourceClass: 'Collections',
-                    }}
-                    href={collectionHref(collection)}
-                    compact
-                  />
-                  <div className="analytics-collection-copy">
-                    <Link to={collectionHref(collection)}>
-                      {collection.title}
-                    </Link>
-                    <span>{collection.kind}</span>
-                    <div
-                      className="analytics-collection-track"
-                      aria-hidden="true"
-                    >
-                      <i
-                        style={{
-                          width: `${(collection.searches / maxCollectionSearches) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <strong>{collection.searches}</strong>
-              </li>
-            ))}
-          </ol>
-          <div className="analytics-chart-note">
-            <Layers3 className="h-5 w-5" aria-hidden />
-            <p>{collectionNote}</p>
-          </div>
-        </aside>
       </div>
 
+      <div className="analytics-taxonomy-grid">
+        {(['resourceClass', 'resourceType'] as const).map((field) => {
+          const counts = new Map<string, number>();
+          const priorCounts = new Map<string, number | null>();
+          topResources.forEach((resource) => {
+            const labels = [
+              ...new Set(
+                (resource[field] || 'Not recorded')
+                  .split(',')
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+              ),
+            ];
+            labels.forEach((label) => {
+              counts.set(label, (counts.get(label) || 0) + resource.views);
+              const prior = priorCounts.get(label);
+              priorCounts.set(
+                label,
+                prior === null || resource.previousMonthViews == null
+                  ? null
+                  : (prior ?? 0) + resource.previousMonthViews
+              );
+            });
+          });
+          const rows = [...counts]
+            .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+            .slice(0, 10);
+          return (
+            <article className="analytics-panel" key={field}>
+              <div className="analytics-panel-header">
+                <div>
+                  <Layers3 size={20} aria-hidden />
+                  <h3>
+                    {field === 'resourceClass'
+                      ? 'Top resource classes'
+                      : 'Top resource types'}
+                  </h3>
+                </div>
+                <small>resource views</small>
+              </div>
+              <p className="analytics-download-note">
+                Within the {topResources.length} resources ranked above.
+                Resources with multiple classifications contribute to each;
+                missing metadata is shown as Not recorded.
+                {reportMonth &&
+                  ' Momentum compares the same resources and classifications in both months.'}
+              </p>
+              <div className="analytics-ranking-list">
+                {rows.map(([label, views], index) => (
+                  <RankingRow
+                    key={label}
+                    rank={index + 1}
+                    title={label}
+                    value={views}
+                    label="views"
+                    maximum={rows[0][1]}
+                    previousValue={
+                      reportMonth ? (priorCounts.get(label) ?? null) : undefined
+                    }
+                  />
+                ))}
+              </div>
+            </article>
+          );
+        })}
+      </div>
+      <aside
+        id="collections"
+        className="analytics-panel analytics-panel--collections"
+      >
+        <div className="analytics-panel-header">
+          <div>
+            <Trophy className="h-5 w-5" aria-hidden />
+            <h3>Top collections</h3>
+          </div>
+          <small>resource views</small>
+        </div>
+        {topCollections === null && (
+          <p className="analytics-download-note">
+            Collection rankings are unavailable in the saved All time snapshot.
+            Monthly top lists cannot reconstruct a complete combined ranking.
+          </p>
+        )}
+        <div className="analytics-ranking-list">
+          {topCollections?.map((collection, index) => (
+            <RankingRow
+              key={`${collection.title}-${collection.id ?? index}`}
+              rank={index + 1}
+              title={collection.title}
+              href={collectionHref(collection)}
+              thumbnail={
+                <ResourceThumbnail
+                  resource={{
+                    id: collection.id,
+                    title: collection.title,
+                    resourceClass: 'Collections',
+                  }}
+                  href={collectionHref(collection)}
+                />
+              }
+              description="Views of member resources"
+              value={collection.views}
+              label="views"
+              maximum={maxCollectionViews}
+              previousValue={
+                reportMonth
+                  ? (previousRankingValue(
+                      reportPeriod,
+                      'collections',
+                      collection.id
+                    ) ?? null)
+                  : undefined
+              }
+            />
+          ))}
+        </div>
+        <div className="analytics-chart-note">
+          <Layers3 className="h-5 w-5" aria-hidden />
+          <p>{collectionNote}</p>
+        </div>
+      </aside>
       <article
         id="downloads"
         className="analytics-panel analytics-download-chart"
@@ -359,66 +272,52 @@ export function PopularContentReport({
         <div className="analytics-panel-header">
           <div>
             <Download className="h-5 w-5" aria-hidden />
-            <span>Top download clicks</span>
+            <h3>Top downloaded resources</h3>
           </div>
           <small>
             {wholeNumber.format(downloadClicks)} across all resources
           </small>
         </div>
-        <div className="analytics-download-legend" aria-hidden="true">
-          <span>Resource</span>
-          <span>Clicks</span>
-          <span>Visits</span>
-        </div>
         {downloads.controls}
-        <ol className="analytics-download-list">
+        <div className="analytics-ranking-list">
           {downloads.visible.map(({ row: resource, rank }) => (
-            <li key={resource.id}>
-              <span className="analytics-download-rank">
-                {String(rank).padStart(2, '0')}
-              </span>
-              <div className="analytics-resource-cell">
-                <ResourceThumbnail resource={resource} compact />
-                <div className="analytics-download-copy">
-                  <div>
-                    {resource.resourceClass && (
-                      <span>{resource.resourceClass}</span>
-                    )}
-                    <Link to={`/resources/${encodeURIComponent(resource.id)}`}>
-                      {resource.title}
-                    </Link>
-                  </div>
-                  <p>
-                    {resource.provider}
-                    {resource.formatLabel ? ` · ${resource.formatLabel}` : ''}
-                  </p>
-                  <div className="analytics-download-track" aria-hidden>
-                    <i
-                      style={{
-                        width: `${(resource.clicks / maxDownloadClicks) * 100}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-              <strong>{resource.clicks}</strong>
-              <span>{resource.engagedVisits ?? '—'}</span>
-              <Link
-                to={`/resources/${encodeURIComponent(resource.id)}`}
-                className="analytics-row-action"
-                aria-label={`Open ${resource.title}`}
-              >
-                <ArrowUpRight className="h-4 w-4" aria-hidden />
-              </Link>
-            </li>
+            <RankingRow
+              key={resource.id}
+              rank={rank}
+              title={resource.title}
+              href={`/resources/${encodeURIComponent(resource.id)}`}
+              thumbnail={
+                <ResourceThumbnail resource={resource} eager={rank === 1} />
+              }
+              kicker={
+                resource.resourceClass && <span>{resource.resourceClass}</span>
+              }
+              description={
+                resource.provider +
+                (resource.formatLabel ? ` · ${resource.formatLabel}` : '')
+              }
+              value={resource.clicks}
+              label="download clicks"
+              maximum={maxDownloadClicks}
+              previousValue={
+                reportMonth
+                  ? (previousRankingValue(
+                      reportPeriod,
+                      'downloads',
+                      resource.id
+                    ) ?? null)
+                  : undefined
+              }
+              secondary={{ value: resource.engagedVisits, label: 'visits' }}
+            />
           ))}
-        </ol>
+        </div>
         <p className="analytics-download-note">
           {downloadNote} A click records selection of a catalog download link;
           completion on an external provider site cannot be verified.
           {reportMonth
             ? ' Visits are distinct tracked visit tokens.'
-            : ' Distinct download visits and complete per-resource action totals are unavailable in this snapshot; monthly distinct counts are not added together.'}
+            : ' Distinct download visits are unavailable in this snapshot; monthly distinct counts are not added together.'}
         </p>
       </article>
     </section>

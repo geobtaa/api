@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from .endpoint_modules.admin import router as admin_router
 from .endpoint_modules.analytics import router as analytics_router
+from .endpoint_modules.analytics_auth import router as analytics_auth_router
 from .endpoint_modules.analytics_reports import router as analytics_reports_router
 from .endpoint_modules.feedback import router as feedback_router
 from .endpoint_modules.gazetteer import router as gazetteer_router
@@ -31,6 +32,7 @@ router = APIRouter()
 router.include_router(root_router, tags=["root"])
 router.include_router(search_router, tags=["search"])
 router.include_router(analytics_router, tags=["analytics"], include_in_schema=False)
+router.include_router(analytics_auth_router, tags=["analytics"], include_in_schema=False)
 router.include_router(analytics_reports_router, tags=["analytics"])
 router.include_router(feedback_router, tags=["feedback"], include_in_schema=False)
 router.include_router(home_router, tags=["home"])

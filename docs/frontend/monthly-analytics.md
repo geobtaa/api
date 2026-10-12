@@ -1,6 +1,6 @@
 # Monthly analytics dashboard
 
-The public `/analytics` landing page shows the selected month’s highlights and a report directory.
+The authenticated `/analytics` landing page shows the selected month’s highlights and a report directory.
 An analytics-specific header replaces the Geoportal search form and navigation,
 with a single link back to the Geoportal. Only the selected report is rendered.
 
@@ -513,7 +513,7 @@ pages, 90,683 impressions, and 14,509 interactions. Those interactions include
 September and the refreshed All time report use the established `AnalyticsPage`
 layout, charts, content cards, campus selectors, and searchable tables. A data
 projection converts preserved reporting inputs to those components’ existing shapes. The static files live under
-`frontend/public/analytics-reports/`; their manifest identifies exact revisions.
+`frontend/private-analytics-reports/`; their manifest identifies exact revisions.
 July and August retain their original monthly presentations and source snapshots.
 The comparison report now includes all three months. Cumulative data are rebuilt
 from the complete preserved monthly inputs, never from displayed top lists or by
@@ -531,11 +531,11 @@ production archive durability, retention, or automated monthly publication.
 To regenerate locally from reconciled private archives:
 
 ```bash
-python backend/scripts/export_analytics_snapshots.py /path/to/july.json.gz /path/to/august.json.gz /path/to/september.json.gz --through 2026-10-01 --period 2026-09 --period all --output frontend/public/analytics-reports
+python backend/scripts/export_analytics_snapshots.py /path/to/july.json.gz /path/to/august.json.gz /path/to/september.json.gz --through 2026-10-01 --period 2026-09 --period all --output frontend/private-analytics-reports
 ```
 
 After that export, run `backend/scripts/export_analytics_design_data.py` with the
-same archive paths, `--public frontend/public/analytics-reports`,
+same archive paths, `--public frontend/private-analytics-reports`,
 `--output frontend/src/data/analytics`, and `--supplemental /path/to/verified-counts.json`.
 The supplemental aggregate file provides search counts, distinct non-empty query
 counts, zero-result searches with query text, and September event-only engaged
@@ -658,3 +658,92 @@ The Month comparison report leads with monthly activity bars, switchable between
 monthly totals and calendar-day averages. Daily trends use overlaid lines with
 distinct colors and dash patterns; absent dates remain gaps. The heading covers
 all published months, while table change columns explicitly name the latest two.
+
+Popular content momentum compares a resource's view count with the previous
+calendar month's complete resource-view report. July has no prior-month baseline;
+zero prior views are labelled explicitly without inventing a percentage. Exported
+`previousMonthViews` values are reproduced from the private archive during monthly
+updates. Class/type charts currently summarize the displayed top-resource cohort,
+not the full catalog; their captions state that scope and disclose overlapping
+classifications. Rank bars use the largest count in the full displayed ranking,
+so filtering does not change their scale.
+
+Thumbnail requests use the same-origin thumbnail proxy, including cached-image
+redirects. For a local preview, set `API_BASE_URL` to the actual local API port
+when it differs from the default 8000. Resources without an available preview
+retain the resource-class fallback icon.
+
+Popular content collection rankings use member-resource view events, attributed through each month's saved collection membership. All Time aggregates the complete monthly inputs before ranking; it does not sum truncated top lists. Multi-collection resources contribute to each collection, and missing memberships remain unattributed. Collection-filter search counts are a separate metric.
+
+All monthly Popular content rankings display percent change against the previous calendar month for their own metric. Collections, downloads, and outlinks use complete preserved prior-month counts before truncation; a missing item in a known baseline means zero, while a missing month means unavailable. Classification momentum compares the current top-resource cohort using the same classification assignments in both months, matching the scoped chart totals. Zero baselines display No prior activity instead of a percentage. All Time omits momentum entirely.
+
+Collection title corrections are preserved in collectionTitlesCurrent.json with their catalog lookup date. The view-ranking export uses these verified public labels only when the sealed catalog lacks a usable title; archived titles take precedence and view counts remain unchanged. New exports capture all catalog records, including collection records.
+
+## Email-link access
+
+The sign-in page follows `DESIGN.md`: the shared analytics brand header, BTAA/GIN
+logo assets, theme colors, shared primary CTA styles, and responsive page gutters.
+Report navigation appears only on the authenticated dashboard; login confirmation
+and error states retain the same institutional layout.
+
+All analytics pages require a session for an approved email address. Requests
+show the same confirmation for approved and unknown addresses. Approved users
+receive a single-use link that expires after 24 hours. Opening the email link
+automatically signs in and opens Overview with a 24-hour access notice. The
+fragment token is removed from the address bar before verification. Sessions expire
+after 24 hours. Sign out invalidates the session on the server.
+
+The API checks the approved list on every report/session request. There is no
+domain restriction. Addresses are trimmed and compared case-insensitively.
+An empty or unreadable list denies access. Local development accepts a
+comma-separated `ANALYTICS_APPROVED_EMAILS` setting or a JSON array in the file
+specified by `ANALYTICS_APPROVED_EMAILS_FILE`. The file takes precedence and is
+re-read on each check, so removing an address denies its existing sessions
+immediately. Environment-list changes require restarting the API. Keep real
+addresses outside version control. `ANALYTICS_BASE_URL` must match the browser
+origin; the local default is `http://localhost:3000`. Non-local origins require
+HTTPS. Local email testing uses browser email previews; tests mock
+email delivery and never send real messages. Redis is required for token,
+session, and request-limit storage; unavailable authentication storage denies
+access rather than exposing reports.
+
+Snapshot modules are imported only by `app/lib/analytics-data.server.ts`. The
+authenticated route loader supplies their serializable values through
+`AnalyticsDataContext`; data-dependent helpers operate on that payload. Vite
+rejects client imports of snapshot modules. Historical aggregates remain in
+source control; this access boundary protects application delivery and does
+not remove previously published copies or Git history.
+
+Archived JSON and ZIP files live in `frontend/private-analytics-reports`, outside
+the public asset directory. `/analytics-reports/*` validates the session and
+serves only known report filename patterns. The runtime reporting API checks the
+same session for manifests, report revisions, and CSV/JSON downloads. Its
+existing shadow-validation switch still applies after authentication. Public
+event ingestion and admin authentication remain separate.
+
+Report and login responses use `private, no-store`, including redirects to sign
+in. The session cookie is HttpOnly, host-only, SameSite=Lax, and Secure outside
+local development. Magic-link tokens travel in URL fragments, are cleared from
+the address bar, and are submitted by POST. Google Tag Manager is not loaded
+on analytics pages. Approved lists, mail relay setup, and deployment procedures
+belong in restricted operations documentation.
+
+Run the authentication checks with the focused backend tests in
+`tests/services/test_analytics_auth.py` and frontend tests in
+`src/__tests__/analyticsAuth.test.ts`, alongside the dashboard component tests
+and a production frontend build. The build must not contain an
+`analytics-reports` public directory or embedded snapshot data.
+
+### Local sign-in email preview
+
+Docker Compose defaults to `APP_ENV=development` and `FEEDBACK_DELIVERY=preview`.
+With `ANALYTICS_BASE_URL=http://localhost:3000`, requesting a sign-in link captures
+its email and opens a browser tab containing the message and clickable login link.
+No SMTP connection or external email delivery occurs. If popups are blocked, use
+**Open local email preview** on the sign-in page. Approved-address checks and
+single-use token expiration still apply.
+
+For a backend started outside Compose, set those three variables explicitly.
+Preview delivery is refused in production or with a non-local analytics base URL.
+Messages are returned only to the requesting local development page and are not
+written to public files or application logs.

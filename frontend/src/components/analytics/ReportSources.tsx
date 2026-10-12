@@ -1,8 +1,9 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { BookOpen } from 'lucide-react';
 import { ReportPanelHeader } from './ReportPanelHeader';
 import { comparisonLabel } from '../../config/analyticsPeriods';
-import { outcomes } from '../../data/analytics/outcomes';
-import manifest from '../../../public/analytics-reports/manifest.json';
+
+import manifest from '../../../private-analytics-reports/manifest.json';
 import type { AnalyticsReport } from '../../config/analyticsReports';
 
 const definitions: Record<
@@ -29,9 +30,9 @@ const definitions: Record<
     source:
       'Interaction events and recorded search constraints joined to catalog metadata at export. Capture dates are recorded with each snapshot.',
     grouping:
-      'Resources rank by resource-view events; downloads by download-click events. Collections count searches carrying collection inclusion filters, deduplicated per search and collection. Momentum compares the second half of the month with days 1–15. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use the separately dated metadata refresh.',
+      'Resources rank by resource-view events; downloads by download-click events. Collections rank by resource-view events attributed through saved collection membership. Momentum compares resource views with the previous calendar month. Source-site totals and the independently ranked outlink list count visit_source_click events across all recorded resource IDs; catalog labels use the separately dated metadata refresh.',
     limits:
-      'Rankings are not restricted to university providers or published, unsuppressed records. Missing catalog records cannot be ranked by title. Multi-collection searches count in each collection; download clicks do not confirm file transfer.',
+      'Rankings are not restricted to university providers or published, unsuppressed records. Missing catalog records cannot be ranked by title. Resources in multiple collections contribute views to each; download clicks do not confirm file transfer.',
   },
   members: {
     source:
@@ -78,6 +79,9 @@ export function ReportSources({
   period?: string;
   snapshotPeriod?: string;
 }) {
+  const analytics = useAnalyticsData();
+  const outcomes = analytics['outcomes'].outcomes;
+
   const info = definitions[report];
   const archive = manifest.periods.find((entry) => entry.id === snapshotPeriod);
   return (

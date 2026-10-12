@@ -1,3 +1,4 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { MetricHeading } from './MetricHeading';
 import { AnalyticsTable } from './AnalyticsTable';
 import { useState } from 'react';
@@ -21,10 +22,9 @@ import {
   YAxis,
 } from 'recharts';
 import { ReportPanelHeader } from './ReportPanelHeader';
-import {
-  providerSnapshots,
-  type ProviderSnapshot,
-  type Counts,
+import type {
+  ProviderSnapshot,
+  Counts,
 } from '../../data/analytics/providers2026';
 const number = new Intl.NumberFormat('en-US');
 const display = (value: number | null) =>
@@ -46,11 +46,13 @@ function providerSearchHref(provider: string) {
 
 export function ProviderReport({
   month,
-  snapshot = providerSnapshots[month],
+  snapshot: suppliedSnapshot,
 }: {
   month: string;
   snapshot?: ProviderSnapshot;
 }) {
+  const { providerSnapshots } = useAnalyticsData().providers2026;
+  const snapshot = suppliedSnapshot ?? providerSnapshots[month];
   const [selected, setSelected] = useState('all');
   if (!snapshot)
     return (

@@ -1,16 +1,16 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { AnalyticsTable } from './AnalyticsTable';
-import {
-  providerSnapshots,
-  type ProviderSnapshot,
-} from '../../data/analytics/providers2026';
+import type { ProviderSnapshot } from '../../data/analytics/providers2026';
 const number = new Intl.NumberFormat('en-US');
 export function CodeCoverage({
   month,
-  snapshot = providerSnapshots[month],
+  snapshot: suppliedSnapshot,
 }: {
   month: string;
   snapshot?: ProviderSnapshot;
 }) {
+  const { providerSnapshots } = useAnalyticsData().providers2026;
+  const snapshot = suppliedSnapshot ?? providerSnapshots[month];
   if (!snapshot) return null;
   return (
     <section

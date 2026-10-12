@@ -50,7 +50,7 @@ def update(archives, supplemental, frontend, through):
             json.dumps(snapshots, ensure_ascii=False) + "\n"
         )
         # Immutable report revisions are installed first; manifest switches last.
-        destination = frontend / "public/analytics-reports"
+        destination = frontend / "private-analytics-reports"
         for month in [*months, "all"]:
             shutil.copytree(public / month, destination / month, dirs_exist_ok=True)
         names = [
@@ -60,6 +60,8 @@ def update(archives, supplemental, frontend, through):
             "memberAllTimeCurrent.json",
             "outcomesCurrent.json",
             "collectionSearchesCurrent.json",
+            "collectionViewsCurrent.json",
+            "popularMomentumCurrent.json",
             "reliabilityEndpointsCurrent.json",
         ]
         for name in names:

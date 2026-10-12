@@ -49,7 +49,7 @@ export function ReportContentLayout({
       for (const panel of candidates) {
         if (
           panel.closest('details, .analytics-report-cards') ||
-          panel.matches('a')
+          panel.matches('a, [data-nav-exclude]')
         )
           continue;
         const header = panel.querySelector('.analytics-panel-header');

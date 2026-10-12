@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { renderAnalytics as render } from '../utils/renderAnalytics';
+import { fireEvent, screen, within } from '@testing-library/react';
 import { BrowserRouter } from 'react-router';
 import { HelmetProvider } from 'react-helmet-async';
 import type { ReactNode } from 'react';

@@ -1,10 +1,11 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { chartTheme } from './chartTheme';
 import {
   publishedMonths,
   monthLabel,
   comparisonLabel,
 } from '../../config/analyticsPeriods';
-import { monthlySnapshots } from '../../data/analytics/september2026';
+
 import { ReportSectionHeading } from './ReportSectionHeading';
 import { AnalyticsTable } from './AnalyticsTable';
 import { Activity, BarChart3 } from 'lucide-react';
@@ -20,14 +21,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  JULY_2026_SUMMARY,
-  dailyActivity as julyDailyActivity,
-} from '../../data/analytics/july2026';
-import {
-  AUGUST_2026_SUMMARY,
-  augustDailyActivity,
-} from '../../data/analytics/august2026';
+
 import { comparisonChange } from '../../utils/analyticsComparison';
 
 const number = new Intl.NumberFormat('en-US');
@@ -51,6 +45,13 @@ const dailyMetrics = {
   requests: 'API requests',
 };
 export function MonthlyComparison() {
+  const analytics = useAnalyticsData();
+  const monthlySnapshots = analytics['september2026'].monthlySnapshots;
+  const JULY_2026_SUMMARY = analytics['july2026'].JULY_2026_SUMMARY;
+  const julyDailyActivity = analytics['july2026'].dailyActivity;
+  const AUGUST_2026_SUMMARY = analytics['august2026'].AUGUST_2026_SUMMARY;
+  const augustDailyActivity = analytics['august2026'].augustDailyActivity;
+
   const [monthlyMetric, setMonthlyMetric] =
     useState<keyof typeof dailyMetrics>('events');
   const [basis, setBasis] = useState<'total' | 'average'>('total');

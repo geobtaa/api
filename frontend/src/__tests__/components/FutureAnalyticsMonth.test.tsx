@@ -1,12 +1,13 @@
-import { render, screen, within } from '@testing-library/react';
+import { renderAnalytics as render } from '../utils/renderAnalytics';
+import { screen, within } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 vi.mock(
-  '../../../public/analytics-reports/manifest.json',
+  '../../../private-analytics-reports/manifest.json',
   async (importOriginal) => {
     const { default: original } = await importOriginal<{
-      default: typeof import('../../../public/analytics-reports/manifest.json');
+      default: typeof import('../../../private-analytics-reports/manifest.json');
     }>();
     return {
       default: {

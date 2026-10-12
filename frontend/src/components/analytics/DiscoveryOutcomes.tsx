@@ -1,9 +1,11 @@
+import { useAnalyticsData } from './AnalyticsData';
+
+import { RankingRow } from './RankingRow';
+import { useRanking } from './useRanking';
 import { MetricHeading } from './MetricHeading';
-import { publishedMonths } from '../../config/analyticsPeriods';
 import { ResourceThumbnail } from './ResourceThumbnail';
 import { useState } from 'react';
-import { Link } from 'react-router';
-import { Download, ExternalLink, Users } from 'lucide-react';
+import { ExternalLink, Users } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -13,12 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  outcomes,
-  visitsAreEstimated,
-  outcomeLabels,
-  type OutcomePeriod,
-} from '../../data/analytics/outcomes';
+import type { OutcomePeriod } from '../../data/analytics/outcomes';
 import { AnalyticsTable } from './AnalyticsTable';
 import { ReportPanelHeader } from './ReportPanelHeader';
 const n = new Intl.NumberFormat('en-US');
@@ -29,90 +26,30 @@ const dateLabel = (day: string) =>
     timeZone: 'UTC',
   });
 
-export function AccessSummary({ period }: { period: OutcomePeriod }) {
-  const report = outcomes.periods[period];
-  const months = period === 'all' ? publishedMonths : [period];
-  const maximum = Math.max(
-    ...months.flatMap((month) => [
-      outcomes.periods[month].totals.sources,
-      outcomes.periods[month].totals.downloads,
-    ])
-  );
-  return (
-    <section
-      className="analytics-panel analytics-outcomes"
-      id="successful-access"
-      aria-label="Successful access"
-    >
-      <ReportPanelHeader
-        title="Successful access"
-        icon={ExternalLink}
-        level={2}
-      />
-      <div className="analytics-outcomes-body">
-        <div className="analytics-outcome-totals">
-          <div>
-            <MetricHeading icon={ExternalLink}>
-              Source-site clicks
-            </MetricHeading>
-            <strong>{n.format(report.totals.sources)}</strong>
-            <p>Clicks to authoritative source links</p>
-          </div>
-          <div>
-            <MetricHeading icon={Download}>Download clicks</MetricHeading>
-            <strong>{n.format(report.totals.downloads)}</strong>
-            <p>Recorded clicks, not completed downloads</p>
-          </div>
-        </div>
-        <figure
-          aria-label={`Monthly access totals for ${outcomeLabels[period]}`}
-        >
-          {months.map((month) => (
-            <div className="analytics-access-month" key={month}>
-              <h3>{outcomeLabels[month]}</h3>
-              {(['sources', 'downloads'] as const).map((metric) => (
-                <div className="analytics-access-bar" key={metric}>
-                  <span>
-                    {metric === 'sources'
-                      ? 'Source-site clicks'
-                      : 'Download clicks'}
-                  </span>
-                  <div aria-hidden="true">
-                    <i
-                      className={metric}
-                      style={{
-                        width: `${(outcomes.periods[month].totals[metric] / maximum) * 100}%`,
-                      }}
-                    />
-                  </div>
-                  <strong>
-                    {n.format(outcomes.periods[month].totals[metric])}
-                  </strong>
-                </div>
-              ))}
-            </div>
-          ))}
-          <figcaption>
-            Source-site clicks record visits to the authoritative source link.
-            Downloads record link clicks, not verified file transfers. Counts
-            cover all recorded resource IDs, including records absent from the
-            current catalog.
-          </figcaption>
-        </figure>
-      </div>
-    </section>
-  );
-}
-
 export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
+  const analytics = useAnalyticsData();
+  const previousRankingValue =
+    analytics['popularMomentum'].previousRankingValue;
+  const outcomes = analytics['outcomes'].outcomes;
+  const outcomeLabels = analytics['outcomes'].outcomeLabels;
+
   const report = outcomes.periods[period];
+  const ranking = useRanking(
+    report.outlinks.map((row) => ({
+      ...row,
+      provider: row.provider || 'Unavailable',
+    })),
+    (row) => row.clicks,
+    'Top outlinked resources'
+  );
+  const maximum = Math.max(1, ...report.outlinks.map((row) => row.clicks));
   return (
     <section
       id="outlinked-resources"
       className="analytics-panel analytics-outcomes"
     >
       <ReportPanelHeader
-        title="Most outlinked resources"
+        title="Top outlinked resources"
         icon={ExternalLink}
         level={2}
       />
@@ -131,47 +68,34 @@ export function OutlinkedResources({ period }: { period: OutcomePeriod }) {
           )}
           ; missing records remain in the ranking.
         </p>
-        <div className="analytics-comparison-scroll">
-          <AnalyticsTable className="analytics-comparison-table analytics-outlinks-table">
-            <caption className="sr-only">
-              {outcomeLabels[period]} most outlinked resources
-            </caption>
-            <thead>
-              <tr>
-                <th scope="col">Rank</th>
-                <th scope="col">Resource</th>
-                <th scope="col">Provider</th>
-                <th scope="col">Source-site clicks</th>
-              </tr>
-            </thead>
-            <tbody>
-              {report.outlinks.map((row, i) => (
-                <tr key={row.id ?? 'missing'}>
-                  <td>{i + 1}</td>
-                  <th scope="row" data-sort-value={row.title}>
-                    <div className="analytics-resource-cell">
-                      {row.id && (
-                        <ResourceThumbnail
-                          resource={{ id: row.id, title: row.title }}
-                          compact
-                        />
-                      )}
-                      {row.id ? (
-                        <Link to={`/resources/${encodeURIComponent(row.id)}`}>
-                          {row.title}
-                        </Link>
-                      ) : (
-                        row.title
-                      )}
-                    </div>
-                  </th>
-                  <td>{row.provider || 'Unavailable'}</td>
-                  <td>{n.format(row.clicks)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </AnalyticsTable>
-        </div>
+      </div>
+      {ranking.controls}
+      <div className="analytics-ranking-list">
+        {ranking.visible.map(({ row, rank }) => (
+          <RankingRow
+            key={row.id ?? 'missing'}
+            rank={rank}
+            title={row.title}
+            href={
+              row.id ? `/resources/${encodeURIComponent(row.id)}` : undefined
+            }
+            thumbnail={
+              row.id ? (
+                <ResourceThumbnail
+                  resource={{ id: row.id, title: row.title }}
+                  eager={rank === 1}
+                />
+              ) : undefined
+            }
+            description={row.provider}
+            value={row.clicks}
+            label="source-site clicks"
+            maximum={maximum}
+            previousValue={previousRankingValue(period, 'outlinks', row.id)}
+          />
+        ))}
+      </div>
+      <div className="analytics-outcomes-body">
         <p className="analytics-comparison-note">
           This list is selected by source-site clicks, independently of the
           most-viewed list. Homepage visits and unrelated outbound-link events
@@ -189,6 +113,11 @@ export function AudienceReport({
   period: OutcomePeriod;
   embedded?: boolean;
 }) {
+  const analytics = useAnalyticsData();
+  const outcomes = analytics['outcomes'].outcomes;
+  const visitsAreEstimated = analytics['outcomes'].visitsAreEstimated;
+  const outcomeLabels = analytics['outcomes'].outcomeLabels;
+
   const report = outcomes.periods[period];
   const [metric, setMetric] = useState<'visits' | 'searches' | 'views'>(
     'visits'

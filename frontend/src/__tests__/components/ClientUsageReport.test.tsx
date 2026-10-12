@@ -1,4 +1,5 @@
-import { render, screen, within } from '@testing-library/react';
+import { renderAnalytics as render } from '../utils/renderAnalytics';
+import { screen, within } from '@testing-library/react';
 import { ClientUsageReport } from '../../components/analytics/ClientUsageReport';
 import {
   clientSnapshots,

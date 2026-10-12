@@ -11,10 +11,12 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.services.analytics_reporting.archive import validate_document  # noqa: E402
 from app.services.analytics_reporting.collection_searches import collection_searches  # noqa: E402
+from app.services.analytics_reporting.collection_views import collection_views  # noqa: E402
 from app.services.analytics_reporting.metadata import (  # noqa: E402
     content_metadata,
     content_providers,
 )
+from app.services.analytics_reporting.popular_momentum import popular_momentum  # noqa: E402
 from app.services.analytics_reporting.reports import build_report  # noqa: E402
 from app.services.analytics_reporting.storage import checksum  # noqa: E402
 
@@ -198,8 +200,37 @@ def outcomes(report, details):
     )
 
 
-def popular_content(document):
+def resource_classifications(identifier, documents):
+    """Use the newest preserved catalog entry for an all-time resource."""
+    for document in reversed(documents):
+        record = document.get("catalog", {}).get(identifier)
+        if record is not None:
+            attributes = content_metadata(record).get("attributes") or {}
+
+            def labels(value):
+                return ", ".join(value) if isinstance(value, list) else value or ""
+
+            return dict(
+                resourceClass=labels(attributes.get("resourceClasses")),
+                resourceType=labels(attributes.get("resourceTypes")),
+            )
+    return dict(resourceClass="", resourceType="")
+
+
+def previous_resource_views(document):
+    if document is None:
+        return None
+    views = Counter()
+    for row in document["daily"]:
+        dim = row["dimensions"]
+        if dim["source"] == "analytics_events" and dim.get("event") == "resource_view":
+            views[dim.get("resource")] += row["metrics"]["count"]
+    return views
+
+
+def popular_content(document, previous=None):
     """Rank all preserved monthly event rows before limiting the presentation."""
+    prior_views = previous_resource_views(previous)
     activity = defaultdict(Counter)
     for row in document["daily"]:
         dim = row["dimensions"]
@@ -238,13 +269,14 @@ def popular_content(document):
             dict(
                 **metadata(key),
                 views=activity[key]["resource_view"],
+                previousMonthViews=None if prior_views is None else prior_views[key],
                 actions=activity[key]["events"] - activity[key]["resource_view"],
                 firstHalfEvents=activity[key]["first"],
                 secondHalfEvents=activity[key]["second"],
             )
             for key in ranked("resource_view")[:50]
         ],
-        topCollections=collection_searches([document])[:50],
+        topCollections=collection_views([document])[:50],
         topDownloads=[
             dict(
                 **metadata(key),
@@ -433,6 +465,8 @@ def run(archives, public, output, supplemental, period=None):
             pos += n
         return vals[lo] + (target - lo) * (vals[hi] - vals[lo])
 
+    prior_views = previous_resource_views(docs[months.index(period) - 1])
+
     def resource(row):
         meta = content_metadata(doc["catalog"].get(row["id"], {}))
         attrs = meta.get("attributes", {})
@@ -444,6 +478,7 @@ def run(archives, public, output, supplemental, period=None):
             resourceClass=", ".join(attrs.get("resourceClasses") or []),
             resourceType=", ".join(attrs.get("resourceTypes") or []),
             views=row["views"],
+            previousMonthViews=prior_views[row["id"]],
             actions=e["events"] - row["views"],
             firstHalfEvents=e["first"],
             secondHalfEvents=e["second"],
@@ -486,7 +521,7 @@ def run(archives, public, output, supplemental, period=None):
             for r in sep["daily"]
         ],
         topResources=[resource(r) for r in sep["resources"][:50]],
-        topCollections=collection_searches([doc])[:50],
+        topCollections=collection_views([doc])[:50],
         topDownloads=[
             dict(
                 id=r["id"],
@@ -627,6 +662,7 @@ def run(archives, public, output, supplemental, period=None):
                 id=r["id"],
                 title=r["title"],
                 provider=", ".join(r.get("provider") or []),
+                **resource_classifications(r["id"], docs),
                 views=r["views"],
                 downloads=r["downloads"],
                 sources=r["sourceClicks"],
@@ -712,8 +748,13 @@ def run(archives, public, output, supplemental, period=None):
                 )
                 row["title"] = meta.get("title") or row["id"]
                 row["provider"] = ", ".join(content_providers(meta))
+    title_path = output / "collectionTitlesCurrent.json"
+    collection_titles = json.loads(title_path.read_text())["titles"] if title_path.exists() else {}
     payloads = {
-        "popularHistory2026.json": {d["month"][:7]: popular_content(d) for d in docs[:-1]},
+        "popularHistory2026.json": {
+            d["month"][:7]: popular_content(d, docs[i - 1] if i else None)
+            for i, d in enumerate(docs[:-1])
+        },
         f"month-{period}.json": september,
         "allTimeCurrent.json": all_data,
         "memberAllTimeCurrent.json": member_report(all_report),
@@ -732,6 +773,11 @@ def run(archives, public, output, supplemental, period=None):
                 },
                 "all": outcomes(all_report, all_details),
             },
+        },
+        "popularMomentumCurrent.json": popular_momentum(reports),
+        "collectionViewsCurrent.json": {
+            **{d["month"][:7]: collection_views([d], collection_titles)[:50] for d in docs},
+            "all": collection_views(docs, collection_titles)[:50],
         },
         "collectionSearchesCurrent.json": dict(
             collections=collection_searches(docs),

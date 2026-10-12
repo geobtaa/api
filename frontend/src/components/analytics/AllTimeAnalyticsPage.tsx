@@ -1,15 +1,14 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { allTimeRange } from '../../config/analyticsPeriods';
-import manifest from '../../../public/analytics-reports/manifest.json';
+import manifest from '../../../private-analytics-reports/manifest.json';
 import { ReportingPeriodPicker } from './ReportingPeriodPicker';
 import { ReportContentLayout } from './ReportContentLayout';
-import collectionSearches from '../../data/analytics/collectionSearchesCurrent.json';
-import type { CollectionChartEntry } from '../../data/analytics/july2026';
+
 import { PopularContentReport } from './PopularContentReport';
-import { AccessSummary, OutlinkedResources } from './DiscoveryOutcomes';
-import { outcomes } from '../../data/analytics/outcomes';
+import { OutlinkedResources } from './DiscoveryOutcomes';
+
 import { Seo } from '../Seo';
 import { useSearchParams } from 'react-router';
-import data from '../../data/analytics/allTimeCurrent.json';
 
 import {
   analyticsReports,
@@ -18,12 +17,18 @@ import {
 import { AnalyticsHeader } from './AnalyticsHeader';
 
 const range = allTimeRange;
-const archive = manifest.periods.find((entry) => entry.id === 'all')!;
+
 export function AllTimeAnalyticsPage({
   reportId,
 }: {
   reportId: AnalyticsReport;
 }) {
+  const analytics = useAnalyticsData();
+  const collectionViews = analytics['collectionViewsCurrent.json'].default;
+  const outcomes = analytics['outcomes'].outcomes;
+  const data = analytics['allTimeCurrent.json'].default;
+  const archive = manifest.periods.find((entry) => entry.id === 'all')!;
+
   const [params, setParams] = useSearchParams();
   const report = analyticsReports.find((entry) => entry.id === reportId)!;
   return (
@@ -64,17 +69,15 @@ export function AllTimeAnalyticsPage({
                     id: row.id,
                     title: row.title ?? row.id,
                     provider: row.provider ?? 'Missing provider',
-                    resourceClass: '',
-                    resourceType: '',
+                    resourceClass: row.resourceClass,
+                    resourceType: row.resourceType,
                     views: row.views,
                     actions: null,
                     firstHalfEvents: 0,
                     secondHalfEvents: 0,
                   }))}
-                  topCollections={(
-                    collectionSearches.collections as CollectionChartEntry[]
-                  ).slice(0, 50)}
-                  collectionNote={collectionSearches.method}
+                  topCollections={collectionViews.all}
+                  collectionNote="Ranked by views of member resources across all published months, using each month's saved collection membership. Resources in multiple collections contribute views to each; resources without recorded membership are excluded."
                   topDownloadedResources={outcomes.periods.all.downloads.map(
                     (row) => ({
                       id: row.id,
@@ -92,7 +95,6 @@ export function AllTimeAnalyticsPage({
                 <OutlinkedResources period="all" />
               </>
             )}
-            {reportId === 'content' && <AccessSummary period="all" />}
             <section
               id="report-sources"
               className="analytics-report-sources"
@@ -135,9 +137,8 @@ export function AllTimeAnalyticsPage({
                 The most-viewed ranking uses preserved monthly catalog metadata.
                 Outlink and download rankings include all recorded resource IDs,
                 retaining missing catalog records. Collection rankings are
-                rebuilt from preserved monthly search dimensions before
-                selecting the top 50. Half-month momentum remains in monthly
-                reports.
+                ranked by member-resource views across all preserved months
+                before selecting the top 50.
               </p>
             )}
           </div>

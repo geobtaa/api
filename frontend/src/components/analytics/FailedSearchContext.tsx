@@ -1,11 +1,7 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { useState } from 'react';
 import { Link } from 'react-router';
-import {
-  searchContexts,
-  withheldSearchContexts,
-  replaySearch,
-  type OutcomePeriod,
-} from '../../data/analytics/outcomes';
+import type { OutcomePeriod } from '../../data/analytics/outcomes';
 import { FACET_LABELS } from '../../utils/facetLabels';
 
 const display = (value: unknown): string =>
@@ -33,6 +29,11 @@ export function FailedSearchContext({
   period: OutcomePeriod;
   term: string;
 }) {
+  const analytics = useAnalyticsData();
+  const searchContexts = analytics['outcomes'].searchContexts;
+  const withheldSearchContexts = analytics['outcomes'].withheldSearchContexts;
+  const replaySearch = analytics['outcomes'].replaySearch;
+
   const [expanded, setExpanded] = useState(false);
   const contexts = searchContexts(period, term);
   const withheld = withheldSearchContexts(period, term);

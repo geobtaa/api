@@ -1,4 +1,4 @@
-"""Public artifacts only; raw archives and health details are never exposed here."""
+"""Authenticated aggregate reports; raw archives and health details remain private."""
 
 import csv
 import io
@@ -8,12 +8,13 @@ import re
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 
 from app.api.errors import COMMON_ERROR_RESPONSES
+from app.services.analytics_auth import require_analytics_session
 from app.services.analytics_reporting.public_export import PUBLIC_TABLES, public_report
 from app.services.analytics_reporting.storage import checksum
 from db.migrations.analytics_storage import analytics_storage_engine
@@ -43,7 +44,11 @@ class ReportingArtifact(BaseModel):
     totals: dict[str, int | float | None]
 
 
-router = APIRouter(prefix="/analytics/reports", responses=COMMON_ERROR_RESPONSES)
+router = APIRouter(
+    prefix="/analytics/reports",
+    responses=COMMON_ERROR_RESPONSES,
+    dependencies=[Depends(require_analytics_session)],
+)
 TABLES = PUBLIC_TABLES
 
 
@@ -85,7 +90,7 @@ def manifest():
         datetime.now(timezone.utc).date().replace(day=1)
     )
     return JSONResponse(
-        document, headers={"Cache-Control": "no-cache", "ETag": f'"{checksum(document)}"'}
+        document, headers={"Cache-Control": "private, no-store", "ETag": f'"{checksum(document)}"'}
     )
 
 

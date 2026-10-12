@@ -1,4 +1,5 @@
-import { render, screen, fireEvent } from '@testing-library/react';
+import { renderAnalytics as render } from '../utils/renderAnalytics';
+import { screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { expect, it, vi } from 'vitest';
 import { ProviderReport } from '../../components/analytics/ProviderReport';

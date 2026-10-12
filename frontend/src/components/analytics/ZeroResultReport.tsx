@@ -1,13 +1,10 @@
+import { useAnalyticsData } from './AnalyticsData';
 import { FailedSearchContext } from './FailedSearchContext';
-import {
-  outcomes,
-  searchContexts,
-  type OutcomePeriod,
-} from '../../data/analytics/outcomes';
+import type { OutcomePeriod } from '../../data/analytics/outcomes';
 import { useState } from 'react';
 import { Link } from 'react-router';
 import { Search } from 'lucide-react';
-import { zeroQueryCategory } from '../../data/analytics/zeroQueryCategory';
+
 import { AnalyticsTable } from './AnalyticsTable';
 import { ReportPanelHeader } from './ReportPanelHeader';
 
@@ -95,6 +92,11 @@ export function ZeroResultReport({
   withQuery: number;
   queries: { term: string; count: number }[];
 }) {
+  const analytics = useAnalyticsData();
+  const outcomes = analytics['outcomes'].outcomes;
+  const searchContexts = analytics['outcomes'].searchContexts;
+  const zeroQueryCategory = analytics['zeroQueryCategory'].zeroQueryCategory;
+
   const [category, setCategory] = useState('all');
   const rows = queries.map((q, index) => ({
     ...q,

@@ -63,7 +63,7 @@ def test_every_shipped_download_and_sidecar_obeys_privacy_contract():
     from app.services.analytics_reporting.public_export import PUBLIC_TABLES
     from scripts.export_analytics_snapshots import table_csv
 
-    root = Path(__file__).resolve().parents[3] / "frontend/public/analytics-reports"
+    root = Path(__file__).resolve().parents[3] / "frontend/private-analytics-reports"
     manifest = json.loads((root / "manifest.json").read_text())
     expected = set()
     for entry in manifest["periods"]:

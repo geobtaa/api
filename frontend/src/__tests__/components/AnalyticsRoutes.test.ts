@@ -1,4 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+vi.mock('../../../app/lib/server-api', () => ({
+  serverFetch: vi.fn(async () =>
+    Response.json({ email: 'reader@example.org' })
+  ),
+}));
 import {
   analyticsReports,
   analyticsReportHref,
@@ -11,6 +16,9 @@ function load(path: string, report?: string) {
   return loader({
     request: new Request(`http://localhost${path}`),
     params: { report },
+    context: {},
+    url: new URL(`http://localhost${path}`),
+    pattern: '/analytics/:report?',
   } as LoaderFunctionArgs);
 }
 
@@ -18,49 +26,49 @@ describe('analytics report routes', () => {
   for (const report of analyticsReports) {
     const path =
       report.id === 'overview' ? '/analytics' : `/analytics/${report.id}`;
-    it(`routes ${report.id} and preserves its month`, () => {
+    it(`routes ${report.id} and preserves its month`, async () => {
       expect(analyticsReportHref(report.id, '2026-09')).toBe(
         `${path}?month=2026-09`
       );
       expect(
         selectedAnalyticsReport(new URLSearchParams('month=2026-09'), path).id
       ).toBe(report.id);
-      const legacy = load(
+      const legacy = (await load(
         `/analytics?report=${report.id}&month=2026-09&runtime=1`
-      ) as Response;
+      )) as Response;
       expect(legacy.status).toBe(301);
       expect(legacy.headers.get('Location')).toBe(
         `${path}?month=2026-09&runtime=1`
       );
       expect(
-        load(
+        await load(
           `${path}?month=all`,
           report.id === 'overview' ? undefined : report.id
         )
-      ).toHaveProperty('report.id', report.id);
+      ).toHaveProperty('data.report.id', report.id);
     });
   }
-  it('canonicalizes aliases, prioritizes paths, and rejects unknown paths', () => {
+  it('canonicalizes aliases, prioritizes paths, and rejects unknown paths', async () => {
     expect(
       (
-        load('/analytics/activity?month=all', 'activity') as Response
+        (await load('/analytics/activity?month=all', 'activity')) as Response
       ).headers.get('Location')
     ).toBe('/analytics?month=all');
     expect(
-      (load('/analytics/overview', 'overview') as Response).headers.get(
+      ((await load('/analytics/overview', 'overview')) as Response).headers.get(
         'Location'
       )
     ).toBe('/analytics');
     expect(
       (
-        load(
+        (await load(
           '/analytics/content?report=members&month=all',
           'content'
-        ) as Response
+        )) as Response
       ).headers.get('Location')
     ).toBe('/analytics/content?month=all');
     try {
-      load('/analytics/missing', 'missing');
+      await load('/analytics/missing', 'missing');
       throw new Error('Expected 404');
     } catch (error) {
       expect(error).toBeInstanceOf(Response);

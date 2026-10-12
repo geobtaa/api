@@ -19,7 +19,7 @@ def test_rejects_incomplete_or_noncalendar_boundary(tmp_path):
 
 def test_failed_projection_leaves_existing_publication_untouched(tmp_path, monkeypatch):
     data = tmp_path / "src/data/analytics"
-    public = tmp_path / "public/analytics-reports"
+    public = tmp_path / "private-analytics-reports"
     data.mkdir(parents=True)
     public.mkdir(parents=True)
     (data / "monthlySnapshots.json").write_text("original data")

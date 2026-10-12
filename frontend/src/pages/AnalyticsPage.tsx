@@ -1,3 +1,5 @@
+import { useAnalyticsData } from '../components/analytics/AnalyticsData';
+
 import { chartTheme } from '../components/analytics/chartTheme';
 import { MetricHeading } from '../components/analytics/MetricHeading';
 import { Users } from 'lucide-react';
@@ -9,48 +11,31 @@ import {
   periodRange as monthlyRange,
   monthLabel,
 } from '../config/analyticsPeriods';
-import { monthlySnapshots } from '../data/analytics/september2026';
+
 import { ReportingPeriodPicker } from '../components/analytics/ReportingPeriodPicker';
 import { ApiDailyReport } from '../components/analytics/ApiDailyReport';
-import reliabilityEndpoints from '../data/analytics/reliabilityEndpointsCurrent.json';
+
 import { SearchDailyReport } from '../components/analytics/SearchDailyReport';
-import {
-  allTimeMembers,
-  allTimeMemberSummary,
-  allTimeMemberDaily,
-  allTimeMemberContent,
-  allTimeProviderSnapshot,
-  memberDays,
-  memberRange,
-  memberCatalogDate,
-  memberPortalTotals,
-} from '../data/analytics/memberAllTime';
-import allTimeData from '../data/analytics/allTimeCurrent.json';
+
 import { ReportContentLayout } from '../components/analytics/ReportContentLayout';
 import { ReportSectionHeading as SectionHeading } from '../components/analytics/ReportSectionHeading';
 import { PopularContentReport } from '../components/analytics/PopularContentReport';
 import {
-  AccessSummary,
   AudienceReport,
   OutlinkedResources,
 } from '../components/analytics/DiscoveryOutcomes';
-import { outcomes, visitsAreEstimated } from '../data/analytics/outcomes';
+
 import { ZeroResultReport } from '../components/analytics/ZeroResultReport';
 import { AllTimeAnalyticsPage } from '../components/analytics/AllTimeAnalyticsPage';
-import {
-  queryCategory,
-  queryCategoryMethod,
-} from '../data/analytics/queryCategories';
-import topSearches from '../data/analytics/topSearches2026.json';
+
 import { AnalyticsTable } from '../components/analytics/AnalyticsTable';
 import { CodeCoverage } from '../components/analytics/CodeCoverage';
 import { ProviderReport } from '../components/analytics/ProviderReport';
 import { ReportSources } from '../components/analytics/ReportSources';
-import { searchSnapshots } from '../data/analytics/searches2026';
+
 import { FACET_LABELS } from '../utils/facetLabels';
 import { ClientUsageReport } from '../components/analytics/ClientUsageReport';
-import * as augustReports from '../data/analytics/reportsAugust2026';
-import { augustDailyActivity } from '../data/analytics/august2026';
+
 import {
   Activity,
   ArrowRight,
@@ -78,13 +63,12 @@ import {
   YAxis,
 } from 'recharts';
 import { useState } from 'react';
-import { popularHistory } from '../data/analytics/popularHistory2026';
-import type { CollectionChartEntry } from '../data/analytics/july2026';
+
 import {
   analyticsMonth,
   selectedAnalyticsReport,
 } from '../config/analyticsReports';
-import { AUGUST_2026_SUMMARY } from '../data/analytics/august2026';
+
 import { MonthlyComparison } from '../components/analytics/MonthlyComparison';
 import { Footer } from '../components/layout/Footer';
 import { AnalyticsHeader } from '../components/analytics/AnalyticsHeader';
@@ -94,21 +78,8 @@ import {
 } from '../config/analyticsReports';
 import { Seo } from '../components/Seo';
 import { BTAA_PARTNER_INSTITUTIONS } from '../constants/partnerInstitutions';
-import {
-  JULY_2026_SUMMARY,
-  MEMBER_JULY_SUMMARY as julyMEMBER_JULY_SUMMARY,
-  dailyActivity as julyDailyActivity,
-  discoveryViews as julyDiscoveryViews,
-  memberPerformance as julyMemberPerformance,
-  peakApiTrafficBreakdown as julyPeakApiTrafficBreakdown,
-  requestMix as julyRequestMix,
-  resourceClassFilters as julyResourceClassFilters,
-} from '../data/analytics/july2026';
-import {
-  memberDailySeries as julyMemberDailySeries,
-  memberTopContent as julyMemberTopContent,
-  type MemberContentEntry,
-} from '../data/analytics/memberJuly2026';
+
+import type { MemberContentEntry } from '../data/analytics/memberJuly2026';
 import '../styles/analytics.css';
 
 const compactNumber = new Intl.NumberFormat('en-US', {
@@ -162,6 +133,44 @@ function MemberContentList({
 }
 
 export function AnalyticsPage() {
+  const analytics = useAnalyticsData();
+  const collectionViews = analytics['collectionViewsCurrent.json'].default;
+  const monthlySnapshots = analytics['september2026'].monthlySnapshots;
+  const reliabilityEndpoints =
+    analytics['reliabilityEndpointsCurrent.json'].default;
+  const allTimeMembers = analytics['memberAllTime'].allTimeMembers;
+  const allTimeMemberSummary = analytics['memberAllTime'].allTimeMemberSummary;
+  const allTimeMemberDaily = analytics['memberAllTime'].allTimeMemberDaily;
+  const allTimeMemberContent = analytics['memberAllTime'].allTimeMemberContent;
+  const allTimeProviderSnapshot =
+    analytics['memberAllTime'].allTimeProviderSnapshot;
+  const memberDays = analytics['memberAllTime'].memberDays;
+  const memberRange = analytics['memberAllTime'].memberRange;
+  const memberCatalogDate = analytics['memberAllTime'].memberCatalogDate;
+  const memberPortalTotals = analytics['memberAllTime'].memberPortalTotals;
+  const allTimeData = analytics['allTimeCurrent.json'].default;
+  const outcomes = analytics['outcomes'].outcomes;
+  const visitsAreEstimated = analytics['outcomes'].visitsAreEstimated;
+  const queryCategory = analytics['queryCategories'].queryCategory;
+  const queryCategoryMethod = analytics['queryCategories'].queryCategoryMethod;
+  const topSearches = analytics['topSearches2026.json'].default;
+  const searchSnapshots = analytics['searches2026'].searchSnapshots;
+  const augustReports = analytics['reportsAugust2026'];
+  const augustDailyActivity = analytics['august2026'].augustDailyActivity;
+  const popularHistory = analytics['popularHistory2026'].popularHistory;
+  const AUGUST_2026_SUMMARY = analytics['august2026'].AUGUST_2026_SUMMARY;
+  const JULY_2026_SUMMARY = analytics['july2026'].JULY_2026_SUMMARY;
+  const julyMEMBER_JULY_SUMMARY = analytics['july2026'].MEMBER_JULY_SUMMARY;
+  const julyDailyActivity = analytics['july2026'].dailyActivity;
+  const julyDiscoveryViews = analytics['july2026'].discoveryViews;
+  const julyMemberPerformance = analytics['july2026'].memberPerformance;
+  const julyPeakApiTrafficBreakdown =
+    analytics['july2026'].peakApiTrafficBreakdown;
+  const julyRequestMix = analytics['july2026'].requestMix;
+  const julyResourceClassFilters = analytics['july2026'].resourceClassFilters;
+  const julyMemberDailySeries = analytics['memberJuly2026'].memberDailySeries;
+  const julyMemberTopContent = analytics['memberJuly2026'].memberTopContent;
+
   const [searchParams, setSearchParams] = useSearchParams();
   const { pathname } = useLocation();
   const report = selectedAnalyticsReport(searchParams, pathname);
@@ -183,7 +192,8 @@ export function AnalyticsPage() {
     ? selectedSnapshot
     : popularHistory[isAugust ? '2026-08' : '2026-07'];
   const topResources = popular.topResources;
-  const topCollections = popular.topCollections as CollectionChartEntry[];
+  const topCollections =
+    collectionViews[activeMonth as keyof typeof collectionViews] ?? [];
   const topDownloadedResources = popular.topDownloads;
   const contentSummary = hasMonthlySnapshot
     ? selectedSnapshot.summary
@@ -706,9 +716,10 @@ export function AnalyticsPage() {
               <PopularContentReport
                 title={`${reportMonth}’s top resources and collections`}
                 reportMonth={reportMonth}
+                reportPeriod={snapshotMonth}
                 topResources={topResources}
                 topCollections={topCollections}
-                collectionNote={`The top ${topCollections.length} collections ranked by recorded filtered searches in ${reportMonth}. Collection counts can overlap.`}
+                collectionNote={`The top ${topCollections.length} collections ranked by views of their member resources in ${reportMonth}. Resources belonging to multiple collections contribute views to each; resources without recorded collection membership are excluded.`}
                 topDownloadedResources={topDownloadedResources}
                 downloadClicks={contentSummary.downloadClicks}
                 downloadNote={`The top ${topDownloadedResources.length} account for ${topDownloadClicks} of ${contentSummary.downloadClicks} clicks (${((topDownloadClicks / contentSummary.downloadClicks) * 100).toFixed(1)}%), across ${downloadResourceCount} resources with download clicks.`}
@@ -1910,9 +1921,6 @@ export function AnalyticsPage() {
               </section>
             )}
 
-            {activeReport === 'content' && (
-              <AccessSummary period={snapshotMonth} />
-            )}
             <ReportSources
               report={activeReport}
               month={reportMonth}
@@ -1924,8 +1932,8 @@ export function AnalyticsPage() {
               <p className="analytics-comparison-note">
                 {periodRange} (UTC) · Exported {contentSummary.exportedAt}.
                 Rankings use recorded interactions and catalog metadata at
-                export. Actions are tracked events other than resource views;
-                momentum compares days 16–{monthDays} with days 1–15.
+                export. Momentum compares each ranking’s metric with the
+                previous calendar month.
               </p>
             )}
 

@@ -13,6 +13,16 @@ services:
       - ELASTICSEARCH_INDEX=btaa_geospatial_api
       - LOG_PATH=/app/logs
       - APPLICATION_URL=http://localhost:8000
+      - ANALYTICS_BASE_URL=${ANALYTICS_BASE_URL:-http://localhost:3000}
+      - ANALYTICS_APPROVED_EMAILS=${ANALYTICS_APPROVED_EMAILS:-}
+      - ANALYTICS_APPROVED_EMAILS_FILE=${ANALYTICS_APPROVED_EMAILS_FILE:-}
+      - APP_ENV=development
+      - FEEDBACK_DELIVERY=${FEEDBACK_DELIVERY:-preview}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_STARTTLS=${SMTP_STARTTLS:-true}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
       - CORS_ORIGINS=*
       - REDIS_HOST=redis
       - REDIS_PORT=6379

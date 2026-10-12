@@ -1,10 +1,8 @@
-import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { renderAnalytics as render } from '../utils/renderAnalytics';
+import { act, fireEvent, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
-import {
-  AccessSummary,
-  OutlinkedResources,
-} from '../../components/analytics/DiscoveryOutcomes';
+import { OutlinkedResources } from '../../components/analytics/DiscoveryOutcomes';
 import { FailedSearchContext } from '../../components/analytics/FailedSearchContext';
 import {
   outcomes,
@@ -64,27 +62,24 @@ describe('discovery outcomes', () => {
     expect(outcomes.periods.all.audience.recordsWithoutToken).toBe(128);
     expect(outcomes.periods.all.totals.pageViews).toBe(0);
   });
-  it('renders both monthly bars and a sortable independent outlink ranking', () => {
-    render(
+  it('renders and filters the independent outlink ranking with shared rows', () => {
+    const { container } = render(
       <MemoryRouter>
-        <AccessSummary period="all" />
         <OutlinkedResources period="all" />
       </MemoryRouter>
     );
-    expect(screen.getByText('2,869')).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'July 2026' })
-    ).toBeInTheDocument();
-    const table = screen.getByRole('table');
     const highest = outcomes.periods.all.outlinks[0];
-    expect(within(table).getAllByRole('row')[1]).toHaveTextContent(
-      highest.title
+    const first = container.querySelector('.analytics-ranking-item')!;
+    expect(first).toHaveClass('analytics-ranking-row--leader');
+    expect(first).toHaveTextContent(highest.title);
+    expect(first).toHaveTextContent('source-site clicks');
+    expect(first.querySelector('.analytics-ranking-trend')).toBeNull();
+    fireEvent.change(
+      screen.getByRole('searchbox', { name: 'Filter Top outlinked resources' }),
+      { target: { value: 'no matching resource xyz' } }
     );
-    fireEvent.click(
-      within(table).getByRole('button', { name: 'Source-site clicks' })
-    );
-    expect(within(table).getAllByRole('row')[1]).not.toHaveTextContent(
-      highest.title
+    expect(container.querySelectorAll('.analytics-ranking-item')).toHaveLength(
+      0
     );
   });
   it('shows recorded redlining exclusions and replays all their values safely', async () => {
@@ -121,4 +116,15 @@ describe('discovery outcomes', () => {
     expect(params.get('q')).toBe('redlining');
     expect(params.get('view')).toBe('map');
   });
+});
+
+it('shows outlink momentum in monthly reports', () => {
+  const { container } = render(
+    <MemoryRouter>
+      <OutlinkedResources period="2026-09" />
+    </MemoryRouter>
+  );
+  expect(container.querySelector('.analytics-ranking-trend')).toHaveTextContent(
+    'vs prior month'
+  );
 });

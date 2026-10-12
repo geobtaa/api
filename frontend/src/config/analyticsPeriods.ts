@@ -1,4 +1,4 @@
-import manifest from '../../public/analytics-reports/manifest.json';
+import manifest from '../../private-analytics-reports/manifest.json';
 export const publishedMonths = manifest.periods
   .map((row) => row.id)
   .filter((id) => /^\d{4}-\d{2}$/.test(id))
