@@ -144,16 +144,6 @@
   padding: 1.25rem;
 }
 
-.analytics-hero-stats > div > span {
-  position: absolute;
-  top: 0.75rem;
-  right: 0.75rem;
-  color: #9ca3af;
-  font-size: 0.68rem;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 .analytics-hero-stats strong {
   display: block;
   color: var(--analytics-brand);
@@ -3362,4 +3352,44 @@
 .analytics-client-highlights h2 {
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+/* Shared report provenance: readable row labels and generous narrative cells. */
+.analytics-sources-table-wrap {
+  margin-top: 1.25rem;
+  overflow: hidden;
+  border: 1px solid var(--analytics-border);
+  border-radius: 8px;
+}
+.analytics-sources-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+.analytics-sources-table th,
+.analytics-sources-table td {
+  padding: 1rem 1.25rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--analytics-border);
+}
+.analytics-sources-table th {
+  width: 11rem;
+  font-weight: 600;
+  color: var(--analytics-brand);
+  background: var(--analytics-surface-subtle);
+}
+.analytics-sources-table td {
+  color: var(--analytics-text-secondary);
+}
+.analytics-sources-table tr:last-child > * { border-bottom: 0; }
+.analytics-report-sources > .analytics-report-panel-header {
+  margin: -1.25rem -1.25rem 1.25rem;
+}
+.analytics-overview-details > .analytics-report-panel-header { margin: 0; }
+@media (max-width: 640px) {
+  .analytics-sources-table th { width: 7rem; }
+  .analytics-sources-table th,
+  .analytics-sources-table td { padding: 0.75rem; }
 }

@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+const sectionSelector =
+  '.analytics-section, .analytics-report-directory, .analytics-panel, .analytics-report-sources, [data-nav-label]';
+
 type Section = { id: string; label: string };
 
 export function ReportContentLayout({
@@ -38,23 +41,27 @@ export function ReportContentLayout({
     };
     const collect = () => {
       const candidates = [
-        ...content.querySelectorAll<HTMLElement>(
-          '.analytics-panel, .analytics-report-sources, [data-nav-label]'
-        ),
+        ...content.querySelectorAll<HTMLElement>(sectionSelector),
       ];
       const entries: Section[] = [];
       targets = [];
       const used = new Set<string>();
       for (const panel of candidates) {
-        if (panel.closest('details')) continue;
+        if (
+          panel.closest('details, .analytics-report-cards') ||
+          panel.matches('a')
+        )
+          continue;
         const header = panel.querySelector('.analytics-panel-header');
         const ownHeader =
           header?.closest('.analytics-panel') === panel ? header : null;
-        const label =
-          panel.dataset.navLabel ||
-          (panel.classList.contains('analytics-report-sources')
-            ? 'Sources and grouping'
-            : ownHeader?.querySelector('h2, h3, span')?.textContent?.trim());
+        // Navigation uses the visible heading, never a separately maintained alias.
+        const heading =
+          ownHeader?.querySelector('h2, h3, span') ??
+          [...panel.querySelectorAll('h2, h3')].find(
+            (node) => node.closest(sectionSelector) === panel
+          );
+        const label = heading?.textContent?.trim();
         if (!label) continue;
         let id =
           panel.id ||

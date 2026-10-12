@@ -619,3 +619,11 @@ Automated source collection, durable archives, access setup, deployed scheduling
 and publication are restricted operations material. Maintain those steps in the
 restricted operations runbook. The local command deliberately needs verified
 inputs; missing source data must fail visibly rather than publish a partial month.
+
+### Report heading consistency
+
+The right-hand section navigation reads the visible section/panel headings, so
+changing a title also changes its navigation label. Separate navigation aliases
+do not override the heading. Overview highlight cards contain metrics without
+decorative numbering. Shared Sources and grouping notes use a two-column table
+with row headers for Source, Grouping, and Reading the figures.

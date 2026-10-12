@@ -1,3 +1,5 @@
+import { BookOpen } from 'lucide-react';
+import { ReportPanelHeader } from './ReportPanelHeader';
 import { comparisonLabel } from '../../config/analyticsPeriods';
 import { outcomes } from '../../data/analytics/outcomes';
 import manifest from '../../../public/analytics-reports/manifest.json';
@@ -84,7 +86,11 @@ export function ReportSources({
       id="report-sources"
       aria-label="Sources and grouping"
     >
-      <h2>Sources and grouping</h2>
+      <ReportPanelHeader
+        title="Sources and grouping"
+        icon={BookOpen}
+        level={2}
+      />
       <p>
         <strong>Period:</strong>{' '}
         {report === 'comparison'
@@ -104,20 +110,27 @@ export function ReportSources({
           unavailable” means no metadata could be retrieved.
         </p>
       )}
-      <dl>
-        <div>
-          <dt>Source</dt>
-          <dd>{info.source}</dd>
-        </div>
-        <div>
-          <dt>Grouping</dt>
-          <dd>{info.grouping}</dd>
-        </div>
-        <div>
-          <dt>Reading the figures</dt>
-          <dd>{info.limits}</dd>
-        </div>
-      </dl>
+      <div className="analytics-sources-table-wrap">
+        <table className="analytics-sources-table">
+          <caption className="sr-only">
+            Sources and grouping definitions
+          </caption>
+          <tbody>
+            <tr>
+              <th scope="row">Source</th>
+              <td>{info.source}</td>
+            </tr>
+            <tr>
+              <th scope="row">Grouping</th>
+              <td>{info.grouping}</td>
+            </tr>
+            <tr>
+              <th scope="row">Reading the figures</th>
+              <td>{info.limits}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       {archive && (
         <p>
           <a

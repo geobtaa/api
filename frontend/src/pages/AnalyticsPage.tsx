@@ -1,3 +1,5 @@
+import { Users } from 'lucide-react';
+import { ReportPanelHeader } from '../components/analytics/ReportPanelHeader';
 import {
   publishedMonths,
   latestMonth,
@@ -615,7 +617,6 @@ export function AnalyticsPage() {
                   aria-label={`${isAllTime ? reportMonth : monthLabel(activeMonth)} highlights`}
                 >
                   <div>
-                    <span>01</span>
                     <strong>{formatCompact(summary.searches)}</strong>
                     <p>Search result pages</p>
                     <small>
@@ -623,7 +624,6 @@ export function AnalyticsPage() {
                     </small>
                   </div>
                   <div>
-                    <span>02</span>
                     <strong>{formatCompact(summary.resourceViews)}</strong>
                     <p>resource views</p>
                     <small>
@@ -631,7 +631,6 @@ export function AnalyticsPage() {
                     </small>
                   </div>
                   <div>
-                    <span>03</span>
                     <strong>
                       {wholeNumber.format(
                         outcomes.periods[selectedPeriod].totals.sources
@@ -641,7 +640,6 @@ export function AnalyticsPage() {
                     <small>Clicks to authoritative source links</small>
                   </div>
                   <div>
-                    <span>04</span>
                     <strong>
                       {wholeNumber.format(summary.downloadClicks)}
                     </strong>
@@ -1049,7 +1047,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <Trophy className="h-5 w-5" aria-hidden />
-                        <span>Member performance report</span>
+                        <h3>Member performance report</h3>
                       </div>
                       <small>
                         17 contributing institutions · ranked by views
@@ -1227,7 +1225,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <Activity className="h-5 w-5" aria-hidden />
-                        <span>Daily discovery</span>
+                        <h3>Daily discovery</h3>
                       </div>
                       <div className="analytics-chart-key" aria-hidden="true">
                         <span>
@@ -1391,6 +1389,11 @@ export function AnalyticsPage() {
                   data-nav-label="Daily audience values"
                   className="analytics-panel analytics-overview-details"
                 >
+                  <ReportPanelHeader
+                    title="Audience and discovery"
+                    icon={Users}
+                    level={2}
+                  />
                   <AudienceReport period={selectedPeriod} embedded />
                 </div>
               </section>
@@ -1443,7 +1446,7 @@ export function AnalyticsPage() {
                   <div className="analytics-panel-header">
                     <div>
                       <Search className="h-5 w-5" aria-hidden />
-                      <span>Most frequent queries</span>
+                      <h3>Most frequent queries</h3>
                     </div>
                     <small>
                       {wholeNumber.format(topSearchSnapshot.rankedSearches)}{' '}
@@ -1549,7 +1552,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <Map className="h-5 w-5" aria-hidden />
-                        <span>Search view mix</span>
+                        <h3>Search view mix</h3>
                       </div>
                     </div>
                     <div className="analytics-donut-layout">
@@ -1591,7 +1594,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <BarChart3 className="h-5 w-5" aria-hidden />
-                        <span>Resource class demand</span>
+                        <h3>Resource class demand</h3>
                       </div>
                       <small>filters applied</small>
                     </div>
@@ -1697,6 +1700,7 @@ export function AnalyticsPage() {
                     className="analytics-panel analytics-reliability-card"
                     data-nav-label="Reliability summary"
                   >
+                    <h3>Reliability summary</h3>
                     <div className="analytics-reliability-top">
                       <div>
                         <p>Requests without a server error</p>
@@ -1748,7 +1752,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <CircleGauge className="h-5 w-5" aria-hidden />
-                        <span>Request mix</span>
+                        <h3>Request mix</h3>
                       </div>
                       <small>{formatCompact(summary.requests)} total</small>
                     </div>
@@ -1781,7 +1785,7 @@ export function AnalyticsPage() {
                     <div className="analytics-panel-header">
                       <div>
                         <Activity className="h-5 w-5" aria-hidden />
-                        <span>Peak-day API traffic</span>
+                        <h3>Peak-day API traffic</h3>
                       </div>
                       <small>
                         {wholeNumber.format(peakTraffic.requests)} raw HTTP
