@@ -289,7 +289,7 @@ export function AudienceReport({
                 {report.daily.map((row) => (
                   <tr key={row.day}>
                     <th scope="row">{row.day}</th>
-                    <td>
+                    <td data-sort-value={row.visits}>
                       {visitsAreEstimated(period) ? '≈ ' : ''}
                       {n.format(row.visits)}
                     </td>
