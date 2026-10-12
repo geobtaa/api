@@ -1,6 +1,10 @@
 import { createContext, useContext, useMemo } from 'react';
 import { restoreAnalyticsHelpers } from './analyticsHelpers';
 export type AnalyticsData = {
+  queryTranslations: Record<
+    string,
+    { language: string; english: string; note: string }
+  >;
   'collectionViewsCurrent.json': {
     default: typeof import('../../data/analytics/collectionViewsCurrent.json');
   };

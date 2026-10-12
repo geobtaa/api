@@ -15,6 +15,8 @@ import {
 import { ReportingPeriodPicker } from '../components/analytics/ReportingPeriodPicker';
 import { ApiDailyReport } from '../components/analytics/ApiDailyReport';
 
+import { RankingRow } from '../components/analytics/RankingRow';
+import { SearchCategoryChart } from '../components/analytics/SearchCategoryChart';
 import { SearchDailyReport } from '../components/analytics/SearchDailyReport';
 
 import { ReportContentLayout } from '../components/analytics/ReportContentLayout';
@@ -1473,10 +1475,24 @@ export function AnalyticsPage() {
             {activeReport === 'discovery' && (
               <section id="discovery" className="analytics-section">
                 <SectionHeading
+                  title="Search activity"
+                  description={`Daily searches and the most common search categories during ${periodRange}.`}
+                />
+                <div className="analytics-search-chart-grid">
+                  <SearchDailyReport
+                    period={report.period}
+                    days={allTimeData.daily.filter(
+                      (row) => isAllTime || row.day.startsWith(selectedPeriod)
+                    )}
+                  />
+                  <SearchCategoryChart categories={queryCategoryCounts} />
+                </div>
+
+                <SectionHeading
                   title="Top 50 searches"
                   description={`The most frequently recorded queries during ${periodRange}. ${wholeNumber.format(topSearchSnapshot.withQuery)} searches included query text, across ${wholeNumber.format(topSearchSnapshot.distinctQueries)} distinct queries.`}
                 />
-                <article className="analytics-panel analytics-top-searches">
+                <article className="analytics-panel analytics-top-searches analytics-panel--ranking">
                   <div className="analytics-panel-header">
                     <div>
                       <Search className="h-5 w-5" aria-hidden />
@@ -1515,40 +1531,24 @@ export function AnalyticsPage() {
                       </p>
                     </div>
                     <div
-                      className="analytics-top-searches-table"
-                      role="region"
+                      className="analytics-ranking-list"
                       aria-label="Top 50 searches"
-                      tabIndex={0}
                     >
-                      <AnalyticsTable className="analytics-comparison-table">
-                        <caption className="sr-only">
-                          {report.period} top 50 searches
-                        </caption>
-                        <thead>
-                          <tr>
-                            <th scope="col">Rank</th>
-                            <th scope="col">Query</th>
-                            <th scope="col">Category</th>
-                            <th scope="col">Searches</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {visibleSearchTerms.map((query) => (
-                            <tr key={query.term}>
-                              <td>{query.rank}</td>
-                              <th scope="row">
-                                <Link
-                                  to={`/search?q=${encodeURIComponent(query.term)}`}
-                                >
-                                  {query.term}
-                                </Link>
-                              </th>
-                              <td>{query.category}</td>
-                              <td>{wholeNumber.format(query.count)}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </AnalyticsTable>
+                      {visibleSearchTerms.map((query) => (
+                        <RankingRow
+                          key={query.term}
+                          rank={query.rank}
+                          title={query.term}
+                          href={`/search?q=${encodeURIComponent(query.term)}`}
+                          description={query.category}
+                          value={query.count}
+                          label="searches"
+                          maximum={Math.max(
+                            1,
+                            ...topSearchTerms.map((row) => row.count)
+                          )}
+                        />
+                      ))}
                     </div>
                     <p className="analytics-card-footnote">
                       {queryCategoryMethod} Counts include successful and
@@ -1570,12 +1570,6 @@ export function AnalyticsPage() {
                     </p>
                   </div>
                 </article>
-                <SearchDailyReport
-                  period={report.period}
-                  days={allTimeData.daily.filter(
-                    (row) => isAllTime || row.day.startsWith(selectedPeriod)
-                  )}
-                />
                 <SectionHeading
                   title="Views, filters, and zero results"
                   description={`How searches were viewed and refined during the selected period.`}
@@ -1595,7 +1589,8 @@ export function AnalyticsPage() {
                         role="img"
                         aria-label={discoveryViews
                           .map(
-                            (row) => `${row.label} view ${row.percent} percent`
+                            (row) =>
+                              `${row.label} view ${Math.round(row.percent)} percent`
                           )
                           .join(', ')}
                         style={{ background: discoveryGradient }}
@@ -1613,7 +1608,7 @@ export function AnalyticsPage() {
                               aria-hidden="true"
                             />
                             <span>{view.label}</span>
-                            <strong>{view.percent}%</strong>
+                            <strong>{Math.round(view.percent)}%</strong>
                           </li>
                         ))}
                       </ul>

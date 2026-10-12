@@ -1,14 +1,15 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Activity } from 'lucide-react';
 import {
   CartesianGrid,
-  Line,
-  LineChart,
+  Area,
+  AreaChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
+import { chartTheme } from './chartTheme';
 import { AnalyticsTable } from './AnalyticsTable';
 import { ReportPanelHeader } from './ReportPanelHeader';
 
@@ -20,6 +21,7 @@ export function SearchDailyReport({
   days: Day[];
   period: string;
 }) {
+  const fillId = `searches-fill-${useId().replace(/:/g, '')}`;
   const [metric, setMetric] = useState<'searches' | 'zeroResults'>('searches');
   const labels = {
     searches: 'Search result pages',
@@ -53,10 +55,31 @@ export function SearchDailyReport({
           minWidth={0}
           initialDimension={{ width: 1000, height: 288 }}
         >
-          <LineChart data={days}>
-            <CartesianGrid strokeDasharray="2 6" />
+          <AreaChart
+            data={days}
+            margin={{ top: 16, right: 8, left: -20, bottom: 0 }}
+            accessibilityLayer
+          >
+            <defs>
+              <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+                <stop
+                  offset="0%"
+                  stopColor={chartTheme.fill.color}
+                  stopOpacity={chartTheme.fill.startOpacity}
+                />
+                <stop
+                  offset="100%"
+                  stopColor={chartTheme.fill.color}
+                  stopOpacity={chartTheme.fill.endOpacity}
+                />
+              </linearGradient>
+            </defs>
+            <CartesianGrid {...chartTheme.grid} />
             <XAxis
               dataKey="day"
+              axisLine={false}
+              tickLine={false}
+              tick={chartTheme.tick}
               minTickGap={35}
               tickFormatter={(day) =>
                 new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
@@ -66,17 +89,35 @@ export function SearchDailyReport({
                 })
               }
             />
-            <YAxis />
-            <Tooltip />
-            <Line
+            <YAxis
+              axisLine={false}
+              tickLine={false}
+              tick={chartTheme.tick}
+              allowDecimals={false}
+            />
+            <Tooltip
+              cursor={chartTheme.cursor}
+              contentStyle={chartTheme.tooltip}
+              labelStyle={chartTheme.tooltipLabel}
+              labelFormatter={(day) =>
+                new Date(`${day}T00:00:00Z`).toLocaleDateString('en-US', {
+                  month: 'short',
+                  day: 'numeric',
+                  timeZone: 'UTC',
+                })
+              }
+              formatter={(value: number) => value.toLocaleString('en-US')}
+            />
+            <Area
               type="linear"
               dataKey={metric}
               name={labels[metric]}
-              stroke="#003c5b"
+              {...chartTheme.series}
+              fill={`url(#${fillId})`}
               dot={false}
               isAnimationActive={false}
             />
-          </LineChart>
+          </AreaChart>
         </ResponsiveContainer>
       </div>
       <details>

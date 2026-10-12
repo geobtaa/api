@@ -51,13 +51,53 @@ describe('ZeroResultReport', () => {
       screen.getByRole('combobox', { name: 'Zero-result category' }),
       { target: { value: 'Subject-only search' } }
     );
-    const table = screen.getByRole('table');
-    expect(within(table).getAllByRole('row')).toHaveLength(2);
-    expect(within(table).getByText('0.3%')).toBeInTheDocument();
+    const ranking = screen.getByRole('region', { name: 'Zero-result queries' });
+    expect(within(ranking).getAllByRole('article')).toHaveLength(1);
+    expect(
+      within(ranking).getByText('0.3% of all zero-result searches')
+    ).toBeInTheDocument();
     expect(chart.getAttribute('aria-label')).toBe(original);
     expect(
       screen.getByText(/not all 1,455 zero-result searches/)
     ).toBeInTheDocument();
+  });
+  it('filters ranked queries and resets the toolbar', () => {
+    report();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Find a query' }), {
+      target: { value: 'missing-query' },
+    });
+    expect(screen.getByText(/No queries match/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Reset' }));
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Zero-result queries' })
+      ).getAllByRole('article')
+    ).toHaveLength(2);
+  });
+  it('shows English readings, filters by translation, and preserves original links', () => {
+    render(
+      <MemoryRouter>
+        <ZeroResultReport
+          period="September 2026"
+          searches={5536}
+          zeroResults={754}
+          withQuery={545}
+          queries={[
+            { term: 'قم ایران', count: 10 },
+            { term: 'redlining', count: 3 },
+          ]}
+        />
+      </MemoryRouter>
+    );
+    expect(screen.getByText(/Qom, Iran/)).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Find a query' }), {
+      target: { value: 'Qom' },
+    });
+    const ranking = screen.getByRole('region', { name: 'Zero-result queries' });
+    expect(within(ranking).getAllByRole('article')).toHaveLength(1);
+    expect(
+      within(ranking).getByRole('link', { name: 'قم ایران' })
+    ).toHaveAttribute('href', `/search?q=${encodeURIComponent('قم ایران')}`);
   });
   it('preserves reviewed categories and leaves unknown queries unclassified', () => {
     expect(zeroQueryCategory('redlining')).toBe('Subject-only search');

@@ -747,3 +747,24 @@ For a backend started outside Compose, set those three variables explicitly.
 Preview delivery is refused in production or with a non-local analytics base URL.
 Messages are returned only to the requesting local development page and are not
 written to public files or application logs.
+
+### Searches report layout
+
+The Searches report begins with daily search activity and a category pie chart.
+The pie counts search events represented by the top 50 query terms, not the
+entire search log; its legend includes exact counts and shares. Both charts
+follow the selected reporting period and stack on narrow screens. Top Searches
+uses the shared Popular content ranking rows and retains category filtering.
+
+Zero-result searches use summary cards for total failures, failures with query
+text, and filter-only failures. A compact outcome bar covers the full period;
+category bars explicitly cover only the ranked query subset and describe wording,
+not verified causes. Ranked rows share the Popular content layout, support query
+and context filtering, and retain expandable recorded search combinations.
+Methodology is available under “About these counts.”
+
+English readings for saved non-English zero-result queries live in
+`frontend/src/data/analytics/queryTranslations.json` and are delivered with the
+authenticated report payload. They are editorial translations or transliterations,
+not live machine translation. Preserve original query links and mark ambiguous
+names or incomplete phrases. The query filter also matches the English reading.

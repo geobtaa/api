@@ -2,81 +2,14 @@ import { useAnalyticsData } from './AnalyticsData';
 import { FailedSearchContext } from './FailedSearchContext';
 import type { OutcomePeriod } from '../../data/analytics/outcomes';
 import { useState } from 'react';
-import { Link } from 'react-router';
 import { Search } from 'lucide-react';
 
-import { AnalyticsTable } from './AnalyticsTable';
+import { RankingRow } from './RankingRow';
 import { ReportPanelHeader } from './ReportPanelHeader';
 
 const number = new Intl.NumberFormat('en-US');
 const percent = (count: number, total: number) =>
   total ? `${((count / total) * 100).toFixed(1)}%` : '0.0%';
-const colors = [
-  '#003c5b',
-  '#2563eb',
-  '#047857',
-  '#9333ea',
-  '#b45309',
-  '#be185d',
-  '#0e7490',
-  '#4f46e5',
-  '#4d7c0f',
-  '#9f1239',
-  '#475569',
-  '#7c2d12',
-];
-function Pie({
-  title,
-  slices,
-  total,
-}: {
-  title: string;
-  slices: { label: string; count: number }[];
-  total: number;
-}) {
-  let cursor = 0;
-  const stops = slices.map((slice, index) => {
-    const start = cursor;
-    cursor += total ? (slice.count / total) * 100 : 0;
-    return `${colors[index % colors.length]} ${start}% ${cursor}%`;
-  });
-  return (
-    <div className="analytics-zero-pie">
-      <h3>{title}</h3>
-      <div className="analytics-donut-layout">
-        <div
-          className="analytics-donut"
-          role="img"
-          aria-label={`${title}: ${slices.map((slice) => `${slice.label} ${number.format(slice.count)} (${percent(slice.count, total)})`).join('; ')}`}
-          style={{
-            background: total
-              ? `conic-gradient(${stops.join(',')})`
-              : '#e5e7eb',
-          }}
-        >
-          <div>
-            <strong>{number.format(total)}</strong>
-            <span>searches</span>
-          </div>
-        </div>
-        <ul>
-          {slices.map((slice, index) => (
-            <li key={slice.label}>
-              <i
-                style={{ backgroundColor: colors[index % colors.length] }}
-                aria-hidden="true"
-              />
-              <span>{slice.label}</span>
-              <strong>
-                {number.format(slice.count)} · {percent(slice.count, total)}
-              </strong>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
 export function ZeroResultReport({
   period,
   periodKey,
@@ -98,9 +31,13 @@ export function ZeroResultReport({
   const zeroQueryCategory = analytics['zeroQueryCategory'].zeroQueryCategory;
 
   const [category, setCategory] = useState('all');
+  const [filter, setFilter] = useState('');
+  const [sort, setSort] = useState('count');
   const rows = queries.map((q, index) => ({
     ...q,
     rank: index + 1,
+    translation:
+      analytics.queryTranslations[q.term.trim().replace(/\s+/g, ' ')],
     category: zeroQueryCategory(q.term),
   }));
   const counts = new Map<string, number>();
@@ -114,137 +51,237 @@ export function ZeroResultReport({
   const selected = slices.some((slice) => slice.label === category)
     ? category
     : 'all';
+  const terms = filter.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const visible = rows
+    .filter(
+      (row) =>
+        (selected === 'all' || row.category === selected) &&
+        terms.every((term) =>
+          `${row.term} ${row.translation?.english ?? ''} ${row.category} ${periodKey ? JSON.stringify(searchContexts(periodKey, row.term)) : ''}`
+            .toLowerCase()
+            .includes(term)
+        )
+    )
+    .sort((a, b) =>
+      sort === 'query'
+        ? a.term.localeCompare(b.term)
+        : b.count - a.count || a.rank - b.rank
+    );
+  const maximum = Math.max(1, ...rows.map((row) => row.count));
   return (
     <section className="analytics-panel analytics-zero-results">
       <ReportPanelHeader title="Zero-result searches" icon={Search} />
       <div className="analytics-zero-results-body">
-        <p className="analytics-zero-rate">
-          <strong>{percent(zeroResults, searches)}</strong> of searches returned
-          zero results — {number.format(zeroResults)} of{' '}
-          {number.format(searches)} searches in {period}.
-        </p>
-        {periodKey && (
-          <p className="analytics-comparison-note">
-            Historical counts use the recorded zero-result flag.{' '}
-            {outcomes.periods[periodKey].zeroResultsWithPositiveTotal} flagged
-            searches had a positive total but an empty displayed page. Expand
-            recorded combinations to inspect exclusions, pagination, and other
-            saved controls.
-          </p>
-        )}
-        <div className="analytics-zero-charts">
-          <Pie
-            title="Search outcomes"
-            total={searches}
-            slices={[
-              { label: 'With results', count: searches - zeroResults },
-              { label: 'Zero results', count: zeroResults },
-            ]}
-          />
-          <Pie
-            title="Zero-result query categories"
-            total={ranked}
-            slices={slices}
-          />
+        <div className="analytics-zero-summary">
+          <article className="analytics-zero-summary-primary">
+            <span>Zero-result searches</span>
+            <strong>{number.format(zeroResults)}</strong>
+            <p>
+              <b>{percent(zeroResults, searches)}</b> of{' '}
+              {number.format(searches)} searches in {period}
+            </p>
+          </article>
+          <article>
+            <span>With query text</span>
+            <strong>{number.format(withQuery)}</strong>
+            <p>Searches with words or phrases to investigate.</p>
+          </article>
+          <article>
+            <span>Filters only</span>
+            <strong>{number.format(zeroResults - withQuery)}</strong>
+            <p>Searches without query text; inspect the recorded filters.</p>
+          </article>
         </div>
-        <p className="analytics-comparison-note">
-          The category chart covers the {number.format(ranked)} zero-result
-          searches represented by the {rows.length} ranked queries below, not
-          all {number.format(zeroResults)} zero-result searches.{' '}
-          {number.format(withQuery)} included query text;{' '}
-          {number.format(zeroResults - withQuery)} were filter-only searches
-          with no query. Categories are inferred from wording, not verified
-          failure causes; reviewed August classifications are preserved, and
-          unclear queries remain unclassified.
-        </p>
-        <label className="analytics-query-category-filter">
-          Zero-result category
-          <select
-            value={selected}
-            onChange={(event) => setCategory(event.target.value)}
+        <div className="analytics-zero-analysis">
+          <section className="analytics-zero-outcomes">
+            <h3>Search outcomes</h3>
+            <p>Across all searches in the selected period.</p>
+            <div
+              className="analytics-zero-outcome-bar"
+              role="img"
+              aria-label={`Search outcomes: With results ${number.format(searches - zeroResults)} (${percent(searches - zeroResults, searches)}); Zero results ${number.format(zeroResults)} (${percent(zeroResults, searches)})`}
+            >
+              <span
+                style={{
+                  width: `${searches ? ((searches - zeroResults) / searches) * 100 : 0}%`,
+                }}
+              />
+              <span
+                style={{
+                  width: `${searches ? (zeroResults / searches) * 100 : 0}%`,
+                }}
+              />
+            </div>
+            <div className="analytics-zero-outcome-labels">
+              <div>
+                <span>With results</span>
+                <strong>{number.format(searches - zeroResults)}</strong>
+              </div>
+              <div>
+                <span>Zero results</span>
+                <strong>{number.format(zeroResults)}</strong>
+              </div>
+            </div>
+          </section>
+          <section className="analytics-zero-categories">
+            <h3>Zero-result query categories</h3>
+            <p>
+              {number.format(ranked)} searches across {rows.length} ranked
+              queries, not all {number.format(zeroResults)} zero-result
+              searches.
+            </p>
+            <div
+              role="img"
+              aria-label={`Zero-result query categories: ${slices.map((slice) => `${slice.label} ${slice.count} (${percent(slice.count, ranked)})`).join('; ')}`}
+            >
+              {slices.map((slice) => (
+                <div className="analytics-zero-category-row" key={slice.label}>
+                  <div>
+                    <span>{slice.label}</span>
+                    <strong>{number.format(slice.count)}</strong>
+                  </div>
+                  <div className="analytics-format-track" aria-hidden="true">
+                    <i
+                      style={{
+                        width: `${(slice.count / Math.max(1, ...slices.map((s) => s.count))) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="analytics-zero-caveat">
+              Categories describe query wording, not proven failure causes.
+            </p>
+          </section>
+        </div>
+        <div className="analytics-zero-ranking-heading">
+          <h3>Queries to investigate</h3>
+          <p>
+            Ranked by zero-result searches. Open the recorded details to inspect
+            filters and other search settings.
+          </p>
+        </div>
+        <div className="analytics-table-tools analytics-zero-toolbar">
+          <label>
+            Find a query
+            <input
+              type="search"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              placeholder="Search queries, categories, or details…"
+            />
+          </label>
+          <label>
+            Zero-result category
+            <select
+              value={selected}
+              onChange={(e) => setCategory(e.target.value)}
+            >
+              <option value="all">All categories</option>
+              {slices.map((s) => (
+                <option key={s.label}>{s.label}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Sort by
+            <select value={sort} onChange={(e) => setSort(e.target.value)}>
+              <option value="count">Most zero-result searches</option>
+              <option value="query">Query A–Z</option>
+            </select>
+          </label>
+          <span role="status">
+            {visible.length} of {rows.length} queries
+          </span>
+          <button
+            type="button"
+            disabled={!filter && selected === 'all' && sort === 'count'}
+            onClick={() => {
+              setFilter('');
+              setCategory('all');
+              setSort('count');
+            }}
           >
-            <option value="all">All categories</option>
-            {slices.map((slice) => (
-              <option key={slice.label}>{slice.label}</option>
-            ))}
-          </select>
-        </label>
+            Reset
+          </button>
+        </div>
         <div
           role="region"
           aria-label="Zero-result queries"
-          className="analytics-comparison-scroll"
+          className="analytics-ranking-list analytics-zero-ranking"
         >
-          <AnalyticsTable className="analytics-comparison-table">
-            <caption className="sr-only">{period} zero-result queries</caption>
-            <thead>
-              <tr>
-                <th scope="col">Rank</th>
-                <th scope="col" data-align="left">
-                  Query
-                </th>
-                <th scope="col" data-align="left">
-                  Category
-                </th>
-                {periodKey && (
-                  <th scope="col" data-align="left">
-                    Recorded search context
-                  </th>
-                )}
-                <th scope="col">Zero-result searches</th>
-                <th scope="col">Share of all zero-result searches</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows
-                .filter(
-                  (row) => selected === 'all' || row.category === selected
+          {visible.map((row) => (
+            <RankingRow
+              key={row.term}
+              rank={row.rank}
+              title={row.term}
+              href={`/search?q=${encodeURIComponent(row.term)}`}
+              subtitle={
+                row.translation && (
+                  <p className="analytics-query-translation" lang="en">
+                    <strong>English:</strong> {row.translation.english}
+                    <span>
+                      {' '}
+                      · {row.translation.language}
+                      {row.translation.note ? ` — ${row.translation.note}` : ''}
+                    </span>
+                  </p>
                 )
-                .map((row) => (
-                  <tr key={row.term}>
-                    <td>{row.rank}</td>
-                    <th scope="row">
-                      <Link to={`/search?q=${encodeURIComponent(row.term)}`}>
-                        {row.term}
-                      </Link>
-                    </th>
-                    <td>{row.category}</td>
-                    {periodKey && (
-                      <td
-                        className="analytics-context-cell"
-                        data-sort-value={
-                          searchContexts(periodKey, row.term).length
-                        }
-                        data-filter-value={JSON.stringify(
-                          searchContexts(periodKey, row.term)
-                        )}
-                      >
-                        <FailedSearchContext
-                          period={periodKey}
-                          term={row.term}
-                        />
-                      </td>
-                    )}
-                    <td>{row.count}</td>
-                    <td>{percent(row.count, zeroResults)}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </AnalyticsTable>
+              }
+              description={row.category}
+              value={row.count}
+              label="zero-result searches"
+              maximum={maximum}
+            >
+              <p className="analytics-zero-query-share">
+                {percent(row.count, zeroResults)} of all zero-result searches
+              </p>
+              {periodKey && (
+                <FailedSearchContext period={periodKey} term={row.term} />
+              )}
+            </RankingRow>
+          ))}
+          {!visible.length && (
+            <p className="analytics-zero-empty">
+              No queries match these filters. Try another term or reset the
+              filters.
+            </p>
+          )}
         </div>
         {periodKey && (
-          <details className="analytics-blank-context">
-            <summary>Searches without query text: recorded parameters</summary>
+          <details className="analytics-zero-details">
+            <summary>Filter-only searches: recorded details</summary>
             <FailedSearchContext period={periodKey} term="" />
           </details>
         )}
-        <p className="analytics-comparison-note">
-          These {rows.length} queries account for {number.format(ranked)}{' '}
-          zero-result searches. Additional filters may have caused zero results;
-          query links repeat the text only. Row percentages use all zero-result
-          searches as the denominator, not the failure rate of that particular
-          query. Charts remain based on the full period when the table is
-          filtered.
-        </p>
+        <details className="analytics-zero-details">
+          <summary>About these counts</summary>
+          <p>
+            These {rows.length} queries account for {number.format(ranked)}{' '}
+            zero-result searches. Additional filters may have caused zero
+            results; query links repeat the text only. Row percentages use all
+            zero-result searches as the denominator, not the failure rate of
+            that particular query. Charts remain based on the full period when
+            the rankings are filtered.
+          </p>
+          <p>
+            English readings are editorial translations or transliterations of
+            saved queries; ambiguous names and incomplete phrases are labeled.
+            Original query text and search links are preserved. Categories are
+            inferred from wording; reviewed August classifications are
+            preserved, and unclear queries remain unclassified.
+          </p>
+          {periodKey && (
+            <p>
+              Historical counts use the recorded zero-result flag.{' '}
+              {outcomes.periods[periodKey].zeroResultsWithPositiveTotal} flagged
+              searches had a positive total but an empty displayed page. Expand
+              recorded combinations to inspect exclusions, pagination, and other
+              saved controls.
+            </p>
+          )}
+        </details>
       </div>
     </section>
   );

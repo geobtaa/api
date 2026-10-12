@@ -1,3 +1,4 @@
+import queryTranslations from '../../src/data/analytics/queryTranslations.json';
 // Server-only snapshot payload; the route authenticates before returning it.
 // Functions are restored on the client from this authenticated data payload.
 import collectionViewsCurrent from '../../src/data/analytics/collectionViewsCurrent.json';
@@ -25,6 +26,7 @@ import zeroQueryCategories from '../../src/data/analytics/zeroQueryCategories.js
 export const analyticsSnapshot = JSON.parse(
   JSON.stringify({
     'collectionViewsCurrent.json': { default: collectionViewsCurrent },
+    queryTranslations,
     outcomes: outcomes,
     'allTimeCurrent.json': { default: allTimeCurrent },
     'monthlySnapshots.json': { default: monthlySnapshots },
