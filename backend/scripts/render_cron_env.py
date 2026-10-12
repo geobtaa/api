@@ -10,6 +10,8 @@ DEFAULT_OUTPUT_PATH = "/tmp/cron-container-env.sh"
 
 ALLOWED_EXACT_KEYS = {
     "APPLICATION_URL",
+    "BTAA_GEOSPATIAL_API_KEY",
+    "BTAA_GEOSPATIAL_API_KEYS",
     "BRIDGE_SYNC_LOCAL_TIMEZONE",
     "DATABASE_URL",
     "ENDPOINT_CACHE",
@@ -30,6 +32,7 @@ ALLOWED_PREFIXES = (
     "CACHE_",
     "CELERY_",
     "CORS_",
+    "DB_POOL_",
     "ELASTICSEARCH_",
     "KITHE_BRIDGE_",
     "LOG_",
@@ -40,6 +43,7 @@ ALLOWED_PREFIXES = (
     "SEARCH_ENGINE_",
     "SENDMAIL_",
     "SMTP_",
+    "SQLALCHEMY_",
     "THUMBNAIL_",
     "WEB_",
 )

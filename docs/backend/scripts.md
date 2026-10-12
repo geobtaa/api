@@ -183,10 +183,17 @@ active does not send a duplicate report.
 
 An import can finish successfully while the following search-index or cache
 refresh fails. These runs retain their failed status so the next crawl retries
-from the last successful checkpoint. The report labels this outcome
+from the last successfully published page for resumable incremental crawls, or
+the last successful crawl for other syncs. The report labels this outcome
 `PUBLISHING FAILED`, explains that import completed, and includes the saved
 failure reason and refresh error counts. Import and crawl failures remain
 `FAILED`; completed runs are reported as `SUCCESS`.
+
+Incremental crawls can also be `PAUSED` after saving a page boundary. They retain
+the original source lower bound and resume on the next invocation. Their counters
+include previously published pages in the same crawl; the global source watermark
+advances only after every page completes. A pause is not a successful checkpoint
+and does not indicate that all source changes have been published.
 
 Scheduling, delivery configuration, and deployed troubleshooting belong in the
 restricted operations documentation. Local regression coverage lives in
