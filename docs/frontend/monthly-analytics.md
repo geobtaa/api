@@ -627,3 +627,27 @@ changing a title also changes its navigation label. Separate navigation aliases
 do not override the heading. Overview highlight cards contain metrics without
 decorative numbering. Shared Sources and grouping notes use a two-column table
 with row headers for Source, Grouping, and Reading the figures.
+
+## Download privacy contract
+
+The aggregate report download uses privacy version 2. Both the ZIP's JSON/CSV
+files and its public `report.json` sidecar use an explicit field and type allowlist
+in `analytics_reporting/public_export.py`. The export retains numeric portal
+metrics, calendar-day and month totals, fixed search categories, latency, and
+aggregate visit estimates. It excludes search terms and contexts, IP addresses,
+visit tokens, user agents, raw request paths, client/key labels, resource IDs and
+metadata, download labels, and all unknown fields. Adding a report dimension does
+not automatically publish it. Text screening and a minimum query frequency are
+not a guarantee that search terms are anonymous.
+
+The monthly exporter applies this contract automatically. The dashboard adapter
+builds its separate presentation input from private archives in memory, rather
+than relying on detail in the public download. This contract covers report
+artifacts and runtime report downloads; the dashboard's separate presentation
+snapshots require their own privacy review when their content changes.
+
+The privacy update removes all seven previous static revisions from the served
+source directory and creates new aggregate-only revisions. Rebuild the frontend
+to remove stale build copies. Removing served files does not erase earlier Git
+history, previously downloaded copies, or deployment/CDN caches. Any publication
+cleanup belongs in the restricted operations documentation.

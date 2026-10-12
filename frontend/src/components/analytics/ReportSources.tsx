@@ -138,7 +138,7 @@ export function ReportSources({
             href={`/analytics-reports/${archive.id}/${archive.revision}/tables.zip`}
             download
           >
-            Download full report (CSV and JSON)
+            Download aggregate report (CSV and JSON)
           </a>
         </p>
       )}

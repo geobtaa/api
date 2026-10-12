@@ -14,6 +14,7 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 
 from app.api.errors import COMMON_ERROR_RESPONSES
+from app.services.analytics_reporting.public_export import PUBLIC_TABLES, public_report
 from app.services.analytics_reporting.storage import checksum
 from db.migrations.analytics_storage import analytics_storage_engine
 
@@ -43,24 +44,7 @@ class ReportingArtifact(BaseModel):
 
 
 router = APIRouter(prefix="/analytics/reports", responses=COMMON_ERROR_RESPONSES)
-TABLES = {
-    "outlinks",
-    "downloads",
-    "downloadBreakdown",
-    "collections",
-    "discoveryViews",
-    "comparison",
-    "memberResources",
-    "memberDaily",
-    "queries",
-    "zeroQueries",
-    "resources",
-    "members",
-    "clients",
-    "endpoints",
-    "daily",
-    "facets",
-}
+TABLES = PUBLIC_TABLES
 
 
 def enabled():
@@ -105,11 +89,18 @@ def manifest():
     )
 
 
+def public_document(period, revision):
+    document = public_report(read_document(period, revision))
+    if document["revision"] != revision:
+        raise HTTPException(404, "Report revision unavailable; use the latest aggregate report")
+    return document
+
+
 @router.get("/{period}/{revision}", response_model=ReportingArtifact)
 def report(period: str, revision: str):
     return JSONResponse(
-        read_document(period, revision),
-        headers={"Cache-Control": "public, max-age=31536000, immutable", "ETag": f'"{revision}"'},
+        public_document(period, revision),
+        headers={"Cache-Control": "no-store", "ETag": f'"{revision}"'},
     )
 
 
@@ -127,7 +118,7 @@ def csv_cell(value):
 def download(period: str, revision: str, table: str, format: str = "csv"):
     if table not in TABLES or format not in ("csv", "json"):
         raise HTTPException(404, "Download unavailable")
-    rows = read_document(period, revision)[table]
+    rows = public_document(period, revision)[table]
     if format == "json":
         body, media = json.dumps(rows), "application/json"
     else:
@@ -142,6 +133,6 @@ def download(period: str, revision: str, table: str, format: str = "csv"):
         media_type=media,
         headers={
             "Content-Disposition": f'attachment; filename="analytics-{period}-{table}.{format}"',
-            "Cache-Control": "public, max-age=31536000, immutable",
+            "Cache-Control": "no-store",
         },
     )

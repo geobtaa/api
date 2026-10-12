@@ -7,7 +7,8 @@ from datetime import date, datetime, timezone
 from sqlalchemy import text
 
 from .archive import audit_oldest_archive, configured_archives, preserve
-from .contract import CALCULATION_VERSION, PRIVACY_VERSION, SOURCES, START, next_month, periods
+from .contract import CALCULATION_VERSION, SOURCES, START, next_month, periods
+from .public_export import PUBLIC_PRIVACY_VERSION, public_report
 from .reports import build_report
 from .storage import LOCK, backfill, canonical, checksum, drain, health, install
 
@@ -93,7 +94,7 @@ def publish(conn, through, documents, archives):
     conn.execute(text(f"SELECT pg_advisory_xact_lock({LOCK})"))
     entries = []
     for period in periods(through):
-        document = build_report(period, through, documents)
+        document = public_report(build_report(period, through, documents))
         # Partial history is explicit, never silently substituted for a complete report.
         key = f"analytics/public/v1/{period}/{document['revision']}.json"
         for archive in archives:
@@ -120,7 +121,7 @@ def publish(conn, through, documents, archives):
     manifest = {
         "schemaVersion": 1,
         "calculationVersion": CALCULATION_VERSION,
-        "privacyVersion": PRIVACY_VERSION,
+        "privacyVersion": PUBLIC_PRIVACY_VERSION,
         "throughExclusive": str(through),
         "latest": max(complete_months) if complete_months else None,
         "periods": entries,
@@ -203,7 +204,7 @@ def run(engine, *, today=None, archives=None):
             and existing["throughExclusive"] == str(through)
             and not dirty
             and existing.get("calculationVersion") == CALCULATION_VERSION
-            and existing.get("privacyVersion") == PRIVACY_VERSION
+            and existing.get("privacyVersion") == PUBLIC_PRIVACY_VERSION
         ):
             health(conn, "publication", "healthy", f"No reporting changes through {through}")
             return existing

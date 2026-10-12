@@ -126,7 +126,7 @@ export function AllTimeAnalyticsPage({
                   href={`/analytics-reports/all/${archive.revision}/tables.zip`}
                   download
                 >
-                  Download full report (CSV and JSON)
+                  Download aggregate report (CSV and JSON)
                 </a>
               </p>
             </section>

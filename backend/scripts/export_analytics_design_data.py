@@ -4,7 +4,6 @@ import argparse
 import gzip
 import json
 import sys
-import zipfile
 from collections import Counter, defaultdict
 from datetime import date
 from pathlib import Path
@@ -16,6 +15,7 @@ from app.services.analytics_reporting.metadata import (  # noqa: E402
     content_metadata,
     content_providers,
 )
+from app.services.analytics_reporting.reports import build_report  # noqa: E402
 from app.services.analytics_reporting.storage import checksum  # noqa: E402
 
 COLORS = ["#003C5B", "#1E40AF", "#2563EB", "#3B82F6", "#60A5FA", "#93C5FD", "#BFDBFE"]
@@ -281,12 +281,11 @@ def run(archives, public, output, supplemental, period=None):
     manifest = json.loads((public / "manifest.json").read_text())
     reports = {}
     for entry in manifest["periods"]:
-        with zipfile.ZipFile(public / entry["id"] / entry["revision"] / "tables.zip") as z:
-            report = json.loads(z.read("report.json"))
-        unsigned = {k: v for k, v in report.items() if k != "revision"}
-        if checksum(unsigned) != entry["revision"]:
-            raise ValueError("Public report checksum mismatch")
-        reports[entry["id"]] = report
+        # Build presentation input privately; public downloads deliberately omit
+        # visitor-controlled dimensions needed by the separate dashboard adapter.
+        reports[entry["id"]] = build_report(
+            entry["id"], date.fromisoformat(manifest["throughExclusive"]), docs
+        )
     sep = reports[period]
     all_report = reports["all"]
     doc = docs[months.index(period)]

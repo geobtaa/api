@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.services.analytics_reporting.archive import validate_document  # noqa: E402
+from app.services.analytics_reporting.public_export import public_report  # noqa: E402
 from app.services.analytics_reporting.reports import build_report  # noqa: E402
 from app.services.analytics_reporting.storage import canonical, checksum  # noqa: E402
 
@@ -92,9 +93,10 @@ def export(archives, through, output, selected):
                 and sum(row.get(metric, 0) or 0 for row in report["daily"]) != total
             ):
                 raise ValueError(f"Daily {metric} does not reconcile for {period}")
+        report = public_report(report)
         directory = output / period / report["revision"]
         directory.mkdir(parents=True, exist_ok=True)
-        compact = canonical(preview(report))
+        compact = canonical(report)
         (directory / "report.json").write_bytes(compact)
         with zipfile.ZipFile(directory / "tables.zip", "w", zipfile.ZIP_DEFLATED) as archive:
             zip_entry(archive, "report.json", canonical(report))
