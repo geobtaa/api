@@ -25,11 +25,11 @@ async def test_cancelled_asset_refresh_drains_children_before_returning(monkeypa
             [{"id": "first"}, {"id": "queued"}], concurrency=1, force=True
         )
     )
-    await started.wait()
+    await asyncio.wait_for(started.wait(), timeout=5)
     children = asyncio.all_tasks() - {asyncio.current_task(), parent}
     parent.cancel()
     with pytest.raises(asyncio.CancelledError):
-        await parent
+        await asyncio.wait_for(parent, timeout=5)
     assert stopped.is_set()
     assert all(task.done() for task in children)
 
