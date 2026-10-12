@@ -620,6 +620,21 @@ export function AnalyticsPage() {
                   aria-label={`${isAllTime ? reportMonth : monthLabel(activeMonth)} highlights`}
                 >
                   <div>
+                    <strong>
+                      {visitsAreEstimated(selectedPeriod) ? '≈ ' : ''}
+                      {wholeNumber.format(
+                        outcomes.periods[selectedPeriod].audience.trackedVisits
+                      )}
+                    </strong>
+                    <p>
+                      Tracked visits
+                      {visitsAreEstimated(selectedPeriod) ? ' (estimated)' : ''}
+                    </p>
+                    <small>
+                      Distinct browser-tab visits, not unique people
+                    </small>
+                  </div>
+                  <div>
                     <strong>{formatCompact(summary.searches)}</strong>
                     <p>Search result pages</p>
                     <small>
@@ -628,7 +643,7 @@ export function AnalyticsPage() {
                   </div>
                   <div>
                     <strong>{formatCompact(summary.resourceViews)}</strong>
-                    <p>resource views</p>
+                    <p>Resource views</p>
                     <small>
                       {formatCompact(summary.impressions)} discoveries shown
                     </small>
@@ -646,7 +661,7 @@ export function AnalyticsPage() {
                     <strong>
                       {wholeNumber.format(summary.downloadClicks)}
                     </strong>
-                    <p>download clicks</p>
+                    <p>Download clicks</p>
                     <small>
                       Plus {wholeNumber.format(summary.resultClicks)} result
                       opens

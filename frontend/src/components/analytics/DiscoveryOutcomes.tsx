@@ -281,6 +281,8 @@ export function AudienceReport({
                   </th>
                   <th scope="col">Search result pages</th>
                   <th scope="col">Resource views</th>
+                  <th scope="col">Source-site clicks</th>
+                  <th scope="col">Download clicks</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,6 +295,8 @@ export function AudienceReport({
                     </td>
                     <td>{n.format(row.searches)}</td>
                     <td>{n.format(row.views)}</td>
+                    <td>{n.format(row.sources)}</td>
+                    <td>{n.format(row.downloads)}</td>
                   </tr>
                 ))}
               </tbody>
