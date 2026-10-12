@@ -151,7 +151,7 @@ async def _bridge_sync_all_async(
             source_high_watermark=source_high_watermark,
             repo=repo,
         )
-    except Exception as exc:
+    except (Exception, asyncio.CancelledError) as exc:
         run_id = getattr(exc, "bridge_sync_run_id", None)
         if run_id and _should_send_failure_report(trigger):
             try:

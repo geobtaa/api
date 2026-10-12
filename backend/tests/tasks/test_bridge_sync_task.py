@@ -1,18 +1,47 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 
+import app.services.bridge_sync.harvest as bridge_harvest
 import app.tasks.bridge_sync as bridge_sync_task
+from app.services.bridge_sync.client import BridgePage
 from app.services.bridge_sync.repository import BridgeSyncRepository
 
 _bridge_sync_all_async = bridge_sync_task._bridge_sync_all_async
 _incremental_checkpoint = bridge_sync_task._incremental_checkpoint
 _should_send_failure_report = bridge_sync_task._should_send_failure_report
 _should_send_report = bridge_sync_task._should_send_report
+
+
+@pytest.mark.asyncio
+async def test_cancelled_crawl_is_failed_and_keeps_checkpoint_ineligible(monkeypatch):
+    monkeypatch.setattr(bridge_harvest, "database", SimpleNamespace(is_connected=True))
+    repo = SimpleNamespace(
+        create_sync_run_if_idle=AsyncMock(return_value=(42, None)),
+        update_sync_run=AsyncMock(),
+        finalize_sync_run=AsyncMock(),
+    )
+    client = SimpleNamespace(
+        page_size=500,
+        fetch_page=lambda **kwargs: BridgePage(data=[], next_cursor=None, has_more=False),
+    )
+    importer = SimpleNamespace(upsert_records=AsyncMock(side_effect=asyncio.CancelledError()))
+
+    with pytest.raises(asyncio.CancelledError):
+        await bridge_harvest.sync_bridge(
+            changed_since="2026-10-09T00:00:00Z", client=client, importer=importer, repo=repo
+        )
+
+    final = repo.finalize_sync_run.await_args.kwargs
+    assert final["bridge_id"] == 42
+    assert final["bridge_status"] == "failed"
+    assert final["bridge_stats_json"]["stage"] == "failed"
+    assert final["bridge_error"] == "CancelledError"
 
 
 @pytest.fixture(autouse=True)
@@ -115,8 +144,9 @@ async def test_scheduled_sync_resolves_and_passes_checkpoint(monkeypatch):
     ("trigger", "should_report"),
     [("incremental_cron", False), ("nightly_cron", True), ("manual", False)],
 )
-async def test_scheduled_sync_failure_reporting(monkeypatch, trigger, should_report):
-    error = RuntimeError("sync failed")
+@pytest.mark.parametrize("error_type", [RuntimeError, asyncio.CancelledError])
+async def test_scheduled_sync_failure_reporting(monkeypatch, trigger, should_report, error_type):
+    error = error_type("sync failed")
     error.bridge_sync_run_id = 42
     sync_bridge = AsyncMock(side_effect=error)
     send_report = AsyncMock(return_value={"sent": True})
@@ -124,7 +154,7 @@ async def test_scheduled_sync_failure_reporting(monkeypatch, trigger, should_rep
     monkeypatch.setattr(bridge_sync_task, "send_bridge_sync_report_for_run", send_report)
     monkeypatch.delenv("BRIDGE_SYNC_FAILURE_REPORT_ON_TRIGGERS", raising=False)
 
-    with pytest.raises(RuntimeError, match="sync failed"):
+    with pytest.raises(error_type, match="sync failed"):
         await _bridge_sync_all_async(
             trigger=trigger,
             limit=500,

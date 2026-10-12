@@ -147,7 +147,12 @@ Caching and generated asset services:
 Data, sync, and background services:
 
 - `bridge_sync/`: bridge API synchronization, cache refresh, search-index
-  updates, and reporting around changed resources.
+  updates, and reporting around changed resources. The standalone runner can
+  execute inline in a fresh process, isolating its event loop and async pools
+  from unrelated worker tasks while retaining incremental checkpoints and
+  single-run exclusion. It bounds execution to one hour and disconnects the
+  database on exit. Scheduling and recovery details belong in the restricted
+  operations documentation.
 - `ogm_harvest/`: OpenGeoMetadata repository harvesting workflow.
 - `gin_blog_service.py`: syncs public update/blog content. The standalone sync
   runner supports inline execution with its own event loop and database pool;
