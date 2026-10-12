@@ -569,6 +569,7 @@
 }
 
 .analytics-member-selection-brand p,
+.analytics-member-selection-brand h2,
 .analytics-member-selection-brand h3,
 .analytics-member-selection-brand small {
   margin: 0;
@@ -582,6 +583,7 @@
   text-transform: uppercase;
 }
 
+.analytics-member-selection-brand h2,
 .analytics-member-selection-brand h3 {
   margin-top: 0.15rem;
   color: var(--analytics-text);
@@ -3997,12 +3999,11 @@ h3.analytics-widget-heading {
 }
 #members .analytics-member-selection {
   border: 0;
-  border-top: 1px solid var(--analytics-border);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  margin-top: 1.5rem;
-  padding: 1.25rem 0;
+  margin-top: 0;
+  padding: 0 0 1.25rem;
 }
 @media (max-width: 640px) {
   .analytics-member-picker-heading {
@@ -4331,5 +4332,37 @@ h3.analytics-widget-heading {
 @media (max-width: 640px) {
   .analytics-member-scope-stats {
     grid-template-columns: 1fr;
+  }
+}
+
+/* Align Members controls with the report title, as on other reports. */
+.analytics-member-filter-panel {
+  display: contents;
+}
+.analytics-member-filter-panel .analytics-report-controls {
+  justify-self: end;
+  max-width: 49rem;
+}
+.analytics-member-filter-panel .analytics-grouping-controls select {
+  max-width: 19rem;
+}
+.analytics-member-filter-panel .analytics-header-institutions {
+  grid-column: 1 / -1;
+  padding: 1rem;
+  border: 1px solid var(--analytics-border);
+  border-radius: 0.5rem;
+  background: var(--analytics-surface-subtle);
+}
+@media (max-width: 1100px) {
+  .analytics-member-filter-panel .analytics-report-controls {
+    justify-self: start;
+  }
+}
+@media (max-width: 640px) {
+  .analytics-member-filter-panel .analytics-report-controls {
+    width: 100%;
+  }
+  .analytics-member-filter-panel .analytics-grouping-controls select {
+    max-width: 100%;
   }
 }

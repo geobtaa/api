@@ -706,7 +706,7 @@ export function AnalyticsPage() {
               }
             >
               {activeReport === 'members' && (
-                <div className="analytics-filter-heading">
+                <div className="analytics-filter-heading sr-only">
                   <h2>
                     <SlidersHorizontal size={18} aria-hidden />
                     Filter this report
@@ -912,11 +912,6 @@ export function AnalyticsPage() {
 
             {activeReport === 'members' && memberGrouping === 'code' && (
               <section id="members" className="analytics-section">
-                <SectionHeading
-                  title="How BTAA member content performed"
-                  description="Catalog reach, engagement, and leading content for the selected institution and period."
-                />
-
                 {unavailableMember ? (
                   <section
                     className="analytics-panel analytics-member-unavailable"
@@ -960,9 +955,9 @@ export function AnalyticsPage() {
                               ? 'Campus segment'
                               : 'Alliance view'}
                           </p>
-                          <h3>
+                          <h2>
                             {selectedMember?.name ?? 'All BTAA member content'}
-                          </h3>
+                          </h2>
                           <small>
                             {selectedMember
                               ? `Contribution stream ${selectedMember.code} · ${periodRange}`
@@ -1146,6 +1141,10 @@ export function AnalyticsPage() {
                       </figure>
                     </div>
 
+                    {!selectedMember && (
+                      <MemberPerformanceReport members={membersByViews} />
+                    )}
+
                     <div className="analytics-member-leading-content">
                       <MemberContentList
                         title={
@@ -1213,10 +1212,6 @@ export function AnalyticsPage() {
                           </p>
                         </article>
                       </div>
-                    )}
-
-                    {!selectedMember && (
-                      <MemberPerformanceReport members={membersByViews} />
                     )}
 
                     <section
