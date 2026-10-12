@@ -2780,6 +2780,9 @@
   font-size: 0.8rem;
   color: var(--analytics-text-secondary);
 }
+label.analytics-table-tools {
+  align-items: center;
+}
 .analytics-table-tools--inset {
   padding: 1rem 1.5rem;
   border-bottom: 1px solid var(--analytics-border);
