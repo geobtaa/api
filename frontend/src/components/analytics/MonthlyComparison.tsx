@@ -1,3 +1,4 @@
+import { chartTheme } from './chartTheme';
 import {
   publishedMonths,
   monthLabel,
@@ -11,8 +12,8 @@ import { ReportPanelHeader } from './ReportPanelHeader';
 import { useState } from 'react';
 import {
   CartesianGrid,
-  Line,
-  LineChart,
+  Area,
+  AreaChart,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -271,24 +272,66 @@ export function MonthlyComparison() {
           aria-label={`${dailyMetrics[dailyMetric]} for ${monthNames} as overlaid lines for each day of month. Exact values are available in the daily values table below.`}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart
+            <AreaChart
               data={dailyData}
+              accessibilityLayer
               margin={{ top: 12, right: 20, bottom: 8, left: 0 }}
             >
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="day" tickLine={false} />
+              <defs>
+                {months.map((m, index) => (
+                  <linearGradient
+                    key={m.period}
+                    id={`comparison-fill-${m.period}`}
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={
+                        ['#6d28d9', '#0f766e', '#2563eb', '#b45309'][index % 4]
+                      }
+                      stopOpacity={0.16}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={
+                        ['#6d28d9', '#0f766e', '#2563eb', '#b45309'][index % 4]
+                      }
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                ))}
+              </defs>
+              <CartesianGrid {...chartTheme.grid} />
+              <XAxis
+                dataKey="day"
+                axisLine={false}
+                tickLine={false}
+                tick={chartTheme.tick}
+                interval={4}
+                tickFormatter={(value) => `Day ${value}`}
+              />
               <YAxis
-                width={65}
+                width={55}
+                axisLine={false}
+                tickLine={false}
+                tick={chartTheme.tick}
                 tickFormatter={(value) => number.format(value)}
               />
               <Tooltip
                 labelFormatter={(value) => `Day ${value}`}
                 formatter={(value) => number.format(Number(value))}
-                cursor={{ stroke: '#94a3b8', strokeDasharray: '3 3' }}
+                cursor={chartTheme.cursor}
+                contentStyle={chartTheme.tooltip}
+                labelStyle={chartTheme.tooltipLabel}
               />
-              <Legend />
+              <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
               {months.map((m, index) => (
-                <Line
+                <Area
+                  type="linear"
+                  fill={`url(#comparison-fill-${m.period})`}
                   key={m.period}
                   dataKey={m.period}
                   name={m.label}
@@ -303,7 +346,7 @@ export function MonthlyComparison() {
                   isAnimationActive={false}
                 />
               ))}
-            </LineChart>
+            </AreaChart>
           </ResponsiveContainer>
         </div>
         <details>

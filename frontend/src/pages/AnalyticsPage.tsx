@@ -1,3 +1,4 @@
+import { chartTheme } from '../components/analytics/chartTheme';
 import { MetricHeading } from '../components/analytics/MetricHeading';
 import { Users } from 'lucide-react';
 import { ReportPanelHeader } from '../components/analytics/ReportPanelHeader';
@@ -946,36 +947,24 @@ export function AnalyticsPage() {
                               />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid
-                            stroke="#E5E7EB"
-                            strokeDasharray="2 6"
-                            vertical={false}
-                          />
+                          <CartesianGrid {...chartTheme.grid} />
                           <XAxis
                             dataKey="day"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#6B7280', fontSize: 11 }}
+                            tick={chartTheme.tick}
                             interval={isAllTime ? 9 : 4}
                           />
                           <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#6B7280', fontSize: 11 }}
+                            tick={chartTheme.tick}
                             allowDecimals={false}
                           />
                           <Tooltip
-                            cursor={{
-                              stroke: '#2563EB',
-                              strokeDasharray: '3 3',
-                            }}
-                            contentStyle={{
-                              background: '#FFFFFF',
-                              border: '1px solid #D1D5DB',
-                              borderRadius: 8,
-                              color: '#111827',
-                            }}
-                            labelStyle={{ color: '#111827', fontWeight: 600 }}
+                            cursor={chartTheme.cursor}
+                            contentStyle={chartTheme.tooltip}
+                            labelStyle={chartTheme.tooltipLabel}
                           />
                           <Area
                             type="linear"
@@ -1328,35 +1317,23 @@ export function AnalyticsPage() {
                               />
                             </linearGradient>
                           </defs>
-                          <CartesianGrid
-                            stroke="#E5E7EB"
-                            strokeDasharray="2 6"
-                            vertical={false}
-                          />
+                          <CartesianGrid {...chartTheme.grid} />
                           <XAxis
                             dataKey="day"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#6B7280', fontSize: 11 }}
+                            tick={chartTheme.tick}
                             interval={isAllTime ? 9 : 4}
                           />
                           <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: '#6B7280', fontSize: 11 }}
+                            tick={chartTheme.tick}
                           />
                           <Tooltip
-                            cursor={{
-                              stroke: '#2563EB',
-                              strokeDasharray: '3 3',
-                            }}
-                            contentStyle={{
-                              background: '#FFFFFF',
-                              border: '1px solid #D1D5DB',
-                              borderRadius: 8,
-                              color: '#111827',
-                            }}
-                            labelStyle={{ color: '#111827', fontWeight: 600 }}
+                            cursor={chartTheme.cursor}
+                            contentStyle={chartTheme.tooltip}
+                            labelStyle={chartTheme.tooltipLabel}
                           />
                           <Area
                             type="linear"

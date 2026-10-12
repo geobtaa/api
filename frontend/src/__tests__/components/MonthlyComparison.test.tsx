@@ -11,9 +11,9 @@ import { memberPerformance } from '../../data/analytics/july2026';
 import { comparisonChange } from '../../utils/analyticsComparison';
 
 vi.mock('recharts', () => ({
-  Line: () => null,
+  Area: () => null,
   Legend: () => null,
-  LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AreaChart: ({ children }: { children: ReactNode }) => <svg>{children}</svg>,
   CartesianGrid: () => null,
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
