@@ -11,9 +11,9 @@ import { memberPerformance } from '../../data/analytics/july2026';
 import { comparisonChange } from '../../utils/analyticsComparison';
 
 vi.mock('recharts', () => ({
-  Bar: () => null,
+  Line: () => null,
   Legend: () => null,
-  BarChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  LineChart: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   CartesianGrid: () => null,
   ResponsiveContainer: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
@@ -40,6 +40,37 @@ describe('MonthlyComparison', () => {
       screen.queryByRole('link', { name: /Download comparison/ })
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Member comparison')).not.toBeInTheDocument();
+  });
+
+  it('leads with all-month activity and normalizes by calendar days', () => {
+    const { container } = render(<MonthlyComparison />);
+    expect(
+      screen.getByRole('heading', { name: 'July 2026 – September 2026' })
+    ).toBeInTheDocument();
+    expect(container.querySelector('.analytics-panel h3')).toHaveTextContent(
+      'Monthly activity'
+    );
+    const chart = screen.getByRole('figure', {
+      name: 'Tracked interactions monthly totals',
+    });
+    expect(chart).toHaveTextContent('21,753');
+    fireEvent.change(screen.getByRole('combobox', { name: 'Compare' }), {
+      target: { value: 'average' },
+    });
+    expect(
+      screen.getByRole('figure', {
+        name: 'Tracked interactions monthly daily averages',
+      })
+    ).toHaveTextContent('701.7');
+    fireEvent.change(
+      screen.getByRole('combobox', { name: 'Metric', exact: true }),
+      { target: { value: 'requests' } }
+    );
+    expect(
+      screen.getByRole('figure', {
+        name: 'API requests monthly daily averages',
+      })
+    ).toHaveTextContent('19,320.4');
   });
 
   it('switches daily metrics', () => {

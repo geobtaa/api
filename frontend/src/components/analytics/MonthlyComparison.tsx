@@ -1,4 +1,8 @@
-import { publishedMonths, monthLabel } from '../../config/analyticsPeriods';
+import {
+  publishedMonths,
+  monthLabel,
+  comparisonLabel,
+} from '../../config/analyticsPeriods';
 import { monthlySnapshots } from '../../data/analytics/september2026';
 import { ReportSectionHeading } from './ReportSectionHeading';
 import { AnalyticsTable } from './AnalyticsTable';
@@ -7,8 +11,8 @@ import { ReportPanelHeader } from './ReportPanelHeader';
 import { useState } from 'react';
 import {
   CartesianGrid,
-  Bar,
-  BarChart,
+  Line,
+  LineChart,
   Legend,
   ResponsiveContainer,
   Tooltip,
@@ -46,6 +50,9 @@ const dailyMetrics = {
   requests: 'API requests',
 };
 export function MonthlyComparison() {
+  const [monthlyMetric, setMonthlyMetric] =
+    useState<keyof typeof dailyMetrics>('events');
+  const [basis, setBasis] = useState<'total' | 'average'>('total');
   const [dailyMetric, setDailyMetric] =
     useState<keyof typeof dailyMetrics>('events');
   const months = publishedMonths.map((period) => ({
@@ -58,6 +65,17 @@ export function MonthlyComparison() {
         ? { summary: AUGUST_2026_SUMMARY, dailyActivity: augustDailyActivity }
         : monthlySnapshots[period]),
   }));
+  const monthlyValues = months.map((m) => ({
+    ...m,
+    value:
+      m.summary[monthlyMetric] /
+      (basis === 'average' ? m.dailyActivity.length : 1),
+  }));
+  const monthlyMax = Math.max(...monthlyValues.map((m) => m.value), 1);
+  const displayMonthly = (value: number) =>
+    new Intl.NumberFormat('en-US', {
+      maximumFractionDigits: basis === 'average' ? 1 : 0,
+    }).format(value);
   const latest = months.at(-1)!;
   const previous = months.at(-2)!;
   const monthNames = new Intl.ListFormat('en-US').format(
@@ -84,9 +102,82 @@ export function MonthlyComparison() {
     >
       <ReportSectionHeading
         id="comparison-title"
-        title={`${latest.short} compared with ${previous.short}`}
-        description={`${months.length} published months. Changes compare ${latest.label} with ${previous.label}; month lengths may differ.`}
+        title={comparisonLabel}
+        description={`Compare all ${months.length} published months. Use daily averages to account for different month lengths.`}
       />
+      <div className="analytics-panel analytics-comparison-panel analytics-monthly-lead">
+        <ReportPanelHeader title="Monthly activity" icon={BarChart3}>
+          <label>
+            Metric{' '}
+            <select
+              value={monthlyMetric}
+              onChange={(event) =>
+                setMonthlyMetric(
+                  event.target.value as keyof typeof dailyMetrics
+                )
+              }
+            >
+              {Object.entries(dailyMetrics).map(([key, label]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Compare{' '}
+            <select
+              value={basis}
+              onChange={(event) => setBasis(event.target.value as typeof basis)}
+            >
+              <option value="total">Monthly totals</option>
+              <option value="average">Daily averages</option>
+            </select>
+          </label>
+        </ReportPanelHeader>
+        <p className="analytics-comparison-note">
+          {dailyMetrics[monthlyMetric]} ·{' '}
+          {basis === 'average'
+            ? 'Average per calendar day, including days with no activity.'
+            : 'Total recorded activity in each month.'}{' '}
+          Bars start at zero and share one scale.
+        </p>
+        <figure
+          className="analytics-month-bars"
+          aria-label={`${dailyMetrics[monthlyMetric]} monthly ${basis === 'average' ? 'daily averages' : 'totals'}`}
+        >
+          {monthlyValues.map((m, index) => (
+            <div className="analytics-month-bar-row" key={m.period}>
+              <div className="analytics-month-bar-label">
+                <strong>{m.label}</strong>
+                <span>{m.dailyActivity.length} days</span>
+              </div>
+              <div className="analytics-month-bar-track" aria-hidden="true">
+                <div
+                  style={{
+                    width: `${(m.value / monthlyMax) * 100}%`,
+                    background: ['#6d28d9', '#0f766e', '#2563eb', '#b45309'][
+                      index % 4
+                    ],
+                  }}
+                />
+              </div>
+              <div className="analytics-month-bar-value">
+                <strong>{displayMonthly(m.value)}</strong>
+                <span>
+                  {index
+                    ? `${comparisonChange(monthlyValues[index - 1].value, m.value)} vs ${monthlyValues[index - 1].short}`
+                    : 'First published month'}
+                </span>
+              </div>
+            </div>
+          ))}
+          <figcaption>
+            Changes compare each month with the preceding published month.
+            Increases and decreases describe activity, not performance quality.
+          </figcaption>
+        </figure>
+      </div>
       <div className="analytics-panel analytics-comparison-panel">
         <ReportPanelHeader
           title="Portal totals"
@@ -110,8 +201,12 @@ export function MonthlyComparison() {
                     {m.label}
                   </th>
                 ))}
-                <th scope="col">Change</th>
-                <th scope="col">Change %</th>
+                <th scope="col">
+                  Change: {latest.short} vs {previous.short}
+                </th>
+                <th scope="col">
+                  Change %: {latest.short} vs {previous.short}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -166,16 +261,20 @@ export function MonthlyComparison() {
           </label>
         </ReportPanelHeader>
         <p className="analytics-comparison-note">
-          Compare {monthNames} side by side for each day of the month. Bar
-          heights use the same scale; dates are not aligned by weekday.
+          Follow {monthNames} as separate lines to compare peaks and quieter
+          days. Dates align by day of month, not weekday. Missing dates remain
+          gaps.
         </p>
         <div
           className="analytics-comparison-chart"
           role="img"
-          aria-label={`${dailyMetrics[dailyMetric]} for ${monthNames} as grouped bars for each day of month. Exact values are available in the daily values table below.`}
+          aria-label={`${dailyMetrics[dailyMetric]} for ${monthNames} as overlaid lines for each day of month. Exact values are available in the daily values table below.`}
         >
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={dailyData} barGap={2} barCategoryGap="20%">
+            <LineChart
+              data={dailyData}
+              margin={{ top: 12, right: 20, bottom: 8, left: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="day" tickLine={false} />
               <YAxis
@@ -185,19 +284,26 @@ export function MonthlyComparison() {
               <Tooltip
                 labelFormatter={(value) => `Day ${value}`}
                 formatter={(value) => number.format(Number(value))}
-                cursor={{ fill: '#f1f5f9' }}
+                cursor={{ stroke: '#94a3b8', strokeDasharray: '3 3' }}
               />
               <Legend />
               {months.map((m, index) => (
-                <Bar
+                <Line
                   key={m.period}
                   dataKey={m.period}
                   name={m.label}
-                  fill={['#6d28d9', '#0f766e', '#2563eb', '#b45309'][index % 4]}
+                  stroke={
+                    ['#6d28d9', '#0f766e', '#2563eb', '#b45309'][index % 4]
+                  }
+                  strokeWidth={2.5}
+                  strokeDasharray={['6 3', '2 3', '0'][index % 3]}
+                  dot={false}
+                  activeDot={{ r: 5 }}
+                  connectNulls={false}
                   isAnimationActive={false}
                 />
               ))}
-            </BarChart>
+            </LineChart>
           </ResponsiveContainer>
         </div>
         <details>
@@ -220,8 +326,12 @@ export function MonthlyComparison() {
                       {m.label}
                     </th>
                   ))}
-                  <th scope="col">Change</th>
-                  <th scope="col">Change %</th>
+                  <th scope="col">
+                    Change: {latest.short} vs {previous.short}
+                  </th>
+                  <th scope="col">
+                    Change %: {latest.short} vs {previous.short}
+                  </th>
                 </tr>
               </thead>
               <tbody>

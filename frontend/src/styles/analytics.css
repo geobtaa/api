@@ -2713,7 +2713,7 @@
   margin-top: 2rem;
   padding: 1.25rem;
 }
-.analytics-report-sources h2 {
+.analytics-report-sources > h2 {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
@@ -3432,4 +3432,70 @@ h3.analytics-widget-heading {
 }
 .analytics-widget-heading svg {
   flex-shrink: 0;
+}
+
+.analytics-monthly-lead .analytics-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+.analytics-monthly-lead .analytics-panel-actions label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.analytics-month-bars {
+  margin: 1.5rem 0 0;
+}
+.analytics-month-bar-row {
+  display: grid;
+  grid-template-columns: 10rem minmax(0, 1fr) 12rem;
+  gap: 1.5rem;
+  align-items: center;
+  padding: 1.25rem 0;
+  border-bottom: 1px solid var(--analytics-border);
+}
+.analytics-month-bar-label strong,
+.analytics-month-bar-value strong {
+  display: block;
+  color: var(--analytics-brand);
+}
+.analytics-month-bar-value {
+  text-align: right;
+}
+.analytics-month-bar-value strong {
+  font-size: 1.6rem;
+  font-variant-numeric: tabular-nums;
+}
+.analytics-month-bar-row span,
+.analytics-month-bars figcaption {
+  font-size: 0.8rem;
+  color: var(--analytics-text-secondary);
+}
+.analytics-month-bars figcaption {
+  margin-top: 1rem;
+}
+.analytics-month-bar-track {
+  height: 2.75rem;
+  background: var(--analytics-surface-subtle);
+  border-radius: 0.375rem;
+  overflow: hidden;
+}
+.analytics-month-bar-track > div {
+  height: 100%;
+  border-radius: inherit;
+}
+@media (max-width: 640px) {
+  .analytics-month-bar-row {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+  .analytics-month-bar-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+  .analytics-month-bar-value {
+    grid-column: 2;
+    grid-row: 1;
+  }
 }

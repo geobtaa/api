@@ -653,3 +653,8 @@ source directory and creates new aggregate-only revisions. Rebuild the frontend
 to remove stale build copies. Removing served files does not erase earlier Git
 history, previously downloaded copies, or deployment/CDN caches. Any publication
 cleanup belongs in the restricted operations documentation.
+
+The Month comparison report leads with monthly activity bars, switchable between
+monthly totals and calendar-day averages. Daily trends use overlaid lines with
+distinct colors and dash patterns; absent dates remain gaps. The heading covers
+all published months, while table change columns explicitly name the latest two.
