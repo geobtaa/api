@@ -14,6 +14,7 @@ import app.services.bridge_sync.batched as bridge_batched
 import app.services.bridge_sync.cache_refresh as bridge_cache_refresh
 import app.services.bridge_sync.harvest as bridge_harvest
 import app.services.bridge_sync.importer as bridge_importer
+import app.services.bridge_sync.incremental as bridge_incremental
 from app.services.bridge_sync.client import BridgePage
 from app.services.bridge_sync.repository import BridgeSyncRepository
 from db.database import database
@@ -83,6 +84,79 @@ class TestBridgeSyncService:
     def setup_method(self):
         os.environ["BRIDGE_SEARCH_INDEX_REFRESH_ENABLED"] = "false"
         os.environ["BRIDGE_CACHE_REFRESH_ENABLED"] = "false"
+
+    @pytest.mark.asyncio(scope="session")
+    async def test_page_checkpoint_survives_failed_refresh_without_advancing_watermark(
+        self, monkeypatch
+    ):
+        repo = BridgeSyncRepository()
+        importer = BridgeResourceImporter(repo=repo)
+        ids = ["bridge-checkpoint-first", "bridge-checkpoint-second"]
+        client = FakeBridgeClient(
+            {
+                "__first__": BridgePage(
+                    data=[
+                        {
+                            "id": ids[0],
+                            "dct_title_s": "First page",
+                            "kithe_updated_at": "2026-10-12T12:00:00Z",
+                        }
+                    ],
+                    next_cursor="second-page",
+                    has_more=True,
+                ),
+                "second-page": BridgePage(
+                    data=[
+                        {
+                            "id": ids[1],
+                            "dct_title_s": "Second page",
+                            "kithe_updated_at": "2026-10-11T12:00:00Z",
+                        }
+                    ],
+                    next_cursor=None,
+                    has_more=False,
+                ),
+            }
+        )
+        refresh = AsyncMock(return_value={"errors": 0})
+        monkeypatch.setattr(bridge_incremental, "refresh_cache_for_changed_resources", refresh)
+        kwargs = dict(
+            trigger="incremental_cron",
+            changed_since="2026-10-01T00:00:00Z",
+            source_high_watermark="2026-10-01T00:05:00Z",
+            repo=repo,
+            importer=importer,
+            client=client,
+        )
+        try:
+            await database.execute(delete(bridge_sync_runs))
+            first = await bridge_incremental.sync_incremental_bridge(**kwargs, budget_seconds=0)
+            assert first["paused"] is True
+            assert await repo.latest_successful_crawl_source_watermark() is None
+            refresh.return_value = {"errors": 1}
+            with pytest.raises(BridgeSyncIncompleteError, match="cache refresh"):
+                await bridge_incremental.sync_incremental_bridge(**kwargs)
+            assert await repo.latest_successful_crawl_source_watermark() is None
+            refresh.return_value = {"errors": 0}
+            result = await bridge_incremental.sync_incremental_bridge(**kwargs)
+            assert result["stats"]["imported"] == 2
+            assert [call["cursor"] for call in client.calls] == [None, "second-page", "second-page"]
+            assert await repo.latest_successful_crawl_source_watermark() == datetime(
+                2026, 10, 12, 12, tzinfo=timezone.utc
+            )
+            assert await repo.latest_page_checkpoint(changed_since=kwargs["changed_since"]) is None
+            assert (
+                len(await database.fetch_all(select(resources.c.id).where(resources.c.id.in_(ids))))
+                == 2
+            )
+        finally:
+            await database.execute(delete(bridge_sync_runs))
+            await database.execute(
+                delete(bridge_resource_state).where(
+                    bridge_resource_state.c.bridge_resource_id.in_(ids)
+                )
+            )
+            await database.execute(delete(resources).where(resources.c.id.in_(ids)))
 
     @pytest.mark.asyncio(scope="session")
     async def test_empty_delta_retains_source_high_watermark(self):

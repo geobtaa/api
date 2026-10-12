@@ -361,7 +361,7 @@ async def sync_bridge(
             stats.get("deleted"),
         )
         return {"bridge_id": run_id, "stats": stats, "bridge_last_cursor": last_cursor}
-    except Exception as exc:
+    except (Exception, asyncio.CancelledError) as exc:
         logger.error("Bridge sync failed: %s", exc, exc_info=True)
         failed_stats = {
             **stats,
@@ -374,7 +374,7 @@ async def sync_bridge(
                 bridge_id=run_id,
                 bridge_stats_json=failed_stats,
                 bridge_last_cursor=last_cursor,
-                bridge_error=str(exc),
+                bridge_error=str(exc) or exc.__class__.__name__,
             )
         except Exception:
             pass
@@ -383,7 +383,7 @@ async def sync_bridge(
             bridge_status="failed",
             bridge_stats_json=failed_stats,
             bridge_last_cursor=last_cursor,
-            bridge_error=str(exc),
+            bridge_error=str(exc) or exc.__class__.__name__,
         )
         try:
             exc.bridge_sync_run_id = run_id

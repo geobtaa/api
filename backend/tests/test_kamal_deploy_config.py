@@ -98,6 +98,8 @@ def test_prd_memory_profile_protects_service_headroom():
 
     assert prd_config["servers"]["web"]["options"]["memory"] == "6144m"
     assert prd_config["servers"]["worker"]["options"]["memory"] == "4096m"
+    assert prd_config["servers"]["cron"]["options"]["memory"] == "2048m"
+    assert prd_config["servers"]["cron"]["options"]["cpus"] == 1.75
 
     elasticsearch = prd_config["accessories"]["elasticsearch"]
     assert elasticsearch["options"]["memory"] == "8g"

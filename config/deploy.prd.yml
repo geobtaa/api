@@ -36,6 +36,8 @@ servers:
       - lib-geoportal-prd-web-01.oit.umn.edu
     cmd: bash -lc '/app/scripts/start_cron.sh'
     options:
+      cpus: 1.75
+      memory: 2048m
       user: root
 
 proxy:

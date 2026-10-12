@@ -280,6 +280,29 @@ class BridgeSyncRepository:
                 latest = parsed
         return latest
 
+    async def latest_page_checkpoint(
+        self, *, changed_since: Optional[str] = None, before_run_id: Optional[int] = None
+    ) -> Optional[Dict[str, Any]]:
+        """Read the newest compatible crawl, never an older superseded cursor."""
+        query = (
+            select(bridge_sync_runs)
+            .where(
+                bridge_sync_runs.c.bridge_stats_json["page_checkpoint_version"].as_integer() == 1
+            )
+            .order_by(bridge_sync_runs.c.bridge_id.desc())
+            .limit(1)
+        )
+        if before_run_id is not None:
+            query = query.where(bridge_sync_runs.c.bridge_id < before_run_id)
+        if changed_since is not None:
+            query = query.where(
+                bridge_sync_runs.c.bridge_stats_json["changed_since"].as_string() == changed_since
+            )
+        row = await database.fetch_one(query)
+        if row is None or row["bridge_status"] == "success":
+            return None
+        return dict(row)
+
     async def list_resource_ids_for_batched_sync(
         self,
         *,

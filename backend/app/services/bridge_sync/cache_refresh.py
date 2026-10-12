@@ -216,9 +216,14 @@ async def _prime_thumbnail_caches(
             )
 
     tasks = [asyncio.create_task(run_one(resource_dict)) for resource_dict in resource_dicts]
-    for task in asyncio.as_completed(tasks):
-        status, _resource_id, _detail = await task
-        counters[status] += 1
+    try:
+        for task in asyncio.as_completed(tasks):
+            status, _resource_id, _detail = await task
+            counters[status] += 1
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     return {"attempted": len(resource_dicts), **dict(counters)}
 
@@ -246,9 +251,14 @@ async def _prime_static_map_caches(
             )
 
     tasks = [asyncio.create_task(run_one(resource_dict)) for resource_dict in resource_dicts]
-    for task in asyncio.as_completed(tasks):
-        status, _resource_id, _detail = await task
-        counters[status] += 1
+    try:
+        for task in asyncio.as_completed(tasks):
+            status, _resource_id, _detail = await task
+            counters[status] += 1
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     return {"attempted": len(resource_dicts), **dict(counters)}
 
@@ -317,9 +327,14 @@ async def _prime_resource_class_icon_caches(
             return await _prime_resource_class_icon_cache(resource_dict, force=force)
 
     tasks = [asyncio.create_task(run_one(resource_dict)) for resource_dict in resource_dicts]
-    for task in asyncio.as_completed(tasks):
-        status, _resource_id = await task
-        counters[status] += 1
+    try:
+        for task in asyncio.as_completed(tasks):
+            status, _resource_id = await task
+            counters[status] += 1
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
     return {"attempted": len(resource_dicts), **dict(counters)}
 
