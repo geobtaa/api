@@ -132,8 +132,9 @@ export function ReportSources({
         </table>
       </div>
       {archive && (
-        <p>
+        <p className="analytics-source-download">
           <a
+            className="analytics-snapshot-download"
             href={`/analytics-reports/${archive.id}/${archive.revision}/tables.zip`}
             download
           >

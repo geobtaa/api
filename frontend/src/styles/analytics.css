@@ -2710,9 +2710,12 @@
   padding: 1.25rem;
 }
 .analytics-report-sources h2 {
-  margin: 0 0 0.75rem;
+  margin: 0;
   font-size: 1rem;
   font-weight: 600;
+}
+.analytics-report-sources > h2 {
+  margin-bottom: 0.75rem;
 }
 .analytics-report-sources p,
 .analytics-report-sources dd {
@@ -3392,4 +3395,8 @@
   .analytics-sources-table th { width: 7rem; }
   .analytics-sources-table th,
   .analytics-sources-table td { padding: 0.75rem; }
+}
+
+.analytics-report-sources .analytics-source-download {
+  margin: 1.25rem 0 0;
 }
