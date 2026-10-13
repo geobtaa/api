@@ -106,23 +106,23 @@ export function CampusBrief({
       </nav>
       <main id="analytics-main" className="analytics-brief-sheet" tabIndex={-1}>
         <header className="analytics-brief-header">
-          <p className="analytics-eyebrow">
-            Big Ten Academic Alliance · Geoportal
-          </p>
-          <p className="analytics-brief-kicker">Resource activity brief</p>
-          <h1>
-            {iconSrc && (
-              <img
-                className="analytics-brief-institution-icon"
-                src={iconSrc}
-                alt=""
-              />
-            )}
-            <span>{name}</span>
-          </h1>
-          <p className="analytics-brief-period">
-            {periodLabel} <span>UTC</span>
-          </p>
+          <div>
+            <p className="analytics-eyebrow">
+              Big Ten Academic Alliance · Geoportal
+            </p>
+            <p className="analytics-brief-kicker">Resource activity brief</p>
+            <h1>{name}</h1>
+            <p className="analytics-brief-period">
+              {periodLabel} <span>UTC</span>
+            </p>
+          </div>
+          {iconSrc && (
+            <img
+              className="analytics-brief-institution-icon"
+              src={iconSrc}
+              alt=""
+            />
+          )}
         </header>
         <dl className="analytics-brief-metrics">
           {metrics.map(([key, label]) => (
