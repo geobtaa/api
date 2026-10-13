@@ -4499,7 +4499,10 @@ h3.analytics-widget-heading {
   border: 1px solid #d7e3e7;
   border-radius: 0.8rem;
   padding: 1.25rem 1.5rem;
-  margin-bottom: 1.5rem;
+  margin: 1.5rem 0;
+}
+.analytics-brief-invitation + .analytics-section {
+  padding-top: 0;
 }
 .analytics-brief-invitation h2 {
   color: #12394b;
