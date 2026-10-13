@@ -4561,11 +4561,13 @@ h3.analytics-widget-heading {
   margin: 0;
 }
 .analytics-brief-sheet {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
   max-width: 900px;
   margin: auto;
   padding: 2.5rem 3rem;
   background: #fff;
-  border-top: 6px solid #12394b;
+  border-top: 6px solid var(--analytics-brand);
   box-shadow: 0 6px 25px #16384b12;
 }
 .analytics-brief-header {
@@ -4573,8 +4575,15 @@ h3.analytics-widget-heading {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1.25rem;
-  padding-bottom: 1.3rem;
-  border-bottom: 1px solid #ccdce3;
+  padding: 1rem;
+  background: var(--analytics-brand);
+  color: #fff;
+  border-bottom: 1px solid var(--analytics-brand);
+}
+.analytics-brief-header .analytics-eyebrow,
+.analytics-brief-header .analytics-brief-kicker,
+.analytics-brief-header .analytics-brief-period span {
+  color: #dbeaf3;
 }
 .analytics-brief-kicker {
   margin: 1.6rem 0 0.35rem;
@@ -4593,6 +4602,9 @@ h3.analytics-widget-heading {
   height: clamp(3rem, 8vw, 4.5rem);
   flex: 0 0 auto;
   object-fit: contain;
+  background: #fff;
+  padding: 0.35rem;
+  border-radius: 0.25rem;
 }
 .analytics-brief-period {
   font-size: 1rem;
@@ -4623,7 +4635,8 @@ h3.analytics-widget-heading {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   border-top: 1px solid #dce5e9;
   border-bottom: 1px solid #dce5e9;
-  padding: 1.1rem 0;
+  padding: 1.1rem 0.7rem;
+  background: #eef5f9;
   gap: 0.8rem;
 }
 .analytics-brief-metrics dt {
@@ -4631,6 +4644,7 @@ h3.analytics-widget-heading {
   color: #496271;
 }
 .analytics-brief-metrics dd {
+  color: var(--analytics-brand);
   margin: 0.2rem 0;
   font-size: 1.8rem;
   font-weight: 750;
@@ -4645,6 +4659,7 @@ h3.analytics-widget-heading {
   font-size: 0.68rem;
 }
 .analytics-brief-sheet h2 {
+  color: var(--analytics-brand);
   font-size: 0.93rem;
   font-weight: 750;
   margin: 0 0 0.6rem;
@@ -4681,7 +4696,7 @@ h3.analytics-widget-heading {
 .analytics-brief-activity svg {
   width: 100%;
   height: 70px;
-  color: #17657b;
+  color: var(--analytics-brand);
 }
 .analytics-brief-chart-range {
   display: flex;
@@ -4756,7 +4771,7 @@ h3.analytics-widget-heading {
   flex-direction: column;
   justify-content: space-between;
   gap: 0.4rem;
-  border-top: 1px solid #dce5e9;
+  border-top: 2px solid var(--analytics-brand);
   padding-top: 0.5rem;
 }
 .analytics-brief-collections a {
@@ -4834,7 +4849,7 @@ h3.analytics-widget-heading {
     border-top-width: 2mm;
   }
   .analytics-brief-header {
-    padding-bottom: 3mm;
+    padding: 3mm;
   }
   .analytics-brief-header h1 {
     font-size: 23pt;
@@ -4848,7 +4863,7 @@ h3.analytics-widget-heading {
   }
   .analytics-brief-metrics {
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    padding: 3mm 0;
+    padding: 3mm 2mm;
   }
   .analytics-brief-metrics dd {
     font-size: 20pt;
