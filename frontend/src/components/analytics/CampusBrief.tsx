@@ -119,7 +119,7 @@ export function CampusBrief({
                 Geoportal
               </span>
             </div>
-            <p className="analytics-brief-kicker">Resource activity brief</p>
+            <p className="analytics-brief-kicker">RESOURCE ACTIVITY BRIEF</p>
             <h1>{name}</h1>
             <p className="analytics-brief-period">
               {periodLabel} <span>UTC</span>
