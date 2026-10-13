@@ -1250,10 +1250,11 @@
   font-weight: 600;
 }
 
-.analytics-signal-stack {
+.analytics-chart-notes {
   display: grid;
-  grid-template-rows: repeat(3, 1fr);
-  gap: 1rem;
+  align-content: start;
+  gap: 1.75rem;
+  padding: 1rem 0.75rem;
 }
 
 .analytics-insights-grid {
@@ -1885,8 +1886,8 @@
     grid-template-columns: 1fr;
   }
 
-  .analytics-signal-stack {
-    grid-template-columns: repeat(3, 1fr);
+  .analytics-chart-notes {
+    grid-template-columns: repeat(2, 1fr);
     grid-template-rows: none;
   }
 
@@ -2051,7 +2052,7 @@
     border-right: 0;
   }
 
-  .analytics-signal-stack {
+  .analytics-chart-notes {
     grid-template-columns: 1fr;
   }
 
@@ -4942,4 +4943,22 @@ h3.analytics-widget-heading {
   grid-template-rows: subgrid;
   grid-row: span 3;
   row-gap: 0;
+}
+
+.analytics-chart-notes h3 {
+  margin: 0 0 0.5rem;
+  color: var(--analytics-brand);
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.analytics-chart-notes p {
+  margin: 0;
+  color: var(--analytics-text-secondary);
+  font-size: 0.8125rem;
+  line-height: 1.7;
+}
+.analytics-chart-notes strong {
+  color: var(--analytics-text);
+  font-weight: 600;
 }

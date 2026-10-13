@@ -54,7 +54,6 @@ import {
   Layers3,
   Map,
   Search,
-  Zap,
 } from 'lucide-react';
 import { Link, useSearchParams, useLocation } from 'react-router';
 import {
@@ -1505,27 +1504,29 @@ export function AnalyticsPage() {
                     </figcaption>
                   </figure>
 
-                  <aside className="analytics-signal-stack">
-                    <div className="analytics-metric-card">
-                      <div>
-                        <Zap className="h-5 w-5" aria-hidden />
-                        <span>Peak API traffic</span>
-                      </div>
-                      <strong>
-                        {wholeNumber.format(peakTraffic.requests)}
-                      </strong>
+                  <aside
+                    className="analytics-chart-notes"
+                    aria-label="Activity context"
+                  >
+                    <div>
+                      <h3>Peak API traffic</h3>
                       <p>
-                        raw HTTP requests on {peakTraffic.day}, including bots
-                        and automated health probes
+                        <strong>
+                          {wholeNumber.format(peakTraffic.requests)} requests
+                        </strong>{' '}
+                        on {peakTraffic.day}, including bots and automated
+                        health probes.
                       </p>
                     </div>
-                    <div className="analytics-metric-card">
-                      <div>
-                        <Eye className="h-5 w-5" aria-hidden />
-                        <span>Appearances in search results</span>
-                      </div>
-                      <strong>{formatCompact(summary.impressions)}</strong>
-                      <p>resource appearances in search results</p>
+                    <div>
+                      <h3>Appearances in search results</h3>
+                      <p>
+                        Resources appeared{' '}
+                        <strong>
+                          {formatCompact(summary.impressions)} times
+                        </strong>{' '}
+                        in search results during this reporting period.
+                      </p>
                     </div>
                   </aside>
                 </div>
