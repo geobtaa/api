@@ -4601,7 +4601,8 @@ h3.analytics-widget-heading {
   flex: 0 0 auto;
   background: currentColor;
   /* Crop the source logo’s transparent margins to align its visible ink. */
-  -webkit-mask: url('/btaa-logo.png') 50.538% 66.981% / 116.667% 138.267% no-repeat;
+  -webkit-mask: url('/btaa-logo.png') 50.538% 66.981% / 116.667% 138.267%
+    no-repeat;
   mask: url('/btaa-logo.png') 50.538% 66.981% / 116.667% 138.267% no-repeat;
 }
 .analytics-brief-lockup-name {
@@ -4987,4 +4988,96 @@ h3.analytics-widget-heading {
 .analytics-finding-contributor a {
   padding: 0.35rem 0;
   font-size: 0.8rem;
+}
+
+/* Keep report guidance readable without competing with the findings. */
+.analytics-provenance .analytics-provenance-status {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--analytics-brand);
+  background: #f2f6f7;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.875rem;
+  max-width: 80ch;
+}
+.analytics-provenance-status > strong {
+  display: block;
+  margin-bottom: 0.35rem;
+  color: var(--analytics-brand);
+  font-size: 1rem;
+}
+.analytics-provenance summary {
+  cursor: pointer;
+  color: var(--analytics-brand);
+  font-size: 0.875rem;
+  font-weight: 650;
+  padding: 0.75rem 0;
+}
+.analytics-provenance summary:focus-visible {
+  outline: 2px solid var(--analytics-brand);
+  outline-offset: 4px;
+}
+.analytics-provenance-body {
+  max-width: 76ch;
+  padding: 0.75rem 0 0.25rem;
+}
+.analytics-provenance .analytics-provenance-body p {
+  font-size: 0.875rem;
+  line-height: 1.7;
+  margin: 0 0 1.5rem;
+}
+.analytics-provenance-period > strong,
+.analytics-provenance-explanation > strong {
+  display: block;
+  color: var(--analytics-text);
+  margin-bottom: 0.4rem;
+  font-weight: 650;
+}
+.analytics-provenance-subheading {
+  margin: 1.75rem 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--analytics-brand);
+}
+.analytics-provenance-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem 2rem;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1.75rem;
+}
+.analytics-provenance-guide li {
+  border-top: 1px solid var(--analytics-border);
+  padding-top: 0.75rem;
+  color: var(--analytics-text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+.analytics-provenance-guide strong {
+  display: block;
+  color: var(--analytics-brand);
+  font-weight: 650;
+  margin-bottom: 0.35rem;
+}
+.analytics-provenance-technical {
+  border-top: 1px solid var(--analytics-border);
+  border-bottom: 1px solid var(--analytics-border);
+  padding: 0.25rem 0;
+}
+.analytics-provenance-technical code {
+  display: block;
+  padding: 0.65rem 0.75rem;
+  margin-top: 0.4rem;
+  background: var(--analytics-surface-subtle);
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+.analytics-provenance .analytics-source-download {
+  margin: 1.25rem 0 0;
+}
+@media (max-width: 640px) {
+  .analytics-provenance-guide {
+    grid-template-columns: 1fr;
+  }
 }
