@@ -146,7 +146,7 @@ export function AudienceReport({
       )}
       <div className="analytics-outcomes-body">
         <div className="analytics-audience-cards">
-          <div>
+          <div className="analytics-metric-card">
             <MetricHeading icon={Users}>
               Tracked visits{visitsAreEstimated(period) ? ' (estimated)' : ''}
             </MetricHeading>

@@ -91,26 +91,26 @@ export function ProviderReport({
         </p>
       )}
       <div className="analytics-member-kpi-grid">
-        <article>
+        <article className="analytics-metric-card">
           <MetricHeading icon={Layers3}>Published resources</MetricHeading>
           <strong>{display(counts.catalogRecords)}</strong>
           <p>
             Published catalog inventory as of {snapshot.catalogSnapshotDate}
           </p>
         </article>
-        <article>
+        <article className="analytics-metric-card">
           <MetricHeading icon={Activity}>Resources with activity</MetricHeading>
           <strong>{display(counts.activeResources)}</strong>
           <p>
             Resources appearing in search results or receiving views or clicks
           </p>
         </article>
-        <article>
+        <article className="analytics-metric-card">
           <MetricHeading icon={Eye}>Resource views</MetricHeading>
           <strong>{display(counts.resourceViews)}</strong>
           <p>{display(counts.impressions)} appearances in search results</p>
         </article>
-        <article>
+        <article className="analytics-metric-card">
           <MetricHeading icon={Download}>Download clicks</MetricHeading>
           <strong>{display(counts.downloadClicks)}</strong>
           <p>{display(counts.sourceClicks)} source-site clicks</p>

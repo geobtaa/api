@@ -74,7 +74,7 @@ export function ClientUsageReport({ month }: { month: string }) {
         </p>
       </aside>
       <div className="analytics-client-highlights">
-        <article className="analytics-panel analytics-comparison-panel">
+        <article className="analytics-metric-card">
           <h2>
             <Activity aria-hidden="true" />
             Recorded API requests
@@ -82,7 +82,7 @@ export function ClientUsageReport({ month }: { month: string }) {
           <strong>{number.format(requests)}</strong>
           <p>Recorded requests only; historical gaps apply</p>
         </article>
-        <article className="analytics-panel analytics-comparison-panel">
+        <article className="analytics-metric-card">
           <h2>
             <Users aria-hidden="true" />
             Requests identifying an application
@@ -93,7 +93,7 @@ export function ClientUsageReport({ month }: { month: string }) {
             requests
           </p>
         </article>
-        <article className="analytics-panel analytics-comparison-panel">
+        <article className="analytics-metric-card">
           <h2>
             <KeyRound aria-hidden="true" />
             Known Geoportal API key

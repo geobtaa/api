@@ -33,6 +33,15 @@ See the [September update](#september-2026-update) for their source coverage and
 local regeneration workflow. The sections below describe the original July and
 August snapshot definitions and presentations, which remain available.
 
+## Summary widget styling
+
+Use `analytics-metric-card` for summary widgets on every dashboard report.
+It supplies the white surface, BTAA blue left border, padding, heading, value,
+and explanation styles. Keep page-specific classes for grid layout only; do
+not add alternate card colors or typography. Use `MetricHeading` when a metric
+has an icon, followed by a direct `strong` value and `p` or `small` explanation.
+The print-oriented campus brief retains its separate compact layout.
+
 ## Snapshot definitions
 
 - July: `frontend/src/data/analytics/july2026.ts` and `memberJuly2026.ts`, exported

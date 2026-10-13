@@ -76,7 +76,7 @@ export function ZeroResultReport({
       <ReportPanelHeader title="Searches without results" icon={Search} />
       <div className="analytics-zero-results-body">
         <div className="analytics-zero-summary">
-          <article className="analytics-zero-summary-primary">
+          <article className="analytics-metric-card">
             <span>Searches without results</span>
             <strong>{number.format(zeroResults)}</strong>
             <p>
@@ -84,12 +84,12 @@ export function ZeroResultReport({
               {number.format(searches)} searches in {period}
             </p>
           </article>
-          <article>
+          <article className="analytics-metric-card">
             <span>With query text</span>
             <strong>{number.format(withQuery)}</strong>
             <p>Searches with words or phrases to investigate.</p>
           </article>
-          <article>
+          <article className="analytics-metric-card">
             <span>Filters only</span>
             <strong>{number.format(zeroResults - withQuery)}</strong>
             <p>Searches without query text; inspect the recorded filters.</p>

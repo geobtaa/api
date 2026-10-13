@@ -684,7 +684,7 @@ export function AnalyticsPage() {
                   className="analytics-hero-stats"
                   aria-label={`${isAllTime ? reportMonth : monthLabel(activeMonth)} highlights`}
                 >
-                  <div>
+                  <div className="analytics-metric-card">
                     <MetricHeading icon={Users}>
                       Tracked visits
                       {visitsAreEstimated(selectedPeriod) ? ' (estimated)' : ''}
@@ -699,7 +699,7 @@ export function AnalyticsPage() {
                       Visits tracked within browser tabs, not individual people
                     </small>
                   </div>
-                  <div>
+                  <div className="analytics-metric-card">
                     <MetricHeading icon={Search}>
                       Search result pages
                     </MetricHeading>
@@ -709,7 +709,7 @@ export function AnalyticsPage() {
                       results pages
                     </small>
                   </div>
-                  <div>
+                  <div className="analytics-metric-card">
                     <MetricHeading icon={Eye}>Resource views</MetricHeading>
                     <strong>{formatCompact(summary.resourceViews)}</strong>
                     <small>
@@ -717,7 +717,7 @@ export function AnalyticsPage() {
                       results
                     </small>
                   </div>
-                  <div>
+                  <div className="analytics-metric-card">
                     <MetricHeading icon={ExternalLink}>
                       Source-site clicks
                     </MetricHeading>
@@ -728,7 +728,7 @@ export function AnalyticsPage() {
                     </strong>
                     <small>Clicks to the website hosting a resource</small>
                   </div>
-                  <div>
+                  <div className="analytics-metric-card">
                     <MetricHeading icon={Download}>
                       Download clicks
                     </MetricHeading>
@@ -1024,7 +1024,7 @@ export function AnalyticsPage() {
                 ) : (
                   <>
                     <div className="analytics-member-kpi-grid">
-                      <article>
+                      <article className="analytics-metric-card">
                         <MetricHeading icon={Layers3}>
                           Published resources
                         </MetricHeading>
@@ -1033,7 +1033,7 @@ export function AnalyticsPage() {
                         </strong>
                         <p>published resources as of {inventoryDate}</p>
                       </article>
-                      <article>
+                      <article className="analytics-metric-card">
                         <MetricHeading icon={Activity}>
                           Resources with activity
                         </MetricHeading>
@@ -1045,7 +1045,7 @@ export function AnalyticsPage() {
                           appeared in search results or received a view or click
                         </p>
                       </article>
-                      <article>
+                      <article className="analytics-metric-card">
                         <MetricHeading icon={Eye}>Resource views</MetricHeading>
                         <strong>
                           {wholeNumber.format(selectedResourceViews)}
@@ -1056,7 +1056,7 @@ export function AnalyticsPage() {
                             : `${memberViewShare.toFixed(1)}% of portal views · ${memberImpressionShare.toFixed(1)}% of appearances in search results`}
                         </p>
                       </article>
-                      <article>
+                      <article className="analytics-metric-card">
                         <MetricHeading icon={Download}>
                           Download clicks
                         </MetricHeading>
@@ -1506,7 +1506,7 @@ export function AnalyticsPage() {
                   </figure>
 
                   <aside className="analytics-signal-stack">
-                    <div className="analytics-signal-card analytics-signal-card--bright">
+                    <div className="analytics-metric-card">
                       <div>
                         <Zap className="h-5 w-5" aria-hidden />
                         <span>Peak API traffic</span>
@@ -1519,7 +1519,7 @@ export function AnalyticsPage() {
                         and automated health probes
                       </p>
                     </div>
-                    <div className="analytics-signal-card">
+                    <div className="analytics-metric-card">
                       <div>
                         <Eye className="h-5 w-5" aria-hidden />
                         <span>Appearances in search results</span>
@@ -1527,7 +1527,7 @@ export function AnalyticsPage() {
                       <strong>{formatCompact(summary.impressions)}</strong>
                       <p>resource appearances in search results</p>
                     </div>
-                    <div className="analytics-signal-card">
+                    <div className="analytics-metric-card">
                       <div>
                         <CheckCircle2 className="h-5 w-5" aria-hidden />
                         <span>
