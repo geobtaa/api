@@ -1,5 +1,5 @@
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional
 
 from sqlalchemy import create_engine
@@ -28,10 +28,10 @@ def _truncate(value: Any, max_length: int) -> Optional[str]:
 
 def _coerce_timestamp(value: Any) -> datetime:
     if isinstance(value, datetime):
-        return value
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
     if isinstance(value, str) and value:
         try:
-            return datetime.fromisoformat(value)
+            return _coerce_timestamp(datetime.fromisoformat(value))
         except ValueError:
             logger.warning("Invalid analytics timestamp: %s", value)
     return datetime.utcnow()
@@ -175,4 +175,4 @@ def write_analytics_batch(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         }
     except Exception as exc:
         logger.error("Error writing analytics batch: %s", exc, exc_info=True)
-        return {"status": "error", "error": str(exc)}
+        raise self.retry(exc=exc, countdown=5, max_retries=5) from exc

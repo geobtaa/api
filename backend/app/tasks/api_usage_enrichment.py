@@ -10,8 +10,9 @@ Inspired by Ahoy's background job pattern for analytics enrichment.
 
 import asyncio
 import logging
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any, Dict, Optional
+from uuid import uuid4
 
 from sqlalchemy import create_engine, insert, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,6 +92,11 @@ def _prepare_log_entry(log_entry: Dict[str, Any]) -> Dict[str, Any]:
     elif requested_at is None:
         prepared["requested_at"] = datetime.utcnow()
 
+    if prepared["requested_at"].tzinfo is not None:
+        prepared["requested_at"] = (
+            prepared["requested_at"].astimezone(timezone.utc).replace(tzinfo=None)
+        )
+
     partition_month = prepared.get("partition_month")
     if isinstance(partition_month, str):
         try:
@@ -104,22 +110,108 @@ def _prepare_log_entry(log_entry: Dict[str, Any]) -> Dict[str, Any]:
     return prepared
 
 
+def _resolve_log_tier(conn, entry):
+    """Resolve a real storage tier asynchronously; never store a fabricated ID."""
+    hashes = entry.pop("_verified_key_hashes", None)
+    verified = (entry.get("properties") or {}).get(
+        "authenticated_identity"
+    ) == "geoportal-unlimited"
+    if verified and hashes:
+        # Resolve the hashes captured at authentication, not the worker's current
+        # environment: queued requests may span a credential rotation.
+        match = (
+            conn.execute(
+                text(
+                    "SELECT id, name FROM api_keys WHERE key_hash IN (:current, :legacy) "
+                    "ORDER BY CASE WHEN key_hash = :current THEN 0 ELSE 1 END, id LIMIT 1"
+                ),
+                {"current": hashes[0], "legacy": hashes[1]},
+            )
+            .mappings()
+            .first()
+        )
+        if match:
+            entry["api_key_id"] = match["id"]
+            entry["properties"]["authenticated_key_name"] = match["name"]
+            conn.execute(
+                text(
+                    "UPDATE api_keys SET last_used_at = :used WHERE id = :id "
+                    "AND (last_used_at IS NULL OR last_used_at < :used)"
+                ),
+                {"id": match["id"], "used": entry["requested_at"]},
+            )
+        else:
+            entry["properties"]["key_registry_status"] = "unmatched"
+            logger.warning("Verified Geoportal key has no matching API key registry record")
+    if entry.get("tier_id") is not None:
+        return
+    if (entry.get("properties") or {}).get("authenticated_identity") != "geoportal-unlimited":
+        raise ValueError("Missing service tier for API usage log")
+    # Authentication stays independent of DB availability and tier configuration.
+    # This row supplies the non-null storage ID, not a rate-limit decision.
+    conn.execute(
+        text("""
+        INSERT INTO api_service_tiers
+          (tier_name, display_name, requests_per_minute, created_at, updated_at)
+        VALUES ('btaa_primary', 'BTAA Geoportal Frontend', NULL, NOW(), NOW())
+        ON CONFLICT (tier_name) DO NOTHING
+    """)
+    )
+    entry["tier_id"] = conn.execute(
+        text("SELECT id FROM api_service_tiers WHERE tier_name = 'btaa_primary'")
+    ).scalar_one()
+
+
 @celery_app.task(bind=True, name="write_api_usage_log")
 def write_api_usage_log(self, log_entry: Dict[str, Any]) -> Dict[str, Any]:
     """Persist an analytics API usage log asynchronously via Celery."""
     try:
         prepared_entry = _prepare_log_entry(log_entry)
         with sync_engine.begin() as conn:
+            _resolve_log_tier(conn, prepared_entry)
+            # Celery retries/redelivery keep the task ID. Recording it in the
+            # same transaction prevents duplicate API logs after a lost ACK.
+            delivery_id = self.request.id or str(uuid4())
+            reporting = (
+                conn.execute(text("SELECT to_regclass('analytics_reporting_deliveries')")).scalar()
+                is not None
+            )
+            if reporting:
+                inserted = conn.execute(
+                    text(
+                        "INSERT INTO analytics_reporting_deliveries(delivery_id,source_month) "
+                        "VALUES(:id,:month) "
+                        "ON CONFLICT DO NOTHING RETURNING delivery_id"
+                    ),
+                    {"id": delivery_id, "month": prepared_entry["partition_month"]},
+                ).scalar()
+                if inserted is None:
+                    log_id = conn.execute(
+                        text(
+                            "SELECT log_id FROM analytics_reporting_deliveries "
+                            "WHERE delivery_id=:id"
+                        ),
+                        {"id": delivery_id},
+                    ).scalar_one()
+                    return {"status": "success", "log_id": log_id}
             stmt = (
                 insert(analytics_api_usage_logs)
                 .values(**prepared_entry)
                 .returning(analytics_api_usage_logs.c.id)
             )
             log_id = conn.execute(stmt).scalar_one()
+            if reporting:
+                conn.execute(
+                    text(
+                        "UPDATE analytics_reporting_deliveries SET log_id=:log_id "
+                        "WHERE delivery_id=:id"
+                    ),
+                    {"log_id": log_id, "id": delivery_id},
+                )
         return {"status": "success", "log_id": log_id}
     except Exception as e:
         logger.error("Error writing analytics API usage log: %s", e, exc_info=True)
-        return {"status": "error", "error": str(e)}
+        raise self.retry(exc=e, countdown=5, max_retries=5) from e
 
 
 @celery_app.task(bind=True, name="enrich_api_usage_log")

@@ -3,10 +3,12 @@ from __future__ import annotations
 import os
 import re
 import smtplib
+import ssl
 import subprocess
 from dataclasses import dataclass
 from email.message import EmailMessage
 from email.utils import formataddr
+from urllib.parse import urlsplit
 
 FEEDBACK_TOPICS = {
     "Correction",
@@ -120,6 +122,33 @@ def send_feedback_email(submission: FeedbackSubmission) -> dict:
     delivery = _feedback_delivery()
     message = _build_message(submission, recipients)
 
+    result = deliver_email(message, delivery)
+    return {**result, "recipients": len(recipients)}
+
+
+def email_preview_enabled() -> bool:
+    return (
+        os.getenv("FEEDBACK_DELIVERY") == "preview"
+        and os.getenv("APP_ENV") == "development"
+        and urlsplit(os.getenv("ANALYTICS_BASE_URL", "")).hostname
+        in {"localhost", "127.0.0.1", "::1"}
+    )
+
+
+def deliver_email(message: EmailMessage, delivery: str | None = None) -> dict:
+    """Deliver application mail using the shared sendmail/SMTP transport."""
+    delivery = delivery or _feedback_delivery()
+    if delivery == "preview":
+        if not email_preview_enabled():
+            raise FeedbackDeliveryUnavailable("preview_requires_local_development")
+        return {
+            "preview": {
+                "to": str(message["To"]),
+                "subject": str(message["Subject"]),
+                "body": message.get_content(),
+            }
+        }
+
     if delivery == "sendmail":
         sendmail_path = os.getenv("SENDMAIL_PATH", "/usr/sbin/sendmail")
         sendmail_args = os.getenv("SENDMAIL_ARGS", "-t -i").split()
@@ -132,7 +161,7 @@ def send_feedback_email(submission: FeedbackSubmission) -> dict:
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise FeedbackDeliveryUnavailable("sendmail_failed") from exc
-        return {"sent": True, "delivery": "sendmail", "recipients": len(recipients)}
+        return {"sent": True, "delivery": "sendmail"}
 
     host = os.getenv("SMTP_HOST")
     if not host:
@@ -146,14 +175,15 @@ def send_feedback_email(submission: FeedbackSubmission) -> dict:
     use_starttls = _env_bool("SMTP_STARTTLS", not use_ssl)
 
     smtp_cls = smtplib.SMTP_SSL if use_ssl else smtplib.SMTP
+    tls_options = {"context": ssl.create_default_context()} if use_ssl else {}
     try:
-        with smtp_cls(host, port, timeout=timeout) as smtp:
+        with smtp_cls(host, port, timeout=timeout, **tls_options) as smtp:
             if use_starttls and not use_ssl:
-                smtp.starttls()
+                smtp.starttls(context=ssl.create_default_context())
             if username and password:
                 smtp.login(username, password)
             smtp.send_message(message)
     except OSError as exc:
         raise FeedbackDeliveryUnavailable("smtp_failed") from exc
 
-    return {"sent": True, "delivery": "smtp", "recipients": len(recipients)}
+    return {"sent": True, "delivery": "smtp"}

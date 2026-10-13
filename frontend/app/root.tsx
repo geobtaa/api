@@ -87,12 +87,13 @@ export default function Root() {
             locationKey={location.key}
             turnstilePreview={turnstilePreview}
           >
-            {isGoogleTagManagerEnabled && (
-              <GoogleTagManager
-                containerId={GOOGLE_TAG_MANAGER_ID}
-                locationKey={location.key}
-              />
-            )}
+            {isGoogleTagManagerEnabled &&
+              !location.pathname.startsWith('/analytics') && (
+                <GoogleTagManager
+                  containerId={GOOGLE_TAG_MANAGER_ID}
+                  locationKey={location.key}
+                />
+              )}
             <Outlet />
           </Providers>
         )}

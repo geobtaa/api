@@ -8,7 +8,7 @@
 declare const process: { env: Record<string, string | undefined> };
 
 // Docker sets API_BASE_URL=http://api:8000/api/v1; fallback for local preview/start
-const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:8000/api/v1";
+const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:8000/api/v1';
 const API_KEY = process.env.BTAA_GEOSPATIAL_API_KEY;
 
 function applyDefaultQueryParams(url: URL, defaults: string[] | undefined) {
@@ -36,22 +36,29 @@ export async function serverFetch(
   // If caller passes a fully-qualified URL (e.g. serverFetchWithTheme builds one so it can
   // safely append query params), do NOT prefix API_BASE_URL again.
   const isAbsoluteUrl =
-    endpoint.startsWith("http://") || endpoint.startsWith("https://");
+    endpoint.startsWith('http://') || endpoint.startsWith('https://');
 
   const url = isAbsoluteUrl
     ? endpoint
-    : endpoint.startsWith("/")
+    : endpoint.startsWith('/')
       ? `${API_BASE_URL}${endpoint}`
       : `${API_BASE_URL}/${endpoint}`;
 
   const headers = new Headers(options.headers);
   // Default to JSON:API unless caller provided an Accept header (e.g., for images).
-  if (!headers.has("Accept")) {
-    headers.set("Accept", "application/vnd.api+json, application/json");
+  if (!headers.has('Accept')) {
+    headers.set('Accept', 'application/vnd.api+json, application/json');
   }
 
-  if (API_KEY && !headers.has("X-API-Key")) {
-    headers.set("X-API-Key", API_KEY);
+  if (API_KEY && !headers.has('X-API-Key')) {
+    headers.set('X-API-Key', API_KEY);
+  }
+
+  if (!headers.has('X-BTAA-Client-Name')) {
+    headers.set('X-BTAA-Client-Name', 'geoportal-ssr');
+    if (!headers.has('X-BTAA-Client-Channel')) {
+      headers.set('X-BTAA-Client-Channel', 'ssr');
+    }
   }
 
   return fetch(url, {
@@ -70,12 +77,12 @@ export async function serverFetchWithTheme(
   options: RequestInit = {}
 ): Promise<Response> {
   // Build absolute API URL first (so we can safely append params).
-  const base = endpoint.startsWith("/")
+  const base = endpoint.startsWith('/')
     ? `${API_BASE_URL}${endpoint}`
     : `${API_BASE_URL}/${endpoint}`;
 
   const url = new URL(base);
-  const { getThemeConfigFromRequest } = await import("./theme.server");
+  const { getThemeConfigFromRequest } = await import('./theme.server');
   const theme = getThemeConfigFromRequest(request);
   applyDefaultQueryParams(url, theme.api?.default_query_params);
 

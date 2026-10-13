@@ -1,0 +1,160 @@
+"""Authenticated aggregate reports; raw archives and health details remain private."""
+
+import csv
+import io
+import json
+import os
+import re
+from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy import text
+
+from app.api.errors import COMMON_ERROR_RESPONSES
+from app.services.analytics_auth import require_analytics_session
+from app.services.analytics_reporting.evidence import build_evidence
+from app.services.analytics_reporting.public_export import PUBLIC_TABLES, public_report
+from app.services.analytics_reporting.storage import checksum
+from db.migrations.analytics_storage import analytics_storage_engine
+
+
+class ReportingManifest(BaseModel):
+    schemaVersion: int
+    revision: str
+    throughExclusive: str
+    latest: str | None
+    periods: list[dict[str, Any]]
+    stale: bool
+
+
+class ReportingArtifact(BaseModel):
+    model_config = ConfigDict(extra="allow")
+    schemaVersion: int
+    calculationVersion: str
+    privacyVersion: str
+    revision: str
+    period: str
+    start: str
+    endExclusive: str
+    complete: bool
+    missingMonths: list[str]
+    sources: dict[str, str]
+    totals: dict[str, int | float | None]
+
+
+router = APIRouter(
+    prefix="/analytics/reports",
+    responses=COMMON_ERROR_RESPONSES,
+    dependencies=[Depends(require_analytics_session)],
+)
+TABLES = PUBLIC_TABLES
+
+
+def enabled():
+    if os.getenv("ANALYTICS_REPORTS_PUBLIC", "false").lower() != "true":
+        raise HTTPException(503, "Runtime reporting is in shadow validation")
+
+
+def read_document(period=None, revision=None):
+    enabled()
+    engine = analytics_storage_engine()
+    try:
+        with engine.connect() as conn:
+            if period is None:
+                result = conn.execute(
+                    text("SELECT document FROM analytics_reporting_manifest")
+                ).scalar()
+            else:
+                if not re.fullmatch(r"(?:\d{4}-\d{2}|ay-\d{4}|all)", period) or not re.fullmatch(
+                    r"[a-f0-9]{64}", revision
+                ):
+                    raise HTTPException(404, "Report revision unavailable")
+                result = conn.execute(
+                    text("""SELECT document FROM analytics_reporting_publications
+                    WHERE period=:period AND revision=:revision"""),
+                    {"period": period, "revision": revision},
+                ).scalar()
+            if result is None:
+                raise HTTPException(404, "Report unavailable")
+            return result
+    finally:
+        engine.dispose()
+
+
+@router.get("/manifest", response_model=ReportingManifest)
+def manifest():
+    document = dict(read_document())
+    document["stale"] = document["throughExclusive"] < str(
+        datetime.now(timezone.utc).date().replace(day=1)
+    )
+    return JSONResponse(
+        document, headers={"Cache-Control": "private, no-store", "ETag": f'"{checksum(document)}"'}
+    )
+
+
+def public_document(period, revision):
+    document = public_report(read_document(period, revision))
+    if document["revision"] != revision:
+        raise HTTPException(404, "Report revision unavailable; use the latest aggregate report")
+    return document
+
+
+@router.get("/{period}/{revision}", response_model=ReportingArtifact)
+def report(period: str, revision: str):
+    return JSONResponse(
+        public_document(period, revision),
+        headers={"Cache-Control": "no-store", "ETag": f'"{revision}"'},
+    )
+
+
+@router.get("/{period}/{revision}/evidence", response_model=dict[str, Any])
+def evidence(period: str, revision: str):
+    document = public_document(period, revision)
+    try:
+        packet = build_evidence(document)
+    except ValueError:
+        raise HTTPException(409, "Report evidence could not be reconciled") from None
+    return JSONResponse(
+        {"report": document, "evidence": packet},
+        headers={
+            "Content-Disposition": f'attachment; filename="analytics-{period}-evidence.json"',
+            "Cache-Control": "private, no-store",
+        },
+    )
+
+
+def csv_cell(value):
+    value = (
+        json.dumps(value, sort_keys=True)
+        if isinstance(value, (dict, list))
+        else str(value if value is not None else "")
+    )
+    # Spreadsheet applications must not execute user-entered search text.
+    return "'" + value if value.lstrip().startswith(("=", "+", "-", "@", "\t", "\r")) else value
+
+
+@router.get("/{period}/{revision}/download/{table}", response_model=list[dict[str, Any]])
+def download(period: str, revision: str, table: str, format: str = "csv"):
+    if table not in TABLES or format not in ("csv", "json"):
+        raise HTTPException(404, "Download unavailable")
+    rows = public_document(period, revision)[table]
+    if format == "json":
+        body, media = json.dumps(rows), "application/json"
+    else:
+        stream = io.StringIO(newline="")
+        fields = sorted({k for row in rows for k in row})
+        writer = csv.writer(stream)
+        writer.writerow(fields)
+        writer.writerows([[csv_cell(row.get(k)) for k in fields] for row in rows])
+        body, media = stream.getvalue(), "text/csv"
+    return Response(
+        body,
+        media_type=media,
+        headers={
+            "Content-Disposition": f'attachment; filename="analytics-{period}-{table}.{format}"',
+            "Cache-Control": "no-store",
+        },
+    )

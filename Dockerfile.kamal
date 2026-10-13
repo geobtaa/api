@@ -154,6 +154,7 @@ RUN chmod +x /app/scripts/start_web_singlehost.sh /app/scripts/start_cron.sh
 # Copy frontend runtime bundle.
 COPY --from=frontend_builder /frontend/build ./frontend/build
 COPY --from=frontend_builder /frontend/public ./frontend/public
+COPY --from=frontend_builder /frontend/private-analytics-reports ./frontend/private-analytics-reports
 COPY --from=frontend_builder /frontend/appsignal.cjs ./frontend/appsignal.cjs
 
 # Nginx router config (public port 8000).

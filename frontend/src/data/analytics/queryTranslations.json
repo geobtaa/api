@@ -1,0 +1,77 @@
+{
+  "قم ایران": {
+    "language": "Persian",
+    "english": "Qom, Iran",
+    "note": ""
+  },
+  "ایران قم سال میلادی1963": {
+    "language": "Persian",
+    "english": "Qom, Iran, 1963 (Gregorian calendar)",
+    "note": ""
+  },
+  "ایران میلادی1963": {
+    "language": "Persian",
+    "english": "Iran, 1963 (Gregorian calendar)",
+    "note": ""
+  },
+  "عمران عمران": {
+    "language": "Arabic",
+    "english": "Imran / Amran, repeated",
+    "note": "Transliteration; may be a personal or place name. Intended meaning is unclear."
+  },
+  "بلبيس": {
+    "language": "Arabic",
+    "english": "Bilbeis",
+    "note": "Place-name transliteration."
+  },
+  "آبار المياه في مدينة بلبيس": {
+    "language": "Arabic",
+    "english": "Water wells in the city of Bilbeis",
+    "note": ""
+  },
+  "راس النقيل": {
+    "language": "Arabic",
+    "english": "Ras al-Naqil",
+    "note": "Approximate transliteration; the intended place is unverified."
+  },
+  "татарка": {
+    "language": "Russian / Ukrainian",
+    "english": "Tatarka",
+    "note": "Transliteration; can also mean “Tatar woman.” Intended meaning is unclear."
+  },
+  "8C37+H7، اليمن": {
+    "language": "Arabic",
+    "english": "8C37+H7, Yemen",
+    "note": ""
+  },
+  "34°18'32\"N و 50°55'00\"E": {
+    "language": "Persian / Arabic",
+    "english": "34°18′32″N and 50°55′00″E",
+    "note": ""
+  },
+  "Carta geologica delle": {
+    "language": "Italian",
+    "english": "Geological map of the …",
+    "note": "Incomplete query."
+  },
+  "Carta geologica delle Tre Venezie, Legnago": {
+    "language": "Italian",
+    "english": "Geological map of the Three Venices, Legnago",
+    "note": ""
+  },
+  "bolivia 1 50000 cerros de canapa, hoja 5929 i seri": {
+    "language": "Spanish",
+    "english": "Bolivia, 1:50,000, Cerros de Canapa, sheet 5929 I, series …",
+    "note": "Incomplete query; the place name is retained."
+  },
+  "A Map of Old Greenland or Øster Bygd & Wester Bygd : agreeable to Egede’s late description of Greenland": {
+    "language": "Mixed English / Scandinavian",
+    "english": "A map of old Greenland, or the Eastern and Western Settlements, following Egede’s recent description of Greenland",
+    "note": "Modern English reading of the historical title."
+  },
+  "RANCHO SON VICENTEE AND SANTA MONICA T1S R11W SEC 2": {
+    "language": "Mixed English / Spanish",
+    "english": "Rancho Son Vicente and Santa Monica, Township 1 South, Range 11 West, Section 2",
+    "note": "Rancho means ranch; names retained as entered, including possible misspellings."
+  }
+}
