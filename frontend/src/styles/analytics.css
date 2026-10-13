@@ -4581,14 +4581,8 @@ h3.analytics-widget-heading {
   border-bottom: 1px solid var(--analytics-brand);
 }
 .analytics-brief-header .analytics-eyebrow,
-.analytics-brief-header .analytics-brief-kicker,
 .analytics-brief-header .analytics-brief-period span {
   color: #496271;
-}
-.analytics-brief-kicker {
-  margin: 1rem 0 0.35rem;
-  color: #496271;
-  font-size: 0.8rem;
 }
 .analytics-brief-lockup {
   display: flex;
@@ -4615,7 +4609,7 @@ h3.analytics-widget-heading {
   letter-spacing: -0.02em;
 }
 .analytics-brief-header h1 {
-  margin: 0 0 0.7rem;
+  margin: 1rem 0 0.7rem;
   font-size: 2.1rem;
   font-weight: 750;
   line-height: 1.12;
@@ -4903,9 +4897,6 @@ h3.analytics-widget-heading {
   }
   .analytics-brief-header h1 {
     font-size: 23pt;
-  }
-  .analytics-brief-kicker {
-    margin-top: 2mm;
   }
   .analytics-brief-intro {
     margin: 3mm 0;
