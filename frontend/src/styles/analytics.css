@@ -830,7 +830,8 @@
 }
 
 .analytics-member-logo img {
-  filter: grayscale(1);
+  /* Normalize source colors to one gray while preserving transparent edges. */
+  filter: brightness(0) invert(46%);
   display: block;
   min-width: 0;
   min-height: 0;
