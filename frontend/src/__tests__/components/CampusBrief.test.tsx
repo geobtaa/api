@@ -135,18 +135,4 @@ describe('campus brief', () => {
       screen.queryByRole('button', { name: 'Print / save PDF' })
     ).not.toBeInTheDocument();
   });
-
-  it('exposes three findings with scoped drill-downs on the overview', () => {
-    open('/analytics?month=2026-09');
-    const findings = within(
-      screen.getByRole('region', { name: 'This month in three findings' })
-    );
-    expect(findings.getAllByRole('article')).toHaveLength(3);
-    expect(
-      findings.getByRole('link', { name: 'Compare the months' })
-    ).toHaveAttribute('href', '/analytics/comparison?month=2026-09#comparison');
-    expect(
-      findings.getByRole('link', { name: 'Review searches without results' })
-    ).toHaveAttribute('href', '/analytics/searches?month=2026-09#zero-results');
-  });
 });

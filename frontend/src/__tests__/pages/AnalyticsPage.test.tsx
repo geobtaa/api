@@ -116,13 +116,7 @@ describe('AnalyticsPage', { timeout: 30_000 }, () => {
       for (const month of ['2026-08', '2026-09', 'all', '2026-07']) {
         fireEvent.change(selector, { target: { value: month } });
         expect(selector).toHaveValue(month);
-        expect(structure()).toEqual(
-          initial.map((heading) =>
-            month === 'all' && heading === 'This month in three findings'
-              ? 'This period in three findings'
-              : heading
-          )
-        );
+        expect(structure()).toEqual(initial);
         if (report === 'members') {
           expect(institutionButton('All BTAA')).toBeInTheDocument();
         } else if (report === 'overview') {

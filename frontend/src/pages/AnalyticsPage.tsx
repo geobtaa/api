@@ -1,10 +1,6 @@
 import manifest from '../../private-analytics-reports/manifest.json';
-import { ReportFindings } from '../components/analytics/ReportFindings';
 import { CampusBrief } from '../components/analytics/CampusBrief';
-import {
-  buildFindings,
-  previousCalendarMonth,
-} from '../utils/analyticsFindings';
+import { previousCalendarMonth } from '../utils/analyticsFindings';
 import { MemberPerformanceReport } from '../components/analytics/MemberPerformanceReport';
 import { useAnalyticsData } from '../components/analytics/AnalyticsData';
 
@@ -554,13 +550,6 @@ export function AnalyticsPage() {
   const previousSnapshot = previousPeriod
     ? monthlySnapshots[previousPeriod]
     : undefined;
-  const previousSummary =
-    previousSnapshot?.summary ??
-    (previousPeriod === '2026-08'
-      ? AUGUST_2026_SUMMARY
-      : previousPeriod === '2026-07'
-        ? JULY_2026_SUMMARY
-        : undefined);
   const previousMembers =
     previousSnapshot?.members ??
     (previousPeriod === '2026-08'
@@ -950,22 +939,6 @@ export function AnalyticsPage() {
 
         <ReportContentLayout report={report.label}>
           <div className="analytics-shell analytics-content">
-            {activeReport === 'overview' && (
-              <ReportFindings
-                findings={buildFindings({
-                  period: selectedPeriod,
-                  summary,
-                  previous: previousSummary,
-                  members: memberPerformance,
-                  previousMembers,
-                  leader: isAllTime
-                    ? allTimeData.resources[0]
-                    : topResources[0],
-                })}
-                periodLabel={periodRange}
-                cumulative={isAllTime}
-              />
-            )}
             {activeReport === 'members' &&
               memberGrouping === 'code' &&
               !unavailableMember &&
