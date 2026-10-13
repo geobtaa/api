@@ -4578,11 +4578,20 @@ h3.analytics-widget-heading {
   font-size: 0.8rem;
 }
 .analytics-brief-header h1 {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
   margin: 0 0 0.7rem;
   font-size: 2.1rem;
   font-weight: 750;
   line-height: 1.12;
   letter-spacing: -0.04em;
+}
+.analytics-brief-institution-icon {
+  width: 1.4em;
+  height: 1.4em;
+  flex: 0 0 auto;
+  object-fit: contain;
 }
 .analytics-brief-period {
   font-size: 1rem;

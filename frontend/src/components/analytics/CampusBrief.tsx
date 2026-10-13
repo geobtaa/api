@@ -20,6 +20,7 @@ const metrics = [
 
 export function CampusBrief({
   name,
+  iconSrc,
   periodLabel,
   inventoryDate,
   counts,
@@ -33,6 +34,7 @@ export function CampusBrief({
   reportHref,
 }: {
   name: string;
+  iconSrc?: string;
   periodLabel: string;
   inventoryDate: string;
   counts: CampusCounts;
@@ -108,7 +110,16 @@ export function CampusBrief({
             Big Ten Academic Alliance · Geoportal
           </p>
           <p className="analytics-brief-kicker">Resource activity brief</p>
-          <h1>{name}</h1>
+          <h1>
+            {iconSrc && (
+              <img
+                className="analytics-brief-institution-icon"
+                src={iconSrc}
+                alt=""
+              />
+            )}
+            <span>{name}</span>
+          </h1>
           <p className="analytics-brief-period">
             {periodLabel} <span>UTC</span>
           </p>

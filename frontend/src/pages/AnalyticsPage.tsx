@@ -595,6 +595,11 @@ export function AnalyticsPage() {
     return (
       <CampusBrief
         name={selectedMember?.name ?? 'All recorded member contributions'}
+        iconSrc={
+          memberSelectorEntries.find(
+            (member) => member.code === selectedMemberCode
+          )?.iconSrc
+        }
         periodLabel={periodRange}
         inventoryDate={inventoryDate}
         counts={{
