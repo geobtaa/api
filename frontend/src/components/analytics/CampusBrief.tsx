@@ -1,4 +1,4 @@
-import { useId, useState } from 'react';
+import { useId, useState, type CSSProperties } from 'react';
 import { Link } from 'react-router';
 import { ArrowLeft, Copy, Printer } from 'lucide-react';
 import { Seo } from '../Seo';
@@ -126,10 +126,12 @@ export function CampusBrief({
             </p>
           </div>
           {iconSrc && (
-            <img
+            <span
               className="analytics-brief-institution-icon"
-              src={iconSrc}
-              alt=""
+              aria-hidden="true"
+              style={
+                { '--institution-icon': `url("${iconSrc}")` } as CSSProperties
+              }
             />
           )}
         </header>

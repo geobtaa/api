@@ -4575,7 +4575,7 @@ h3.analytics-widget-heading {
   justify-content: space-between;
   align-items: flex-start;
   gap: 1.25rem;
-  padding: 1rem;
+  padding: 1rem 0;
   background: #fff;
   color: var(--analytics-brand);
   border-bottom: 1px solid var(--analytics-brand);
@@ -4599,11 +4599,12 @@ h3.analytics-widget-heading {
 .analytics-brief-btaa-mark {
   display: block;
   width: 112px;
-  height: 66px;
+  height: 55.6px;
   flex: 0 0 auto;
   background: currentColor;
-  -webkit-mask: url('/btaa-logo.png') center / contain no-repeat;
-  mask: url('/btaa-logo.png') center / contain no-repeat;
+  /* Crop the source logo’s transparent margins to align its visible ink. */
+  -webkit-mask: url('/btaa-logo.png') 50.538% 66.981% / 116.667% 138.267% no-repeat;
+  mask: url('/btaa-logo.png') 50.538% 66.981% / 116.667% 138.267% no-repeat;
 }
 .analytics-brief-lockup-name {
   padding-left: 1rem;
@@ -4624,10 +4625,9 @@ h3.analytics-widget-heading {
   width: clamp(3rem, 8vw, 4.5rem);
   height: clamp(3rem, 8vw, 4.5rem);
   flex: 0 0 auto;
-  object-fit: contain;
-  background: #fff;
-  padding: 0.35rem;
-  border-radius: 0.25rem;
+  background: var(--analytics-brand);
+  -webkit-mask: var(--institution-icon) center / contain no-repeat;
+  mask: var(--institution-icon) center / contain no-repeat;
 }
 .analytics-brief-period {
   font-size: 1rem;
@@ -4829,7 +4829,7 @@ h3.analytics-widget-heading {
   }
   .analytics-brief-btaa-mark {
     width: 76px;
-    height: 45px;
+    height: 37.7px;
   }
   .analytics-brief-lockup-name {
     padding-left: 0.5rem;
@@ -4868,7 +4868,7 @@ h3.analytics-widget-heading {
   }
   .analytics-brief-btaa-mark {
     width: 19mm;
-    height: 11.2mm;
+    height: 9.43mm;
   }
   .analytics-brief-lockup-name {
     padding-left: 3mm;
@@ -4899,7 +4899,7 @@ h3.analytics-widget-heading {
     border-top-width: 2mm;
   }
   .analytics-brief-header {
-    padding: 3mm;
+    padding: 3mm 0;
   }
   .analytics-brief-header h1 {
     font-size: 23pt;
