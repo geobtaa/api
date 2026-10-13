@@ -868,7 +868,7 @@ content. Sparse data and cumulative periods use explicit fallback copy.
 In Members, select the contribution grouping, reporting period and institution,
 then choose **Open campus brief**. The `brief=1` view preserves the selected period
 and institution in its URL. It provides four activity measures, raw count changes
-from the prior calendar month when available, daily attention, and the first three
+from the prior calendar month when available, catalog reach, days with views, daily attention, and the first five
 view/download leaders from the same saved ranking used by the member report.
 All recorded contributions can also be summarized together. Unavailable campuses
 and Provider grouping do not offer a brief.
@@ -876,6 +876,8 @@ and Provider grouping do not offer a brief.
 **Copy brief link** retains the selected context; recipients still need analytics
 access. **Print / save PDF** invokes the browser print dialog. Dedicated print
 styles remove controls and arrange the brief for a portrait page, retaining the
-period, catalog attribution date, metric limitations and aggregate report revision.
+period, catalog date, a short activity-count note and a linked revision identifier.
+Detailed aggregation and evidence-scope explanations remain in the full report
+and evidence packet rather than occupying the brief.
 Printer paper size, scaling and browser headers/footers can affect pagination.
 Aggregate evidence does not certify the brief's member attribution or rankings.

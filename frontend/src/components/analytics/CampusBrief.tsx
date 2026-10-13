@@ -23,6 +23,8 @@ export function CampusBrief({
   periodLabel,
   inventoryDate,
   counts,
+  catalogRecords,
+  activeResources,
   previous,
   previousLabel,
   topContent,
@@ -34,6 +36,8 @@ export function CampusBrief({
   periodLabel: string;
   inventoryDate: string;
   counts: CampusCounts;
+  catalogRecords: number;
+  activeResources: number;
   previous?: CampusCounts;
   previousLabel?: string;
   topContent: {
@@ -109,17 +113,6 @@ export function CampusBrief({
             {periodLabel} <span>UTC</span>
           </p>
         </header>
-        <div className="analytics-brief-intro">
-          <p>
-            Recorded attention and access intent for this contribution stream’s
-            published, unsuppressed resources.
-          </p>
-          <span className="analytics-brief-coverage">
-            {report.complete
-              ? 'Aggregate coverage declared complete'
-              : 'Incomplete historical aggregate coverage'}
-          </span>
-        </div>
         <dl className="analytics-brief-metrics">
           {metrics.map(([key, label]) => (
             <div key={key}>
@@ -133,6 +126,37 @@ export function CampusBrief({
             </div>
           ))}
         </dl>
+        <section
+          className="analytics-brief-findings"
+          aria-label="Campus findings"
+        >
+          <div>
+            <h2>How far the collection reached</h2>
+            <p>
+              <strong>
+                {number.format(activeResources)} resources drew activity
+              </strong>{' '}
+              out of {number.format(catalogRecords)} published resources
+              {catalogRecords > 0 &&
+                ` (${((100 * activeResources) / catalogRecords).toFixed(1)}% of the catalog)`}
+              .
+            </p>
+          </div>
+          <div>
+            <h2>Attention throughout the period</h2>
+            <p>
+              <strong>
+                {number.format(daily.filter((row) => row.views > 0).length)} of{' '}
+                {daily.length} days had resource views
+              </strong>
+              .{' '}
+              {daily.length
+                ? (counts.resourceViews / daily.length).toFixed(1)
+                : '0'}{' '}
+              views per day on average.
+            </p>
+          </div>
+        </section>
         <section
           className="analytics-brief-activity"
           aria-label="Daily resource attention"
@@ -174,7 +198,7 @@ export function CampusBrief({
                   : 'Resources prompting download clicks'}
               </h2>
               <ol>
-                {topContent[kind].slice(0, 3).map((resource) => (
+                {topContent[kind].slice(0, 5).map((resource) => (
                   <li key={resource.id}>
                     <a
                       href={`/resources/${encodeURIComponent(resource.id)}`}
@@ -204,37 +228,28 @@ export function CampusBrief({
           ))}
         </div>
         <footer className="analytics-brief-evidence">
-          <h2>Read and share with confidence</h2>
           <p>
-            Views count actions, not people. Download and source-site clicks do
-            not confirm transfers. Comparisons use period totals; month lengths
-            and captured catalog metadata can differ. Catalog attribution date:{' '}
-            {inventoryDate}.
-          </p>
-          <p>
-            {report.complete
-              ? 'The underlying aggregate report declares complete source coverage.'
-              : 'Some historical source evidence is unavailable.'}{' '}
-            Its evidence packet documents aggregate checks; it does not verify
-            this brief’s member attribution or rankings. Independent baseline
-            authentication and deployed preservation remain unverified.
+            Counts describe activity, not people or confirmed downloads.
+            {!report.complete &&
+              ' Historical coverage incomplete.'} Catalog: {inventoryDate}.
           </p>
           <p>
             <Link to={`${reportHref}#members`}>
-              Open the full member report
+              Full report &amp; definitions
             </Link>
             {evidenceHref && (
               <>
                 {' '}
                 ·{' '}
                 <a href={evidenceHref} download>
-                  Download aggregate evidence
+                  Source evidence
                 </a>
               </>
-            )}
-          </p>
-          <p className="analytics-brief-revision">
-            Aggregate report revision: {report.revision}
+            )}{' '}
+            ·{' '}
+            <span title={report.revision}>
+              Revision {report.revision.slice(0, 12)}
+            </span>
           </p>
         </footer>
       </main>

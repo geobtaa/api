@@ -4639,6 +4639,21 @@ h3.analytics-widget-heading {
   font-weight: 750;
   margin: 0 0 0.6rem;
 }
+.analytics-brief-findings {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  padding: 0.7rem 0;
+}
+.analytics-brief-findings p {
+  font-size: 0.78rem;
+  line-height: 1.5;
+  margin: 0;
+  color: #496271;
+}
+.analytics-brief-findings strong {
+  color: #12394b;
+}
 .analytics-brief-activity {
   margin: 1.35rem 0;
 }
@@ -4724,6 +4739,7 @@ h3.analytics-widget-heading {
 }
 @media (max-width: 760px) {
   .analytics-findings-grid,
+  .analytics-brief-findings,
   .analytics-brief-leaders {
     grid-template-columns: 1fr;
   }
@@ -4800,6 +4816,14 @@ h3.analytics-widget-heading {
   .analytics-brief-leaders {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 5mm;
+  }
+  .analytics-brief-findings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5mm;
+    padding: 2mm 0;
+  }
+  .analytics-brief-findings p {
+    font-size: 8pt;
   }
   .analytics-brief-leaders li {
     padding: 2mm 0;

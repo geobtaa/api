@@ -603,6 +603,8 @@ export function AnalyticsPage() {
           sourceClicks: selectedSourceClicks,
           impressions: selectedImpressions,
         }}
+        catalogRecords={selectedCatalogRecords}
+        activeResources={selectedActiveResources}
         previous={previousMember}
         previousLabel={
           previousPeriod ? monthLabel(previousPeriod, true) : undefined

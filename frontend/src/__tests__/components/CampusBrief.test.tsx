@@ -58,10 +58,22 @@ describe('campus brief', () => {
     expect(metrics).toHaveTextContent(
       `${current.resourceViews - previous.resourceViews > 0 ? '+' : ''}${(current.resourceViews - previous.resourceViews).toLocaleString('en-US')} vs Aug 2026`
     );
-    expect(screen.getByText(/Aggregate report revision:/)).toHaveTextContent(
-      manifest.periods.find((row) => row.id === '2026-09')!.revision
+    expect(screen.getByText(/^Revision /)).toHaveTextContent(
+      manifest.periods
+        .find((row) => row.id === '2026-09')!
+        .revision.slice(0, 12)
     );
-    expect(screen.getByText(/does not verify this brief/)).toBeInTheDocument();
+    expect(
+      screen.getByRole('region', { name: 'Campus findings' })
+    ).toHaveTextContent(
+      `${current.activeResources.toLocaleString('en-US')} resources drew activity`
+    );
+    expect(
+      container.querySelector('.analytics-brief-leaders ol')?.children
+    ).toHaveLength(5);
+    expect(
+      screen.queryByText(/does not verify this brief/)
+    ).not.toBeInTheDocument();
     expect(screen.getByRole('img')).toHaveAccessibleName(
       /Daily resource views across 30 days/
     );
@@ -75,7 +87,7 @@ describe('campus brief', () => {
   it('keeps cumulative coverage incomplete and never adds monthly comparison percentages', () => {
     open(`/analytics/members?month=all&institution=${institution}&brief=1`);
     expect(
-      screen.getByText('Incomplete historical aggregate coverage')
+      screen.getByText(/Historical coverage incomplete/)
     ).toBeInTheDocument();
     expect(screen.getAllByText('No prior-period comparison')).toHaveLength(4);
     expect(screen.getByRole('img')).toHaveAccessibleName(/across 92 days/);
