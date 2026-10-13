@@ -878,7 +878,7 @@ export function RuntimeAnalyticsPage() {
   return (
     <div className="analytics-page">
       <AnalyticsHeader activeReport={active} />
-      <main id="analytics-main" className="analytics-shell">
+      <main id="analytics-main" className="analytics-shell analytics-content">
         <h1>{selectedAnalyticsReport(params, pathname).label}</h1>
         {manifest && (
           <label>
