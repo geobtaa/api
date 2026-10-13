@@ -1736,6 +1736,10 @@
   overflow-x: auto;
 }
 
+.analytics-api-table-wrap .analytics-table-tools {
+  padding: 1rem;
+}
+
 .analytics-api-breakdown-card table {
   width: 100%;
   border-collapse: collapse;
